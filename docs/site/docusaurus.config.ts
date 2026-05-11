@@ -151,6 +151,28 @@ const config = {
         },
       };
     },
+    function fixWebpackBarCompat() {
+      return {
+        name: "fix-webpackbar-compat",
+        configureWebpack(config) {
+          for (const plugin of config.plugins || []) {
+            if (plugin.constructor.name === 'WebpackBarPlugin' && plugin.options) {
+              for (const key of Object.keys(plugin.options)) {
+                if (!['activeModules', 'dependencies', 'dependenciesCount', 'entries', 'handler', 'modules', 'modulesCount', 'percentBy', 'profile'].includes(key)) {
+                  Object.defineProperty(plugin.options, key, {
+                    value: plugin.options[key],
+                    enumerable: false,
+                    writable: true,
+                    configurable: true,
+                  });
+                }
+              }
+            }
+          }
+          return {};
+        },
+      };
+    },
     [
       '@docusaurus/plugin-client-redirects',
       {

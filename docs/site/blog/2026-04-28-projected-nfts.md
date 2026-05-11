@@ -2,67 +2,70 @@
 slug: projected-nfts
 title: "Projected NFTs: Using Cardano NFTs in Smart Contract Applications"
 authors: [effectstream]
-tags: [cardano, nfts, aiken, smart-contracts]
+tags: [cardano, nfts, aiken, smart-contracts, dolos, utxorpc]
 ---
 
-`WRITE: What problem does Projected NFT solve? Users want to use their NFTs in apps (games, DeFi) without transferring ownership. Projected NFTs let you "lock" an NFT on Cardano L1 and use a representation in your application — the NFT never leaves your wallet in a meaningful sense.`
+Users want to use their NFTs in applications (games, DeFi, social platforms) without giving up ownership. Projected NFTs solve this: lock an NFT on Cardano L1 and use a representation in your application. The NFT never leaves your wallet in any meaningful sense; it's locked in a smart contract you control, and you can unlock it at any time.
 
 <!-- truncate -->
 
-## The Aiken Smart Contract
+![Hololocker dApp showing Mint, Lock, Unlock, and Withdrawal Request lifecycle](/img/blog/holodeck.png)
 
-`WRITE: Explain the Projected NFT concept in detail: lock an NFT on Cardano L1, use it in an app without transferring ownership.`
+## The Aiken smart contract
 
-The smart contract is written in [Aiken](https://aiken-lang.org/), Cardano's Rust-based smart contract language. A CI pipeline validates that the contract compiles successfully on every change.
+The Projected NFT smart contract is written in [Aiken](https://aiken-lang.org/), Cardano's Rust-based smart contract language. It manages the full projection lifecycle:
 
-`ADD: Link to contract code in paima-engine repo`
+1. **Lock** - the user sends their NFT to the contract, which records the owner and NFT details in the datum
+2. **Use** - the application reads the locked state and grants in-app utility (powers, access, cosmetics)
+3. **Unlock** - the user initiates a withdrawal request
+4. **Claim** - after a cooldown period, the user claims the NFT back to their wallet
 
-## A JavaScript Library for NFT Projection
+The cooldown on withdrawal prevents flash-loan-style exploits where a user could project, gain benefits, and immediately unproject in the same transaction. A CI pipeline validates that the contract compiles on every change.
 
-To make it easy for any developer to project and unproject NFTs programmatically, we built a JavaScript library that wraps the smart contract interaction.
+## The Hololocker dApp
 
-`WRITE: Brief code snippet or API overview showing how simple it is to use — e.g. `projectNFT(policyId, assetName)` style`
+We built a full dApp called Hololocker for projecting and managing NFTs. It supports the complete lifecycle: mint new NFTs, lock them into the projection contract, view locked state, initiate unlock, and complete withdrawal.
 
-The library works in both browser and Node.js environments.
-
-## Indexing NFT State
-
-To track NFT lock/unlock events in real-time, we built a [Carp](https://dcspark.github.io/carp/) task — Carp is a Cardano blockchain indexer that lets applications query on-chain state efficiently.
-
-The indexer comes with an OpenAPI definition, so any application can query projection status through a standard REST API.
-
-`WRITE: Expand on what the Carp task tracks — lock events, unlock events, current projection status per NFT`
-
-## The Projection dApp
-
-We built a full dApp for projecting and managing NFTs with a visual interface.
-
-- [Source code](https://github.com/PaimaStudios/projected-nft-whirlpool/tree/main/dapp)
-- [Hosted dApp](https://projection.paimastudios.com/)
+- [Source code](https://github.com/dcSpark/projected-nft-whirlpool)
 - [Demo on Twitter](https://twitter.com/PaimaStudios/status/1734623090020057114)
 
-`FIX: dApp is currently not working. Need to fix and verify before publishing this article`
+<iframe src="https://drive.google.com/file/d/1TbBngP-OKCX38dDaVQGoXnd_HncEW-jw/preview" width="100%" height="480" allow="autoplay"></iframe>
+<iframe src="https://drive.google.com/file/d/12HzmHV7HI8msoc1yvI6zRqsZL69TSBeA/preview" width="100%" height="480" allow="autoplay"></iframe>
 
-`ADD VIDEO HERE — existing video: https://drive.google.com/file/d/12HzmHV7HI8msoc1yvI6zRqsZL69TSBeA/view`
+## Indexing with UTxORPC and Dolos
 
-`WRITE: Walk through the user flow — connect wallet, select NFT, project it, see it in-app`
+To track NFT lock/unlock events in real-time, we originally built a [Carp](https://dcspark.github.io/carp/) indexer task. But Carp requires heavy synchronization (days on testnet, even longer on mainnet), which made rapid development impractical.
 
-## Framework Integration
+We've since moved to [Dolos](https://github.com/txpipe/dolos) via the UTxORPC protocol. The new **ProjectedNFT primitive** in EffectStream reads projection events directly from Dolos's gRPC stream, parsing the datum to extract lock status, owner, policy ID, and asset name. This is part of [PR #673](https://github.com/effectstream/effectstream/pull/673), which introduces five new Cardano primitives backed by an IVM (Indexed View Materializer) with PostgreSQL materialized views.
 
-The indexer is connected to EffectStream's funnel system — the abstraction layer that reads data from multiple blockchains. This means any EffectStream application can react to NFT projection events directly in its state machine.
+The ProjectedNFT primitive tracks:
+- Lock events (NFT enters the projection contract)
+- Unlock requests (user initiates withdrawal)
+- Claim completions (NFT returns to user's wallet)
+- Current projection status per NFT (datum parsing for owner, policy, asset)
 
-- [Documentation](https://docs.paimastudios.com/home/state-machine/react-to-events/primitive-catalogue/cardano/projected-nft)
-- [Implementation PR](https://github.com/PaimaStudios/paima-engine/pull/259)
-- [Example dApp](https://github.com/PaimaStudios/projected-nft-whirlpool)
+All state changes are streamed in real-time through UTxORPC's [Watch module](https://utxorpc.org/watch/intro/), which supports filtering by address, delegation part, and asset policy.
 
-`WRITE: Explain the integration architecture — how does an EffectStream app receive and process projection events? What does the state machine handler look like?`
+## Framework integration
 
-## Conclusion and What's Next
+The ProjectedNFT primitive connects to EffectStream's funnel system, the abstraction layer that reads data from multiple blockchains. When an NFT is projected or unprojected, the event flows through the funnel into the application's state machine. Developers react to it in their game logic like any other event.
 
-`WRITE: Summarize the full stack — contract, library, indexer, dApp, framework integration. Five layers that together let any Cardano NFT have utility inside an application without leaving the user's wallet.`
+A game could grant in-game powers when a player projects a specific NFT, remove them when it's unprojected, or display a player's projected collection as their in-game inventory.
 
-`WRITE: What this enables — games where your Cardano NFTs have in-game powers, DeFi where you can collateralize without transferring, etc.`
+The integration is end-to-end tested with 21 E2E tests covering the full lifecycle: stake registration, delegation, lock, unlock, and claim, all verified against a local Dolos instance.
 
-`ADD VIDEO HERE: Close-out video showing the full end-to-end flow`
+- [EffectStream PR #673](https://github.com/effectstream/effectstream/pull/673)
 
-`WRITE: Mention challenges — Cardano testing requires heavy node sync (Carp can take days on testnet/mainnet), and no Cardano wallet currently supports localhost connections (unlike MetaMask for EVM). These are ecosystem-wide issues that tools like yaci-devkit and Dolos are starting to address.`
+## The full stack
+
+Five layers work together to make Projected NFTs possible:
+
+| Layer | Technology | Role |
+|-------|-----------|------|
+| Smart Contract | Aiken | Lock/unlock logic on Cardano L1 |
+| Indexer | Dolos + UTxORPC | Real-time event streaming via gRPC |
+| Primitive | EffectStream IVM | State materialization in PostgreSQL |
+| Framework | EffectStream funnel | Event delivery to application state machine |
+| dApp | Hololocker | User interface for projection lifecycle |
+
+This lets games use Cardano NFTs for in-game utility without transferring ownership, DeFi protocols collateralize without moving assets, and social platforms gate features based on NFT holdings. The NFT stays under the user's control the whole time.

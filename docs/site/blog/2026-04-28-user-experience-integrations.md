@@ -1,83 +1,72 @@
 ---
 slug: user-experience-integrations
-title: "Streamlining User Experience: AI, Delegated Wallets, and Social Login"
+title: "AI-Powered Gameplay: Integrating Deterministic LLMs with On-Chain Games"
 authors: [effectstream]
-tags: [wallets, ai, authentication, onboarding]
+tags: [ai, shinkai, wallets, game-templates]
 ---
 
-`WRITE: Blockchain apps suffer from UX friction — constant wallet pop-ups, complex key management, no familiar login flows. This article covers a suite of integrations that make blockchain apps feel like regular web apps: AI-powered gameplay, delegated signing, social login, and biometrics.`
+What happens when you put an AI engine inside an on-chain game? Not a cloud API call that could return different results each time, but a deterministic LLM that runs locally and produces verifiable, reproducible outputs. We integrated [Shinkai](https://shinkai.com/), a deterministic LLM engine, into an EffectStream game template to find out.
 
 <!-- truncate -->
 
-## Browser AI with Shinkai Visor
+## The determinism problem
 
-We released the [Shinkai Visor](`ADD LINK`) Chrome extension, which connects LLMs directly to the browser context. Users can bring their own AI models into applications — the extension provides a bridge between on-chain game state and AI inference.
+Standard LLM APIs (OpenAI, Anthropic, etc.) are non-deterministic: the same prompt can produce different outputs on each call. For off-chain apps that's fine, but on-chain games need reproducibility. If a game's state machine processes an AI response, every node running that state machine must produce the same result. Non-deterministic AI breaks consensus.
 
-`INVESTIGATE: Is Shinkai Visor still available? Is the API still running?`
+Shinkai solves this by running models locally with deterministic inference. Same input, same output, every time. That makes it compatible with on-chain state machines where every participant must agree on the result.
 
-`WRITE: Explain the value prop — AI agents that can see and interact with on-chain game state. What can a user do with this that they couldn't do before?`
+## Quest for Tokens: AI NPC gameplay
 
-## AI-Powered Game Template
+To show what AI-powered on-chain gameplay looks like, we built **Quest for Tokens**, a game where an AI NPC judges player answers and awards tokens based on response quality.
 
-To demonstrate what's possible when AI meets on-chain games, we built a game template that integrates Shinkai Visor for AI-driven game mechanics.
+![Quest for Tokens: title screen with floating castle and "Enter the Kingdom"](/img/blog/taiko1.png)
 
-- [Taiko game (live)](https://taiko-demo.paimastudios.com/)
+Here's the game flow:
+
+1. The player enters the game world and encounters an AI NPC (a tiger guardian)
+2. The NPC asks a question, drawn from game state so it varies based on context
+3. The player types their answer
+4. The AI evaluates the response and decides how many tokens to award
+
+![AI gameplay: tiger NPC asking a question with wallet signature popup](/img/blog/taiko2.png)
+
+The wallet signature popup in the screenshot shows the on-chain integration. The player's answer is signed and submitted as a blockchain transaction. The AI's evaluation is also processed on-chain, so the token award is verifiable and permanent.
+
+![AI NPC response: evaluating the player's answer and awarding tokens](/img/blog/taiko3.png)
+
+The AI doesn't just give a score; it explains its reasoning. Players can see why their answer earned or lost tokens, which creates an engaging feedback loop that feels more like a conversation than a multiple-choice quiz.
+
+- [Play live](https://taiko-demo.paimastudios.com/)
 - [Template code](https://github.com/PaimaStudios/paima-game-templates/pull/78)
 
-`INVESTIGATE: Does the Taiko game need redeployment? Is the Shinkai API still up?`
+## Why this matters for on-chain games
 
-`DECISION: Open-source Token Heist (https://github.com/PaimaStudios/taiko-shinkai-game)?`
+AI NPCs open up game mechanics that weren't possible with deterministic-only logic:
 
-`WRITE: How does the game leverage the LLM? What decisions does the AI make? What's the player experience?`
+- **Dynamic content** - AI generates questions, dialog, and scenarios that vary with game state; no two playthroughs are the same
+- **Natural interaction** - players type freeform responses instead of picking from a menu; the AI parses intent and evaluates quality
+- **Emergent gameplay** - the AI's judgment creates situations that the game designer didn't explicitly program
 
-`ADD VIDEO HERE showing the AI integration in gameplay`
+And because Shinkai's inference is deterministic, all of this works in an on-chain context. Every node processing the game state gets the same AI output, maintaining consensus across the network.
 
-## Device-Specific Key Pairs
+## The integration architecture
 
-One of the biggest UX problems in blockchain apps is wallet pop-ups. Every action that touches the chain requires the user to approve a signature. For games where you make dozens of moves per session, this is unacceptable.
+Three systems connect together:
 
-Our solution: delegated wallet signing. Non-financial transactions use a local device key pair — no wallet pop-ups for routine actions. Only financial transactions (transfers, minting) require explicit wallet approval.
+| Component | Role |
+|-----------|------|
+| **EffectStream** | Game state machine: processes moves, tracks tokens, manages the game world |
+| **Shinkai** | Deterministic LLM engine: evaluates player inputs and generates NPC responses |
+| **Blockchain** | Settlement layer: records player actions and token awards permanently |
 
-- [Documentation](https://docs.paimastudios.com/home/multichain-support/wallet-layer/delegate-wallet/introduction)
+The player's input flows from the browser → wallet signature → blockchain transaction → EffectStream state machine → Shinkai evaluation → state update → token award. The entire pipeline is on-chain and verifiable.
 
-`WRITE: Explain the delegation model in detail — what gets delegated, what doesn't, and why this is safe. How is the device key pair generated and stored?`
+## Wallet and session management
 
-`INVESTIGATE: Can we show the Tarochi integration? Note: Tarochi is currently down`
+The game uses EffectStream's [`@effectstream/wallets`](https://www.npmjs.com/package/@effectstream/wallets) package for wallet connections. Players connect their wallet to sign game actions, with the option of auto-sign delegation for a smoother experience (no wallet popup on every move).
 
-`ADD VIDEO HERE demonstrating the delegation flow — show a user approving delegation once, then interacting freely`
+The wallet layer supports multiple chains, so the same game template could run on EVM, Cardano, or Midnight. The AI integration and game logic stay the same no matter which settlement chain you pick.
 
-## Social Login
+## Building AI-powered games
 
-For users who don't have a crypto wallet at all, we integrated social login via the [thirdweb SDK](https://thirdweb.com/). This gives applications access to multiple authentication methods under a single SDK:
-
-- In-memory wallets (free tier)
-- Social login (email, Google, etc.)
-- Multiple wallet providers
-
-Users sign in with their email or social account once, then interact with the blockchain seamlessly — no wallet extension required.
-
-- [Documentation](https://docs.paimastudios.com/home/multichain-support/wallet-layer/introduction)
-
-`WRITE: Why we picked thirdweb — multiple wallet types under one SDK, free in-memory option, competitive paid social login tier. Compare briefly to alternatives.`
-
-`BUILD DEMO: Need a working demo showing social login → game interaction`
-
-`ADD VIDEO HERE`
-
-## Biometric Authentication
-
-`INVESTIGATE: What work by Lucas exists? Is there an implementation?`
-
-The concept: use FaceID on iOS or Android's standard biometric authentication to sign blockchain transactions. Biometrics become another key source for the delegated key pair — combining the security of biometric verification with the convenience of automatic signing.
-
-`DECISION: Can we demonstrate this? What's the current state of the implementation?`
-
-`WRITE: How biometrics fit into the delegation model — another key source for the delegated key pair. What's the security model?`
-
-`ADD VIDEO HERE if available`
-
-## Conclusion
-
-`WRITE: Together, these features remove the biggest UX barriers to blockchain adoption. A new user can sign in with their email (social login), approve delegation once (device key pairs), and then play a game with AI opponents (Shinkai Visor) — all without ever seeing a wallet pop-up or understanding what a private key is.`
-
-`ADD VIDEO HERE: Close-out showing the full flow from social login to gameplay`
+Quest for Tokens is a starting point. The template has the full pipeline from AI evaluation to on-chain settlement. Fork it and customize the AI's evaluation criteria, the reward structure, the game context (what the NPC asks), and the NPC personality. The [game templates repository](https://github.com/PaimaStudios/paima-game-templates) has the full source code, ready to deploy.
