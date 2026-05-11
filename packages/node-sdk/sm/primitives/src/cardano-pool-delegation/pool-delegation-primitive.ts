@@ -85,7 +85,15 @@ export class CardanoPoolDelegationPrimitive extends Primitive<
       type: this.internalTypeName,
       startBlockHeight: this.startBlockHeight,
       scheduledPrefix: this.stateMachinePrefix,
-      predicate: { match: { cardano: { has_certificate: true } } },
+      predicate: {
+        match: {
+          cardano: {
+            has_certificate: this.pools.length === 1
+              ? { any_pool_keyhash: this.pools[0] }
+              : true,
+          },
+        },
+      },
     } as const;
   }
 

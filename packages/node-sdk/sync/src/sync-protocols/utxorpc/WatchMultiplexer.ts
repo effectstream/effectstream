@@ -40,15 +40,13 @@ export class WatchMultiplexer {
   ) {
     for (const [key, { predicate }] of primitivesByPredicate) {
       const effective = isEffectiveServerPredicate(predicate);
-      // TODO(dolos): when Dolos implements has_certificate, remove this fallback
       const sdkPredicate = effective
         ? configPredicateToSdkPredicate(predicate)
         : {};
 
       if (!effective) {
         console.warn(
-          `[WatchMultiplexer] Predicate for key "${key}" cannot be server-side filtered ` +
-          `(Dolos doesn't support has_certificate). Falling back to match-all with client-side filtering.`
+          `[WatchMultiplexer] Predicate for key "${key}" has no server-filterable fields. Falling back to match-all with client-side filtering.`
         );
       }
 
