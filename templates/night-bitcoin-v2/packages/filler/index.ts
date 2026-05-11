@@ -348,18 +348,30 @@ server.post<{
       // Mint native unshielded M20 coins directly to the recipient. The
       // (contract address, M20_DOMAIN_SEP) pair fixes the token color so the
       // recipient sees one "M20" balance entry in their Lace wallet.
+      // The batcher's midnight adapter validates each circuit arg:
+      //   - Bytes<N>  → hex string
+      //   - Uint<N>   → decimal-string BigInt (JSON has no native BigInt)
+      //   - UserAddress.bytes → hex string
+      const toHex = (bytes: Uint8Array | number[]): string =>
+        Array.from(bytes)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
       await batcher.batchInput(
         {
           address: "filler-midnight",
           addressType: AddressType.MIDNIGHT,
-          input: JSON.stringify({
-            circuit: "mint_unshielded",
-            args: [
-              Array.from(M20_DOMAIN_SEP),
-              BigInt(amount),
-              { bytes: Array.from(publicAddress) },
-            ],
-          }),
+          input: JSON.stringify(
+            {
+              circuit: "mint_unshielded",
+              args: [
+                toHex(M20_DOMAIN_SEP),
+                BigInt(amount),
+                { bytes: toHex(publicAddress) },
+              ],
+            },
+            (_key, value) =>
+              typeof value === "bigint" ? value.toString() : value,
+          ),
           signature: "0x",
           timestamp,
           target: "midnight",

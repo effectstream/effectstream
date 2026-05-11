@@ -34,47 +34,76 @@ const TOKENS = {
   M20: "m20",
 };
 
-const decodeToByteString = (x: { [key: string]: number }): string =>
-  Array(Object.keys(x).length)
-    .fill(0)
-    .map((_, i) => x[i])
-    .join("")
-    .trim();
+// Decode hex string to raw bytes (Uint8Array). Tolerates a leading "0x".
+const hexToBytes = (hex: string): Uint8Array => {
+  const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
+  const out = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(clean.substr(i * 2, 2), 16);
+  }
+  return out;
+};
 
-function decodePaddedString(encodedString: string): string {
+// Contract events arrive with Bytes<N> fields as either:
+//   - hex string (`"6d6e5f73…"`)        — new midnight-js representation
+//   - object-of-bytes (`{ "0": 0x6d… }`) — old representation
+// decodeToByteString returns a *DB-safe identifier* for a field — it does
+// NOT try to interpret bytes as utf-8 text. For raw 32-byte addresses this
+// is what you want (treat them as opaque hex IDs). For fields that semantic
+// utf-8 strings (bech32 addresses, JSON), use `decodeBytesUtf8` instead.
+const decodeToByteString = (x: unknown): string => {
+  if (typeof x === "string") return x.startsWith("0x") ? x.slice(2) : x;
+  if (x && typeof x === "object") {
+    const obj = x as { [key: string]: number };
+    return Array(Object.keys(obj).length)
+      .fill(0)
+      .map((_, i) => obj[i])
+      .join("")
+      .trim();
+  }
+  return "";
+};
+
+// For utf-8 text stored in a Bytes<N> field (bech32 addresses, JSON
+// payloads, etc.): decode the hex payload to bytes, strip the trailing
+// NUL-padding Compact applies to fixed-width Bytes<N>, then utf-8 decode.
+const decodeBytesUtf8 = (x: unknown): string => {
+  if (typeof x !== "string") return "";
+  const bytes = hexToBytes(x);
+  let end = bytes.length;
+  while (end > 0 && bytes[end - 1] === 0) end--;
+  return new TextDecoder().decode(bytes.subarray(0, end));
+};
+
+// Backwards-compat wrapper: in the new payload format, decodeToByteString
+// returns the raw hex string and the utf-8 decode happens here. In the old
+// payload format, the inner join produced a decimal-digit string that still
+// needs the legacy 2/3-digit byte parser.
+const decodePaddedString = (encodedString: string): string => {
+  if (!encodedString) return "";
+  // Hex chars only → new format; decode hex to utf-8 directly.
+  if (/^[0-9a-fA-F]+$/.test(encodedString) && encodedString.length % 2 === 0) {
+    return decodeBytesUtf8(encodedString);
+  }
+  // Decimal-only → old format; parse 2/3-digit bytes.
+  if (!/^\d+$/.test(encodedString)) return encodedString;
   const bytes: number[] = [];
   let i = 0;
-
   while (i < encodedString.length) {
     const char = encodedString[i];
-
-    if (char === "0") {
-      // Hit the NUL padding (byte 0). We can stop.
-      break;
-    } else if (char === "1") {
-      // 3-digit byte (e.g., 100-127)
-      const numStr = encodedString.substring(i, i + 3);
-      if (numStr.length < 3) break; // Safety check
-
-      bytes.push(parseInt(numStr, 10));
+    if (char === "0") break;
+    if (char === "1") {
+      bytes.push(parseInt(encodedString.substring(i, i + 3), 10));
       i += 3;
-    } else if (char && char >= "2" && char <= "9") {
-      // 2-digit byte (e.g., 32-99)
-      const numStr = encodedString.substring(i, i + 2);
-      if (numStr.length < 2) break; // Safety check
-
-      bytes.push(parseInt(numStr, 10));
+    } else if (char >= "2" && char <= "9") {
+      bytes.push(parseInt(encodedString.substring(i, i + 2), 10));
       i += 2;
     } else {
-      // Malformed string or unexpected byte
-      console.error(`Invalid character at index ${i}: ${char}`);
       break;
     }
   }
-
-  const uint8Bytes = new Uint8Array(bytes);
-  return new TextDecoder().decode(uint8Bytes);
-}
+  return new TextDecoder().decode(new Uint8Array(bytes));
+};
 
 type CheckParamsType =
   | {
@@ -464,7 +493,9 @@ stm.addStateTransition("midnightContractStateERC7683", function* (data) {
   const parsedPayload = {
     lastIntentType: payload.lastIntentType,
     lastIntentEvent: {
-      user: decodeToByteString(payload.lastIntentEvent.user),
+      // `user` is a bech32 address ("mn_shield-addr_…") stored as utf-8
+      // bytes — same shape as the other recipient/token fields below.
+      user: decodePaddedString(decodeToByteString(payload.lastIntentEvent.user)),
       orderId: decodePaddedString(decodeToByteString(payload.lastIntentOrderId)),
 
       originChainId: payload.lastIntentEvent.originChainId,
