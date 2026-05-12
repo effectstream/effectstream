@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "exports": "./run-tests.ts",
   "dependencies": {
+    "@shinkai-v2/contracts-evm": "workspace:*",
     "pg": "^8.14.0",
     "viem": "^2.21.0"
   }

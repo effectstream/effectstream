@@ -10,7 +10,7 @@
     "serve": "bun run server/main.ts"
   },
   "dependencies": {
-    "@effectstream/wallets": "0.100.12",
+    "@effectstream/wallets": "0.100.13",
     "@pixi/ui": "^2.1.0",
     "pixi.js": "^8.4.0",
     "viem": "2.37.3",
