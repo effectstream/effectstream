@@ -1247,6 +1247,7 @@ SDK packages:         @effectstream/{package}
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
     "@effectstream/orchestrator": "<latest>",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
     "wait-on": "8.0.3"
   },
   "effectstream": {
@@ -2574,6 +2575,8 @@ Use `grep -r "PaimaL2\|PaimaEngine\|PaimaEvent\|PaimaSTM"` across your template 
 
 ### Frontend Vite Issues
 
+**Do NOT use `vite-plugin-top-level-await`**: This plugin depends on Node.js internals that are not available in Bun, causing the frontend build to fail when Node.js is not installed. It is also unnecessary — Vite's `build.target: "esnext"` already supports top-level await natively in modern browsers. Remove both the import and plugin call from `vite.config.ts`, and remove `vite-plugin-top-level-await` from `package.json` dependencies.
+
 **`stream/web` polyfill**: The `vite-plugin-node-stdlib-browser` rewrites `node:stream` to `stream-browserify`, but `stream-browserify/web` doesn't exist. Midnight SDK packages (via `fetch-blob`) require `node:stream/web`. Add a custom Vite plugin before the node polyfills plugin:
 ```ts
 {
@@ -2614,6 +2617,13 @@ This applies to any `bunx` call with a `/` subpath when the package is symlinked
 ```json
 "dependencies": {
   "wait-on": "8.0.3"
+}
+```
+
+**`@midnight-ntwrk/wallet-sdk-address-format` is a phantom dependency**: The `@midnight-ntwrk/midnight-js-utils` package imports `@midnight-ntwrk/wallet-sdk-address-format` at runtime but does not declare it in its own `package.json`. The dependency chain is: `@effectstream/orchestrator` → `@effectstream/db` → `@effectstream/sync` → `@midnight-ntwrk/midnight-js-indexer-public-data-provider` → `@midnight-ntwrk/midnight-js-utils` → (undeclared) `@midnight-ntwrk/wallet-sdk-address-format`. In the effectstream monorepo this works because the package gets hoisted, but standalone templates fail at runtime with `Cannot find module '@midnight-ntwrk/wallet-sdk-address-format'`. **Every template must add this to the root `package.json`**:
+```json
+"dependencies": {
+  "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0"
 }
 ```
 
