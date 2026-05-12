@@ -90,3 +90,4 @@ Test phases:
 - **B: State Machine** — Verify delegation syncs to `eligible_voters`, Midnight primitive active
 - **C: API** — Verify eligibility + proposals endpoints
 - **D: Frontend** — Verify Vite build succeeds
+

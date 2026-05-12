@@ -6,7 +6,16 @@ import { generateSeedPhrase, PROTOCOL_PARAMETERS_DEFAULT } from "@lucid-evolutio
 const API_BASE = "http://localhost:9999";
 const YACI_BASE = "http://localhost:10000/local-cluster/api";
 const DOLOS_BLOCKFROST = "http://localhost:3000";
+const EVM_RPC = "http://127.0.0.1:8545";
 const EVM_WALLET_ADDRESS = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
+
+async function mineBlock(): Promise<void> {
+  await fetch(EVM_RPC, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "evm_mine", params: [] }),
+  });
+}
 
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
@@ -282,6 +291,9 @@ test.describe("EVM purchase verification", () => {
       "successful",
       { timeout: 60_000 },
     );
+
+    // Mine a confirmation block so the sync processes the purchase
+    await mineBlock();
 
     // Verify via API that the primitive recorded the purchase
     const items = await pollUserItems(request, "test-launchpad-1", EVM_WALLET_ADDRESS, {

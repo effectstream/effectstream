@@ -1,8 +1,8 @@
 import type { GrammarDefinition } from "@effectstream/concise";
 import { buyItemsGrammar } from "./primitives.ts";
-import { transferGrammar } from "./cardano-transfer-primitive.ts";
+import { builtinGrammars } from "@effectstream/sm/grammar";
 
 export const grammar = {
   "buy-items": buyItemsGrammar,
-  "cardano-payment": transferGrammar,
+  "cardano-payment": builtinGrammars.cardanoTransfer,
 } as const satisfies GrammarDefinition;

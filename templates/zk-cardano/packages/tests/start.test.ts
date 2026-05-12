@@ -12,8 +12,8 @@ export default {
     ...launchPglite().map(p =>
       p.name === "pglite" ? { ...p, env: { ...p.env, DEBUG_PGLITE: "0" } } : p
     ),
-    ...launchCardano("@zk-cardano/contracts-cardano", { resolveFrom: root }),
-    ...launchMidnight("@zk-cardano/contracts-midnight", { resolveFrom: root }, {
+    ...launchCardano("@zk-cardano/contracts-cardano", { cwd: path.join(root, "packages/contracts-cardano") }),
+    ...launchMidnight("@zk-cardano/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
       env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
     }),
 

@@ -87,3 +87,4 @@ bun run test
 ```
 
 Phases: **A** (YACI + Dolos + sync health) → **B** (Lock→Unlock→Claim in DB + API endpoints)
+

@@ -15,6 +15,10 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      if (typeof globalThis.global === "undefined") globalThis.global = globalThis;
+      if (typeof globalThis.process === "undefined") globalThis.process = { env: {}, version: "v20.0.0", browser: true };
+    </script>
     <script type="module">
       import { Buffer } from "buffer";
       globalThis.Buffer = Buffer;

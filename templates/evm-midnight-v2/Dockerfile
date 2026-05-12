@@ -2,7 +2,7 @@
 # docker build -t evm-midnight -f Dockerfile .
 # docker run evm-midnight
 
-FROM oven/bun:1.3.11
+FROM oven/bun:1
 
 RUN apt-get update && apt-get install -y \
     curl \
@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     iproute2 \
     xz-utils \
     unzip \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
@@ -90,6 +91,7 @@ EXPOSE 8088
 EXPOSE 8546
 EXPOSE 8545
 EXPOSE 6300
+EXPOSE 4747
 
 ENV NODE_ENV=development
 CMD ["bunx", "orchestrator", "start", "--config", "start.dev.ts"]
