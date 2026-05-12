@@ -100,13 +100,3 @@ The `/api/marketplace/*` endpoints provide structured item and ownership data fo
 
 Partners can poll these endpoints to sync item availability and ownership state.
 
-## Catalyst Milestone Coverage
-
-| Milestone | Deliverable |
-|-----------|-------------|
-| M1: NFT Presale/Preorder Tool | `contracts-evm/` + `node/state-machine.ts` |
-| M2: Sale Exploration Module | `node/api.ts` + `frontend/` |
-| M3: Multi-Currency Payment | Native ETH + ERC20 + Cardano ADA |
-| M4: Extra Features (Cardano) | `contracts-cardano/` + CardanoTransfer primitive |
-| M5: Marketplace Integration | `/api/marketplace/*` endpoints |
-| M6: Open Source & Documentation | This README + full template source |
