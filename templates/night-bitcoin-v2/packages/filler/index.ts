@@ -349,10 +349,12 @@ server.post<{
       // (contract address, M20_DOMAIN_SEP) pair fixes the token color so the
       // recipient sees one "M20" balance entry in their Lace wallet.
       // The batcher's midnight adapter validates each circuit arg:
-      //   - Bytes<N>  → hex string
-      //   - Uint<N>   → decimal-string BigInt (JSON has no native BigInt)
+      //   - Bytes<N>          → hex string
+      //   - Uint<N>           → decimal-string BigInt (JSON has no BigInt)
       //   - UserAddress.bytes → hex string
-      const toHex = (bytes: Uint8Array | number[]): string =>
+      // `publicAddress` is already a hex string (extractPublicAddress returns
+      // hex). M20_DOMAIN_SEP is a Uint8Array we encode here.
+      const bytesToHex = (bytes: Uint8Array | number[]): string =>
         Array.from(bytes)
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
@@ -364,9 +366,9 @@ server.post<{
             {
               circuit: "mint_unshielded",
               args: [
-                toHex(M20_DOMAIN_SEP),
+                bytesToHex(M20_DOMAIN_SEP),
                 BigInt(amount),
-                { bytes: toHex(publicAddress) },
+                { bytes: publicAddress },
               ],
             },
             (_key, value) =>
