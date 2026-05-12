@@ -59,7 +59,6 @@
     "viem": "2.37.3",
     "vite-plugin-node-stdlib-browser": "*",
     "vite-plugin-static-copy": "^3.1.1",
-    "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.5.0",
     "ws": "^8.18.3",
     "@thirdweb-dev/chains": "0.1.63",
