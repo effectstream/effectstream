@@ -562,7 +562,13 @@ export const faucet = async (
         const receiverAddress = targets[0];
         const tokenId = await resolveUnshieldedTokenId(walletResult.wallet);
         console.log(`Using unshielded token id: ${tokenId}`);
-        await transfer(walletResult, receiverAddress, tokenId, 1_000_000_000n, networkId);
+        // 1000 NIGHT (1e12 base units) — large enough that virtual dust
+        // accrues quickly on each filler's UTXO, so the filler can fee-fund
+        // its own dust-registration tx after a short aging wait (see
+        // register-filler-dust.ts). 1 NIGHT was too low; the registration
+        // tx made it into the mempool but the block producer never picked
+        // it up because the implied fee from virtual dust was ~0.
+        await transfer(walletResult, receiverAddress, tokenId, 1_000_000_000_000n, networkId);
         targets.splice(targets.indexOf(receiverAddress), 1);
         console.log(
           `✅ Successfully transferred Night tokens to [${i} of ${targets.length}] (attempt ${attempt}) ${receiverAddress}`

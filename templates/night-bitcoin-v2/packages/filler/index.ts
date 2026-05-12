@@ -169,7 +169,11 @@ const midnightAdapter = new MidnightAdapter(
     walletFundingTimeoutSeconds: 600,
     walletNetworkId: midnightNetworkConfig.id,
   },
-  new SimpleToken.Contract(witnesses),
+  // Pass the Contract *class* (not `new Contract(...)` instance) — the
+  // adapter's `CompiledContract.make(name, contractClass)` call needs a
+  // constructor it can `new` internally; an instance fails with
+  // "Contract is not a constructor".
+  SimpleToken.Contract,
   witnesses,
   contractInfo,
   "parallelMidnight",
