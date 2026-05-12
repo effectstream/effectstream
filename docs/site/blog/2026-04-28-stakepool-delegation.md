@@ -67,7 +67,7 @@ And this is the terminal output showing EffectStream detecting delegation change
 
 ![Terminal showing delegation side effects being detected in real-time](/img/blog/delegate-pool2.png)
 
-<iframe src="https://drive.google.com/file/d/1DvNhISjGyhZW93bcKLKl8akLl9iJfLc3/preview" width="100%" height="480" allow="autoplay"></iframe>
+<iframe src="https://drive.google.com/file/d/1KrFfkgRWf_OKqH6agM6T44NyPS5aIqAc/preview" width="100%" height="480" allow="autoplay"></iframe>
 
 ## What developers can build
 
