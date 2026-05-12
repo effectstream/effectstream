@@ -93,7 +93,7 @@ export function launchCardano(
       args: ["run", "cardano-submit-tx"],
       waitToExit: true,
       critical: true,
-      dependsOn: [CardanoNames.YACI_DEVKIT_WAIT],
+      dependsOn: [CardanoNames.YACI_DEVKIT_WAIT, CardanoNames.DOLOS_MINIBF_WAIT],
     },
   ];
 }

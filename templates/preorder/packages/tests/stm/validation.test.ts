@@ -1,4 +1,4 @@
-import { assert, assertSQL, getDeployedAddresses } from "../helpers.ts";
+import { assert, assertSQL, getDeployedAddresses, mineBlock } from "../helpers.ts";
 import type { Client } from "pg";
 import { createPublicClient, createWalletClient, http, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -43,11 +43,13 @@ export async function validationTest(db: Client) {
         [4n],
         [5n], // buy all 5
       ],
-      value: 15000000000000000n, // 5 * 0.003 ETH
+      value: 100000000000000000n, // 5 * 0.02 ETH (item 4: Mithril Chainmail)
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     return receipt.status === "success";
   });
+
+  await mineBlock();
 
   await assertSQL(
     "Supply-limited purchase recorded as valid",
@@ -74,7 +76,7 @@ export async function validationTest(db: Client) {
       args: [
         account3.address,
         ZERO_ADDRESS,
-        [3n], // Mythical armor: 0.002 ETH
+        [3n], // Enchanted Shield: 0.01 ETH
         [1n],
       ],
       value: 1n, // deliberate underpayment (1 wei)
@@ -82,6 +84,8 @@ export async function validationTest(db: Client) {
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     return receipt.status === "success";
   });
+
+  await mineBlock();
 
   const wallet3 = account3.address.toLowerCase();
 

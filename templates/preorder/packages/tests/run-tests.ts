@@ -90,6 +90,40 @@ async function waitForHealth(timeoutMs = 120_000): Promise<void> {
   throw new Error("Sync node health check failed");
 }
 
+async function waitForSyncCaughtUp(timeoutMs = 120_000): Promise<void> {
+  console.log("Waiting for sync node to catch up to EVM chain tip...");
+
+  const evmRes = await fetch("http://127.0.0.1:8545", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] }),
+  });
+  const evmData = await evmRes.json() as any;
+  const chainTip = parseInt(evmData.result, 16);
+  const target = chainTip - 1; // confirmationDepth = 1
+  console.log(`EVM chain tip: ${chainTip}, sync target (depth-1): ${target}`);
+
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(`http://localhost:${API_PORT}/block-heights`);
+      if (res.ok) {
+        const heights = await res.json() as any[];
+        const evm = heights.find((h: any) => h.protocol_name === "parallelEvmRpc");
+        if (evm && evm.synced_page != null && evm.synced_page >= target) {
+          console.log(`Sync caught up: EVM synced_page=${evm.synced_page} >= target=${target}`);
+          return;
+        }
+        if (evm) {
+          console.log(`Sync progress: EVM synced_page=${evm.synced_page ?? "null"}, target=${target}`);
+        }
+      }
+    } catch { /* not ready */ }
+    await delay(1000);
+  }
+  throw new Error(`Sync node did not catch up to EVM block ${target} within ${timeoutMs / 1000}s`);
+}
+
 async function getDBConnection(): Promise<Client> {
   const client = new pg.Client({
     host: DB_HOST, user: DB_USER, password: DB_PW,
@@ -124,7 +158,8 @@ async function test() {
     // Wait for sync node
     await waitForProcess("sync");
     await waitForHealth();
-    console.log("Sync node is healthy.\n");
+    await waitForSyncCaughtUp();
+    console.log("Sync node is healthy and caught up.\n");
 
     // ── Phase B: State Machine / DB ─────────────────────────────────────
     console.log("\n--- Phase B: STM / DB Tests ---\n");

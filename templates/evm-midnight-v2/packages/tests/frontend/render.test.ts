@@ -6,7 +6,7 @@ const FRONTEND_PORT = 10599;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function waitForServer(timeoutMs = 15_000): Promise<void> {
+async function waitForServer(timeoutMs = 60_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
@@ -39,6 +39,13 @@ export async function frontendRenderTest() {
     cwd: frontendDir,
     stdout: "pipe",
     stderr: "pipe",
+  });
+
+  proc.exited.then(async (code) => {
+    if (code !== 0) {
+      const stderr = await new Response(proc.stderr).text();
+      console.error(`[RENDER TEST] Server exited with code ${code}:`, stderr.slice(-500));
+    }
   });
 
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;

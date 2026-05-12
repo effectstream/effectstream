@@ -1,4 +1,4 @@
-import { assert, assertSQL, getDeployedAddresses } from "../helpers.ts";
+import { assert, assertSQL, getDeployedAddresses, mineBlock } from "../helpers.ts";
 import type { Client } from "pg";
 import { createPublicClient, createWalletClient, http, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -14,7 +14,7 @@ const LAUNCHPAD_ABI = parseAbi([
 ]);
 
 export async function buyItemsErc20Test(db: Client) {
-  const account = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
+  const account = privateKeyToAccount("0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a");
   const walletClient = createWalletClient({
     account,
     chain: foundry,
@@ -76,6 +76,8 @@ export async function buyItemsErc20Test(db: Client) {
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     return receipt.status === "success";
   });
+
+  await mineBlock();
 
   const wallet = account.address.toLowerCase();
 

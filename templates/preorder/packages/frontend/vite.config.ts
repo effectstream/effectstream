@@ -13,6 +13,12 @@ export default defineConfig({
     },
   },
 
+  define: {
+    global: "globalThis",
+    "process.env.NODE_ENV": JSON.stringify("development"),
+    "process.env": "{}",
+  },
+
   build: {
     target: "esnext",
     minify: false,

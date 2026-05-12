@@ -5,7 +5,7 @@ import { WalletProvider } from "./wallet/WalletContext.tsx";
 import { Header } from "./layout/Header.tsx";
 import { ActivityLog } from "./logs/ActivityLog.tsx";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:9999";
+const API_URL = import.meta.env.VITE_API_URL ?? "";
 const SIDEBAR_WIDTH = 360;
 
 export function App() {

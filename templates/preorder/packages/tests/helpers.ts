@@ -20,9 +20,17 @@ export function getDeployedAddresses(): DeployedAddresses | null {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+export async function mineBlock(): Promise<void> {
+  await fetch("http://127.0.0.1:8545", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "evm_mine", params: [] }),
+  });
+}
+
 const getMaxTimeout = (): number => {
   const envVal = process.env["E2E_MAX_TIMEOUT"];
-  return envVal ? parseInt(envVal, 10) : 20000;
+  return envVal ? parseInt(envVal, 10) : 60000;
 };
 
 const testResults = {

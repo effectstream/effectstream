@@ -128,3 +128,4 @@ E2E test suite covering infrastructure and state machine.
 | PGLite (Postgres) | 5432 |
 | Hardhat (EVM) | 8545 |
 | Orchestrator API | 4747 |
+

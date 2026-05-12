@@ -83,3 +83,4 @@ Runs three phases:
 - **Phase A**: Infrastructure (YACI, Dolos health checks)
 - **Phase B**: State machine (DB schema verification)
 - **Phase C**: Playwright E2E (create wallet, fund, delegate, verify indexed data)
+

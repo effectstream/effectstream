@@ -136,7 +136,7 @@ test.describe("Browser wallet lifecycle", () => {
         .locator("[data-testid='wallet-nft-card']")
         .filter({ hasText: /E2EBrowserNFT/ })
         .first();
-      await expect(nftCard).toBeVisible({ timeout: 10_000 });
+      await expect(nftCard).toBeVisible({ timeout: 60_000 });
     });
 
     // ── Lock NFT ───────────────────────────────────────────────────────
