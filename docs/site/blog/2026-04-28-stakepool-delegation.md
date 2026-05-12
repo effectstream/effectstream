@@ -50,7 +50,7 @@ For stake pool delegation, the "by delegation part" filter is the important one.
 
 ## The PoolDelegation primitive
 
-The new **PoolDelegation** primitive is part of [PR #673](https://github.com/effectstream/effectstream/pull/673), which adds five Cardano primitives to EffectStream. PoolDelegation reads delegation events from Dolos via UTxORPC and materializes them into PostgreSQL using EffectStream's IVM (Indexed View Materializer).
+The **PoolDelegation** primitive is one of [five Cardano primitives](https://github.com/effectstream/effectstream/tree/v-next-bun/packages/node-sdk/sm/primitives/src) in EffectStream. It reads delegation events from Dolos via UTxORPC and materializes them into PostgreSQL using EffectStream's IVM (Indexed View Materializer). See the [Cardano Primitives documentation](/docs/home/chains/cardano#primitives) for the full reference.
 
 The primitive tracks:
 - **Stake registrations** - new stake addresses entering the system
@@ -80,12 +80,14 @@ With delegation data flowing into the state machine, developers can build game l
 
 ## End-to-end testing
 
-The PoolDelegation primitive is covered by EffectStream's E2E test suite, part of 21 tests in PR #673 that verify the full Cardano primitive lifecycle. The delegation tests cover stake address registration, initial delegation to a pool, delegation change detection, and state verification in PostgreSQL materialized views. All tests run against a local Dolos instance with YACI DevKit, so CI runs fast with no mainnet or testnet dependencies.
+The PoolDelegation primitive is covered by EffectStream's [E2E test suite](https://github.com/effectstream/effectstream/tree/v-next-bun/e2e), which verifies the full Cardano primitive lifecycle. The delegation tests cover stake address registration, initial delegation to a pool, delegation change detection, and state verification in PostgreSQL materialized views. All tests run against a local Dolos instance with YACI DevKit, so CI runs fast with no mainnet or testnet dependencies.
 
 ## The bigger picture
 
 Stake pool delegation becomes a game mechanic. SPOs offer in-game benefits, players choose pools based on gameplay advantages, and a new economic layer sits on top of Cardano's existing delegation system. Delegation goes from a passive yield-earning activity to an active strategic decision: you delegate to a pool not just for staking rewards, but for the games and apps that pool supports.
 
-- [EffectStream PR #673](https://github.com/effectstream/effectstream/pull/673) - PoolDelegation primitive implementation
+- [PoolDelegation primitive source](https://github.com/effectstream/effectstream/tree/v-next-bun/packages/node-sdk/sm/primitives/src/cardano-pool-delegation) - implementation
+- [Cardano delegation template](https://github.com/effectstream/effectstream/tree/v-next-bun/templates/cardano-delegation) - starter project
+- [Cardano Primitives documentation](/docs/home/chains/cardano#primitives) - full reference for all five Cardano primitives
 - [UTxORPC Watch Module](https://utxorpc.org/watch/intro/) - streaming transaction protocol
 - [Dolos](https://github.com/txpipe/dolos) - lightweight Cardano node
