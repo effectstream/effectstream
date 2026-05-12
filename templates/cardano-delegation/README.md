@@ -6,9 +6,14 @@ Demonstrates the `PrimitiveTypeCardanoPoolDelegation` primitive — a Cardano-on
 
 ```bash
 bun install
-bash link.sh        # only needed when developing inside the monorepo
 bun run dev
 ```
+
+## Link against local packages
+```
+./link.sh
+```
+
 
 Open [http://localhost:10599](http://localhost:10599)
 
