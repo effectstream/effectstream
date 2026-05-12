@@ -11,6 +11,7 @@ e2e-midnight-batcher-data/
 midnight-level-db*
 batcher-debug.log
 .orchestrator-logs/
+e2e/**/logs/
 # Frontend
 .vite
 dist/

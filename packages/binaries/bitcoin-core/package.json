@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/bitcoin-core",
-  "version": "0.100.12",
+  "version": "0.100.13",
   "type": "module",
   "main": "./index.js",
   "bin": {
