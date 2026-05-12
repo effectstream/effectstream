@@ -182,6 +182,12 @@ export async function accountTest(db: Client, sharedState: SharedState, apiPort:
   // 8. Unlink address from account you don't own — should fail
   // Create a second account with w9 first
   await submit(await accountPayload.createAccount(), w9.privateKey);
+
+  await checkState(db, "Account: create account for w9", (addrs, accts) => {
+    const acct = findAcctByAddr(addrs, accts, w9.address);
+    return acct != null && acct.primary_address === w9.address.toLowerCase();
+  });
+
   const acctId2Res = await db.query(`SELECT account_id FROM effectstream.addresses WHERE address = $1`, [w9.address.toLowerCase()]);
   const acctId2 = acctId2Res.rows[0]?.account_id;
 

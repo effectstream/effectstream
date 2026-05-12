@@ -1,0 +1,14 @@
+name = "e2e/hololocker-demo"
+version = "0.0.0"
+license = "Apache-2.0"
+description = "Demo hololocker with minimum_lock_time = 5 for fast e2e testing"
+
+[repository]
+user = "e2e"
+project = "hololocker-demo"
+platform = "github"
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "1.6.0"
+source = "github"

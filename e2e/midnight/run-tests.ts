@@ -98,117 +98,19 @@ async function runContractTests(): Promise<void> {
 
 // -- Nullifier trigger: perform a shielded transfer to spend nullifiers ------
 
-async function triggerNullifiers(): Promise<void> {
-  console.log("\n--- Triggering nullifiers via shielded transfer ---\n");
+async function doTriggerNullifiers(): Promise<void> {
   try {
-    const { setNetworkId } = await import("@midnight-ntwrk/midnight-js-network-id");
     const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
-    const { buildWalletFacade, syncAndWaitForFunds } = await import("../shared/contracts/midnight/faucet.ts");
-    const { shieldedToken } = await import("@midnight-ntwrk/ledger-v8");
-    const Rx = await import("rxjs");
-
-    setNetworkId(midnightNetworkConfig.id);
-    const networkUrls = {
-      indexer: midnightNetworkConfig.indexer,
-      indexerWS: midnightNetworkConfig.indexerWS,
-      node: midnightNetworkConfig.node,
-      proofServer: midnightNetworkConfig.proofServer,
-    };
-
-    // Build genesis wallet (has shielded balance from chain genesis)
-    const GENESIS_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
-    const walletResult = await buildWalletFacade(networkUrls, GENESIS_SEED, midnightNetworkConfig.id);
-    console.log("Genesis wallet built, waiting for funds...");
-
-    await syncAndWaitForFunds(walletResult.wallet, {
-      waitNonZero: true,
-      logLabel: "genesis-nullifier",
-      timeoutMs: 120_000,
-    });
-
-    // Get the shielded address to send to self (spending shielded inputs = nullifiers)
-    const shieldedAddr = await walletResult.wallet.shielded.getAddress();
-    const tokenId = shieldedToken().raw;
-    console.log(`Doing shielded self-transfer (token: ${tokenId}) to trigger nullifier spend...`);
-
-    const recipe = await walletResult.wallet.transferTransaction(
-      [{
-        type: "shielded",
-        outputs: [{
-          amount: 1n,
-          type: tokenId,
-          receiverAddress: shieldedAddr,
-        }],
-      }],
+    const { triggerNullifiers } = await import("../shared/contracts/midnight/faucet.ts");
+    await triggerNullifiers(
       {
-        shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-        dustSecretKey: walletResult.walletDustSecretKey,
+        indexer: midnightNetworkConfig.indexer,
+        indexerWS: midnightNetworkConfig.indexerWS,
+        node: midnightNetworkConfig.node,
+        proofServer: midnightNetworkConfig.proofServer,
       },
-      { ttl: new Date(Date.now() + 60 * 60 * 1000) },
+      midnightNetworkConfig.id,
     );
-    console.log("Shielded transfer recipe created");
-
-    const signedTx = await walletResult.wallet.signUnprovenTransaction(
-      recipe.transaction,
-      (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
-    );
-    const finalizedTx = await walletResult.wallet.finalizeTransaction(signedTx);
-    const txId = await walletResult.wallet.submitTransaction(finalizedTx);
-    console.log(`Shielded transfer submitted, txId: ${txId} — nullifiers should be spent on-chain`);
-
-    // ── Also test initSwap nullifiers ──────────────────────────────────────
-    console.log("\nTesting initSwap + balanceUnprovenTransaction nullifiers...");
-
-    // Re-sync wallet after the transfer
-    await syncAndWaitForFunds(walletResult.wallet, {
-      waitNonZero: true,
-      logLabel: "genesis-post-transfer",
-      timeoutMs: 120_000,
-    });
-
-    const tokenId2 = shieldedToken().raw;
-    const shieldedAddr2 = await walletResult.wallet.shielded.getAddress();
-
-    // Create a swap offer: give 1 shielded token, want 1 back (self-swap)
-    console.log("Creating swap offer via initSwap...");
-    const offerRecipe = await walletResult.wallet.initSwap(
-      { shielded: { [tokenId2]: 1n } },
-      [{
-        type: "shielded",
-        outputs: [{
-          type: tokenId2,
-          amount: 1n,
-          receiverAddress: shieldedAddr2,
-        }],
-      }],
-      {
-        shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-        dustSecretKey: walletResult.walletDustSecretKey,
-      },
-      { ttl: new Date(Date.now() + 60 * 60 * 1000) },
-    );
-    console.log("Swap offer created via initSwap");
-
-    // Complete the swap ourselves (balance + sign + submit)
-    const balancedRecipe = await walletResult.wallet.balanceUnprovenTransaction(
-      offerRecipe.transaction,
-      {
-        shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-        dustSecretKey: walletResult.walletDustSecretKey,
-      },
-      { ttl: new Date(Date.now() + 60 * 60 * 1000) },
-    );
-    console.log("Swap balanced");
-
-    const signedSwapTx = await walletResult.wallet.signUnprovenTransaction(
-      balancedRecipe.transaction,
-      (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
-    );
-    const finalizedSwapTx = await walletResult.wallet.finalizeTransaction(signedSwapTx);
-    const swapTxId = await walletResult.wallet.submitTransaction(finalizedSwapTx);
-    console.log(`Swap submitted, txId: ${swapTxId} — swap nullifiers should be spent on-chain`);
-
-    await walletResult.wallet.stop();
   } catch (e) {
     console.error("Failed to trigger nullifiers (non-fatal):", e);
   }
@@ -316,7 +218,7 @@ async function test() {
     console.log("Sync node is healthy.\n");
 
     // 4.5. Trigger a shielded transfer to produce nullifier events on-chain
-    await triggerNullifiers();
+    await doTriggerNullifiers();
 
     // 5. Connect to DB and run sync tests
     db = getDBConnection();
