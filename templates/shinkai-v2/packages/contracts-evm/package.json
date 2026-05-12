@@ -35,7 +35,8 @@
     "@nomicfoundation/ignition-core": "3.0.2",
     "ws": "8.18.1",
     "@nomicfoundation/hardhat-errors": "3.0.1",
-    "@nomicfoundation/hardhat-utils": "3.0.0"
+    "@nomicfoundation/hardhat-utils": "3.0.0",
+    "viem": "2.37.3"
   },
   "devDependencies": {
     "jsonc-parser": "3.3.1",
