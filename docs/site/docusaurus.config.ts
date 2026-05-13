@@ -238,6 +238,11 @@ const config = {
         }
       },
       image: 'img/no-image.png',
+      blog: {
+        sidebar: {
+          groupByYear: false,
+        },
+      },
       navbar: {
         title: "",
         logo: {

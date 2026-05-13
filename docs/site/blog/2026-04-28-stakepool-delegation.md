@@ -1,6 +1,6 @@
 ---
 slug: stakepool-delegation
-title: "Stake Pool Delegation: Connecting Cardano SPOs to On-Chain Applications"
+title: "Stake Pool Delegation Part 1: Connecting Cardano SPOs to On-Chain Applications"
 authors: [effectstream]
 tags: [cardano, stakepools, delegation, dolos, utxorpc]
 ---
@@ -11,25 +11,27 @@ Cardano's stake pool ecosystem has millions of ADA delegated across hundreds of 
 
 ```mermaid
 flowchart TB
-    subgraph "Cardano Network"
-        U["👤 User"] -->|"Delegate ADA"| SP["Stake Pool"]
-        SP --> CN[Cardano Node]
+    subgraph Cardano["Cardano Network"]
+        direction LR
+        U["User"] -->|"Delegate ADA"| SP["Stake Pool"] --> CN["Cardano Node"]
     end
 
-    subgraph "Indexing Layer"
-        CN --> Dolos
-        Dolos -->|"gRPC stream\n(by delegation part)"| W[UTxORPC Watch]
+    subgraph Indexing["Indexing Layer"]
+        direction LR
+        Dolos -->|"gRPC stream"| W["UTxORPC Watch"]
     end
 
-    subgraph "EffectStream"
-        W --> PD["PoolDelegation Primitive"]
-        PD --> IVM["IVM (PostgreSQL)"]
-        IVM --> SM["L2 State Machine"]
+    subgraph ES["EffectStream"]
+        direction LR
+        PD["PoolDelegation Primitive"] --> IVM["IVM (PostgreSQL)"] --> SM["L2 State Machine"]
     end
 
-    SM --> R1["🔓 Unlock content"]
-    SM --> R2["🎁 Distribute rewards"]
-    SM --> R3["⚡ Free batching"]
+    subgraph App["Application Logic"]
+        direction LR
+        R1["Unlock content"] ~~~ R2["Distribute rewards"] ~~~ R3["Free batching"]
+    end
+
+    Cardano --> Indexing --> ES --> App
 ```
 
 ## The challenge: indexing delegation state
