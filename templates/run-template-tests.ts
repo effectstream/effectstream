@@ -19,6 +19,7 @@ const ENABLED = [
   "projected-nft-preorder",
   "shinkai-v2",
   "zk-cardano",
+  "zswap-da",
   // "chess-v2",        // TODO: migrate to effectstream-bun
   // "chess",           // TODO: migrate to effectstream-bun
   // "dice",            // TODO: migrate to effectstream-bun

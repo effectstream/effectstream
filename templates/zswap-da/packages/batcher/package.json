@@ -1,0 +1,19 @@
+{
+  "name": "@zswap-da/batcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./batcher.dev.ts"
+  },
+  "scripts": {
+    "start": "bun run batcher.dev.ts",
+    "start:mainnet": "bun run batcher.mainnet.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.100.13",
+    "@effectstream/midnight-contracts": "0.100.13",
+    "@effectstream/utils": "0.100.13",
+    "effection": "^3.5.0"
+  }
+}
