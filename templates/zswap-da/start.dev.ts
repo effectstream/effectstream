@@ -94,7 +94,7 @@ export default {
       args: ["run", "celestia-bridge:start"],
       env: {
         CELESTIA_HOME,
-        CELESTIA_FORCE_NO_BBR: process.env.CELESTIA_FORCE_NO_BBR || "",
+        CELESTIA_FORCE_NO_BBR: "1",
       },
       waitToExit: false,
       critical: true,
