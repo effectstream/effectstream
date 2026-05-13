@@ -5,7 +5,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — crypto-browserify has no bundled types
-import * as cryptoBrowserify from 'crypto-browserify';
+import cryptoBrowserify from 'crypto-browserify';
 
 function timingSafeEqual(a: any, b: any): boolean {
   const av = a instanceof ArrayBuffer ? new Uint8Array(a) : new Uint8Array((a as ArrayBufferView).buffer, (a as ArrayBufferView).byteOffset, (a as ArrayBufferView).byteLength);
@@ -19,7 +19,11 @@ function timingSafeEqual(a: any, b: any): boolean {
 }
 
 const base: any = cryptoBrowserify;
-const merged: any = Object.assign(Object.create(null), base, { timingSafeEqual });
+
+// Mutate the shared crypto-browserify export object as well as exporting the
+// function from this shim. Vite's node polyfill can resolve transitive `crypto`
+// imports directly to crypto-browserify, bypassing our alias in some bundles.
+base.timingSafeEqual ??= timingSafeEqual;
 
 export { timingSafeEqual };
 // Re-export everything from crypto-browserify dynamically.
@@ -34,4 +38,4 @@ export const createDecipheriv = base.createDecipheriv;
 export const getCiphers = base.getCiphers;
 export const getHashes = base.getHashes;
 
-export default merged;
+export default base;
