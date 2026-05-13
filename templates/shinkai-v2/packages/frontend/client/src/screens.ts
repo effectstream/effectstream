@@ -264,6 +264,10 @@ export class EndScreen extends QFTScreen {
         t.x = 512;
         t.y = 700;
         GameState.app.stage.addChild(t);
+
+        const tokens = await getTokens(GameState.wallet);
+        showTokens(GameState.app, tokens?.tokens ?? game.prize);
+        showKingTokens(GameState.app, tokens?.global ?? 10000);
       }
     })();
 

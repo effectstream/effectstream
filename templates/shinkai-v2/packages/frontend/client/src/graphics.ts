@@ -74,7 +74,21 @@ export const animalTalk = async (app: Application, text: string) => {
   }
 };
 
+let kingTokensText: Text | null = null;
+let userTokensText: Text | null = null;
+let userTokensSprite: Sprite | null = null;
+
+const removePersistent = (...nodes: (Sprite | Text | null)[]) => {
+  for (const n of nodes) {
+    if (!n) continue;
+    const i = GameState.persistentUI.indexOf(n);
+    if (i >= 0) GameState.persistentUI.splice(i, 1);
+    n.destroy();
+  }
+};
+
 export const showKingTokens = (app: Application, tokens: number) => {
+  removePersistent(kingTokensText);
   const t = new Text({
     text: `Giving away\n${tokens} Tokens`,
     style: { fontSize: 40, fontFamily: "oswald", dropShadow: true, fill: "#f1c40f", align: "right" },
@@ -84,9 +98,12 @@ export const showKingTokens = (app: Application, tokens: number) => {
   t.y = 40;
   app.stage.addChild(t);
   GameState.persistentUI.push(t);
+  kingTokensText = t;
 };
 
 export const showTokens = (app: Application, tokens: number) => {
+  removePersistent(userTokensSprite, userTokensText);
+
   const wow = Sprite.from("/assets/img/token.png");
   wow.x = 40;
   wow.y = 784;
@@ -101,6 +118,8 @@ export const showTokens = (app: Application, tokens: number) => {
   t.y = 810;
   app.stage.addChild(t);
   GameState.persistentUI.push(wow, t);
+  userTokensSprite = wow;
+  userTokensText = t;
 };
 
 export const createButton = (
