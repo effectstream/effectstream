@@ -293,29 +293,27 @@ The configuration is straightforward: add your pool hash to `ENABLED_POOLS`, fun
 
 ## Running the full stack
 
-The complete delegation + batcher stack requires both the sync node (indexing delegations) and the batcher (validating inputs) running together:
+The complete delegation + batcher stack runs as two pieces: the cardano-delegation template (sync node + indexing) and the pool-aware batcher adapter from [PR #691](https://github.com/effectstream/effectstream/pull/691). Both share the same PostgreSQL database — the sync node writes delegation events, the batcher reads them during validation.
 
 ```bash
-# Terminal 1: Start the delegation sync node (from Part 2)
+# Terminal 1: Start the delegation sync node
 git clone https://github.com/effectstream/effectstream.git \
   --branch v-next-bun-start
 cd effectstream/templates/cardano-delegation
-bun i
+bun install
 bun run dev
 # Sync node indexes delegations → http://localhost:10599
 
 # Terminal 2: Start the pool-aware batcher
-cd packages/batcher
-bun run batcher.dev.ts
-# Batcher validates inputs → http://localhost:3334
+# Code lives in PR #691: https://github.com/effectstream/effectstream/pull/691
+# Check out that PR branch and run its batcher entrypoint.
 ```
-
-Both services share the same PostgreSQL database (PGLite). The sync node writes delegation events; the batcher reads them during validation.
 
 ---
 
+- [Pool-aware batcher code example (PR #691)](https://github.com/effectstream/effectstream/pull/691) — the `DelegationAwareBatcherAdapter` source
 - [Batcher documentation](/docs/home/components/batcher/overview)
 - [Custom Adapters guide](/docs/home/components/batcher/adapter)
 - [Part 1: Connecting Cardano SPOs](/docs/blog/stakepool-delegation)
 - [Part 2: Building the State Machine](/docs/blog/stakepool-delegation-technical)
-- [Template source code](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/cardano-delegation)
+- [Cardano delegation template source code](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/cardano-delegation)
