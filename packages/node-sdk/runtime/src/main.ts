@@ -35,7 +35,8 @@ import type { Client } from "pg";
 import type { EffectstreamBlockHash } from "@effectstream/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
-import { type SyncProtocolWithNetwork, ConfigNetworkType } from "@effectstream/config";
+import { ConfigNetworkType, usePaimaStaticConfig } from "@effectstream/config";
+import type { SecurityNamespace, SyncProtocolWithNetwork } from "@effectstream/config";
 import { builtInPrimitivesMap } from "@effectstream/sm";
 import { validateAndSnapshotConfig } from "./config-snapshot.ts";
 
@@ -235,12 +236,16 @@ function* startup(
 ): Operation<AllSyncProtocols[]> {
   const versionInfo = yield* getVersionInfo(dbConn);
   const lastBlockHeight = yield* getLastBlockHeight(versionInfo, dbConn);
+  // Pull the security namespace from the static config so primitives that
+  // re-verify batched signatures can access it synchronously.
+  const staticConfig = yield* usePaimaStaticConfig();
   // Create Runtime Primitives Instances
   syncInfo.forEach((syncProtocol) => {
     syncProtocol.primitives.forEach((primitive, primitiveIndex) => {
       processPrimitives(
         syncProtocol.primitives,
         primitiveIndex,
+        staticConfig.securityNamespace,
         config.userDefinedPrimitives
       );
     });
@@ -287,6 +292,7 @@ function* startup(
 const processPrimitives = (
   primitives: {primitive: any, id: string}[],
   primitiveIndex: number,
+  securityNamespace: SecurityNamespace,
   userDefinedPrimitives?: Record<string, any>,
 ) => {
     const primitiveType = primitives[primitiveIndex].primitive.type;
@@ -309,6 +315,7 @@ const processPrimitives = (
     const classConfig = {
       ...primitiveConfig,
       instanceName: primitiveUniqueName,
+      securityNamespace,
     }
     if (isBuiltInPrimitive) {
       p = new builtInPrimitivesMap[primitiveType as keyof typeof builtInPrimitivesMap](classConfig as any) ;
