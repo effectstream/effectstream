@@ -56,7 +56,7 @@ Here's the concept: a governance vote where voting power comes from your Cardano
 
 ![Private Delegation Voting: Cardano + Midnight cross-chain ZK voting with stake pool delegation](/img/blog/zk-cardano.png)
 
-This template is part of [PR #673](https://github.com/effectstream/effectstream/pull/673), which includes the full ZK-Cardano template alongside five new Cardano primitives.
+The full [ZK-Cardano template](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/zk-cardano) is available in the monorepo alongside five new [Cardano primitives](/docs/home/chains/cardano#primitives).
 
 <iframe src="https://drive.google.com/file/d/1qeFPXN3cjsd66aFn-kgu2q8fqTr8SA-A/preview" width="100%" height="480" allow="autoplay"></iframe>
 
@@ -93,6 +93,7 @@ Beyond chain-integrated ZK, EffectStream also supports computing zero-knowledge 
 
 The trade-off is in verification: chain-verified proofs inherit the chain's security guarantees, while locally-verified proofs need the application to validate them. For many use cases (anti-cheat in games, client-side validation), local proofs are sufficient and quite a bit faster.
 
-- [EffectStream PR #673](https://github.com/effectstream/effectstream/pull/673) - ZK-Cardano template
+- [ZK-Cardano template code](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/zk-cardano)
+- [Cardano Primitives documentation](/docs/home/chains/cardano#primitives)
 - [Midnight Network](https://midnight.network/)
 - [UTxORPC Watch Module](https://utxorpc.org/watch/intro/) - streaming protocol for Cardano data

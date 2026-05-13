@@ -21,7 +21,7 @@ A DA layer like [Celestia](https://celestia.org/) provides an alternative: post 
 
 The Celestia integration adds a new data path to EffectStream's batcher system. The batcher aggregates individual user submissions into batches and posts them to Celestia for data availability, while settlement transactions go to the configured settlement chain.
 
-The integration is implemented in [PR #680](https://github.com/effectstream/effectstream/pull/680) ("Zswap DA Demo"), which includes:
+The integration lives in the [`bun-zswap-da` template](https://github.com/effectstream/effectstream/tree/v-next-bun-start/bun-zswap-da), which includes:
 
 - **Batcher** that aggregates and posts batches to Celestia
 - **Database** tracking submitted batches, token states, and offer lifecycle
@@ -73,5 +73,5 @@ With Celestia support, developers can build hybrid applications:
 
 The developer configures which data goes where, and the framework handles routing, batching, and event delivery.
 
-- [Celestia integration PR #680](https://github.com/effectstream/effectstream/pull/680)
+- [Celestia integration code (`bun-zswap-da` template)](https://github.com/effectstream/effectstream/tree/v-next-bun-start/bun-zswap-da)
 - [Celestia documentation](https://celestia.org/developer-portal/)

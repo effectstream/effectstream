@@ -32,7 +32,7 @@ EffectStream's NTP-based sync (instead of block-based) makes this practical. The
 The launchpad UI supports both EVM and Cardano wallets. Creators set up sales with configurable parameters (countdown timers, reward tiers, package bundles, item catalogs). Buyers browse campaigns, add items to a cart, and contribute funds from whichever chain they prefer.
 
 - [Launchpad portal components](https://github.com/PaimaStudios/paima-portal/tree/main/src/components/launchpad)
-- [Portal integration PR](https://github.com/PaimaStudios/paima-portal/pull/7)
+- [Portal repository](https://github.com/PaimaStudios/paima-portal)
 
 <iframe src="https://drive.google.com/file/d/1MiTyu_Et36zyE1qP7vWYG-2DEaUFyI-s/preview" width="100%" height="480" allow="autoplay"></iframe>
 
