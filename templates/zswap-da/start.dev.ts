@@ -22,9 +22,7 @@ try {
     "",
     "Install it with:",
     "  curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh",
-    "  compact update",
-    "",
-    "(See Dockerfile for full instructions)",
+    "  compact update ${COMPACT_VERSION}",
     "",
   ].join("\\n"));
   process.exit(1);
@@ -36,10 +34,7 @@ if (!list.includes("${COMPACT_VERSION}")) {
     "ERROR: Compact version ${COMPACT_VERSION} is not installed.",
     "",
     "Install it with:",
-    "  compact update",
-    "",
-    "Then verify with:",
-    "  compact list",
+    "  compact update ${COMPACT_VERSION}",
     "",
   ].join("\\n"));
   process.exit(1);
