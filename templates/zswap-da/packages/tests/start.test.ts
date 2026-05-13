@@ -15,10 +15,21 @@ export default {
   processes: [
     ...launchPglite(),
 
+    {
+      name: "compact-build",
+      description: "Compile Compact contract (offer-files)",
+      cwd: path.join(root, "packages/contracts-midnight/contract-offer-files"),
+      args: ["run", "compact"],
+      waitToExit: true,
+    },
+
     ...launchMidnight(
       "@zswap-da/contracts-midnight",
       { cwd: path.join(root, "packages/contracts-midnight") },
-      { env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" } },
+      {
+        env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
+        dependsOn: ["compact-build"],
+      },
     ),
 
     // Celestia devnet (no launchCelestia helper exists yet).

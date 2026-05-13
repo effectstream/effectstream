@@ -6,8 +6,7 @@ A decentralized token swap platform that combines **Midnight Network** (privacy-
 
 ```bash
 bun install
-bun run build:midnight   # compile the Compact contract
-bun run dev              # PGLite + Midnight + Celestia + sync + batcher + frontend
+bun run dev   # PGLite + Compact compile + Midnight + Celestia + sync + batcher + frontend
 ```
 
 - Frontend: http://localhost:10599
