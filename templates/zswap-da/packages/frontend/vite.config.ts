@@ -1,7 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import wasm from 'vite-plugin-wasm'
-import topLevelAwait from 'vite-plugin-top-level-await'
 import nodePolyfills from 'vite-plugin-node-stdlib-browser'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -83,5 +82,5 @@ export default defineConfig({
       ],
     },
   },
-  plugins: [react(), wasm(), topLevelAwait(), nodePolyfills(), zkArtifactFourOhFour()],
+  plugins: [react(), wasm(), nodePolyfills(), zkArtifactFourOhFour()],
 })

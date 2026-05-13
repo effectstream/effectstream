@@ -45,7 +45,6 @@
     "vite-plugin-node-stdlib-browser": "0.2.1",
     "node-stdlib-browser": "^1.2.0",
     "crypto-browserify": "^3.12.1",
-    "vite-plugin-top-level-await": "^1.4.4",
-    "vite-plugin-wasm": "^3.4.1"
+"vite-plugin-wasm": "^3.4.1"
   }
 }
