@@ -27,7 +27,6 @@ The cooldown on withdrawal prevents flash-loan-style exploits where a user could
 We built a full dApp called Hololocker for projecting and managing NFTs. It supports the complete lifecycle: mint new NFTs, lock them into the projection contract, view locked state, initiate unlock, and complete withdrawal.
 
 - [Source code](https://github.com/dcSpark/projected-nft-whirlpool)
-- [Demo on Twitter](https://twitter.com/PaimaStudios/status/1734623090020057114)
 
 <iframe src="https://drive.google.com/file/d/1TbBngP-OKCX38dDaVQGoXnd_HncEW-jw/preview" width="100%" height="480" allow="autoplay"></iframe>
 <iframe src="https://drive.google.com/file/d/12HzmHV7HI8msoc1yvI6zRqsZL69TSBeA/preview" width="100%" height="480" allow="autoplay"></iframe>

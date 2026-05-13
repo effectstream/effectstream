@@ -223,6 +223,10 @@ curl -X POST http://localhost:3334/send-input \
 # { "success": true, "hash": "0x..." }
 ```
 
+The walkthrough below shows the full flow end-to-end: the batcher is started with two enabled pools, a delegator of one of those pools submits a transaction and is accepted, and a non-delegator submits the same transaction and is rejected — both responses visible at the HTTP layer.
+
+<iframe src="https://drive.google.com/file/d/1EI3hvbpCP8QzSTyyzcr2pHFQHeH9D2A_/preview" width="100%" height="480" allow="autoplay"></iframe>
+
 ## 4. Batching criteria options
 
 The batcher supports multiple strategies for when to submit batches. Choose based on your game's requirements:
