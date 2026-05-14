@@ -1,4 +1,4 @@
-import { assert, assertSQL, getDeployedAddresses } from "../helpers.ts";
+import { assert, assertSQL, getDeployedAddresses, mineBlock } from "../helpers.ts";
 import type { Client } from "pg";
 import { createPublicClient, createWalletClient, http, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -40,11 +40,13 @@ export async function buyItemsNativeTest(db: Client) {
         [1n, 2n],
         [1n, 1n],
       ],
-      value: 2000000000000000n, // 0.002 ETH (item 1 + item 2)
+      value: 7000000000000000n, // 0.007 ETH (item 1: 0.002 + item 2: 0.005)
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     return receipt.status === "success";
   });
+
+  await mineBlock();
 
   const wallet = account.address.toLowerCase();
 

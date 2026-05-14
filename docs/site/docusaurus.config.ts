@@ -64,15 +64,7 @@ const config = {
   // to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: "en",
-    locales: ["en", "ja"],
-    localeConfigs: {
-      en: {
-        label: "English",
-      },
-      ja: {
-        label: "Japanese",
-      },
-    },
+    locales: ["en"],
   },
   themes: [
     // ... Your other themes.
@@ -246,6 +238,11 @@ const config = {
         }
       },
       image: 'img/no-image.png',
+      blog: {
+        sidebar: {
+          groupByYear: false,
+        },
+      },
       navbar: {
         title: "",
         logo: {
@@ -257,10 +254,10 @@ const config = {
         items: [
           { to: "/", label: "Docs", position: "left" },
           { to: "/blog", label: "Blog", position: "left" },
-          {
-            type: "localeDropdown",
-            position: "right",
-          },
+          // {
+          //   type: "localeDropdown",
+          //   position: "right",
+          // },
           // {
           //   href: "https://github.com/facebook/docusaurus",
           //   label: "GitHub",

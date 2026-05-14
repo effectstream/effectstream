@@ -3,7 +3,7 @@ import {
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@effectstream/config";
-import { PrimitiveTypeCardanoTransfer } from "./cardano-transfer-primitive.ts";
+import { PrimitiveTypeCardanoTransfer } from "@effectstream/sm/builtin";
 import { getConnection } from "@effectstream/db";
 import { hardhat } from "viem/chains";
 import { setLaunchpadAddress } from "./launchpad-config.ts";

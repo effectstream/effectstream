@@ -93,7 +93,7 @@ async function test() {
     await waitForOrchestrator();
 
     console.log("\n--- Phase A: Infrastructure Tests ---\n");
-    await waitForProcess("generate-evm-mod", { waitForExit: true });
+    await waitForProcess("generate-evm-mod", { waitForExit: true, timeoutMs: 300_000 });
     console.log("EVM contracts deployed.");
 
     const { chainReadyTest } = await import("./infra/chain-ready.test.ts");

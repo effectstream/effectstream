@@ -27,7 +27,6 @@ The cooldown on withdrawal prevents flash-loan-style exploits where a user could
 We built a full dApp called Hololocker for projecting and managing NFTs. It supports the complete lifecycle: mint new NFTs, lock them into the projection contract, view locked state, initiate unlock, and complete withdrawal.
 
 - [Source code](https://github.com/dcSpark/projected-nft-whirlpool)
-- [Demo on Twitter](https://twitter.com/PaimaStudios/status/1734623090020057114)
 
 <iframe src="https://drive.google.com/file/d/1TbBngP-OKCX38dDaVQGoXnd_HncEW-jw/preview" width="100%" height="480" allow="autoplay"></iframe>
 <iframe src="https://drive.google.com/file/d/12HzmHV7HI8msoc1yvI6zRqsZL69TSBeA/preview" width="100%" height="480" allow="autoplay"></iframe>
@@ -36,7 +35,7 @@ We built a full dApp called Hololocker for projecting and managing NFTs. It supp
 
 To track NFT lock/unlock events in real-time, we originally built a [Carp](https://dcspark.github.io/carp/) indexer task. But Carp requires heavy synchronization (days on testnet, even longer on mainnet), which made rapid development impractical.
 
-We've since moved to [Dolos](https://github.com/txpipe/dolos) via the UTxORPC protocol. The new **ProjectedNFT primitive** in EffectStream reads projection events directly from Dolos's gRPC stream, parsing the datum to extract lock status, owner, policy ID, and asset name. This is part of [PR #673](https://github.com/effectstream/effectstream/pull/673), which introduces five new Cardano primitives backed by an IVM (Indexed View Materializer) with PostgreSQL materialized views.
+We've since moved to [Dolos](https://github.com/txpipe/dolos) via the UTxORPC protocol. The new **ProjectedNFT primitive** in EffectStream reads projection events directly from Dolos's gRPC stream, parsing the datum to extract lock status, owner, policy ID, and asset name. It is one of five new [Cardano primitives](/docs/home/chains/cardano#primitives) backed by an IVM (Indexed View Materializer) with PostgreSQL materialized views.
 
 The ProjectedNFT primitive tracks:
 - Lock events (NFT enters the projection contract)
@@ -54,7 +53,8 @@ A game could grant in-game powers when a player projects a specific NFT, remove 
 
 The integration is end-to-end tested with 21 E2E tests covering the full lifecycle: stake registration, delegation, lock, unlock, and claim, all verified against a local Dolos instance.
 
-- [EffectStream PR #673](https://github.com/effectstream/effectstream/pull/673)
+- [ProjectedNFT primitive source code](https://github.com/effectstream/effectstream/tree/v-next-bun-start/packages/node-sdk/sm/primitives/src)
+- [Cardano Primitives documentation](/docs/home/chains/cardano#primitives)
 
 ## The full stack
 

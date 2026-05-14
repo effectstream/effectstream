@@ -76,6 +76,20 @@ export class WatchMultiplexer {
       throw new Error("No watchers configured");
     }
 
+    if (this.slotOriginTimestamp === undefined) {
+      try {
+        const blocks = await this.syncClient.fetchHistory(undefined, 1);
+        if (blocks.length > 0) {
+          const blk = blocks[0].parsedBlock;
+          if (blk.timestamp && blk.header?.slot != null) {
+            this.slotOriginTimestamp = blk.timestamp - blk.header.slot;
+          }
+        }
+      } catch {
+        // Chain may not be ready yet — slotOriginTimestamp will be set on the first Apply event
+      }
+    }
+
     const intersect = point ? [point] : [];
     const promises: Promise<void>[] = [];
     for (const [key, watcher] of this.watchers) {

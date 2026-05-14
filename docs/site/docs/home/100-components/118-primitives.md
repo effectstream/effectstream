@@ -50,6 +50,11 @@ A key advantage of built-in primitives is that many come with automatic database
 | **`PrimitiveTypeEVMERC1155`**| EVM | Tracks `TransferSingle` and `TransferBatch` events for an ERC1155 token. |
 | **`PrimitiveTypeMidnightGeneric`**| Midnight | Monitors the public `ledger` state of a Midnight ZK contract for changes. |
 | **`PrimitiveTypeAvailGeneric`** | Avail | Listens for generic data blobs submitted to a specific application ID on the Avail DA layer. |
+| **`PrimitiveTypeCardanoDelayedAsset`** | Cardano | Tracks creation and spending of native asset UTxOs with a real-time view of unspent holdings. |
+| **`PrimitiveTypeCardanoMintBurn`** | Cardano | Captures native token mint and burn events with transaction metadata and participant addresses. |
+| **`PrimitiveTypeCardanoPoolDelegation`** | Cardano | Tracks stake pool delegation changes with current delegation state per staking credential. |
+| **`PrimitiveTypeCardanoProjectedNFT`** | Cardano | Tracks NFT lock-unlock-claim lifecycle at a Plutus script (hololocker) with time-lock metadata. |
+| **`PrimitiveTypeCardanoTransfer`** | Cardano | Captures ADA and native asset transfers with full output details and input credentials. |
 | **`PrimitiveTypeBitcoinAddress`** | Bitcoin | Watches a specific Bitcoin address for UTXO inputs and outputs. |
 | **`PrimitiveTypeCelestiaGeneric`** | Celestia | Listens for data blobs in a specific Celestia namespace. |
 | **`PrimitiveTypeNEARNEP141`** | NEAR | Tracks NEP-141 fungible token `ft_transfer` events and maintains balance tables. |

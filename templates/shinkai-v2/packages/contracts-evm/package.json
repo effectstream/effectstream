@@ -27,16 +27,15 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "5.1.0",
-    "@effectstream/evm-contracts": "0.100.12",
-    "@effectstream/evm-hardhat": "0.100.12",
-    "@effectstream/log": "0.100.12",
+    "@effectstream/evm-contracts": "0.100.13",
+    "@effectstream/evm-hardhat": "0.100.13",
+    "@effectstream/log": "0.100.13",
     "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
     "@nomicfoundation/hardhat-viem": "3.0.0",
     "@nomicfoundation/ignition-core": "3.0.2",
     "ws": "8.18.1",
     "@nomicfoundation/hardhat-errors": "3.0.1",
-    "@nomicfoundation/hardhat-utils": "3.0.0",
-    "viem": "2.37.3"
+    "@nomicfoundation/hardhat-utils": "3.0.0"
   },
   "devDependencies": {
     "jsonc-parser": "3.3.1",

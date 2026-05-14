@@ -6,9 +6,14 @@ Demonstrates the `PrimitiveTypeCardanoPoolDelegation` primitive — a Cardano-on
 
 ```bash
 bun install
-bash link.sh        # only needed when developing inside the monorepo
 bun run dev
 ```
+
+## Link against local packages
+```
+./link.sh
+```
+
 
 Open [http://localhost:10599](http://localhost:10599)
 
@@ -83,3 +88,4 @@ Runs three phases:
 - **Phase A**: Infrastructure (YACI, Dolos health checks)
 - **Phase B**: State machine (DB schema verification)
 - **Phase C**: Playwright E2E (create wallet, fund, delegate, verify indexed data)
+

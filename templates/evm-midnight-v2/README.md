@@ -73,8 +73,11 @@ export DOCKER_DEFAULT_PLATFORM=linux/amd64
 # Build
 docker build -f ./Dockerfile . -t evm-midnight
 
-# Run
+# Run (dev mode — starts full stack)
 docker run -p 10599:10599 -p 9999:9999 -p 8545:8545 -p 8546:8546 -p 8088:8088 -p 6300:6300 -p 9944:9944 evm-midnight
+
+# Run tests inside container
+docker run evm-midnight bun run test
 
 # Open:
 # dApp: http://localhost:10599/

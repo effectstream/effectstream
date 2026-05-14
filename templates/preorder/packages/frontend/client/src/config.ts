@@ -1,4 +1,4 @@
-export const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:9999";
+export const API_BASE = import.meta.env.VITE_API_URL ?? "";
 export const EVM_RPC = import.meta.env.VITE_EVM_RPC || "http://localhost:8545";
 export const CHAIN_ID = 31337;
 

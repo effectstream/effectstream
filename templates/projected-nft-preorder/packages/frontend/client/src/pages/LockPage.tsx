@@ -365,8 +365,9 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
     const name = decodeAssetName(nft.assetNameHex);
 
     return (
-      <NftCard key={nft.unit} assetHex={nft.unit} name={name}>
-        <div data-testid="wallet-nft-card" style={{ fontSize: "0.78rem", color: colors.textDim }}>
+      <div data-testid="wallet-nft-card" key={nft.unit}>
+      <NftCard assetHex={nft.unit} name={name}>
+        <div style={{ fontSize: "0.78rem", color: colors.textDim }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.35rem" }}>
             <span style={{ color: colors.muted }}>Policy</span>
             <span>{truncateHash(nft.policyId, 18)}</span>
@@ -381,6 +382,7 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
           </button>
         </div>
       </NftCard>
+      </div>
     );
   };
 
@@ -391,18 +393,19 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
     const unit = `${lock.policy_id}${lock.asset_name}`;
 
     return (
-      <NftCard key={lock.id} assetHex={unit} name={name}>
-        <div data-testid="lock-card" style={{ fontSize: "0.75rem", color: colors.textDim }}>
+      <div data-testid="lock-card" key={lock.id}>
+      <NftCard assetHex={unit} name={name}>
+        <div style={{ fontSize: "0.75rem", color: colors.textDim }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
             <span style={badge(st.color, st.bg)}>{st.label}</span>
-            <span style={{ color: colors.mutedLight, fontSize: "0.68rem" }}>#{lock.block_height}</span>
+            <span style={{ color: colors.mutedLight, fontSize: "0.68rem" }}>Block #{lock.block_height}</span>
           </div>
           <div style={{ marginBottom: "0.15rem" }}>
             <span style={{ color: colors.muted }}>Owner </span>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {truncateAddress(lock.owner_address)}
             </span>
-            {owned && <span style={{ color: colors.primary, fontWeight: 600, fontSize: "0.68rem" }}> YOU</span>}
+            {owned && <span style={{ color: colors.primary, fontWeight: 600, fontSize: "0.68rem" }}> (YOU)</span>}
           </div>
           {lock.for_how_long && (
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.15rem" }}>
@@ -445,6 +448,7 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
           )}
         </div>
       </NftCard>
+      </div>
     );
   };
 
@@ -470,7 +474,7 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
           {!wallet.connected ? (
             <p style={emptyCol}>Connect a wallet to see your NFTs.</p>
           ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+            <div data-testid="mint-section" style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
               {renderMintCard()}
               {walletNfts.map(renderWalletNftCard)}
             </div>

@@ -11,8 +11,6 @@ import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "./grammar.ts";
 import { BuyItemsPrimitive } from "./primitives.ts";
-import { CardanoTransferPrimitive, PrimitiveTypeCardanoTransfer } from "./cardano-transfer-primitive.ts";
-
 main(function* () {
   yield* init();
   console.log("Starting Preorder Sync Node (Local)");
@@ -28,7 +26,6 @@ main(function* () {
       grammar,
       userDefinedPrimitives: {
         "EVM:BUY-ITEMS": BuyItemsPrimitive,
-        [PrimitiveTypeCardanoTransfer]: CardanoTransferPrimitive,
       },
     });
   });

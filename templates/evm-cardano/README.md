@@ -61,3 +61,4 @@ Runs all test phases:
 1. **Infrastructure** — EVM chain responds, YACI + Dolos respond
 2. **State Machine** — Mint NFT → events table, Cardano topup → events table
 3. **Playwright E2E** — Headless Chromium tests: dashboard renders, mint/send flows, event feed, chain stats, API endpoints
+
