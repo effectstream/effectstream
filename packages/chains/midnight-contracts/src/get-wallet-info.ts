@@ -165,6 +165,57 @@ export function safeStringifyProgress(value: unknown): string {
   }
 }
 
+/** Facade `dust` subtree may expose SDK `walletBalance`, older `balance`, or both — take the max safe bigint read. */
+export function resolveFacadeDustBalance(facadeState: unknown, at: Date = new Date()): bigint {
+  const d = (facadeState as { dust?: unknown } | null | undefined)?.dust;
+  if (d === undefined || d === null || typeof d !== "object") return 0n;
+  let w = 0n;
+  let b = 0n;
+  try {
+    const fn = (d as { walletBalance?: (t: Date) => unknown }).walletBalance;
+    if (typeof fn === "function") {
+      const v = fn.call(d, at);
+      if (typeof v === "bigint") w = v;
+    }
+  } catch {
+    /* ignore transient read errors until dust subtree fully wires */
+  }
+  try {
+    const fn = (d as { balance?: (t: Date) => unknown }).balance;
+    if (typeof fn === "function") {
+      const v = fn.call(d, at);
+      if (typeof v === "bigint") b = v;
+    }
+  } catch {
+    /* ignore */
+  }
+  return w > b ? w : b;
+}
+
+function resolveDustHeartbeatPollMs(waitNonZero: boolean, override?: number): number {
+  if (override !== undefined) return Math.max(0, Math.floor(override));
+  if (!waitNonZero) return 0;
+  const raw = getEnv("MIDNIGHT_WAIT_DUST_POLL_INTERVAL_MS");
+  if (raw !== undefined && raw !== "") {
+    if (raw === "0") return 0;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+  }
+  return 7500;
+}
+
+/** Re-samples façade state periodically so stalled WS / indexer streams still advance `waitForDustFunds`. */
+function facadeStateWithHeartbeat(
+  wallet: WalletFacade,
+  pollMs: number,
+): Rx.Observable<unknown> {
+  if (pollMs <= 0) return wallet.state();
+  return Rx.combineLatest([
+    wallet.state(),
+    Rx.interval(pollMs).pipe(Rx.startWith(-1 as const)),
+  ]).pipe(Rx.map(([s]) => s));
+}
+
 /**
  * Wait for wallet to be synced and funded
  */
@@ -249,7 +300,7 @@ export async function syncAndWaitForFunds(
 
   let dustBalance = 0n;
   try {
-    dustBalance = state.dust?.balance?.(new Date()) ?? 0n;
+    dustBalance = resolveFacadeDustBalance(state, new Date());
   } catch (_err) {
     log.warn("Could not read dust balance from synced state; continuing with dustBalance=0");
   }
@@ -259,10 +310,25 @@ export async function syncAndWaitForFunds(
 
 /**
  * Wait for dust wallet sync and return dust balance if available.
+ *
+ * Uses the main wallet facade's `state()` observable (which continues
+ * emitting as new blocks arrive) rather than the internal dust wallet's
+ * state (which stops emitting after initial sync, causing timeouts when
+ * dust hasn't appeared yet).
+ *
+ * When `waitNonZero` is true, combines `wallet.state()` with a ticker (default
+ * interval 7500ms, overridden by `MIDNIGHT_WAIT_DUST_POLL_INTERVAL_MS` or `0`
+ * to disable) so stalled WebSocket subscriptions still re-read the façade.
  */
 export async function waitForDustFunds(
   wallet: WalletFacade,
-  optionsOrTimeout?: number | { timeoutMs?: number; waitNonZero?: boolean }
+  optionsOrTimeout?:
+    | number
+    | {
+      timeoutMs?: number;
+      waitNonZero?: boolean;
+      dustPollIntervalMs?: number;
+    },
 ): Promise<bigint> {
   log.info("Waiting for dust wallet to sync and receive funds...");
 
@@ -272,45 +338,44 @@ export async function waitForDustFunds(
 
   const syncTimeoutMs = options?.timeoutMs ?? resolveWalletSyncTimeoutMs();
   const waitNonZero = options?.waitNonZero ?? false;
+  const pollMs = resolveDustHeartbeatPollMs(waitNonZero, options?.dustPollIntervalMs);
+  if (pollMs > 0) {
+    log.info(`Dust wait: façade heartbeat poll every ${pollMs}ms (disable with MIDNIGHT_WAIT_DUST_POLL_INTERVAL_MS=0)`);
+  }
   const dustSyncStartedAt = Date.now();
 
-  const dustWallet = (wallet as any).dust;
-  if (!dustWallet || !dustWallet.state) {
-    log.warn("Dust wallet state not available; skipping dust balance wait.");
-    return 0n;
-  }
+  /** Heartbeat emits on its own cadence — do not throttle or ticks can be dropped (poll < throttle). */
+  const state$ = facadeStateWithHeartbeat(wallet, pollMs);
+  const sampled$ =
+    pollMs > 0
+      ? state$
+      : state$.pipe(Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS));
 
   const dustBalance = (await Rx.firstValueFrom(
-    (dustWallet.state as Rx.Observable<any>).pipe(
-      Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS),
-      Rx.tap((state: any) => {
+    sampled$.pipe(
+      Rx.tap((s: any) => {
         try {
           const elapsedSec = ((Date.now() - dustSyncStartedAt) / 1000).toFixed(0);
-          const complete = state.state?.progress?.isStrictlyComplete();
-          log.info(`Dust wallet sync progress (${elapsedSec}s): complete=${complete ?? "unknown"}`);
-        } catch (_err) {
-          // ignore logging errors
-        }
-      }),
-      Rx.filter((state: any) => {
-        try {
-          return state.state?.progress?.isStrictlyComplete() === true;
-        } catch (_err) {
-          return false;
-        }
-      }),
-      Rx.map((state: any) => {
-        try {
-          if (typeof state.balance === "function") {
-            return state.balance(new Date()) as bigint;
+          const d = s?.dust ?? {};
+          const at = new Date();
+          let w = "?";
+          let b = "?";
+          try {
+            if (typeof d.walletBalance === "function") w = String(d.walletBalance(at));
+          } catch {
+            /* ignore */
           }
+          try {
+            if (typeof d.balance === "function") b = String(d.balance(at));
+          } catch {
+            /* ignore */
+          }
+          const bal = resolveFacadeDustBalance(s, at);
+          log.info(`Dust wallet sync progress (${elapsedSec}s): walletBalance=${w} balance()=${b} resolved=${bal}`);
         } catch (_err) {
-          // fall through
         }
-        return 0n;
       }),
-      // Apply timeout after filtering so `Rx.timeout({ each })` is not reset on
-      // every synced-but-still-zero balance emission while waiting for dust.
+      Rx.map((s: any) => resolveFacadeDustBalance(s)),
       Rx.filter((balance: bigint) => !waitNonZero || balance > 0n),
       Rx.timeout({
         each: syncTimeoutMs,
@@ -774,32 +839,20 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
       (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload)
     );
 
-    const signedRecipe = await (walletResult.wallet as any).signRecipe(
-      recipe,
-      (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
-    );
-
+    // Signing happens inside `registerNightUtxosForDustGeneration` via the callback.
+    // Do not call `signRecipe` or `signUnprovenTransaction` — that double-signs and
+    // the node rejects the extrinsic (Rpc 1010 / Custom error 192).
     log.info("Submitting dust registration transaction...");
     const txId = await walletResult.wallet.submitTransaction(
-      await (walletResult.wallet as any).finalizeRecipe(signedRecipe),
+      await (walletResult.wallet as any).finalizeRecipe(recipe),
     );
     log.info(`Dust registration submitted with tx id: ${txId}`);
 
     log.info("Waiting for dust to be generated...");
-    await Rx.firstValueFrom(
-      walletResult.wallet.state().pipe(
-        Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS),
-        Rx.tap((s: any) => {
-          const dustBalance = s.dust?.balance?.(new Date()) ?? 0n;
-          log.info(`Current dust balance: ${dustBalance}`);
-        }),
-        Rx.filter((s: any) => (s.dust?.balance?.(new Date()) ?? 0n) > 0n),
-        Rx.timeout({
-          each: resolveWalletSyncTimeoutMs(),
-          with: () => Rx.throwError(() => new Error("Timeout waiting for dust generation"))
-        })
-      )
-    );
+    await waitForDustFunds(walletResult.wallet, {
+      waitNonZero: true,
+      timeoutMs: resolveWalletSyncTimeoutMs(),
+    });
 
     log.info("Dust registration complete!");
     return true;
@@ -951,7 +1004,7 @@ async function main() {
 
         try {
           const state = await Rx.firstValueFrom(walletResult.wallet.state());
-          dustBalance = (state as any).dust?.balance?.(new Date()) ?? 0n;
+          dustBalance = resolveFacadeDustBalance(state, new Date());
 
           if (dustBalance === 0n) {
             log.info("Dust balance is 0. Attempting to sync dust wallet...");

@@ -14,8 +14,8 @@ import {
 import {
   buildWalletFacade as sdkBuildWalletFacade,
   getInitialShieldedState as sdkGetInitialShieldedState,
-  resolveWalletSyncTimeoutMs as sdkResolveWalletSyncTimeoutMs,
   registerNightForDust as sdkRegisterNightForDust,
+  waitForDustFunds as sdkWaitForDustFunds,
 } from "@effectstream/midnight-contracts/wallet-info";
 import type { WalletResult as SdkWalletResult } from "@effectstream/midnight-contracts/types";
 
@@ -309,87 +309,42 @@ export async function waitForUnshieldedFunds(
 
 /**
  * Wait for dust wallet sync and return dust balance if available.
+ *
+ * Thin wrapper around `@effectstream/midnight-contracts` so this template picks
+ * up façade heartbeat polling + dual `walletBalance` / `balance` reads while
+ * still defaulting `timeoutMs` to this file’s resolver (which defaults to 5 minutes).
  */
 export async function waitForDustFunds(
   wallet: WalletFacade,
-  optionsOrTimeout?: number | { timeoutMs?: number; waitNonZero?: boolean }
+  optionsOrTimeout?:
+    | number
+    | {
+      timeoutMs?: number;
+      waitNonZero?: boolean;
+      dustPollIntervalMs?: number;
+    },
 ): Promise<bigint> {
-  log.info("Waiting for dust wallet to sync and receive funds...");
-
-  const options =
-    typeof optionsOrTimeout === "number"
-      ? { timeoutMs: optionsOrTimeout }
-      : optionsOrTimeout;
-
-  const syncTimeoutMs = options?.timeoutMs ?? resolveWalletSyncTimeoutMs();
-  const waitNonZero = options?.waitNonZero ?? false;
-
-  const dustWallet = (wallet as any).dust;
-  if (!dustWallet || !dustWallet.state) {
-    log.warn("Dust wallet state not available; skipping dust balance wait.");
-    return 0n;
+  if (optionsOrTimeout === undefined) {
+    return sdkWaitForDustFunds(wallet, {
+      timeoutMs: resolveWalletSyncTimeoutMs(),
+    });
   }
-
-  const dustBalance = (await Rx.firstValueFrom(
-    dustWallet.state.pipe(
-      Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
-      Rx.tap((state: any) => {
-        try {
-          const progress = (state as any).state?.progress;
-          const complete = progress?.isStrictlyComplete?.();
-          log.info(`Dust wallet sync progress: complete=${complete ?? "unknown"}`);
-        } catch (_err) {
-        }
-      }),
-      Rx.filter((state: any) => {
-        try {
-          const progress = (state as any).state?.progress;
-          return progress?.isStrictlyComplete?.() === true;
-        } catch (_err) {
-          return false;
-        }
-      }),
-      Rx.map((state: any) => {
-        try {
-          if (typeof state.balance === "function") {
-            return state.balance(new Date());
-          }
-          if (typeof state.walletBalance === "function") {
-            return state.walletBalance(new Date());
-          }
-          const balances = state.balances;
-          if (balances) {
-            return Object.values(balances).reduce(
-              (acc: bigint, v) => acc + BigInt((v as any) ?? 0),
-              0n
-            );
-          }
-        } catch (_err) {
-        }
-        return 0n;
-      }),
-      Rx.timeout({
-        each: syncTimeoutMs,
-        with: () =>
-          Rx.throwError(
-            () => new Error(`Dust wallet sync timeout after ${syncTimeoutMs}ms`)
-          ),
-      }),
-      Rx.filter((balance: bigint) => !waitNonZero || balance > 0n),
-      Rx.tap((balance: bigint) => {
-        if (balance > 0n) log.info(`Dust wallet balance: ${balance}`);
-      })
-    )
-  )) as bigint;
-
-  return dustBalance;
+  if (typeof optionsOrTimeout === "number") {
+    return sdkWaitForDustFunds(wallet, optionsOrTimeout);
+  }
+  const { timeoutMs, ...rest } = optionsOrTimeout;
+  return sdkWaitForDustFunds(wallet, {
+    ...rest,
+    timeoutMs: timeoutMs ?? resolveWalletSyncTimeoutMs(),
+  });
 }
 
 /**
  * Register unshielded Night UTXOs for dust generation.
  *
- * Delegates to the SDK's implementation, which uses the new
- * `signUnprovenTransaction` / `finalizeTransaction` flow.
+ * Delegates to `@effectstream/midnight-contracts`: the SDK signs inside
+ * `registerNightUtxosForDustGeneration`; the helper finalizes with `finalizeRecipe`
+ * only (no `signRecipe` — transfers still use `signRecipe` + `finalizeRecipe`).
  */
 export async function registerNightForDust(walletResult: WalletResult): Promise<boolean> {
   return sdkRegisterNightForDust(walletResult);
