@@ -61,14 +61,14 @@ export class EffectstreamL2Primitive extends Primitive<
   readonly contractAddress: EvmAddress;
   override grammar = [];
   readonly effectstreamL2Grammar: GrammarDefinition;
-  readonly securityNamespace: SecurityNamespace;
+  readonly securityNamespace: SecurityNamespace | undefined;
 
   constructor(config: {
     instanceName: string;
     startBlockHeight: number;
     contractAddress: EvmAddress;
     effectstreamL2Grammar: GrammarDefinition;
-    securityNamespace: SecurityNamespace;
+    securityNamespace: SecurityNamespace | undefined;
   }) {
     super({ ...config, stateMachinePrefix: undefined });
     this.contractAddress = Value.Decode(

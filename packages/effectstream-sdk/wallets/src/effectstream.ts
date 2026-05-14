@@ -15,7 +15,14 @@ import { BuiltinEvents, EventManager } from "@effectstream/event-client";
  * communication. It sets up the location of the Effectstream L2 Contact.
  */
 export class EffectstreamConfig {
-  public appName: string;
+  /**
+   * Security namespace string the user wallet signs into every batched message.
+   * Must match the server's `setSecurityNamespace(...)` (or, when the server uses
+   * a transition object, one of its `read.prefixes`) for the primitive's
+   * re-verification to admit the input. `undefined` / `""` means no namespace
+   * (legacy null-prefixed signing).
+   */
+  public securityNamespace: string | null;
   public effectstreamL2SyncProtocolName: string;
   public effectstreamL2ContractAddress: EvmAddress;
   public effectstreamL2Abi: AbiItem[];
@@ -26,7 +33,7 @@ export class EffectstreamConfig {
   public preferBatchedMode: boolean = false;
 
   constructor(
-    appName: string | undefined,
+    securityNamespace: string | undefined,
     effectstreamL2SyncProtocolName: string,
     effectstreamL2ContractAddress: EvmAddress,
     effectstreamL2Chain: Chain,
@@ -34,7 +41,9 @@ export class EffectstreamConfig {
     batcherURL: string | undefined,
     preferBatchedMode: boolean = false,
   ) {
-    this.appName = appName ?? "";
+    this.securityNamespace = securityNamespace && securityNamespace.length > 0
+      ? securityNamespace
+      : null;
 
     this.effectstreamL2SyncProtocolName = effectstreamL2SyncProtocolName;
     this.effectstreamL2ContractAddress = effectstreamL2ContractAddress;
@@ -338,7 +347,7 @@ export async function sendBatcherTransaction(
   const timestamp = Date.now().toString();
   const signature = await wallet.provider.signMessage(
     createMessageForBatcher(
-      effectstreamConfig.appName,
+      effectstreamConfig.securityNamespace,
       timestamp,
       wallet.provider.getAddress().address,
       wallet.provider.getAddress().type,

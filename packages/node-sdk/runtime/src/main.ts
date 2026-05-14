@@ -292,7 +292,7 @@ function* startup(
 const processPrimitives = (
   primitives: {primitive: any, id: string}[],
   primitiveIndex: number,
-  securityNamespace: SecurityNamespace,
+  securityNamespace: SecurityNamespace | undefined,
   userDefinedPrimitives?: Record<string, any>,
 ) => {
     const primitiveType = primitives[primitiveIndex].primitive.type;
