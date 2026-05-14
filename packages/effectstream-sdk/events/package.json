@@ -20,6 +20,7 @@
     "abitype": "1.1.0",
     "assert-never": "^1.4.0",
     "js-sha3": "^0.9.3",
+    "@seriousme/opifex": "^1.11.2",
     "mqtt": "^5.14.0",
     "mqtt-pattern": "^2.1.0"
   },

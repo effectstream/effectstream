@@ -1,120 +1,143 @@
-import Aedes from 'aedes';
-import type { Server } from 'aedes-server-factory';
-import { createServer } from "aedes-server-factory";
-import ip from "ip";
-import { ENV } from "@effectstream/utils/node-env";
+import { createServer, type Server } from 'node:net';
+import { MqttServer, AuthenticationResult } from '@seriousme/opifex/server';
+import type { Context, SockConn, Handlers } from '@seriousme/opifex/server';
+import { ENV } from '@effectstream/utils/node-env';
 
-const localhostIPv4Range = ip.cidrSubnet('127.0.0.0/8');
-const localhostIPv6Range = ip.cidrSubnet('::1/128');
-const ipv4MappedIPv6LocalhostRange = ip.cidrSubnet('::ffff:127.0.0.0/104');
-
-function isLocalhost(ipAddress: string | undefined): boolean {
-  // note: this only detects simple cases (ex: you're not mapping different hostnames to localhost)
-  if (!ipAddress) return false;
-  try {
-    const isV4 = ip.isV4Format(ipAddress);
-    if (isV4 && localhostIPv4Range.contains(ipAddress)) return true;
-    // NOTE v4 addresses like 192.168.1.100 are detected as an IPV6 address 
-    //     and the *.contains(ipAddress) checks give false positives.
-    const isV6 = ip.isV6Format(ipAddress);
-    if (!isV4 && isV6 && localhostIPv6Range.contains(ipAddress)) return true;
-    if (!isV4 && isV6 && ipv4MappedIPv6LocalhostRange.contains(ipAddress)) return true;
-  } catch {
-    /* ignore - format errors throw if invalid IP */
-  }
-  return false;
+function isLocalhost(addr: string): boolean {
+  return addr === '127.0.0.1' || addr === '::1' || addr.startsWith('::ffff:127.');
 }
 
-/*
- * This class implements a local MQTT Broker.
- */
+function wrapNodeSocket(socket: import('node:net').Socket): SockConn {
+  const readable = new ReadableStream<Uint8Array>({
+    type: 'bytes',
+    start(controller) {
+      socket.on('data', (data: Uint8Array) => {
+        controller.enqueue(data);
+        if ((controller.desiredSize ?? 0) <= 0) socket.pause();
+      });
+      socket.on('error', (err) => controller.error(err));
+      socket.on('end', () => {
+        controller.close();
+        controller.byobRequest?.respond(0);
+      });
+    },
+    pull: () => { socket.resume(); },
+    cancel: () => { socket.end(); },
+  });
+
+  const writable = new WritableStream<Uint8Array>({
+    write(chunk) { socket.write(chunk); },
+    close() { socket.end(); },
+    abort() { socket.destroy(); },
+  });
+
+  const remoteAddr = {
+    hostname: socket.remoteAddress || '',
+    port: socket.remotePort || 0,
+    transport: 'tcp',
+  };
+
+  return { readable, writable, close: () => { if (!socket.closed) socket.end(); }, remoteAddr };
+}
+
+type WsConnectionState = {
+  controller: ReadableByteStreamController | null;
+};
+
+function createWsServer(port: number, mqttServer: MqttServer): ReturnType<typeof Bun.serve> {
+  return Bun.serve({
+    port,
+    hostname: '127.0.0.1',
+    fetch(req, server) {
+      const upgraded = server.upgrade(req, {
+        data: { controller: null } satisfies WsConnectionState,
+      });
+      if (upgraded) return undefined;
+      return new Response('MQTT WebSocket endpoint', { status: 200 });
+    },
+    websocket: {
+      binaryType: 'arraybuffer',
+      open(ws) {
+        const state = ws.data as WsConnectionState;
+
+        const readable = new ReadableStream<Uint8Array>({
+          type: 'bytes',
+          start(controller) {
+            state.controller = controller;
+          },
+          cancel() { ws.close(); },
+        });
+
+        const writable = new WritableStream<Uint8Array>({
+          write(chunk) { ws.send(chunk); },
+          close() { ws.close(); },
+        });
+
+        const sockConn: SockConn = { readable, writable, close: () => ws.close() };
+        mqttServer.serve(sockConn);
+      },
+      message(ws, message) {
+        const state = ws.data as WsConnectionState;
+        const data = message instanceof ArrayBuffer
+          ? new Uint8Array(message)
+          : new TextEncoder().encode(message as string);
+        state.controller?.enqueue(data);
+      },
+      close(ws) {
+        const state = ws.data as WsConnectionState;
+        try { state.controller?.close(); } catch { /* already closed */ }
+      },
+    },
+  });
+}
+
 export class EventBroker {
-  constructor(private broker: 'effectstream-engine' | 'Batcher') {}
-  private static aedes: Aedes.default | null = null;
-  private static server: Server | null = null;
-  /*
-   * Get & Init Server Singleton
-   */
-  public createServer(): Server {
+  private mqttServer: MqttServer;
+  private tcpServer: Server | null = null;
+  private wsServer: ReturnType<typeof Bun.serve> | null = null;
+
+  constructor(private broker: 'effectstream-engine' | 'Batcher') {
     this.checkEnabled();
-    if (EventBroker.server) return EventBroker.server;
 
-    EventBroker.aedes = Aedes.createBroker();
-    EventBroker.aedes.authorizePublish = (
-      client,
-      packet,
-      callback
-    ): void => {
-      // We need to allow only localhost to publish.
-      
-      // NOTE: Using deno `client?.req?.socket?.remoteAddress` is undefined.
-      //       This was defined correctly when using node.js runtime.
-      // 
-      // This is a workaround for the following issue:
-      // https://github.com/denoland/deno/issues/30707
-      //
-      // In https://github.com/denoland/deno/pull/20120 these new fields were added:
-      // Symbol(kHandle) and Symbol(kStreamBaseField).
-      //
-      // client.req.socket[Symbol(kHandle)][Symbol(kStreamBaseField)] = { 
-      //   remoteAddr: { hostname: '127.0.0.1' },
-      //   localAddr: { hostname: '127.0.0.1' },
-      // }
-      // This remoteAddr is correctly defined.
-      //
-      let remoteAddr: string | undefined;
-      let symbolKStreamBaseField: symbol | undefined;
-      const symbolKHandle = Object.getOwnPropertySymbols(
-        client?.req?.socket ?? {}
-      ).find((symbol) => symbol.toString() === 'Symbol(kHandle)');
-
-      if (symbolKHandle) {
-        symbolKStreamBaseField = Object.getOwnPropertySymbols(
-          (client?.req?.socket as any)[symbolKHandle]
-        ).find((symbol) => symbol.toString() === 'Symbol(kStreamBaseField)');
-      }
-
-      if (symbolKStreamBaseField) {
-        remoteAddr = (
-          (client?.req?.socket as any)[symbolKHandle as any][
-            symbolKStreamBaseField as any
-          ].remoteAddr as any
-        ).hostname;
-      }
-
-      /**
-       * to avoid players injecting commands into the Paima Engine node
-       * ex: publishing node/block/200 to try and make the node think block 200 got created
-       * we only allow receiving messages that come from localhost
-       *
-       * recall: Paima Engine node is just one client connecting to this broker
-       * note: there is no good way to different other localhost process from the Paima Engine node
-       *       as they are all just localhost processes connecting to this broker
-       *       so this localhost check could be stricter, but this should be sufficient
-       */
-      if (isLocalhost(remoteAddr)) {
-        return callback(null);
-      }
-
-      // for some reason, mqtt-cli requires this topic
-      // https://github.com/Anasnew99/mqtt-cli/blob/29ba08e66da397bdab16723c93b59ecb51d2da3e/src/index.ts#L158
-      if (packet.topic === '/ping_req_sys') {
-        return callback(null);
-      }
-
-      console.error('Filtering message from non-localhost');
-      callback(new Error('Messages must come from localhost'));
+    const handlers: Handlers = {
+      isAuthenticated: () => AuthenticationResult.ok,
+      isAuthorizedToPublish: (ctx: Context) => {
+        const addr = ctx.mqttConn.remoteAddress;
+        if (isLocalhost(addr)) return true;
+        console.error('Filtering MQTT publish from non-localhost:', addr);
+        return false;
+      },
+      isAuthorizedToSubscribe: () => true,
     };
 
-    EventBroker.server = createServer(EventBroker.aedes, {
-      ws: true,
+    this.mqttServer = new MqttServer({ handlers });
+  }
+
+  public createServer(): void {
+    void this.start();
+  }
+
+  public async start(): Promise<void> {
+    const tcpPort = this.getTcpPort();
+    const wsPort = this.getWsPort();
+
+    this.tcpServer = createServer((sock) => {
+      this.mqttServer.serve(wrapNodeSocket(sock));
     });
 
-    // WEBSOCKET PROTOCOL SERVER
-    EventBroker.server.listen(this.getPort(), () =>
-      console.log("MQTT-WS Server Started at PORT " + this.getPort())
-    );
-    return EventBroker.server;
+    await new Promise<void>((resolve) => {
+      this.tcpServer!.on('listening', () => resolve());
+      this.tcpServer!.listen(tcpPort, '127.0.0.1');
+    });
+    console.log(`MQTT TCP Server [${this.broker}] started on port ${tcpPort}`);
+
+    this.wsServer = createWsServer(wsPort, this.mqttServer);
+    console.log(`MQTT WS Server [${this.broker}] started on port ${wsPort}`);
+  }
+
+  public stop(): void {
+    this.tcpServer?.close();
+    this.wsServer?.stop(true);
   }
 
   private checkEnabled(): void {
@@ -123,16 +146,21 @@ export class EventBroker {
     }
   }
 
-  private getPort(): number {
+  private getTcpPort(): number {
     switch (this.broker) {
-      // TODO: use env vars without duplicating default here
-    case 'effectstream-engine': {
+      case 'effectstream-engine':
         return ENV.MQTT_ENGINE_BROKER_PORT;
-      }
-      case 'Batcher': {
+      case 'Batcher':
         return ENV.MQTT_BATCHER_BROKER_PORT;
-      }
     }
-    throw new Error('Unknown engine');
+  }
+
+  private getWsPort(): number {
+    switch (this.broker) {
+      case 'effectstream-engine':
+        return ENV.MQTT_ENGINE_BROKER_WS_PORT;
+      case 'Batcher':
+        return ENV.MQTT_BATCHER_BROKER_WS_PORT;
+    }
   }
 }

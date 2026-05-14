@@ -23,6 +23,11 @@ const LAUNCHER = path.resolve(import.meta.dirname!, "../evm/launcher.cli.ts");
 async function test() {
   let db: ReturnType<typeof getDBConnection> | null = null;
   try {
+    // ── MQTT tests (standalone, no chain infra needed) ──────────────────
+    console.log("\n--- MQTT Tests ---\n");
+    const { mqttTest } = await import("./mqtt/mqtt.test.ts");
+    await mqttTest();
+
     // ── pgtyped tests (standalone PGLite, must run before infra claims port 5432)
     console.log("\n--- pgtyped:update Tests ---\n");
     const { pgtypedTest } = await import("./pgtyped/run-tests.ts");

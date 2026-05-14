@@ -16,9 +16,7 @@
   },
   "dependencies": {
     "@effectstream/utils": "workspace:*",
-    "aedes": "^0.51.3",
-    "aedes-server-factory": "^0.2.1",
-    "ip": "^2.0.1"
+    "@seriousme/opifex": "^1.11.2"
   },
   "description": "Event server for EffectStream"
 }
