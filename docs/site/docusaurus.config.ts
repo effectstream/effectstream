@@ -179,30 +179,10 @@ const config = {
         },
       }
     ],
-    [
-      // we use this plugin instead of using iframes so that the content is all statically searchable
-      "docusaurus-plugin-remote-content",
-      {
-          // run `yarn update:prc` to update the files
-          name: "prc", // used by CLI, must be path safe
-          sourceBaseUrl: "https://raw.githubusercontent.com/PaimaStudios/PRC/main/PRCS/",
-          outDir: "docs/home/20000-PRCs", // the base directory to output to.
-          documents: (async () => getMarkdownFiles())(), // the file names to download
-          modifyContent(filename, content) {
-            // replace (../ so that relative URLS turn into absolute URLs
-            let modifiedContent = content;
-            const fileWithoutExtension = filename.replace(/.md$/, '');
-            modifiedContent = modifiedContent.replace(/title: (.*)(?=\r?\n)/g, `title: ${fileWithoutExtension}：$1`);
-            modifiedContent = modifiedContent.replace(/\(\.\.\//g, "(https://raw.githubusercontent.com/PaimaStudios/PRC/main/");
-            return {
-              filename,
-              content: modifiedContent,
-            };
-          },
-          // otherwise this updates too often and you run into the github api limit
-          noRuntimeDownloads: true
-      },
-    ]
+    // PRC specs are now maintained as static MD files under
+    // docs/home/400-paima-standards/. The previous docusaurus-plugin-remote-content
+    // entry was removed when those pages were rewritten to include EffectStream
+    // integration appendices.
   ],
   stylesheets: [
     {
