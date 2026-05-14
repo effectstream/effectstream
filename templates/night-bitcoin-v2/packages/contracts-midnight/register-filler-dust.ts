@@ -99,11 +99,12 @@ async function registerOneFiller(
       `[${index + 1}/${total}] synced in ${((Date.now() - t0) / 1000).toFixed(1)}s — unshielded NIGHT: ${unshieldedSum}`,
     );
 
-    // 3-step registration flow per the current Midnight Wallet Developer
-    // Guide & Migration 2.0 docs. We bypass the published SDK helper because
-    // its version does an extra `signUnprovenTransaction` + calls the older
-    // `finalizeTransaction` instead of `finalizeRecipe`, which makes the node
-    // reject the extrinsic with "Custom error: 192".
+    // Ledger v8 registration: `signRecipe` → `finalizeRecipe` →
+    // `submitTransaction`. (Skipping `signRecipe` and calling `finalizeRecipe`
+    // on an unsigned recipe produces a tx that the node drops during validation;
+    // the SDK helper historically used `signUnprovenTransaction` +
+    // `finalizeTransaction` on `recipe.transaction` and hit error 192 — both are
+    // wrong for v8.)
     //
     // The node permits this tx to be fee-paid via *virtual DUST* (the dust
     // that would have accrued on the NIGHT UTXO since its creation), so a
@@ -128,8 +129,13 @@ async function registerOneFiller(
         keystore.getPublicKey(),
         (payload: Uint8Array) => keystore.signData(payload),
       );
+      log.info(`[${index + 1}/${total}] signing registration recipe`);
+      const signedRecipe = await wallet.signRecipe(
+        recipe,
+        (payload: Uint8Array) => keystore.signData(payload),
+      );
       log.info(`[${index + 1}/${total}] finalizing recipe`);
-      const finalized = await wallet.finalizeRecipe(recipe);
+      const finalized = await wallet.finalizeRecipe(signedRecipe);
       log.info(`[${index + 1}/${total}] submitting registration tx`);
       const txId = await wallet.submitTransaction(finalized);
       log.info(

@@ -18,7 +18,6 @@ import {
   LedgerParameters,
   ZswapSecretKeys,
   shieldedToken,
-  type UnprovenTransaction,
 } from "@midnight-ntwrk/ledger-v8";
 
 const log = console;
@@ -310,6 +309,9 @@ export async function waitForDustFunds(
         }
         return 0n;
       }),
+      // Apply timeout after filtering so `Rx.timeout({ each })` is not reset on
+      // every synced-but-still-zero balance emission while waiting for dust.
+      Rx.filter((balance: bigint) => !waitNonZero || balance > 0n),
       Rx.timeout({
         each: syncTimeoutMs,
         with: () =>
@@ -317,7 +319,6 @@ export async function waitForDustFunds(
             () => new Error(`Dust wallet sync timeout after ${syncTimeoutMs}ms`)
           ),
       }),
-      Rx.filter((balance: bigint) => !waitNonZero || balance > 0n),
       Rx.tap((balance: bigint) => {
         if (balance > 0n) log.info(`Dust wallet balance: ${balance}`);
       })
@@ -773,14 +774,14 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
       (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload)
     );
 
-    const signedRecipe: UnprovenTransaction = await (walletResult.wallet as any).signUnprovenTransaction(
-      recipe.transaction,
+    const signedRecipe = await (walletResult.wallet as any).signRecipe(
+      recipe,
       (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
     );
 
     log.info("Submitting dust registration transaction...");
     const txId = await walletResult.wallet.submitTransaction(
-      await (walletResult.wallet as any).finalizeTransaction(signedRecipe)
+      await (walletResult.wallet as any).finalizeRecipe(signedRecipe),
     );
     log.info(`Dust registration submitted with tx id: ${txId}`);
 
