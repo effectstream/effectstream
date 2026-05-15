@@ -21,25 +21,19 @@ bun add @effectstream/coroutine
 npm install @effectstream/coroutine
 ```
 
-## Standalone usage
+## Usage
 
-This package is **only useful inside an EffectStream node**. It defines the
-generator protocol that `@effectstream/runtime` interprets — the
-`QueuedUpdate` shape, the `ExecPromise` shape, and the `World.resolve` /
-`World.all` / `World.promise` helpers that produce them. Without a runtime
-that executes those yields against a database connection, the generators
-return nothing meaningful.
+This package pairs with [`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime),
+which executes the generator protocol defined here. A state-transition
+function is a generator that yields SQL queries (paired with their typed
+inputs via `@pgtyped/runtime`); the runtime advances the generator after
+each query is executed, threading the results back in. `World.resolve`
+is how a transition asks the runtime "run this typed SQL query and give
+me the rows back".
 
-If you're a node author, you'll use it through `@effectstream/sm`, which
-wraps these primitives in the state-machine DSL.
-
-## Inside EffectStream
-
-A state-transition function is a generator that yields SQL queries (paired
-with their typed inputs via `@pgtyped/runtime`); the runtime advances the
-generator after each query is executed, threading the results back in.
-`World.resolve` is how a transition asks the runtime "run this typed SQL
-query and give me the rows back".
+Most node authors reach for this through
+[`@effectstream/sm`](https://www.npmjs.com/package/@effectstream/sm),
+which wraps these primitives in the state-machine DSL.
 
 ```typescript
 import { World } from "@effectstream/coroutine";

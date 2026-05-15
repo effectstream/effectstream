@@ -21,13 +21,17 @@ bun add @effectstream/sm
 npm install @effectstream/sm
 ```
 
-## Standalone usage
+## Usage
 
-The DSL itself runs without a database — you can author and even
-`processInput` test fixtures against an `Stm` in a pure-TS unit test
-(see [`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts)).
-What's missing is the runtime: nothing executes the SQL the generators
-yield until `@effectstream/runtime` drives the loop.
+This package pairs with [`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime),
+which drives a per-block loop that calls `stm.processInput(...)` for every
+batcher subunit, collects the SQL yielded by your generators, and commits
+it inside a per-block postgres transaction. You author the DSL here;
+the runtime executes it.
+
+The DSL is also directly testable in a pure-TS unit test (parse + dispatch
+without a database) — see
+[`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts).
 
 ```typescript
 import { Stm } from "@effectstream/sm";

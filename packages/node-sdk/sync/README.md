@@ -13,17 +13,18 @@ bun add @effectstream/sync
 npm install @effectstream/sync
 ```
 
-## Standalone usage
+## Usage
 
-This is a **runtime-only module**. The exports describe the protocol the
-node's main loop expects, not a self-contained CLI. Use it through
-`@effectstream/node-sdk/sync` once `@effectstream/runtime` has booted the
-node — sync is started for you when `start()` runs against a config that
-declares one or more sync protocols.
+This package pairs with [`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime),
+which boots sync as part of `start()`: it calls `genSyncProtocols(...)`
+against the `syncProtocols` section of your
+[`@effectstream/config`](https://www.npmjs.com/package/@effectstream/config),
+then drives the resulting fetcher + state pairs every block. As an app
+author you declare which protocols to sync in your config; everything
+else runs automatically.
 
-If you're building a new chain integration, the sync-protocol interfaces
-in [`src/sync-protocols/`](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/sync/src/sync-protocols)
-are what you implement.
+If you're building a new chain integration, implement the sync-protocol
+interfaces in [`src/sync-protocols/`](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/sync/src/sync-protocols).
 
 ## Inside EffectStream
 

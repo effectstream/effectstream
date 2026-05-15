@@ -43,9 +43,8 @@ await standAloneApplyMigrations(
 ```
 
 You're left with a database that has every EffectStream system table
-plus your migrations applied. The state machine isn't running — you
-can read and write directly with whichever client you got from
-`getConnection()`.
+plus your migrations applied, ready for tests to read and write
+directly against the client returned by `getConnection()`.
 
 > Use only against ephemeral / in-memory databases. The function
 > assumes it owns the schema.
