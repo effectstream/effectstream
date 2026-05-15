@@ -1,4 +1,12 @@
-# @effectstream/evm-hardhat
+---
+title: "@effectstream/evm-hardhat"
+description: "Hardhat deployment and JSON-RPC utilities for EffectStream"
+sidebar_label: "evm-hardhat"
+---
+
+{/* Generated from packages/chains/evm-hardhat/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+
+> Package: **[`@effectstream/evm-hardhat`](https://www.npmjs.com/package/@effectstream/evm-hardhat)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/evm-hardhat)
 
 Hardhat tooling for EVM-side EffectStream development: a JSON-RPC
 server wrapper, deploy helpers, address bookkeeping, and the Solidity

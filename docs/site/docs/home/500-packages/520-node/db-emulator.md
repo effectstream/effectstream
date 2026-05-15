@@ -1,4 +1,12 @@
-# @effectstream/db-emulator
+---
+title: "@effectstream/db-emulator"
+description: "In-memory test database for EffectStream"
+sidebar_label: "db-emulator"
+---
+
+{/* Generated from packages/node-sdk/db-emulator/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+
+> Package: **[`@effectstream/db-emulator`](https://www.npmjs.com/package/@effectstream/db-emulator)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db-emulator)
 
 A standalone migration runner for EffectStream's database. Apply your
 schema to a Postgres or PgLite instance from a test or a script without
@@ -52,7 +60,7 @@ don't need it: the runtime's startup path runs migrations itself.
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/db-emulator/test/examples.test.ts).
 
 The full pattern in action: most templates'
 `packages/node/db-up.ts` wire `standAloneApplyMigrations` into their

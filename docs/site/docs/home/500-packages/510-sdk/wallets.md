@@ -1,4 +1,12 @@
-# @effectstream/wallets
+---
+title: "@effectstream/wallets"
+description: "Wallet connector integrations for EffectStream"
+sidebar_label: "wallets"
+---
+
+{/* Generated from packages/effectstream-sdk/wallets/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+
+> Package: **[`@effectstream/wallets`](https://www.npmjs.com/package/@effectstream/wallets)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/wallets)
 
 Browser wallet connectors for EffectStream apps. One uniform API spans
 MetaMask (and any EVM-injected wallet), Cardano (CIP-30), Midnight, Mina,
@@ -76,8 +84,8 @@ flow straight into `@effectstream/batcher-sdk`.
 ## Examples
 
 Runnable examples that exercise the connector API with a mock wallet:
-[`src/utils.test.ts`](./src/utils.test.ts) and
-[`test/examples.test.ts`](./test/examples.test.ts). Both run as part of
+[`src/utils.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/wallets/src/utils.test.ts) and
+[`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/wallets/test/examples.test.ts). Both run as part of
 `bun test ./packages`.
 
 Real-world integration in the templates: the EVM frontend uses

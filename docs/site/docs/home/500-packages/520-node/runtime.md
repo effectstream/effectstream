@@ -1,0 +1,99 @@
+---
+title: "@effectstream/runtime"
+description: "State machine runtime for EffectStream"
+sidebar_label: "runtime"
+---
+
+{/* Generated from packages/node-sdk/runtime/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+
+> Package: **[`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/runtime)
+
+The state-machine runtime — the loop that ties sync, state machine,
+database, events, and HTTP API together inside an EffectStream node.
+Boot it with `init()` then drive it with `start(config)` and your node
+is up.
+
+## Install
+
+```bash
+bun add @effectstream/runtime
+# or
+npm install @effectstream/runtime
+```
+
+In practice you'll depend on `@effectstream/node-sdk/runtime` instead —
+which re-exports everything here — so app code only has to import one
+package.
+
+## Standalone usage
+
+This package **owns the node's process model**. You don't pick parts of
+it; you call `init()` once at boot and then `start(config)`. The config
+brings together everything else:
+
+```typescript
+import { init, start } from "@effectstream/runtime";
+import { Stm } from "@effectstream/sm";
+import { config } from "./config.dev.ts";
+
+await init();
+
+const gameStm = new Stm(grammar);
+gameStm.addStateTransition("join", function* () { /* ... */ });
+
+await start({
+  config,
+  gameStateTransitions: [gameStm],
+  apiRouter: undefined,           // optional Fastify route plugin
+  dbMigrations: [],               // SQL migrations
+});
+```
+
+While running, the runtime:
+
+- Reads finalized blocks via `@effectstream/sync`.
+- Routes batcher inputs through your registered `Stm`s.
+- Commits all yielded SQL inside a per-block transaction.
+- Publishes lifecycle and app events via `@effectstream/event-server`.
+- Serves the optional Fastify API.
+- Emits OpenTelemetry traces and logs through `@effectstream/log`.
+
+## Inside EffectStream
+
+`@effectstream/runtime` is the conductor: it doesn't define any chain
+integrations or queries itself, but every other node package only gets
+exercised when this loop is running. The `StartConfig` shape determines
+which DB migrations apply, which state machines fire, and whether the
+runtime exposes a Fastify router.
+
+## Key exports
+
+- `init()` — `Operation<void>`. One-shot setup: OpenTelemetry, config validation, version pinning. Call before `start`.
+- `start(config: StartConfig)` — `Operation<void>`. Run the node loop until cancelled.
+
+Types you'll see in `StartConfig`:
+
+- `StartConfig` — root config shape (config, state transitions, migrations, API router).
+- `StartConfigGameStateTransitions` — `Stm[]` your node wants to register.
+- `StartConfigApiRouter` — Fastify plugin function for custom HTTP routes.
+- `DBMigrations` — versioned SQL migrations.
+- `PrimitiveConstructor<T>` — extension point for new primitives.
+- `VERSION` — `${number}.${number}.${number}` literal type for version pinning.
+- Pagination helpers re-exported from `./api/pagination.ts`.
+
+## Examples
+
+The templates under
+[`templates/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates)
+are full working `init()` + `start()` examples. The simplest is
+[`templates/minimal/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/minimal).
+
+End-to-end EVM sync test:
+[`e2e/evm/sync/`](https://github.com/PaimaStudios/paima-engine/tree/main/e2e/evm/sync).
+
+Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/runtime/test/examples.test.ts).
+
+## Links
+
+- Docs: https://effectstream.github.io/docs/packages/node/runtime
+- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/runtime

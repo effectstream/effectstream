@@ -1,4 +1,12 @@
-# @effectstream/npm-midnight-indexer
+---
+title: "@effectstream/npm-midnight-indexer"
+description: "Downloads and runs the Midnight Indexer. It needs a running Midnight Node"
+sidebar_label: "midnight-indexer"
+---
+
+{/* Generated from packages/binaries/midnight-indexer/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+
+> Package: **[`@effectstream/npm-midnight-indexer`](https://www.npmjs.com/package/@effectstream/npm-midnight-indexer)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/midnight-indexer)
 
 A Node.js package that downloads and runs the
 [Midnight](https://midnight.network) Indexer. The indexer requires a running
