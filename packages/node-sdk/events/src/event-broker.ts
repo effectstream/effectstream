@@ -12,23 +12,45 @@ function wrapNodeSocket(socket: import('node:net').Socket): SockConn {
     type: 'bytes',
     start(controller) {
       socket.on('data', (data: Uint8Array) => {
-        controller.enqueue(data);
-        if ((controller.desiredSize ?? 0) <= 0) socket.pause();
+        try {
+          controller.enqueue(data);
+          if ((controller.desiredSize ?? 0) <= 0) socket.pause();
+        } catch { /* controller already closed */ }
       });
-      socket.on('error', (err) => controller.error(err));
+      socket.on('error', (err) => {
+        try { controller.error(err); } catch { /* already closed */ }
+      });
       socket.on('end', () => {
-        controller.close();
-        controller.byobRequest?.respond(0);
+        try { controller.close(); } catch { /* already closed */ }
+      });
+      socket.on('close', () => {
+        try { controller.close(); } catch { /* already closed */ }
       });
     },
-    pull: () => { socket.resume(); },
-    cancel: () => { socket.end(); },
+    pull: () => { if (!socket.destroyed) socket.resume(); },
+    cancel: () => { if (!socket.destroyed) socket.end(); },
   });
 
+  // Bun has a bug in its WritableStream→Node-Writable adapter: chunks queued
+  // before close() flush AFTER the internal Node Writable is marked ended,
+  // throwing ERR_STREAM_WRITE_AFTER_END from inside the adapter before our
+  // user write() callback gets a chance to guard. To avoid this we never
+  // explicitly end the socket via WritableStream's close/abort hooks — let
+  // the peer's TCP FIN / socket-level error close it naturally. Any remaining
+  // queued writes hit a still-open socket and either succeed or fail in our
+  // user callback where we can swallow them.
+  // TODO: revert to explicit socket.end()/destroy() once Bun fixes the
+  // adapter's queue semantics around close.
   const writable = new WritableStream<Uint8Array>({
-    write(chunk) { socket.write(chunk); },
-    close() { socket.end(); },
-    abort() { socket.destroy(); },
+    write(chunk) {
+      if (socket.destroyed || socket.writableEnded || socket.closed) return;
+      try {
+        socket.write(chunk);
+      } catch { /* socket closed between check and write */ }
+    },
+    // Intentionally empty — see comment above.
+    close() { /* let the peer / close() field below tear down the socket */ },
+    abort() { /* same */ },
   });
 
   const remoteAddr = {
@@ -37,7 +59,16 @@ function wrapNodeSocket(socket: import('node:net').Socket): SockConn {
     transport: 'tcp',
   };
 
-  return { readable, writable, close: () => { if (!socket.closed) socket.end(); }, remoteAddr };
+  return {
+    readable,
+    writable,
+    close: () => {
+      if (!socket.destroyed && !socket.writableEnded) {
+        try { socket.end(); } catch { /* already ended */ }
+      }
+    },
+    remoteAddr,
+  };
 }
 
 type WsConnectionState = {
@@ -49,7 +80,19 @@ function createWsServer(port: number, mqttServer: MqttServer): ReturnType<typeof
     port,
     hostname: '127.0.0.1',
     fetch(req, server) {
+      // MQTT-over-WebSocket (RFC 6455 + MQTT 3.1.1 §6.0): the client sends
+      // `Sec-WebSocket-Protocol: mqtt` (or `mqttv3.1`). RFC 6455 requires the
+      // server to echo back one of the offered subprotocols, otherwise
+      // compliant clients (mqtt.js, paho, etc.) abort the handshake.
+      // Without this echo, browser-side MQTT subscriptions silently never
+      // connect — and only TCP clients (e.g. our own Opifex TcpClient
+      // backend-to-broker connection) keep working.
+      const requested = req.headers.get('sec-websocket-protocol');
+      const offered = requested?.split(',').map((s) => s.trim()) ?? [];
+      const accepted =
+        offered.find((p) => p === 'mqtt' || p === 'mqttv3.1') ?? 'mqtt';
       const upgraded = server.upgrade(req, {
+        headers: { 'Sec-WebSocket-Protocol': accepted },
         data: { controller: null } satisfies WsConnectionState,
       });
       if (upgraded) return undefined;
@@ -65,15 +108,30 @@ function createWsServer(port: number, mqttServer: MqttServer): ReturnType<typeof
           start(controller) {
             state.controller = controller;
           },
-          cancel() { ws.close(); },
+          cancel() {
+            try { ws.close(); } catch { /* already closed */ }
+          },
         });
 
         const writable = new WritableStream<Uint8Array>({
-          write(chunk) { ws.send(chunk); },
-          close() { ws.close(); },
+          write(chunk) {
+            // Same guard as wrapNodeSocket — peer-initiated close must not
+            // crash Opifex's writer.
+            if (ws.readyState !== WebSocket.OPEN) return;
+            try { ws.send(chunk); } catch { /* closed between check and send */ }
+          },
+          close() {
+            try { ws.close(); } catch { /* already closed */ }
+          },
         });
 
-        const sockConn: SockConn = { readable, writable, close: () => ws.close() };
+        const sockConn: SockConn = {
+          readable,
+          writable,
+          close: () => {
+            try { ws.close(); } catch { /* already closed */ }
+          },
+        };
         mqttServer.serve(sockConn);
       },
       message(ws, message) {

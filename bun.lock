@@ -993,6 +993,7 @@
         "@effectstream/coroutine": "workspace:*",
         "@effectstream/crypto": "workspace:*",
         "@effectstream/db": "workspace:*",
+        "@effectstream/event-client": "workspace:*",
         "@effectstream/log": "workspace:*",
         "@effectstream/utils": "workspace:*",
         "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",

@@ -1,0 +1,12 @@
+{
+  "name": "@preorder/shared",
+  "version": "1.0.0",
+  "license": "MIT",
+  "exports": {
+    "./app-events": "./app-events.ts"
+  },
+  "dependencies": {
+    "@effectstream/event-client": "0.100.13",
+    "@sinclair/typebox": "0.34.41"
+  }
+}

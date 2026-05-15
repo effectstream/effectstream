@@ -183,7 +183,132 @@ export async function mqttTest() {
       return received.length === 1 && received[0] === "qos2-payload";
     });
 
-    // Test 5: multiple subscribers receive same message
+    // Test 5: registerEvents auto-prepends blockHeight + roundtrip via raw client
+    //
+    // Verifies the SDK invariants for custom app events without depending on
+    // EventManager's hard-coded broker URL (a separate, pre-existing TODO in
+    // event-connect.ts). We declare an event with `registerEvents`, derive the
+    // MQTT topic from its `path` + `fillPath`, and publish via raw TcpClient.
+    //
+    // This proves:
+    //   - the path carries `blockHeight` as an auto-prepended indexed field,
+    //     BEFORE the user-declared indexed fields
+    //   - a subscriber on the auto-injected topic shape receives the message
+    //
+    // The full end-to-end test (STF emit → block COMMIT → MQTT delivery) lives
+    // in the preorder template's stm/frontend tests, where the runtime is set
+    // up with a real Pool.
+    await assert("registerEvents: blockHeight auto-prepend + roundtrip", async () => {
+      const { registerEvents, genEvent, fillPath } = await import(
+        "@effectstream/event-client"
+      );
+      const { Type } = await import("@sinclair/typebox");
+
+      // The `as any` casts here work around a pre-existing typebox version
+      // mismatch between @e2e/features (^0.34.30) and the SDK packages (0.34.41).
+      // The runtime shapes are identical; only the symbol-keyed type brand
+      // differs. See e2e/evm/grammar.ts for the same workaround.
+      const TestEvents = registerEvents({
+        WidgetUpdated: genEvent({
+          name: "WidgetUpdated",
+          fields: [
+            { name: "widgetId", type: Type.Integer() as any, indexed: true },
+            { name: "value", type: Type.Number() as any },
+          ],
+        } as any),
+      });
+
+      // The path should be: ['app', topicHash, 'blockHeight', {arg}, 'widgetId', {arg}]
+      // i.e. blockHeight comes BEFORE the user-declared indexed fields.
+      const path = TestEvents.WidgetUpdated.path;
+      const stringSegments = path.filter((p: any) => typeof p === "string");
+      const blockHeightFirst = stringSegments.includes("blockHeight") &&
+        stringSegments.indexOf("blockHeight") < stringSegments.indexOf("widgetId");
+      if (!blockHeightFirst) {
+        console.error("Path missing blockHeight or in wrong position:", path);
+        return false;
+      }
+
+      // Build the concrete topic the runtime would produce after auto-injecting
+      // blockHeight=100 and a user-supplied widgetId=7.
+      const concreteTopic = fillPath(path as any, {
+        blockHeight: 100,
+        widgetId: 7,
+      } as any);
+
+      // Subscribe with a `+` wildcard on blockHeight and a `+` wildcard on
+      // widgetId via the `fillPath` undefined-handling. This matches what the
+      // frontend's typical `filter: { blockHeight: undefined, widgetId: undefined }`
+      // produces.
+      const wildcardTopic = fillPath(path as any, {
+        blockHeight: undefined,
+        widgetId: undefined,
+      } as any);
+
+      const sub = new TcpClient();
+      await sub.connect({
+        url: new URL(`mqtt://127.0.0.1:${MQTT_PORT}`),
+        numberOfRetries: 0,
+      });
+      await sub.subscribe({
+        subscriptions: [{ topicFilter: wildcardTopic, qos: 2 }],
+      });
+
+      const received: { topic: string; payload: any }[] = [];
+      const msgPromise = (async () => {
+        for await (const msg of sub.messages()) {
+          received.push({
+            topic: msg.topic!,
+            payload: JSON.parse(
+              new TextDecoder().decode(msg.payload as Uint8Array),
+            ),
+          });
+          break;
+        }
+      })();
+
+      await delay(100);
+
+      // Mimic what the runtime does at post-COMMIT flush time: publish on the
+      // concrete topic with the non-indexed body fields as JSON.
+      const pub = new TcpClient();
+      await pub.connect({
+        url: new URL(`mqtt://127.0.0.1:${MQTT_PORT}`),
+        numberOfRetries: 0,
+      });
+      await pub.publish({
+        topic: concreteTopic,
+        payload: new TextEncoder().encode(JSON.stringify({ value: 3.14 })),
+        qos: 2,
+      });
+
+      await Promise.race([msgPromise, delay(5000)]);
+
+      await pub.disconnect();
+      await sub.disconnect();
+
+      if (received.length !== 1) {
+        console.error("Did not receive 1 message, got:", received.length);
+        return false;
+      }
+      // Topic should contain both block height and widget id segments.
+      if (!received[0].topic.includes("/100/")) {
+        console.error("Topic missing blockHeight segment:", received[0].topic);
+        return false;
+      }
+      if (!received[0].topic.endsWith("/7")) {
+        console.error("Topic missing widgetId segment:", received[0].topic);
+        return false;
+      }
+      // Payload should carry the non-indexed body.
+      if (received[0].payload.value !== 3.14) {
+        console.error("Payload mismatch:", received[0].payload);
+        return false;
+      }
+      return true;
+    });
+
+    // Test 6: multiple subscribers receive same message
     await assert("MQTT multiple subscribers receive same message", async () => {
       const client1 = new TcpClient();
       const client2 = new TcpClient();

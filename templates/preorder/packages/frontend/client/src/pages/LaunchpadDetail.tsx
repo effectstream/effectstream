@@ -10,6 +10,8 @@ import { OrderFooter } from "../components/OrderFooter.tsx";
 import { useWallet } from "../wallet/WalletContext.tsx";
 import { useLog } from "../logs/LogContext.tsx";
 import { ETH_TO_ADA_RATE, ZERO_ADDRESS, MOCK_USDC_ADDRESS } from "../config.ts";
+import { EventManager } from "@effectstream/event-client";
+import { AppEvents } from "@preorder/shared/app-events";
 
 type Item = {
   id: number;
@@ -112,6 +114,66 @@ export function LaunchpadDetail({
       });
   }, [apiUrl, slug]);
 
+  // Subscribe to PreorderPlaced events for the active wallet on this launchpad.
+  //
+  // This is the AUTHORITATIVE refresh trigger — it fires after the engine has
+  // committed the STF (read-your-writes invariant I1), so every subsequent
+  // /api/* fetch is guaranteed to see the new rows. The old "refresh on
+  // tx submit" path was racy: it fired the moment the client sent the tx,
+  // not when the engine processed it, and frequently rendered stale data.
+  //
+  // The filter narrows by `buyer` (this wallet) and the current launchpad
+  // address; `blockHeight: undefined` matches any block (wildcards via MQTT `+`).
+  // For Cardano payments, the launchpad address in the event payload is the
+  // EVM address (matchingLaunchpad.address in state-machine.ts), so the same
+  // subscription covers both chains for a given launchpad.
+  useEffect(() => {
+    if (!walletAddress || !data) return;
+    let sym: symbol | undefined;
+    let cancelled = false;
+    EventManager.Instance.subscribe(
+      {
+        topic: AppEvents.PreorderPlaced,
+        filter: {
+          buyer: walletAddress.toLowerCase(),
+          launchpad: data.address.toLowerCase(),
+          blockHeight: undefined,
+        },
+      },
+      (event: any) => {
+        addLog(
+          event.participationValid ? "success" : "error",
+          `PreorderPlaced @ block ${event.blockHeight}`,
+          `items=${JSON.stringify(event.itemIds)} qty=${JSON.stringify(event.quantities)} valid=${event.participationValid}`,
+        );
+        // Authoritative post-COMMIT refresh of (a) per-item purchased counts
+        // (via setData) and (b) per-user state (MyPurchases + priorSpend, via
+        // refreshKey). One MQTT event drives the whole UI update.
+        fetch(`${apiUrl}/api/launchpad/${slug}`)
+          .then((r) => r.json())
+          .then((d: any) => {
+            setData(d);
+            setRefreshKey((k) => k + 1);
+          })
+          .catch((e) => addLog("error", "Refresh after event failed", e.message));
+      },
+    )
+      .then((s) => {
+        if (cancelled) {
+          EventManager.Instance.unsubscribe(s);
+        } else {
+          sym = s;
+        }
+      })
+      .catch((err) =>
+        addLog("error", "PreorderPlaced subscribe failed", String(err)),
+      );
+    return () => {
+      cancelled = true;
+      if (sym) EventManager.Instance.unsubscribe(sym);
+    };
+  }, [walletAddress, data, apiUrl, slug]);
+
   const updateCart = (itemId: number, delta: number) => {
     if (delta < 0) setActivePackages(new Set());
     setCart((prev) => {
@@ -168,6 +230,17 @@ export function LaunchpadDetail({
   const hasItems = Object.keys(cart).length > 0;
 
   const handlePurchaseComplete = (purchasedCart?: Record<number, number>) => {
+    // Two-layer refresh for the user's own purchase:
+    //   1. Optimistic immediate update of `localPurchases` so the cart UI
+    //      reflects the purchase before the chain is even mined.
+    //   2. Polling refetch of /api/launchpad — repeats up to a few times
+    //      because the chain → primitive → STF → COMMIT pipeline takes a
+    //      bounded amount of time. We don't know exactly how long.
+    //
+    // The MQTT subscription below provides a third refresh path for events
+    // from OTHER actors (multi-tab, multi-user) and serves as a redundancy
+    // signal for the current user. With both paths active, the UI catches
+    // up regardless of which one delivers first.
     setLastTx(true);
     if (purchasedCart) {
       setLocalPurchases((prev) => {

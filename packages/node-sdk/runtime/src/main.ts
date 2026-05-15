@@ -28,7 +28,7 @@ import {
   until,
 } from "effection";
 import { initTelemetry } from "./telemetry.ts";
-import { processFinalizedBlock } from "./process-blocks.ts";
+import { type PendingEvent, processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
@@ -41,17 +41,41 @@ import { validateAndSnapshotConfig } from "./config-snapshot.ts";
 
 export function* init() {
   // Prevent transient network errors (broken pipes, closed connections) from
-  // crashing the process via unhandled promise rejections. The sync loop's
-  // tryYield already retries on error — this just keeps the process alive.
-  globalThis.addEventListener("unhandledrejection", (event) => {
+  // crashing the process. Use the Node-style `process.on` API — Bun's
+  // implementation respects this consistently. The Web API
+  // `globalThis.addEventListener("unhandledrejection", ...).preventDefault()`
+  // does not reliably stop Bun from exiting on rejection.
+  //
+  // Two specific errors we must swallow:
+  //
+  // 1. ERR_STREAM_WRITE_AFTER_END — Bun's WritableStream→Node-Writable adapter
+  //    in @effectstream/event-server's wrapNodeSocket queues chunks that may
+  //    flush AFTER the writer is closed. This raises from inside the adapter,
+  //    before our user write() guards. The peer has closed; dropping these
+  //    residual MQTT PUBACK/etc. writes is correct.
+  //    TODO: remove once Bun fixes the adapter queue semantics on close.
+  //
+  // 2. Generic broken-pipe / connection-reset on MQTT publish.
+  //    Pre-existing behavior — sync's `tryYield` retries the network call.
+  const handleError = (err: any) => {
+    const code = err?.code;
+    if (
+      code === "ERR_STREAM_WRITE_AFTER_END" ||
+      code === "EPIPE" ||
+      code === "ECONNRESET"
+    ) {
+      return;
+    }
     log.local(
       ComponentNames.EFFECTSTREAM_RUNTIME,
-      "unhandled-rejection",
+      "unhandled-error",
       SeverityNumber.WARN,
-      (l) => l("Suppressed unhandled rejection:", event.reason),
+      (l) => l("Suppressed unhandled error:", err),
     );
-    event.preventDefault();
-  });
+  };
+
+  process.on("uncaughtException", handleError);
+  process.on("unhandledRejection", handleError);
 
   // initialize OpenTelemetry
   yield* initTelemetry();
@@ -147,16 +171,22 @@ export function* start(config: StartConfig): Operation<void> {
     // For PGLite, this is not enough, as the can only be one connection at a time.
     // So we request a DBMutex as well.
     let dbClient: Client | undefined;
+    // Custom app events emitted by STFs during this block. Collected by
+    // processFinalizedBlock and flushed below ONLY after it returns — i.e.
+    // strictly after the block's COMMIT. See plan invariant I1.
+    let blockAppEvents: PendingEvent[] = [];
     try {
       yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
       dbClient = yield* until((dbConn as any).connect()); // Client,
 
-      blockHash = yield* processFinalizedBlock(
+      const result = yield* processFinalizedBlock(
         value,
         config,
         dbClient as any, // Client,
         blockHash,
       );
+      blockHash = result.blockHash;
+      blockAppEvents = result.events;
     } finally {
       releaseDBMutex(`processing-blocks:${value.blockNumber}`);
       if (dbClient) {
@@ -166,14 +196,38 @@ export function* start(config: StartConfig): Operation<void> {
 
     // Used to emit & log the block range for each protocol.
     const contentBlocksForProtocol = getRangesForSyncProtocols(value);
-  
-    yield* until(
-      emitLatestBlocks(
-        value.blockNumber,
-        value.timestamp,
-        contentBlocksForProtocol,
-      ),
+
+    // Fire-and-forget: do not stall the sync loop on broker acks.
+    //
+    // Opifex's TcpClient assigns packet IDs synchronously in client.publish()
+    // and writes to the socket via Node's net.Socket, which has its own write
+    // queue — so concurrent publish() calls land on the wire in call order.
+    // MQTT 3.1.1 §4.6 then guarantees in-order delivery to each subscriber
+    // per (publisher, topic, QoS). We don't need a wrapper queue.
+    //
+    // TODO(scaling): the broker runs in-process (see `new EventBroker(...)`
+    // above). Fan-out to N subscribers consumes the same event loop as block
+    // processing. At ~thousands of subscribers, consider:
+    //   1) moving the broker to a worker / separate process,
+    //   2) a publisher-side circuit breaker if ctx.unresolvedPublish.size > N
+    //      (drop events with a counter for observability).
+    // Today: localhost, in-process, expected O(10²) subscribers — non-issue.
+    emitLatestBlocks(
+      value.blockNumber,
+      value.timestamp,
+      contentBlocksForProtocol,
     );
+    for (const { event, payload } of blockAppEvents) {
+      EventManager.Instance.sendMessage(event, payload as any).catch((err) => {
+        log.local(
+          ComponentNames.EFFECTSTREAM_RUNTIME,
+          "event-publish",
+          SeverityNumber.WARN,
+          (l) =>
+            l(`publish ${event.path.join("/")} failed: ${String(err)}`),
+        );
+      });
+    }
 
     const lagMs = Date.now() - value.timestamp;
     const lagSuffix = lagThresholdMs != null && lagMs > lagThresholdMs
@@ -208,24 +262,40 @@ function getRangesForSyncProtocols(value: ChainBlock): Record<string, [number, n
   return contentBlocksForProtocol;
 }
 
-async function emitLatestBlocks(
+/**
+ * Publish built-in block-level events.
+ *
+ * Fire-and-forget for the same reasons as the app-event flush above
+ * (do not stall the sync loop; ordering preserved by Opifex + MQTT 3.1.1).
+ *
+ * Errors are caught locally so they don't escape to the global
+ * `unhandledrejection` handler without context.
+ */
+function emitLatestBlocks(
   rollUpBlockHeight: number,
   rollUpBlockTimestamp: number,
   syncChains: Record<string, [number, number]>,
-) {
-  return await Promise.all([
-    EventManager.Instance.sendMessage(BuiltinEvents.RollupBlock, {
-      block: rollUpBlockHeight,
-      timestamp: rollUpBlockTimestamp,
-    }),
-    ...Object.entries(syncChains).map(([chainName, [_, toBlock]]) =>
-      EventManager.Instance.sendMessage(BuiltinEvents.SyncChains, {
-        chain: chainName,
-        block: toBlock,
-        rollup: rollUpBlockHeight
-      })
-    ),
-  ]);
+): void {
+  const logFailure = (topic: string) => (err: unknown) =>
+    log.local(
+      ComponentNames.EFFECTSTREAM_RUNTIME,
+      "event-publish",
+      SeverityNumber.WARN,
+      (l) => l(`publish ${topic} failed: ${String(err)}`),
+    );
+
+  EventManager.Instance.sendMessage(BuiltinEvents.RollupBlock, {
+    block: rollUpBlockHeight,
+    timestamp: rollUpBlockTimestamp,
+  }).catch(logFailure("RollupBlock"));
+
+  for (const [chainName, [_, toBlock]] of Object.entries(syncChains)) {
+    EventManager.Instance.sendMessage(BuiltinEvents.SyncChains, {
+      chain: chainName,
+      block: toBlock,
+      rollup: rollUpBlockHeight,
+    }).catch(logFailure(`SyncChains/${chainName}`));
+  }
 }
 
 function* startup(

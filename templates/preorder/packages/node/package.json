@@ -27,6 +27,7 @@
     "viem": "^2.23.14",
     "@preorder/contracts-cardano": "workspace:*",
     "@preorder/contracts-evm": "workspace:*",
-    "@preorder/database": "workspace:*"
+    "@preorder/database": "workspace:*",
+    "@preorder/shared": "workspace:*"
   }
 }

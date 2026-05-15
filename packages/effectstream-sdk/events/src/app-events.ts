@@ -1,17 +1,32 @@
 import type {
   ArgPath,
   BrokerName,
+  EventAddHashFields,
   ExcludeFromTuple,
   LogEvent,
   LogEventFields,
+  MaybeIndexedLogEventFields,
   OutputKeypairToObj,
   RemoveAllIndexed,
   TransformAllEventInput,
 } from './types.ts';
-import { toPath, TopicPrefix } from './types.ts';
+import { addHashes, toPath, TopicPrefix } from './types.ts';
 import type { TSchema, Static, TObject } from '@sinclair/typebox';
+import { Type } from '@sinclair/typebox';
 import sha3 from 'js-sha3';
 const { keccak_256 } = sha3;
+
+/**
+ * Indexed field auto-prepended to every event registered via `registerEvents`.
+ * The runtime closure fills `blockHeight` from `BaseStfInput.blockHeight`, so
+ * app code never sets it manually. Lets subscribers filter by block range
+ * (or wildcard with `blockHeight: undefined`) for free.
+ */
+const BLOCK_HEIGHT_FIELD = {
+  name: 'blockHeight',
+  type: Type.Integer(),
+  indexed: true,
+} as const satisfies MaybeIndexedLogEventFields<TSchema>;
 
 type Data<T extends LogEvent<LogEventFields<TSchema>[]>> = {
   name: T['name'];
@@ -67,20 +82,58 @@ export type RegisteredEvent<T extends LogEvent<LogEventFields<TSchema>[]>> = {
    */
   topicHash: string;
 };
+
+/**
+ * Prepend the auto `blockHeight` indexed field, then run `addHashes` so
+ * indexed fields of complex types are hashed for MQTT topic compatibility.
+ *
+ * Both transformations happen before `toPath` so the path / topic shape
+ * reflects the final field list.
+ */
+function prepareEventForRegistration<T extends LogEvent<LogEventFields<TSchema>[]>>(
+  event: T
+): LogEvent<LogEventFields<TSchema>[]> {
+  const withBlockHeight: LogEvent<LogEventFields<TSchema>[]> = {
+    name: event.name,
+    fields: [BLOCK_HEIGHT_FIELD, ...event.fields],
+  };
+  return addHashes(withBlockHeight as any) as unknown as LogEvent<LogEventFields<TSchema>[]>;
+}
+
+/**
+ * The precise type of the post-prepare event combines `EventAddHashFields`
+ * (for indexed complex types) and the `blockHeight` field prepend. TypeScript
+ * can't statically verify that this nested tuple transform satisfies
+ * `LogEvent<LogEventFields<TSchema>[]>` — the tuple→array widening is unsound
+ * for varying optional `hashed` flags. We surface a wider `RegisteredEvent`
+ * type here; consumers reach into `.definition` for the typed field shape.
+ *
+ * The runtime shape IS compatible (toPath accepts it and produces the right
+ * topic path), and apps subscribing don't need the precise field tuple — they
+ * just need `path`, `broker`, `type`, `topicHash`, all of which are correct.
+ *
+ * Future work: a properly-typed `RegisteredAppEvent<T>` helper that exposes
+ * the full transformed field type so `filter` and event-callback args get
+ * IDE-precise inference for indexed/non-indexed splits.
+ */
 export const registerEvents = <const T extends Record<string, LogEvent<LogEventFields<TSchema>[]>>>(
   entries: T
 ): {
-  [K in keyof T]: RegisteredEvent<T[K]>;
+  [K in keyof T]: RegisteredEvent<LogEvent<LogEventFields<TSchema>[]>>;
 } => {
   return Object.fromEntries(
     Object.keys(entries).map(key => {
-      const event = entries[key];
-      const topicHash = toSignatureHash(event);
+      const prepared = prepareEventForRegistration(entries[key]);
+      // topicHash is computed from the ORIGINAL definition (without blockHeight or
+      // hash transforms) — it's the developer-visible event signature, and we
+      // don't want adding blockHeight to silently break consumers that compute
+      // hashes from the source event.
+      const topicHash = toSignatureHash(entries[key]);
       return [
         key,
         {
-          ...toPath(TopicPrefix.App, event, topicHash),
-          definition: event,
+          ...toPath(TopicPrefix.App, prepared, topicHash),
+          definition: prepared,
           topicHash,
         },
       ];

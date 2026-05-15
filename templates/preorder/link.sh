@@ -41,21 +41,25 @@ link_pkg() {
 
 link_pkg "effectstream" "cardano-contracts"  "$P/chains/cardano-contracts"
 
-# Patch: published @effectstream/runtime@0.100.12 unconditionally creates the MQTT
-# broker, which crashes in Bun (ws.createWebSocketStream is unimplemented).
-# Wrap in typeof Bun guard to skip it under Bun.
-echo ""
-echo "Patching runtime MQTT broker for Bun..."
-for main_ts in "$NM/.bun/@effectstream+runtime@"*/node_modules/@effectstream/runtime/src/main.ts; do
-  [ -f "$main_ts" ] || continue
-  if grep -q 'new EventBroker("effectstream-engine").createServer();' "$main_ts" && \
-     ! grep -q 'typeof Bun' "$main_ts"; then
-    sed -i 's|new EventBroker("effectstream-engine").createServer();|if (typeof Bun === "undefined") { new EventBroker("effectstream-engine").createServer(); }|' "$main_ts"
-    echo "  PATCHED $main_ts"
-  else
-    echo "  OK (already patched or different version)"
-  fi
-done
+# Link SDK packages that the custom-events work touches. The template's
+# node_modules normally has the published versions; we replace them with
+# symlinks to the monorepo source so dev changes take effect immediately.
+#
+# Bun's module resolver walks up from the actual file location (not the
+# symlink-from path), so workspace:* deps inside these packages resolve back
+# to the monorepo root's node_modules, which itself is a workspace install
+# pointing at the same source. The result: every internal SDK import sees
+# the monorepo source, end-to-end.
+link_pkg "effectstream" "sm"           "$P/node-sdk/sm"
+link_pkg "effectstream" "runtime"      "$P/node-sdk/runtime"
+link_pkg "effectstream" "event-server" "$P/node-sdk/events"
+link_pkg "effectstream" "event-client" "$P/effectstream-sdk/events"
+
+# NOTE: the obsolete "Patching runtime MQTT broker for Bun" block was removed.
+# The migrate/mqtt-opifex PR replaced the broker stack with @seriousme/opifex,
+# which works natively under Bun. Linking the monorepo runtime above gives us
+# the working broker; the old text-substitution patch is no longer needed and
+# would only mask new bugs.
 
 echo ""
 echo "Done."
