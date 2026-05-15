@@ -73,10 +73,8 @@ Types you'll see in callback signatures: `CallbackArgs<E>`,
 `CallbackAndMetadata<E>`, `EventPathAndDef`, `LogEvent`,
 `RegisteredEvent`.
 
-Lower-level / less-used (exported but no in-repo consumers): `EventConnect`,
-`EventBrokerNames` (enum value, vs. the imported type), `TopicPrefix`,
+Also exported: `EventConnect`, `EventBrokerNames`, `TopicPrefix`,
 `registerEvents`, `groupEvents`, `encodeEventForStf`, `toSignatureHash`.
-Kept for downstream SDK use.
 
 ## Examples
 

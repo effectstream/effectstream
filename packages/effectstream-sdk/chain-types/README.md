@@ -1,12 +1,10 @@
 # @effectstream/chain-types
 
 Type definitions and deterministic hash helpers for EffectStream blocks,
-rollup inputs, and timer triggers. Internal package — currently re-exported
-through [`@effectstream/node-sdk/chain-types`](https://www.npmjs.com/package/@effectstream/node-sdk)
-but not yet imported directly by any package or template in the
-EffectStream monorepo. Use it if you want to compute EffectStream block /
-input / timer hashes off-chain (for example, in an external indexer or
-proof system).
+rollup inputs, and timer triggers. Re-exported through
+[`@effectstream/node-sdk/chain-types`](https://www.npmjs.com/package/@effectstream/node-sdk).
+Use it to compute EffectStream block / input / timer hashes off-chain —
+for example, in an external indexer, a proof system, or a verifier.
 
 ## Install
 
@@ -51,21 +49,14 @@ const inputHashHex = hashRollupInput.hash({
 ## Inside EffectStream
 
 A small types package. The hashing helpers exist so an off-chain
-reconstruction of an EffectStream block matches what the node would have
-computed, but as of v0.100.x the runtime computes its hashes inline and
-doesn't actually import from this package. Treat the package as a stable
-schema reference + verifier kit until a future version wires it in.
+reconstruction of an EffectStream block matches what the node would
+compute — useful as a stable schema reference and verifier kit.
 
 ## Key exports
 
 - `genV1BlockHeader(mainChainInfo, prevBlockHash, successfulTxs, failedTxs)` — assembles a `PostExecutionBlockHeader<1>`.
 - `hashTransactions`, `hashBlockV1`, `hashRollupInput`, `hashTimerData` — `{ preHash, hash }` pairs. `preHash` returns the canonical string; `hash` returns `keccak256(preHash(input))`.
 - Types: `PostExecutionBlockHeader<V>`, `PreExecutionBlockHeaderV1`, `BlockVersions`, `RollupInputHashInfo`, `TimerHashInfo`, `IntrinsicPrimitive`, `ExtrinsicPrimitive`, `BasePrimitive`, `PrimitiveCommon`, plus small wire types (`InputDataString`, `NonceString`, `ScheduleTrigger`).
-
-> **Note:** none of these types are imported by other packages or templates
-> in the EffectStream monorepo today. They're exposed for downstream
-> consumers (off-chain indexers, proof systems, external tooling) — if you
-> need one, you're probably the first.
 
 ## Examples
 

@@ -115,9 +115,7 @@ tests; the in-repo batcher uses a lower-level path):
 - `createBatcherSubunit(ts, address, addressType, signature, input)` — pack a signed input into a subunit shape.
 - `hashBatchSubunit(input)` — `0x`-prefixed keccak256 over the subunit.
 
-`KeyedBatcherGrammar`, `parseRawStmInput`, `usesPrefix` are exported but
-currently have no consumers in this monorepo — kept for downstream
-SDK use.
+Also exported: `KeyedBatcherGrammar`, `parseRawStmInput`, `usesPrefix`.
 
 ## Examples
 

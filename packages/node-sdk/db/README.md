@@ -65,7 +65,7 @@ Connection management (heavily used):
 - `getConnection(creds?)` — pooled `Pool` singleton. The dominant entry point (~31 cross-package call sites).
 - `acquireDBMutex(name, priority?)` / `releaseDBMutex(name)` — coordination for PgLite (~7 cross-package call sites each).
 - `waitUntilFree()` — companion to the mutex.
-- `getPersistentConnection(creds)` — exported but currently has no in-repo consumers; intended for long-lived listeners.
+- `getPersistentConnection(creds)` — a non-pooled `Client` for long-lived listeners.
 
 Queries (pgtyped-generated, shipped under one umbrella):
 
@@ -82,7 +82,7 @@ Snapshots:
 Dynamic table / event helpers:
 
 - `createDynamicTables` — register tables a primitive wants to own.
-- `createIndexesForEvents`, `registerEventHandlers` — exported but currently have no in-repo consumers.
+- `createIndexesForEvents`, `registerEventHandlers` — register pgtyped indexes for app events.
 
 Subpath entry points (executable scripts):
 

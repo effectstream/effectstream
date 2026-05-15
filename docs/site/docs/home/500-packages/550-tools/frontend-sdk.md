@@ -9,13 +9,9 @@ sidebar_label: "frontend-sdk"
 > Package: **[`@effectstream/frontend-sdk`](https://www.npmjs.com/package/@effectstream/frontend-sdk)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/frontend)
 
 Umbrella name for EffectStream's frontend code. Currently re-exports
-everything from `@effectstream/wallets`.
-
-> **Heads up — adoption status:** as of v0.100.x, no template in this
-> monorepo imports from `@effectstream/frontend-sdk`. The templates'
-> frontends (chess-v2, evm-midnight-v2, shinkai-v2, …) import directly
-> from `@effectstream/wallets`. This package exists so app authors can
-> depend on a single name, but the templates haven't migrated yet.
+everything from `@effectstream/wallets`. Depend on this if you want a
+stable frontend namespace; import `@effectstream/wallets` directly if
+you prefer.
 
 ## Install
 
@@ -81,8 +77,7 @@ Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine
 
 Real-world: every frontend in
 [`templates/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates)
-demonstrates the same surface — though they currently import it from
-`@effectstream/wallets` rather than `@effectstream/frontend-sdk`.
+demonstrates the same surface.
 
 ## Links
 

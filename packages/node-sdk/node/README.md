@@ -2,15 +2,8 @@
 
 An umbrella package that re-exports every EffectStream runtime piece
 (runtime, state machine, sync, database, events, config, utils, concise
-schemas) under stable subpaths.
-
-> **Heads up — adoption status:** as of v0.100.x, no template or package
-> in this monorepo imports from `@effectstream/node-sdk`. Templates and
-> internal packages currently import each piece directly
-> (`@effectstream/runtime`, `@effectstream/sm`, `@effectstream/db`, …).
-> The umbrella is published so external app authors can depend on a
-> single name, but the templates haven't migrated to it yet. Choose
-> whichever style fits your project.
+schemas) under stable subpaths. Depend on this if you want a single
+name; import the underlying packages directly if you prefer.
 
 ## Install
 
@@ -22,7 +15,7 @@ npm install @effectstream/node-sdk
 
 ## Standalone usage
 
-If you adopt the umbrella, every piece is reachable from one dependency:
+Every piece is reachable from one dependency:
 
 ```typescript
 import { init, start } from "@effectstream/node-sdk/runtime";
@@ -66,9 +59,7 @@ the corresponding package:
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts) — verifies
 each subpath resolves.
 
-For real-world node code, look at the templates — they currently import
-from the individual packages, but the import paths are 1:1 mappable to
-the umbrella:
+For full working nodes, see:
 
 - [`templates/minimal/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/minimal)
 - [`templates/dice/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/dice)

@@ -21,11 +21,9 @@ bun add @effectstream/runtime
 npm install @effectstream/runtime
 ```
 
-Every template in the monorepo depends on this package directly —
-`@effectstream/runtime` is the canonical import for `init` and `start`.
-(The same surface is also reachable through
-`@effectstream/node-sdk/runtime`, but no template uses that path
-today.)
+`@effectstream/runtime` is the canonical import for `init` and `start`,
+used directly by every template. The same surface is also reachable
+through `@effectstream/node-sdk/runtime` if you prefer the umbrella.
 
 ## Standalone usage
 

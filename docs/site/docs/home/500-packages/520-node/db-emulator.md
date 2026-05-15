@@ -13,13 +13,6 @@ EffectStream system schema plus your migrations to a Postgres or PgLite
 instance without booting the full runtime — handy for unit tests and CI
 fixtures.
 
-> **Heads up — adoption status:** as of v0.100.x, this package has no
-> consumers in this monorepo. Some older templates still use the
-> equivalent helper from `@paimaexample/db-emulator` (the previous
-> package name) or a local copy. `@effectstream/db-emulator` is the
-> current canonical location for the helper; future migrations will
-> point here.
-
 ## Install
 
 ```bash
@@ -72,9 +65,8 @@ write.
 
 Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/db-emulator/test/examples.test.ts).
 
-For the broader pattern, see how templates wire migrations today
-(`templates/*/packages/client/database/sql-to-ts.ts`). They use the older
-`@paimaexample/db-emulator` import; the API is the same.
+For the broader migration pattern, see
+`templates/*/packages/client/database/sql-to-ts.ts`.
 
 ## Links
 
