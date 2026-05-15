@@ -4,7 +4,7 @@ description: "Midnight network contract interfaces for EffectStream"
 sidebar_label: "midnight-contracts"
 ---
 
-{/* Generated from packages/chains/midnight-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/chains/midnight-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/midnight-contracts`](https://www.npmjs.com/package/@effectstream/midnight-contracts)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/midnight-contracts)
 

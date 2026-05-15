@@ -4,7 +4,7 @@ description: "Async control flow for EffectStream"
 sidebar_label: "coroutine"
 ---
 
-{/* Generated from packages/effectstream-sdk/coroutine/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/effectstream-sdk/coroutine/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/coroutine`](https://www.npmjs.com/package/@effectstream/coroutine)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/coroutine)
 

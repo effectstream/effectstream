@@ -4,7 +4,7 @@ description: "Cross-chain transaction batching SDK for EffectStream"
 sidebar_label: "batcher-sdk"
 ---
 
-{/* Generated from packages/batcher/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/batcher/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/batcher-sdk`](https://www.npmjs.com/package/@effectstream/batcher-sdk)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/batcher)
 

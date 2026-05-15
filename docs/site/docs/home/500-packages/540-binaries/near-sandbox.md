@@ -4,7 +4,7 @@ description: "NEAR sandbox binary wrapper for EffectStream"
 sidebar_label: "near-sandbox"
 ---
 
-{/* Generated from packages/binaries/near-sandbox/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/binaries/near-sandbox/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/near-sandbox`](https://www.npmjs.com/package/@effectstream/near-sandbox)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/near-sandbox)
 

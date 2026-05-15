@@ -4,7 +4,7 @@ description: "EVM smart contract interfaces for EffectStream"
 sidebar_label: "evm-contracts"
 ---
 
-{/* Generated from packages/chains/evm-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/chains/evm-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/evm-contracts`](https://www.npmjs.com/package/@effectstream/evm-contracts)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/evm-contracts)
 

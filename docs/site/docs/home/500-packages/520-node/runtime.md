@@ -4,7 +4,7 @@ description: "State machine runtime for EffectStream"
 sidebar_label: "runtime"
 ---
 
-{/* Generated from packages/node-sdk/runtime/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/node-sdk/runtime/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/runtime)
 

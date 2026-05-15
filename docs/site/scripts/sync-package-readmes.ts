@@ -117,7 +117,7 @@ description: "${description.replace(/"/g, '\\"')}"
 sidebar_label: "${slug(info.name)}"
 ---
 
-{/* Generated from ${info.relDir}/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from ${info.relDir}/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[\`${info.name}\`](${npmUrl})** · [Source](${sourceUrl})
 

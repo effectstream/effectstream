@@ -4,7 +4,7 @@ description: "Shared utilities for the EffectStream framework"
 sidebar_label: "utils"
 ---
 
-{/* Generated from packages/effectstream-sdk/utils/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/effectstream-sdk/utils/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/utils`](https://www.npmjs.com/package/@effectstream/utils)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/utils)
 

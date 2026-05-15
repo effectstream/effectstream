@@ -4,7 +4,7 @@ description: "A wrapper for the Midnight proof server binary"
 sidebar_label: "midnight-proof-server"
 ---
 
-{/* Generated from packages/binaries/midnight-proof-server/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/binaries/midnight-proof-server/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/npm-midnight-proof-server`](https://www.npmjs.com/package/@effectstream/npm-midnight-proof-server)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/midnight-proof-server)
 

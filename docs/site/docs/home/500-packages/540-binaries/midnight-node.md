@@ -4,7 +4,7 @@ description: "Downloads and starts the binary for Midnight Node"
 sidebar_label: "midnight-node"
 ---
 
-{/* Generated from packages/binaries/midnight-node/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/binaries/midnight-node/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/npm-midnight-node`](https://www.npmjs.com/package/@effectstream/npm-midnight-node)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/midnight-node)
 

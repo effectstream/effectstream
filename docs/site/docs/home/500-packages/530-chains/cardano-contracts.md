@@ -4,7 +4,7 @@ description: "Cardano contract interfaces for EffectStream"
 sidebar_label: "cardano-contracts"
 ---
 
-{/* Generated from packages/chains/cardano-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/chains/cardano-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/cardano-contracts`](https://www.npmjs.com/package/@effectstream/cardano-contracts)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/cardano-contracts)
 

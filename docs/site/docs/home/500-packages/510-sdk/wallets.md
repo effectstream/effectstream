@@ -4,7 +4,7 @@ description: "Wallet connector integrations for EffectStream"
 sidebar_label: "wallets"
 ---
 
-{/* Generated from packages/effectstream-sdk/wallets/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/effectstream-sdk/wallets/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/wallets`](https://www.npmjs.com/package/@effectstream/wallets)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/wallets)
 

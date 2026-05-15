@@ -4,7 +4,7 @@ description: "Precompile utilities for EffectStream"
 sidebar_label: "precompile"
 ---
 
-{/* Generated from packages/effectstream-sdk/precompile/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/effectstream-sdk/precompile/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/precompile`](https://www.npmjs.com/package/@effectstream/precompile)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/precompile)
 

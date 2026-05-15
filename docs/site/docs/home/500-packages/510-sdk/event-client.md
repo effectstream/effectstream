@@ -4,7 +4,7 @@ description: "MQTT-based event client for EffectStream"
 sidebar_label: "event-client"
 ---
 
-{/* Generated from packages/effectstream-sdk/events/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/effectstream-sdk/events/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/event-client`](https://www.npmjs.com/package/@effectstream/event-client)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/events)
 

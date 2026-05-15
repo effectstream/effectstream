@@ -4,7 +4,7 @@ description: "Blockchain sync service for EffectStream"
 sidebar_label: "sync"
 ---
 
-{/* Generated from packages/node-sdk/sync/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/node-sdk/sync/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/sync`](https://www.npmjs.com/package/@effectstream/sync)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/sync)
 

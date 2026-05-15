@@ -4,7 +4,7 @@ description: "OpenTelemetry observability for EffectStream"
 sidebar_label: "log"
 ---
 
-{/* Generated from packages/effectstream-sdk/log/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/effectstream-sdk/log/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/log`](https://www.npmjs.com/package/@effectstream/log)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/log)
 

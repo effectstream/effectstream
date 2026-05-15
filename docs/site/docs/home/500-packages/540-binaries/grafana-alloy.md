@@ -4,7 +4,7 @@ description: "Grafana Alloy binary wrapper for EffectStream"
 sidebar_label: "grafana-alloy"
 ---
 
-{/* Generated from packages/binaries/grafana-alloy/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/binaries/grafana-alloy/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/grafana-alloy`](https://www.npmjs.com/package/@effectstream/grafana-alloy)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/grafana-alloy)
 

@@ -4,7 +4,7 @@ description: "Multi-chain local development environment for EffectStream"
 sidebar_label: "orchestrator"
 ---
 
-{/* Generated from packages/build-tools/orchestrator/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/build-tools/orchestrator/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/orchestrator`](https://www.npmjs.com/package/@effectstream/orchestrator)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/build-tools/orchestrator)
 

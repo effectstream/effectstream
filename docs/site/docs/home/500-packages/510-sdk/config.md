@@ -4,7 +4,7 @@ description: "Chain and runtime configuration for EffectStream"
 sidebar_label: "config"
 ---
 
-{/* Generated from packages/effectstream-sdk/config/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/effectstream-sdk/config/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/config`](https://www.npmjs.com/package/@effectstream/config)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/config)
 

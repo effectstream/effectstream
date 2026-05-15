@@ -4,7 +4,7 @@ description: "A wrapper for the Avail Light Client CLI"
 sidebar_label: "avail-light-client"
 ---
 
-{/* Generated from packages/binaries/avail-light-client/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/binaries/avail-light-client/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/npm-avail-light-client`](https://www.npmjs.com/package/@effectstream/npm-avail-light-client)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/avail-light-client)
 

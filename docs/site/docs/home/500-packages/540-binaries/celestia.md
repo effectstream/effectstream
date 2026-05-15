@@ -4,7 +4,7 @@ description: "Celestia binary wrapper for EffectStream"
 sidebar_label: "celestia"
 ---
 
-{/* Generated from packages/binaries/celestia/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/binaries/celestia/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/celestia`](https://www.npmjs.com/package/@effectstream/celestia)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/celestia)
 

@@ -4,7 +4,7 @@ description: "Downloads and runs the Midnight Indexer. It needs a running Midnig
 sidebar_label: "midnight-indexer"
 ---
 
-{/* Generated from packages/binaries/midnight-indexer/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/binaries/midnight-indexer/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/npm-midnight-indexer`](https://www.npmjs.com/package/@effectstream/npm-midnight-indexer)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/midnight-indexer)
 

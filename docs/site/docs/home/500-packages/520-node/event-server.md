@@ -4,7 +4,7 @@ description: "Event server for EffectStream"
 sidebar_label: "event-server"
 ---
 
-{/* Generated from packages/node-sdk/events/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/node-sdk/events/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/event-server`](https://www.npmjs.com/package/@effectstream/event-server)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/events)
 

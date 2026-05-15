@@ -4,7 +4,7 @@ description: "Bitcoin script utilities for EffectStream"
 sidebar_label: "bitcoin-contracts"
 ---
 
-{/* Generated from packages/chains/bitcoin-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/chains/bitcoin-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/bitcoin-contracts`](https://www.npmjs.com/package/@effectstream/bitcoin-contracts)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/bitcoin-contracts)
 

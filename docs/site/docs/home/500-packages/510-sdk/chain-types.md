@@ -4,7 +4,7 @@ description: "Chain-specific type definitions for EffectStream"
 sidebar_label: "chain-types"
 ---
 
-{/* Generated from packages/effectstream-sdk/chain-types/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/effectstream-sdk/chain-types/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/chain-types`](https://www.npmjs.com/package/@effectstream/chain-types)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/chain-types)
 

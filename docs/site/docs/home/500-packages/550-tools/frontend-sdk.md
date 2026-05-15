@@ -4,7 +4,7 @@ description: "React frontend SDK for EffectStream"
 sidebar_label: "frontend-sdk"
 ---
 
-{/* Generated from packages/frontend/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/frontend/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/frontend-sdk`](https://www.npmjs.com/package/@effectstream/frontend-sdk)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/frontend)
 

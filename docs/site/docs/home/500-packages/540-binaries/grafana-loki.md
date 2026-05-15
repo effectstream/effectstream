@@ -4,7 +4,7 @@ description: "Grafana Loki binary wrapper for EffectStream"
 sidebar_label: "grafana-loki"
 ---
 
-{/* Generated from packages/binaries/grafana-loki/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/binaries/grafana-loki/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/grafana-loki`](https://www.npmjs.com/package/@effectstream/grafana-loki)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/grafana-loki)
 

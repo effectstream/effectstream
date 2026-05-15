@@ -4,7 +4,7 @@ description: "Bitcoin Core binary wrapper for EffectStream"
 sidebar_label: "bitcoin-core"
 ---
 
-{/* Generated from packages/binaries/bitcoin-core/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/binaries/bitcoin-core/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/bitcoin-core`](https://www.npmjs.com/package/@effectstream/bitcoin-core)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/bitcoin-core)
 

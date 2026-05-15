@@ -4,7 +4,7 @@ description: "In-memory test database for EffectStream"
 sidebar_label: "db-emulator"
 ---
 
-{/* Generated from packages/node-sdk/db-emulator/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/node-sdk/db-emulator/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/db-emulator`](https://www.npmjs.com/package/@effectstream/db-emulator)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db-emulator)
 

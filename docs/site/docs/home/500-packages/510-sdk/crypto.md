@@ -4,7 +4,7 @@ description: "Multi-chain signature verification for EffectStream"
 sidebar_label: "crypto"
 ---
 
-{/* Generated from packages/effectstream-sdk/crypto/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/effectstream-sdk/crypto/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/crypto`](https://www.npmjs.com/package/@effectstream/crypto)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/crypto)
 

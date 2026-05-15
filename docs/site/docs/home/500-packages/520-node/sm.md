@@ -4,7 +4,7 @@ description: "State machine DSL for EffectStream"
 sidebar_label: "sm"
 ---
 
-{/* Generated from packages/node-sdk/sm/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/node-sdk/sm/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/sm`](https://www.npmjs.com/package/@effectstream/sm)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/sm)
 

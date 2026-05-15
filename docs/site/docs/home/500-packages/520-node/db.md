@@ -4,7 +4,7 @@ description: "PostgreSQL and PgLite database layer for EffectStream"
 sidebar_label: "db"
 ---
 
-{/* Generated from packages/node-sdk/db/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/node-sdk/db/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/db`](https://www.npmjs.com/package/@effectstream/db)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db)
 

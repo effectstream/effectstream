@@ -4,7 +4,7 @@ description: "Main application node SDK for EffectStream"
 sidebar_label: "node-sdk"
 ---
 
-{/* Generated from packages/node-sdk/node/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/node-sdk/node/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/node-sdk`](https://www.npmjs.com/package/@effectstream/node-sdk)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/node)
 

@@ -4,7 +4,7 @@ description: "Avail DA contract interfaces for EffectStream"
 sidebar_label: "avail-contracts"
 ---
 
-{/* Generated from packages/chains/avail-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/chains/avail-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/avail-contracts`](https://www.npmjs.com/package/@effectstream/avail-contracts)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/avail-contracts)
 

@@ -4,7 +4,7 @@ description: "Type-safe schemas for EffectStream"
 sidebar_label: "concise"
 ---
 
-{/* Generated from packages/effectstream-sdk/concise/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/effectstream-sdk/concise/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/concise`](https://www.npmjs.com/package/@effectstream/concise)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/concise)
 

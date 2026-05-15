@@ -4,7 +4,7 @@ description: "Ord binary wrapper for EffectStream"
 sidebar_label: "ord"
 ---
 
-{/* Generated from packages/binaries/ord/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. */}
+<!-- Generated from packages/binaries/ord/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
 > Package: **[`@effectstream/ord`](https://www.npmjs.com/package/@effectstream/ord)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/ord)
 
