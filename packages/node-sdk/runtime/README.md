@@ -13,9 +13,11 @@ bun add @effectstream/runtime
 npm install @effectstream/runtime
 ```
 
-In practice you'll depend on `@effectstream/node-sdk/runtime` instead —
-which re-exports everything here — so app code only has to import one
-package.
+Every template in the monorepo depends on this package directly —
+`@effectstream/runtime` is the canonical import for `init` and `start`.
+(The same surface is also reachable through
+`@effectstream/node-sdk/runtime`, but no template uses that path
+today.)
 
 ## Standalone usage
 
@@ -63,12 +65,10 @@ runtime exposes a Fastify router.
 - `init()` — `Operation<void>`. One-shot setup: OpenTelemetry, config validation, version pinning. Call before `start`.
 - `start(config: StartConfig)` — `Operation<void>`. Run the node loop until cancelled.
 
-Types you'll see in `StartConfig`:
+Types and helpers re-exported alongside `init` / `start`:
 
-- `StartConfig` — root config shape (config, state transitions, migrations, API router).
-- `StartConfigGameStateTransitions` — `Stm[]` your node wants to register.
-- `StartConfigApiRouter` — Fastify plugin function for custom HTTP routes.
-- `DBMigrations` — versioned SQL migrations.
+- `DBMigrations` — versioned SQL migrations passed into `start`.
+- `StartConfig`, `StartConfigGameStateTransitions`, `StartConfigApiRouter` — `start`'s config types. Templates type-check against these implicitly but don't usually import them by name.
 - `PrimitiveConstructor<T>` — extension point for new primitives.
 - `VERSION` — `${number}.${number}.${number}` literal type for version pinning.
 - Pagination helpers re-exported from `./api/pagination.ts`.

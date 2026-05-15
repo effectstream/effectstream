@@ -1,9 +1,14 @@
 # @effectstream/utils
 
-Shared utilities for the EffectStream framework — chain-aware address types,
-TypeBox schemas, concurrency primitives, and small helpers. No runtime
+Shared utilities for the EffectStream framework — chain-aware address
+types and validators, TypeBox schemas, Effection-based concurrency
+primitives, viem helpers, and small type-level utilities. No runtime
 dependency on the rest of EffectStream; safe to use standalone in any
 TypeScript project.
+
+This is the bottom-of-stack package: `@effectstream/crypto`,
+`@effectstream/concise`, `@effectstream/wallets`, and most node packages
+depend on it.
 
 ## Install
 
@@ -15,58 +20,86 @@ npm install @effectstream/utils
 
 ## Standalone usage
 
-The biggest reason to depend on this package outside EffectStream is the
-chain-aware address validators and the `AddressType` enum, which lets you
-normalize "which chain is this address from?" across EVM, Cardano,
-Substrate, Algorand, Mina, Midnight, Avail, Polkadot, and NEAR.
+The most useful exports for external consumers are the chain-aware
+`AddressType` enum and the per-chain `TypeBox` schemas under
+`TypeboxHelpers`. You can validate "which chain is this address from?"
+across EVM, Cardano, Substrate, Algorand, Mina, Midnight, Avail,
+Polkadot, and NEAR without depending on a runtime.
 
 ```typescript
 import { AddressType, AddressValidator } from "@effectstream/utils";
 import { Value } from "@sinclair/typebox/value";
 
 const addr = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
-
-// Returns true when `addr` is well-formed for the given chain.
 const isEvm = Value.Check(AddressValidator[AddressType.EVM], addr);
 ```
 
-Also useful on its own:
+```typescript
+import { TypeboxHelpers } from "@effectstream/utils";
+import { Value } from "@sinclair/typebox/value";
 
-- **`binarySearch(arr, target, toNum)`** — left-most index whose value is `>= target`.
-- **`TypeboxHelpers.Evm.Address`**, `.Cardano.Address`, `.Midnight.Address`, … — TypeBox schemas you can compose into your own message validators.
-- **Concurrency primitives** (`conditionVariable`, `countdownLatch`, `retry`, `then`) built on top of [Effection](https://frontside.com/effection).
+// Compose your own schemas from chain-specific primitives.
+Value.Check(TypeboxHelpers.Evm.Address, "0xab...");
+Value.Check(TypeboxHelpers.Cardano.PolicyId, "abcd...");
+```
 
 ## Inside EffectStream
 
-`@effectstream/utils` is the bottom-of-stack package — `@effectstream/crypto`,
-`@effectstream/concise`, `@effectstream/wallets`, `@effectstream/node-sdk` and
-every chain integration depend on its address types, TypeBox helpers, and
-concurrency utilities. If you find yourself rewriting an address validator,
-look here first.
+A workhorse. `AddressType` is the most-imported symbol from this
+package (~170 cross-package references); `TypeboxHelpers` and
+`AddressAndType` are runners-up. Almost every chain integration, the
+state machine, and the batcher pulls something from here.
 
 ## Key exports
 
-From `@effectstream/utils`:
+Address types and validators:
 
 - `AddressType` — enum of chain identifiers (EVM, CARDANO, SUBSTRATE, ALGORAND, MINA, MIDNIGHT, AVAIL, POLKADOT, NEAR).
 - `AddressValidator` — `Record<AddressType, TSchema>` of TypeBox validators, one per chain.
-- `AddressTypebox`, `AddressAndType` — tagged-union shapes for `{ type, address }` pairs.
-- `TypeboxHelpers` — namespaced TypeBox schemas (e.g. `TypeboxHelpers.Evm.Address`, `TypeboxHelpers.Cardano.PolicyId`).
-- `binarySearch(arr, target, toNum)` — left-most index where value `>= target`.
-- `createViemPublicClient`, `truncateSelector` — viem-related helpers.
-- `conditionVariable`, `countdownLatch`, `retry`, `then`, `tryYield` — Effection coroutine helpers.
+- `AddressAndType` — tagged-union shape for `{ type, address }` pairs.
+
+TypeBox schemas:
+
+- `TypeboxHelpers.{Evm,Cardano,Substrate,Algorand,Mina,Midnight,Avail,Polkadot,Near}` — `.Address`, `.BlockHash`, `.TxHash`, `.Signature`, `.PrivateKey`, plus chain-specific extras (`PolicyId`, `AssetName`, `Selector`, …).
+- Plain primitives: `TypeboxHelpers.Uint256`, `BlockNumber`, `AbsoluteSlotNumber`, `EpochNumber`.
+
+Type aliases (heavily imported as nominal types):
+
+- `WalletAddress`, `EvmAddress`, `Signature`, `EvmPrivateKey`, `BlockHash`, `BlockNumber`, `EffectstreamBlockHash`, `EffectstreamBlockNumber`, `TimestampMs`, `Caip2`, `HexString0x`, `HexStringNo0x`.
+
+Type-level utilities (`./types/misc.ts`):
+
+- `MergeIntersects<T>`, `ShallowMergeIntersects<T>`, `RemoveUnknown<T>`, `Satisfies<Base, T>`, `Mutable<T>`, `DeepMutable<T>`, `DeepReadonly<T>`, `UnionToIntersection<U>`, `TypeErrorMessage`, `ValueOf<T>`, `ElementOf<T>`.
+
+Result + binary helpers:
+
+- `Result<T>`, `narrowResult`, success/failure constructors.
+- `hexStringToUint8Array`, `uint8ArrayToHexString`.
+
+Decorators:
+
+- `bound` — method-binding decorator (heavily used in classes that pass methods around).
+
+Viem helpers:
+
+- `createViemPublicClient(...)`, `truncateSelector(...)`.
+
+Concurrency (Effection-based):
+
+- `conditionVariable<T>()`, `tryYield(...)`, `retry(...)`.
 
 Subpath entries:
 
 - `@effectstream/utils/node-env` — `dotenv`-aware env loader, for Node-only callers.
-- `@effectstream/utils/runtime` — Effection runtime helpers (re-exported from the main entry).
+- `@effectstream/utils/runtime` — Effection runtime helpers.
 - `@effectstream/utils/runtime-spawn` — child-process spawn helpers built on Effection.
 
 ## Examples
 
-Runnable examples: [`src/binary-search.test.ts`](./src/binary-search.test.ts)
-and [`test/examples.test.ts`](./test/examples.test.ts). Both run as part of
-`bun test ./packages`.
+Runnable: [`src/binary-search.test.ts`](./src/binary-search.test.ts),
+[`src/concurrency/latch.test.ts`](./src/concurrency/latch.test.ts),
+[`src/concurrency/retry.test.ts`](./src/concurrency/retry.test.ts), and
+[`test/examples.test.ts`](./test/examples.test.ts).
 
 ## Links
 

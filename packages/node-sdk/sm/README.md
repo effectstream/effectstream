@@ -59,10 +59,12 @@ Midnight events, etc. — so you don't re-implement them.
 ## Key exports
 
 - `Stm<Grammar, Events>` — the state machine. `.addStateTransition(prefix, handler)`, `.processInput(input)`, `.grammar`, `.fullJsonGrammar`, `.keyedJsonGrammar`.
-- `MessageListener<Events, Params>` — handler type (`(input) => SyncStateUpdateStream<void>`).
 - `ParamToData<Params>` — derives the typed argument shape from a grammar entry.
 - `BaseStfInput` — the input shape passed to every handler (includes `msTimestamp`, `blockHeight`, etc.).
 - `delegate-wallet` helpers — account delegation primitives reused by built-ins.
+
+`MessageListener<Events, Params>` is exported as the handler type but is
+inferred at call sites rather than imported directly.
 
 Subpath exports:
 

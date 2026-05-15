@@ -54,13 +54,23 @@ all define their config with `ConfigBuilder` in `packages/node/config.dev.ts`.
 
 ## Key exports
 
-- `ConfigBuilder` — fluent top-level builder. Calls: `.setNamespace()`, `.buildNetworks()`, `.buildDeployments()`, `.buildSyncProtocols()`, `.buildPrimitives()`, `.build()`.
-- `NetworkBuilder`, `DeployedAddressBuilder`, `SyncProtocolBuilder`, `PrimitiveBuilder`, `SecurityNamespaceBuilder` — the per-section builders the top-level wraps.
-- `ConfigNetworkType`, `ConfigSyncProtocolType` — enums (EVM, Cardano, Midnight, Bitcoin, Avail, NEAR, Algorand, Mina, Polkadot variants).
-- `PaimaStaticConfigContext` — Effection context that exposes the built config to runtime code.
-- `withEffectstreamStaticConfig(config)` / `usePaimaStaticConfig()` — generator helpers to inject and retrieve config inside the runtime.
-- `getViemNetwork(networkName)` — generator to fetch a viem `Chain` from the active config.
-- `toSyncProtocolWithNetwork(...)` — utility joining a sync protocol with its source network config.
+What app code typically imports:
+
+- `ConfigBuilder` — fluent top-level builder. Chain `.setNamespace()`, `.buildNetworks()`, `.buildDeployments()`, `.buildSyncProtocols()`, `.buildPrimitives()`, then `.build()`. Used by every template.
+- `ConfigNetworkType`, `ConfigSyncProtocolType` — enums for the network and sync-protocol kinds (EVM, Cardano, Midnight, Bitcoin, Avail, NEAR, Algorand, Mina, Polkadot, NTP variants). The most-imported symbols from this package by far.
+- `withEffectstreamStaticConfig(config)` — Effection generator that publishes the built config to the runtime context.
+- `toSyncProtocolWithNetwork(...)` — joins a sync protocol with its source network config; used by app code when wiring custom primitives.
+- `getViemNetwork(networkName)` — generator that returns a viem `Chain` from the active config.
+
+Per-section builders (`NetworkBuilder`, `DeployedAddressBuilder`,
+`SyncProtocolBuilder`, `PrimitiveBuilder`, `SecurityNamespaceBuilder`)
+are exported, but you usually access them via the callback argument
+inside `ConfigBuilder.setNamespace((b) => b.setSecurityNamespace(...))`
+rather than importing them directly.
+
+Runtime-side context types (`PaimaStaticConfigContext`,
+`usePaimaStaticConfig`) are reserved for the runtime's own internals
+and aren't typically imported by app code.
 
 ## Examples
 

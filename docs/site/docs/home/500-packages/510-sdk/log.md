@@ -58,19 +58,6 @@ The deferred `(l) => l(...)` form means message construction is skipped
 entirely when the level is filtered out — handy when log arguments are
 expensive to format (`JSON.stringify` of a big object).
 
-For Effection-based code, use `setupOtel` as a generator so OTel context
-flows through your coroutines:
-
-```typescript
-import { main } from "effection";
-import { setupOtel } from "@effectstream/log";
-
-main(function* () {
-  yield* setupOtel({ serviceName: "my-app" });
-  // your effection-based code…
-});
-```
-
 Point the SDK at any OTLP-compatible collector (Grafana Alloy, Tempo,
 Honeycomb, …) via the standard `OTEL_EXPORTER_OTLP_ENDPOINT` env var.
 
@@ -89,10 +76,9 @@ powers the orchestrator's per-component log views.
 - `log.remoteForce(...)` — `remote` without level filtering.
 - `log.formatMessage(...)` — the formatter used internally; useful for custom transports.
 - `defaultOtelSetup(opts)` — one-call OpenTelemetry SDK setup with sensible defaults.
-- `setupOtel(opts)` — Effection-generator variant of the same.
 - `attachTransport(transport)` — register a custom tslog transport (e.g. ship logs to a file).
 - `SeverityNumber` — re-export of OpenTelemetry severity levels.
-- `ComponentNames` / `LaunchableComponents` — string-enum constants used to tag logs by component.
+- `ComponentNames` — string-enum constants used to tag logs by component.
 - `Namespace` — `string | string[]` for log namespacing.
 
 ## Examples

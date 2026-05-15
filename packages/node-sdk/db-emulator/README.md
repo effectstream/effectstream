@@ -1,8 +1,16 @@
 # @effectstream/db-emulator
 
-A standalone migration runner for EffectStream's database. Apply your
-schema to a Postgres or PgLite instance from a test or a script without
-booting the full runtime — handy for unit tests and CI fixtures.
+A standalone migration runner for EffectStream's database. Apply the
+EffectStream system schema plus your migrations to a Postgres or PgLite
+instance without booting the full runtime — handy for unit tests and CI
+fixtures.
+
+> **Heads up — adoption status:** as of v0.100.x, this package has no
+> consumers in this monorepo. Some older templates still use the
+> equivalent helper from `@paimaexample/db-emulator` (the previous
+> package name) or a local copy. `@effectstream/db-emulator` is the
+> current canonical location for the helper; future migrations will
+> point here.
 
 ## Install
 
@@ -33,18 +41,20 @@ await standAloneApplyMigrations(
 );
 ```
 
-You're left with a database that has every EffectStream system table plus
-your migrations applied. The state machine isn't running — you can read
-and write directly with whichever client you got from `getConnection()`.
+You're left with a database that has every EffectStream system table
+plus your migrations applied. The state machine isn't running — you
+can read and write directly with whichever client you got from
+`getConnection()`.
 
-> Use only against ephemeral / in-memory databases. The function assumes
-> it owns the schema.
+> Use only against ephemeral / in-memory databases. The function
+> assumes it owns the schema.
 
 ## Inside EffectStream
 
-The orchestrator and `bun test ./packages` use this helper to set up
-PgLite instances before exercising state-machine code. Production nodes
-don't need it: the runtime's startup path runs migrations itself.
+Designed for use in tests and migration tooling. Pair with
+[`@effectstream/db/start-pglite`](https://www.npmjs.com/package/@effectstream/db)
+for a quick in-memory database that's ready for app code to read /
+write.
 
 ## Key exports
 
@@ -54,9 +64,9 @@ don't need it: the runtime's startup path runs migrations itself.
 
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 
-The full pattern in action: most templates'
-`packages/node/db-up.ts` wire `standAloneApplyMigrations` into their
-`bun run db:up` script.
+For the broader pattern, see how templates wire migrations today
+(`templates/*/packages/client/database/sql-to-ts.ts`). They use the older
+`@paimaexample/db-emulator` import; the API is the same.
 
 ## Links
 

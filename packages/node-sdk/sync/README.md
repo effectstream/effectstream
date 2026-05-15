@@ -42,10 +42,17 @@ const protocols = await genSyncProtocols(config);
 
 ## Key exports
 
-- `genSyncProtocols(dbConn, syncInfo)` — Effection generator that instantiates a runtime fetcher + state pair for every protocol in `syncInfo` (from `config.syncProtocols`).
-- Per-chain `Fetcher` and `SyncState` classes — `EvmFetcher`/`EvmSyncState`, `BitcoinFetcher`/`BitcoinSyncState`, `MidnightFetcher`/`MidnightSyncState`, `AvailFetcher`/`AvailSyncState`, `UtxoRpcFetcher`/`UtxoRpcSyncState`, `CelestiaFetcher`/`CelestiaSyncState`, `NtpFetcher`/`NtpSyncState`, etc.
+- `genSyncProtocols(dbConn, syncInfo)` — Effection generator that instantiates a runtime fetcher + state pair for every protocol in `syncInfo` (from `config.syncProtocols`). Called from the runtime's process-blocks loop.
 - `AllSyncProtocols` — union type covering every supported protocol; useful when authoring config that fans out.
 - `ChainBlock`, plus base `Fetcher`/`State` types from `sync-protocols/base/` — the wire shape per chain.
+
+Per-chain `Fetcher` / `SyncState` classes (`EvmFetcher`,
+`BitcoinFetcher`, `MidnightFetcher`, `AvailFetcher`, `UtxoRpcFetcher`,
+`NtpFetcher`, `CelestiaFetcher`, `NearFetcher`, and matching `*SyncState`
+classes) are exported but are internal to the factory wiring —
+application code drives them through `genSyncProtocols` rather than
+instantiating them directly. Reach for them only if you're writing a
+custom orchestration layer.
 
 ## Examples
 

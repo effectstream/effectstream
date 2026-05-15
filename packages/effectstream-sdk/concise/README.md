@@ -15,48 +15,11 @@ npm install @effectstream/concise
 
 ## Standalone usage
 
-The batcher message construction primitives work entirely client-side.
-Browsers, CLIs, and tests use them to build the exact message the user's
-wallet has to sign before posting to the batcher.
+### Building and parsing concise inputs
 
-```typescript
-import {
-  createBatcherSubunit,
-  createMessageForBatcher,
-  hashBatchSubunit,
-} from "@effectstream/concise";
-import { AddressType } from "@effectstream/utils";
-
-const timestamp = String(Date.now()) as `${number}`;
-const address = "0x1234567890123456789012345678901234567890";
-const inputData = "join|alice";
-
-// 1. Build the canonical message the wallet signs.
-const message = createMessageForBatcher(
-  /* namespace */ null,
-  timestamp,
-  address,
-  AddressType.EVM,
-  inputData,
-);
-// const signature = await wallet.signMessage(message);
-
-// 2. Pack the signed input into a batcher subunit.
-const subunit = createBatcherSubunit(
-  timestamp,
-  address,
-  AddressType.EVM,
-  /* signature */ "0x…",
-  inputData,
-);
-
-// 3. The batcher hashes each subunit when committing.
-const hash = hashBatchSubunit(subunit);
-```
-
-The "grammar" half of the package lets you define what `inputData` strings
-look like once decoded — each command is a list of `[paramName, schema]`
-tuples:
+Most of the in-repo usage centers on the grammar API: define a tuple
+shape per command, then encode (`generateRawStmInput` /
+`generateStmInput`) and decode (`parseStmInput`) values against it.
 
 ```typescript
 import {
@@ -80,6 +43,40 @@ const parsed = parseStmInput(JSON.stringify(tuple), grammar, keyed);
 // parsed.prefix === "join", parsed.data.user === "alice"
 ```
 
+### Batcher message construction
+
+The package also ships primitives for building the exact message a
+user's wallet signs before posting to the batcher. These are intended
+for client SDKs that submit to the batcher HTTP endpoint (and as a
+reference encoder for tests).
+
+```typescript
+import {
+  createBatcherSubunit,
+  createMessageForBatcher,
+  hashBatchSubunit,
+} from "@effectstream/concise";
+import { AddressType } from "@effectstream/utils";
+
+const message = createMessageForBatcher(
+  null,
+  String(Date.now()) as `${number}`,
+  "0x1234567890123456789012345678901234567890",
+  AddressType.EVM,
+  "join|alice",
+);
+// const signature = await wallet.signMessage(message);
+
+const subunit = createBatcherSubunit(
+  String(Date.now()) as `${number}`,
+  "0x1234567890123456789012345678901234567890",
+  AddressType.EVM,
+  /* signature */ "0x…",
+  "join|alice",
+);
+const hash = hashBatchSubunit(subunit);
+```
+
 ## Inside EffectStream
 
 `@effectstream/concise` sits between user-facing wallets and the batcher:
@@ -91,23 +88,28 @@ later reads.
 
 ## Key exports
 
-Batcher message construction:
+Grammar / schema (heavily used across the runtime + state machine):
 
-- `createBatcherSubunit(ts, address, addressType, signature, input)` — pack a single signed input.
-- `createMessageForBatcher(namespace, ts, address, addressType, input, target?)` — canonical string the wallet signs.
-- `hashBatchSubunit(input)` — `0x`-prefixed keccak256 over the subunit.
-- `buildBatchData(maxSize, inputs)` — pack as many subunits as fit under a byte budget.
-- `extractBatches(inputData)` — inverse of `buildBatchData`; pull subunits back out of a batched payload.
-
-Grammar / schema:
-
-- `BatcherGrammar`, `BuiltinGrammar`, `KeyedBatcherGrammar` — built-in command sets.
-- `generateStmInput(grammar, command, data)` / `generateRawStmInput(...)` — serialize a typed value.
-- `parseStmInput(grammar, raw)` / `parseRawStmInput(...)` — parse and validate.
+- `generateRawStmInput(grammarEntry, prefix, data)` — the high-volume encoder (`~46` cross-package call sites in this repo).
+- `buildBatchData(maxSize, inputs)` — pack as many subunits as fit under a byte budget (used in the batcher's submission path; `~35` sites).
+- `BatcherGrammar`, `BuiltinGrammar` — built-in command sets.
+- `generateStmInput(grammar, command, data)` — typed value → JSON tuple.
+- `parseStmInput(rawJson, grammar, keyed)` — parse and validate.
 - `toFullJsonGrammar(...)`, `toKeyedJsonGrammar(...)` — derive TypeBox schemas from a grammar map.
-- `usesPrefix(input, prefix)` — quick check.
+- `extractBatches(inputData)` — inverse of `buildBatchData`.
 - `extractDelegateWallet(...)` — pull the delegated wallet out of an account-delegation input.
 - `accountMessages`, `accountPayload_` — helpers for the standard account-linking commands.
+
+Batcher message construction (intended for external client SDKs and
+tests; the in-repo batcher uses a lower-level path):
+
+- `createMessageForBatcher(namespace, ts, address, addressType, input, target?)` — canonical string the wallet signs.
+- `createBatcherSubunit(ts, address, addressType, signature, input)` — pack a signed input into a subunit shape.
+- `hashBatchSubunit(input)` — `0x`-prefixed keccak256 over the subunit.
+
+`KeyedBatcherGrammar`, `parseRawStmInput`, `usesPrefix` are exported but
+currently have no consumers in this monorepo — kept for downstream
+SDK use.
 
 ## Examples
 

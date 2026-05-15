@@ -1,10 +1,13 @@
 # @effectstream/frontend-sdk
 
-The frontend entry point for EffectStream apps. Today this re-exports
-`@effectstream/wallets` under a stable name so app code can depend on
-`@effectstream/frontend-sdk` and not worry about the underlying split.
-Future frontend-only helpers (event subscriptions, batcher submission
-hooks, React-specific glue) will land in this package.
+Umbrella name for EffectStream's frontend code. Currently re-exports
+everything from `@effectstream/wallets`.
+
+> **Heads up — adoption status:** as of v0.100.x, no template in this
+> monorepo imports from `@effectstream/frontend-sdk`. The templates'
+> frontends (chess-v2, evm-midnight-v2, shinkai-v2, …) import directly
+> from `@effectstream/wallets`. This package exists so app authors can
+> depend on a single name, but the templates haven't migrated yet.
 
 ## Install
 
@@ -14,12 +17,9 @@ bun add @effectstream/frontend-sdk
 npm install @effectstream/frontend-sdk
 ```
 
-## Standalone usage
+## Usage
 
-Anything you'd get from
-[`@effectstream/wallets`](https://www.npmjs.com/package/@effectstream/wallets)
-— multi-chain browser wallet connectors, `walletLogin`,
-`allInjectedWallets`, `WalletMode`, `IProvider` — is available here too.
+The export surface is exactly `@effectstream/wallets`:
 
 ```typescript
 import {
@@ -34,7 +34,6 @@ const available = await allInjectedWallets({
 });
 const evmOption = available[WalletMode.EvmInjected][0];
 
-// One call: connect the wallet + produce a signed batcher login message.
 const { provider, signedLogin } = await walletLogin({
   preference: { name: evmOption.metadata.name },
   mode: WalletMode.EvmInjected,
@@ -42,37 +41,40 @@ const { provider, signedLogin } = await walletLogin({
 ```
 
 > **Browser only.** Like `@effectstream/wallets`, this package depends
-> on injected wallet APIs and will not load in plain Node.
+> on injected wallet APIs (`window.ethereum`, CIP-30, …) and won't load
+> in plain Node.
 
 ## Inside EffectStream
 
-`@effectstream/frontend-sdk` is the seam apps reach for. Today it points
-to `@effectstream/wallets`; if/when frontend-only helpers (event
-subscribers, batcher submission hooks, React context providers) ship,
-they'll be added here without breaking app code.
+A thin re-export of `@effectstream/wallets`. If/when frontend-only
+helpers (React context providers, batcher submission hooks, event
+subscribers wired to React) ship, they'll live here without breaking
+app code that depended on the umbrella name.
 
 ## Key exports
 
-Everything `@effectstream/wallets` exports — including:
+Everything `@effectstream/wallets` exports. The most-imported symbols
+across templates are:
 
 - `walletLogin(...)` — one-call wallet connection + signed batcher message.
-- `allInjectedWallets(config)` — discover installed wallets.
-- `sendTransaction`, `sendBatcherTransaction`, `sendSelfSequencedTransaction`, `signMessage`, `waitForEffectstreamBlockProcessed` — runtime helpers for the frontend's send/wait loop.
-- `WalletMode`, `WalletNameMap` — connector identifiers.
-- `getAddressType(walletMode)` — map a `WalletMode` to `AddressType`.
-- `EffectstreamConfig` — the config shape the frontend reads at boot.
-- `accountMessages`, `accountPayload_` — re-exported from `@effectstream/concise` for account-delegation flows.
+- `WalletMode` — enum of supported wallet types.
+- `Wallet` — type for a connected wallet.
+- `EffectstreamConfig` — runtime config the wallet helpers consume.
+- `sendTransaction`, `sendBatcherTransaction`, `signMessage`, `waitForEffectstreamBlockProcessed` — send/wait helpers.
+- `allInjectedWallets`, `getAddressType`, `WalletNameMap` — discovery + identification helpers.
 
-For lower-level connector machinery (`connectInjectedWallet`, `WalletModeMap`, `IProvider`, `IConnector`, `IInjectedConnector`), import from `@effectstream/wallets` directly.
+For lower-level connector machinery (`connectInjectedWallet`,
+`WalletModeMap`, `IProvider`, `IConnector`, `IInjectedConnector`), import
+from `@effectstream/wallets` directly.
 
 ## Examples
 
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 
-The frontends in
-[`templates/dice/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/dice)
-and [`templates/minimal/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/minimal)
-import directly from this package.
+Real-world: every frontend in
+[`templates/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates)
+demonstrates the same surface — though they currently import it from
+`@effectstream/wallets` rather than `@effectstream/frontend-sdk`.
 
 ## Links
 

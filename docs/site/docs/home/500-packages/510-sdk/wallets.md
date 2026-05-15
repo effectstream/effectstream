@@ -8,10 +8,11 @@ sidebar_label: "wallets"
 
 > Package: **[`@effectstream/wallets`](https://www.npmjs.com/package/@effectstream/wallets)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/wallets)
 
-Browser wallet connectors for EffectStream apps. One uniform API spans
-MetaMask (and any EVM-injected wallet), Cardano (CIP-30), Midnight, Mina,
-Polkadot, Algorand, and Avail. Each returns an `IProvider` that can sign
-messages and report the user's address + chain type.
+Browser wallet connectors and the runtime client an EffectStream
+frontend uses to log in, sign batcher messages, send transactions, and
+wait for them to be processed. Spans MetaMask (and any EVM-injected
+wallet), Cardano (CIP-30), Midnight, Mina, Polkadot, Algorand, and
+Avail.
 
 ## Install
 
@@ -23,75 +24,98 @@ npm install @effectstream/wallets
 
 ## Standalone usage
 
-You don't need the rest of EffectStream to use this package — drop it into
-any web app that wants multi-chain wallet sign-in.
+The high-level path most apps use: log in with a wallet, then send a
+transaction through the batcher and wait until it lands in a block.
 
 ```typescript
 import {
-  allInjectedWallets,
-  connectInjectedWallet,
+  walletLogin,
   WalletMode,
-  WalletModeMap,
+  EffectstreamConfig,
+  sendTransaction,
 } from "@effectstream/wallets";
 
-// 1. Discover what's installed in the user's browser.
+const config = new EffectstreamConfig({ /* …chain/batcher URLs… */ });
+
+const wallet = await walletLogin({
+  config,
+  preference: { name: "MetaMask" },
+  mode: WalletMode.EvmInjected,
+});
+
+const result = await sendTransaction(wallet, "join|alice");
+// result.blockHeight === number once the batcher's submission landed
+```
+
+If you just want to discover available wallets:
+
+```typescript
+import { allInjectedWallets, WalletMode } from "@effectstream/wallets";
+
 const available = await allInjectedWallets({
   signatureSupport: true,
   transactionSupport: true,
 });
-
-// 2. Pick a wallet — e.g. the first EVM extension the user has.
-const evmOptions = available[WalletMode.EvmInjected];
-const choice = evmOptions[0];
-
-// 3. Connect. Returns an IProvider with getAddress() / signMessage().
-const provider = await connectInjectedWallet(
-  "EVM",
-  { name: choice.metadata.name },
-  WalletModeMap[WalletMode.EvmInjected],
-);
-
-const { type, address } = provider.getAddress();
-const signature = await provider.signMessage("Sign in 2026-05-14");
+const evmOptions = available[WalletMode.EvmInjected]; // [{ metadata, ... }, …]
 ```
 
-For a one-shot "log in and produce a signed message ready for the batcher",
-use the higher-level `walletLogin` helper from the same package.
-
-> **Browser only.** This package depends on `window.ethereum`, the Cardano
-> CIP-30 API, etc. It will not load in plain Node — pair it with a Node
-> verifier (`@effectstream/crypto`) on the server side.
+> **Browser only.** This package depends on `window.ethereum`, the
+> Cardano CIP-30 API, etc. — it won't load in plain Node. Server-side
+> signature verification is `@effectstream/crypto`.
 
 ## Inside EffectStream
 
-`@effectstream/wallets` is the client-side counterpart to `@effectstream/crypto`.
-The frontend connects a wallet and signs a batcher message; the node verifies
-that signature with `CryptoManager`. The `accountPayload_` and `accountMessages`
-re-exports tie wallet output to the on-chain `concise` schema, so messages can
-flow straight into `@effectstream/batcher-sdk`.
+The client-side counterpart to `@effectstream/crypto`. Frontends
+connect a wallet, sign a batcher login or transaction, and POST it to
+the batcher HTTP endpoint (`@effectstream/batcher-sdk`). The node's
+state machine then verifies the signature with
+`CryptoManager.getCryptoManager(addressType)`. The runtime helpers
+exported here (`sendTransaction`, `waitForEffectstreamBlockProcessed`)
+hide the polling loop.
 
 ## Key exports
 
+Login + signing:
+
+- `walletLogin(args)` — top-level helper: discover, connect, produce a signed batcher login.
+- `EffectstreamConfig` — runtime config (chain URLs, batcher URL, …) the helpers consume.
+- `signMessage(wallet, message)` — sign an arbitrary message with the connected wallet.
+
+Sending transactions:
+
+- `sendTransaction(wallet, conciseInput, opts?)` — submit through the batcher and (by default) wait for processing.
+- `sendBatcherTransaction(...)` — explicit batcher submission.
+- `sendSelfSequencedTransaction(...)` — bypass the batcher.
+- `waitForEffectstreamBlockProcessed(...)` — block-height poller used by the above.
+
+Wallet discovery / identification:
+
 - `WalletMode` — enum: `EvmInjected`, `EvmEthers`, `Midnight`, `Cardano`, `Polkadot`, `Algorand`, `Mina`, `AvailJs`.
 - `WalletNameMap` — `Record<WalletMode, string>` for display.
-- `WalletModeMap` — `Record<WalletMode, IConnector>`, ready-to-use connector singletons.
-- `allInjectedWallets(config)` — discovers which wallets the user has installed.
-- `connectInjectedWallet(label, preference, connector)` — connects to a specific wallet.
-- `walletLogin(...)` — one-call helper that connects + signs a batcher login message.
-- `IProvider` — uniform connection handle: `getAddress()`, `signMessage()`, `getConnection()`.
-- `getAddressType(walletMode)` — maps a `WalletMode` to its `@effectstream/utils` `AddressType`.
+- `allInjectedWallets(config)` — list installed wallets in the browser.
+- `getAddressType(walletMode)` — map a `WalletMode` to its `@effectstream/utils` `AddressType`.
+
+Types:
+
+- `Wallet` — handle returned by `walletLogin`, used by send/sign helpers.
+- `UserSignature`, `Hash`, `BatcherPostResponse`, `BatcherTrackResponse`, `PostDataResponse`, `PostDataResponseAsync`, `SignFunction`.
+
+Lower-level connector machinery (used internally; export surface is
+stable but rarely needed in app code): `connectInjectedWallet`,
+`WalletModeMap`, `IProvider`, `IConnector`, `IInjectedConnector`,
+`InjectionPreference`.
 
 ## Examples
 
-Runnable examples that exercise the connector API with a mock wallet:
-[`src/utils.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/wallets/src/utils.test.ts) and
-[`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/wallets/test/examples.test.ts). Both run as part of
-`bun test ./packages`.
+Runnable: [`src/utils.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/wallets/src/utils.test.ts) and
+[`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/wallets/test/examples.test.ts).
 
-Real-world integration in the templates: the EVM frontend uses
-`WalletMode.EvmInjected` directly. See
-[`templates/dice/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/dice)
-for a full game wired up with `@effectstream/wallets`.
+Real-world usage in templates (each imports `walletLogin`, `WalletMode`,
+`EffectstreamConfig`, `sendTransaction`):
+
+- [`templates/chess-v2/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/chess-v2)
+- [`templates/evm-midnight-v2/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/evm-midnight-v2)
+- [`templates/shinkai-v2/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/shinkai-v2)
 
 ## Links
 

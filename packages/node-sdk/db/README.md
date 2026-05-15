@@ -60,11 +60,12 @@ can rejoin without re-syncing from genesis.
 
 ## Key exports
 
-Connection management:
+Connection management (heavily used):
 
-- `getConnection(creds?)` — pooled `Pool` singleton.
-- `getPersistentConnection(creds)` — a non-pooled `Client` for long-lived listeners.
-- `acquireDBMutex(name, priority?)` / `releaseDBMutex(name)` / `waitUntilFree()` — coordination for PgLite.
+- `getConnection(creds?)` — pooled `Pool` singleton. The dominant entry point (~31 cross-package call sites).
+- `acquireDBMutex(name, priority?)` / `releaseDBMutex(name)` — coordination for PgLite (~7 cross-package call sites each).
+- `waitUntilFree()` — companion to the mutex.
+- `getPersistentConnection(creds)` — exported but currently has no in-repo consumers; intended for long-lived listeners.
 
 Queries (pgtyped-generated, shipped under one umbrella):
 
@@ -72,12 +73,16 @@ Queries (pgtyped-generated, shipped under one umbrella):
 - `getAchievementProgress`, `setAchievementProgress` — achievements.
 - Re-exports of `*.queries.ts` for statistics, nonces, rollup inputs, accounts, events, sync protocol pages, primitives, system, tables.
 
-Event indexing & snapshots:
+Snapshots:
 
-- `createIndexesForEvents`, `registerEventHandlers` — register pgtyped indexes for app events.
-- `createDynamicTables` — register tables a primitive wants to own.
-- `createSnapshot`, `runSnapshotLoop` — periodic `pg_dump` of synced state.
+- `runSnapshotLoop` — periodic `pg_dump` of synced state.
+- `createSnapshot` — single-shot snapshot helper.
 - `SnapshotConfig`, `SnapshotRetentionConfig` — config types.
+
+Dynamic table / event helpers:
+
+- `createDynamicTables` — register tables a primitive wants to own.
+- `createIndexesForEvents`, `registerEventHandlers` — exported but currently have no in-repo consumers.
 
 Subpath entry points (executable scripts):
 
