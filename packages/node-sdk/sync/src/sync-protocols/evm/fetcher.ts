@@ -25,7 +25,7 @@ import type {
 import { PageSchema } from "./types.ts";
 import {
   fetchNewestPage,
-  genImmediatePageRequests,
+  genOnDemandPageRequests,
   type PageRange,
   type PageRequest,
 } from "../base/page.ts";
@@ -62,15 +62,17 @@ export class EvmFetcher
     data: Input,
     rootConversion: RootConversion<Output, RootOutput, RootPage>,
   ): Operation<DataFetched<Output, Page, RootPage>> {
-    const allPages: Page[] = [];
-    for (let p = data.from; p <= data.to; p++) allPages.push(p);
-    const pageFetcher = genImmediatePageRequests(
-      allPages,
-      (page) => this.client.getBlock({ blockNumber: BigInt(page) }),
+    const fetchAllBlocks = this.config.primitives.some(
+      (p) => p.primitive.getAllBlockHeaders,
     );
 
-    // TODO: if we expect multiple primitives per block
-    //       it can, depending on the chain, be faster to just download the full block and parse it locally
+    const pageFetcher = genOnDemandPageRequests(
+      data.from,
+      data.to,
+      (page) => this.client.getBlock({ blockNumber: BigInt(page) }),
+      blockNumberRelation,
+    );
+
     const primitives = yield* this.readPrimitives(
       data,
       pageFetcher,
@@ -92,25 +94,28 @@ export class EvmFetcher
             };
           }),
         ),
-        // we always need to get the last page in the parallel case
-        // so we can use it for pagination
+        // we always need the last page for pagination
         call(() => pageFetcher(Number(data.to))),
       ],
     );
 
-    // Build an output with all page info, as we need all the hashes to build the effectstream-block-hash
-    // All blocks are already pre-fetched in parallel by genImmediatePageRequests above
     const allOutputs: Output[] = [];
     for (let page = data.from; page <= data.to; page++) {
       const _output = output.find((o) => o.raw.number === BigInt(page));
       if (_output) {
         allOutputs.push(_output);
-      } else {
+      } else if (fetchAllBlocks) {
         const raw = yield* call(() => pageFetcher(page));
         allOutputs.push({
           raw,
           primitives: [],
           blockHashes: [raw.hash] as EvmBlockHash[],
+        });
+      } else if (page === data.to) {
+        allOutputs.push({
+          raw: lastPage,
+          primitives: [],
+          blockHashes: [lastPage.hash] as EvmBlockHash[],
         });
       }
     }
@@ -118,14 +123,14 @@ export class EvmFetcher
     return {
       output: allOutputs.map((o) => ({
         output: o,
-        cleanup: () => {}, // no cleanup required
+        cleanup: () => {},
       })),
       lastPage: {
         own: Number(data.to),
         ownBlockNumber: Number(data.to),
         root: rootConversion.toRootPage({
           blockHashes: [lastPage.hash] as EvmBlockHash[],
-          primitives: [], // unused in toRootPage
+          primitives: [],
           raw: lastPage,
         }),
       },

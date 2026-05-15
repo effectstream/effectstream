@@ -38,6 +38,17 @@ seed = EXCLUDED.seed,
 ms_timestamp = EXCLUDED.ms_timestamp,
 effectstream_block_hash = EXCLUDED.effectstream_block_hash;
 
+/* @name getLastNonEmptyBlockHash */
+SELECT effectstream_block_hash FROM effectstream.effectstream_blocks
+WHERE effectstream_block_hash IS NOT NULL
+  AND effectstream_block_hash != '\x307830'::bytea
+ORDER BY block_height DESC
+LIMIT 1;
+
+/* @name deleteEmptyBlocks */
+DELETE FROM effectstream.effectstream_blocks
+WHERE effectstream_block_hash = '\x307830'::bytea;
+
 /* @name blockHeightDone */
 UPDATE effectstream.effectstream_blocks
 SET

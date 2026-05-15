@@ -10,6 +10,7 @@ import type {
 } from "@effectstream/coroutine";
 import {
   blockHeightDone,
+  deleteEmptyBlocks,
   deleteScheduled,
   getFutureGameInputByBlockHeight,
   getFutureGameInputByMaxTimestamp,
@@ -133,6 +134,7 @@ export function* processFinalizedBlock(
     value,
     previousBlockHash,
   );
+  let hasOperations = false;
   try {
     /* STEP 0: Start the transaction. */
     yield* until(dbConn.query("BEGIN"));
@@ -151,8 +153,9 @@ export function* processFinalizedBlock(
     );
 
     /* STEP 2: Process the migrations. */
+    let hasMigrations = false;
     if (migrations) {
-      yield* applyUserMigrations(
+      hasMigrations = yield* applyUserMigrations(
         value.blockNumber,
         dbConn as any, // Client,
         migrations,
@@ -251,9 +254,15 @@ export function* processFinalizedBlock(
     }
 
     /* STEP 6: Mark the block as done. */
+    hasOperations = hasMigrations ||
+      value.primitives.length > 0 ||
+      scheduledData.length > 0;
+    if (!hasOperations) {
+      yield* call(() => deleteEmptyBlocks.run(undefined, dbConn));
+    }
     yield* call(() =>
       blockHeightDone.run({
-        block_hash: Buffer.from(blockHash),
+        block_hash: Buffer.from(hasOperations ? blockHash : "0x0"),
         block_height: value.blockNumber,
       }, dbConn)
     );
@@ -298,5 +307,5 @@ export function* processFinalizedBlock(
     // We cannot recover from this error.
     throw err;
   }
-  return blockHash;
+  return hasOperations ? blockHash : "0x0" as PaimaBlockHash;
 }

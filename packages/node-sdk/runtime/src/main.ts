@@ -7,6 +7,7 @@ import {
   acquireDBMutex,
   createDynamicTables,
   getConnection,
+  getLastNonEmptyBlockHash,
   releaseDBMutex,
   resetPublicTables,
   runSnapshotLoop,
@@ -137,7 +138,10 @@ export function* start(config: StartConfig): Operation<void> {
     }
   });
 
-  let blockHash: EffectstreamBlockHash | null = null;
+  const [lastHashRow] = yield* until(getLastNonEmptyBlockHash.run(undefined, dbConn));
+  let blockHash: EffectstreamBlockHash | null = lastHashRow
+    ? lastHashRow.effectstream_block_hash!.toString() as EffectstreamBlockHash
+    : null;
   if (config.snapshotConfig) {
     yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
   }
@@ -151,12 +155,15 @@ export function* start(config: StartConfig): Operation<void> {
       yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
       dbClient = yield* until((dbConn as any).connect()); // Client,
 
-      blockHash = yield* processFinalizedBlock(
+      const resultHash = yield* processFinalizedBlock(
         value,
         config,
         dbClient as any, // Client,
         blockHash,
       );
+      if (resultHash !== "0x0") {
+        blockHash = resultHash;
+      }
     } finally {
       releaseDBMutex(`processing-blocks:${value.blockNumber}`);
       if (dbClient) {

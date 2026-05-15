@@ -111,24 +111,31 @@ export class BitcoinFetcher
     );
     const groupedByPage = this.groupByPage(primitives);
 
+    const fetchAllBlocks = this.config.primitives.some(
+      (p) => p.primitive.getAllBlockHeaders,
+    );
+
     const outputs: OutputAndCleanup<Output>[] = [];
+    let lastBlock: BitcoinBlock | undefined;
     for (let height = Number(data.from); height <= Number(data.to); height++) {
       const blockHeight = height as Page;
       const block = yield* call(() => pageFetcher(blockHeight));
-      outputs.push({
-        output: {
-          raw: block,
-          primitives: groupedByPage[String(height)] ?? [],
-          blockHashes: [block.hash],
-        },
-        cleanup: () => {},
-      });
+      lastBlock = block;
+      const blockPrimitives = groupedByPage[String(height)] ?? [];
+      if (fetchAllBlocks || blockPrimitives.length > 0 || height === Number(data.to)) {
+        outputs.push({
+          output: {
+            raw: block,
+            primitives: blockPrimitives,
+            blockHashes: [block.hash],
+          },
+          cleanup: () => {},
+        });
+      }
     }
-    const lastOutput = outputs[outputs.length - 1];
-    if (!lastOutput) {
+    if (!lastBlock) {
       throw new Error("BitcoinFetcher: no block data fetched for interval");
     }
-    const lastBlock = lastOutput.output.raw;
     const lastPageRef = this.asPage(Number(data.to));
     return {
       output: outputs,

@@ -98,11 +98,11 @@ export class MidnightFetcher extends BaseDataFetcher<
       { length: data.to - data.from + 1 },
       (_, i) => i + data.from,
     );
+    const fetchAllBlocks = this.config.primitives.some(
+      (p) => p.primitive.getAllBlockHeaders,
+    );
+
     const fetched = yield* all(
-      // The endpoint does not support range requests,
-      // so we fetch each block individually in parallel.
-      // useAbortSignal() ties each fetch's lifetime to its Effection scope,
-      // so cancellation by all() cleanly aborts the underlying HTTP request.
       heights.map(function* (height) {
         const signal = yield* useAbortSignal();
         const result: MidnightGqlBlockState = yield* call(() =>
@@ -122,9 +122,22 @@ export class MidnightFetcher extends BaseDataFetcher<
         };
       }),
     );
-    outputs.push(...fetched);
 
-    const lastOutput = outputs[outputs.length - 1].output;
+    const lastFetched = fetched[fetched.length - 1];
+    if (fetchAllBlocks) {
+      outputs.push(...fetched);
+    } else {
+      for (const item of fetched) {
+        if (item.output.primitives.length > 0) {
+          outputs.push(item);
+        }
+      }
+      if (outputs.length === 0 || outputs[outputs.length - 1] !== lastFetched) {
+        outputs.push(lastFetched);
+      }
+    }
+
+    const lastOutput = lastFetched.output;
     return {
       output: outputs,
       lastPage: {
