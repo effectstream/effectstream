@@ -11,6 +11,24 @@ MONOREPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 P="$MONOREPO_ROOT/packages"
 NM="$SCRIPT_DIR/node_modules"
 
+# Guard: the linked SDK packages (sm, runtime, event-server, event-client) all
+# import workspace siblings via `workspace:*`. Bun resolves those siblings by
+# walking up from the source files in $MONOREPO_ROOT/packages — but the
+# workspace symlinks (e.g. packages/node-sdk/runtime/node_modules/@effectstream/sync)
+# only exist after `bun install` runs at the monorepo root. Without that,
+# `bun run dev` fails with "Cannot find module '@effectstream/sync' from
+# .../packages/node-sdk/runtime/src/main.ts".
+if [ ! -d "$MONOREPO_ROOT/node_modules" ] || \
+   [ ! -e "$P/node-sdk/runtime/node_modules/@effectstream/sync" ]; then
+  echo "ERROR: monorepo workspace deps are not installed."
+  echo ""
+  echo "  Run 'bun install' at the monorepo root first:"
+  echo "    cd $MONOREPO_ROOT && bun install"
+  echo ""
+  echo "  Then re-run this script from $SCRIPT_DIR."
+  exit 1
+fi
+
 echo "Linking unpublished packages..."
 
 link_pkg() {
