@@ -174,6 +174,34 @@ const saveLastBlockIR: any = {"usedParamSet":{"block_height":true,"ver":true,"ma
 export const saveLastBlock = new PreparedQuery<ISaveLastBlockParams,ISaveLastBlockResult>(saveLastBlockIR);
 
 
+/** 'GetLastNonEmptyBlockHash' parameters type */
+export type IGetLastNonEmptyBlockHashParams = void;
+
+/** 'GetLastNonEmptyBlockHash' return type */
+export interface IGetLastNonEmptyBlockHashResult {
+  effectstream_block_hash: Buffer | null;
+}
+
+/** 'GetLastNonEmptyBlockHash' query type */
+export interface IGetLastNonEmptyBlockHashQuery {
+  params: IGetLastNonEmptyBlockHashParams;
+  result: IGetLastNonEmptyBlockHashResult;
+}
+
+const getLastNonEmptyBlockHashIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT effectstream_block_hash FROM effectstream.effectstream_blocks\nWHERE effectstream_block_hash IS NOT NULL\n  AND effectstream_block_hash != '\\x307830'::bytea\nORDER BY block_height DESC\nLIMIT 1"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT effectstream_block_hash FROM effectstream.effectstream_blocks
+ * WHERE effectstream_block_hash IS NOT NULL
+ *   AND effectstream_block_hash != '\x307830'::bytea
+ * ORDER BY block_height DESC
+ * LIMIT 1
+ * ```
+ */
+export const getLastNonEmptyBlockHash = new PreparedQuery<IGetLastNonEmptyBlockHashParams,IGetLastNonEmptyBlockHashResult>(getLastNonEmptyBlockHashIR);
+
 /** 'BlockHeightDone' parameters type */
 export interface IBlockHeightDoneParams {
   block_hash: Buffer;
@@ -188,6 +216,29 @@ export interface IBlockHeightDoneQuery {
   params: IBlockHeightDoneParams;
   result: IBlockHeightDoneResult;
 }
+
+/** 'DeleteEmptyBlocks' parameters type */
+export type IDeleteEmptyBlocksParams = void;
+
+/** 'DeleteEmptyBlocks' return type */
+export type IDeleteEmptyBlocksResult = void;
+
+/** 'DeleteEmptyBlocks' query type */
+export interface IDeleteEmptyBlocksQuery {
+  params: IDeleteEmptyBlocksParams;
+  result: IDeleteEmptyBlocksResult;
+}
+
+const deleteEmptyBlocksIR: any = {"usedParamSet":{},"params":[],"statement":"DELETE FROM effectstream.effectstream_blocks\nWHERE effectstream_block_hash = '\\x307830'::bytea"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * DELETE FROM effectstream.effectstream_blocks
+ * WHERE effectstream_block_hash = '\x307830'::bytea
+ * ```
+ */
+export const deleteEmptyBlocks = new PreparedQuery<IDeleteEmptyBlocksParams,IDeleteEmptyBlocksResult>(deleteEmptyBlocksIR);
 
 const blockHeightDoneIR: any = {"usedParamSet":{"block_hash":true,"block_height":true},"params":[{"name":"block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":70,"b":81}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":104,"b":117}]}],"statement":"UPDATE effectstream.effectstream_blocks\nSET\neffectstream_block_hash = :block_hash!\nWHERE block_height = :block_height!"};
 

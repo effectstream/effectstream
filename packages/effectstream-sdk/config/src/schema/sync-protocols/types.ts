@@ -45,6 +45,8 @@ type BasePrimitive = {
   type: `${string}:${string}`;
   startBlockHeight: number;
   scheduledPrefix?: string;
+  /** When true, fetcher returns block info for ALL blocks in range, not just those with primitives. Default: false */
+  getAllBlockHeaders?: boolean;
 };
 
 type EVMPrimitive = BasePrimitive & {
