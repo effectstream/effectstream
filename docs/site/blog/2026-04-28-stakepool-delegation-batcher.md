@@ -297,8 +297,7 @@ The complete delegation + batcher stack runs as two pieces: the cardano-delegati
 
 ```bash
 # Terminal 1: Start the delegation sync node
-git clone https://github.com/effectstream/effectstream.git \
-  --branch v-next-bun-start
+git clone https://github.com/effectstream/effectstream.git
 cd effectstream/templates/cardano-delegation
 bun install
 bun run dev
@@ -316,4 +315,4 @@ bun run dev
 - [Custom Adapters guide](/docs/home/components/batcher/adapter)
 - [Part 1: Connecting Cardano SPOs](/docs/blog/stakepool-delegation)
 - [Part 2: Building the State Machine](/docs/blog/stakepool-delegation-technical)
-- [Cardano delegation template source code](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/cardano-delegation)
+- [Cardano delegation template source code](https://github.com/effectstream/effectstream/tree/v-next/templates/cardano-delegation)

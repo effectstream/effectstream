@@ -56,7 +56,7 @@ Here's the concept: a governance vote where voting power comes from your Cardano
 
 ![Private Delegation Voting: Cardano + Midnight cross-chain ZK voting with stake pool delegation](/img/blog/zk-cardano.png)
 
-The full [ZK-Cardano template](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/zk-cardano) is available in the monorepo alongside five new [Cardano primitives](/docs/home/chains/cardano#primitives).
+The full [ZK-Cardano template](https://github.com/effectstream/effectstream/tree/v-next/templates/zk-cardano) is available in the monorepo alongside five new [Cardano primitives](/docs/home/chains/cardano#primitives).
 
 <iframe src="https://drive.google.com/file/d/1qeFPXN3cjsd66aFn-kgu2q8fqTr8SA-A/preview" width="100%" height="480" allow="autoplay"></iframe>
 
@@ -111,7 +111,7 @@ A second template, [Go Fish](https://github.com/effectstream/go-fish), uses the 
 - [Werewolf template code](https://github.com/effectstream/werewolf-game)
 - [Werewolf Compact contract source](https://github.com/effectstream/werewolf-game/tree/main/packages/shared/contracts/midnight/contract-werewolf/src)
 - [Go Fish template (ZK Mental Poker)](https://github.com/effectstream/go-fish)
-- [ZK-Cardano template code](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/zk-cardano)
+- [ZK-Cardano template code](https://github.com/effectstream/effectstream/tree/v-next/templates/zk-cardano)
 - [Cardano Primitives documentation](/docs/home/chains/cardano#primitives)
 - [Midnight Network](https://midnight.network/)
 - [UTxORPC Watch Module](https://utxorpc.org/watch/intro/) - streaming protocol for Cardano data

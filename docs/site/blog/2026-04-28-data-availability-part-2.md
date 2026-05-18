@@ -121,7 +121,7 @@ The two things to get right at this layer are **idempotency** (each DA blob shou
 
 ## Worked example: indexing ZSwap offers
 
-[ZSwap](https://github.com/effectstream/effectstream/tree/v-next-bun-start/bun-zswap-da) is the concrete case the M2 template demonstrates. ZSwap offers are short JSON records — wallet, token in, token out, amounts, nonce, signature — typically a few hundred bytes each. A busy ZSwap market generates thousands of offers per hour. Three properties matter:
+[ZSwap](https://github.com/effectstream/effectstream/tree/v-next/bun-zswap-da) is the concrete case the M2 template demonstrates. ZSwap offers are short JSON records — wallet, token in, token out, amounts, nonce, signature — typically a few hundred bytes each. A busy ZSwap market generates thousands of offers per hour. Three properties matter:
 
 - Each offer is small (a few hundred bytes).
 - The volume is high (orders of magnitude more than settlement-chain capacity).
@@ -172,6 +172,6 @@ DA layers are a sharp tool, not a free upgrade. They unlock workloads that were 
 ---
 
 - [Part 1: Celestia Data Availability — the integration architecture](/docs/blog/celestia-data-availability)
-- [`bun-zswap-da` template (Celestia DA worked example)](https://github.com/effectstream/effectstream/tree/v-next-bun-start/bun-zswap-da)
-- [Avail Generic primitive source](https://github.com/effectstream/effectstream/tree/v-next-bun-start/packages/node-sdk/sm/primitives/src/avail-generic)
-- [Celestia Generic primitive source](https://github.com/effectstream/effectstream/tree/v-next-bun-start/packages/node-sdk/sm/primitives/src/celestia-generic)
+- [`bun-zswap-da` template (Celestia DA worked example)](https://github.com/effectstream/effectstream/tree/v-next/bun-zswap-da)
+- [Avail Generic primitive source](https://github.com/effectstream/effectstream/tree/v-next/packages/node-sdk/sm/primitives/src/avail-generic)
+- [Celestia Generic primitive source](https://github.com/effectstream/effectstream/tree/v-next/packages/node-sdk/sm/primitives/src/celestia-generic)

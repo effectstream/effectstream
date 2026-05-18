@@ -13,7 +13,7 @@ EffectStream is designed to integrate with any game engine or platform. This art
 
 One of the biggest friction points for multi-chain developers is setting up a local dev environment. Syncing a Cardano indexer like Carp can take days on testnet and even longer on mainnet, which makes rapid iteration pretty much impossible. We built a template that replaces this entire workflow with an instant localhost setup.
 
-The EVM-Cardano template, [available in the monorepo](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/evm-cardano), combines:
+The EVM-Cardano template, [available in the monorepo](https://github.com/effectstream/effectstream/tree/v-next/templates/evm-cardano), combines:
 
 - [**Hardhat v3**](https://hardhat.org/) for EVM smart contract development and a local EVM chain
 - [**YACI DevKit**](https://github.com/bloxbean/yaci-devkit) for a local Cardano devnet
@@ -127,5 +127,5 @@ The mobile app communicates with an EffectStream backend that manages on-chain s
 
 All templates are open-source in the [game templates repository](https://github.com/PaimaStudios/paima-game-templates). The EVM-Cardano template with its Dolos-based local development stack is probably the most impactful: it removes the biggest barrier to Cardano development by getting rid of the sync time that's historically made local testing impractical.
 
-- [EVM-Cardano template code (Dolos + YACI DevKit)](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/evm-cardano)
+- [EVM-Cardano template code (Dolos + YACI DevKit)](https://github.com/effectstream/effectstream/tree/v-next/templates/evm-cardano)
 - [Cardano Primitives documentation](/docs/home/chains/cardano#primitives)

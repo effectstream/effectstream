@@ -37,7 +37,7 @@ The wallet signature popup in the screenshot shows the on-chain integration. The
 The AI doesn't just give a score; it explains its reasoning. Players can see why their answer earned or lost tokens, which creates an engaging feedback loop that feels more like a conversation than a multiple-choice quiz.
 
 - [Play live](https://tokenquest.zkdojo.com/)
-- [Template code](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/shinkai-v2)
+- [Template code](https://github.com/effectstream/effectstream/tree/v-next/templates/shinkai-v2)
 
 ## Why this matters for on-chain games
 

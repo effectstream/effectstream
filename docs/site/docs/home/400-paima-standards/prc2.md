@@ -101,7 +101,7 @@ Other standards (ERC-20, ERC-1155) can be supported by analogous interfaces with
 The Hololocker pattern is what EffectStream's **`CardanoProjectedNFT` primitive** consumes for Cardano-side projections. The same shape applies to EVM-side Hololockers using the on-chain interface specified above.
 
 - **Primitive**: parses Hololocker `State` datums from the indexer stream and materialises a queryable PostgreSQL view of every projected NFT (`Lock`, `Unlocking`, `Claim` states + nullifier tracking). See the [Cardano Primitives reference](/docs/home/chains/cardano#primitives).
-- **Runnable template**: [`templates/projected-nft-preorder`](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/projected-nft-preorder) is a complete devnet + indexer + sync node + React frontend that exercises the full Lock → Unlock → Claim lifecycle.
+- **Runnable template**: [`templates/projected-nft-preorder`](https://github.com/effectstream/effectstream/tree/v-next/templates/projected-nft-preorder) is a complete devnet + indexer + sync node + React frontend that exercises the full Lock → Unlock → Claim lifecycle.
 - **Walkthrough**: the [Projected NFTs blog post](/docs/blog/projected-nfts) walks through the Aiken Cardano contract, the EffectStream primitive, and the dApp end-to-end.
 
 For new EVM Hololocker deployments the [`dcSpark/projected-nft-whirlpool`](https://github.com/dcSpark/projected-nft-whirlpool) repository hosts the reference Solidity contract, the deployment script, and the dApp UI.
