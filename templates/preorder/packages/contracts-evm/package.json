@@ -27,9 +27,9 @@
   "dependencies": {
     "@openzeppelin/contracts": "5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.1.0",
-    "@effectstream/evm-contracts": "0.100.13",
-    "@effectstream/evm-hardhat": "0.100.13",
-    "@effectstream/log": "0.100.13",
+    "@effectstream/evm-contracts": "0.100.14",
+    "@effectstream/evm-hardhat": "0.100.14",
+    "@effectstream/log": "0.100.14",
     "@wagmi/cli": "2.3.1",
     "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
     "@nomicfoundation/hardhat-viem": "3.0.0",
