@@ -84,20 +84,28 @@ export type RegisteredEvent<T extends LogEvent<LogEventFields<TSchema>[]>> = {
 };
 
 /**
- * Prepend the auto `blockHeight` indexed field, then run `addHashes` so
- * indexed fields of complex types are hashed for MQTT topic compatibility.
+ * Prepend the auto `blockHeight` indexed field.
  *
- * Both transformations happen before `toPath` so the path / topic shape
- * reflects the final field list.
+ * NOTE: we intentionally do NOT call `addHashes` here. `addHashes` only
+ * short-circuits fields where `field.indexed === false`, but user-defined
+ * fields default to `indexed: undefined` (the `genEvent` helper doesn't
+ * normalize it). For non-string/non-integer types (Array, Boolean, etc.)
+ * with `indexed: undefined`, `addHashes` injects a phantom `${name}Hash`
+ * indexed field — which ends up in the path slot but never gets a value
+ * in publish payloads. `fillPath` then emits a trailing `/#` (multi-level
+ * wildcard) to close the path, producing a topic like
+ * `app/<hash>/blockHeight/N/buyer/X/launchpad/Y/#`. MQTT PUBLISH topics
+ * cannot contain `#` — the encoder rejects them and the publish silently
+ * fails. The original `registerEvents` (pre-this-PR) did not call
+ * `addHashes`; apps that need complex-type indexing can call it explicitly.
  */
 function prepareEventForRegistration<T extends LogEvent<LogEventFields<TSchema>[]>>(
   event: T
 ): LogEvent<LogEventFields<TSchema>[]> {
-  const withBlockHeight: LogEvent<LogEventFields<TSchema>[]> = {
+  return {
     name: event.name,
     fields: [BLOCK_HEIGHT_FIELD, ...event.fields],
-  };
-  return addHashes(withBlockHeight as any) as unknown as LogEvent<LogEventFields<TSchema>[]>;
+  } as LogEvent<LogEventFields<TSchema>[]>;
 }
 
 /**
