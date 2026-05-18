@@ -46,7 +46,7 @@ import {
   type TypePaginationQuerySchema,
 } from "./pagination.ts";
 import { PrimitiveRegistry } from "@effectstream/sm";
-import { ConfigNetworkType } from "@effectstream/config";
+import { ConfigNetworkType, getWriteNamespace, usePaimaStaticConfig } from "@effectstream/config";
 
 function tableListContains(
   list: Array<{ table_name: string | null }>,
@@ -470,26 +470,36 @@ export const startHttpServer = function* (
       return cleanedProtocols;
     });
 
+    const staticConfigForRoute = yield* usePaimaStaticConfig();
+    const securityNamespaceForRoute = getWriteNamespace(
+      staticConfigForRoute.securityNamespace,
+    );
+
     server.get("/config", {
       schema: {
         tags: ["developer"],
         response: {
-          200: Type.Array(Type.Object({
-            networkType: Type.String(),
-            syncProtocolType: Type.String(),
-            syncProtocol: Type.Object({}, { additionalProperties: true }),
-            network: Type.Object({}, { additionalProperties: true }),
-            primitives: Type.Array(
-              Type.Object({}, { additionalProperties: true }),
-            ),
-          }, { additionalProperties: true })),
+          200: Type.Object({
+            securityNamespace: Type.Union([Type.String(), Type.Null()]),
+            syncProtocols: Type.Array(Type.Object({
+              networkType: Type.String(),
+              syncProtocolType: Type.String(),
+              syncProtocol: Type.Object({}, { additionalProperties: true }),
+              network: Type.Object({}, { additionalProperties: true }),
+              primitives: Type.Array(
+                Type.Object({}, { additionalProperties: true }),
+              ),
+            }, { additionalProperties: true })),
+          }),
         },
       },
     }, () => {
       const config = syncProtocols.map((syncProtocol) => syncProtocol.config)
         .flat();
-      const cleanedConfig = clearBigInts(config);
-      return cleanedConfig;
+      return {
+        securityNamespace: securityNamespaceForRoute,
+        syncProtocols: clearBigInts(config),
+      };
     });
   }
 

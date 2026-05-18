@@ -47,9 +47,14 @@ function getEntry(
   return highestEntry?.prefixes;
 }
 export function getReadNamespaces(
-  namespace: SecurityNamespace,
+  namespace: SecurityNamespace | undefined,
   blockHeight: number,
-): string[] {
+): (string | null)[] {
+  // Apps that never call setSecurityNamespace round-trip with a `null` prefix
+  // on both signer and verifier sides — keep that legacy path working.
+  if (namespace === undefined) {
+    return [null];
+  }
   if (typeof namespace === "string") {
     return [namespace];
   }
@@ -66,7 +71,12 @@ export function getReadNamespaces(
  * Which namespace to use when creating transactions
  * Note: new transactions are always made using the same constant namespace
  */
-export function getWriteNamespace(namespace: SecurityNamespace): string {
+export function getWriteNamespace(
+  namespace: SecurityNamespace | undefined,
+): string | null {
+  if (namespace === undefined) {
+    return null;
+  }
   if (typeof namespace === "string") {
     return namespace;
   }

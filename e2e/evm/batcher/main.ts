@@ -1,9 +1,11 @@
 import { main, suspend } from "effection";
 import { createNewBatcher, FileStorage, type BatcherConfig, type DefaultBatcherInput } from "@effectstream/batcher-sdk";
 import { ENV } from "@effectstream/utils/node-env";
+import { getWriteNamespace } from "@effectstream/config";
 
 import { effectstreamL2Adapter } from "./adapter-effectstream-l2.ts";
 import { counterAdapter, counterAdapterTarget } from "./adapter-counter.ts";
+import { config as evmConfig } from "../config.ts";
 
 const batchIntervalMs = 1000;
 const port = ENV.getNumber("BATCHER_PORT", 3334);
@@ -11,7 +13,7 @@ const port = ENV.getNumber("BATCHER_PORT", 3334);
 const config: BatcherConfig<DefaultBatcherInput> = {
   pollingIntervalMs: batchIntervalMs,
   enableHttpServer: true,
-  namespace: "",
+  namespace: getWriteNamespace(evmConfig.securityNamespace) ?? "",
   confirmationLevel: "wait-effectstream-processed",
   enableEventSystem: true,
   port,
