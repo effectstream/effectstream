@@ -20,6 +20,7 @@ const ENABLED = [
   "shinkai-v2",
   "zk-cardano",
   "zswap-da",
+  "batcher-validations",
   // "chess-v2",        // TODO: migrate to effectstream-bun
   // "chess",           // TODO: migrate to effectstream-bun
   // "dice",            // TODO: migrate to effectstream-bun
