@@ -87,3 +87,8 @@ export function isNotFoundError(err: unknown): boolean {
   }
   return false;
 }
+
+// Filesystem helpers (makeTempDir, readDir, etc.) live in `./fs.ts` under
+// the `@effectstream/utils/fs` subpath export. They intentionally do NOT
+// re-export from this file, because this file is re-exported by the package
+// barrel (`mod.ts`) — dragging `node:fs/promises` into browser bundles.

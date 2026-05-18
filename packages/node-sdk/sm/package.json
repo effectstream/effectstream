@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/sm",
-  "version": "0.100.13",
+  "version": "0.100.14",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -22,6 +22,7 @@
     "@effectstream/coroutine": "workspace:*",
     "@effectstream/crypto": "workspace:*",
     "@effectstream/db": "workspace:*",
+    "@effectstream/event-client": "workspace:*",
     "@effectstream/log": "workspace:*",
     "@effectstream/utils": "workspace:*",
     "pg": "8.17.2",

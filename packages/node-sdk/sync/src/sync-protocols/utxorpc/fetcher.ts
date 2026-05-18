@@ -40,34 +40,36 @@ export class UtxoRpcFetcher
     );
     const outputs: OutputAndCleanup<Output>[] = [];
     const blocks = this.multiplexer.fetchBlocks(data.from, data.to);
+    let lastEntry: typeof blocks[number] | undefined;
     for (const entry of blocks) {
+      lastEntry = entry;
       const completed = entry.output;
-      outputs.push({
-        output: {
-          blockHashes: [completed.hash],
-          raw: completed.block,
-          primitives: this.findPrimitivesFromWatchData(completed),
-        },
-        cleanup: entry.cleanup,
-      });
+      const primitives = this.findPrimitivesFromWatchData(completed);
+      if (primitives.length > 0) {
+        outputs.push({
+          output: {
+            blockHashes: [completed.hash],
+            raw: completed.block,
+            primitives,
+          },
+          cleanup: entry.cleanup,
+        });
+      }
     }
+    const lastCompleted = lastEntry!.output;
     return {
       output: outputs,
       lastPage: {
         ownBlockNumber: Number(data.to),
         own: {
-          slot: Number(
-            outputs[outputs.length - 1].output.raw.header!.slot,
-          ),
-          height: Number(
-            outputs[outputs.length - 1].output.raw.header!.height,
-          ),
-          hash: outputs[outputs.length - 1].output.blockHashes[0],
+          slot: Number(lastCompleted.block.header!.slot),
+          height: Number(lastCompleted.block.header!.height),
+          hash: lastCompleted.hash,
         },
         root: rootConversion.toRootPage({
           blockHashes: [],
           primitives: [],
-          raw: outputs[outputs.length - 1].output.raw,
+          raw: lastCompleted.block,
         }),
       },
     };

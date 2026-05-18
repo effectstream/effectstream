@@ -16,21 +16,27 @@ export type {
 // https://github.com/adelsz/pgtyped/issues/565
 export {
   blockHeightDone,
+  deleteEmptyBlocks,
   getBlockByHash,
   getBlockHeights,
   getBlockSeeds,
+  getLastNonEmptyBlockHash,
   getLatestProcessedBlockHeight,
   saveLastBlock,
 } from "./sql/block-heights.queries.ts";
 export type {
   IBlockHeightDoneParams,
   IBlockHeightDoneResult,
+  IDeleteEmptyBlocksParams,
+  IDeleteEmptyBlocksResult,
   IGetBlockByHashParams,
   IGetBlockByHashResult,
   IGetBlockHeightsParams,
   IGetBlockHeightsResult,
   IGetBlockSeedsParams,
   IGetBlockSeedsResult,
+  IGetLastNonEmptyBlockHashParams,
+  IGetLastNonEmptyBlockHashResult,
   IGetLatestProcessedBlockHeightParams,
   IGetLatestProcessedBlockHeightResult,
   ISaveLastBlockParams,

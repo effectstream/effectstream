@@ -510,6 +510,110 @@ export const gameStateTransitions: StartConfigGameStateTransitions = function* (
 - `blockTimestamp` -- Unix timestamp of the block
 - `signerAddress` -- Wallet address that signed the transaction
 - `randomGenerator` -- Deterministic PRNG seeded by block hash
+- `emit(event, payload)` -- Emit a custom app event (see "Custom Events" below)
+
+### 3a. Custom Events
+
+Apps can declare typed events in the state machine and subscribe to them from the frontend. Events are delivered after MQTT, with two important guarantees:
+
+1. **Post-COMMIT delivery** — when a subscriber receives an event, a follow-up API query will see the rows the STF wrote. The frontend never races ahead of the database.
+2. **Drop on rollback** — events emitted by an STF that throws (or by a block that fails to commit) are never published. No ghost events.
+
+A small `@my-template/shared` package keeps the event declarations in one place so the state machine and the frontend stay in sync. The node + frontend packages both depend on it.
+
+**Declare** (`packages/shared/app-events.ts`):
+
+```ts
+import { Type } from "@sinclair/typebox";
+import { genEvent, registerEvents } from "@effectstream/event-client";
+
+export const AppEvents = registerEvents({
+  RoomCreated: genEvent({
+    name: "RoomCreated",
+    fields: [
+      { name: "roomId",   type: Type.Integer(), indexed: true  },
+      { name: "creator",  type: Type.String(),  indexed: true  },
+      { name: "roomName", type: Type.String() },
+      { name: "maxPlayers", type: Type.Number() },
+    ],
+  }),
+});
+```
+
+`registerEvents` auto-prepends `blockHeight` as the first indexed field — apps never declare or set it. Topic shape is `app/{topicHash}/{blockHeight}/{roomId}/{creator}`. Indexed fields of complex types (objects, arrays) are auto-hashed to a string for MQTT topic compatibility.
+
+The `packages/shared/package.json` is tiny — just typebox and the event client:
+
+```json
+{
+  "name": "@my-template/shared",
+  "version": "1.0.0",
+  "exports": { "./app-events": "./app-events.ts" },
+  "dependencies": {
+    "@effectstream/event-client": "0.100.13",
+    "@sinclair/typebox": "0.34.41"
+  }
+}
+```
+
+**Emit** (`packages/node/state-machine.ts`):
+
+```ts
+import { AppEvents } from "@my-template/shared/app-events";
+
+stm.addStateTransition("createRoom", function* (data) {
+  const { roomName, maxPlayers } = data.parsedInput;
+  const [{ id: roomId }] = yield* World.resolve(insertRoom, {
+    room_name: roomName, max_players: maxPlayers,
+    creator: data.signerAddress!, block_height: data.blockHeight,
+  });
+
+  // Buffered now, published to MQTT after this block's COMMIT.
+  // If the STF throws below, this event is dropped along with the DB writes.
+  data.emit(AppEvents.RoomCreated, {
+    roomId, creator: data.signerAddress!, roomName, maxPlayers,
+  });
+});
+```
+
+The `data.emit` closure runs synchronously and never throws — it just pushes into a per-input buffer. The runtime promotes the buffer to a per-block buffer on STF success, drops it on failure, and flushes to MQTT only after the block-level `COMMIT` completes.
+
+**Subscribe** (`packages/frontend/.../page.tsx`):
+
+```tsx
+import { EventManager } from "@effectstream/event-client";
+import { AppEvents } from "@my-template/shared/app-events";
+
+useEffect(() => {
+  if (!walletAddress) return;
+  let sym: symbol | undefined;
+  let cancelled = false;
+  EventManager.Instance.subscribe(
+    {
+      topic: AppEvents.RoomCreated,
+      filter: {
+        creator: walletAddress.toLowerCase(),  // narrow to me
+        roomId: undefined,                     // any room
+        blockHeight: undefined,                // any block
+      },
+    },
+    (event) => {
+      console.log(`Room ${event.roomId} (${event.roomName}) created at block ${event.blockHeight}`);
+      setRefreshKey((k) => k + 1);  // trigger API refetch
+    },
+  )
+    .then((s) => { cancelled ? EventManager.Instance.unsubscribe(s) : (sym = s); });
+  return () => { cancelled = true; if (sym) EventManager.Instance.unsubscribe(sym); };
+}, [walletAddress]);
+```
+
+The filter takes the same shape as the event declaration. Set `undefined` on a field to wildcard it (MQTT `+`), or supply a value to narrow.
+
+**Notes on durability**: events are *live notifications*, not a persistent log. A subscriber that connects after a block has finalized will not see past events. If you need replay, query the API for the corresponding DB state. Future: a `/api/events` REST endpoint backed by an event-log table.
+
+**Notes on replay**: if the engine re-syncs from genesis (e.g. after a reset), every STF re-runs and every event re-emits. Subscribers should be idempotent — events are best treated as "refresh this view" signals rather than authoritative state.
+
+**Working example**: see `templates/preorder/packages/shared/app-events.ts`, `templates/preorder/packages/node/state-machine.ts` (the `data.emit(AppEvents.PreorderPlaced, ...)` calls), and `templates/preorder/packages/frontend/client/src/pages/LaunchpadDetail.tsx` (the `EventManager.Instance.subscribe` useEffect).
 
 ### 4. Entry Point (`main.dev.ts` / `main.mainnet.ts`)
 

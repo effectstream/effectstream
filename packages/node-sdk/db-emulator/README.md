@@ -1,34 +1,65 @@
 # @effectstream/db-emulator
 
-Database emulation utilities for Effectstream development and testing.
+A standalone migration runner for EffectStream's database. Apply the
+EffectStream system schema plus your migrations to a Postgres or PgLite
+instance without booting the full runtime — handy for unit tests and CI
+fixtures.
 
-## Purpose
+## Install
 
-This package provides utilities for applying database migrations in test
-environments and during development. It was separated from `@effectstream/db` to break
-the circular dependency between `@effectstream/db` and `@effectstream/sm`.
+```bash
+bun add @effectstream/db-emulator
+# or
+npm install @effectstream/db-emulator
+```
 
-## Dependencies
+This package exists separately from `@effectstream/db` to break the
+circular dependency between `@effectstream/db` and `@effectstream/sm` —
+both of which `standAloneApplyMigrations` needs.
 
-- `@effectstream/db` - Core database functionality
-- `@effectstream/sm` - State machine primitives (for built-in primitives map)
-
-## Usage
+## Standalone usage
 
 ```typescript
 import { getConnection } from "@effectstream/db";
 import { standAloneApplyMigrations } from "@effectstream/db-emulator";
+import { localhostConfig } from "./config.ts";
+import { migrationTable } from "./migrations.ts";
 
 const db = await getConnection();
 await standAloneApplyMigrations(
   db,
   migrationTable,
   localhostConfig,
-  userDefinedPrimitives, // optional
+  /* userDefinedPrimitives */ undefined,
 );
 ```
 
-## Note
+You're left with a database that has every EffectStream system table
+plus your migrations applied, ready for tests to read and write
+directly against the client returned by `getConnection()`.
 
-This is primarily a development/testing utility. Production applications
-typically use the migration system directly through `@effectstream/db`.
+> Use only against ephemeral / in-memory databases. The function
+> assumes it owns the schema.
+
+## Inside EffectStream
+
+Designed for use in tests and migration tooling. Pair with
+[`@effectstream/db/start-pglite`](https://www.npmjs.com/package/@effectstream/db)
+for a quick in-memory database that's ready for app code to read /
+write.
+
+## Key exports
+
+- `standAloneApplyMigrations(db, migrationTable, config, userPrimitives?)` — apply the EffectStream system migrations plus your own, against the given pg client.
+
+## Examples
+
+Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
+
+For the broader migration pattern, see
+`templates/*/packages/client/database/sql-to-ts.ts`.
+
+## Links
+
+- Docs: https://effectstream.github.io/docs/packages/node/db-emulator
+- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db-emulator

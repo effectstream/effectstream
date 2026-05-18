@@ -1,15 +1,15 @@
 import {
-  allInjectedWallets,
-  PaimaEngineConfig,
+  EffectstreamConfig,
   sendTransaction,
   walletLogin,
   WalletMode,
-} from "@paimaexample/wallets";
-
+} from "@effectstream/wallets";
 import { hardhat } from "viem/chains";
 
-export const paimaEngineConfig = new PaimaEngineConfig(
-  "",
+// EFFECTSTREAM_L2_ADDRESS is the deterministic Hardhat address of the first deployed contract.
+// For other networks, replace this with the deployed EffectstreamL2 contract address.
+export const effectstreamConfig = new EffectstreamConfig(
+  "minimal",
   "mainEvmRPC",
   "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   hardhat,
@@ -19,26 +19,29 @@ export const paimaEngineConfig = new PaimaEngineConfig(
 );
 
 let wallet = null;
+
 async function login() {
   const result = await walletLogin({
     mode: WalletMode.EvmInjected,
-    chain: paimaEngineConfig.paimaL2Chain,
+    chain: effectstreamConfig.effectstreamL2Chain,
   });
   if (!result.success) throw new Error("Cannot login");
   wallet = result.result;
   return wallet;
 }
 
-async function sendTransactionPaimaL2(input) {
-  const result = await sendTransaction(
+async function sendTransactionEffectstreamL2(input) {
+  if (!wallet) throw new Error("Login first");
+  return await sendTransaction(
     wallet,
     ["my_action_name", input ?? "no-text"],
-    paimaEngineConfig,
+    effectstreamConfig,
+    "wait-effectstream-processed",
   );
-  return result;
 }
 
 window.effectstream = {
   login,
-  sendTransactionPaimaL2,
+  sendTransactionEffectstreamL2,
+  getWallet: () => wallet,
 };

@@ -1,8 +1,8 @@
-# Midnight Indexer
+# @effectstream/npm-midnight-indexer
 
 A Node.js package that downloads and runs the
 [Midnight](https://midnight.network) Indexer. The indexer requires a running
-Midnight Node to function properly.
+Midnight Node (see `@effectstream/npm-midnight-node`) to function properly.
 
 ## Overview
 
@@ -23,7 +23,9 @@ This package provides flexible execution options for the Midnight Indexer:
 ## Installation
 
 ```bash
-npm install npm-midnight-indexer
+bun add @effectstream/npm-midnight-indexer
+# or
+npm install @effectstream/npm-midnight-indexer
 ```
 
 ## Prerequisites
