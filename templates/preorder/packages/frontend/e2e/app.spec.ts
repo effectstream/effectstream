@@ -176,6 +176,46 @@ test.describe("EVM wallet flow", () => {
     );
   });
 
+  test("MyPurchases refreshes after EVM purchase", async ({ page }) => {
+    // End-to-end smoke test for the post-purchase refresh path. The UI may
+    // update via any of:
+    //   (a) the optimistic `localPurchases` merge in `handlePurchaseComplete`
+    //   (b) the manual /api/launchpad refetch in the same handler
+    //   (c) the AppEvents.PreorderPlaced MQTT subscription
+    //
+    // (c) is the new custom-events path; (a) and (b) are the existing ones.
+    // We assert the user-facing outcome (MyPurchases visible) without coupling
+    // to which refresh path delivered. The MQTT-only path is verified at the
+    // SDK level in e2e/features/mqtt/mqtt.test.ts:
+    //   "registerEvents: blockHeight auto-prepend + roundtrip".
+    await connectEvmLocal(page);
+    await expect(page.getByTestId("wallet-address")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await page.getByTestId("item-1-plus").first().click();
+    await expect(page.getByTestId("item-1-qty").first()).toHaveText("1");
+    await expect(page.getByTestId("order-summary")).toBeVisible();
+
+    await page.getByTestId("purchase-button").click();
+    await expect(page.getByTestId("wallet-confirm-modal")).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByTestId("wallet-confirm-btn").click();
+
+    // Wait for the on-chain transaction + STF processing to complete.
+    await expect(page.getByTestId("purchase-status")).toContainText(
+      "successful",
+      { timeout: 60_000 },
+    );
+
+    // MyPurchases should be visible — populated either optimistically or
+    // from any of the refresh paths.
+    await expect(page.getByTestId("my-purchases")).toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
   test("confirmation modal reject cancels purchase", async ({ page }) => {
     await connectEvmLocal(page);
     await expect(

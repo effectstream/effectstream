@@ -9,6 +9,9 @@
   "dependencies": {
     "@e2e/engine": "workspace:*",
     "@e2e/evm-contracts": "workspace:*",
+    "@effectstream/event-server": "workspace:*",
+    "@effectstream/event-client": "workspace:*",
+    "@seriousme/opifex": "^1.11.2",
     "@effectstream/concise": "workspace:*",
     "@effectstream/config": "workspace:*",
     "@effectstream/coroutine": "workspace:*",
