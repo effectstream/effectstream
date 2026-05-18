@@ -1,4 +1,4 @@
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import type { StaticDecode } from "@sinclair/typebox";
 import { type CommandTuple, generateRawStmInput } from "@effectstream/concise";
 import type {
@@ -10,7 +10,7 @@ import type { StateUpdateStream } from "@effectstream/coroutine";
 import {
   type AddressAndType,
   AddressType,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
 } from "@effectstream/utils";
 import { availGenericGrammar } from "./avail-generic-grammar.ts";
 import { PrimitiveTypeAvailGeneric } from "../builtin.ts";
@@ -18,9 +18,9 @@ import { PrimitiveTypeAvailGeneric } from "../builtin.ts";
 /**
  * Avail Generic Primitive
  *
- * This is a concrete implementation of the PaimaPrimitive class for Avail and Generic Contracts.
+ * This is a concrete implementation of the Primitive class for Avail and Generic Contracts.
  */
-export class AvailGenericPrimitive extends PaimaPrimitive<
+export class AvailGenericPrimitive extends Primitive<
   ConfigSyncProtocolType.AVAIL_PARALLEL,
   typeof availGenericGrammar
 > {
@@ -47,7 +47,7 @@ export class AvailGenericPrimitive extends PaimaPrimitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.AVAIL_PARALLEL
     >,

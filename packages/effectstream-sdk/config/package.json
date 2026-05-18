@@ -1,0 +1,29 @@
+{
+  "name": "@effectstream/config",
+  "version": "0.100.14",
+  "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/effectstream-sdk/config"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
+  "exports": "./src/mod.ts",
+  "dependencies": {
+    "@effectstream/utils": "workspace:*",
+    "@dcspark/carp-client": "^3.3.0",
+    "@dcspark/cip34-js": "3.0.1",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
+    "@sinclair/typebox": "0.34.41",
+    "@utxorpc/spec": "^0.18.1",
+    "abitype": "1.1.0",
+    "assert-never": "^1.4.0",
+    "buffer": "^6.0.3",
+    "effection": "^3.5.0",
+    "viem": "2.37.3"
+  },
+  "description": "Chain and runtime configuration for EffectStream"
+}

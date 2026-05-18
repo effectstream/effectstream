@@ -1,0 +1,10 @@
+{
+  "name": "@preorder/tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "pg": "^8.14.0",
+    "viem": "^2.23.14"
+  }
+}

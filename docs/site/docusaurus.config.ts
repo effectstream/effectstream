@@ -46,17 +46,17 @@ async function getMarkdownFiles() {
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Effectstream",
+  title: "EffectStream",
   //  tagline: 'Getting started',
   url: "https://effectstream.github.io",
   baseUrl: "/docs/",
   onBrokenLinks: "warn",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/favicon.ico",
+  favicon: "img/favicon.svg",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: "Effectstream", // Usually your GitHub org/user name.
+  organizationName: "EffectStream", // Usually your GitHub org/user name.
   projectName: "effectstream-engine-docs", // Usually your repo name.
 
   // Even if you don't use internalization, you can use this field to set useful
@@ -64,15 +64,7 @@ const config = {
   // to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: "en",
-    locales: ["en", "ja"],
-    localeConfigs: {
-      en: {
-        label: "English",
-      },
-      ja: {
-        label: "Japanese",
-      },
-    },
+    locales: ["en"],
   },
   themes: [
     // ... Your other themes.
@@ -127,13 +119,12 @@ const config = {
         //   beforeDefaultRemarkPlugins: [],
         //   beforeDefaultRehypePlugins: [],
         // },          
-        //blog: false,
-        // blog: {
-        //   showReadingTime: true,
-        //   // Please change this to your repo.
-        //   // Remove this to remove the "edit this page" links.
-        //   // editUrl: "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
-        // },
+        blog: {
+          showReadingTime: true,
+          blogSidebarCount: 'ALL',
+          blogSidebarTitle: 'All posts',
+          postsPerPage: 'ALL',
+        },
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
         },
@@ -152,6 +143,28 @@ const config = {
         },
       };
     },
+    function fixWebpackBarCompat() {
+      return {
+        name: "fix-webpackbar-compat",
+        configureWebpack(config) {
+          for (const plugin of config.plugins || []) {
+            if (plugin.constructor.name === 'WebpackBarPlugin' && plugin.options) {
+              for (const key of Object.keys(plugin.options)) {
+                if (!['activeModules', 'dependencies', 'dependenciesCount', 'entries', 'handler', 'modules', 'modulesCount', 'percentBy', 'profile'].includes(key)) {
+                  Object.defineProperty(plugin.options, key, {
+                    value: plugin.options[key],
+                    enumerable: false,
+                    writable: true,
+                    configurable: true,
+                  });
+                }
+              }
+            }
+          }
+          return {};
+        },
+      };
+    },
     [
       '@docusaurus/plugin-client-redirects',
       {
@@ -166,30 +179,10 @@ const config = {
         },
       }
     ],
-    [
-      // we use this plugin instead of using iframes so that the content is all statically searchable
-      "docusaurus-plugin-remote-content",
-      {
-          // run `yarn update:prc` to update the files
-          name: "prc", // used by CLI, must be path safe
-          sourceBaseUrl: "https://raw.githubusercontent.com/PaimaStudios/PRC/main/PRCS/",
-          outDir: "docs/home/20000-PRCs", // the base directory to output to.
-          documents: (async () => getMarkdownFiles())(), // the file names to download
-          modifyContent(filename, content) {
-            // replace (../ so that relative URLS turn into absolute URLs
-            let modifiedContent = content;
-            const fileWithoutExtension = filename.replace(/.md$/, '');
-            modifiedContent = modifiedContent.replace(/title: (.*)(?=\r?\n)/g, `title: ${fileWithoutExtension}：$1`);
-            modifiedContent = modifiedContent.replace(/\(\.\.\//g, "(https://raw.githubusercontent.com/PaimaStudios/PRC/main/");
-            return {
-              filename,
-              content: modifiedContent,
-            };
-          },
-          // otherwise this updates too often and you run into the github api limit
-          noRuntimeDownloads: true
-      },
-    ]
+    // PRC specs are now maintained as static MD files under
+    // docs/home/400-paima-standards/. The previous docusaurus-plugin-remote-content
+    // entry was removed when those pages were rewritten to include EffectStream
+    // integration appendices.
   ],
   stylesheets: [
     {
@@ -203,18 +196,6 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      announcementBar: {
-        id: 'v2-announcement',
-        content: `
-      <div class="custom-banner">
-        <p><strong>You are looking at Effectstream v2 docs</strong></p>
-        <p>Effectstream v2 is still under construction🚧</p>
-      </div>
-    `,
-        backgroundColor: '#fffcf9', 
-        textColor: '#ef476f',
-        isCloseable: false,
-      },
       colorMode: {
         defaultMode: 'dark',
         disableSwitch: true,
@@ -224,39 +205,39 @@ const config = {
         theme: { light: 'base', dark: 'base' },
         options: {
           themeVariables: {
-            'primaryColor': '#12271F',
-            'primaryTextColor': '#fff',
-            'lineColor': '#aaa',
-            'edgeLabelBackground': '#030909',
-            'tertiaryColor': '#fff',
-            'clusterBkg': '#00130C',
-            'clusterBorder': '000',
-            'titleColor': '#aaa',
-            'activationBkgColor': '#003320',
+            'primaryColor': '#13131a',
+            'primaryTextColor': '#f0f0f5',
+            'lineColor': '#666',
+            'edgeLabelBackground': '#0D0D12',
+            'tertiaryColor': '#f0f0f5',
+            'clusterBkg': '#131319',
+            'clusterBorder': '#1f1f27',
+            'titleColor': '#999',
+            'activationBkgColor': '#0f2d22',
           }
         }
       },
       image: 'img/no-image.png',
+      blog: {
+        sidebar: {
+          groupByYear: false,
+        },
+      },
       navbar: {
-        title: "Effectstream",
+        title: "",
         logo: {
-          alt: "Effectstream logo",
-          src: "img/favicon.ico",
+          alt: "EffectStream logo",
+          src: "img/favicon.svg",
           href: "/",
-          target: '_self',          
+          target: '_self',
         },
         items: [
-          {
-            type: "localeDropdown",
-            position: "right",
-          },      
+          { to: "/", label: "Docs", position: "left" },
+          { to: "/blog", label: "Blog", position: "left" },
           // {
-          //   type: "doc",
-          //   docId: "intro",
-          //   position: "left",
-          //   label: "Tutorial",
+          //   type: "localeDropdown",
+          //   position: "right",
           // },
-          // { to: "/blog", label: "Blog", position: "left" },
           // {
           //   href: "https://github.com/facebook/docusaurus",
           //   label: "GitHub",

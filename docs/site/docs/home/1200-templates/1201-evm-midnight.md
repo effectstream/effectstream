@@ -3,7 +3,7 @@
 -   **Location**: `/templates/evm-midnight`
 -   **Highlights**: EVM & Midnight Interoperability. Web Application to create ERC721 Tokens and add metadata through a Midnight Contract.
 
-The `evm-midnight` template is a powerful starting point that demonstrates one of Effectstream's core strengths: **multi-chain interoperability**. It showcases a complete, end-to-end dApp that seamlessly combines a public, asset-focused EVM chain with a private, computation-focused ZK chain (Midnight).
+The `evm-midnight` template is a powerful starting point that demonstrates one of EffectStream's core strengths: **multi-chain interoperability**. It showcases a complete, end-to-end dApp that seamlessly combines a public, asset-focused EVM chain with a private, computation-focused ZK chain (Midnight).
 
 ![evm-midnight-web](./evm-midnight.png)
 
@@ -12,7 +12,7 @@ The `evm-midnight` template is a powerful starting point that demonstrates one o
 The goal of this template is to create a dApp where users can own a standard **ERC721 Token** on an EVM chain, but then use the privacy features of **Midnight** to add or update metadata associated with that NFT.
 
 *   The ownership of the Token is public and managed by the EVM contract.
-*   The special properties or "enchantments" of the NFT are managed on Midnight. Only the owner can execute the ZK transaction to add a property, but the *result* (the new property) is made public on Midnight's ledger for the Effectstream to see.
+*   The special properties or "enchantments" of the NFT are managed on Midnight. Only the owner can execute the ZK transaction to add a property, but the *result* (the new property) is made public on Midnight's ledger for the EffectStream to see.
 
 This pattern is a blueprint for many real-world applications, such as:
 *   **Private Stats**: An Token character's stats (e.g., strength, intelligence) could be private until a battle.
@@ -32,7 +32,7 @@ deno install --allow-scripts && ./patch.sh
 deno task build:evm
 deno task build:midnight
 
-# Launch Effectstream Node
+# Launch EffectStream Node
 deno task dev
 ```
 
@@ -49,14 +49,14 @@ Now you should see the dApp running in your browser!
 When you run `deno task dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
 *   **Hardhat EVM Node**: A local EVM blockchain.
 *   **Midnight Stack**: The full local Midnight environment, including the node, indexer, and proof server.
-*   **Paima Services**: The development database, log collector, TUI, and the Paima Explorer.
-*   **Effectstream**: Node to sync the chains.
+*   **EffectStream Services**: The development database, log collector, TUI, and the EffectStream Explorer.
+*   **EffectStream**: Node to sync the chains.
 *   **Frontend**: A simple web interface to interact with the contracts.
 
 ## On-Chain Logic
 
 ### 1. The EVM Contract (`Erc721Dev.sol`)
-The EVM side is a standard, minimal `Erc721Dev` contract. Its only job is to manage the minting and transferring of Tokens. Effectstream will monitor its `Transfer` event to track ownership.
+The EVM side is a standard, minimal `Erc721Dev` contract. Its only job is to manage the minting and transferring of Tokens. EffectStream will monitor its `Transfer` event to track ownership.
 
 ```solidity
 // In packages/shared/contracts/evm/src/contracts/ERC721Dev.sol
@@ -85,7 +85,7 @@ pragma language_version >= 0.17;
 
 import CompactStandardLibrary;
 
-// These are the public state variables Paima will monitor.
+// These are the public state variables EffectStream will monitor.
 export ledger round: Counter;
 export ledger contract_address: Bytes<64>;
 export ledger token_id: Bytes<64>;
@@ -213,4 +213,4 @@ DO UPDATE SET
 
 
 
-By combining these two STFs, the Effectstream builds a unified view of the dApp's state, merging public ownership data from EVM with privately-added metadata from Midnight.
+By combining these two STFs, the EffectStream builds a unified view of the dApp's state, merging public ownership data from EVM with privately-added metadata from Midnight.

@@ -29,7 +29,7 @@ The Batcher exposes a RESTful HTTP API when `enableHttpServer` is enabled. The A
 Enable the HTTP server in your configuration:
 
 ```typescript
-const config: PaimaBatcherConfig = {
+const config: BatcherConfig = {
   enableHttpServer: true,
   port: 3334,
   // ... other config
@@ -65,7 +65,7 @@ Submit a new input to the batching queue.
 |-------|-------------|-------------------|
 | `"no-wait"` | Immediately after queuing | `{ success, message, inputsProcessed }` |
 | `"wait-receipt"` | After blockchain confirmation | `{ success, message, transactionHash, inputsProcessed }` |
-| `"wait-effectstream-processed"` | After Paima Engine processes | `{ success, message, transactionHash, rollup, inputsProcessed }` |
+| `"wait-effectstream-processed"` | After EffectStream processes | `{ success, message, transactionHash, rollup, inputsProcessed }` |
 
 **Response Example (`wait-receipt`):**
 ```json
@@ -288,7 +288,7 @@ Batching criteria define **when** the batcher should submit accumulated inputs t
 ### Configuration Structure
 
 ```typescript
-const config: PaimaBatcherConfig = {
+const config: BatcherConfig = {
   batchingCriteria: {
     [targetName]: {
       criteriaType: "time" | "size" | "value" | "hybrid" | "custom",
@@ -578,7 +578,7 @@ The event system provides **lifecycle hooks** for observability, logging, metric
 ### Enabling Events
 
 ```typescript
-const config: PaimaBatcherConfig = {
+const config: BatcherConfig = {
   enableEventSystem: true,  // Required to emit events
   // ... other config
 };
@@ -776,9 +776,9 @@ batcher.addStateTransition("batch:receipt", ({ target, blockNumber }) => {
 
 ---
 
-#### 9. `batch:effectstream-processed` – Paima Engine Processed
+#### 9. `batch:effectstream-processed` – EffectStream Processed
 
-**When:** Paima Engine has processed the batch (only if waiting for `wait-effectstream-processed`).
+**When:** EffectStream has processed the batch (only if waiting for `wait-effectstream-processed`).
 
 **Payload:**
 ```typescript
@@ -793,7 +793,7 @@ batcher.addStateTransition("batch:receipt", ({ target, blockNumber }) => {
 **Example:**
 ```typescript
 batcher.addStateTransition("batch:effectstream-processed", ({ target, rollup }) => {
-  console.log(`🎯 Paima processed ${target} batch in rollup block ${rollup}`);
+  console.log(`🎯 EffectStream processed ${target} batch in rollup block ${rollup}`);
 });
 ```
 
@@ -1337,9 +1337,9 @@ The batcher provides a `runBatcher()` operation that:
 
 ```typescript
 import { main, suspend } from "effection";
-import { PaimaBatcher } from "@effectstream/batcher";
+import { Batcher } from "@effectstream/batcher";
 
-const batcher = new PaimaBatcher(config, storage);
+const batcher = new Batcher(config, storage);
 
 main(function* () {
   // Run the batcher (starts HTTP server and polling)
@@ -1364,10 +1364,10 @@ Here's a production-ready example from the E2E tests:
 
 ```typescript
 import { main, suspend } from "effection";
-import { PaimaBatcher } from "@effectstream/batcher";
+import { Batcher } from "@effectstream/batcher";
 import { config, storage } from "./config.ts";
 
-const batcher = new PaimaBatcher(config, storage);
+const batcher = new Batcher(config, storage);
 
 // Add event listeners before starting
 batcher.addStateTransition("startup", ({ publicConfig }) => {
@@ -1423,7 +1423,7 @@ If you need more control, you can initialize manually:
 ```typescript
 import { main, suspend, spawn, sleep, call } from "effection";
 
-const batcher = new PaimaBatcher(config, storage);
+const batcher = new Batcher(config, storage);
 
 main(function* () {
   // 1. Initialize storage
@@ -1534,8 +1534,8 @@ Use Effection to run multiple batcher instances:
 ```typescript
 import { main, suspend, spawn } from "effection";
 
-const batcher1 = new PaimaBatcher(config1, storage1);
-const batcher2 = new PaimaBatcher(config2, storage2);
+const batcher1 = new Batcher(config1, storage1);
+const batcher2 = new Batcher(config2, storage2);
 
 main(function* () {
   // Run both batchers concurrently

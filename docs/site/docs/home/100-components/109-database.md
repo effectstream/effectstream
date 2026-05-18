@@ -1,6 +1,6 @@
 # Database
 
-Effectstream uses a SQL Database and tooling to support dApps:
+EffectStream uses a SQL Database and tooling to support dApps:
 * Define custom tables and migrations.
 * Define at what block number migrations get applied.
 * Write custom SQL queries, and they get compiled to typescript.
@@ -51,7 +51,7 @@ export const migrationTable: DBMigrations[] = [
   },
 ];
 ```
-> You can define the "versionDependency" field to enforce that that version or greater of Effectstream will be running when the migration is applied.
+> You can define the "versionDependency" field to enforce that that version or greater of EffectStream will be running when the migration is applied.
 
 > "blockHeight" field allows to define in what exact blockHeight the migration will be applied. 1 is default.
 

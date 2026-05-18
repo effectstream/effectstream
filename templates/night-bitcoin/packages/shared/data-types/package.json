@@ -1,0 +1,17 @@
+{
+  "name": "@night-bitcoin/data-types",
+  "version": "0.3.0",
+  "exports": {
+    "./localhostConfig": "./src/localhostConfig.ts",
+    "./grammar": "./src/grammar.ts"
+  },
+  "dependencies": {
+    "@paimaexample/concise": "0.5.0",
+    "@paimaexample/config": "0.5.0",
+    "@paimaexample/utils": "0.5.0",
+    "@paimaexample/db": "0.5.0",
+    "@paimaexample/sm": "0.5.0",
+    "viem": "2.37.3",
+    "@sinclair/typebox": "^0.34.30"
+  }
+}

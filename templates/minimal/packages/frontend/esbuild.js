@@ -1,10 +1,12 @@
 import { nodeModulesPolyfillPlugin } from "esbuild-plugins-node-modules-polyfill";
 import { build } from "esbuild";
-build({
+
+await build({
   entryPoints: ["./index.js"],
   bundle: true,
-  outfile: "min.js",
+  outfile: "dist/min.js",
   sourcemap: true,
+  format: "esm",
   plugins: [
     nodeModulesPolyfillPlugin({
       globals: {
@@ -14,3 +16,9 @@ build({
     }),
   ],
 });
+
+import { cp } from "node:fs/promises";
+await cp("./index.html", "./dist/index.html");
+await cp("./style.css", "./dist/style.css");
+
+console.log("Frontend built to ./dist");

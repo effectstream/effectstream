@@ -1,0 +1,27 @@
+{
+  "private": true,
+  "workspaces": ["packages/*", "packages/contracts-midnight/contract-round-value"],
+  "scripts": {
+    "dev": "NODE_ENV=development bunx orchestrator start",
+    "start:mainnet": "bun run packages/node/main.mainnet.ts",
+    "test": "bun run packages/tests/run-tests.ts",
+    "build:evm": "bun run --filter @evm-midnight/contracts-evm build:mod",
+    "build:midnight": "bun run --filter @evm-midnight/midnight-contract compact",
+    "start:frontend": "bun run --filter @evm-midnight/frontend dev",
+    "build:pgtypes": "bun run --filter @evm-midnight/database pgtyped:update"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@effectstream/midnight-contracts": "0.100.13",
+    "@effectstream/evm-contracts": "0.100.13",
+    "@effectstream/orchestrator": "0.100.13",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "wait-on": "8.0.3"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13"
+  }
+}

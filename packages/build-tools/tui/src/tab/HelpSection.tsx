@@ -8,7 +8,7 @@ export const HelpSection = () => {
 
       <Box flexDirection="column" gap={1}>
         <Text color="white" bold={true}>Documentation</Text>
-        <Text color="blue">🔗 https://docs.paimastudios.com/</Text>
+        <Text color="blue">🔗 https://effectstream.github.io/docs/</Text>
         <Text color="gray">Complete guides, API reference, and tutorials</Text>
         <Text></Text>
 

@@ -1,19 +1,3 @@
-import type { Next } from "@oak/oak/middleware";
-import type { Context } from "@oak/oak/context";
-
-// Configure static site routes so that we can serve
-// the Vite build output and the public folder
-export default function routeStaticFilesFrom(staticPaths: string[]) {
-  return async (context: Context<Record<string, object>>, next: Next) => {
-    for (const path of staticPaths) {
-      try {
-        await context.send({ root: path, index: "index.html" });
-        return;
-      } catch {
-        continue;
-      }
-    }
-
-    await next();
-  };
-}
+// This file is kept for backwards compatibility but is no longer used.
+// The server now uses Bun's native serve API directly.
+// See server/main.ts for the static file serving implementation.

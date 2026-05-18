@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/celestia",
-  "version": "0.3.0",
+  "version": "0.100.14",
   "type": "module",
   "main": "./index.js",
   "bin": {
@@ -13,5 +13,15 @@
   },
   "dependencies": {
     "@xhmikosr/bin-wrapper": "^5.0.0"
-  }
+  },
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/binaries/celestia"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
+  "description": "Celestia binary wrapper for EffectStream"
 }

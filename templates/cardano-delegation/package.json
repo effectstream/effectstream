@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "NODE_ENV=development bunx orchestrator start",
+    "test": "bun run packages/tests/run-tests.ts",
+    "build:pgtypes": "bun run --filter @cardano-delegation/database pgtyped:update"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@effectstream/orchestrator": "0.100.13",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "wait-on": "8.0.3"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
+  }
+}

@@ -28,11 +28,11 @@ Here's a minimal example based on the E2E test setup:
 import {
   FileStorage,
   BatcherConfig,
-  PaimaL2DefaultAdapter,
+  EffectstreamL2DefaultAdapter,
 } from "@effectstream/batcher";
 
 // Create an adapter for your blockchain
-const paimaL2 = new PaimaL2DefaultAdapter(
+const effectstreamL2 = new EffectstreamL2DefaultAdapter(
   "0x...", // Contract address
   "0x...", // Private key
   0n, // Fee
@@ -60,7 +60,7 @@ import { createNewBatcher } from "@effectstream/batcher";
 const batcher = createNewBatcher(config, storage);
 
 batcher
-  .addBlockchainAdapter("paimal2", paimaL2Adapter, { criteriaType: "time", timeWindowMs: 1000 })
+  .addBlockchainAdapter("effectstream-l2", effectstreamL2Adapter, { criteriaType: "time", timeWindowMs: 1000 })
 // Add custom startup logging
 batcher.addStateTransition("startup", ({ publicConfig }) => {
   console.log(
@@ -122,7 +122,7 @@ interface BlockchainAdapter {
 
 Out of the box we ship adapters for the most common targets:
 
-- `PaimaL2DefaultAdapter` – EffectStream's default L2 contract entrypoint.
+- `EffectstreamL2DefaultAdapter` – Effectstream's default L2 contract entrypoint.
 - `EvmContractAdapter` – generic viem-powered adapter that loads any Hardhat artifact and validates `{ method, args, value }` inputs.
 - `MidnightAdapter` – circuit-based submission flow for the Midnight chain.
 - `BitcoinAdapter` – UTXO batching + signature validation for regtest/local setups.
@@ -346,7 +346,7 @@ packages/batcher/
 │
 ├── adapters/                      # Blockchain adapters (✨ pluggable)
 │   ├── adapter.ts                 # Base adapter interface
-│   ├── paimal2-adapter.ts         # PaimaL2 EVM implementation
+│   ├── effectstream-l2-adapter.ts  # EffectstreamL2 EVM implementation
 │   ├── evm-contract-adapter.ts    # Generic ABI-driven EVM adapter
 │   ├── midnight-adapter.ts        # Midnight circuit adapter
 │   └── bitcoin-adapter.ts         # Bitcoin regtest adapter

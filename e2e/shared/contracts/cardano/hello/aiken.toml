@@ -1,0 +1,14 @@
+name = "e2e/hello"
+version = "0.0.0"
+license = "Apache-2.0"
+description = "Aiken contracts for project 'e2e/hello'"
+
+[repository]
+user = "e2e"
+project = "hello"
+platform = "github"
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "v3.0.0"
+source = "github"

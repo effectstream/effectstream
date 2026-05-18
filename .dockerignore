@@ -15,7 +15,18 @@ midnight-proof-server/proof-server/midnight-proof-server-*
 
 e2e/contracts/midnight/compactc
 **/midnight-level-db
+*.undeployed.json
 **/src/managed
 **/evm/build
 **/evm/ignition/deployments
+**/evm/mod.ts
 **/client/dist
+
+# e2e runtime artifacts
+**/avail_app.json
+**/avail_path/
+**/identity.toml
+**/dolos.toml
+**/dolos.socket
+e2e/**/data/
+*-batcher-data/

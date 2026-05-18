@@ -1,25 +1,25 @@
 # Randomness
 
-Randomness is essential for creating engaging and unpredictable games—from dice rolls and loot drops to critical hit chances. However, in a deterministic system like Effectstream, standard functions like `Math.random()` are strictly forbidden.
+Randomness is essential for creating engaging and unpredictable games—from dice rolls and loot drops to critical hit chances. However, in a deterministic system like EffectStream, standard functions like `Math.random()` are strictly forbidden.
 
 ### The Challenge: Deterministic Randomness
 
 A core requirement of any State Transition Function (STF) is that it must be **deterministic**. Given the same input, it must always produce the exact same output. Standard randomness functions are the opposite of this; they are designed to be unpredictable and will produce different results every time they are run.
 
-If two different Paima nodes running your game's STF got different results from a random number generator, their states would diverge, breaking the consensus of the entire system.
+If two different EffectStream nodes running your game's STF got different results from a random number generator, their states would diverge, breaking the consensus of the entire system.
 
-Effectstream solves this by providing a secure, deterministic, and replayable source of randomness that is safe to use within your STFs.
+EffectStream solves this by providing a secure, deterministic, and replayable source of randomness that is safe to use within your STFs.
 
-### The Paima Randomness Model
+### The EffectStream Randomness Model
 
-Paima's solution is built on two key components:
+EffectStream's solution is built on two key components:
 
-1.  **A Deterministic Block Seed**: For every block, the Effectstream generates a unique, deterministic seed. This seed is derived from on-chain data from that block (such as the blocks hashes). Because this data is the same for every node, the resulting seed is also the same.
+1.  **A Deterministic Block Seed**: For every block, the EffectStream generates a unique, deterministic seed. This seed is derived from on-chain data from that block (such as the blocks hashes). Because this data is the same for every node, the resulting seed is also the same.
 2.  **The `Prando` Class**: This is a powerful **Pseudo-Random Number Generator (PRNG)**. A PRNG is an algorithm that takes a starting **seed** and produces a sequence of numbers that appear random, but are in fact completely predictable if you know the seed.
 
 ### Using Randomness in Your STF
 
-You do not need to create a `Prando` instance yourself. The Effectstream automatically initializes one for you using the current block's seed and provides it directly in the `data` object of your STF.
+You do not need to create a `Prando` instance yourself. The EffectStream automatically initializes one for you using the current block's seed and provides it directly in the `data` object of your STF.
 
 ```ts
 // In your state-machine.ts

@@ -1,0 +1,15 @@
+{
+  "name": "@evm-midnight/batcher",
+  "version": "1.0.0",
+  "exports": "./batcher.dev.ts",
+  "scripts": {
+    "start": "bun run batcher.dev.ts",
+    "start:mainnet": "bun run batcher.mainnet.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.100.13",
+    "@evm-midnight/contracts-evm": "workspace:*",
+    "@evm-midnight/midnight-contract": "workspace:*",
+    "effection": "^3.5.0"
+  }
+}

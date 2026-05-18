@@ -5,7 +5,7 @@ import {
   type RpcTransaction,
   type RpcTransactionReceipt,
   stringToHex,
-} from "npm:viem@2.23.10";
+} from "viem";
 import { add0x } from "./rpc-utils.ts";
 
 export function toRpcTransaction(

@@ -7,7 +7,7 @@ export async function transferFunds(
 ): Promise<void> {
     if (!fromAddress || !toAddress || !amount) {
     console.error("❌ FROM_ADDRESS, TO_ADDRESS, and AMOUNT environment variables are not set");
-    Deno.exit(1);
+    process.exit(1);
     }
 
     console.log("================================================");
@@ -19,8 +19,8 @@ export async function transferFunds(
 };
 
 if (import.meta.main) {
-    const fromAddress = Deno.env.get("FROM_ADDRESS");
-    const toAddress = Deno.env.get("TO_ADDRESS");
-    const amount = Deno.env.get("AMOUNT");
+    const fromAddress = process.env.FROM_ADDRESS;
+    const toAddress = process.env.TO_ADDRESS;
+    const amount = process.env.AMOUNT;
     await transferFunds(fromAddress, toAddress, amount);
 }

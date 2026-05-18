@@ -1,10 +1,9 @@
 /**
- * Cross-runtime process spawn abstraction.
- * Use this instead of Deno.Command or node:child_process.spawn when you need
- * code to run on Node, Bun, or Deno.
- * 
- * This will be refactored to only use standard packages compatible with all runtimes.
+ * Process spawn abstraction using node:child_process.
  */
+
+import { spawn as nodeSpawn } from "node:child_process";
+import { Readable, Writable } from "node:stream";
 
 /** Result of a spawned process. stdout/stderr are Web ReadableStreams so they can be pipeTo()'d. */
 export interface SpawnChild {
@@ -13,8 +12,12 @@ export interface SpawnChild {
   readonly stdin?: WritableStream<Uint8Array>;
   readonly stdout: ReadableStream<Uint8Array>;
   readonly stderr: ReadableStream<Uint8Array>;
-  readonly status: Promise<{ success: boolean; code?: number; signal?: string }>;
-  kill(signal?: string): void;
+  readonly status: Promise<{
+    success: boolean;
+    code?: number;
+    signal?: string;
+  }>;
+  kill(signal?: NodeJS.Signals): void;
   ref(): void;
 }
 
@@ -46,95 +49,63 @@ function emptyReadableStream(): ReadableStream<Uint8Array> {
   });
 }
 
-function spawnDeno(command: string, options: SpawnOptions = {}): SpawnChild {
-  const args = options.args ?? [];
-  const child = new (Deno as any).Command(command, {
-    args,
-    signal: options.signal,
-    cwd: options.cwd,
-    env: options.env,
-    stdin: options.stdin ?? "inherit",
-    stdout: options.stdout ?? "piped",
-    stderr: options.stderr ?? "piped",
-  }).spawn();
-
-  const stdout =
-    options.stdout === "piped"
-      ? (child.stdout as ReadableStream<Uint8Array>)
-      : emptyReadableStream();
-  const stderr =
-    options.stderr === "piped"
-      ? (child.stderr as ReadableStream<Uint8Array>)
-      : emptyReadableStream();
-
-  const status = (child.status as Promise<{ success: boolean; code?: number; signal?: string }>).then(
-    (s) => ({ success: s.success, code: s.code, signal: s.signal })
-  );
-
-  const stdin =
-    options.stdin === "piped" && (child as any).stdin
-      ? ((child as any).stdin as WritableStream<Uint8Array>)
-      : undefined;
-
-  return {
-    get pid() {
-      return child.pid;
-    },
-    stdin,
-    stdout,
-    stderr,
-    status,
-    kill(signal?: string) {
-      child.kill(signal ?? "SIGTERM");
-    },
-    ref() {
-      if (typeof child.ref === "function") child.ref();
-    },
-  };
-}
-
-function spawnNode(command: string, options: SpawnOptions = {}): SpawnChild {
-  const { spawn } = require("node:child_process");
-  const { Readable } = require("node:stream");
-
+/**
+ * Spawn a child process. Returns a handle with Web ReadableStreams for stdout/stderr
+ * so they can be used with pipeTo() in any runtime.
+ */
+export function spawn(command: string, options: SpawnOptions = {}): SpawnChild {
   const args = options.args ?? [];
   const stdio: ("inherit" | "pipe" | "ignore")[] = [
-    options.stdin === "piped" ? "pipe" : options.stdin === "null" ? "ignore" : "inherit",
-    options.stdout === "piped" ? "pipe" : options.stdout === "null" ? "ignore" : "inherit",
-    options.stderr === "piped" ? "pipe" : options.stderr === "null" ? "ignore" : "inherit",
+    options.stdin === "piped"
+      ? "pipe"
+      : options.stdin === "null"
+        ? "ignore"
+        : "inherit",
+    options.stdout === "piped"
+      ? "pipe"
+      : options.stdout === "null"
+        ? "ignore"
+        : "inherit",
+    options.stderr === "piped"
+      ? "pipe"
+      : options.stderr === "null"
+        ? "ignore"
+        : "inherit",
   ];
 
-  const cp = spawn(command, args, {
+  const cp = nodeSpawn(command, args, {
     cwd: options.cwd,
-    env: { ...options.env, FORCE_COLOR: "true" },
+    env: { ...process.env, ...options.env, FORCE_COLOR: "true" },
     stdio,
     signal: options.signal,
   });
 
   const stdout: ReadableStream<Uint8Array> =
     options.stdout === "piped" && cp.stdout
-      ? (Readable.toWeb(cp.stdout) as ReadableStream<Uint8Array>)
+      ? (Readable.toWeb(cp.stdout) as unknown as ReadableStream<Uint8Array>)
       : emptyReadableStream();
   const stderr: ReadableStream<Uint8Array> =
     options.stderr === "piped" && cp.stderr
-      ? (Readable.toWeb(cp.stderr) as ReadableStream<Uint8Array>)
+      ? (Readable.toWeb(cp.stderr) as unknown as ReadableStream<Uint8Array>)
       : emptyReadableStream();
 
-  const status = new Promise<{ success: boolean; code?: number; signal?: string }>(
-    (resolve) => {
-      cp.on("close", (code: number | null, signal: string | null) => {
-        resolve({
-          success: code === 0,
-          code: code ?? undefined,
-          signal: signal ?? undefined,
-        });
+  const status = new Promise<{
+    success: boolean;
+    code?: number;
+    signal?: string;
+  }>((resolve) => {
+    cp.on("close", (code: number | null, signal: string | null) => {
+      resolve({
+        success: code === 0,
+        code: code ?? undefined,
+        signal: signal ?? undefined,
       });
-    }
-  );
+    });
+  });
 
   let stdinStream: WritableStream<Uint8Array> | undefined;
   if (options.stdin === "piped" && cp.stdin) {
-    stdinStream = require("node:stream").Writable.toWeb(cp.stdin) as WritableStream<Uint8Array>;
+    stdinStream = Writable.toWeb(cp.stdin) as WritableStream<Uint8Array>;
   }
 
   return {
@@ -145,7 +116,7 @@ function spawnNode(command: string, options: SpawnOptions = {}): SpawnChild {
     stdout,
     stderr,
     status,
-    kill(signal?: string) {
+    kill(signal?: NodeJS.Signals) {
       cp.kill(signal ?? "SIGTERM");
     },
     ref() {
@@ -155,26 +126,12 @@ function spawnNode(command: string, options: SpawnOptions = {}): SpawnChild {
 }
 
 /**
- * Spawn a child process. Returns a handle with Web ReadableStreams for stdout/stderr
- * so they can be used with pipeTo() in any runtime.
- */
-export function spawn(command: string, options: SpawnOptions = {}): SpawnChild {
-  if (typeof Deno !== "undefined" && (Deno as any).Command) {
-    return spawnDeno(command, options);
-  }
-  if (typeof process !== "undefined" && process.versions?.node) {
-    return spawnNode(command, options);
-  }
-  throw new Error("No process spawn implementation (Deno.Command or node:child_process) available");
-}
-
-/**
  * Run a command and wait for it to complete, returning collected stdout/stderr.
  * Use for short-lived commands (e.g. tmux install, kill-server).
  */
 export async function spawnOutput(
   command: string,
-  options: SpawnOptions & { stdinInput?: Uint8Array } = {}
+  options: SpawnOptions & { stdinInput?: Uint8Array } = {},
 ): Promise<SpawnOutputResult> {
   const { stdinInput, ...spawnOpts } = options;
   const useStdin = stdinInput != null;
@@ -206,7 +163,9 @@ export async function spawnOutput(
   };
 }
 
-async function streamToUint8Array(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+async function streamToUint8Array(
+  stream: ReadableStream<Uint8Array>,
+): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   const reader = stream.getReader();
   try {

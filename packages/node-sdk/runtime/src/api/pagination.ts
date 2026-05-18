@@ -11,7 +11,7 @@ import {
   type IGetTableSchemaResult,
   runPreparedQuery,
 } from "@effectstream/db";
-import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
+import { Buffer } from "node:buffer";
 
 // Utility functions for SQL injection prevention
 export function validateColumnName(columnName: string): boolean {
@@ -386,8 +386,8 @@ export function getPaginationParams<T extends Object>(
       offset = numericOffset;
     } else {
       // If not a valid number, try to parse as base64-encoded cursor
-      const decoded = decodeBase64(query.after);
-      const parsed = JSON.parse(new TextDecoder().decode(decoded));
+      const decoded = Buffer.from(query.after, "base64");
+      const parsed = JSON.parse(decoded.toString("utf-8"));
 
       if (typeof parsed !== "object" || parsed === null) {
         throw new Error("Invalid cursor object");
@@ -449,7 +449,7 @@ export function createPaginationMeta<T extends Record<string, any>>(
     }
 
     const cursorString = JSON.stringify(cursorObject);
-    meta.nextCursor = encodeBase64(new TextEncoder().encode(cursorString));
+    meta.nextCursor = Buffer.from(cursorString).toString("base64");
   }
 
   return meta;

@@ -1,5 +1,37 @@
 {
-  "devDependencies": {
-    "wait-on": "8.0.3"
-  }
+  "name": "@effectstream/orchestrator",
+  "version": "0.100.14",
+  "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/build-tools/orchestrator"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
+  "exports": {
+    "./config": "./src/config.ts",
+    "./resolve-package": "./scripts/resolve-package.ts",
+    "./launch-pglite": "./scripts/launch-pglite.ts",
+    "./launch-evm": "./scripts/launch-evm.ts",
+    "./launch-bitcoin": "./scripts/launch-bitcoin.ts",
+    "./launch-cardano": "./scripts/launch-cardano.ts",
+    "./launch-midnight": "./scripts/launch-midnight.ts",
+    "./launch-avail": "./scripts/launch-avail.ts",
+    "./launch-near": "./scripts/launch-near.ts",
+    "./wait-tcp": "./scripts/wait-tcp.ts",
+    "./wait-http": "./scripts/wait-http.ts"
+  },
+  "bin": {
+    "orchestrator": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun src/cli.ts start"
+  },
+  "dependencies": {
+    "@effectstream/db": "workspace:*"
+  },
+  "description": "Multi-chain local development environment for EffectStream"
 }

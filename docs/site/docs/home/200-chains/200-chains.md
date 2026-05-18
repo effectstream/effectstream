@@ -1,6 +1,6 @@
 # Supported Chains
 
-Effectstream is chain-agnostic. It can connect to, monitor, and write to multiple blockchains simultaneously.
+EffectStream is chain-agnostic. It can connect to, monitor, and write to multiple blockchains simultaneously.
 
 *   [**EVM**](./201-evm.md): Ethereum, Arbitrum, Optimism, Polygon, and other EVM-compatible chains.
 *   [**Midnight**](./202-midnight.md): Privacy-focused ZK chain for confidential smart contracts.
@@ -10,6 +10,8 @@ Effectstream is chain-agnostic. It can connect to, monitor, and write to multipl
 *   [**Polkadot**](./206-polkadot.md): Polkadot relay chain and Substrate-based parachains.
 *   [**Mina**](./207-mina.md): The lightweight ZK blockchain.
 *   [**Algorand**](./208-algorand.md): Pure Proof-of-Stake blockchain.
+*   [**Celestia**](./209-celestia.md): Modular Data Availability (DA) layer for blob storage.
+*   [**Contracts**](./210-contracts.md): First-party Solidity and Aiken contracts shipped with EffectStream.
 
 Each chain integration can contain up to 4 parts:
 1.  **Read (Sync Service)**: Configuring the node to listen for specific events or state changes.
@@ -30,13 +32,14 @@ Each chain integration can contain up to 4 parts:
 | [**Polkadot**](./206-polkadot.md) | ⚠️ | ⚠️ | ⚠️ | ✅ |
 | [**Mina**](./207-mina.md) | ⚠️ | ⚠️ | ⚠️ | ✅ |
 | [**Algorand**](./208-algorand.md) | ⚠️ | ⚠️ | ⚠️ | ✅ |
+| [**Celestia**](./209-celestia.md) | ✅ | ✅ | ✅ | ⚠️ |
 
 > ✅ **Available** | ⚠️ **Partial or not built-in**
 
 
 ## Cryptography & Verification
 
-Effectstream provides a unified package, `@effectstream/crypto`, to handle the complexities of different cryptographic standards (ECDSA, Ed25519, Schnorr, etc.).
+EffectStream provides a unified package, `@effectstream/crypto`, to handle the complexities of different cryptographic standards (ECDSA, Ed25519, Schnorr, etc.).
 
 Instead of installing specific SDKs for every chain (e.g., `ethers`, `lucid`, `polkadot-js`), you can use the `CryptoManager` singleton. This is particularly useful inside **State Transition Functions (STFs)** to verify that a user action was authorized by a specific wallet.
 

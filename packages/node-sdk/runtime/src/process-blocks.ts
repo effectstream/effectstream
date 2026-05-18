@@ -1,7 +1,7 @@
 import type { ChainBlock } from "@effectstream/sync";
 import { call, type Operation, until } from "effection";
 import type { Pool } from "pg";
-import { type BaseStfInput, primitiveTransitionFunction } from "@effectstream/sm";
+import { type BaseStfInput, type EmitFn, primitiveTransitionFunction } from "@effectstream/sm";
 import { PreparedQuery } from "@pgtyped/runtime";
 import type {
   ExecPromise,
@@ -21,9 +21,27 @@ import {
 import { Buffer } from "node:buffer";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { StartConfig } from "./types.ts";
-import type { BlockNumber, PaimaBlockHash } from "@effectstream/utils";
-import { generatePaimaBlockHash, Prando } from "@effectstream/crypto";
+import type { BlockNumber, EffectstreamBlockHash } from "@effectstream/utils";
+import { generateEffectstreamBlockHash, Prando } from "@effectstream/crypto";
 import { applyUserMigrations } from "./version-migrations.ts";
+import type { EventPathAndDef } from "@effectstream/event-client";
+
+/**
+ * A pending app event collected during STF execution, flushed to MQTT by
+ * the caller (main.ts) only after the block-level `COMMIT` succeeds.
+ *
+ * See plan invariants I1 (post-COMMIT delivery) and I2 (rollback drops events)
+ * in /Users/edwardalvarado/.claude/plans/wild-kindling-reddy.md.
+ */
+export type PendingEvent = {
+  event: EventPathAndDef;
+  payload: Record<string, unknown>;
+};
+
+export type ProcessFinalizedBlockResult = {
+  blockHash: EffectstreamBlockHash;
+  events: PendingEvent[];
+};
 
 /** Helper to check if a SyncStateUpdateStream object is a WorldResolve */
 function isWorldResolve(value: any): value is QueuedUpdate {
@@ -127,13 +145,17 @@ export function* processFinalizedBlock(
   value: ChainBlock,
   config: StartConfig,
   dbConn: Pool,
-  previousBlockHash: PaimaBlockHash | null,
-): Operation<PaimaBlockHash> {
+  previousBlockHash: EffectstreamBlockHash | null,
+): Operation<ProcessFinalizedBlockResult> {
   const { gameStateTransitions, migrations } = config;
-  const blockHash: PaimaBlockHash = generatePaimaBlockHash(
+  const blockHash: EffectstreamBlockHash = generateEffectstreamBlockHash(
     value,
     previousBlockHash,
   );
+  // Per-block event buffer. Only events from STF runs that succeeded
+  // (and survived to the post-COMMIT return) end up here. On block-level
+  // ROLLBACK below, this buffer goes out of scope unflushed.
+  const blockEvents: PendingEvent[] = [];
   let hasOperations = false;
   try {
     /* STEP 0: Start the transaction. */
@@ -193,6 +215,18 @@ export function* processFinalizedBlock(
       randomGenerator.skip();
       for (const data of scheduledData) {
         let success = true;
+        // Per-input event buffer. If the STF throws below, this buffer is
+        // dropped (events from rolled-back inputs never reach MQTT — I2).
+        // On success, we promote into `blockEvents` after the catch block.
+        const inputEvents: PendingEvent[] = [];
+        const emit: EmitFn = (event, payload) => {
+          inputEvents.push({
+            event,
+            // Auto-inject blockHeight (I5). registerEvents prepends it as the
+            // first indexed field; apps never set it themselves.
+            payload: { ...payload, blockHeight: value.blockNumber },
+          });
+        };
         try {
           const input: BaseStfInput = {
             blockTimestamp: value.timestamp,
@@ -201,6 +235,7 @@ export function* processFinalizedBlock(
             signerAddress: data.from_address,
             signerAddressType: data.from_address_type,
             randomGenerator,
+            emit,
             // TODO: We might want to add this to the scheduled data.
             //
             //      Or do we resolve it here. Account might change.
@@ -213,6 +248,12 @@ export function* processFinalizedBlock(
             input,
           );
           yield* executeGeneratorStepByStep(gameSTFGenerator, dbConn);
+          // STF succeeded: promote buffered events to the block buffer.
+          // Failure path falls through the catch below and `inputEvents`
+          // simply goes out of scope.
+          if (inputEvents.length > 0) {
+            blockEvents.push(...inputEvents);
+          }
         } catch (err) {
           success = false;
           log.remote(
@@ -307,5 +348,9 @@ export function* processFinalizedBlock(
     // We cannot recover from this error.
     throw err;
   }
-  return hasOperations ? blockHash : "0x0" as PaimaBlockHash;
+
+  return { 
+    blockHash: hasOperations ? blockHash : "0x0" as PaimaBlockHash, 
+    events: blockEvents 
+  };
 }

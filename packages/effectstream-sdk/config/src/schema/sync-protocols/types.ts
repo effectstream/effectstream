@@ -16,6 +16,7 @@ export enum ConfigSyncProtocolType {
   MIDNIGHT_PARALLEL = "midnight-graphql-parallel",
   BITCOIN_RPC_PARALLEL = "bitcoin-rpc-parallel",
   CELESTIA_PARALLEL = "celestia-rpc-parallel",
+  NEAR_RPC_PARALLEL = "near-rpc-parallel",
 }
 
 export const SyncProtocolToNetwork = {
@@ -28,6 +29,7 @@ export const SyncProtocolToNetwork = {
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: ConfigNetworkType.MIDNIGHT,
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: ConfigNetworkType.BITCOIN,
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: ConfigNetworkType.CELESTIA,
+  [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]: ConfigNetworkType.NEAR,
 } satisfies Record<ConfigSyncProtocolType, ConfigNetworkType>;
 
 export type NetworkTypeFromSyncProtocol<T extends ConfigSyncProtocolType> =
@@ -112,6 +114,19 @@ type CelestiaPrimitive = BasePrimitive & {
   namespace: string;
 };
 
+type NearPrimitive = BasePrimitive & {
+  /** NEAR account ID of the contract to watch (e.g., "intents.near") */
+  contractId: string;
+  /** NEP-297 event standard field filter (e.g., "nep141", "dip4") */
+  eventStandard?: string;
+  /** NEP-297 event type field filter (e.g., "ft_transfer", "token_diff") */
+  eventType?: string;
+  /** Glob patterns for intent token ID filtering (e.g., ["nep245:game.near:*"]) */
+  filterTokenIds?: string[];
+  /** Glob patterns for account ID filtering (e.g., ["*.game.near"]) */
+  filterAccountIds?: string[];
+};
+
 type NtpMainPrimitive = BasePrimitive & {};
 
 export type BitcoinPrimitiveDirection = "inputs" | "outputs" | "both";
@@ -146,6 +161,7 @@ export type ProtocolPrimitiveMap = {
   [ConfigSyncProtocolType.AVAIL_PARALLEL]: AvailPrimitive;
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitive;
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: CelestiaPrimitive;
+  [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]: NearPrimitive;
 };
 
 /**

@@ -1,13 +1,31 @@
 {
   "name": "@effectstream/evm-contracts",
-  "version": "0.3.0",
-  "description": "Effectstream EVM default contracts.",
-  "main": "index.js",
-  "author": "Paima Studios",
+  "version": "0.100.14",
+  "description": "EVM smart contract interfaces for EffectStream",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/chains/evm-contracts"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "type": "module",
+  "exports": {
+    ".": "./mod.ts",
+    "./*": "./*"
+  },
   "dependencies": {
     "@openzeppelin/contracts": "5.1.0",
-    "@openzeppelin/contracts-upgradeable": "^5.1.0"
+    "@openzeppelin/contracts-upgradeable": "^5.1.0",
+    "@wagmi/cli": "2.3.1",
+    "hardhat": "3.0.4",
+    "@nomicfoundation/hardhat-ignition": "3.0.2",
+    "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
+    "@nomicfoundation/hardhat-viem": "3.0.0",
+    "jsonc-parser": "^3.3.1",
+    "@opentelemetry/sdk-node": "0.56.0"
   }
 }

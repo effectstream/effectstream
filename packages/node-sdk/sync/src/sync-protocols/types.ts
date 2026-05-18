@@ -9,6 +9,7 @@ import type { NtpSyncState } from "./ntp/state.ts";
 import type { AvailSyncState } from "./avail/state.ts";
 import type { BitcoinSyncState } from "./bitcoin/state.ts";
 import type { CelestiaSyncState } from "./celestia/state.ts";
+import type { NearSyncState } from "./near/state.ts";
 
 // TODO: move folders
 export type RootOutput = ChainBlock;
@@ -22,7 +23,8 @@ export type AllSyncProtocols =
   | MidnightSyncState
   | AvailSyncState
   | BitcoinSyncState
-  | CelestiaSyncState;
+  | CelestiaSyncState
+  | NearSyncState;
 export type ISyncProtocol = UnionToIntersection<AllSyncProtocols>;
 
 type toPaginated<T> = T extends { fetcher: PaginatedFetcher<infer Page> } ? T

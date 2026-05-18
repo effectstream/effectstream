@@ -51,6 +51,16 @@ interface ConfigEndpointItem {
   primitives: any[];
 }
 
+interface ConfigEndpointResponse {
+  securityNamespace: string | null;
+  syncProtocols: ConfigEndpointItem[];
+}
+
+let cachedSecurityNamespace: string | null = null;
+export function getCachedSecurityNamespace(): string | null {
+  return cachedSecurityNamespace;
+}
+
 // Color palette for different chain types
 const CHAIN_COLORS = {
   paima: "#667eea",
@@ -146,7 +156,9 @@ export async function fetchChainConfigs(): Promise<PaimaChains> {
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
-  const configData: ConfigEndpointItem[] = await response.json();
+  const payload: ConfigEndpointResponse = await response.json();
+  cachedSecurityNamespace = payload.securityNamespace;
+  const configData: ConfigEndpointItem[] = payload.syncProtocols;
   const dynamicChains = transformConfigToPaimaChains(configData);
 
   // Always start with hardcoded Paima main as the first element

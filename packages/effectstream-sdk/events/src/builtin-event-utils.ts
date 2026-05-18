@@ -1,11 +1,11 @@
 import { BatcherStatus, BuiltinEvents } from './builtin-events.ts';
-import { PaimaEventManager } from './event-manager.ts';
-import type { PaimaEventBrokerNames } from './types.ts';
+import { EventManager } from './event-manager.ts';
+import type { EventBrokerNames } from './types.ts';
 
 let bestBlock = 0;
 
-export async function setupInitialListeners(_broker: PaimaEventBrokerNames): Promise<void> {
-  await PaimaEventManager.Instance.subscribe(
+export async function setupInitialListeners(_broker: EventBrokerNames): Promise<void> {
+  await EventManager.Instance.subscribe(
     {
       topic: BuiltinEvents.RollupBlock,
       filter: { block: undefined },
@@ -43,7 +43,7 @@ export function awaitBatcherHash(batchHash: string, maxTimeSec = 20): Promise<nu
       throw new Error('TIMEOUT');
     })(),
     new Promise<number>((resolve, reject) => {
-      subscriptionSymbol = PaimaEventManager.Instance.subscribe(
+      subscriptionSymbol = EventManager.Instance.subscribe(
         {
           topic: BuiltinEvents.BatcherHash,
           filter: { batch: batchHash, status: BatcherStatus.Finalized },
@@ -60,7 +60,7 @@ export function awaitBatcherHash(batchHash: string, maxTimeSec = 20): Promise<nu
   ]).finally(() => {
     if (subscriptionSymbol != null) {
       // note: it's okay that this doesn't happen right away
-      void subscriptionSymbol.then(sym => PaimaEventManager.Instance.unsubscribe(sym));
+      void subscriptionSymbol.then(sym => EventManager.Instance.unsubscribe(sym));
     }
   });
 }

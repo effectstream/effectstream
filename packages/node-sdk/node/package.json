@@ -1,0 +1,100 @@
+{
+  "name": "@effectstream/node-sdk",
+  "version": "0.100.14",
+  "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/node-sdk/node"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
+  "exports": {
+    ".": {
+      "bun": "./src/mod.ts"
+    },
+    "./runtime": {
+      "bun": "./src/runtime.ts"
+    },
+    "./sm": {
+      "bun": "./src/sm.ts"
+    },
+    "./sm/builtin": {
+      "bun": "./src/sm-builtin.ts"
+    },
+    "./sm/grammar": {
+      "bun": "./src/sm-grammar.ts"
+    },
+    "./sync": {
+      "bun": "./src/sync.ts"
+    },
+    "./db": {
+      "bun": "./src/db.ts"
+    },
+    "./db/start-pglite": {
+      "bun": "./src/db-start-pglite.ts"
+    },
+    "./db/apply-migrations": {
+      "bun": "./src/db-apply-migrations.ts"
+    },
+    "./db/db-up": {
+      "bun": "./src/db-start-pglite.ts"
+    },
+    "./db/db-wait": {
+      "bun": "./src/db-wait.ts"
+    },
+    "./db/pgtyped-update": {
+      "bun": "./src/db-pgtyped-update.ts"
+    },
+    "./db/version": {
+      "bun": "./src/db-version.ts"
+    },
+    "./db-emulator": {
+      "bun": "./src/db-emulator.ts"
+    },
+    "./coroutine": {
+      "bun": "./src/coroutine.ts"
+    },
+    "./event-server": {
+      "bun": "./src/event-server.ts"
+    },
+    "./config": {
+      "bun": "./src/config.ts"
+    },
+    "./chain-types": {
+      "bun": "./src/chain-types.ts"
+    },
+    "./precompile": {
+      "bun": "./src/precompile.ts"
+    },
+    "./utils": {
+      "bun": "./src/utils.ts"
+    },
+    "./utils/node-env": {
+      "bun": "./src/utils-node-env.ts"
+    },
+    "./utils/runtime": {
+      "bun": "./src/utils-runtime.ts"
+    },
+    "./concise": {
+      "bun": "./src/concise.ts"
+    }
+  },
+  "dependencies": {
+    "@effectstream/runtime": "workspace:*",
+    "@effectstream/sm": "workspace:*",
+    "@effectstream/sync": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@effectstream/db-emulator": "workspace:*",
+    "@effectstream/coroutine": "workspace:*",
+    "@effectstream/event-server": "workspace:*",
+    "@effectstream/config": "workspace:*",
+    "@effectstream/chain-types": "workspace:*",
+    "@effectstream/precompile": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@effectstream/concise": "workspace:*"
+  },
+  "description": "Main application node SDK for EffectStream"
+}

@@ -32,7 +32,7 @@ import { getEnv, exit } from "@effectstream/utils/runtime";
  * This is useful to pass dust to Lace wallets in the browser for testing purposes.
  *
  * Usage:
- * MIDNIGHT_ADDRESS=mn_addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts
+ * MIDNIGHT_ADDRESS=mn_addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx bun faucet.ts
  */
 
 // ============================================================================
@@ -841,12 +841,111 @@ export const faucet = async (
   }
 };
 
+export async function triggerNullifiers(
+  networkUrls: Required<Config>,
+  networkId: NetworkId.NetworkId,
+): Promise<void> {
+  console.log("\n--- Triggering nullifiers via shielded transfer ---\n");
+
+  setNetworkId(networkId);
+
+  const GENESIS_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
+  const walletResult = await buildWalletFacade(networkUrls, GENESIS_SEED, networkId);
+  console.log("Genesis wallet built, waiting for funds...");
+
+  await syncAndWaitForFunds(walletResult.wallet, {
+    waitNonZero: true,
+    logLabel: "genesis-nullifier",
+    timeoutMs: 120_000,
+  });
+
+  const shieldedAddr = await walletResult.wallet.shielded.getAddress();
+  const tokenId = shieldedToken().raw;
+  console.log(`Doing shielded self-transfer (token: ${tokenId}) to trigger nullifier spend...`);
+
+  const recipe = await walletResult.wallet.transferTransaction(
+    [{
+      type: "shielded",
+      outputs: [{
+        amount: 1n,
+        type: tokenId,
+        receiverAddress: shieldedAddr,
+      }],
+    }],
+    {
+      shieldedSecretKeys: walletResult.walletZswapSecretKeys,
+      dustSecretKey: walletResult.walletDustSecretKey,
+    },
+    { ttl: new Date(Date.now() + TTL_DURATION_MS) },
+  );
+  console.log("Shielded transfer recipe created");
+
+  const signedTx = await walletResult.wallet.signUnprovenTransaction(
+    recipe.transaction,
+    (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
+  );
+  const finalizedTx = await walletResult.wallet.finalizeTransaction(signedTx);
+  const txId = await walletResult.wallet.submitTransaction(finalizedTx);
+  console.log(`Shielded transfer submitted, txId: ${txId} — nullifiers should be spent on-chain`);
+
+  // Also test initSwap nullifiers
+  console.log("\nTesting initSwap + balanceUnprovenTransaction nullifiers...");
+
+  await syncAndWaitForFunds(walletResult.wallet, {
+    waitNonZero: true,
+    logLabel: "genesis-post-transfer",
+    timeoutMs: 120_000,
+  });
+
+  const tokenId2 = shieldedToken().raw;
+  const shieldedAddr2 = await walletResult.wallet.shielded.getAddress();
+
+  console.log("Creating swap offer via initSwap...");
+  const offerRecipe = await walletResult.wallet.initSwap(
+    { shielded: { [tokenId2]: 1n } },
+    [{
+      type: "shielded",
+      outputs: [{
+        type: tokenId2,
+        amount: 1n,
+        receiverAddress: shieldedAddr2,
+      }],
+    }],
+    {
+      shieldedSecretKeys: walletResult.walletZswapSecretKeys,
+      dustSecretKey: walletResult.walletDustSecretKey,
+    },
+    { ttl: new Date(Date.now() + TTL_DURATION_MS) },
+  );
+  console.log("Swap offer created via initSwap");
+
+  const balancedRecipe = await walletResult.wallet.balanceUnprovenTransaction(
+    offerRecipe.transaction,
+    {
+      shieldedSecretKeys: walletResult.walletZswapSecretKeys,
+      dustSecretKey: walletResult.walletDustSecretKey,
+    },
+    { ttl: new Date(Date.now() + TTL_DURATION_MS) },
+  );
+  console.log("Swap balanced");
+
+  const signedSwapTx = await walletResult.wallet.signUnprovenTransaction(
+    balancedRecipe.transaction,
+    (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
+  );
+  const finalizedSwapTx = await walletResult.wallet.finalizeTransaction(signedSwapTx);
+  const swapTxId = await walletResult.wallet.submitTransaction(finalizedSwapTx);
+  console.log(`Swap submitted, txId: ${swapTxId} — swap nullifiers should be spent on-chain`);
+
+  await walletResult.wallet.stop();
+}
+
 if (import.meta.main) {
   const midnightAddress = getEnv("MIDNIGHT_ADDRESS");
   if (!midnightAddress) {
     console.error("❌ MIDNIGHT_ADDRESS environment variable is not set");
     console.error(
-      "Example: MIDNIGHT_ADDRESS=mn_addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts",
+      "Example: MIDNIGHT_ADDRESS=mn_addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx bun faucet.ts",
     );
     exit(1);
   }

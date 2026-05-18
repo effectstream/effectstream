@@ -1,0 +1,44 @@
+{
+  "name": "@effectstream/runtime",
+  "version": "0.100.14",
+  "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/node-sdk/runtime"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
+  "exports": "./src/mod.ts",
+  "dependencies": {
+    "@effectstream/concise": "workspace:*",
+    "@effectstream/config": "workspace:*",
+    "@effectstream/coroutine": "workspace:*",
+    "@effectstream/crypto": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@effectstream/event-client": "workspace:*",
+    "@effectstream/event-server": "workspace:*",
+    "@effectstream/log": "workspace:*",
+    "@effectstream/sm": "workspace:*",
+    "@effectstream/sync": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@fastify/cors": "^11.0.1",
+    "@metamask/json-rpc-engine": "^10.0.3",
+    "pg": "8.17.2",
+    "effection": "^3.5.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.54.0",
+    "@opentelemetry/sdk-node": "0.56.0",
+    "jsonc-parser": "^3.3.1",
+    "fastify": "^5.4.0",
+    "@fastify/swagger": "^9.5.1",
+    "@fastify/swagger-ui": "^5.2.3",
+    "@sinclair/typebox": "0.34.41",
+    "viem": "2.37.3",
+    "js-sha3": "^0.9.3",
+    "@pgtyped/runtime": "2.4.2"
+  },
+  "description": "State machine runtime for EffectStream"
+}

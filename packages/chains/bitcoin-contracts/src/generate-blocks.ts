@@ -9,7 +9,7 @@ const ECPair = ecpair.ECPairFactory(ecc);
 const SATS_PER_BTC = 100_000_000;
 
 const argv = args();
-const DEFAULT_BLOCK_INTERVAL = argv.includes('--block-interval') ? 
+const DEFAULT_BLOCK_INTERVAL = argv.includes('--block-interval') ?
   parseInt(argv[argv.indexOf('--block-interval') + 1]) :
   5000;
 const NETWORK = bitcoin.networks.regtest;
@@ -71,16 +71,11 @@ let running = true;
 // Handle process signals
 const onSignal = (sig: string, code: number) => () => {
   console.log(`\nReceived ${sig}, stopping block generation...`);
-  running = false; 
+  running = false;
   exit(code);
 };
-if (typeof process !== "undefined") {
-  process.on("SIGINT", onSignal("SIGINT", 130));
-  process.on("SIGTERM", onSignal("SIGTERM", 143));
-} else if (typeof Deno !== "undefined") {
-  (Deno as any).addSignalListener("SIGINT", onSignal("SIGINT", 130));
-  (Deno as any).addSignalListener("SIGTERM", onSignal("SIGTERM", 143));
-}
+process.on("SIGINT", onSignal("SIGINT", 130));
+process.on("SIGTERM", onSignal("SIGTERM", 143));
 
 async function main() {
   await delay(10000);

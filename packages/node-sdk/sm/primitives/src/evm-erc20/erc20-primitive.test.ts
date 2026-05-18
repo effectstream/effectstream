@@ -1,10 +1,9 @@
-import { assertEquals, assertThrows } from "jsr:@std/assert";
+import { test, expect } from "bun:test";
 import type { EvmAddress } from "@effectstream/utils";
-import { test } from "@effectstream/utils/runtime";
 import { run } from "effection";
 import type { ConfigSyncProtocolType, FlattenSyncProtocolIOFor } from "@effectstream/config";
 import { Erc20Primitive } from "./../mod.ts";
-import { PaimaPrimitiveRegistry } from "../../PrimitiveRegistry.ts";
+import { PrimitiveRegistry } from "../../PrimitiveRegistry.ts";
 
 // Mock data
 const MOCK_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890" as EvmAddress;
@@ -16,7 +15,7 @@ const PrimitiveTypeEVMERC20 = "EVM:ERC20";
 
 function cleanup() {
     // Reset registry between tests
-    PaimaPrimitiveRegistry.primitives = {};
+    PrimitiveRegistry.primitives = {};
 }
 
 test("Erc20Primitive - initializes correctly", () => {
@@ -28,27 +27,27 @@ test("Erc20Primitive - initializes correctly", () => {
     stateMachinePrefix: "transfer",
   });
 
-  assertEquals(primitive.instanceName, "test-token");
-  assertEquals(primitive.startBlockHeight, 100);
-  assertEquals(primitive.contractAddress, MOCK_CONTRACT_ADDRESS);
-  assertEquals(primitive.internalTypeName, PrimitiveTypeEVMERC20);
-  
+  expect(primitive.instanceName).toEqual("test-token");
+  expect(primitive.startBlockHeight).toEqual(100);
+  expect(primitive.contractAddress).toEqual(MOCK_CONTRACT_ADDRESS);
+  expect(primitive.internalTypeName).toEqual(PrimitiveTypeEVMERC20);
+
   const config = primitive.getConfig();
-  assertEquals(config.name, "test-token");
-  assertEquals(config.type, PrimitiveTypeEVMERC20);
-  assertEquals(config.contractAddress, MOCK_CONTRACT_ADDRESS);
+  expect(config.name).toEqual("test-token");
+  expect(config.type).toEqual(PrimitiveTypeEVMERC20);
+  expect(config.contractAddress).toEqual(MOCK_CONTRACT_ADDRESS);
 });
 
 test("Erc20Primitive - throws on invalid address", () => {
   cleanup();
-  assertThrows(() => {
+  expect(() => {
     new Erc20Primitive({
       instanceName: "test-token",
       startBlockHeight: 100,
       contractAddress: "invalid-address" as EvmAddress,
       stateMachinePrefix: "transfer",
     });
-  });
+  }).toThrow();
 });
 
 test("Erc20Primitive - getPayload generates correct state update", async () => {
@@ -72,23 +71,23 @@ test("Erc20Primitive - getPayload generates correct state update", async () => {
 
   await run(function* () {
     const generator = primitive.getPayload(123, mockTxData);
-    const result = generator.next().value; 
-    
+    const result = generator.next().value;
+
     if (!result) throw new Error("No payload generated");
     if (!('isBatched' in result)) throw new Error("Result is not a SyncStateUpdate");
 
-    assertEquals(result.isBatched, false);
-    assertEquals(result.data.length, 1);
-    
+    expect(result.isBatched).toEqual(false);
+    expect(result.data.length).toEqual(1);
+
     const item = result.data[0];
-    assertEquals(item.accountingPayload.from, MOCK_FROM);
-    assertEquals(item.accountingPayload.to, MOCK_TO);
+    expect(item.accountingPayload.from).toEqual(MOCK_FROM);
+    expect(item.accountingPayload.to).toEqual(MOCK_TO);
     // Compare string values to handle BigInt vs String mismatches in JSON serialization simulation
-    assertEquals(String(item.accountingPayload.value), String(MOCK_VALUE));
-    
-    assertEquals(Array.isArray(item.stateMachinePayload), true);
+    expect(String(item.accountingPayload.value)).toEqual(String(MOCK_VALUE));
+
+    expect(Array.isArray(item.stateMachinePayload)).toEqual(true);
     // @ts-ignore: safe to access
-    assertEquals(item.stateMachinePayload?.[0], "transfer");
+    expect(item.stateMachinePayload?.[0]).toEqual("transfer");
   });
 });
 
@@ -100,7 +99,7 @@ test("Erc20Primitive - getPayload skips state machine payload if no prefix", asy
       contractAddress: MOCK_CONTRACT_ADDRESS,
       stateMachinePrefix: undefined,
     });
-  
+
     const mockTxData = {
       output: {
         payload: {
@@ -110,15 +109,15 @@ test("Erc20Primitive - getPayload skips state machine payload if no prefix", asy
         },
       },
     } as unknown as FlattenSyncProtocolIOFor<ConfigSyncProtocolType.EVM_RPC_PARALLEL>;
-  
+
     await run(function* () {
       const generator = primitive.getPayload(123, mockTxData);
       const result = generator.next().value;
-      
+
       if (!result) throw new Error("No payload generated");
       if (!('isBatched' in result)) throw new Error("Result is not a SyncStateUpdate");
-      
+
       const item = result.data[0];
-      assertEquals(item.stateMachinePayload, null);
+      expect(item.stateMachinePayload).toEqual(null);
     });
   });

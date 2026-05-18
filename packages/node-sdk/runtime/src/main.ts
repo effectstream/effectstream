@@ -12,10 +12,11 @@ import {
   resetPublicTables,
   runSnapshotLoop,
 } from "@effectstream/db";
-import { PaimaEventBroker } from "@effectstream/event-server";
+import { EventBroker } from "@effectstream/event-server";
+import { ENV } from "@effectstream/utils/node-env";
 import {
   BuiltinEvents,
-  PaimaEventManager,
+  EventManager,
 } from "@effectstream/event-client";
 import { startMerge, startSync } from "@effectstream/sync";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
@@ -28,31 +29,19 @@ import {
   until,
 } from "effection";
 import { initTelemetry } from "./telemetry.ts";
-import { processFinalizedBlock } from "./process-blocks.ts";
+import { type PendingEvent, processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
-import type { PaimaBlockHash } from "@effectstream/utils";
+import type { EffectstreamBlockHash } from "@effectstream/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
-import { type SyncProtocolWithNetwork, ConfigNetworkType } from "@effectstream/config";
+import { ConfigNetworkType, usePaimaStaticConfig } from "@effectstream/config";
+import type { SecurityNamespace, SyncProtocolWithNetwork } from "@effectstream/config";
 import { builtInPrimitivesMap } from "@effectstream/sm";
 import { validateAndSnapshotConfig } from "./config-snapshot.ts";
 
 export function* init() {
-  // Prevent transient network errors (broken pipes, closed connections) from
-  // crashing the process via unhandled promise rejections. The sync loop's
-  // tryYield already retries on error — this just keeps the process alive.
-  globalThis.addEventListener("unhandledrejection", (event) => {
-    log.local(
-      ComponentNames.EFFECTSTREAM_RUNTIME,
-      "unhandled-rejection",
-      SeverityNumber.WARN,
-      (l) => l("Suppressed unhandled rejection:", event.reason),
-    );
-    event.preventDefault();
-  });
-
   // initialize OpenTelemetry
   yield* initTelemetry();
 }
@@ -84,7 +73,9 @@ export function* start(config: StartConfig): Operation<void> {
   }
 
   // Create MQTT Broker
-  new PaimaEventBroker("effectstream-engine").createServer();
+  if (ENV.MQTT_BROKER) {
+    new EventBroker("effectstream-engine").createServer();
+  }
 
   yield* spawn(function* () {
     yield* startHttpServer(
@@ -136,8 +127,8 @@ export function* start(config: StartConfig): Operation<void> {
   });
 
   const [lastHashRow] = yield* until(getLastNonEmptyBlockHash.run(undefined, dbConn));
-  let blockHash: PaimaBlockHash | null = lastHashRow
-    ? lastHashRow.effectstream_block_hash!.toString() as PaimaBlockHash
+  let blockHash: EffectstreamBlockHash | null = lastHashRow
+    ? lastHashRow.effectstream_block_hash!.toString() as EffectstreamBlockHash
     : null;
   if (config.snapshotConfig) {
     yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
@@ -148,16 +139,22 @@ export function* start(config: StartConfig): Operation<void> {
     // For PGLite, this is not enough, as the can only be one connection at a time.
     // So we request a DBMutex as well.
     let dbClient: Client | undefined;
+    // Custom app events emitted by STFs during this block. Collected by
+    // processFinalizedBlock and flushed below ONLY after it returns — i.e.
+    // strictly after the block's COMMIT. See plan invariant I1.
+    let blockAppEvents: PendingEvent[] = [];
     try {
       yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
       dbClient = yield* until((dbConn as any).connect()); // Client,
 
-      const resultHash = yield* processFinalizedBlock(
+      const result = yield* processFinalizedBlock(
         value,
         config,
         dbClient as any, // Client,
         blockHash,
       );
+      const resultHash = result.blockHash;
+      blockAppEvents = result.events;
       if (resultHash !== "0x0") {
         blockHash = resultHash;
       }
@@ -170,14 +167,38 @@ export function* start(config: StartConfig): Operation<void> {
 
     // Used to emit & log the block range for each protocol.
     const contentBlocksForProtocol = getRangesForSyncProtocols(value);
-  
-    yield* until(
-      emitLatestBlocks(
-        value.blockNumber,
-        value.timestamp,
-        contentBlocksForProtocol,
-      ),
+
+    // Fire-and-forget: do not stall the sync loop on broker acks.
+    //
+    // Opifex's TcpClient assigns packet IDs synchronously in client.publish()
+    // and writes to the socket via Node's net.Socket, which has its own write
+    // queue — so concurrent publish() calls land on the wire in call order.
+    // MQTT 3.1.1 §4.6 then guarantees in-order delivery to each subscriber
+    // per (publisher, topic, QoS). We don't need a wrapper queue.
+    //
+    // TODO(scaling): the broker runs in-process (see `new EventBroker(...)`
+    // above). Fan-out to N subscribers consumes the same event loop as block
+    // processing. At ~thousands of subscribers, consider:
+    //   1) moving the broker to a worker / separate process,
+    //   2) a publisher-side circuit breaker if ctx.unresolvedPublish.size > N
+    //      (drop events with a counter for observability).
+    // Today: localhost, in-process, expected O(10²) subscribers — non-issue.
+    emitLatestBlocks(
+      value.blockNumber,
+      value.timestamp,
+      contentBlocksForProtocol,
     );
+    for (const { event, payload } of blockAppEvents) {
+      EventManager.Instance.sendMessage(event, payload as any).catch((err) => {
+        log.local(
+          ComponentNames.EFFECTSTREAM_RUNTIME,
+          "event-publish",
+          SeverityNumber.WARN,
+          (l) =>
+            l(`publish ${event.path.join("/")} failed: ${String(err)}`),
+        );
+      });
+    }
 
     const lagMs = Date.now() - value.timestamp;
     const lagSuffix = lagThresholdMs != null && lagMs > lagThresholdMs
@@ -212,24 +233,40 @@ function getRangesForSyncProtocols(value: ChainBlock): Record<string, [number, n
   return contentBlocksForProtocol;
 }
 
-async function emitLatestBlocks(
+/**
+ * Publish built-in block-level events.
+ *
+ * Fire-and-forget for the same reasons as the app-event flush above
+ * (do not stall the sync loop; ordering preserved by Opifex + MQTT 3.1.1).
+ *
+ * Errors are caught locally so they don't escape to the global
+ * `unhandledrejection` handler without context.
+ */
+function emitLatestBlocks(
   rollUpBlockHeight: number,
   rollUpBlockTimestamp: number,
   syncChains: Record<string, [number, number]>,
-) {
-  return await Promise.all([
-    PaimaEventManager.Instance.sendMessage(BuiltinEvents.RollupBlock, {
-      block: rollUpBlockHeight,
-      timestamp: rollUpBlockTimestamp,
-    }),
-    ...Object.entries(syncChains).map(([chainName, [_, toBlock]]) =>
-      PaimaEventManager.Instance.sendMessage(BuiltinEvents.SyncChains, {
-        chain: chainName,
-        block: toBlock,
-        rollup: rollUpBlockHeight
-      })
-    ),
-  ]);
+): void {
+  const logFailure = (topic: string) => (err: unknown) =>
+    log.local(
+      ComponentNames.EFFECTSTREAM_RUNTIME,
+      "event-publish",
+      SeverityNumber.WARN,
+      (l) => l(`publish ${topic} failed: ${String(err)}`),
+    );
+
+  EventManager.Instance.sendMessage(BuiltinEvents.RollupBlock, {
+    block: rollUpBlockHeight,
+    timestamp: rollUpBlockTimestamp,
+  }).catch(logFailure("RollupBlock"));
+
+  for (const [chainName, [_, toBlock]] of Object.entries(syncChains)) {
+    EventManager.Instance.sendMessage(BuiltinEvents.SyncChains, {
+      chain: chainName,
+      block: toBlock,
+      rollup: rollUpBlockHeight,
+    }).catch(logFailure(`SyncChains/${chainName}`));
+  }
 }
 
 function* startup(
@@ -239,12 +276,16 @@ function* startup(
 ): Operation<AllSyncProtocols[]> {
   const versionInfo = yield* getVersionInfo(dbConn);
   const lastBlockHeight = yield* getLastBlockHeight(versionInfo, dbConn);
+  // Pull the security namespace from the static config so primitives that
+  // re-verify batched signatures can access it synchronously.
+  const staticConfig = yield* usePaimaStaticConfig();
   // Create Runtime Primitives Instances
   syncInfo.forEach((syncProtocol) => {
     syncProtocol.primitives.forEach((primitive, primitiveIndex) => {
       processPrimitives(
         syncProtocol.primitives,
         primitiveIndex,
+        staticConfig.securityNamespace,
         config.userDefinedPrimitives
       );
     });
@@ -291,6 +332,7 @@ function* startup(
 const processPrimitives = (
   primitives: {primitive: any, id: string}[],
   primitiveIndex: number,
+  securityNamespace: SecurityNamespace | undefined,
   userDefinedPrimitives?: Record<string, any>,
 ) => {
     const primitiveType = primitives[primitiveIndex].primitive.type;
@@ -313,6 +355,7 @@ const processPrimitives = (
     const classConfig = {
       ...primitiveConfig,
       instanceName: primitiveUniqueName,
+      securityNamespace,
     }
     if (isBuiltInPrimitive) {
       p = new builtInPrimitivesMap[primitiveType as keyof typeof builtInPrimitivesMap](classConfig as any) ;

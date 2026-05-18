@@ -1,6 +1,6 @@
 # Database Snapshots
 
-Effectstream supports automated database snapshots using **`pg_dump`**. Snapshots let you take point-in-time backups of your node's database while it continues syncing — no downtime, no interruption.
+EffectStream supports automated database snapshots using **`pg_dump`**. Snapshots let you take point-in-time backups of your node's database while it continues syncing — no downtime, no interruption.
 
 ## How it works
 

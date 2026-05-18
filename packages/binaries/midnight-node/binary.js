@@ -4,7 +4,7 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
-const CURRENT_BINARY_VERSION = "0.22.2";
+const CURRENT_BINARY_VERSION = "0.22.5";
 const FINAL_BINARY_NAME = "midnight-node";
 
 /*

@@ -1,0 +1,128 @@
+import type { Client } from "pg";
+import fs from "node:fs";
+import path from "node:path";
+
+export type DeployedAddresses = {
+  launchpadProxy: `0x${string}`;
+  factory: `0x${string}`;
+  mockErc20: `0x${string}`;
+};
+
+export function getDeployedAddresses(): DeployedAddresses | null {
+  try {
+    const extraPath = path.resolve(import.meta.dirname!, "../contracts-evm/build/extra-addresses.json");
+    return JSON.parse(fs.readFileSync(extraPath, "utf-8"));
+  } catch {
+    console.log("Could not read extra-addresses.json");
+    return null;
+  }
+}
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export async function mineBlock(): Promise<void> {
+  await fetch("http://127.0.0.1:8545", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "evm_mine", params: [] }),
+  });
+}
+
+const getMaxTimeout = (): number => {
+  const envVal = process.env["E2E_MAX_TIMEOUT"];
+  return envVal ? parseInt(envVal, 10) : 60000;
+};
+
+const testResults = {
+  count: 0,
+  passed: 0,
+  failed: 0,
+};
+
+export function printSummary() {
+  console.log(`\n[Summary]`);
+  console.log(`  ${testResults.passed} tests passed`);
+  console.log(`  ${testResults.failed} tests failed`);
+}
+
+export function anyError(): boolean {
+  return testResults.count === 0 || testResults.failed > 0;
+}
+
+function startTest(testName: string) {
+  console.log(`[Running] ${testResults.count + 1}: ${testName}`);
+  testResults.count++;
+}
+
+export async function assert(
+  testName: string,
+  check: () => Promise<boolean>,
+): Promise<boolean> {
+  startTest(testName);
+  try {
+    const result = await check();
+    if (!result) {
+      testResults.failed++;
+      console.log(`[FAIL] ${testName}`);
+      return false;
+    }
+    testResults.passed++;
+    console.log(`[PASS] ${testName}`);
+    return true;
+  } catch (e) {
+    testResults.failed++;
+    console.log(`[FAIL] ${testName}`);
+    console.error("[ERROR]", e);
+    return false;
+  }
+}
+
+export async function assertSQL<RowType>(
+  testName: string,
+  db: Client,
+  query: string,
+  waitUntil: (rows: RowType[]) => boolean,
+  check: (rows: RowType[]) => boolean,
+): Promise<RowType[]> {
+  startTest(testName);
+  let remainingTime = getMaxTimeout();
+  const retryDelay = 200;
+
+  while (remainingTime > 0) {
+    try {
+      const res = await db.query<RowType>(query);
+      if (!waitUntil(res.rows)) {
+        await delay(retryDelay);
+        remainingTime -= retryDelay;
+        if (remainingTime <= 0) {
+          testResults.failed++;
+          console.log(`[FAIL] ${testName} (timeout waiting for data)`);
+          console.error("[TIMEOUT] Data in DB:", res.rows);
+          return res.rows;
+        }
+        continue;
+      }
+
+      if (!check(res.rows)) {
+        testResults.failed++;
+        console.log(`[FAIL] ${testName}`);
+        console.error("[CHECK_ERROR] Data in DB:", res.rows);
+        return res.rows;
+      }
+
+      testResults.passed++;
+      console.log(`[PASS] ${testName}`);
+      return res.rows;
+    } catch (e) {
+      await delay(retryDelay);
+      remainingTime -= retryDelay;
+      if (remainingTime <= 0) {
+        testResults.failed++;
+        console.log(`[FAIL] ${testName} (error)`);
+        console.error("[ERROR]", e);
+        return [];
+      }
+    }
+  }
+  return [];
+}

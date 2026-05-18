@@ -55,7 +55,7 @@ The `TOutput` parameter defines what `buildBatchData()` produces and what `submi
 
 | Blockchain Type | `TOutput` Example | Description |
 |----------------|-------------------|-------------|
-| **EVM (PaimaL2)** | `string` | JSON string like `["&B", [...]]` |
+| **EVM (EffectStreamL2)** | `string` | JSON string like `["&B", [...]]` |
 | **Midnight** | `MidnightBatchPayload` | Structured object with circuit args |
 | **Custom Chain** | `Uint8Array` | Raw bytes for binary protocols |
 | **Solana** | `Transaction` | Native transaction object |
@@ -274,12 +274,12 @@ interface BatchBuildingResult<TOutput> {
 
 #### Approach A: Use a Helper Class (Recommended for Standard Formats)
 
-If your blockchain uses a standard format (like Paima's JSON batching format), use a helper class:
+If your blockchain uses a standard format (like EffectStream's JSON batching format), use a helper class:
 
-**Example: PaimaL2DefaultAdapter (EVM)**
+**Example: EffectStreamL2DefaultAdapter (EVM)**
 
 ```typescript
-export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
+export class EffectStreamL2DefaultAdapter implements BlockchainAdapter<string> {
   private readonly batchBuilderLogic = new DefaultBatchBuilderLogic();
   
   buildBatchData(
@@ -414,11 +414,11 @@ submitBatch(data: TOutput, fee: string | bigint): Promise<BlockchainHash>
 3. **Sign and submit** the transaction
 4. **Return** the transaction hash
 
-**Example: PaimaL2DefaultAdapter (EVM)**
+**Example: EffectStreamL2DefaultAdapter (EVM)**
 
 ```typescript
 async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> {
-  let actualFee = this.paimaL2Fee;
+  let actualFee = this.effectstreamL2Fee;
   if (fee) {
     actualFee = typeof fee === "string" ? BigInt(fee) : fee;
   }
@@ -426,13 +426,13 @@ async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> 
   // Convert JSON string to hex bytes
   const hexData = encodeHexFromString(data);
   
-  // Submit to PaimaL2 contract
+  // Submit to EffectStreamL2 contract
   const hash = await this.walletClient.writeContract({
     account: this.account,
     chain: this.walletClient.chain,
-    address: this.paimaL2Address,
-    abi: this.paimaL2Abi,
-    functionName: "paimaSubmitGameInput",
+    address: this.effectstreamL2Address,
+    abi: this.effectstreamL2Abi,
+    functionName: "effectstreamSubmitGameInput",
     args: [hexData],
     value: actualFee,
   });
@@ -684,7 +684,7 @@ async estimateBatchFee(data: string): Promise<bigint> {
   const gasEstimate = await this.publicClient.estimateContractGas({
     address: this.contractAddress,
     abi: this.contractAbi,
-    functionName: "paimaSubmitGameInput",
+    functionName: "effectstreamSubmitGameInput",
     args: [hexData],
     account: this.account,
   });
@@ -731,11 +731,11 @@ getChainName(): string {
 
 #### `getSyncProtocolName()` (Optional)
 
-Return the Effectstream Sync protocol name for event filtering and `wait-effectstream-processed` queries:
+Return the EffectStream Sync protocol name for event filtering and `wait-effectstream-processed` queries:
 
 ```typescript
 getSyncProtocolName(): string {
-  return this.paimaSyncProtocolName;  // e.g., "mainEvmRPC"
+  return this.effectstreamSyncProtocolName;  // e.g., "mainEvmRPC"
 }
 ```
 
@@ -911,7 +911,7 @@ The batcher provides two helper classes for common serialization patterns. These
 
 ### `DefaultBatchBuilderLogic`
 
-**Purpose:** Create the standard Paima JSON batch format used by the PaimaL2 contract.
+**Purpose:** Create the standard EffectStream JSON batch format used by the EffectStreamL2 contract.
 
 **Output Format:**
 ```json
@@ -1291,6 +1291,6 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
 - Explore [Configuration](./1240-configuration.md) to learn how to wire adapters into the batcher
 - Check [Core Concepts](./1220-core-concepts.md) for deeper understanding of batcher architecture
 - Study the full adapter implementations:
-  - `packages/batcher/adapters/paimal2-adapter.ts` (EVM reference)
+  - `packages/batcher/adapters/effectstream-l2-adapter.ts` (EVM reference)
   - `packages/batcher/adapters/midnight-adapter.ts` (Midnight reference)
   - `templates/multi-chain-token-transfer/packages/client/batcher/erc1155-adapter.ts` (Custom EVM example)

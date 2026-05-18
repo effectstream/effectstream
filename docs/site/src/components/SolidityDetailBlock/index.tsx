@@ -19,7 +19,7 @@ const SolidityDetailBlock = (
     return (
         <table id={anchor} className="table table-auto w-full">
             <tbody>
-                <tr style={{ fontFamily: "'Roboto Mono', monospace" }} className="bg-[#030909]">
+                <tr style={{ fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }} className="bg-es-bg-subtle">
                     <td>
                         <div className="flex justify-between">
                             <span><b>{title}</b>{params}</span>
@@ -27,7 +27,7 @@ const SolidityDetailBlock = (
                         </div>
                     </td>
                 </tr>
-                <tr className="bg-black text-white">
+                <tr className="bg-es-bg text-es-text">
                     <td className={styles.contentPadding}>{children}</td>
                 </tr>
             </tbody>

@@ -9,10 +9,10 @@ import {
   type AddressAndType,
   AddressType,
   type EvmAddress,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
   TypeboxHelpers,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import { Value } from "@sinclair/typebox/value";
 import {
   type CommandTuple,
@@ -32,10 +32,10 @@ import { PrimitiveTypeEVMERC20 } from "../builtin.ts";
 /**
  * Erc20 Primitive
  *
- * This is a concrete implementation of the PaimaPrimitive class for ERC20.
+ * This is a concrete implementation of the Primitive class for ERC20.
  */
 
-export class Erc20Primitive extends PaimaPrimitive<
+export class Erc20Primitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   typeof erc20Grammar
 > {
@@ -71,7 +71,7 @@ export class Erc20Primitive extends PaimaPrimitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,

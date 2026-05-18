@@ -1,6 +1,6 @@
 # Midnight
 
-Midnight is a privacy-focused ZK (Zero-Knowledge) blockchain. Effectstream integrates with Midnight to read public state changes resulting from private circuit execution.
+Midnight is a privacy-focused ZK (Zero-Knowledge) blockchain. EffectStream integrates with Midnight to read public state changes resulting from private circuit execution.
 
 Some key points about Midnight:
 *   **Private State**: Keep user data and application logic confidential.
@@ -16,18 +16,18 @@ Midnight allows to keep the user's private and public data in the blockchain. Th
 *   **Node**: The core blockchain client that validates transactions by verifying their ZK proofs and maintains the public ledger.
 *   **Indexer**: A service that tracks the public blockchain data, making it easily queryable for dApps.
 *   **Smart Contracts (Compact)**: Contracts are written in Compact, a language designed for ZK. They define private logic (circuits) and can expose a **public `ledger` state**.
-*  **ledger**: The public state of the contract. It is the state that is exposed to the Effectstream.
+*  **ledger**: The public state of the contract. It is the state that is exposed to the EffectStream.
 
-### Effectstream & Midnight Integration
+### EffectStream & Midnight Integration
 
-Effectstream acts as a powerful deterministic off-chain indexer and state machine that **monitors the public state** of Midnight contracts. It does not handle private data or proof generation. Instead, it observes the *results* of private computations that are made public on the Midnight ledger.
+EffectStream acts as a powerful deterministic off-chain indexer and state machine that **monitors the public state** of Midnight contracts. It does not handle private data or proof generation. Instead, it observes the *results* of private computations that are made public on the Midnight ledger.
 
-This allows you to build complex dApps that combine the privacy of Midnight with the multi-chain data aggregation and deterministic logic of Effectstream.
+This allows you to build complex dApps that combine the privacy of Midnight with the multi-chain data aggregation and deterministic logic of EffectStream.
 
 ```mermaid
 graph TD
-    subgraph Effectstream
-        PaimaSync[Sync Service] --> PaimaSM[State Machine]
+    subgraph EffectStream
+        EffectStreamSync[Sync Service] --> EffectStreamSM[State Machine]
     end
 
     subgraph User's Machine
@@ -41,7 +41,7 @@ graph TD
 
     C -- ZK Proof --> B;
     B -- Signed TX with Proof --> D;
-    E -- Fetches Public State --> PaimaSync;
+    E -- Fetches Public State --> EffectStreamSync;
 
    
 ```
@@ -85,7 +85,7 @@ The protocol type `MIDNIGHT_PARALLEL` connects to the Midnight Indexer (GraphQL)
 *   **Language**: Compact (a TypeScript-inspired DSL for ZK).
 *   **Compilation**: `deno task build:midnight`
 
-A Midnight contract defines private state transitions (`circuits`) and can choose to expose certain data publicly in its `ledger`. Effectstream can only see what is in the public `ledger`.
+A Midnight contract defines private state transitions (`circuits`) and can choose to expose certain data publicly in its `ledger`. EffectStream can only see what is in the public `ledger`.
 
 **Example (`main.rs`):**
 ```rust
@@ -93,11 +93,11 @@ pragma language_version 0.16;
 
 import CompactStandardLibrary;
 
-// This is the public state that Effectstream's primitive will monitor.
+// This is the public state that EffectStream's primitive will monitor.
 export ledger round: Counter;
 
 // This is a private state transition. When executed, it generates a ZK proof.
-// Its effect is made visible to Paima by the change it causes to the public `round` state.
+// Its effect is made visible to EffectStream by the change it causes to the public `round` state.
 export circuit increment(): [] {
   round.increment(1);
 }
@@ -124,7 +124,7 @@ import * as MyContract from "@my-project/midnight-contract/contract";
 
 ## 2. Batcher Adapters (Write)
 
-Writing to Midnight involves proving and submitting ZK circuits. Effectstream provides the `MidnightAdapter` to handle this complexity.
+Writing to Midnight involves proving and submitting ZK circuits. EffectStream provides the `MidnightAdapter` to handle this complexity.
 
 ### Standard Midnight Adapter
 The `MidnightAdapter` manages the ZK proof generation (via a proof server) and transaction submission.

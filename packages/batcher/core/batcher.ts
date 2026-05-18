@@ -24,7 +24,8 @@ import {
   ShutdownManager,
 } from "./shutdown-manager.ts";
 import type { BatcherGrammar, BatcherListener } from "./batcher-events.ts";
-import { BuiltinEvents, PaimaEventManager as EffectStreamEventManager } from "@effectstream/event-client";
+import { BuiltinEvents, EventManager } from "@effectstream/event-client";
+import { ENV } from "@effectstream/utils/node-env";
 
 /**
  * Custom error class for input validation failures
@@ -64,7 +65,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Namespace used for signature verification messages */
   namespace: string = "effectstream_batcher";
   /** Timer ID for periodic batch processing */
-  private pollingIntervalID?: number;
+  private pollingIntervalID?: ReturnType<typeof setInterval>;
   /** Available blockchain adapters keyed by target name */
   private adapters: Record<string, BlockchainAdapter<any>>;
   /** Default target to use when input.target is not specified */
@@ -96,7 +97,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     {
       resolve: (result: BlockchainTransactionReceipt) => void;
       reject: (error: Error) => void;
-      timeoutId: number;
+      timeoutId: ReturnType<typeof setTimeout>;
     }
   > = new Map();
   /** Batch processor for handling complex batch operations */
@@ -588,15 +589,21 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     receipt: BlockchainTransactionReceipt,
     timeout: number = 120000,
   ): Promise<{ latestBlock: number; rollup: number } | null> {
-    // We need to get the chain name from the receipt
-    // Since receipt doesn't have chain info, we need to track which adapter submitted it
+    return this.waitForEffectStreamProcessedMqtt(target, receipt, timeout);
+  }
+
+  private async waitForEffectStreamProcessedMqtt(
+    target: string,
+    receipt: BlockchainTransactionReceipt,
+    timeout: number,
+  ): Promise<{ latestBlock: number; rollup: number } | null> {
     const adapter = this.adapters[target];
     const chainName = adapter.getSyncProtocolName?.() ??
       adapter.getChainName();
 
     let subscriptionReference: symbol | undefined = undefined;
     let latestBlock = 0;
-    let timer: number | undefined = undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined = undefined;
 
     try {
       const result = await Promise.race([
@@ -605,7 +612,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         }),
         new Promise<{ latestBlock: number; rollup: number }>(
           (resolve, reject) => {
-            EffectStreamEventManager.Instance.subscribe(
+            EventManager.Instance.subscribe(
               {
                 topic: BuiltinEvents.SyncChains,
                 filter: { chain: chainName, block: undefined },
@@ -628,13 +635,15 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       return null;
     } finally {
       if (subscriptionReference) {
-        EffectStreamEventManager.Instance.unsubscribe(subscriptionReference);
+        EventManager.Instance.unsubscribe(subscriptionReference);
       }
       if (timer) {
         clearTimeout(timer);
       }
     }
   }
+
+  // ── HTTP polling fallback (Bun — ws.createWebSocketStream unsupported) ────
 
   /**
    * Add input to storage

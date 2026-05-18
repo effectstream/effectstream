@@ -1,22 +1,23 @@
-#!/usr/bin/env -S deno run -A
+#!/usr/bin/env bun
 /**
  * Simple deployment script using ethers.js directly
  */
 
-import { JsonRpcProvider, Wallet, ContractFactory } from "npm:ethers@6.16.0";
+import { JsonRpcProvider, Wallet, ContractFactory } from "ethers";
+import { readFile } from "node:fs/promises";
 
 // Import contract artifacts
 const PaimaL2Contract = JSON.parse(
-  await Deno.readTextFile("./build/artifacts/hardhat/src/contracts/PaimaL2Contract.sol/PaimaL2Contract.json")
+  await readFile("./build/artifacts/hardhat/src/contracts/PaimaL2Contract.sol/PaimaL2Contract.json", "utf-8")
 );
 const AnnotatedMintNft = JSON.parse(
-  await Deno.readTextFile("./build/artifacts/hardhat/src/contracts/AnnotatedMintNft.sol/AnnotatedMintNft.json")
+  await readFile("./build/artifacts/hardhat/src/contracts/AnnotatedMintNft.sol/AnnotatedMintNft.json", "utf-8")
 );
 const NativeNftSale = JSON.parse(
-  await Deno.readTextFile("./build/artifacts/hardhat/src/contracts/NativeNftSale.sol/NativeNftSale.json")
+  await readFile("./build/artifacts/hardhat/src/contracts/NativeNftSale.sol/NativeNftSale.json", "utf-8")
 );
 const NativeNftSaleProxy = JSON.parse(
-  await Deno.readTextFile("./build/artifacts/hardhat/src/contracts/Proxy/NativeNftSaleProxy.sol/NativeNftSaleProxy.json")
+  await readFile("./build/artifacts/hardhat/src/contracts/Proxy/NativeNftSaleProxy.sol/NativeNftSaleProxy.json", "utf-8")
 );
 
 console.log("Connecting to Hardhat network...");
@@ -126,8 +127,9 @@ try {
   };
 
   const deploymentDir = "./ignition/deployments/chain-31337";
-  await Deno.mkdir(deploymentDir, { recursive: true });
-  await Deno.writeTextFile(
+  const { mkdir, writeFile } = await import("node:fs/promises");
+  await mkdir(deploymentDir, { recursive: true });
+  await writeFile(
     `${deploymentDir}/deployed_addresses.json`,
     JSON.stringify(deployedAddresses, null, 2)
   );
@@ -147,5 +149,5 @@ try {
   if (error.stack) {
     console.error(error.stack);
   }
-  Deno.exit(1);
+  process.exit(1);
 }

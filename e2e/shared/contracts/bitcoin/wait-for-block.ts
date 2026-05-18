@@ -2,7 +2,7 @@
  *  This script waits for a specific block to be mined.
  *  Usage:
  *  deno run -A wait-for-block.ts 100
- * 
+ *
  *  Arguments:
  *  - 1. Block height to wait for
  */
@@ -39,6 +39,10 @@ const bitcoinRpcCall = async (
 
   const data = await response.json();
   if (data.error) {
+    // bitcoind returns code -28 while still warming up (e.g. "Loading banlist…")
+    if (data.error.code === -28) {
+      throw new Error(`RPC warming up: ${data.error.message}`);
+    }
     throw new Error(`RPC error: ${JSON.stringify(data.error)}`);
   }
   return data.result;
@@ -48,12 +52,17 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function waitForBlock(targetBlock: number) {
   while (true) {
-    const blockhash = await bitcoinRpcCall("getbestblockhash", []);
-    const block = await bitcoinRpcCall("getblock", [blockhash]);
-    if (block.height > targetBlock) {
-      return;
+    try {
+      const blockhash = await bitcoinRpcCall("getbestblockhash", []);
+      const block = await bitcoinRpcCall("getblock", [blockhash]);
+      if (block.height > targetBlock) {
+        return;
+      }
+      console.log(`Waiting for block: ${targetBlock}. Current block: ${block.height}`);
+    } catch (e: any) {
+      // Retry on warmup or connection errors
+      console.log(`Waiting for bitcoind: ${e.message}`);
     }
-    console.log(`Waiting for block: ${targetBlock}. Current block: ${block.height}`);
     await delay(500);
   }
 }

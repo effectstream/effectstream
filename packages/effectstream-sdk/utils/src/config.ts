@@ -9,16 +9,16 @@
 
 // NOTE: To register a new config, we need to add it in the definitions, and then add the getter in the ENV class.
 // TODO: Is it possible to do this automatically, or just once?
-import { load } from "@std/dotenv";
+import dotenv from "dotenv";
 import { getEnv, setEnv } from "./runtime.ts";
 
 const MIDNIGHT_STORAGE_PASSWORD_DEFAULT = 'YourPasswordMy1!';
 
 const EFFECTSTREAM_ENV = getEnv("EFFECTSTREAM_ENV");
 if (EFFECTSTREAM_ENV) {
-  await load({
-    envPath: `.env.${EFFECTSTREAM_ENV}`, // Uses .env_<EFFECTSTREAM_ENV>
-    export: true, // Exports all variables to the environment
+  dotenv.config({
+    path: `.env.${EFFECTSTREAM_ENV}`,
+    override: true,
   });
 }
 
@@ -155,26 +155,50 @@ const definitions: Record<string, ConfigDefinition> = {
   MQTT_ENGINE_BROKER_URL: {
     key: "MQTT_ENGINE_BROKER_URL",
     type: "string",
-    defaultValue: "ws://127.0.0.1:8883",
-    description: "MQTT Engine Broker URL. Example: 'ws://127.0.0.1:8883'",
+    defaultValue: "mqtt://127.0.0.1:8883",
+    description: "MQTT Engine Broker TCP URL. Example: 'mqtt://127.0.0.1:8883'",
   },
   MQTT_ENGINE_BROKER_PORT: {
     key: "MQTT_ENGINE_BROKER_PORT",
     type: "number",
     defaultValue: 8883,
-    description: "MQTT Engine Broker Port. Example: '8883'",
+    description: "MQTT Engine Broker TCP Port. Example: '8883'",
+  },
+  MQTT_ENGINE_BROKER_WS_URL: {
+    key: "MQTT_ENGINE_BROKER_WS_URL",
+    type: "string",
+    defaultValue: "ws://127.0.0.1:9883",
+    description: "MQTT Engine Broker WebSocket URL (for browser clients). Example: 'ws://127.0.0.1:9883'",
+  },
+  MQTT_ENGINE_BROKER_WS_PORT: {
+    key: "MQTT_ENGINE_BROKER_WS_PORT",
+    type: "number",
+    defaultValue: 9883,
+    description: "MQTT Engine Broker WebSocket Port. Example: '9883'",
   },
   MQTT_BATCHER_BROKER_URL: {
     key: "MQTT_BATCHER_BROKER_URL",
     type: "string",
-    defaultValue: "ws://127.0.0.1:8884",
-    description: "MQTT Batcher Broker URL. Example: 'ws://127.0.0.1:8884'",
+    defaultValue: "mqtt://127.0.0.1:8884",
+    description: "MQTT Batcher Broker TCP URL. Example: 'mqtt://127.0.0.1:8884'",
   },
   MQTT_BATCHER_BROKER_PORT: {
     key: "MQTT_BATCHER_BROKER_PORT",
     type: "number",
     defaultValue: 8884,
-    description: "MQTT Batcher Broker Port. Example: '8884'",
+    description: "MQTT Batcher Broker TCP Port. Example: '8884'",
+  },
+  MQTT_BATCHER_BROKER_WS_URL: {
+    key: "MQTT_BATCHER_BROKER_WS_URL",
+    type: "string",
+    defaultValue: "ws://127.0.0.1:9884",
+    description: "MQTT Batcher Broker WebSocket URL (for browser clients). Example: 'ws://127.0.0.1:9884'",
+  },
+  MQTT_BATCHER_BROKER_WS_PORT: {
+    key: "MQTT_BATCHER_BROKER_WS_PORT",
+    type: "number",
+    defaultValue: 9884,
+    description: "MQTT Batcher Broker WebSocket Port. Example: '9884'",
   },
   EFFECTSTREAM_API_PORT: {
     key: "EFFECTSTREAM_API_PORT",
@@ -297,14 +321,26 @@ export class ENV {
   static get MQTT_ENGINE_BROKER_PORT(): number {
     return ENV.getConfig(definitions.MQTT_ENGINE_BROKER_PORT);
   }
+  static get MQTT_ENGINE_BROKER_WS_PORT(): number {
+    return ENV.getConfig(definitions.MQTT_ENGINE_BROKER_WS_PORT);
+  }
   static get MQTT_BATCHER_BROKER_PORT(): number {
     return ENV.getConfig(definitions.MQTT_BATCHER_BROKER_PORT);
+  }
+  static get MQTT_BATCHER_BROKER_WS_PORT(): number {
+    return ENV.getConfig(definitions.MQTT_BATCHER_BROKER_WS_PORT);
   }
   static get MQTT_ENGINE_BROKER_URL(): string {
     return ENV.getConfig(definitions.MQTT_ENGINE_BROKER_URL);
   }
+  static get MQTT_ENGINE_BROKER_WS_URL(): string {
+    return ENV.getConfig(definitions.MQTT_ENGINE_BROKER_WS_URL);
+  }
   static get MQTT_BATCHER_BROKER_URL(): string {
     return ENV.getConfig(definitions.MQTT_BATCHER_BROKER_URL);
+  }
+  static get MQTT_BATCHER_BROKER_WS_URL(): string {
+    return ENV.getConfig(definitions.MQTT_BATCHER_BROKER_WS_URL);
   }
   static get DB_HOST(): string {
     return ENV.getConfig(definitions.DB_HOST);

@@ -13,11 +13,13 @@ import {
   type AddressAndType,
   type UserSignature,
 } from "../IProvider.ts";
-import { web3Enable, web3FromSource } from "@polkadot/extension-dapp";
 import { utf8ToHex } from "web3-utils";
 import { getWindow } from "../windows.ts";
 
-import { web3Accounts, web3FromAddress } from "@polkadot/extension-dapp";
+// @polkadot/extension-dapp is browser-only (its bundle touches `window` at module
+// load). Import it lazily inside the methods that need it so this file can be
+// parsed in Node/Bun test contexts — matches the non-browser design note in
+// ../windows.ts.
 export type PolkadotAddress = string;
 export type PolkadotApi = InjectedExtension;
 
@@ -43,7 +45,7 @@ export class PolkadotConnector
         displayName: wallet,
       },
       api: async (): Promise<PolkadotApi> => {
-        // const { web3Enable, web3FromSource } = await import('@polkadot/extension-dapp');
+        const { web3Enable, web3FromSource } = await import("@polkadot/extension-dapp");
         await web3Enable(/*gameName*/ "paima");
         const injector = await web3FromSource(wallet);
         return injector;
@@ -63,6 +65,7 @@ export class PolkadotConnector
       return this.provider;
     }
 
+    const { web3Enable, web3Accounts, web3FromAddress } = await import("@polkadot/extension-dapp");
     const extensions = await web3Enable(/*gameName*/ "paima");
     if (extensions.length === 0) {
       throw new Error(`[polkadot] no extension detected`);

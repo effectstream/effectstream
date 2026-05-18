@@ -7,15 +7,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  e2e:
     runs-on: ubuntu-22.04
     if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: Build testing image
-        run: docker build -t testing_image:${{ github.sha }} --build-arg COMMIT_SHA=${{ github.sha }} -f .github/Dockerfile .
+        run: docker build -t testing_image:${{ github.sha }} -f .github/Dockerfile .
 
-      - name: test
-        run: docker run --rm --name testing_image${{ github.sha }}_${{ github.run_number }}_${{ github.run_attempt }} testing_image:${{ github.sha }}
+      - name: Run e2e tests
+        run: docker run --rm --name e2e_${{ github.run_number }} testing_image:${{ github.sha }}

@@ -4,7 +4,7 @@
  * This allows other processes to be coordinated to start only after a specific block is completed.
  * 
  * Usage:
- *  deno run -A wait-for-block.ts --block-height 100
+ *  bun run wait-for-block.ts --block-height 100
  */
 
 // Helper function to make Bitcoin RPC calls

@@ -1,0 +1,61 @@
+{
+  "name": "@e2e/midnight-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./counter": "./contract-counter/src/index.ts",
+    "./eip-20": "./contract-eip-20/src/index.original.ts"
+  },
+  "scripts": {
+    "midnight-node:start": "MIDNIGHT_STORAGE_PASSWORD=yourpasswordmypassword CFG_PRESET=dev bun ./node_modules/.bin/npm-midnight-node --dev --rpc-port 9944 --port 30333 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
+    "midnight-node:wait": "wait-on tcp:9944",
+    "midnight-indexer:start": "RUST_BACKTRACE=1 LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" bun ./node_modules/.bin/npm-midnight-indexer --binary --clean",
+    "midnight-indexer:wait": "wait-on tcp:8088",
+    "midnight-proof-server:start": "RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" bun ./node_modules/.bin/npm-midnight-proof-server",
+    "midnight-proof-server:wait": "wait-on tcp:6300",
+    "midnight-contract:clean": "rm -rf midnight-level-db contract-eip-20.undeployed.json contract-counter.undeployed.json",
+    "midnight-contract:deploy": "bun run contract-eip20:deploy && echo 'Finished deploying contract-eip20' && sleep 1 && bun run contract-counter:deploy && echo 'Finished deploying contract-counter' && sleep 1",
+    "contract-counter:deploy": "bun contract-counter-deploy.ts",
+    "contract-eip20:deploy": "bun contract-eip-20-deploy.ts",
+    "faucet": "bun faucet.ts"
+  },
+  "dependencies": {
+    "rxjs": "^7.8.2",
+    "ws": "8.18.1",
+    "@midnight-ntwrk/compact-runtime": "0.15.0",
+    "@midnight-ntwrk/compact-js": "2.5.0",
+    "@midnight-ntwrk/ledger": "*",
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "@midnight-ntwrk/wallet": "5.0.0",
+    "@midnight-ntwrk/wallet-api": "5.0.0",
+    "@midnight-ntwrk/zswap": "4.0.0",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.2",
+    "@midnight-ntwrk/midnight-js-types": "4.0.2",
+    "@midnight-ntwrk/midnight-js-utils": "4.0.2",
+    "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
+    "@midnight-ntwrk/midnight-js-contracts": "4.0.2",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.0.2",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "4.0.2",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.2",
+    "@midnight-ntwrk/wallet-sdk-abstractions": "2.0.0",
+    "@midnight-ntwrk/wallet-sdk-facade": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk-hd": "3.0.1",
+    "@midnight-ntwrk/wallet-sdk-shielded": "2.1.0",
+    "@midnight-ntwrk/wallet-sdk-dust-wallet": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "2.1.0",
+    "@midnight-ntwrk/wallet-sdk-capabilities": "3.2.0",
+    "@effectstream/utils": "workspace:*",
+    "@effectstream/midnight-contracts": "workspace:*",
+    "@e2e/midnight-contract-counter-basic": "workspace:*",
+    "@e2e/midnight-contract-eip-20": "workspace:*"
+  },
+  "devDependencies": {
+    "@effectstream/npm-midnight-node": "workspace:*",
+    "@effectstream/npm-midnight-indexer": "workspace:*",
+    "@effectstream/npm-midnight-proof-server": "workspace:*",
+    "wait-on": "8.0.3"
+  }
+}

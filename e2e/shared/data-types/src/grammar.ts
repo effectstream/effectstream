@@ -1,11 +1,8 @@
-import {
-  builtinGrammars
-} from "@effectstream/sm/grammar";
-
+import { builtinGrammars } from "@effectstream/sm/grammar";
 import { Type } from "@sinclair/typebox";
 import type { GrammarDefinition } from "@effectstream/concise";
 
-export const paimaL2Grammar = {
+export const effectstreamL2Grammar = {
   schedule: [
     ["tick", Type.Integer()],
     [
@@ -26,19 +23,11 @@ export const paimaL2Grammar = {
 } as const satisfies GrammarDefinition;
 
 export const grammar = {
-  ...paimaL2Grammar,
+  ...effectstreamL2Grammar,
 
-  // Custom Grammars
   "counter-stm": [["counter", Type.Number()]],
 
-  // TODO Check if these exist in runtime
-  "avail-app-state": builtinGrammars.availGeneric,
-  "midnightContractState": builtinGrammars.midnightGeneric,
-  "eip20ContractState": builtinGrammars.midnightGeneric,
   "transfer-assets": builtinGrammars.evmErc721,
   "transfer-erc20": builtinGrammars.evmErc20,
   "transfer-erc1155": builtinGrammars.evmErc1155,
-  "bitcoin-transaction": builtinGrammars.bitcoinAddress,
-  "cardano-utxo-rpc-generic": builtinGrammars.utxorpcGeneric,
-  "celestia-blob": builtinGrammars.celestiaGeneric,
 } as const satisfies GrammarDefinition;

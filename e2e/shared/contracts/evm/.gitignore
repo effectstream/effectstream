@@ -1,9 +1,3 @@
-node_modules
-
-# Auto generated file
+build/
+ignition/deployments/chain-*
 mod.ts
-
-# build
-/build
-
-remappings.txt

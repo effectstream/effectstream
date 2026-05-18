@@ -1,9 +1,9 @@
 
-# Effectstream Components
+# EffectStream Components
 
 * [Chain Sync](./101-sync-service.md)
 * [State Machine](./102-state-machine.md)
-* [Effectstream L2 Contract](./104-l2-contract.md)
+* [EffectStream L2 Contract](./104-l2-contract.md)
 * [Grammar](./111-grammar.md)
 * [Frontend](./115-frontend.md)
 * [API](./103-api.md)
