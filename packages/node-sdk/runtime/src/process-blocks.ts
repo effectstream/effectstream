@@ -155,16 +155,12 @@ export function* processFinalizedBlock(
   // (and survived to the post-COMMIT return) end up here. On block-level
   // ROLLBACK below, this buffer goes out of scope unflushed.
   const blockEvents: PendingEvent[] = [];
-  // DEBUG: tag for tracking which step failed. Reset at start of each step.
-  let _debugStep = "init";
   try {
     /* STEP 0: Start the transaction. */
-    _debugStep = `BEGIN for block ${value.blockNumber}`;
     yield* until(dbConn.query("BEGIN"));
     const randomGenerator = new Prando(blockHash);
 
     /* STEP 1: Create a temporal block record */
-    _debugStep = `STEP 1 saveLastBlock for block ${value.blockNumber}`;
     yield* call(() =>
       saveLastBlock.run({
         // TODO: Check these values
@@ -178,7 +174,6 @@ export function* processFinalizedBlock(
 
     /* STEP 2: Process the migrations. */
     if (migrations) {
-      _debugStep = `STEP 2 applyUserMigrations for block ${value.blockNumber}`;
       yield* applyUserMigrations(
         value.blockNumber,
         dbConn as any, // Client,
@@ -188,7 +183,6 @@ export function* processFinalizedBlock(
 
     /* STEP 3: Process the primitives. */
     for (const primitive of value.primitives) {
-      _debugStep = `STEP 3 primitive for block ${value.blockNumber}`;
       const generator = primitiveTransitionFunction(
         value.blockNumber,
         primitive,
@@ -197,14 +191,12 @@ export function* processFinalizedBlock(
     }
 
     /* STEP 4: Extract the scheduled data. */
-    _debugStep = `STEP 4a getFutureGameInputByBlockHeight for block ${value.blockNumber}`;
     const scheduledData1 = yield* call(() =>
       getFutureGameInputByBlockHeight.run({
         block_height: value.blockNumber,
       }, dbConn)
     );
     /* STEP 4.b: Extract the scheduled data by timestamp. */
-    _debugStep = `STEP 4b getFutureGameInputByMaxTimestamp for block ${value.blockNumber}`;
     const scheduledData2 = yield* call(() =>
       getFutureGameInputByMaxTimestamp.run({
         max_timestamp: new Date(value.timestamp),
@@ -213,21 +205,7 @@ export function* processFinalizedBlock(
 
     /* STEP 5: Process the scheduled data in the State Machine. */
     // TODO What should be the order of the scheduled data - per id?
-    //
-    // De-duplicate by `id`: an input scheduled with both a `future_block_height`
-    // matching this block AND a `max_timestamp` matching this block's timestamp
-    // will appear in both result sets. Without dedup we run the STF twice for
-    // the same input, which (a) wastes work and (b) crashes on the second run
-    // when the STF performs INSERT-with-unique-constraint operations (e.g.
-    // preorder's launchpad_participations(launchpad, tx_hash, wallet) where
-    // tx_hash falls back to `block-${blockHeight}` for both runs).
-    const _scheduledMerged = [...scheduledData1, ...scheduledData2];
-    const _seenIds = new Set<unknown>();
-    const scheduledData = _scheduledMerged.filter((row) => {
-      if (_seenIds.has(row.id)) return false;
-      _seenIds.add(row.id);
-      return true;
-    });
+    const scheduledData = [...scheduledData1, ...scheduledData2];
     let index_in_block = 0;
 
     if (gameStateTransitions && scheduledData.length > 0) {
@@ -266,7 +244,6 @@ export function* processFinalizedBlock(
             value.blockNumber,
             input,
           );
-          _debugStep = `STEP 5 STF for input ${data.id} in block ${value.blockNumber}`;
           yield* executeGeneratorStepByStep(gameSTFGenerator, dbConn);
           // STF succeeded: promote buffered events to the block buffer.
           // Failure path falls through the catch below and `inputEvents`
@@ -276,17 +253,6 @@ export function* processFinalizedBlock(
           }
         } catch (err) {
           success = false;
-          // DEBUG: surface to stdout. log.remote routes through tslog/OTel and
-          // doesn't always reach the orchestrator stream; we need to see the
-          // STF error directly to root-cause issues like the post-COMMIT abort
-          // chain (a thrown STF leaves the dbConn transaction poisoned, and
-          // the next query in processFinalizedBlock fails with 25P02 instead
-          // of the original error).
-          console.error(
-            `[processFinalizedBlock] STF threw for input ${data.id} block ${value.blockNumber}:`,
-            err,
-            "\n  input payload:", data.input_data,
-          );
           log.remote(
             ComponentNames.EFFECTSTREAM_SYNC,
             "block-processing",
@@ -305,7 +271,6 @@ export function* processFinalizedBlock(
           )
             .join("")
         }`;
-        _debugStep = `STEP 5 insertGameInputResult for input ${data.id} block ${value.blockNumber}`;
         yield* until(
           insertGameInputResult.run({
             id: data.id,
@@ -318,7 +283,6 @@ export function* processFinalizedBlock(
         index_in_block++;
 
         // Remove the scheduled data from the database.
-        _debugStep = `STEP 5 deleteScheduled for input ${data.id} block ${value.blockNumber}`;
         yield* until(
           deleteScheduled.run({
             id: data.id,
@@ -328,7 +292,6 @@ export function* processFinalizedBlock(
     }
 
     /* STEP 6: Mark the block as done. */
-    _debugStep = `STEP 6 blockHeightDone for block ${value.blockNumber}`;
     yield* call(() =>
       blockHeightDone.run({
         block_hash: Buffer.from(blockHash),
@@ -354,7 +317,6 @@ export function* processFinalizedBlock(
     }
 
     for (const [protocolName, blockNumber] of Object.entries(latestBlocks)) {
-      _debugStep = `STEP 7 removePages protocol=${protocolName} for block ${value.blockNumber}`;
       yield* until(
         removePages.run({
           protocol_name: protocolName,
@@ -364,28 +326,15 @@ export function* processFinalizedBlock(
     }
 
     /* STEP 8: Commit the transaction. */
-    _debugStep = `STEP 8 COMMIT for block ${value.blockNumber}`;
     yield* until(dbConn.query("COMMIT"));
   } catch (err) {
-    // DEBUG: surface to stdout (log.remote routes via tslog/orchestrator and
-    // can be filtered out before we see it). Also include the step tag so we
-    // know exactly which query in processFinalizedBlock raised.
-    console.error(
-      `[processFinalizedBlock] FAILED at: ${_debugStep}`,
-      "\n  error:", err,
-      "\n  block:", value.blockNumber,
-    );
-    try {
-      yield* until(dbConn.query("ROLLBACK"));
-    } catch (rbErr) {
-      console.error(`[processFinalizedBlock] ROLLBACK also failed:`, rbErr);
-    }
+    yield* until(dbConn.query("ROLLBACK"));
     log.remote(
       ComponentNames.EFFECTSTREAM_SYNC,
       "block-processing",
       SeverityNumber.ERROR,
       (log) =>
-        log(`Error processing block ${value.blockNumber} at ${_debugStep}: ${String(err)}`),
+        log(`Error processing block ${value.blockNumber}: ${String(err)}`),
     );
     // We cannot recover from this error.
     throw err;

@@ -40,43 +40,6 @@ import { builtInPrimitivesMap } from "@effectstream/sm";
 import { validateAndSnapshotConfig } from "./config-snapshot.ts";
 
 export function* init() {
-  // Prevent transient network errors (broken pipes, closed connections) from
-  // crashing the process. Use the Node-style `process.on` API — Bun's
-  // implementation respects this consistently. The Web API
-  // `globalThis.addEventListener("unhandledrejection", ...).preventDefault()`
-  // does not reliably stop Bun from exiting on rejection.
-  //
-  // Two specific errors we must swallow:
-  //
-  // 1. ERR_STREAM_WRITE_AFTER_END — Bun's WritableStream→Node-Writable adapter
-  //    in @effectstream/event-server's wrapNodeSocket queues chunks that may
-  //    flush AFTER the writer is closed. This raises from inside the adapter,
-  //    before our user write() guards. The peer has closed; dropping these
-  //    residual MQTT PUBACK/etc. writes is correct.
-  //    TODO: remove once Bun fixes the adapter queue semantics on close.
-  //
-  // 2. Generic broken-pipe / connection-reset on MQTT publish.
-  //    Pre-existing behavior — sync's `tryYield` retries the network call.
-  const handleError = (err: any) => {
-    const code = err?.code;
-    if (
-      code === "ERR_STREAM_WRITE_AFTER_END" ||
-      code === "EPIPE" ||
-      code === "ECONNRESET"
-    ) {
-      return;
-    }
-    log.local(
-      ComponentNames.EFFECTSTREAM_RUNTIME,
-      "unhandled-error",
-      SeverityNumber.WARN,
-      (l) => l("Suppressed unhandled error:", err),
-    );
-  };
-
-  process.on("uncaughtException", handleError);
-  process.on("unhandledRejection", handleError);
-
   // initialize OpenTelemetry
   yield* initTelemetry();
 }

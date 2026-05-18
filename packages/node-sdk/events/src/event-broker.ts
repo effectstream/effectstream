@@ -31,26 +31,13 @@ function wrapNodeSocket(socket: import('node:net').Socket): SockConn {
     cancel: () => { if (!socket.destroyed) socket.end(); },
   });
 
-  // Bun has a bug in its WritableStream→Node-Writable adapter: chunks queued
-  // before close() flush AFTER the internal Node Writable is marked ended,
-  // throwing ERR_STREAM_WRITE_AFTER_END from inside the adapter before our
-  // user write() callback gets a chance to guard. To avoid this we never
-  // explicitly end the socket via WritableStream's close/abort hooks — let
-  // the peer's TCP FIN / socket-level error close it naturally. Any remaining
-  // queued writes hit a still-open socket and either succeed or fail in our
-  // user callback where we can swallow them.
-  // TODO: revert to explicit socket.end()/destroy() once Bun fixes the
-  // adapter's queue semantics around close.
   const writable = new WritableStream<Uint8Array>({
     write(chunk) {
-      if (socket.destroyed || socket.writableEnded || socket.closed) return;
+      if (socket.destroyed) return;
       try {
         socket.write(chunk);
       } catch { /* socket closed between check and write */ }
     },
-    // Intentionally empty — see comment above.
-    close() { /* let the peer / close() field below tear down the socket */ },
-    abort() { /* same */ },
   });
 
   const remoteAddr = {
@@ -136,9 +123,20 @@ function createWsServer(port: number, mqttServer: MqttServer): ReturnType<typeof
       },
       message(ws, message) {
         const state = ws.data as WsConnectionState;
-        const data = message instanceof ArrayBuffer
-          ? new Uint8Array(message)
-          : new TextEncoder().encode(message as string);
+        // Bun delivers binary WS frames as Buffer/Uint8Array (NOT ArrayBuffer)
+        // — `binaryType: 'arraybuffer'` only affects the client-side WebSocket
+        // API, not Bun.serve. If we test `instanceof ArrayBuffer` first, binary
+        // frames fall through to a string path that replaces every non-UTF-8
+        // byte with U+FFFD (3 bytes `EF BF BD`), corrupting MQTT packets that
+        // start with 0x82 (SUBSCRIBE) etc. Check Uint8Array first.
+        let data: Uint8Array;
+        if (typeof message === 'string') {
+          data = new TextEncoder().encode(message);
+        } else if (message instanceof Uint8Array) {
+          data = message;
+        } else {
+          data = new Uint8Array(message as ArrayBuffer);
+        }
         state.controller?.enqueue(data);
       },
       close(ws) {
