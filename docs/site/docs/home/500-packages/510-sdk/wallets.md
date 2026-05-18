@@ -1,4 +1,12 @@
-# @effectstream/wallets
+---
+title: "@effectstream/wallets"
+description: "Wallet connector integrations for EffectStream"
+sidebar_label: "wallets"
+---
+
+<!-- Generated from packages/effectstream-sdk/wallets/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
+
+> Package: **[`@effectstream/wallets`](https://www.npmjs.com/package/@effectstream/wallets)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/wallets)
 
 Browser wallet connectors and the runtime client an EffectStream
 frontend uses to log in, sign batcher messages, send transactions, and
@@ -99,8 +107,8 @@ stable but rarely needed in app code): `connectInjectedWallet`,
 
 ## Examples
 
-Runnable: [`src/utils.test.ts`](./src/utils.test.ts) and
-[`test/examples.test.ts`](./test/examples.test.ts).
+Runnable: [`src/utils.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/wallets/src/utils.test.ts) and
+[`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/wallets/test/examples.test.ts).
 
 Real-world usage in templates (each imports `walletLogin`, `WalletMode`,
 `EffectstreamConfig`, `sendTransaction`):
