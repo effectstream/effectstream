@@ -10,8 +10,58 @@ Effectstream templates are standalone Bun monorepos that wire together: on-chain
 This skill exists because there are ~80 sharp edges (Bun workspace symlinking, Midnight version pinning, pgtyped working-dir, Foundry-vs-Hardhat artifact split, MQTT broker on Bun, contract address resolution timing, batcher namespace matching, …) that an agent will not discover from reading the repo alone. Most of them only blow up at runtime, in Docker, or when the user actually opens the page in a browser — i.e. after the agent has already declared success.
 
 **Workflow choice — make this decision first:**
-- **Create a new template (95% case)** → follow [Build order](#build-order) below.
+- **Create a new template (95% case)** → start with [Discovery](#discovery-confirm-scope-with-the-user-before-scaffolding) below, then follow [Build order](#build-order).
 - **Migrate an existing Paima/Effectstream-v1 project** → jump to `references/migration.md`. The rest of this file still applies after the structural migration.
+
+## Discovery — confirm scope with the user before scaffolding
+
+**Don't pick chains, contracts, or primitives by default — these are user decisions with real production consequences.** Suggest options, present trade-offs, then wait for explicit confirmation before writing any code.
+
+This phase looks like a short interview, not a code change. Run it even if the user's prompt sounds complete — the prompt almost never spells out cost or deployment implications, and the wrong default is much more expensive than a thirty-second clarifying conversation.
+
+### 1. Which chain(s)?
+
+Each chain a template indexes costs **real money in production** — an RPC provider or self-hosted node, an indexer process per chain, monitoring per chain. Each chain also doubles the local-dev orchestrator surface (more processes to boot, more failure modes, longer `bun run test`). So:
+
+- Confirm **the minimal chain set** that satisfies the use case. If the user says "I want a Cardano + Midnight game," push back: do both chains have a real role, or is one of them speculative? Single-chain templates are 2-3× simpler to operate.
+- Surface the cost: "Each chain you target needs an indexer running 24/7 in production. Are you OK with that for `<chain>`?" — especially for Cardano (Dolos + UTxO-RPC) and Midnight (node + indexer + proof-server) which are heavier than EVM.
+- Match the chain to the feature: if the only requirement is "watch ADA transfers to an address," that's Cardano-only; don't add EVM. If the user wants ZK private state, Midnight is the only choice. If the user just wants tokens, EVM is usually enough.
+
+Don't proceed until the user has named the chains explicitly.
+
+### 2. Which contract(s) — and does the use case even need contracts?
+
+Contracts come with the highest cost: **the user has to deploy them**, audit them, manage upgrades, and pay deployment gas. The agent doesn't deploy contracts; the user does. So:
+
+- Enumerate what the use case actually needs on-chain. For a "watch incoming ADA" template, **no contract** is needed — the engine reads native transfers via the `cardanoTransfer` primitive. Adding a contract here would be cost and complexity for nothing.
+- If contracts are needed, propose the minimal interface (e.g. "a single ERC-721 contract extending OpenZeppelin's `ERC721`") and let the user accept, modify, or replace it.
+- Mention deployment: "You'll need to deploy this to <chain> mainnet. Want me to scaffold a deploy script and a placeholder address that's env-var configurable?"
+- Cross-check against the primitive surface (next step) — sometimes a built-in primitive removes the need for a custom contract entirely.
+
+### 3. Which primitives?
+
+**Primitives are how the engine sees on-chain events.** Many use cases don't need contracts at all — they need a built-in primitive that watches a chain-native event:
+
+- `cardanoTransfer` / `cardanoMintBurn` / `cardanoPoolDelegation` — watch Cardano without deploying anything.
+- `evmErc20` / `evmErc721` / `evmErc1155` — watch existing token contracts without deploying your own.
+- `bitcoinAddress` — watch a Bitcoin address.
+- `midnightGeneric` — read Midnight ledger contract state (still needs the Midnight contract deployed, but it might be an existing one).
+- Midnight `nullifier` tracking — read NULLIFIERS without owning the contract.
+
+These primitives **must still be explicitly confirmed with the user** — they shape the indexer's read pattern, the database schema, and the STM grammar. Ask: "I'm planning to use `<primitive>` to watch `<event>` on `<chain>`. That's a read-only watch — no contract deployment required. OK?"
+
+The default-unless-asked rule: don't add primitives the user didn't sign off on, including `PrimitiveTypeEVMEffectstreamL2` (see Core invariant §9).
+
+### 4. State machine design
+
+Once chains, contracts, and primitives are confirmed, **design the STM with the user before writing transitions**. The STM is where every write to the DB happens; getting its shape wrong means rewriting all the dependent layers. Specifically:
+
+- **All writes go through the STM.** The HTTP API is **GET-only by default** — `/api/*` routes read from the database but never write. This is what keeps the system deterministic (every replay produces the same state) and crash-safe (no double-writes on retry). Do not generate `POST` / `PATCH` / `DELETE` routes without an explicit user request, and even then, treat that as an escape hatch and document why determinism doesn't matter for that endpoint.
+- **One transition per user-meaningful action.** For each grammar key, ask the user what the on-chain trigger is (a tx? a chain event? a scheduled tick?) and what the resulting DB writes should be. Sketch the input → state-transition → DB-write chain before scaffolding.
+- **Ask clarifying questions.** If the user said "store ADA sent to my address," reasonable questions are: only `lovelace` amount, or full UTxO metadata? Do we care about the sender too? Should multiple incoming UTxOs in one tx be one row or several? What's the unique constraint — `(tx_hash, output_index)`? Asking up front is much cheaper than reshaping the schema later.
+- **Echo back the design** in a short bullet list before scaffolding (`grammar.ts` keys, STM transitions, DB tables, API endpoints). Get the user's "yes" on that summary before writing code.
+
+If anything is ambiguous, ASK. The skill assumes you'll do the interview; downstream steps are written for the case where chains + contracts + primitives + STM are already agreed.
 
 ## Core invariants (the rules that keep the template buildable)
 
@@ -37,7 +87,7 @@ For each step the right-hand column tells you which reference file to load. Don'
 
 | # | Step | Reference to load | Concept docs (read on demand) |
 |---|------|-------------------|-------------------------------|
-| 0 | Decide chains + features (batcher? frontend? mainnet?). Pick a template name → `@my-template/*` scope. | `references/architecture.md` | `docs/site/docs/home/0-intro/1-what-is-effectstream.md`, `docs/site/docs/home/100-components/100-components.md`, `docs/site/docs/home/200-chains/200-chains.md` (chain Feature Support Matrix) |
+| 0 | **Discovery is done** (chains, contracts, primitives, STM design confirmed with the user — see [Discovery](#discovery-confirm-scope-with-the-user-before-scaffolding)). Pick a template name → `@my-template/*` scope. | `references/architecture.md` | `docs/site/docs/home/0-intro/1-what-is-effectstream.md`, `docs/site/docs/home/100-components/100-components.md`, `docs/site/docs/home/200-chains/200-chains.md` (chain Feature Support Matrix) |
 | 1 | Root `package.json` (workspaces, `effectstream.default`, scripts). | `references/architecture.md` | `docs/site/docs/home/500-packages/550-tools/orchestrator.md` (consumer of `effectstream.default`) |
 | 2 | `start.dev.ts` at project root (orchestrator config — declares chains/services). | `references/orchestrator.md` | `docs/site/docs/home/100-components/106-processes.md`, `docs/site/docs/home/500-packages/550-tools/orchestrator.md` |
 | 3 | For each chain: `packages/contracts-{chain}/`. **Compile and verify before moving on.** | `references/chains/{chain}.md` | `docs/site/docs/home/100-components/105-contracts.md`, `docs/site/docs/home/200-chains/210-contracts.md`, `docs/site/docs/home/200-chains/{201-evm,202-midnight,203-cardano,204-avail,205-bitcoin,209-celestia}.md` |
@@ -63,15 +113,19 @@ The grammar (`grammar.ts`) is referenced via `typeof grammar` in `new Stm<typeof
 
 `packages/node/` imports `@my-template/contracts-evm` (for `contractAddressesEvmMain()`) and `@my-template/database` (for the `PreparedQuery` exports). Both are generated outputs — uncompiled contract artifacts produce `export {}`; missing `.queries.ts` files leave the imports unresolvable. The node won't even typecheck.
 
-## Decision cheat sheet
+## Decision cheat sheet (for the Discovery interview)
 
-**Picking chains.** Single-chain templates are simpler — use EVM if unsure. Use Midnight when the app needs ZK / private state. Cardano when stake-pool / UTxO logic matters. Multi-chain templates (EVM + Midnight, EVM + Bitcoin) are common but every additional chain doubles the orchestrator/test surface.
+Use these to frame trade-offs for the user — they don't override the rule that **the user makes the call**.
 
-**Do you need a batcher?** Yes, if the frontend will submit transactions without users paying gas, or if you want time/size batching to amortize fees. No, if the frontend builds and submits transactions directly (e.g. Cardano with Lucid Evolution). A no-batcher app's node API is GET-only.
+**Chains.** Suggest the smallest set: EVM if the use case is fungible-token / NFT / arbitrary contract logic. Midnight only when ZK / private state is required. Cardano when stake-pool, UTxO, or native-asset semantics matter. Bitcoin when watching addresses or ordinals. Multi-chain templates (EVM + Midnight, EVM + Cardano) are common but every additional chain doubles the orchestrator/test surface AND adds an indexer cost in production.
 
-**Do you need a frontend?** Templates without frontends still work — the user interacts via direct chain transactions. Add a frontend when you need a UI for wallet connection + on-chain writes via the batcher.
+**Batcher.** Suggest yes if the frontend submits user transactions and you want gasless UX or time/size amortization. Suggest no if the frontend builds and submits transactions directly (e.g. Cardano via Lucid Evolution). A no-batcher app's node API stays GET-only.
 
-**Do you need mainnet support?** Almost always yes for shippable templates. The `.mainnet.ts` files validate env vars (`EVM_RPC_URL`, etc.) and configure production-grade polling intervals and confirmation depths. Skip only for examples that explicitly target local-only experimentation.
+**Frontend.** Suggest yes if the user wants a UI for wallet connection + on-chain writes via the batcher. Suggest no if the user just wants an indexer with an HTTP read API. Don't scaffold a frontend that does nothing.
+
+**Mainnet support.** Suggest yes for anything shippable. Skip only for local-only experimentation. Mainnet implies a `*.mainnet.ts` set with env-var validation and a "PLACEHOLDER FOR PRODUCTION" disclaimer at the top of each file (see `references/multi-env.md`).
+
+**Docker.** Suggest no unless the user asks for containerization. Most templates don't need Docker on day one.
 
 ## Verification, in order
 

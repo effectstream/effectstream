@@ -215,6 +215,10 @@ Set fields to `undefined` to wildcard (MQTT `+`); supply a value to narrow.
 
 ## 4. API Routes (`api.ts`)
 
+> **The API is GET-only by default.** Every write to the DB must flow through the STM (on-chain tx → primitive → grammar → transition → DB write). That's what keeps the system deterministic: every full re-sync replays the same chain inputs and reaches the same state. A `POST /api/createRoom` that inserts a row directly **breaks determinism** — the row exists in the live DB but not in any replay, so a snapshot restore or a Phase B test will see the system diverge.
+>
+> Only add `POST` / `PATCH` / `DELETE` routes if the user **explicitly requests** them, and even then treat the route as an escape hatch: limit it to ephemeral state that doesn't need to be replayed (e.g. session tokens, off-chain analytics that the user has accepted will not survive a resync). Document in a comment why the route is non-deterministic-safe. If the user wants to "let the frontend create rooms," the right answer is almost always *route through the chain* (or through the batcher) — not a write API.
+
 ```ts
 import { runPreparedQuery } from "@effectstream/db";
 import { getRooms } from "@my-template/database";
@@ -226,6 +230,7 @@ export const apiRouter: StartConfigApiRouter = async function (
   server: FastifyInstance,
   dbConn: Pool,
 ): Promise<void> {
+  // GET-only: reads from the DB that the STM populated.
   server.get("/api/rooms", async (_req, reply) => {
     const result = await runPreparedQuery(
       getRooms.run(undefined, dbConn),
@@ -237,6 +242,8 @@ export const apiRouter: StartConfigApiRouter = async function (
 ```
 
 No raw SQL strings. All access via pgtyped-generated queries through `runPreparedQuery`.
+
+The engine also ships several **built-in `/api/*` endpoints** the runtime serves automatically — don't re-implement them: `/health`, `/block-heights`, `/addresses`, `/scheduled-data`, `/tables/:name`, `/primitives/:name`, `/rpc/evm`, `/grammar`, plus an OpenAPI explorer at `/documentation`. See `docs/site/docs/home/100-components/103-api.md`.
 
 ## 5. Entry Point (`main.dev.ts`)
 
