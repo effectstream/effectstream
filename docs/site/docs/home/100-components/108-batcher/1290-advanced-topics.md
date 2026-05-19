@@ -1309,18 +1309,8 @@ Without structured concurrency, you'd need manual bookkeeping to track and stop 
 
 ### Installation
 
-Effection is available on NPM:
-
-**Bun:**
 ```bash
 bun add effection
-```
-
-**NPM/Yarn:**
-```bash
-npm install effection
-# or
-yarn add effection
 ```
 
 ---
