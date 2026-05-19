@@ -51,9 +51,9 @@ contract PaimaLaunchpad is OwnableUpgradeable, UUPSUpgradeable {
 
 A factory contract (`PaimaLaunchpadFactory`) lets each campaign deploy its own launchpad instance with its own accepted-token list and referrer-reward configuration.
 
-- [Preorder template](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/preorder) — full multi-chain stack, runs locally with one command
-- [EVM contract source (`PaimaLaunchpad.sol`)](https://github.com/effectstream/effectstream/blob/v-next-bun-start/templates/preorder/packages/contracts-evm/src/contracts/PaimaLaunchpad.sol)
-- [Cardano contract integration](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/preorder/packages/contracts-cardano)
+- [Preorder template](https://github.com/effectstream/effectstream/tree/v-next/templates/preorder) — full multi-chain stack, runs locally with one command
+- [EVM contract source (`PaimaLaunchpad.sol`)](https://github.com/effectstream/effectstream/blob/v-next/templates/preorder/packages/contracts-evm/src/contracts/PaimaLaunchpad.sol)
+- [Cardano contract integration](https://github.com/effectstream/effectstream/tree/v-next/templates/preorder/packages/contracts-cardano)
 - (Original repository: https://github.com/PaimaStudios/paima-preorder — preserved for reference)
 
 ## Why separate deployments
@@ -144,7 +144,7 @@ The two handlers write to the same `participations` and `launchpad_user_items` t
 The Preorder template ships as a one-command stack: PGLite, Hardhat, YACI DevKit, Dolos, the sync node, and the frontend all come up together under the EffectStream orchestrator.
 
 ```bash
-git clone https://github.com/effectstream/effectstream.git --branch v-next-bun-start
+git clone https://github.com/effectstream/effectstream.git
 cd effectstream/templates/preorder
 bun install
 bun run dev

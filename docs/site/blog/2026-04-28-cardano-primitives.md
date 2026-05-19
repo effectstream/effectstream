@@ -28,7 +28,7 @@ Five primitives ship with EffectStream today, all sharing the same architecture:
 | `Cardano:PoolDelegation` | Stake pool delegations (pre-Conway + Conway) | `has_certificate` | `cardano_pool_delegation_view_<name>` |
 | `Cardano:ProjectedNFT` | Lock/Unlock/Claim on a Hololocker script | `has_address` (by `payment_part`) | `cardano_projected_nft_view_<name>` |
 
-Source for all five lives in [`packages/node-sdk/sm/primitives/src`](https://github.com/effectstream/effectstream/tree/v-next-bun-start/packages/node-sdk/sm/primitives/src).
+Source for all five lives in [`packages/node-sdk/sm/primitives/src`](https://github.com/effectstream/effectstream/tree/v-next/packages/node-sdk/sm/primitives/src).
 
 ## Why this isn't just an indexer
 
@@ -120,7 +120,7 @@ Each primitive is paired with a runnable template that exercises it end-to-end:
 Both templates start the same way:
 
 ```bash
-git clone https://github.com/effectstream/effectstream.git --branch v-next-bun-start
+git clone https://github.com/effectstream/effectstream.git
 cd effectstream/templates/projected-nft-preorder   # or cardano-delegation
 bun install
 bun run dev
@@ -134,9 +134,9 @@ Once a chain has a primitive layer, the cost of adding a new on-chain integratio
 
 ---
 
-- [All five Cardano primitives source](https://github.com/effectstream/effectstream/tree/v-next-bun-start/packages/node-sdk/sm/primitives/src)
+- [All five Cardano primitives source](https://github.com/effectstream/effectstream/tree/v-next/packages/node-sdk/sm/primitives/src)
 - [Cardano Primitives reference docs](/docs/home/chains/cardano#primitives)
 - [Stake Pool Delegation post](/docs/blog/stakepool-delegation) — the first primitive built on this architecture
 - [Projected NFTs post](/docs/blog/projected-nfts) — the Hololocker dApp + ProjectedNFT primitive end-to-end
-- [`cardano-delegation` template](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/cardano-delegation)
-- [`projected-nft-preorder` template](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/projected-nft-preorder)
+- [`cardano-delegation` template](https://github.com/effectstream/effectstream/tree/v-next/templates/cardano-delegation)
+- [`projected-nft-preorder` template](https://github.com/effectstream/effectstream/tree/v-next/templates/projected-nft-preorder)

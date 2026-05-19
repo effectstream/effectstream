@@ -5,7 +5,7 @@ authors: [effectstream]
 tags: [cardano, stakepools, delegation, dolos, utxorpc, technical]
 ---
 
-A step-by-step walkthrough of how the EffectStream [cardano-delegation template](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/cardano-delegation) works internally. We'll trace the full path from raw Cardano blocks to application state, covering the config, primitive, grammar, state machine, database, and API layers.
+A step-by-step walkthrough of how the EffectStream [cardano-delegation template](https://github.com/effectstream/effectstream/tree/v-next/templates/cardano-delegation) works internally. We'll trace the full path from raw Cardano blocks to application state, covering the config, primitive, grammar, state machine, database, and API layers.
 
 <!-- truncate -->
 
@@ -333,8 +333,7 @@ The `start.dev.ts` orchestrator config launches the full stack in dependency ord
 6. **Frontend** — builds and serves the Delegation Explorer dApp
 
 ```bash
-git clone https://github.com/effectstream/effectstream.git \
-  --branch v-next-bun-start
+git clone https://github.com/effectstream/effectstream.git
 cd effectstream/templates/cardano-delegation
 bun i
 bun run dev
@@ -373,7 +372,7 @@ stm.addStateTransition("cardano-pool-delegation", function* (data) {
 
 ---
 
-- [Template source code](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/cardano-delegation)
-- [PoolDelegation primitive source](https://github.com/effectstream/effectstream/tree/v-next-bun-start/packages/node-sdk/sm/primitives/src/cardano-pool-delegation)
+- [Template source code](https://github.com/effectstream/effectstream/tree/v-next/templates/cardano-delegation)
+- [PoolDelegation primitive source](https://github.com/effectstream/effectstream/tree/v-next/packages/node-sdk/sm/primitives/src/cardano-pool-delegation)
 - [Overview blog post](/docs/blog/stakepool-delegation)
 - [Cardano Primitives documentation](/docs/home/chains/cardano#primitives)

@@ -4,17 +4,17 @@ EffectStream ships first-party on-chain contracts that templates and application
 
 ## EVM (Solidity)
 
-Source: [`packages/chains/evm-contracts/src/contracts`](https://github.com/effectstream/effectstream/tree/v-next-bun-start/packages/chains/evm-contracts/src/contracts).
+Source: [`packages/chains/evm-contracts/src/contracts`](https://github.com/effectstream/effectstream/tree/v-next/packages/chains/evm-contracts/src/contracts).
 
 ### Core
 
-- **`EffectstreamL2Contract`** — the canonical L2 batch poster. Calling `effectstreamSubmitGameInput(bytes)` emits an `EffectstreamGameInteraction` event that the sync node picks up to advance the state machine. Most dApps extend this directly; see [`MyEffectstreamL2.sol`](https://github.com/effectstream/effectstream/blob/v-next-bun-start/templates/chess-v2/packages/contracts-evm/src/contracts/MyEffectstreamL2.sol) in the templates.
+- **`EffectstreamL2Contract`** — the canonical L2 batch poster. Calling `effectstreamSubmitGameInput(bytes)` emits an `EffectstreamGameInteraction` event that the sync node picks up to advance the state machine. Most dApps extend this directly; see [`MyEffectstreamL2.sol`](https://github.com/effectstream/effectstream/blob/v-next/templates/chess-v2/packages/contracts-evm/src/contracts/MyEffectstreamL2.sol) in the templates.
 - **`GenericPayment`** + **`Proxy/GenericPaymentProxy`** — UUPS-upgradeable payment receiver with a referrer-reward mechanism, used as a base by sale and launchpad contracts.
 - **`State`** + **`BaseState`** — minimal on-chain state primitives.
 
 ### NFT sales & launchpad
 
-- **`PaimaLaunchpad`** + **`PaimaLaunchpadFactory`** — pre-order launchpad with reward tiers, package bundles, and cart checkout. Each campaign is its own deployment. See the [NFT Launchpad blog post](/docs/blog/nft-launchpad) and the [`preorder` template](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/preorder).
+- **`PaimaLaunchpad`** + **`PaimaLaunchpadFactory`** — pre-order launchpad with reward tiers, package bundles, and cart checkout. Each campaign is its own deployment. See the [NFT Launchpad blog post](/docs/blog/nft-launchpad) and the [`preorder` template](https://github.com/effectstream/effectstream/tree/v-next/templates/preorder).
 - **`NativeNftSale`** + **`Proxy/NativeNftSaleProxy`** — NFT sale paid in the chain's native token (ETH/MATIC/…). UUPS-upgradeable.
 - **`Erc20NftSale`** + **`Proxy/Erc20NftSaleProxy`** — NFT sale paid in an ERC-20 token. UUPS-upgradeable.
 - **`AnnotatedMintNft`** — ERC-721 mint that takes calldata at mint time, used to associate on-chain mints with off-chain state machine context.
@@ -44,11 +44,11 @@ Aiken validators ship pre-compiled as `plutus.json` inside the Cardano-side temp
 
 ### Projected NFT
 
-- **`hololocker`** — locks an L1 Cardano NFT into a script address so it can be "projected" into an EffectStream L2 game state, then released back on a cooldown. Exposes both spend and mint validators. Source: [`hololocker.ak`](https://github.com/effectstream/effectstream/blob/v-next-bun-start/e2e/shared/contracts/cardano/hololocker-demo/validators/hololocker.ak). Used by the [`projected-nft-preorder` template](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/projected-nft-preorder).
+- **`hololocker`** — locks an L1 Cardano NFT into a script address so it can be "projected" into an EffectStream L2 game state, then released back on a cooldown. Exposes both spend and mint validators. Source: [`hololocker.ak`](https://github.com/effectstream/effectstream/blob/v-next/e2e/shared/contracts/cardano/hololocker-demo/validators/hololocker.ak). Used by the [`projected-nft-preorder` template](https://github.com/effectstream/effectstream/tree/v-next/templates/projected-nft-preorder).
 
 ### Examples
 
-- **`hello`** — minimal Aiken validator used by the e2e test suite. Reference for the shape of a custom validator inside an EffectStream template. Source: [`hello.ak`](https://github.com/effectstream/effectstream/blob/v-next-bun-start/e2e/shared/contracts/cardano/hello/validators/hello.ak).
+- **`hello`** — minimal Aiken validator used by the e2e test suite. Reference for the shape of a custom validator inside an EffectStream template. Source: [`hello.ak`](https://github.com/effectstream/effectstream/blob/v-next/e2e/shared/contracts/cardano/hello/validators/hello.ak).
 
 ---
 
