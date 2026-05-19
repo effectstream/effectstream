@@ -136,8 +136,11 @@ npm view @effectstream/orchestrator version
 If npm returns nothing or 404s (the engine release isn't published yet), **fall back to the `"version"` field in the engine monorepo's root `package.json`**:
 
 ```sh
-# Fallback: read directly from the engine repo
-grep '"version"' /Users/edwardalvarado/pe-bun/package.json | head -1
+# Fallback: read directly from the engine monorepo's root package.json.
+# Find the engine repo by walking up from cwd for a package.json whose sibling
+# is `packages/effectstream-sdk/` — that's the canonical signature.
+# If you can't find it, ask the user where the engine repo lives.
+grep '"version"' <engine-repo-root>/package.json | head -1
 ```
 
 Apply the resolved version uniformly to every `@effectstream/*` dep in every `package.json` in the template. Don't leave `<latest>` placeholders — `bun install` won't resolve those.

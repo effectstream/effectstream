@@ -29,6 +29,25 @@ start.mainnet.ts                       # (optional) Orchestrator: production ser
 - Dev uses the orchestrator (manages local chain nodes, contracts deploy, etc.).
 - Mainnet runs the node **directly** — there's no local infrastructure to orchestrate. Real chains are remote.
 
+## Every `*.mainnet.ts` file MUST start with a placeholder disclaimer
+
+The mainnet configs you scaffold are starting points, not production-ready code. Always prepend this comment block (or equivalent) so users don't accidentally ship the scaffold's defaults:
+
+```ts
+// ⚠️ PLACEHOLDER FOR PRODUCTION — review every value before deploying.
+//
+// This file is a starting point only. Before going to production:
+//   • Replace every hard-coded chain ID, contract address, and start block
+//     with values for YOUR deployment.
+//   • Source ALL secrets (private keys, RPC API keys) from environment
+//     variables — never commit them. The env-var validation at the top of
+//     this file should fail loudly if anything is missing.
+//   • Tune `pollingInterval`, `stepSize`, `confirmationDepth` for the
+//     specific chain you're targeting (mainnet finality assumptions differ).
+//   • Pin the @effectstream/* version to the release tag you've tested
+//     against, not just "latest".
+```
+
 ## Mainnet configs MUST validate env vars at the top
 
 ```ts
@@ -44,6 +63,17 @@ Fail fast at startup, not 30 seconds later mid-sync.
 Mainnet `config.mainnet.ts` also typically:
 - Uses real chain definitions (e.g. `arbitrum` from `viem/chains` with custom RPC overridden)
 - Sets production-appropriate `pollingInterval`, `stepSize`, `confirmationDepth`
+
+## The disclaimer also belongs in:
+
+Apply the same placeholder header (adapting the bullet list) to any file that ships with production-relevant defaults the user will need to overwrite:
+
+- `packages/node/main.mainnet.ts`
+- `packages/batcher/batcher.mainnet.ts`
+- `start.mainnet.ts` (if you create one)
+- Any `.env.example` you ship — make it clear every value is a placeholder
+
+Do **not** ship a `.env` or `.env.mainnet` with real-looking defaults — only `.env.example` with comments like `EVM_RPC_URL=https://your-rpc-url` so the user has to fill it in deliberately.
 
 ## NTP start-time recovery (deterministic replay)
 
