@@ -9,24 +9,17 @@ slug: /quick-start
 
 > This is a preview of the EffectStream V2 documentation. We welcome any feedback you have on errors, missing information, or parts that aren't clear.
 
-First, clone the repository and use the `templates/evm-midnight/` folder as a working template:
+First, clone the repository and use the `templates/evm-midnight-v2/` folder as a working template:
 
 ```sh
-git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next
-cd effectstream-engine/templates/evm-midnight
-
-# Check for external dependencies
-../check.sh
+git clone https://github.com/effectstream/effectstream.git
+cd effectstream/templates/evm-midnight-v2
 
 # Install packages
-deno install --allow-scripts && ./patch.sh
+bun i
 
-# Compile contracts
-deno task build:evm
-deno task build:midnight
-
-# Launch EffectStream Node
-deno task dev
+# Launch EffectStream Node (compiles contracts and starts the full local stack)
+bun run dev
 ```
 
 Now you should see the dApp running in your browser!
@@ -52,35 +45,32 @@ More [Components](../100-components/100-components.md)
 
 ## Packages & Folder Structure
 
-> We will be using `/templates/evm-midnight/` as example for the following definitions.
+> We will be using `/templates/evm-midnight-v2/` as example for the following definitions.
 
 Default folder structure:
 
 ```
-|-- deno.json                     # workspace definition
+|-- package.json                     # workspace definition
 |-- packages
-     |-- client                   # EffectStream node
-     |     |-- database           # database queries and tables
-     |     |-- node               # node startup, api, and state machine
-     |
-     |-- frontend                 # web app
-     |
-     |-- shared                   # shared components between client and frontend
-     |     |-- contracts/evm      # hardhat & evm contracts
-     |     |-- contracts/midnight # midnight contracts
-     |     |-- data-types         # grammar and node sync/contract definitions
+     |-- database                    # database queries and tables
+     |-- node                        # node startup, api, and state machine
+     |-- frontend                    # web app
+     |-- batcher                     # batcher service
+     |-- contracts-evm               # hardhat & evm contracts
+     |-- contracts-midnight          # midnight contracts
+     |-- tests                       # integration tests
 ```
 
 Workspace packages:
 
 ```
-
-client/database              @example-evm-midnight/database
-client/node                  @example-evm-midnight/node
-frontend                     @example-evm-midnight/frontend
-shared/contracts/evm         @example-evm-midnight/evm-contracts
-shared/contracts/midnight    @example-evm-midnight/midnight-contracts
-shared/contracts/data-types  @example-evm-midnight/data-types
+packages/database          @evm-midnight/database
+packages/node              @evm-midnight/node
+packages/frontend          @evm-midnight/frontend
+packages/batcher           @evm-midnight/batcher
+packages/contracts-evm     @evm-midnight/contracts-evm
+packages/contracts-midnight @evm-midnight/contracts-midnight
+packages/tests             @evm-midnight/tests
 ```
 
 ## Startup Overview
@@ -97,7 +87,7 @@ config:
 ---
 graph TD
     subgraph "User"
-        A["fa:fa-keyboard $ deno task dev"]
+        A["fa:fa-keyboard $ bun run dev"]
     end
 
     subgraph "Phase 1: Orchestration"
@@ -301,7 +291,7 @@ More about [EffectStream L2](../100-components/104-l2-contract.md)
 
 Developing a multi-chain dApp requires running many services at once. The **Process Orchestrator** is a powerful tool that automates your entire local development setup.
 
-When you run `deno task dev`, the orchestrator defined in the `start.ts` file at the `/template/evm-midnight/` example, and launches your complete environment in the correct order.
+When you run `bun run dev`, the orchestrator defined in the `orchestrator.ts` file at the `/templates/evm-midnight-v2/` example launches your complete environment in the correct order.
 
 This includes:
 
@@ -410,5 +400,5 @@ To see how all these components come together to build a complete, complex, and 
 
 For advanced developers interested in the engine's internals or looking to contribute:
 
-- [EffectStream Packages (NPM & JSR)](../1000-effectstream-engine/1000-effectstream-engine.md)
+- [EffectStream Packages (NPM)](../1000-effectstream-engine/1000-effectstream-engine.md)
 - [How to Contribute](../1000-effectstream-engine/1100-contributions.md)

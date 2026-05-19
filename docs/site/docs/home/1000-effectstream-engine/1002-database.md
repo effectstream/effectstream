@@ -45,7 +45,7 @@ You write your SQL queries in files within the `/TODO` directory. To make a quer
 ### Generating TypeScript Functions
 After writing your queries, you run a simple command:
 ```sh
-deno task -f @effectstream/db pgtyped:update
+bun run --cwd packages/node-sdk/db pgtyped:update
 ```
 This command introspects your SQL files and your database schema, then generates corresponding TypeScript functions.
 

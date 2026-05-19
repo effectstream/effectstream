@@ -193,7 +193,7 @@ To do so, we can follow these steps:
 
     and compile your queries with 
     ```sh
-    deno task -f @example-evm-midnight/database pgtyped:update
+    bun run --cwd packages/database pgtyped:update
     ```
     This will create a safe typescript function to insert into the database.
     More information about [databases](../100-components/109-database.md)  

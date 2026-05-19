@@ -1309,18 +1309,18 @@ Without structured concurrency, you'd need manual bookkeeping to track and stop 
 
 ### Installation
 
-Effection is available on both NPM and Deno:
+Effection is available on NPM:
+
+**Bun:**
+```bash
+bun add effection
+```
 
 **NPM/Yarn:**
 ```bash
 npm install effection
 # or
 yarn add effection
-```
-
-**Deno:**
-```typescript
-import { main, suspend } from "https://jsr.io/@effection/effection/doc";
 ```
 
 ---
@@ -1678,7 +1678,7 @@ main(function* () {
   } catch (error) {
     console.error("Fatal error:", error);
     yield* batcher.gracefulShutdownOp();
-    Deno.exit(1);  // or process.exit(1) in Node
+    process.exit(1);
   }
 });
 ```

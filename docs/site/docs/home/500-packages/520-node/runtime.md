@@ -13,6 +13,11 @@ database, events, and HTTP API together inside an EffectStream node.
 Boot it with `init()` then drive it with `start(config)` and your node
 is up.
 
+- The state-machine runtime that owns an Effectstream node's process model.
+- `init()` once, `start(config)` to run; ties sync, state machine, DB, events, and HTTP API together.
+- Used by every template.
+- Also reachable through `@effectstream/node-sdk/runtime`.
+
 ## Install
 
 ```bash
@@ -82,16 +87,16 @@ Types and helpers re-exported alongside `init` / `start`:
 ## Examples
 
 The templates under
-[`templates/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates)
+[`templates/`](https://github.com/effectstream/effectstream/tree/main/templates)
 are full working `init()` + `start()` examples. The simplest is
-[`templates/minimal/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/minimal).
+[`templates/minimal/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal).
 
 End-to-end EVM sync test:
-[`e2e/evm/sync/`](https://github.com/PaimaStudios/paima-engine/tree/main/e2e/evm/sync).
+[`e2e/evm/sync/`](https://github.com/effectstream/effectstream/tree/main/e2e/evm/sync).
 
 Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/runtime/test/examples.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/runtime
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/runtime
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/runtime

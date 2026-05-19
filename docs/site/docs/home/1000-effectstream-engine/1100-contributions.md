@@ -9,7 +9,7 @@ We use the standard "Fork & Pull Request" model for contributions.
 * Create a New Branch
 * Make Your Changes
 * Test Your Changes
-    `deno task @e2e/node test`
+    `cd e2e && bun run runner.ts`
 * Commit & Push your Changes
 * Open a Pull Request
 
