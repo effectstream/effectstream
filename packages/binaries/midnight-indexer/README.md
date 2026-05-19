@@ -1,26 +1,13 @@
 # @effectstream/npm-midnight-indexer
 
-A Node.js package that downloads and runs the
-[Midnight](https://midnight.network) Indexer. The indexer requires a running
-Midnight Node (see `@effectstream/npm-midnight-node`) to function properly.
+NPM wrapper that runs the [Midnight](https://midnight.network) Indexer either as a Docker container or as a native binary. Boots alongside `@effectstream/npm-midnight-node` and `@effectstream/npm-midnight-proof-server` to give Effectstream a local indexer to consume.
 
-## Overview
+- Docker or binary mode, with platform-aware defaults (macOS arm64 and Linux can use either; Windows is Docker-only).
+- One env var to set: `APP__INFRA__SECRET`. Everything else has a default that works against the local Midnight stack.
+- Used by the orchestrator's Midnight step; sits in front of `MidnightFetcher` on the sync side.
+- Maps port 8088 (Docker) or runs on localhost (binary) so the rest of the local stack reaches it the same way.
 
-This package provides flexible execution options for the Midnight Indexer:
-
-- **Docker mode**: Runs the indexer in a Docker container (recommended)
-- **Binary mode**: Downloads and runs the native binary locally (Linux, Windows,
-  macOS arm64)
-
-### Platform Support
-
-| Platform | Docker | Binary |
-| -------- | ------ | ------ |
-| macOS    | ✅ Yes | ✅ Yes |
-| Linux    | ✅ Yes | ✅ Yes |
-| Windows  | ❌ No  | ✅ Yes |
-
-## Installation
+## Install
 
 ```bash
 bun add @effectstream/npm-midnight-indexer
@@ -28,220 +15,74 @@ bun add @effectstream/npm-midnight-indexer
 npm install @effectstream/npm-midnight-indexer
 ```
 
-## Prerequisites
+Requires a running Midnight node (`@effectstream/npm-midnight-node`) and proof server (`@effectstream/npm-midnight-proof-server`) on their standard ports, or set the override env vars below.
 
-### For Docker Mode
+## Standalone usage
 
-- Docker installed and running
-- `APP__INFRA__SECRET` environment variable (required)
-
-### For Binary Mode
-
-- Supported platform (Linux/macOS ARM64)
-- Local Midnight Node and Proof Server running on standard ports. But they can
-  be set using env variables
-- `APP__INFRA__SECRET` environment variable (required)
-
-## Usage
-
-### Command Line Options
+Pick a mode and pass `APP__INFRA__SECRET`. Without a flag, the wrapper prompts interactively.
 
 ```bash
-node index.js [options] [args...]
+# Docker (recommended where available)
+APP__INFRA__SECRET=<secret> bunx npm-midnight-indexer --docker
+
+# Native binary (Linux, macOS arm64)
+APP__INFRA__SECRET=<secret> bunx npm-midnight-indexer --binary
+
+# Interactive: prompts for Docker vs binary
+APP__INFRA__SECRET=<secret> bunx npm-midnight-indexer
+
+# Help
+bunx npm-midnight-indexer --help
 ```
 
-**Options:**
+The Docker path pulls `midnightntwrk/indexer-standalone` and maps container port 8088 to host 8088. The binary path downloads a platform-specific binary on first run and points at localhost services.
 
-- `--docker` - Force Docker execution
-- `--binary` - Force binary execution (available on Linux, Windows, macOS arm64)
-- `--help` - Show help information
+### Environment variables
 
-**Examples:**
+| Variable | Required | Docker default | Binary default | Purpose |
+| --- | --- | --- | --- | --- |
+| `APP__INFRA__SECRET` | yes | — | — | Indexer secret. |
+| `LEDGER_NETWORK_ID` | no | `Undeployed` | `Undeployed` | Ledger network selector. |
+| `SUBSTRATE_NODE_WS_URL` | no | `ws://node:9944` | `ws://localhost:9944` | Substrate node WS. |
+| `FEATURES_WALLET_ENABLED` | no | `true` | `true` | Wallet features. |
+| `APP__INFRA__PROOF_SERVER__URL` | no | `http://proof-server:6300` | `http://localhost:6300` | Proof server. |
+| `APP__INFRA__NODE__URL` | no | `ws://node:9944` | `ws://localhost:9944` | Node URL. |
 
-```bash
-# Force Docker usage
-APP__INFRA__SECRET=mysecret node index.js --docker
+### Path resolution
 
-# Force binary usage (Linux/Windows/macOS arm64)
-APP__INFRA__SECRET=mysecret node index.js --binary
+`CONFIG_FILE` and `infra.storage.cnn_url` are both resolved relative to the process's current working directory when they are not absolute. Prefer absolute paths if your launch script's CWD is non-obvious. In binary mode this package sets the CWD to the bundled `indexer-standalone` folder, so a default `cnn_url: "./indexer.sqlite"` lands next to the binary. In Docker mode the image's `WORKDIR` is `/opt/indexer-standalone`; bind-mount accordingly.
 
-# Interactive mode - prompts for Docker vs binary choice
-APP__INFRA__SECRET=mysecret node index.js
+### Supported binary platforms
 
-# Show help
-node index.js --help
-```
+Linux arm64, Linux amd64, macOS arm64.
 
-## Environment Variables
+## Inside Effectstream
 
-The indexer supports several environment variables with different defaults based
-on execution mode:
-
-| Variable                        | Required | Docker Default             | Binary Default          | Description                    |
-| ------------------------------- | -------- | -------------------------- | ----------------------- | ------------------------------ |
-| `APP__INFRA__SECRET`            | Yes      | -                          | -                       | Secret key for the application |
-| `LEDGER_NETWORK_ID`             | No       | `Undeployed`               | `Undeployed`            | Ledger network identifier      |
-| `SUBSTRATE_NODE_WS_URL`         | No       | `ws://node:9944`           | `ws://localhost:9944`   | Substrate node WebSocket URL   |
-| `FEATURES_WALLET_ENABLED`       | No       | `true`                     | `true`                  | Enable wallet features         |
-| `APP__INFRA__PROOF_SERVER__URL` | No       | `http://proof-server:6300` | `http://localhost:6300` | Proof server URL               |
-| `APP__INFRA__NODE__URL`         | No       | `ws://node:9944`           | `ws://localhost:9944`   | Node WebSocket URL             |
-
-### Environment Variable Examples
-
-```bash
-# Minimal Docker setup
-APP__INFRA__SECRET=A5F07FCAC914A181EC0998CCCA68312DA5F07FCAC914A181EC0998CCCA68312D \
-node index.js --docker
-
-# Custom configuration
-APP__INFRA__SECRET=mysecret \
-LEDGER_NETWORK_ID=CustomNetwork \
-SUBSTRATE_NODE_WS_URL=ws://localhost:9944 \
-APP__INFRA__PROOF_SERVER__URL=http://localhost:6300 \
-node index.js --docker
-
-# Binary mode (uses localhost defaults automatically)
-APP__INFRA__SECRET=mysecret node index.js --binary
-```
-
-## Docker Mode Details
-
-When using Docker mode, the indexer:
-
-1. **Pulls the latest image**: `midnightntwrk/indexer-standalone`
-2. **Maps port 8088**: Container port 8088 → Host port 8088
-3. **Uses container networking**: Defaults work with Docker Compose setups
-4. **Auto-cleanup**: Removes existing containers before starting new ones
-
-### Docker Command Generated
-
-The package generates Docker commands similar to:
-
-```bash
-docker run --rm --name midnight-local-indexer \
-  -p 8088:8088 \
-  -e LEDGER_NETWORK_ID=Undeployed \
-  -e SUBSTRATE_NODE_WS_URL=ws://node:9944 \
-  -e APP__INFRA__SECRET=A5F07FCAC914A181EC0998CCCA68312DA5F07FCAC914A181EC0998CCCA68312D \
-  -e FEATURES_WALLET_ENABLED=true \
-  -e APP__INFRA__PROOF_SERVER__URL=http://proof-server:6300 \
-  -e APP__INFRA__NODE__URL=ws://node:9944 \
-  midnightntwrk/indexer-standalone
-```
-
-## Binary Mode Details
-
-When using binary mode, the indexer:
-
-1. **Downloads platform-specific binary** if not already present
-2. **Uses localhost URLs** for all service connections
-3. **Runs natively** on the host system
-
-## Path Resolution
-
-The indexer relies on two user-supplied file paths and **both are interpreted
-relative to the process’s current working directory (CWD)** when they are not
-absolute:
-
-| Configuration location             | Purpose                                      | If relative, resolved against                                             |
-| ---------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
-| `CONFIG_FILE` environment variable | Location of the YAML config file             | The directory you launch `node index.js …` from (or the Docker `WORKDIR`) |
-| `infra.storage.cnn_url` in YAML    | SQLite database used by the standalone build | The CWD at runtime of the indexer process                                 |
-
-### Practical tips
-
-1. Prefer absolute paths when you need to be explicit.
-2. In **binary mode** this package sets the CWD to the bundled
-   `indexer-standalone` folder, so a default `cnn_url: "./indexer.sqlite"` ends
-   up next to the binary.
-3. In **Docker mode** the image’s `WORKDIR` is `/opt/indexer-standalone`.
-   Bind-mount volumes accordingly if you want the database file somewhere else.
-
----
-
-### Supported Binary Platforms
-
-- Linux ARM64 (`linux-arm64`)
-- Linux AMD64 (`linux-amd64`)
-- macOS ARM64 (`macos-arm64`)
+The orchestrator's Midnight step starts this indexer behind `@effectstream/npm-midnight-node` + proof server. The runtime's `@effectstream/sync` `MidnightFetcher` queries it. You usually don't invoke this package by hand; you add it to your orchestrator config and the rest happens automatically.
 
 ## Troubleshooting
 
-### Common Issues
+A few common failures and where to look:
 
-**"Docker is not installed or not available"**
+- `Docker is not installed or not available` — install Docker Desktop / Engine and confirm `docker --version` from the same shell.
+- `APP__INFRA__SECRET environment variable is required` — required for both modes; export it or pass inline.
+- `Failed to start midnight-indexer` — check that ports 8088, 6300, and 9944 are free and that the Midnight node is reachable.
 
-- Install Docker Desktop or Docker Engine
-- Ensure Docker is running
-- Check Docker is accessible from command line: `docker --version`
+## Examples
 
-**"APP__INFRA__SECRET environment variable is required"**
+End-to-end Midnight startup is exercised by the templates that target Midnight:
 
-- Set the secret: `export APP__INFRA__SECRET=your_secret_here`
-- Or pass inline: `APP__INFRA__SECRET=your_secret node index.js --docker`
-- Required for both Docker and binary execution modes
+- [`templates/evm-midnight-v2/`](https://github.com/effectstream/effectstream/tree/main/templates/evm-midnight-v2)
+- [`templates/night-bitcoin/`](https://github.com/effectstream/effectstream/tree/main/templates/night-bitcoin)
+- [`templates/zswap-da/`](https://github.com/effectstream/effectstream/tree/main/templates/zswap-da)
 
-**"Binary execution is only supported on macOS ARM64"**
+## Links
 
-- Use `--docker` flag or run without flags to use Docker automatically
-- Install Docker if not already installed
-
-**"Failed to start midnight-indexer"**
-
-- Check if ports 8088, 6300, 9944 are available
-- Verify Midnight Node is running and accessible
-- Check environment variables are correctly set
-
-### Logs and Debugging
-
-The indexer outputs detailed logs including:
-
-- Download progress for binaries
-- Docker pull progress
-- Process IDs and status
-- Error messages with suggestions
-
-## Development
-
-### Package Structure
-
-```
-npm-midnight-indexer/
-├── index.js              # Main entry point
-├── binary.js             # Binary download logic
-├── docker.js             # Docker execution logic
-├── run_midnight_indexer.js # Binary execution logic
-├── package.json          # Package configuration
-└── README.md            # This file
-```
-
-### Testing
-
-```bash
-# Test Docker detection
-node -e "const { checkIfDockerExists } = require('./docker.js'); checkIfDockerExists().then(console.log)"
-
-# Test help
-node index.js --help
-
-# Test platform detection
-node -e "console.log('Platform:', require('os').platform())"
-```
+- Docs: https://effectstream.github.io/docs/packages/binaries/midnight-indexer
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/binaries/midnight-indexer
+- Midnight Network: https://midnight.network
+- Indexer image: https://hub.docker.com/r/midnightntwrk/indexer-standalone
 
 ## License
 
-ISC
-
-## Support
-
-For issues related to:
-
-- **This package**: Open an issue in the repository
-- **Midnight Protocol**: Visit [midnight.network](https://midnight.network)
-- **Docker**: Check [Docker documentation](https://docs.docker.com/)
-
-## Related Links
-
-- [Midnight Network](https://midnight.network)
-- [Docker Hub - Midnight Indexer](https://hub.docker.com/r/midnightntwrk/indexer-standalone)
-- [Node.js](https://nodejs.org/)
+ISC.

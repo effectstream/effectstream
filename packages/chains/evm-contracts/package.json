@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/evm-contracts",
-  "version": "0.100.14",
+  "version": "0.100.15",
   "description": "EVM smart contract interfaces for EffectStream",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",

@@ -4,6 +4,11 @@ Multi-chain signature verification — one API that verifies wallet signatures
 from EVM, Cardano, Polkadot, Algorand, Mina, and Midnight. Also includes the
 `Prando` seeded RNG used for on-chain-derived randomness.
 
+- Multi-chain signature verification: EVM, Cardano, Polkadot, Algorand, Mina, Midnight.
+- Bundles the `Prando` seeded RNG for on-chain-derived randomness.
+- Used by the batcher to verify user-submitted input signatures.
+- Only depends on `@effectstream/utils`; safe to use standalone.
+
 ## Install
 
 ```bash
@@ -75,9 +80,9 @@ Runnable examples: [`src/Prando.test.ts`](./src/Prando.test.ts) and
 `bun test ./packages`.
 
 For end-to-end signature flows, see
-[`e2e/evm/sync/batcher.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/e2e/evm/sync/batcher.test.ts).
+[`e2e/evm/sync/batcher.test.ts`](https://github.com/effectstream/effectstream/blob/main/e2e/evm/sync/batcher.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/crypto
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/crypto
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/crypto

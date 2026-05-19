@@ -5,6 +5,11 @@ connection pool, ships every pgtyped-generated SQL query the runtime
 needs, owns the snapshot loop, and provides a mutex needed for safe
 single-threaded PgLite access.
 
+- Pooled Postgres client plus every pgtyped query the runtime needs.
+- Snapshot loop (`runSnapshotLoop`) and `acquireDBMutex` / `releaseDBMutex` for PgLite.
+- Subpath scripts for in-memory PgLite, migrations, and version checks.
+- `getConnection()` is the dominant entry point, ~31 call sites across the repo.
+
 ## Install
 
 ```bash
@@ -62,34 +67,34 @@ can rejoin without re-syncing from genesis.
 
 Connection management (heavily used):
 
-- `getConnection(creds?)` — pooled `Pool` singleton. The dominant entry point (~31 cross-package call sites).
-- `acquireDBMutex(name, priority?)` / `releaseDBMutex(name)` — coordination for PgLite (~7 cross-package call sites each).
+- `getConnection(creds?)`: pooled `Pool` singleton. Dominant entry point (~31 call sites across the repo).
+- `acquireDBMutex(name, priority?)` and `releaseDBMutex(name)` coordinate PgLite access; ~7 call sites each.
 - `waitUntilFree()` — companion to the mutex.
-- `getPersistentConnection(creds)` — a non-pooled `Client` for long-lived listeners.
+- `getPersistentConnection(creds)` returns a non-pooled `Client` for long-lived listeners.
 
 Queries (pgtyped-generated, shipped under one umbrella):
 
-- `getBlockHeights`, `getBlockByHash`, `blockHeightDone`, `saveLastBlock`, `getLatestProcessedBlockHeight` — block bookkeeping.
-- `getAchievementProgress`, `setAchievementProgress` — achievements.
+- Block bookkeeping: `getBlockHeights`, `getBlockByHash`, `blockHeightDone`, `saveLastBlock`, `getLatestProcessedBlockHeight`.
+- Achievements: `getAchievementProgress`, `setAchievementProgress`.
 - Re-exports of `*.queries.ts` for statistics, nonces, rollup inputs, accounts, events, sync protocol pages, primitives, system, tables.
 
 Snapshots:
 
 - `runSnapshotLoop` — periodic `pg_dump` of synced state.
-- `createSnapshot` — single-shot snapshot helper.
-- `SnapshotConfig`, `SnapshotRetentionConfig` — config types.
+- `createSnapshot`: single-shot snapshot helper.
+- `SnapshotConfig`, `SnapshotRetentionConfig`: config types.
 
 Dynamic table / event helpers:
 
-- `createDynamicTables` — register tables a primitive wants to own.
-- `createIndexesForEvents`, `registerEventHandlers` — register pgtyped indexes for app events.
+- `createDynamicTables` registers tables a primitive wants to own.
+- `createIndexesForEvents` and `registerEventHandlers` register pgtyped indexes for app events.
 
 Subpath entry points (executable scripts):
 
-- `@effectstream/db/start-pglite` — boot a PgLite instance.
+- `@effectstream/db/start-pglite`: boot a PgLite instance.
 - `@effectstream/db/apply-migrations` — apply SQL migrations against the active DB.
-- `@effectstream/db/db-wait` — block until the DB accepts a connection.
-- `@effectstream/db/pgtyped-update` — regenerate pgtyped types.
+- `@effectstream/db/db-wait`: block until the DB accepts a connection.
+- `@effectstream/db/pgtyped-update`: regenerate pgtyped types.
 - `@effectstream/db/version` — print schema version.
 
 ## Examples
@@ -100,4 +105,4 @@ Subpath entry points (executable scripts):
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/db
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/db

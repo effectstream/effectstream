@@ -5,6 +5,11 @@ Defines the `StateUpdateStream` generator type and the `World.*` helpers
 that EffectStream's runtime executes — the API your state-transition
 functions yield against.
 
+- Generator-based control flow for state transitions: `World.resolve`, `World.all`, `World.promise`.
+- Used by the runtime to execute pgtyped queries inside a transaction.
+- Most authors reach for it through `@effectstream/sm`.
+- Threads pgtyped query results back into the generator transparently.
+
 ## Install
 
 ```bash
@@ -63,9 +68,9 @@ Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 
 For real state-machine code that uses these primitives, see the primitives
 implemented in
-[`packages/node-sdk/sm/primitives/src/`](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/sm/primitives/src).
+[`packages/node-sdk/sm/primitives/src/`](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/sm/primitives/src).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/coroutine
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/coroutine
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/coroutine

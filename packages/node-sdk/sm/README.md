@@ -5,6 +5,11 @@ of commands, register one generator per command, and `Stm` parses each
 incoming batcher input, dispatches it to the right handler, and yields
 SQL updates through the runtime.
 
+- State-machine DSL: define a typed grammar, register one generator per command.
+- Parses each batcher input, dispatches to the handler, yields SQL through the runtime.
+- `@effectstream/sm/builtin` ships common on-chain event primitives (ERC-20/721/1155, Cardano, Midnight, ...).
+- DSL is directly testable in a pure-TS unit test, without a database.
+
 ## Install
 
 ```bash
@@ -23,7 +28,7 @@ the runtime executes it.
 
 The DSL is also directly testable in a pure-TS unit test (parse + dispatch
 without a database) — see
-[`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts).
+[`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts).
 
 ```typescript
 import { Stm } from "@effectstream/sm";
@@ -62,9 +67,9 @@ Midnight events, etc. — so you don't re-implement them.
 
 ## Key exports
 
-- `Stm<Grammar, Events>` — the state machine. `.addStateTransition(prefix, handler)`, `.processInput(input)`, `.grammar`, `.fullJsonGrammar`, `.keyedJsonGrammar`.
-- `ParamToData<Params>` — derives the typed argument shape from a grammar entry.
-- `BaseStfInput` — the input shape passed to every handler (includes `msTimestamp`, `blockHeight`, etc.).
+- `Stm<Grammar, Events>`: the state machine. `.addStateTransition(prefix, handler)`, `.processInput(input)`, `.grammar`, `.fullJsonGrammar`, `.keyedJsonGrammar`.
+- `ParamToData<Params>` derives the typed argument shape from a grammar entry.
+- `BaseStfInput`: input shape passed to every handler. Includes `msTimestamp`, `blockHeight`, etc.
 - `delegate-wallet` helpers — account delegation primitives reused by built-ins.
 
 `MessageListener<Events, Params>` is exported as the handler type but is
@@ -72,14 +77,14 @@ inferred at call sites rather than imported directly.
 
 Subpath exports:
 
-- `@effectstream/sm/builtin` — `PrimitiveTypeERC20`, `PrimitiveTypeERC721`, `PrimitiveTypeERC1155`, `PrimitiveTypeCardanoTransfer`, `PrimitiveTypeMidnightGeneric`, and many more (20+ chain-specific event tags).
-- `@effectstream/sm/grammar` — the underlying grammar/parsing utilities (also re-exported from `@effectstream/concise`).
+- `@effectstream/sm/builtin`: `PrimitiveTypeERC20`, `PrimitiveTypeERC721`, `PrimitiveTypeERC1155`, `PrimitiveTypeCardanoTransfer`, `PrimitiveTypeMidnightGeneric`, and 20+ more chain-specific event tags.
+- `@effectstream/sm/grammar`: the underlying grammar/parsing utilities, also re-exported from `@effectstream/concise`.
 
 ## Examples
 
-- [`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts) — a real primitive's behavior unit-tested.
+- [`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts) — a real primitive's behavior unit-tested.
 - Game logic in
-  [`templates/dice/packages/node/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/dice/packages/node)
+  [`templates/dice/packages/node/`](https://github.com/effectstream/effectstream/tree/main/templates/dice/packages/node)
   shows the full `new Stm(...).addStateTransition(...)` pattern.
 
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
@@ -87,4 +92,4 @@ Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/sm
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/sm
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/sm
