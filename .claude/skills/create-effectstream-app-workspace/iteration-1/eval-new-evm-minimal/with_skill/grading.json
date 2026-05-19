@@ -1,0 +1,109 @@
+{
+  "run_id": "eval-new-evm-minimal-with_skill",
+  "sandbox": "/tmp/eval-runs/iter-1/eval-new-evm-minimal/with",
+  "assertions": [
+    {
+      "text": "Root package.json declares workspaces: [\"packages/*\"]",
+      "passed": true,
+      "evidence": "match: '\"workspaces\": [\"packages/*\"'"
+    },
+    {
+      "text": "Root package.json has effectstream.default pointing to start.dev.ts",
+      "passed": true,
+      "evidence": "match: '\"effectstream\": {\\n    \"default\": \"start.dev.ts\"'"
+    },
+    {
+      "text": "Root package.json includes @midnight-ntwrk/wallet-sdk-address-format (the phantom dependency)",
+      "passed": true,
+      "evidence": "match: '@midnight-ntwrk/wallet-sdk-address-format'"
+    },
+    {
+      "text": "Root package.json includes wait-on as a direct dependency",
+      "passed": true,
+      "evidence": "match: '\"wait-on\"'"
+    },
+    {
+      "text": "start.dev.ts uses { cwd: ... } for launchEvm (not { resolveFrom })",
+      "passed": true,
+      "evidence": "match: 'launchEvm(\"@my-evm-rooms/contracts-evm\", {\\n      cwd:'"
+    },
+    {
+      "text": "start.dev.ts does NOT use { resolveFrom: ... } as an actual argument",
+      "passed": true,
+      "evidence": "pattern correctly absent"
+    },
+    {
+      "text": "packages/database/pgtypedconfig.json exists with srcDir ./sql",
+      "passed": true,
+      "evidence": "match: '\"srcDir\": \"./sql\"'"
+    },
+    {
+      "text": "packages/database/migration-order.ts exists",
+      "passed": true,
+      "evidence": "found at template/packages/database/migration-order.ts"
+    },
+    {
+      "text": "packages/database/migrations/000-init.sql exists and has a rooms table",
+      "passed": true,
+      "evidence": "match: 'CREATE TABLE rooms'"
+    },
+    {
+      "text": "packages/database/package.json uses @effectstream/db/scripts/pgtyped-update.ts",
+      "passed": true,
+      "evidence": "match: '@effectstream/db/scripts/pgtyped-update'"
+    },
+    {
+      "text": "packages/node/grammar.ts defines createRoom with Typebox Type.String and Type.Number",
+      "passed": true,
+      "evidence": "all 4 patterns matched"
+    },
+    {
+      "text": "state-machine.ts uses Stm class with addStateTransition(\"createRoom\", ...) and World.resolve",
+      "passed": true,
+      "evidence": "all 3 patterns matched"
+    },
+    {
+      "text": "config.dev.ts uses ConfigBuilder with NTP and EVM_RPC_PARALLEL",
+      "passed": true,
+      "evidence": "all 3 patterns matched"
+    },
+    {
+      "text": "main.dev.ts uses init, start, withEffectstreamStaticConfig",
+      "passed": true,
+      "evidence": "all 3 patterns matched"
+    },
+    {
+      "text": "state-machine.ts has no raw SQL strings (no SELECT/INSERT/UPDATE/DELETE keywords)",
+      "passed": true,
+      "evidence": "pattern correctly absent"
+    },
+    {
+      "text": "Dockerfile uses oven/bun:1 (not the non-existent oven/bun:1-ubuntu)",
+      "passed": true,
+      "evidence": "all 1 patterns matched"
+    },
+    {
+      "text": "Dockerfile does NOT use oven/bun:1-ubuntu (in an actual FROM statement)",
+      "passed": true,
+      "evidence": "pattern correctly absent"
+    },
+    {
+      "text": "Dockerfile installs procps, lsof, iproute2",
+      "passed": true,
+      "evidence": "all 3 patterns matched"
+    },
+    {
+      "text": "Dockerfile includes the workspace-symlink workaround after bun install (Bun.Glob/symlinkSync logic)",
+      "passed": true,
+      "evidence": "matched: 'Bun\\\\.Glob'"
+    },
+    {
+      "text": "Dockerfile installs Foundry / forge for EVM",
+      "passed": true,
+      "evidence": "matched: 'foundry'"
+    }
+  ],
+  "passed": 20,
+  "total": 20,
+  "pass_rate": 1.0
+}

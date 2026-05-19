@@ -1,0 +1,146 @@
+{
+  "eval_id": 0,
+  "eval_name": "new-evm-with-tests",
+  "prompt": "Scaffold a new Effectstream template `my-evm-rooms` (EVM-only, Hardhat for dev). One custom action createRoom(roomName, maxPlayers) → rooms table. Must include packages/tests/ matching evm-midnight-v2's structure (run-tests.ts, start.test.ts, helpers.ts, infra/{chain-ready,deploy}.test.ts, stm/{create-room,api}.test.ts). Goal: `bun install && bun run test` exits 0. Save to /tmp/eval-runs/iter-2/eval-new-evm-with-tests/{with,without}/template/.",
+  "runtime_check": "auto",
+  "assertions": [
+    {
+      "id": "root_workspace_workspaces",
+      "text": "Root package.json declares workspaces: [\"packages/*\"]",
+      "check_type": "grep",
+      "file": "package.json",
+      "pattern": "\"workspaces\"\\s*:\\s*\\[\\s*\"packages/\\*\""
+    },
+    {
+      "id": "root_test_script",
+      "text": "Root package.json has \"test\" script invoking the test runner",
+      "check_type": "grep",
+      "file": "package.json",
+      "pattern": "\"test\"\\s*:\\s*\"bun\\s+run\\s+packages/tests/run-tests\\.ts\""
+    },
+    {
+      "id": "effectstream_version_real",
+      "text": "Root package.json uses a real @effectstream version (NOT <latest>)",
+      "check_type": "grep_absent",
+      "file": "package.json",
+      "pattern": "\"<latest>\""
+    },
+    {
+      "id": "phantom_dep",
+      "text": "Root package.json includes @midnight-ntwrk/wallet-sdk-address-format phantom dependency",
+      "check_type": "grep",
+      "file": "package.json",
+      "pattern": "@midnight-ntwrk/wallet-sdk-address-format"
+    },
+    {
+      "id": "node_sibling_database_workspace",
+      "text": "packages/node/package.json declares @my-evm-rooms/database as workspace:*",
+      "check_type": "grep",
+      "file": "packages/node/package.json",
+      "pattern": "\"@my-evm-rooms/database\"\\s*:\\s*\"workspace:\\*\""
+    },
+    {
+      "id": "node_sibling_contracts_workspace",
+      "text": "packages/node/package.json declares @my-evm-rooms/contracts-evm as workspace:*",
+      "check_type": "grep",
+      "file": "packages/node/package.json",
+      "pattern": "\"@my-evm-rooms/contracts-evm\"\\s*:\\s*\"workspace:\\*\""
+    },
+    {
+      "id": "start_dev_cwd",
+      "text": "start.dev.ts uses { cwd: ... } for launchEvm (not resolveFrom)",
+      "check_type": "grep",
+      "file": "start.dev.ts",
+      "pattern": "launchEvm[\\s\\S]{0,200}cwd\\s*:"
+    },
+    {
+      "id": "start_dev_no_resolvefrom",
+      "text": "start.dev.ts does NOT use resolveFrom as an actual argument",
+      "check_type": "grep_absent",
+      "file": "start.dev.ts",
+      "pattern": "resolveFrom\\s*:"
+    },
+    {
+      "id": "tests_runner_exists",
+      "text": "packages/tests/run-tests.ts exists",
+      "check_type": "file_exists",
+      "file": "packages/tests/run-tests.ts"
+    },
+    {
+      "id": "tests_start_config_exists",
+      "text": "packages/tests/start.test.ts exists",
+      "check_type": "file_exists",
+      "file": "packages/tests/start.test.ts"
+    },
+    {
+      "id": "tests_helpers_exists",
+      "text": "packages/tests/helpers.ts exists with assert + assertSQL helpers",
+      "check_type": "grep_all",
+      "file": "packages/tests/helpers.ts",
+      "patterns": ["assert", "assertSQL"]
+    },
+    {
+      "id": "tests_phase_a_chain_ready",
+      "text": "packages/tests/infra/chain-ready.test.ts asserts EVM chainId via JSON-RPC",
+      "check_type": "grep_all",
+      "file": "packages/tests/infra/chain-ready.test.ts",
+      "patterns": ["eth_chainId", "8545"]
+    },
+    {
+      "id": "tests_phase_a_deploy",
+      "text": "packages/tests/infra/deploy.test.ts checks contractAddressesEvmMain returns a valid address",
+      "check_type": "grep_all",
+      "file": "packages/tests/infra/deploy.test.ts",
+      "patterns": ["contractAddressesEvmMain", "0x"]
+    },
+    {
+      "id": "tests_phase_b_create_room",
+      "text": "packages/tests/stm/ has a test that submits createRoom via writeContract and asserts DB row",
+      "check_type": "grep_any",
+      "file": "packages/tests/stm/create-room.test.ts",
+      "patterns": ["effectstreamSubmitGameInput", "createRoom", "assertSQL"]
+    },
+    {
+      "id": "tests_phase_b_api",
+      "text": "packages/tests/stm/api.test.ts hits an /api endpoint with fetch",
+      "check_type": "grep_all",
+      "file": "packages/tests/stm/api.test.ts",
+      "patterns": ["fetch", "/api"]
+    },
+    {
+      "id": "tests_package_json",
+      "text": "packages/tests/package.json exists with required deps (workspace:* sibling)",
+      "check_type": "grep_any",
+      "file": "packages/tests/package.json",
+      "patterns": ["@my-evm-rooms/database", "@my-evm-rooms/contracts-evm", "workspace:\\*"]
+    },
+    {
+      "id": "grammar_typebox",
+      "text": "packages/node/grammar.ts uses Typebox Type.String and Type.Number for createRoom",
+      "check_type": "grep_all",
+      "file": "packages/node/grammar.ts",
+      "patterns": ["createRoom", "Type\\.String", "Type\\.Number"]
+    },
+    {
+      "id": "stm_uses_world_resolve",
+      "text": "state-machine.ts uses World.resolve with the pgtyped insertRoom query",
+      "check_type": "grep_all",
+      "file": "packages/node/state-machine.ts",
+      "patterns": ["World\\.resolve", "insertRoom|insert_room"]
+    },
+    {
+      "id": "no_raw_sql_in_stm",
+      "text": "state-machine.ts has no raw SQL strings",
+      "check_type": "grep_absent",
+      "file": "packages/node/state-machine.ts",
+      "pattern": "INSERT\\s+INTO|SELECT\\s+\\*|UPDATE\\s+\\w+\\s+SET"
+    },
+    {
+      "id": "dockerfile_workspace_symlink",
+      "text": "Dockerfile creates workspace symlinks inline after bun install (Linux fix)",
+      "check_type": "grep_any",
+      "file": "Dockerfile",
+      "patterns": ["Bun\\.Glob", "symlinkSync", "ln\\s+-sfn.*node_modules"]
+    }
+  ]
+}

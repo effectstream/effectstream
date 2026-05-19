@@ -1,0 +1,104 @@
+{
+  "run_id": "eval-migrate-chess-with_skill",
+  "sandbox": "/tmp/eval-runs/iter-1/eval-migrate-chess/with",
+  "assertions": [
+    {
+      "text": "Plan mentions @paimaexample/* \u2192 @effectstream/* rename (with table or list)",
+      "passed": true,
+      "evidence": "match: '@paimaexample/*` \u2192 `@effectstream'"
+    },
+    {
+      "text": "Plan covers PaimaSTM \u2192 Stm rename",
+      "passed": true,
+      "evidence": "match: 'PaimaSTM` | `Stm'"
+    },
+    {
+      "text": "Plan covers PaimaL2Contract \u2192 EffectstreamL2Contract Solidity rename",
+      "passed": true,
+      "evidence": "match: 'PaimaL2Contract.sol` | `EffectstreamL2Contract'"
+    },
+    {
+      "text": "Plan covers flattening packages/client/node \u2192 packages/node",
+      "passed": true,
+      "evidence": "match: 'packages/client/node/src/main.ts` | `packages/node/main.dev.ts` |\\n| `packages/client/node/src/state-machine.ts` | `packages/node/state-machine.ts` |\\n| `packages/client/node/src/api.ts` | `packages/nod'"
+    },
+    {
+      "text": "Plan tells reader to delete packages/shared/game-logic entirely",
+      "passed": true,
+      "evidence": "matched: '(?i)game-logic[^\\\\n]{0,200}(?:delete|remove)'"
+    },
+    {
+      "text": "Plan covers removing round_executor / match_executor / tick abstraction",
+      "passed": true,
+      "evidence": "matched: 'round_executor'"
+    },
+    {
+      "text": "Plan tells the user to inline pure helpers (chess-logic, validation) into packages/node/",
+      "passed": true,
+      "evidence": "matched: '(?i)inline'"
+    },
+    {
+      "text": "Plan addresses removing the [PreparedQuery, params] tuple pattern (yield World.resolve directly)",
+      "passed": true,
+      "evidence": "matched: 'PreparedQuery,\\\\s*params'"
+    },
+    {
+      "text": "Plan creates start.dev.ts at project root with export default OrchestratorConfig",
+      "passed": true,
+      "evidence": "all 3 patterns matched"
+    },
+    {
+      "text": "Plan splits localhostConfig into config.dev.ts + config.mainnet.ts",
+      "passed": true,
+      "evidence": "all 2 patterns matched"
+    },
+    {
+      "text": "Plan splits main.ts into main.dev.ts + main.mainnet.ts",
+      "passed": true,
+      "evidence": "all 2 patterns matched"
+    },
+    {
+      "text": "Plan updates package.json workspaces to packages/*",
+      "passed": true,
+      "evidence": "matched: '\"workspaces\"\\\\s*:\\\\s*\\\\[\\\\s*\"packages/\\\\*\"'"
+    },
+    {
+      "text": "Plan adds effectstream.default field to package.json",
+      "passed": true,
+      "evidence": "match: 'effectstream/orchestrator/launch-evm\";\\n\\nconst root = import.meta.dirname!;\\n\\nexport default'"
+    },
+    {
+      "text": "Plan adds packages/tests/ (didn't exist in old layout)",
+      "passed": true,
+      "evidence": "matched: 'packages/tests/?'"
+    },
+    {
+      "text": "Plan adds Dockerfile (didn't exist in old layout)",
+      "passed": true,
+      "evidence": "match: 'Dockerfile'"
+    },
+    {
+      "text": "Plan replaces Oak (frontend server) with Fastify + @fastify/static",
+      "passed": true,
+      "evidence": "all 2 patterns matched"
+    },
+    {
+      "text": "Plan removes @ts-rest in favor of plain Fastify routes",
+      "passed": true,
+      "evidence": "match: 'ts-rest'"
+    },
+    {
+      "text": "Plan mentions the @midnight-ntwrk/wallet-sdk-address-format phantom dependency",
+      "passed": true,
+      "evidence": "match: 'wallet-sdk-address-format'"
+    },
+    {
+      "text": "Plan mentions the Dockerfile workspace-symlink workaround for Bun on Linux",
+      "passed": true,
+      "evidence": "matched: 'symlink'"
+    }
+  ],
+  "passed": 19,
+  "total": 19,
+  "pass_rate": 1.0
+}

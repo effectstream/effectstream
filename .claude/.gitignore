@@ -1,0 +1,8 @@
+# User-local Claude Code settings — not for sharing.
+settings.local.json
+
+# Eval-tier output symlinks point to /tmp/eval-runs/... which doesn't exist
+# anywhere else. Keep the iteration metadata (grading.json, benchmark.json,
+# analyst_observations.md) but skip the transient sandbox outputs.
+skills/create-effectstream-app-workspace/iteration-*/eval-*/with_skill/outputs/
+skills/create-effectstream-app-workspace/iteration-*/eval-*/without_skill/outputs/

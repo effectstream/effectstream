@@ -1,0 +1,99 @@
+{
+  "run_id": "eval-new-multichain-with_skill",
+  "sandbox": "/tmp/eval-runs/iter-1/eval-new-multichain/with",
+  "assertions": [
+    {
+      "text": "Root package.json lists nested midnight contract workspace explicitly (packages/* doesn't recurse)",
+      "passed": true,
+      "evidence": "match: 'packages/contracts-midnight/contract-round-value'"
+    },
+    {
+      "text": "Root package.json includes @midnight-ntwrk/wallet-sdk-address-format phantom dependency",
+      "passed": true,
+      "evidence": "match: '@midnight-ntwrk/wallet-sdk-address-format'"
+    },
+    {
+      "text": "Root package.json has effectstream.default",
+      "passed": true,
+      "evidence": "match: '\"effectstream\": {\\n    \"default\"'"
+    },
+    {
+      "text": "start.dev.ts launches both EVM and Midnight",
+      "passed": true,
+      "evidence": "all 2 patterns matched"
+    },
+    {
+      "text": "start.dev.ts uses { cwd } for both launchers (NOT resolveFrom as an actual argument)",
+      "passed": true,
+      "evidence": "pattern correctly absent"
+    },
+    {
+      "text": "MIDNIGHT_STORAGE_PASSWORD in start.dev.ts passes 3-of-4 complexity (upper, lower, digit, special)",
+      "passed": true,
+      "evidence": "password 'YourPasswordMy1!' has 4 char classes"
+    },
+    {
+      "text": "batcher factory file exists with createEffectstreamL2Adapter export",
+      "passed": true,
+      "evidence": "match: 'EffectstreamL2DefaultAdapter'"
+    },
+    {
+      "text": "batcher.dev.ts has BatcherConfig with namespace field",
+      "passed": true,
+      "evidence": "match: 'namespace:'"
+    },
+    {
+      "text": "batcher.mainnet.ts validates env vars (throws if missing)",
+      "passed": true,
+      "evidence": "all 2 patterns matched"
+    },
+    {
+      "text": "vite.config.ts does NOT actually import vite-plugin-top-level-await",
+      "passed": true,
+      "evidence": "pattern correctly absent"
+    },
+    {
+      "text": "vite.config.ts aliases node-fetch to a shim (or has equivalent fix)",
+      "passed": true,
+      "evidence": "matched: '\"node-fetch\"\\\\s*:'"
+    },
+    {
+      "text": "vite.config.ts handles stream/web polyfill (fix-stream-web plugin or equivalent)",
+      "passed": true,
+      "evidence": "matched: 'stream/web'"
+    },
+    {
+      "text": "Dockerfile installs the Compact compiler",
+      "passed": true,
+      "evidence": "matched: 'compact-installer'"
+    },
+    {
+      "text": "Dockerfile installs xz-utils (required for Midnight)",
+      "passed": true,
+      "evidence": "match: 'xz-utils'"
+    },
+    {
+      "text": "Dockerfile installs Foundry/forge for EVM",
+      "passed": true,
+      "evidence": "matched: 'foundry'"
+    },
+    {
+      "text": "Dockerfile includes workspace-symlink workaround after bun install",
+      "passed": true,
+      "evidence": "matched: 'Bun\\\\.Glob'"
+    },
+    {
+      "text": "packages/shared/app-events.ts uses registerEvents + genEvent + indexed fields",
+      "passed": true,
+      "evidence": "all 3 patterns matched"
+    },
+    {
+      "text": "packages/shared/app-events.ts declares an NftMinted (or similarly named) event",
+      "passed": true,
+      "evidence": "match: 'NftMinted'"
+    }
+  ],
+  "passed": 18,
+  "total": 18,
+  "pass_rate": 1.0
+}

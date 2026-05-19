@@ -1,0 +1,115 @@
+{
+  "run_id": "eval-new-evm-with-tests-without_skill",
+  "sandbox": "/tmp/eval-runs/iter-2/eval-new-evm-with-tests/without",
+  "assertions": [
+    {
+      "text": "Root package.json declares workspaces: [\"packages/*\"]",
+      "passed": true,
+      "evidence": "match: '\"workspaces\": [\\n    \"packages/*\"'"
+    },
+    {
+      "text": "Root package.json has \"test\" script invoking the test runner",
+      "passed": false,
+      "evidence": "pattern not found"
+    },
+    {
+      "text": "Root package.json uses a real @effectstream version (NOT <latest>)",
+      "passed": true,
+      "evidence": "pattern correctly absent"
+    },
+    {
+      "text": "Root package.json includes @midnight-ntwrk/wallet-sdk-address-format phantom dependency",
+      "passed": false,
+      "evidence": "pattern not found"
+    },
+    {
+      "text": "packages/node/package.json declares @my-evm-rooms/database as workspace:*",
+      "passed": false,
+      "evidence": "pattern not found"
+    },
+    {
+      "text": "packages/node/package.json declares @my-evm-rooms/contracts-evm as workspace:*",
+      "passed": false,
+      "evidence": "pattern not found"
+    },
+    {
+      "text": "start.dev.ts uses { cwd: ... } for launchEvm (not resolveFrom)",
+      "passed": true,
+      "evidence": "match: 'launchEvm(\"@my-evm-rooms/contracts\", {\\n      cwd:'"
+    },
+    {
+      "text": "start.dev.ts does NOT use resolveFrom as an actual argument",
+      "passed": false,
+      "evidence": "pattern WAS found (should be absent): 'resolveFrom:'"
+    },
+    {
+      "text": "packages/tests/run-tests.ts exists",
+      "passed": false,
+      "evidence": "packages/tests/run-tests.ts not found anywhere under /tmp/eval-runs/iter-2/eval-new-evm-with-tests/without"
+    },
+    {
+      "text": "packages/tests/start.test.ts exists",
+      "passed": false,
+      "evidence": "packages/tests/start.test.ts not found anywhere under /tmp/eval-runs/iter-2/eval-new-evm-with-tests/without"
+    },
+    {
+      "text": "packages/tests/helpers.ts exists with assert + assertSQL helpers",
+      "passed": false,
+      "evidence": "packages/tests/helpers.ts not found"
+    },
+    {
+      "text": "packages/tests/infra/chain-ready.test.ts asserts EVM chainId via JSON-RPC",
+      "passed": false,
+      "evidence": "packages/tests/infra/chain-ready.test.ts not found"
+    },
+    {
+      "text": "packages/tests/infra/deploy.test.ts checks contractAddressesEvmMain returns a valid address",
+      "passed": false,
+      "evidence": "packages/tests/infra/deploy.test.ts not found"
+    },
+    {
+      "text": "packages/tests/stm/ has a test that submits createRoom via writeContract and asserts DB row",
+      "passed": false,
+      "evidence": "packages/tests/stm/create-room.test.ts not found"
+    },
+    {
+      "text": "packages/tests/stm/api.test.ts hits an /api endpoint with fetch",
+      "passed": false,
+      "evidence": "packages/tests/stm/api.test.ts not found"
+    },
+    {
+      "text": "packages/tests/package.json exists with required deps (workspace:* sibling)",
+      "passed": true,
+      "evidence": "matched: 'workspace:\\\\*'"
+    },
+    {
+      "text": "packages/node/grammar.ts uses Typebox Type.String and Type.Number for createRoom",
+      "passed": false,
+      "evidence": "missing: ['Type\\\\.Number']"
+    },
+    {
+      "text": "state-machine.ts uses World.resolve with the pgtyped insertRoom query",
+      "passed": false,
+      "evidence": "packages/node/state-machine.ts not found"
+    },
+    {
+      "text": "state-machine.ts has no raw SQL strings",
+      "passed": false,
+      "evidence": "packages/node/state-machine.ts not found"
+    },
+    {
+      "text": "Dockerfile creates workspace symlinks inline after bun install (Linux fix)",
+      "passed": false,
+      "evidence": "none of ['Bun\\\\.Glob', 'symlinkSync', 'ln\\\\s+-sfn.*node_modules'] matched"
+    },
+    {
+      "text": "Template actually boots and passes its own integration tests (runtime tier \u2014 most important assertion)",
+      "passed": true,
+      "evidence": "bun run test passed in 4s; tail: ['', ' 10 pass', ' 0 fail', ' 34 expect() calls', 'Ran 10 tests across 2 files. [847.00ms]'] (elapsed 4s)",
+      "weight": 5
+    }
+  ],
+  "passed": 5,
+  "total": 21,
+  "pass_rate": 0.23809523809523808
+}
