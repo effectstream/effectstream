@@ -5,6 +5,11 @@ two `bun run` scripts used by the orchestrator and templates: a regtest
 block generator and a "wait for block N" RPC poller. Built on
 [`bitcoinjs-lib`](https://github.com/bitcoinjs/bitcoinjs-lib).
 
+- Two `bun run` scripts: regtest block generator and wait-for-block RPC poller.
+- Talks to Bitcoin Core's JSON-RPC at `http://127.0.0.1:18443` by default.
+- Pair with `@effectstream/bitcoin-core` for the binary.
+- Used by the orchestrator's Bitcoin step and the Bitcoin E2E suite.
+
 ## Install
 
 ```bash

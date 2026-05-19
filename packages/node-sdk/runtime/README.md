@@ -5,6 +5,11 @@ database, events, and HTTP API together inside an EffectStream node.
 Boot it with `init()` then drive it with `start(config)` and your node
 is up.
 
+- The state-machine runtime that owns an Effectstream node's process model.
+- `init()` once, `start(config)` to run; ties sync, state machine, DB, events, and HTTP API together.
+- Used by every template.
+- Also reachable through `@effectstream/node-sdk/runtime`.
+
 ## Install
 
 ```bash

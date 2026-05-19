@@ -4,6 +4,11 @@ Multi-chain signature verification — one API that verifies wallet signatures
 from EVM, Cardano, Polkadot, Algorand, Mina, and Midnight. Also includes the
 `Prando` seeded RNG used for on-chain-derived randomness.
 
+- Multi-chain signature verification: EVM, Cardano, Polkadot, Algorand, Mina, Midnight.
+- Bundles the `Prando` seeded RNG for on-chain-derived randomness.
+- Used by the batcher to verify user-submitted input signatures.
+- Only depends on `@effectstream/utils`; safe to use standalone.
+
 ## Install
 
 ```bash

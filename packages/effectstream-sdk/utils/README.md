@@ -10,6 +10,11 @@ This is the bottom-of-stack package: `@effectstream/crypto`,
 `@effectstream/concise`, `@effectstream/wallets`, and most node packages
 depend on it.
 
+- Shared chain-aware types, TypeBox schemas, viem helpers, Effection primitives.
+- Bottom-of-stack: `crypto`, `concise`, `wallets`, and most node packages depend on it.
+- Safe to use standalone, no runtime dependency on the rest of Effectstream.
+- `AddressType` is the most-imported symbol from the package (~170 cross-package references).
+
 ## Install
 
 ```bash

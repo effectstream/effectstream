@@ -5,6 +5,11 @@ versioned `bitcoind` and `bitcoin-cli` into `node_modules/.bin` so the
 EffectStream orchestrator and E2E tests can boot a local regtest
 without each developer running their own install script.
 
+- Pins Bitcoin Core 28.1 for local regtest.
+- Linux / macOS, x64 and arm64.
+- Pairs with `@effectstream/bitcoin-contracts` for `generate-blocks` and `wait-for-block`.
+- Used by the orchestrator's Bitcoin step.
+
 ## Install
 
 ```bash

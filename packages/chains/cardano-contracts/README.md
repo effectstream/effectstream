@@ -5,6 +5,11 @@ the home for Cardano-side bindings, helpers, and deployment scripts that
 an EffectStream app might use when interacting with Cardano-native
 contracts (Plutus, Aiken).
 
+- Reserved namespace for Cardano-side bindings, helpers, and deployment scripts.
+- Ships intentionally empty today: `mod.ts` re-exports nothing.
+- Mirrors the per-chain "contracts" slot used by EVM, Midnight, Bitcoin, Avail.
+- For Cardano support today, see `@effectstream/sync`'s `UtxoRpcFetcher` and `@effectstream/sm/builtin`'s Cardano primitives.
+
 ## Install
 
 ```bash
@@ -15,11 +20,7 @@ npm install @effectstream/cardano-contracts
 
 ## Standalone usage
 
-This package is currently a **stub**. It ships so that
-`@effectstream/sync`, `@effectstream/orchestrator`, and the templates can
-depend on a stable Cardano integration namespace. Concrete exports —
-script encoders, datum types, common policy IDs — will land here as the
-Cardano integration evolves.
+This package is intentionally empty today. It ships so that `@effectstream/sync`, `@effectstream/orchestrator`, and the templates can depend on a stable Cardano integration namespace; concrete exports (script encoders, datum types, common policy IDs) land here as the Cardano integration grows.
 
 For Cardano support today, see:
 

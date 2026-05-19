@@ -5,6 +5,11 @@ CLI. Installs a pinned binary into `node_modules/.bin/npm-avail-light-client`
 so the EffectStream orchestrator and Avail-side E2E tests can spin up a
 light client without each developer fetching the binary by hand.
 
+- Pinned Avail light-client binary, dropped into `node_modules/.bin/`.
+- Linux / macOS, x64 and arm64.
+- Used by the orchestrator's Avail step; pairs with `@effectstream/npm-avail-node`.
+- Template: [`templates/avail/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/avail).
+
 ## Install
 
 ```bash

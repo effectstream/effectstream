@@ -5,6 +5,11 @@ version into `node_modules/.bin/npm-midnight-proof-server` so the
 EffectStream orchestrator can boot the proving sidecar that the
 Midnight node depends on.
 
+- Pinned Midnight proof-server sidecar.
+- Boots alongside `@effectstream/npm-midnight-node`; no app-code import needed.
+- Cache management via `--clean-binaries` / `--only-clean`.
+- Required by ZK-heavy Midnight templates.
+
 ## Install
 
 ```bash

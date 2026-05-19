@@ -5,6 +5,11 @@ binary. Installs a pinned version into `node_modules/.bin/npm-avail-node`
 so the EffectStream orchestrator can run a local Avail node without each
 developer compiling or downloading it manually.
 
+- Pinned Avail node binary, dropped into `node_modules/.bin/`.
+- Spins up a local dev node with `--dev` in one command.
+- Paired with `@effectstream/npm-avail-light-client` for full local Avail-DA.
+- Template: [`templates/avail/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/avail).
+
 ## Install
 
 ```bash

@@ -5,6 +5,11 @@ contract addresses, sync protocols, primitives, and security namespaces. A
 fluent API with strict TypeScript inference: each builder step refines the
 type of what comes next, so misuse fails at compile time.
 
+- Fluent, type-safe configuration builders for Effectstream nodes.
+- Strict inference: each step refines the type of what comes next, so misuse is a compile error.
+- Used by every template's `packages/node/config.dev.ts`.
+- Covers networks, deployed contract addresses, sync protocols, primitives, security namespaces.
+
 ## Install
 
 ```bash

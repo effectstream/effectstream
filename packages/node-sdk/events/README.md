@@ -5,6 +5,11 @@ EffectStream's event system. The runtime publishes block, transaction,
 primitive, and app events to this broker; frontends and workers
 subscribe via `@effectstream/event-client`.
 
+- Localhost-only MQTT broker (Aedes) for Effectstream events.
+- Publishes from non-loopback connections are rejected at the broker.
+- Paired with `@effectstream/event-client` on the consuming side.
+- Runs two brokers in production: one for engine events, one for batcher events.
+
 ## Install
 
 ```bash

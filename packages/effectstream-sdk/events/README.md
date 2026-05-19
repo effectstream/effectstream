@@ -4,6 +4,11 @@ MQTT-based event subscriber for EffectStream. Subscribe to type-safe events
 streamed by the engine and the batcher — blocks, transactions, primitive
 events, and any app-defined event — without writing raw MQTT topic strings.
 
+- MQTT subscriber for Effectstream events: blocks, transactions, primitives, app-defined.
+- Type-safe topics; no raw topic strings.
+- Connects to the broker run by `@effectstream/event-server` (or any MQTT broker).
+- Bun caveat: the `mqtt` WebSocket transport isn't supported on Bun yet; use Node for programmatic consumption.
+
 ## Install
 
 ```bash

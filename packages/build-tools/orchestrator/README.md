@@ -7,6 +7,11 @@ Cardano-side services, Avail node + light client, NEAR sandbox,
 Celestia, plus the EffectStream sync + runtime + batcher — in the right
 order, with health checks.
 
+- One CLI that starts every dependency a template needs: DB, chains, sync, runtime, batcher.
+- Dependency-graph aware: runs in parallel where it can, sequential where it must.
+- Disable any chain with `DISABLE_EVM=true`, `DISABLE_BITCOIN=true`, ...
+- Used by every template in this repo and by the E2E runner.
+
 ## Install
 
 ```bash

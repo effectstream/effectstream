@@ -6,6 +6,11 @@ remappings every template uses to share contract paths. Pairs with
 [`@effectstream/evm-contracts`](https://www.npmjs.com/package/@effectstream/evm-contracts),
 which ships the actual Solidity sources.
 
+- Hardhat tooling for EVM-side Effectstream: JSON-RPC server, deploy + addresses, Solidity remappings.
+- Hardhat config builder with a Solidity 0.8.30 default.
+- Pairs with `@effectstream/evm-contracts` for the Solidity sources.
+- Used by every template's `deploy-contracts` step in the orchestrator.
+
 ## Install
 
 ```bash
@@ -63,11 +68,11 @@ The sync side then reads those addresses through `@effectstream/config`'s
 
 ## Key subpath exports
 
-- `@effectstream/evm-hardhat/json-rpc-server` — local JSON-RPC server.
-- `@effectstream/evm-hardhat/builder` — programmatic contract build entry point.
-- `@effectstream/evm-hardhat/hardhat-config-builder` — opinionated Hardhat config factory.
-- `@effectstream/evm-hardhat/deploy` — orchestrator-friendly deploy runner.
-- `@effectstream/evm-hardhat/addresses` — read/write the deployed-address file.
+- `@effectstream/evm-hardhat/json-rpc-server`: local JSON-RPC server.
+- `@effectstream/evm-hardhat/builder`: programmatic contract build entry point.
+- `@effectstream/evm-hardhat/hardhat-config-builder`: opinionated Hardhat config factory.
+- `@effectstream/evm-hardhat/deploy` runs Hardhat scripts and writes the deployed address into a deterministic file.
+- `@effectstream/evm-hardhat/addresses`: read/write the deployed-address file.
 - `@effectstream/evm-hardhat/remappings-hardhat`, `./remappings-forge` — Solidity import remappings.
 
 ## Examples

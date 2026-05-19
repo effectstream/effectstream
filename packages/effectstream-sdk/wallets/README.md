@@ -6,6 +6,11 @@ wait for them to be processed. Spans MetaMask (and any EVM-injected
 wallet), Cardano (CIP-30), Midnight, Mina, Polkadot, Algorand, and
 Avail.
 
+- Browser wallet connectors plus the runtime client a frontend uses to log in, sign, and submit.
+- Spans MetaMask + injected EVM, Cardano (CIP-30), Midnight, Mina, Polkadot, Algorand, Avail.
+- Used together with `@effectstream/crypto` (server-side verification).
+- High-level helpers `walletLogin` and `sendTransaction` hide the polling loop.
+
 ## Install
 
 ```bash
@@ -69,27 +74,27 @@ hide the polling loop.
 
 Login + signing:
 
-- `walletLogin(args)` — top-level helper: discover, connect, produce a signed batcher login.
-- `EffectstreamConfig` — runtime config (chain URLs, batcher URL, …) the helpers consume.
+- `walletLogin(args)`: top-level helper that discovers, connects, and produces a signed batcher login.
+- `EffectstreamConfig`: runtime config (chain URLs, batcher URL, ...) the helpers consume.
 - `signMessage(wallet, message)` — sign an arbitrary message with the connected wallet.
 
 Sending transactions:
 
-- `sendTransaction(wallet, conciseInput, opts?)` — submit through the batcher and (by default) wait for processing.
-- `sendBatcherTransaction(...)` — explicit batcher submission.
-- `sendSelfSequencedTransaction(...)` — bypass the batcher.
+- `sendTransaction(wallet, conciseInput, opts?)`: submit through the batcher and (by default) wait for processing.
+- `sendBatcherTransaction(...)`: explicit batcher submission.
+- `sendSelfSequencedTransaction(...)` bypasses the batcher.
 - `waitForEffectstreamBlockProcessed(...)` — block-height poller used by the above.
 
 Wallet discovery / identification:
 
-- `WalletMode` — enum: `EvmInjected`, `EvmEthers`, `Midnight`, `Cardano`, `Polkadot`, `Algorand`, `Mina`, `AvailJs`.
-- `WalletNameMap` — `Record<WalletMode, string>` for display.
-- `allInjectedWallets(config)` — list installed wallets in the browser.
-- `getAddressType(walletMode)` — map a `WalletMode` to its `@effectstream/utils` `AddressType`.
+- `WalletMode`: enum of `EvmInjected`, `EvmEthers`, `Midnight`, `Cardano`, `Polkadot`, `Algorand`, `Mina`, `AvailJs`.
+- `WalletNameMap`: `Record<WalletMode, string>` for display.
+- `allInjectedWallets(config)` lists installed wallets in the browser.
+- `getAddressType(walletMode)` maps a `WalletMode` to its `@effectstream/utils` `AddressType`.
 
 Types:
 
-- `Wallet` — handle returned by `walletLogin`, used by send/sign helpers.
+- `Wallet`: handle returned by `walletLogin`, used by send/sign helpers.
 - `UserSignature`, `Hash`, `BatcherPostResponse`, `BatcherTrackResponse`, `PostDataResponse`, `PostDataResponseAsync`, `SignFunction`.
 
 Lower-level connector machinery (used internally; export surface is

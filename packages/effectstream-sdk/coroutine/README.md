@@ -5,6 +5,11 @@ Defines the `StateUpdateStream` generator type and the `World.*` helpers
 that EffectStream's runtime executes — the API your state-transition
 functions yield against.
 
+- Generator-based control flow for state transitions: `World.resolve`, `World.all`, `World.promise`.
+- Used by the runtime to execute pgtyped queries inside a transaction.
+- Most authors reach for it through `@effectstream/sm`.
+- Threads pgtyped query results back into the generator transparently.
+
 ## Install
 
 ```bash

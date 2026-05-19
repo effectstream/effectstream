@@ -5,6 +5,11 @@ blocks from every chain you've configured (EVM, Bitcoin, Cardano, Midnight,
 Avail, Celestia, NEAR…), normalizes them into a single rollup ordering,
 and stages the inputs the state machine consumes.
 
+- Blockchain-sync service: reads finalized blocks from every configured chain.
+- Normalises into a single rollup ordering and stages inputs for the state machine.
+- Drop-in fetchers: EVM, Bitcoin, Cardano UTXO-RPC, Midnight, Avail, Celestia, NEAR, NTP.
+- `genSyncProtocols(config)` is what the runtime calls during boot.
+
 ## Install
 
 ```bash
