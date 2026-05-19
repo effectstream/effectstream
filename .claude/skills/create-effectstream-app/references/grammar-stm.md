@@ -295,7 +295,7 @@ import {
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@effectstream/config";
-import { PrimitiveTypeEVMERC721 } from "@effectstream/sm/builtin";
+import { PrimitiveTypeEVMEffectstreamL2, PrimitiveTypeEVMERC721 } from "@effectstream/sm/builtin";
 import { hardhat } from "viem/chains";
 
 export const config = new ConfigBuilder()
@@ -336,6 +336,16 @@ export const config = new ConfigBuilder()
     }))
   )
   .buildPrimitives((b) => b
+    // Only needed if the template uses user-submitted inputs via custom grammar
+    // (effectstreamSubmitGameInput or the batcher). Adds an extra contract to scan,
+    // so omit if all inputs come from other contract events (ERC20, Midnight, etc.).
+    .addPrimitive((s) => s.parallelEvmRPC, () => ({
+      name: "MyTemplateL2",
+      type: PrimitiveTypeEVMEffectstreamL2,
+      startBlockHeight: 0,
+      contractAddress: contractAddressesEvmMain().chain31337["MyPaimaL2Module#MyPaimaL2"],
+      stateMachinePrefix: "",
+    }))
     .addPrimitive((s) => s.parallelEvmRPC, () => ({
       name: "MyERC721",
       type: PrimitiveTypeEVMERC721,
@@ -346,6 +356,8 @@ export const config = new ConfigBuilder()
   )
   .build();
 ```
+
+> **`PrimitiveTypeEVMEffectstreamL2` — add only when needed.** This is an EVM-specific tool: a contract + scanner that lets users send arbitrary messages (concise/game inputs) to the backend via `effectstreamSubmitGameInput` or the batcher. It adds an extra contract to scan, which is expensive — so only include it when the template has standalone user actions that don't originate from events already emitted by other contracts (ERC20 transfers, Midnight state changes, etc.). When it IS needed and missing, the failure is silent: no error, no crash, just empty query results. The L2 primitive reads `EffectstreamGameInteraction` events from the L2 contract and routes them to the state machine via the grammar. Chain-event primitives (ERC20, ERC721, Midnight, etc.) handle their own event types but do NOT read L2 game inputs. `stateMachinePrefix` must be `""` (empty string) — the grammar key is encoded inside the JSON payload, not derived from the prefix.
 
 ### Networks (`ConfigNetworkType`)
 

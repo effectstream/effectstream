@@ -53,6 +53,8 @@ Templates can add more phases for cross-chain tests, privacy tests, etc. — the
 
 Verifies the orchestrator boots correctly — chain nodes respond, contracts deploy, sync node healthy, blocks indexing.
 
+**Midnight timing gate.** If the template includes Midnight, you MUST `await waitForProcess("midnight-indexer-wait", { waitForExit: true })` before running `chainReadyTest()`. The Midnight indexer's GraphQL endpoint on port 8088 takes significantly longer to start than the EVM chain on 8545. Without this wait, the `chainReadyTest` will attempt to query port 8088, fail, and abort the entire test suite — even though the indexer would have been ready a few seconds later. The `midnight-indexer-wait` process is an orchestrator-managed health probe that exits once the indexer responds to GraphQL queries. Similarly, wait for `midnight-contract` (with a long timeout, e.g. 600s) after `deployTest()` before proceeding to Phase B, since Midnight contract deployment via Compact is much slower than EVM Hardhat Ignition.
+
 ```ts
 // packages/tests/infra/chain-ready.test.ts
 import { assert } from "../helpers.ts";
@@ -309,6 +311,10 @@ async function test() {
 
     // Phase A
     await waitForProcess("generate-evm-mod", { waitForExit: true });
+    // ⚠️ If the template includes Midnight, also wait for the indexer
+    // before running chainReadyTest — Midnight's GraphQL endpoint on :8088
+    // is NOT available until the indexer process finishes startup.
+    // await waitForProcess("midnight-indexer-wait", { waitForExit: true });
     const { chainReadyTest } = await import("./infra/chain-ready.test.ts");
     const { deployTest } = await import("./infra/deploy.test.ts");
     await chainReadyTest();
