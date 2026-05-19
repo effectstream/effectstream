@@ -88,7 +88,7 @@ config:
 ---
 graph TD
     subgraph "User"
-        A["fa:fa-keyboard $ deno task dev"]
+        A["fa:fa-keyboard $ bun run dev"]
     end
 
     subgraph "Phase 1: Orchestration"

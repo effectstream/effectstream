@@ -14,6 +14,11 @@ rollup inputs, and timer triggers. Re-exported through
 Use it to compute EffectStream block / input / timer hashes off-chain —
 for example, in an external indexer, a proof system, or a verifier.
 
+- Type definitions and deterministic block / input / timer hashes for Effectstream.
+- Pure functions, no runtime dependency on the rest of the framework.
+- Useful for off-chain verifiers and external indexers.
+- Re-exported through `@effectstream/node-sdk/chain-types`.
+
 ## Install
 
 ```bash
@@ -73,4 +78,4 @@ Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/chain-types
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/chain-types
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/chain-types

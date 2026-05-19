@@ -351,14 +351,14 @@ import {
 // 1. Instantiate adapters
 const evmAdapter = new EffectStreamL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
-  Deno.env.get("EVM_PRIVATE_KEY")!,
+  process.env["EVM_PRIVATE_KEY"]!,
   0n,
   "mainEvmRPC"
 );
 
 const midnightAdapter = new MidnightAdapter(
   "0xabc...",
-  Deno.env.get("MIDNIGHT_WALLET_SEED")!,
+  process.env["MIDNIGHT_WALLET_SEED"]!,
   {
     indexer: "http://localhost:8088/api/v1/graphql",
     indexerWS: "ws://localhost:8088/api/v1/graphql/ws",

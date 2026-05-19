@@ -13,6 +13,11 @@ by hashing with keccak256. The intended use is "precompile" addresses —
 synthetic 0x-addresses reserved by an EffectStream node for non-user
 logic (intrinsic primitives, timers, internal accounts).
 
+- Deterministic 20-byte addresses from string names via keccak256.
+- Pure functions; same name in, same address out.
+- Used by intrinsic primitives, timers, and internal accounts.
+- Result is an EVM-shaped `0x[40 hex chars]` string, usable wherever viem/ethers expects an `Address`.
+
 ## Install
 
 ```bash
@@ -63,4 +68,4 @@ Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/precompile
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/precompile
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/precompile

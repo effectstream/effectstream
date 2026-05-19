@@ -26,22 +26,14 @@ This template addresses a common challenge in Web3: asset fragmentation across d
 
 ```sh
 # Clone the repository
-git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next effectstream-demo
-cd effectstream-demo/templates/multi-chain-token-transfer
-
-## Please install missing dependencies.
-## This will be automatically done in the future.
-./../check.sh
+git clone https://github.com/effectstream/effectstream.git
+cd effectstream/templates/multi-chain-token-transfer
 
 # Install packages
-deno install --allow-scripts && ./patch.sh
+bun i
 
-# Compile contracts
-deno task build:evm
-deno task build:midnight
-
-# Launch EffectStream Node
-deno task dev
+# Launch EffectStream Node (compiles contracts and starts the full local stack)
+bun run dev
 
 # You will need the Midnight Lace Wallet to interact with the dApp.
 # Wait until the EffectStream Node is Syncing Blocks
@@ -293,7 +285,7 @@ export const apiRouter: StartConfigApiRouter = async function (
   
   // A faucet endpoint for local development on Midnight
   server.get("/api/faucet", async (request) => {
-    // ... logic to call a Deno task to fund a Midnight address ...
+    // ... logic to call a script to fund a Midnight address ...
   });
 };
 ```
@@ -341,7 +333,7 @@ export const grammar = {
 
 ### 9. DevOps and Startup (`start.ts`)
 
-The Process Orchestrator is configured in `/packages/client/node/scripts/start.ts` to launch the entire multi-chain development environment with a single command (`deno task dev`). It uses helper functions like `launchEvm` and `launchMidnight` to manage the lifecycle of each blockchain, and also starts the Batcher and frontend services.
+The Process Orchestrator is configured in `/packages/client/node/scripts/start.ts` to launch the entire multi-chain development environment with a single command (`bun run dev`). It uses helper functions like `launchEvm` and `launchMidnight` to manage the lifecycle of each blockchain, and also starts the Batcher and frontend services.
 
 ```ts
 // In packages/client/node/scripts/start.ts
@@ -593,11 +585,11 @@ Finally, the custom primitive is registered in the main configuration file, wher
 
 ### Project Folder Structure
 
-The `multi-chain-token-swap` template is organized as a Deno workspace monorepo. This structure helps separate concerns, with distinct packages for the frontend, the EffectStream node, and shared code. Understanding this layout is key to navigating and modifying the template.
+The `multi-chain-token-swap` template is organized as a Bun workspace monorepo. This structure helps separate concerns, with distinct packages for the frontend, the EffectStream node, and shared code. Understanding this layout is key to navigating and modifying the template.
 
 ```
 /
-|-- deno.json                 # Deno workspace configuration and top-level tasks
+|-- package.json              # Bun workspace configuration and top-level scripts
 |-- README.md                 # Main project instructions
 |-- packages/
 |   |-- client/               # Contains the EffectStream Node implementation

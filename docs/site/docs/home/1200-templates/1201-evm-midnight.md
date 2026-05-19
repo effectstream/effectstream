@@ -22,18 +22,11 @@ This pattern is a blueprint for many real-world applications, such as:
 ## Quick Start
 
 ```sh
-# Check for external dependencies
-./../check.sh
-
 # Install packages
-deno install --allow-scripts && ./patch.sh
+bun i
 
-# Compile contracts
-deno task build:evm
-deno task build:midnight
-
-# Launch EffectStream Node
-deno task dev
+# Launch EffectStream Node (compiles contracts and starts the full local stack)
+bun run dev
 ```
 
 Now you should see the dApp running in your browser!
@@ -46,7 +39,7 @@ Now you should see the dApp running in your browser!
 
 ## The Components in Action
 
-When you run `deno task dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
+When you run `bun run dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
 *   **Hardhat EVM Node**: A local EVM blockchain.
 *   **Midnight Stack**: The full local Midnight environment, including the node, indexer, and proof server.
 *   **EffectStream Services**: The development database, log collector, TUI, and the EffectStream Explorer.

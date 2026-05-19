@@ -13,6 +13,11 @@ EffectStream's event system. The runtime publishes block, transaction,
 primitive, and app events to this broker; frontends and workers
 subscribe via `@effectstream/event-client`.
 
+- Localhost-only MQTT broker (Aedes) for Effectstream events.
+- Publishes from non-loopback connections are rejected at the broker.
+- Paired with `@effectstream/event-client` on the consuming side.
+- Runs two brokers in production: one for engine events, one for batcher events.
+
 ## Install
 
 ```bash
@@ -65,4 +70,4 @@ Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/event-server
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/events
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/events

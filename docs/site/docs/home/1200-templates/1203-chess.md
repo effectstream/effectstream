@@ -20,18 +20,11 @@ This template is a great starting point for any turn-based game, not just chess.
 ## Quick Start
 
 ```sh
-# Check for external dependencies
-./../check.sh
-
 # Install packages
-deno install --allow-scripts && ./patch.sh
+bun i
 
-# Compile contracts
-# TODO: Verify if there is a specific build command for chess contracts, assuming it is build:evm for now.
-deno task build:evm
-
-# Launch EffectStream Node
-deno task dev
+# Launch EffectStream Node (compiles contracts and starts the full local stack)
+bun run dev
 ```
 
 Now you should see the dApp running in your browser!
@@ -41,7 +34,7 @@ Now you should see the dApp running in your browser!
 
 ## The Components in Action
 
-When you run `deno task dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
+When you run `bun run dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
 *   **Hardhat EVM Node**: A local EVM blockchain.
 *   **Development Services**: The development database, log collector, TUI, and the Explorer.
 *   **EffectStream**: Node to sync the chain and process game logic.

@@ -6,7 +6,7 @@ Think of it as a block explorer and a database admin panel rolled into one, spec
 
 ### Running the Explorer
 
-The EffectStream Explorer is typically launched automatically as part of the local development environment when you run `deno task dev`. It is configured within the `processesToLaunch` section of your `orchestrator.ts` file.
+The EffectStream Explorer is typically launched automatically as part of the local development environment when you run `bun run dev`. It is configured within the `processesToLaunch` section of your `orchestrator.ts` file.
 
 ```ts
 // In your orchestrator.ts
