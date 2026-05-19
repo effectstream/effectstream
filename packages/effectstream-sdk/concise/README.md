@@ -121,9 +121,9 @@ Runnable: [`src/batcher.test.ts`](./src/batcher.test.ts),
 [`test/examples.test.ts`](./test/examples.test.ts).
 
 End-to-end batcher flow:
-[`e2e/evm/sync/batcher.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/e2e/evm/sync/batcher.test.ts).
+[`e2e/evm/sync/batcher.test.ts`](https://github.com/effectstream/effectstream/blob/main/e2e/evm/sync/batcher.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/concise
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/concise
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/concise

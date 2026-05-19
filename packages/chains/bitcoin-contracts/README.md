@@ -56,7 +56,7 @@ consume the regtest chain that these scripts keep moving.
 ## Examples
 
 The Bitcoin sync E2E suite at
-[`e2e/bitcoin/`](https://github.com/PaimaStudios/paima-engine/tree/main/e2e/bitcoin)
+[`e2e/bitcoin/`](https://github.com/effectstream/effectstream/tree/main/e2e/bitcoin)
 shows the full flow: orchestrator boots `@effectstream/bitcoin-core`,
 this package generates blocks, sync ingests them, the test asserts on
 the DB.
@@ -64,5 +64,5 @@ the DB.
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/chains/bitcoin-contracts
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/bitcoin-contracts
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/chains/bitcoin-contracts
 - bitcoinjs-lib: https://github.com/bitcoinjs/bitcoinjs-lib

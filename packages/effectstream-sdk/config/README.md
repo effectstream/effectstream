@@ -54,7 +54,7 @@ running a full node.
 
 `config` is what every node component reads to find out which chains to
 sync from, where contracts live, and what primitives to emit. The
-templates under [`templates/*`](https://github.com/PaimaStudios/paima-engine/tree/main/templates)
+templates under [`templates/*`](https://github.com/effectstream/effectstream/tree/main/templates)
 all define their config with `ConfigBuilder` in `packages/node/config.dev.ts`.
 
 ## Key exports
@@ -82,10 +82,10 @@ and aren't typically imported by app code.
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 
 Real-world usage in templates:
-- [`templates/preorder/packages/node/config.dev.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/templates/preorder/packages/node/config.dev.ts)
-- [`templates/evm-cardano/packages/node/config.dev.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/templates/evm-cardano/packages/node/config.dev.ts)
+- [`templates/preorder/packages/node/config.dev.ts`](https://github.com/effectstream/effectstream/blob/main/templates/preorder/packages/node/config.dev.ts)
+- [`templates/evm-cardano/packages/node/config.dev.ts`](https://github.com/effectstream/effectstream/blob/main/templates/evm-cardano/packages/node/config.dev.ts)
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/config
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/config
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/config

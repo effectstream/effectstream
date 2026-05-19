@@ -70,4 +70,4 @@ Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/chain-types
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/chain-types
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/chain-types

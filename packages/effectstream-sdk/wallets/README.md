@@ -110,11 +110,11 @@ Runnable: [`src/utils.test.ts`](./src/utils.test.ts) and
 Real-world usage in templates (each imports `walletLogin`, `WalletMode`,
 `EffectstreamConfig`, `sendTransaction`):
 
-- [`templates/chess-v2/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/chess-v2)
-- [`templates/evm-midnight-v2/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/evm-midnight-v2)
-- [`templates/shinkai-v2/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/shinkai-v2)
+- [`templates/chess-v2/`](https://github.com/effectstream/effectstream/tree/main/templates/chess-v2)
+- [`templates/evm-midnight-v2/`](https://github.com/effectstream/effectstream/tree/main/templates/evm-midnight-v2)
+- [`templates/shinkai-v2/`](https://github.com/effectstream/effectstream/tree/main/templates/shinkai-v2)
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/wallets
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/wallets
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/wallets

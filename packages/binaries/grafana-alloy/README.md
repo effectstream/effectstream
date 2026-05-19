@@ -41,5 +41,5 @@ in production.
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/binaries/grafana-alloy
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/grafana-alloy
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/binaries/grafana-alloy
 - Upstream Grafana Alloy: https://grafana.com/oss/alloy/

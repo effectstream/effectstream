@@ -62,4 +62,4 @@ Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/event-server
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/events
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/events

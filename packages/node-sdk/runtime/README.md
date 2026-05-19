@@ -79,16 +79,16 @@ Types and helpers re-exported alongside `init` / `start`:
 ## Examples
 
 The templates under
-[`templates/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates)
+[`templates/`](https://github.com/effectstream/effectstream/tree/main/templates)
 are full working `init()` + `start()` examples. The simplest is
-[`templates/minimal/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/minimal).
+[`templates/minimal/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal).
 
 End-to-end EVM sync test:
-[`e2e/evm/sync/`](https://github.com/PaimaStudios/paima-engine/tree/main/e2e/evm/sync).
+[`e2e/evm/sync/`](https://github.com/effectstream/effectstream/tree/main/e2e/evm/sync).
 
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/runtime
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/runtime
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/runtime

@@ -66,10 +66,10 @@ each subpath resolves.
 
 For full working nodes, see:
 
-- [`templates/minimal/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/minimal)
-- [`templates/dice/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/dice)
+- [`templates/minimal/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal)
+- [`templates/dice/`](https://github.com/effectstream/effectstream/tree/main/templates/dice)
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/node-sdk
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/node
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/node

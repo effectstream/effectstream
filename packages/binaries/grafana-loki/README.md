@@ -41,5 +41,5 @@ config.
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/binaries/grafana-loki
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/grafana-loki
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/binaries/grafana-loki
 - Upstream Grafana Loki: https://grafana.com/oss/loki/

@@ -8,7 +8,7 @@ developer compiling or downloading it manually.
 - Pinned Avail node binary, dropped into `node_modules/.bin/`.
 - Spins up a local dev node with `--dev` in one command.
 - Paired with `@effectstream/npm-avail-light-client` for full local Avail-DA.
-- Template: [`templates/avail/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/avail).
+- Exercised by the [`e2e/avail/`](https://github.com/effectstream/effectstream/tree/main/e2e/avail) suite.
 
 ## Install
 
@@ -36,12 +36,12 @@ for the full local Avail-DA setup.
 ## Inside EffectStream
 
 The orchestrator's Avail step starts this node alongside the light
-client. Templates and E2E suites that consume Avail data — see
-[`templates/avail/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/avail)
-— rely on it as their local source of truth.
+client. The Avail E2E suite at
+[`e2e/avail/`](https://github.com/effectstream/effectstream/tree/main/e2e/avail)
+exercises this binary as the local source of truth for Avail-DA data.
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/binaries/avail-node
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/avail-node
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/binaries/avail-node
 - Upstream Avail Node: https://github.com/availproject/avail

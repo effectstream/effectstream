@@ -41,5 +41,5 @@ Ordinals-aware templates and E2E tests.
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/binaries/ord
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/ord
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/binaries/ord
 - Upstream `ord`: https://github.com/ordinals/ord

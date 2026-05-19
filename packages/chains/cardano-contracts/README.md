@@ -26,7 +26,7 @@ For Cardano support today, see:
 
 - `@effectstream/sync` — `UtxoRpcFetcher`, `UtxoRpcSyncState` for Cardano UTXO-RPC sync.
 - `@effectstream/sm/builtin` — `PrimitiveTypeCardanoTransfer`, `PrimitiveTypeCardanoMintBurn`, `PrimitiveTypeCardanoPoolDelegation`, `PrimitiveTypeCardanoDelayedAsset`, `PrimitiveTypeCardanoProjectedNFT`.
-- Templates: [`templates/cardano-delegation/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/cardano-delegation), [`templates/preorder/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/preorder), [`templates/evm-cardano/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/evm-cardano), [`templates/projected-nft-preorder/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/projected-nft-preorder), [`templates/zk-cardano/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/zk-cardano).
+- Templates: [`templates/cardano-delegation/`](https://github.com/effectstream/effectstream/tree/main/templates/cardano-delegation), [`templates/preorder/`](https://github.com/effectstream/effectstream/tree/main/templates/preorder), [`templates/evm-cardano/`](https://github.com/effectstream/effectstream/tree/main/templates/evm-cardano), [`templates/projected-nft-preorder/`](https://github.com/effectstream/effectstream/tree/main/templates/projected-nft-preorder), [`templates/zk-cardano/`](https://github.com/effectstream/effectstream/tree/main/templates/zk-cardano).
 
 ## Inside EffectStream
 
@@ -42,4 +42,4 @@ if you have a Cardano-side helper you'd like to upstream.
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/chains/cardano-contracts
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/cardano-contracts
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/chains/cardano-contracts

@@ -28,7 +28,7 @@ the runtime executes it.
 
 The DSL is also directly testable in a pure-TS unit test (parse + dispatch
 without a database) — see
-[`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts).
+[`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts).
 
 ```typescript
 import { Stm } from "@effectstream/sm";
@@ -82,9 +82,9 @@ Subpath exports:
 
 ## Examples
 
-- [`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts) — a real primitive's behavior unit-tested.
+- [`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts) — a real primitive's behavior unit-tested.
 - Game logic in
-  [`templates/dice/packages/node/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/dice/packages/node)
+  [`templates/dice/packages/node/`](https://github.com/effectstream/effectstream/tree/main/templates/dice/packages/node)
   shows the full `new Stm(...).addStateTransition(...)` pattern.
 
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
@@ -92,4 +92,4 @@ Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/sm
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/sm
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/sm

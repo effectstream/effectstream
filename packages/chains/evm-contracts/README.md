@@ -44,11 +44,11 @@ The Hardhat config used during compilation is built by `@effectstream/evm-hardha
 
 ## Examples
 
-- [`templates/minimal/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/minimal) — smallest template that deploys an Effectstream contract.
-- [`templates/dice/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/dice) — full game-on-EVM example.
+- [`templates/minimal/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal) — smallest template that deploys an Effectstream contract.
+- [`templates/dice/`](https://github.com/effectstream/effectstream/tree/main/templates/dice) — full game-on-EVM example.
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/home/libraries/evm-contracts/introduction
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/evm-contracts
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/chains/evm-contracts
 - Companion tooling: [`@effectstream/evm-hardhat`](https://www.npmjs.com/package/@effectstream/evm-hardhat)

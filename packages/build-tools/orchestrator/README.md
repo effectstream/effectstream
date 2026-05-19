@@ -95,10 +95,10 @@ Global flags:
 ## Inside EffectStream
 
 Every template under
-[`templates/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates)
+[`templates/`](https://github.com/effectstream/effectstream/tree/main/templates)
 defines an `orchestrator.config.ts` (or `.json`) and starts dev with one
 command. The E2E runner at
-[`e2e/runner.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/e2e/runner.ts)
+[`e2e/runner.ts`](https://github.com/effectstream/effectstream/blob/main/e2e/runner.ts)
 is the same machinery, serialised across nine chain suites.
 
 ## Key subpath exports
@@ -110,12 +110,12 @@ is the same machinery, serialised across nine chain suites.
 
 ## Examples
 
-- Templates: every directory under [`templates/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates) ships a working orchestrator config.
-- E2E: [`e2e/`](https://github.com/PaimaStudios/paima-engine/tree/main/e2e) drives the orchestrator under the hood.
+- Templates: every directory under [`templates/`](https://github.com/effectstream/effectstream/tree/main/templates) ships a working orchestrator config.
+- E2E: [`e2e/`](https://github.com/effectstream/effectstream/tree/main/e2e) drives the orchestrator under the hood.
 
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/tools/orchestrator
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/build-tools/orchestrator
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/build-tools/orchestrator

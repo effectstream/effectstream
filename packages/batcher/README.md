@@ -123,10 +123,10 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 ## Examples
 
 End-to-end batcher flow:
-[`e2e/evm/sync/batcher.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/e2e/evm/sync/batcher.test.ts).
+[`e2e/evm/sync/batcher.test.ts`](https://github.com/effectstream/effectstream/blob/main/e2e/evm/sync/batcher.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/batcher
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/batcher
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/batcher
 - Companion: [`@effectstream/wallets`](https://www.npmjs.com/package/@effectstream/wallets) for the signing side.

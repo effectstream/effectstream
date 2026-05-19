@@ -72,14 +72,14 @@ A few common failures and where to look:
 
 End-to-end Midnight startup is exercised by the templates that target Midnight:
 
-- [`templates/evm-midnight/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/evm-midnight)
-- [`templates/night-bitcoin/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/night-bitcoin)
-- [`templates/zswap-da/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/zswap-da)
+- [`templates/evm-midnight-v2/`](https://github.com/effectstream/effectstream/tree/main/templates/evm-midnight-v2)
+- [`templates/night-bitcoin/`](https://github.com/effectstream/effectstream/tree/main/templates/night-bitcoin)
+- [`templates/zswap-da/`](https://github.com/effectstream/effectstream/tree/main/templates/zswap-da)
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/binaries/midnight-indexer
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/midnight-indexer
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/binaries/midnight-indexer
 - Midnight Network: https://midnight.network
 - Indexer image: https://hub.docker.com/r/midnightntwrk/indexer-standalone
 

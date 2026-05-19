@@ -109,4 +109,4 @@ Runnable: [`src/binary-search.test.ts`](./src/binary-search.test.ts),
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/utils
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/utils
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/utils

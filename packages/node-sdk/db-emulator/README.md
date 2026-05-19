@@ -67,4 +67,4 @@ For the broader migration pattern, see
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/db-emulator
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db-emulator
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/db-emulator

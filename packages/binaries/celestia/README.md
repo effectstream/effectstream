@@ -8,7 +8,7 @@ EffectStream orchestrator can boot a local Celestia DA layer
 - Pinned Celestia node + bridge binaries.
 - Ships `start-node` and `start-bridge` convenience scripts.
 - Consumed by `@effectstream/sync`'s `CelestiaFetcher`.
-- E2E: [`e2e/celestia/`](https://github.com/PaimaStudios/paima-engine/tree/main/e2e/celestia).
+- E2E: [`e2e/celestia/`](https://github.com/effectstream/effectstream/tree/main/e2e/celestia).
 
 ## Install
 
@@ -41,11 +41,11 @@ On install, the package fetches the pinned binary for your OS/arch.
 The orchestrator's Celestia step uses `start-node` to bring up a local
 chain, and the EffectStream runtime consumes it through
 `@effectstream/sync`'s `CelestiaFetcher`/`CelestiaSyncState`. See the
-[`e2e/celestia/`](https://github.com/PaimaStudios/paima-engine/tree/main/e2e/celestia)
+[`e2e/celestia/`](https://github.com/effectstream/effectstream/tree/main/e2e/celestia)
 suite.
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/binaries/celestia
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/celestia
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/binaries/celestia
 - Upstream Celestia: https://github.com/celestiaorg/celestia-node

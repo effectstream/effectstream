@@ -105,4 +105,4 @@ Subpath entry points (executable scripts):
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/db
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/db

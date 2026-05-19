@@ -94,11 +94,11 @@ The deploy helper creates and funds a wallet from the genesis mint seed, runs th
 
 End-to-end usage in templates:
 
-- [`templates/evm-midnight/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/evm-midnight)
-- [`templates/zswap-da/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/zswap-da)
+- [`templates/evm-midnight-v2/`](https://github.com/effectstream/effectstream/tree/main/templates/evm-midnight-v2)
+- [`templates/zswap-da/`](https://github.com/effectstream/effectstream/tree/main/templates/zswap-da)
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/chains/midnight-contracts
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/midnight-contracts
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/chains/midnight-contracts
 - Midnight: https://midnight.network

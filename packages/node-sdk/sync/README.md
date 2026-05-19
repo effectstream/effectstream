@@ -29,7 +29,7 @@ author you declare which protocols to sync in your config; everything
 else runs automatically.
 
 If you're building a new chain integration, implement the sync-protocol
-interfaces in [`src/sync-protocols/`](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/sync/src/sync-protocols).
+interfaces in [`src/sync-protocols/`](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/sync/src/sync-protocols).
 
 ## Inside EffectStream
 
@@ -63,11 +63,11 @@ custom orchestration layer.
 ## Examples
 
 End-to-end sync test (boots a node, reads blocks, asserts the DB):
-[`e2e/evm/sync/`](https://github.com/PaimaStudios/paima-engine/tree/main/e2e/evm/sync).
+[`e2e/evm/sync/`](https://github.com/effectstream/effectstream/tree/main/e2e/evm/sync).
 
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/sync
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/sync
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/sync

@@ -26,7 +26,7 @@ For sync-side Avail support today, see:
 
 - `@effectstream/sync` — `AvailFetcher`, `AvailSyncState`.
 - `@effectstream/npm-avail-node`, `@effectstream/npm-avail-light-client` — pinned binary wrappers.
-- [`templates/avail/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/avail) — a working node configured against an Avail testnet.
+- [`e2e/avail/`](https://github.com/effectstream/effectstream/tree/main/e2e/avail) — Avail-side E2E suite.
 
 ## Inside EffectStream
 
@@ -44,5 +44,5 @@ helper.
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/chains/avail-contracts
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/avail-contracts
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/chains/avail-contracts
 - Avail docs: https://docs.availproject.org/

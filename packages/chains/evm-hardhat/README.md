@@ -77,10 +77,10 @@ The sync side then reads those addresses through `@effectstream/config`'s
 
 ## Examples
 
-- [`templates/minimal/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/minimal) — the smallest template that wires this package via the orchestrator.
-- [`templates/dice/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/dice) — full game with hardhat-deployed contracts.
+- [`templates/minimal/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal) — the smallest template that wires this package via the orchestrator.
+- [`templates/dice/`](https://github.com/effectstream/effectstream/tree/main/templates/dice) — full game with hardhat-deployed contracts.
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/chains/evm-hardhat
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/evm-hardhat
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/chains/evm-hardhat
