@@ -2,6 +2,17 @@
 
 This file covers the `packages/node/` core: `grammar.ts`, `state-machine.ts`, `api.ts`, `main.dev.ts`, custom events, and custom primitives.
 
+> **See also (concept docs).** For the "what is" and "why" — these are authoritative:
+> - State machine concept + STF determinism: `docs/site/docs/home/100-components/102-state-machine.md`, `docs/site/docs/home/500-packages/520-node/sm.md`
+> - Grammar concept incl. built-in `&`-prefixed system commands (RESERVED — do not shadow with custom keys) and the `mapPrimitivesToGrammar` helper: `docs/site/docs/home/100-components/111-grammar.md`
+> - Built-in primitives catalog (full payload field tables per chain): `docs/site/docs/home/100-components/118-primitives.md`
+> - API surface incl. built-in `/health`, `/block-heights`, `/addresses`, `/scheduled-data`, `/tables/:name`, `/primitives/:name`, `/rpc/evm`, `/grammar`, OpenAPI `/documentation`: `docs/site/docs/home/100-components/103-api.md`
+> - Node startup + `init` + `start` + `withEffectstreamStaticConfig`: `docs/site/docs/home/100-components/117-node-startup.md`, `docs/site/docs/home/500-packages/520-node/runtime.md`
+> - Deterministic randomness (`data.randomGenerator`, Prando, call-order matters): `docs/site/docs/home/100-components/113-randomness.md`
+> - Sync service / ConfigBuilder / NTP_MAIN heartbeat concept: `docs/site/docs/home/100-components/101-sync-service.md`
+> - L2 contract surface (`effectstreamSubmitGameInput`, batched inputs `&B`): `docs/site/docs/home/100-components/104-l2-contract.md`
+> - Accounts abstraction (`&createAccount`, `&linkAddress`, primary address): `docs/site/docs/home/100-components/116-accounts.md`
+
 ## 1. Grammar (`grammar.ts`)
 
 Defines all actions the state machine can process. Each key maps to a built-in grammar (chain event primitives) or a list of `[name, TypeboxSchema]` tuples (custom actions).
@@ -25,6 +36,8 @@ export const grammar = {
 ```
 
 **Wire format.** When submitting via `effectstreamSubmitGameInput` (or through the batcher), the JSON payload is `["grammarKey", value1, value2, ...]`. The first element must be the exact grammar object key (e.g. `"createRoom"`, not a short alias `"c"`); subsequent values must use proper JS types matching the Typebox schema. `"4"` (string) when the schema expects `Type.Number()` will fail parsing.
+
+> **`&`-prefixed keys are reserved for engine system commands** — `&B` (batched inputs), `&createAccount`, `&linkAddress`, `&unlinkAddress`. Never declare a custom grammar key that starts with `&`; it will collide with the engine. See `docs/site/docs/home/100-components/104-l2-contract.md`, `docs/site/docs/home/100-components/111-grammar.md`, and `docs/site/docs/home/100-components/116-accounts.md`.
 
 ### Built-in grammars (`@effectstream/sm/grammar`)
 
@@ -102,7 +115,7 @@ export const gameStateTransitions: StartConfigGameStateTransitions = function* (
 | `blockHeight` | Block number this input was indexed at |
 | `blockTimestamp` | Unix timestamp of the block |
 | `signerAddress` | Wallet address that signed the transaction |
-| `randomGenerator` | Deterministic PRNG seeded by block hash |
+| `randomGenerator` | Deterministic PRNG (Prando) seeded by block hash. **Calls are stateful** — order matters across transitions in the same block, so don't reorder them defensively. Full contract: `docs/site/docs/home/100-components/113-randomness.md`. |
 | `emit(event, payload)` | Emit a custom app event — see §3 |
 
 ## 3. Custom Events

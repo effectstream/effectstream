@@ -2,6 +2,11 @@
 
 `packages/contracts-evm/` holds Solidity sources, Hardhat config, deployment, and generated TypeScript bindings. **Compile (`bun run build:evm`) and verify before moving to the node package** — downstream packages depend on the generated ABIs and addresses.
 
+> **See also (concept docs).**
+> - EVM chain overview + supported chains: `docs/site/docs/home/200-chains/201-evm.md`
+> - Contracts (base contracts, L2 contract): `docs/site/docs/home/100-components/105-contracts.md`, `docs/site/docs/home/100-components/104-l2-contract.md`, `docs/site/docs/home/200-chains/210-contracts.md`
+> - Per-package: `docs/site/docs/home/500-packages/530-chains/evm-contracts.md`, `docs/site/docs/home/500-packages/530-chains/evm-hardhat.md`
+
 ## Layout
 
 ```

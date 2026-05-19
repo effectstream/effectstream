@@ -2,6 +2,12 @@
 
 `packages/database/` owns all SQL. The hard rule: **no raw SQL anywhere else in the codebase** except the one engine-internal recovery query in `config.ts` (NTP start-time recovery from `effectstream.sync_protocol_pagination` — see `references/chains/midnight.md` for the recovery pattern context).
 
+> **See also (concept docs).**
+> - Database concepts (migrations, scheduled inputs, snapshots): `docs/site/docs/home/100-components/109-database.md`, `docs/site/docs/home/500-packages/520-node/db.md`
+> - **Three database schemas** — `effectstream` (engine internals like `sync_protocol_pagination`), `primitives` (per-primitive tracking), `public` (your tables): `docs/site/docs/home/1000-effectstream-engine/1002-database.md`. Critical for understanding "engine table vs my table" when writing custom queries or backups.
+> - Engine database internals (snapshots, replay): `docs/site/docs/home/1000-effectstream-engine/1003-database-snapshots.md`
+> - `config.dev.resetPublicData` development truncate flag: `docs/site/docs/home/100-components/117-node-startup.md`
+
 Read this when scaffolding `packages/database/` or after changing the schema.
 
 ## Package layout

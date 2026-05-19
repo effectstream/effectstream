@@ -34,21 +34,21 @@ Follow this order strictly. Each step depends on the previous one being verified
 
 For each step the right-hand column tells you which reference file to load. Don't preload them; load on demand to keep context lean.
 
-| # | Step | Reference to load |
-|---|------|-------------------|
-| 0 | Decide chains + features (batcher? frontend? mainnet?). Pick a template name → `@my-template/*` scope. | `references/architecture.md` |
-| 1 | Root `package.json` (workspaces, `effectstream.default`, scripts). | `references/architecture.md` |
-| 2 | `start.dev.ts` at project root (orchestrator config — declares chains/services). | `references/orchestrator.md` |
-| 3 | For each chain: `packages/contracts-{chain}/`. **Compile and verify before moving on.** | `references/chains/{chain}.md` |
-| 4 | `packages/database/` (migrations + pgtyped `.sql`). **Run `bun run build:pgtypes` to generate `sql/*.queries.ts` — never write the generated file by hand (see Core invariant §2). Verify the script exits 0 before moving on.** | `references/database.md` |
-| 5 | `packages/node/` (grammar → config.dev.ts → state-machine.ts → api.ts → main.dev.ts). | `references/grammar-stm.md` |
-| 6 | (optional) `packages/batcher/` with adapter factories + `batcher.dev.ts`. | `references/batcher.md` |
-| 7 | (optional) `packages/frontend/`. | `references/frontend.md` |
-| 8 | `packages/tests/` — phases A (infra) and B (STM+DB+API) MANDATORY for every template; C (frontend) if a frontend exists. The test contents adapt to whichever chains the template targets — the structure is constant. Source of truth: `templates/evm-midnight-v2/packages/tests/`. **A template without tests is unfinished — the tests are how anyone (including you) knows the scaffold actually boots and indexes.** | `references/tests.md` |
-| 9 | (optional) `config.mainnet.ts`, `main.mainnet.ts`, `batcher.mainnet.ts`, `"start:mainnet"` script. **Every `*.mainnet.ts` file MUST start with a "PLACEHOLDER FOR PRODUCTION" disclaimer comment** telling the user to replace hard-coded values and source secrets from env vars — see the multi-env reference for the exact block. | `references/multi-env.md` |
-| 10 | (**optional, only if the user asks for containerization**) `Dockerfile` + `.dockerignore`. Most templates don't need Docker on day one — skip unless the user explicitly requests it. | `references/docker.md` |
-| 11 | `README.md` at project root following the canonical structure. | `references/readme.md` |
-| 12 | Verify: `bun install && bun run dev` boots the full stack, `bun run test` passes. If the user asked for Docker, also: `docker build` succeeds, `docker run <image> bun run test` passes. | — |
+| # | Step | Reference to load | Concept docs (read on demand) |
+|---|------|-------------------|-------------------------------|
+| 0 | Decide chains + features (batcher? frontend? mainnet?). Pick a template name → `@my-template/*` scope. | `references/architecture.md` | `docs/site/docs/home/0-intro/1-what-is-effectstream.md`, `docs/site/docs/home/100-components/100-components.md`, `docs/site/docs/home/200-chains/200-chains.md` (chain Feature Support Matrix) |
+| 1 | Root `package.json` (workspaces, `effectstream.default`, scripts). | `references/architecture.md` | `docs/site/docs/home/500-packages/550-tools/orchestrator.md` (consumer of `effectstream.default`) |
+| 2 | `start.dev.ts` at project root (orchestrator config — declares chains/services). | `references/orchestrator.md` | `docs/site/docs/home/100-components/106-processes.md`, `docs/site/docs/home/500-packages/550-tools/orchestrator.md` |
+| 3 | For each chain: `packages/contracts-{chain}/`. **Compile and verify before moving on.** | `references/chains/{chain}.md` | `docs/site/docs/home/100-components/105-contracts.md`, `docs/site/docs/home/200-chains/210-contracts.md`, `docs/site/docs/home/200-chains/{201-evm,202-midnight,203-cardano,204-avail,205-bitcoin,209-celestia}.md` |
+| 4 | `packages/database/` (migrations + pgtyped `.sql`). **Run `bun run build:pgtypes` to generate `sql/*.queries.ts` — never write the generated file by hand (see Core invariant §2). Verify the script exits 0 before moving on.** | `references/database.md` | `docs/site/docs/home/100-components/109-database.md`, `docs/site/docs/home/1000-effectstream-engine/1002-database.md` (three-schema split: `effectstream`/`primitives`/`public`), `docs/site/docs/home/500-packages/520-node/db.md` |
+| 5 | `packages/node/` (grammar → config.dev.ts → state-machine.ts → api.ts → main.dev.ts). | `references/grammar-stm.md` | `docs/site/docs/home/100-components/102-state-machine.md`, `docs/site/docs/home/100-components/111-grammar.md` (incl. `&`-reserved keys + `mapPrimitivesToGrammar`), `docs/site/docs/home/100-components/103-api.md`, `docs/site/docs/home/100-components/117-node-startup.md`, `docs/site/docs/home/100-components/118-primitives.md`, `docs/site/docs/home/100-components/113-randomness.md`, `docs/site/docs/home/500-packages/520-node/{sm,runtime}.md` |
+| 6 | (optional) `packages/batcher/` with adapter factories + `batcher.dev.ts`. | `references/batcher.md` | `docs/site/docs/home/100-components/108-batcher/{1200-overview,1220-core-concepts,1240-configuration}.md`, `docs/site/docs/home/500-packages/550-tools/batcher-sdk.md` |
+| 7 | (optional) `packages/frontend/`. | `references/frontend.md` | `docs/site/docs/home/100-components/115-frontend.md`, `docs/site/docs/home/100-components/112-wallets.md`, `docs/site/docs/home/500-packages/{550-tools/frontend-sdk,510-sdk/wallets}.md` |
+| 8 | `packages/tests/` — phases A (infra) and B (STM+DB+API) MANDATORY for every template; C (frontend) if a frontend exists. The test contents adapt to whichever chains the template targets — the structure is constant. Source of truth: `templates/evm-midnight-v2/packages/tests/`. **A template without tests is unfinished — the tests are how anyone (including you) knows the scaffold actually boots and indexes.** | `references/tests.md` | (skill-only; docs have no Phase A/B/C testing concept) |
+| 9 | (optional) `config.mainnet.ts`, `main.mainnet.ts`, `batcher.mainnet.ts`, `"start:mainnet"` script. **Every `*.mainnet.ts` file MUST start with a "PLACEHOLDER FOR PRODUCTION" disclaimer comment** telling the user to replace hard-coded values and source secrets from env vars — see the multi-env reference for the exact block. | `references/multi-env.md` | `docs/site/docs/home/300-deployment/301-deploy-game.md`, `docs/site/docs/home/100-components/199-environment-variables.md` |
+| 10 | (**optional, only if the user asks for containerization**) `Dockerfile` + `.dockerignore`. Most templates don't need Docker on day one — skip unless the user explicitly requests it. | `references/docker.md` | (skill-only; docs have no Docker section) |
+| 11 | `README.md` at project root following the canonical structure. | `references/readme.md` | (skill-only style guide) |
+| 12 | Verify: `bun install && bun run dev` boots the full stack, `bun run test` passes. If the user asked for Docker, also: `docker build` succeeds, `docker run <image> bun run test` passes. | — | — |
 
 ### Why orchestrator before contracts
 
@@ -110,8 +110,25 @@ After the template scaffold passes `bun run dev` and `bun run test`, report:
 4. **What's not verified** — be explicit if you couldn't actually run `bun run dev` (e.g. no Docker, no Foundry installed). Don't claim "it works" if you only ran `tsc`.
 5. **Next steps that the user must do** — e.g. fill in real RPC URLs for `config.mainnet.ts`, customize the grammar/STM for actual app logic (the scaffold ships with a placeholder `createRoom` example).
 
+## Engine features to know about (don't reinvent these)
+
+Before adding custom code, check whether the engine already ships the feature. The docs (under `docs/site/docs/home/`) are the source of truth for concepts; this skill is the source of truth for operational gotchas. Specifically:
+
+- **`&`-prefixed grammar keys are reserved for engine system commands.** Built-ins include `&B` (batched inputs), `&createAccount`, `&linkAddress`, `&unlinkAddress`. Never define a custom grammar key starting with `&`. See `docs/site/docs/home/100-components/104-l2-contract.md` and `docs/site/docs/home/100-components/111-grammar.md`.
+- **EffectStream Accounts** (multi-wallet linking, primary address). If the user needs "the same user across multiple wallets," wire up `&createAccount` / `&linkAddress` rather than rolling your own. See `docs/site/docs/home/100-components/116-accounts.md`.
+- **Deterministic randomness** via `data.randomGenerator` (Prando-based, seeded by block hash). Calls are stateful — call order matters for determinism. See `docs/site/docs/home/100-components/113-randomness.md`.
+- **PRC-1 Achievements** — built-in HTTP surface for leaderboards and achievement metadata. If the user mentions achievements or leaderboards, use `export const achievements` instead of bespoke endpoints. See `docs/site/docs/home/100-components/114-achievements.md` and `docs/site/docs/home/400-paima-standards/prc1.md`.
+- **`mapPrimitivesToGrammar` helper** auto-derives grammar entries from primitives — shrinks `grammar.ts` substantially when you have many chain primitives. See `docs/site/docs/home/100-components/111-grammar.md`.
+- **Three database schemas** — `effectstream` (engine internals like `sync_protocol_pagination`), `primitives` (per-primitive tracking), `public` (your tables). See `docs/site/docs/home/1000-effectstream-engine/1002-database.md`. Knowing the split disambiguates "engine table vs my table" when writing custom queries.
+- **`/api/*` built-in endpoints** — `/health`, `/block-heights`, `/addresses`, `/scheduled-data`, `/tables/:name`, `/primitives/:name`, `/rpc/evm`, `/grammar`, and an OpenAPI explorer at `/documentation`. Don't add a redundant custom `/health`. See `docs/site/docs/home/100-components/103-api.md`.
+- **Orchestrator CLI** is more than just `start` and `stop`: `status`, `restart <name>`, `logs <name>`, `silence/unsilence`, `list`. Useful for README and operations guidance. See `docs/site/docs/home/500-packages/550-tools/orchestrator.md`.
+- **PRCs (Paima/Effectstream standards)** — PRC-1 achievements, PRC-6 Midnight dApp metrics, etc. If the user is building a discoverable or interoperable app, reference the relevant PRC. See `docs/site/docs/home/400-paima-standards/`.
+- **`db-emulator`** for in-memory unit tests (no real PGLite). Skill's `references/tests.md` uses real PGLite; emulator is a faster alternative for narrow unit tests. See `docs/site/docs/home/500-packages/520-node/db-emulator.md`.
+- **`@effectstream/precompile`** — for compiling Compact/zkir at build time. See `docs/site/docs/home/500-packages/510-sdk/precompile.md`.
+- **`config.dev.resetPublicData`** — development flag that truncates the `public` schema on each boot. Useful in templates with a "reset" command. See `docs/site/docs/home/100-components/117-node-startup.md` and `docs/site/docs/home/1000-effectstream-engine/1002-database.md`.
+
 ## When NOT to use this skill
 
 This skill scaffolds the **structure**. It does not write the application's actual game/business logic — the grammar, STM transitions, and DB schema you'll generate are placeholders meant to be replaced. If the user is asking to add a new action to an existing template, edit a state-machine transition, fix a bug, or modify game rules, just edit the relevant file directly; you don't need this skill's full workflow.
 
-Likewise, if the user is asking conceptual questions about Effectstream architecture without intending to create a new project, answer directly — don't trigger this skill to dump references.
+Likewise, if the user is asking conceptual questions about Effectstream architecture without intending to create a new project, answer directly — don't trigger this skill to dump references. Point them at the right doc under `docs/site/docs/home/` instead.

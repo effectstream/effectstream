@@ -1,5 +1,10 @@
 # Cardano Templates (YACI DevKit + Dolos)
 
+> **See also (concept docs).**
+> - Cardano chain overview + YACI / Dolos / browser wallets: `docs/site/docs/home/200-chains/203-cardano.md` (the doc has more detail than this file on per-primitive payload fields — cross-reference when documenting STM transitions)
+> - Per-package: `docs/site/docs/home/500-packages/530-chains/cardano-contracts.md`
+> - Five Cardano-specific primitives: `docs/site/docs/home/100-components/118-primitives.md` (Cardano section)
+
 Cardano local dev uses three services, started by `launchCardano`:
 
 1. **YACI DevKit** — local Cardano devnet with a faucet at `localhost:10000` and web UI at `localhost:8090`

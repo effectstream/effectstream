@@ -2,6 +2,11 @@
 
 Read this when starting a new template — it covers everything before writing the orchestrator config or any chain-specific code.
 
+> **See also (concept docs).**
+> - What Effectstream is + how the components fit together: `docs/site/docs/home/0-intro/1-what-is-effectstream.md`, `docs/site/docs/home/100-components/100-components.md`
+> - Per-package reference (one auto-generated page per package — the canonical API surface): `docs/site/docs/home/500-packages/500-packages.md` and the `500-packages/{510-sdk,520-node,530-chains,540-binaries,550-tools}/*.md` subdirs
+> - Chain feature support matrix (what works on each chain): `docs/site/docs/home/200-chains/200-chains.md`
+
 ## Directory Structure
 
 Every template uses this exact flat layout. Optional packages are marked. **No `client/`, `shared/`, or `src/` wrapper dirs.**

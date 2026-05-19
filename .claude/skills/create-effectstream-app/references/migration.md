@@ -2,6 +2,12 @@
 
 Use this only when porting an existing project. For new templates, follow the build order in `SKILL.md` — this file does not apply.
 
+> **See also (concept docs).**
+> - "What is Effectstream" (currently self-flagged as V1-era): `docs/site/docs/home/0-intro/1-what-is-effectstream.md`
+> - Authoritative new-name list (per-package): `docs/site/docs/home/500-packages/500-packages.md`
+> - `Stm` class (renamed from `PaimaSTM`): `docs/site/docs/home/500-packages/520-node/sm.md`
+> - L2 contract rename `PaimaL2Contract.sol` → `EffectstreamL2Contract.sol`: `docs/site/docs/home/100-components/104-l2-contract.md`, `docs/site/docs/home/200-chains/210-contracts.md`
+
 There are two migration paths:
 
 1. **`@paimaexample/*` (effectstream-v1, Deno/Bun era)** — see [Migrating from `@paimaexample/*`](#migrating-from-paimaexample-templates).

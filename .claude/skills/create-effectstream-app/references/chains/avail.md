@@ -2,6 +2,11 @@
 
 `packages/contracts-avail/` — Avail DA layer configuration + deploy scripts (no smart contracts).
 
+> **See also (concept docs).**
+> - Avail chain overview: `docs/site/docs/home/200-chains/204-avail.md`
+> - Per-package: `docs/site/docs/home/500-packages/530-chains/avail-contracts.md`
+> - Per-binary: `docs/site/docs/home/500-packages/540-binaries/avail-node.md`, `docs/site/docs/home/500-packages/540-binaries/avail-light-client.md`
+
 ## Required `launchAvail` package scripts
 
 - `avail-node:start` — start the Avail node

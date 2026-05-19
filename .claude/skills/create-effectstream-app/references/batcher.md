@@ -2,6 +2,16 @@
 
 The batcher aggregates user transactions and submits them to one or more chains. Each chain requires an adapter.
 
+> **See also (concept docs).**
+> - Batcher overview + introduction: `docs/site/docs/home/100-components/108-batcher/1200-overview.md`, `docs/site/docs/home/100-components/108-batcher/1210-introduction.md`
+> - Core concepts (target chains, namespace, signature verification): `docs/site/docs/home/100-components/108-batcher/1220-core-concepts.md`
+> - Batching pipeline (how inputs flow): `docs/site/docs/home/100-components/108-batcher/1230-batching-pipeline.md`
+> - Configuration (config-object vs fluent / "dynamic" vs "unified"): `docs/site/docs/home/100-components/108-batcher/1240-configuration.md`
+> - Adapter authoring: `docs/site/docs/home/100-components/108-batcher/1250-adapter.md`, `docs/site/docs/home/500-packages/550-tools/batcher-sdk.md`
+> - Advanced topics (storage, custom batching criteria): `docs/site/docs/home/100-components/108-batcher/1290-advanced-topics.md`
+>
+> ⚠️ Note: the published npm package is `@effectstream/batcher-sdk` (with the `-sdk` suffix) and the exported class is `EffectstreamL2DefaultAdapter` (lowercase "s"). Older docs sometimes show `@effectstream/batcher` or `EffectStreamL2DefaultAdapter` (Pascal-S) — both are stale.
+
 Layout pattern:
 - **Adapter factory** (e.g. `effectstream-l2.ts`) — environment-agnostic; owns chain-specific resolution (contract addresses, etc.).
 - **Entry point** (`batcher.dev.ts` / `batcher.mainnet.ts`) — passes env vars to factories, no chain logic.

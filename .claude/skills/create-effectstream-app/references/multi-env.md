@@ -2,6 +2,11 @@
 
 Templates support multiple deployment environments through **file-name suffixes**, not runtime env-var switches. Each env-aware component has a `*.dev.ts` (local) and optionally a `*.mainnet.ts` (production).
 
+> **See also (concept docs).**
+> - Environment variables reference (`EFFECTSTREAM_ENV` and friends): `docs/site/docs/home/100-components/199-environment-variables.md`
+> - Deployment guidance (stub today; will be the canonical home as it's expanded): `docs/site/docs/home/300-deployment/301-deploy-game.md`
+> - System database schema (`effectstream.sync_protocol_pagination` for NTP recovery): `docs/site/docs/home/1000-effectstream-engine/1002-database.md`
+
 ```
 packages/node/config.dev.ts            # Local chains (Hardhat, local Midnight, etc.)
 packages/node/config.mainnet.ts        # Real chains (Arbitrum, Midnight mainnet, etc.)

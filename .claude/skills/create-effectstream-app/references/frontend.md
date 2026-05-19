@@ -2,6 +2,12 @@
 
 The frontend is framework-agnostic. Default is Vite + React + a small Fastify static server. Cardano templates often skip the batcher and build/submit transactions directly in the browser using Lucid Evolution.
 
+> **See also (concept docs).**
+> - Frontend SDK overview (`EffectstreamConfig`, `walletLogin`, `sendTransaction`, `EventManager`): `docs/site/docs/home/100-components/115-frontend.md`, `docs/site/docs/home/500-packages/550-tools/frontend-sdk.md`
+> - Wallet concepts + per-chain support: `docs/site/docs/home/100-components/112-wallets.md`, `docs/site/docs/home/500-packages/510-sdk/wallets.md` (the npm package is `@effectstream/wallets` plural; older docs sometimes show singular `@effectstream/wallet` — that's stale)
+> - Event-client (browser MQTT subscriptions to custom STM events): `docs/site/docs/home/500-packages/510-sdk/event-client.md` (the conceptual MQTT/topicHash story is light in docs; this reference file is the operational source)
+> - Cardano browser-wallet integration (Lucid Evolution): `docs/site/docs/home/200-chains/203-cardano.md`
+
 ## Frontend SDK usage (`@effectstream/wallets`)
 
 ```ts

@@ -2,6 +2,13 @@
 
 Midnight is the trickiest chain to set up because every layer (compiler, runtime, JS SDK, ledger, wallet SDK, node Docker image) has tightly-coupled version requirements. Most "weird Midnight errors" trace back to version drift.
 
+> **See also (concept docs).**
+> - Midnight chain overview, indexer + proof-server architecture: `docs/site/docs/home/200-chains/202-midnight.md`
+> - Per-package: `docs/site/docs/home/500-packages/530-chains/midnight-contracts.md`
+> - Per-binary: `docs/site/docs/home/500-packages/540-binaries/midnight-node.md`, `midnight-indexer.md`, `midnight-proof-server.md`
+> - PRC-6 Midnight dApp integration (per-channel metrics + identity): `docs/site/docs/home/400-paima-standards/prc6.md` — relevant for any Midnight-template README.
+> - `PrimitiveTypeMidnightGeneric` + `ledgerSchema`: `docs/site/docs/home/100-components/118-primitives.md`
+
 ## Required `launchMidnight` package scripts
 
 The `packages/contracts-midnight/package.json` must expose:

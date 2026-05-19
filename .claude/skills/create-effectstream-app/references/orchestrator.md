@@ -2,6 +2,12 @@
 
 `start.dev.ts` lives at the project root and declares every process that should run when the user types `bun run dev`. Build this **first** — it determines which contract packages and npm scripts you'll need.
 
+> **See also (concept docs).**
+> - Orchestrator processes concept + CLI reference (`start`, `status`, `restart`, `stop`, `list`, `silence/unsilence`, `logs`): `docs/site/docs/home/500-packages/550-tools/orchestrator.md`
+> - High-level "what is the process orchestrator": `docs/site/docs/home/100-components/106-processes.md`
+> - **`DISABLE_*` env vars** (`DISABLE_EVM`, `DISABLE_MIDNIGHT`, `DISABLE_BITCOIN`, `DISABLE_CARDANO`, `DISABLE_NEAR`, `DISABLE_AVAIL`, `DISABLE_CELESTIA`) for skipping optional chains in dev — see the orchestrator doc.
+> - Beyond `start`/`stop`, the CLI also has `status`, `restart <name>`, `logs <name>` — handy for the template's README and for debugging stuck processes.
+
 ## Minimal example (EVM only)
 
 ```ts

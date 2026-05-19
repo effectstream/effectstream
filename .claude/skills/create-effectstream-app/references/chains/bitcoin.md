@@ -2,6 +2,11 @@
 
 `packages/contracts-bitcoin/` — no contracts in the EVM sense, just configuration and scripts for the local Bitcoin Core regtest node.
 
+> **See also (concept docs).**
+> - Bitcoin chain overview: `docs/site/docs/home/200-chains/205-bitcoin.md`
+> - Per-package: `docs/site/docs/home/500-packages/530-chains/bitcoin-contracts.md`
+> - Per-binary: `docs/site/docs/home/500-packages/540-binaries/bitcoin-core.md`, `docs/site/docs/home/500-packages/540-binaries/ord.md`
+
 ## Required `launchBitcoin` package scripts
 
 - `chain:start` — start Bitcoin Core in regtest mode
