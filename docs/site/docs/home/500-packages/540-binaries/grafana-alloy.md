@@ -6,7 +6,7 @@ sidebar_label: "grafana-alloy"
 
 <!-- Generated from packages/binaries/grafana-alloy/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/grafana-alloy`](https://www.npmjs.com/package/@effectstream/grafana-alloy)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/grafana-alloy)
+> Package: **[`@effectstream/grafana-alloy`](https://www.npmjs.com/package/@effectstream/grafana-alloy)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/grafana-alloy)
 
 NPM wrapper around [Grafana Alloy](https://grafana.com/oss/alloy/) — the
 OpenTelemetry-compatible collector EffectStream nodes ship traces, logs,

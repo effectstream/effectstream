@@ -6,7 +6,7 @@ sidebar_label: "precompile"
 
 <!-- Generated from packages/effectstream-sdk/precompile/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/precompile`](https://www.npmjs.com/package/@effectstream/precompile)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/precompile)
+> Package: **[`@effectstream/precompile`](https://www.npmjs.com/package/@effectstream/precompile)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/precompile)
 
 Generate deterministic EVM-sized (20-byte) addresses from string names
 by hashing with keccak256. The intended use is "precompile" addresses —
@@ -63,7 +63,7 @@ a future build of the same name.
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/precompile/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/precompile/test/examples.test.ts).
 
 ## Links
 

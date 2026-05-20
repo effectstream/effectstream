@@ -6,7 +6,7 @@ sidebar_label: "midnight-indexer"
 
 <!-- Generated from packages/binaries/midnight-indexer/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/npm-midnight-indexer`](https://www.npmjs.com/package/@effectstream/npm-midnight-indexer)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/midnight-indexer)
+> Package: **[`@effectstream/npm-midnight-indexer`](https://www.npmjs.com/package/@effectstream/npm-midnight-indexer)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/midnight-indexer)
 
 NPM wrapper that runs the [Midnight](https://midnight.network) Indexer either as a Docker container or as a native binary. Boots alongside `@effectstream/npm-midnight-node` and `@effectstream/npm-midnight-proof-server` to give Effectstream a local indexer to consume.
 

@@ -6,7 +6,7 @@ sidebar_label: "avail-contracts"
 
 <!-- Generated from packages/chains/avail-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/avail-contracts`](https://www.npmjs.com/package/@effectstream/avail-contracts)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/avail-contracts)
+> Package: **[`@effectstream/avail-contracts`](https://www.npmjs.com/package/@effectstream/avail-contracts)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/chains/avail-contracts)
 
 Contract-interface package for Avail (data-availability layer) inside
 EffectStream. Reserved as the home for Avail-side bindings, helpers, and

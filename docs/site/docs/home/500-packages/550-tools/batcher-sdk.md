@@ -6,7 +6,7 @@ sidebar_label: "batcher-sdk"
 
 <!-- Generated from packages/batcher/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/batcher-sdk`](https://www.npmjs.com/package/@effectstream/batcher-sdk)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/batcher)
+> Package: **[`@effectstream/batcher-sdk`](https://www.npmjs.com/package/@effectstream/batcher-sdk)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/batcher)
 
 Effectstream's cross-chain input batcher. Accepts signed user inputs over HTTP, batches them per adapter, and submits each batch as a single on-chain transaction. Persists every input to storage before it acks, so a crashed batcher recovers without losing inputs.
 

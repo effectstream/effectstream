@@ -39,7 +39,7 @@ Now your application can read the database and use the created "game" from the t
 
 ## Example
 
-> We will be using `/templates/evm-midnight/` as example for the following definitions.
+> We will be using `/templates/evm-midnight-v2/` as example for the following definitions.
 
 
 In the example template the state-machine file is named `./packages/client/node/src/state-machine.ts` and contains `state-transition functions` or "STF" that are executed each time the corresponding [event prefix](../100-components/101-sync-service.md) defined in the [grammar](../100-components/111-grammar.md) is called. 

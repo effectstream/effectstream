@@ -6,7 +6,7 @@ sidebar_label: "db"
 
 <!-- Generated from packages/node-sdk/db/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/db`](https://www.npmjs.com/package/@effectstream/db)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db)
+> Package: **[`@effectstream/db`](https://www.npmjs.com/package/@effectstream/db)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/db)
 
 The PostgreSQL (and PgLite) layer for EffectStream. Wraps `pg` with a
 connection pool, ships every pgtyped-generated SQL query the runtime
@@ -107,8 +107,8 @@ Subpath entry points (executable scripts):
 
 ## Examples
 
-- Real connection round-trip: [`src/pg-connection.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/db/src/pg-connection.test.ts).
-- Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/db/test/examples.test.ts).
+- Real connection round-trip: [`src/pg-connection.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/db/src/pg-connection.test.ts).
+- Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/db/test/examples.test.ts).
 
 ## Links
 

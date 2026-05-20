@@ -6,7 +6,7 @@ sidebar_label: "utils"
 
 <!-- Generated from packages/effectstream-sdk/utils/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/utils`](https://www.npmjs.com/package/@effectstream/utils)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/utils)
+> Package: **[`@effectstream/utils`](https://www.npmjs.com/package/@effectstream/utils)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/utils)
 
 Shared utilities for the EffectStream framework — chain-aware address
 types and validators, TypeBox schemas, Effection-based concurrency
@@ -109,10 +109,10 @@ Subpath entries:
 
 ## Examples
 
-Runnable: [`src/binary-search.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/utils/src/binary-search.test.ts),
-[`src/concurrency/latch.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/utils/src/concurrency/latch.test.ts),
-[`src/concurrency/retry.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/utils/src/concurrency/retry.test.ts), and
-[`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/utils/test/examples.test.ts).
+Runnable: [`src/binary-search.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/utils/src/binary-search.test.ts),
+[`src/concurrency/latch.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/utils/src/concurrency/latch.test.ts),
+[`src/concurrency/retry.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/utils/src/concurrency/retry.test.ts), and
+[`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/utils/test/examples.test.ts).
 
 ## Links
 

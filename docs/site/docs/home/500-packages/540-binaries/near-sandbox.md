@@ -6,7 +6,7 @@ sidebar_label: "near-sandbox"
 
 <!-- Generated from packages/binaries/near-sandbox/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/near-sandbox`](https://www.npmjs.com/package/@effectstream/near-sandbox)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/near-sandbox)
+> Package: **[`@effectstream/near-sandbox`](https://www.npmjs.com/package/@effectstream/near-sandbox)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/near-sandbox)
 
 NPM wrapper around the
 [NEAR sandbox](https://github.com/near/sandbox) binary — a single-node

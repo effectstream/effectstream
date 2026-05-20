@@ -6,7 +6,7 @@ sidebar_label: "ord"
 
 <!-- Generated from packages/binaries/ord/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/ord`](https://www.npmjs.com/package/@effectstream/ord)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/ord)
+> Package: **[`@effectstream/ord`](https://www.npmjs.com/package/@effectstream/ord)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/ord)
 
 A pinned [`ord`](https://github.com/ordinals/ord) binary, packaged for
 npm. Installing this drops a versioned `ord` CLI into

@@ -6,7 +6,7 @@ sidebar_label: "sm"
 
 <!-- Generated from packages/node-sdk/sm/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/sm`](https://www.npmjs.com/package/@effectstream/sm)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/sm)
+> Package: **[`@effectstream/sm`](https://www.npmjs.com/package/@effectstream/sm)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/sm)
 
 The state-machine DSL inside an EffectStream node. Define a typed grammar
 of commands, register one generator per command, and `Stm` parses each
@@ -95,7 +95,7 @@ Subpath exports:
   [`templates/dice/packages/node/`](https://github.com/effectstream/effectstream/tree/main/templates/dice/packages/node)
   shows the full `new Stm(...).addStateTransition(...)` pattern.
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/sm/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/sm/test/examples.test.ts).
 
 ## Links
 

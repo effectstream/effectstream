@@ -214,7 +214,7 @@ Key differences from vanilla ERC-1155:
 
 ## Reference implementation
 
-All contracts and interfaces live in the Paima Engine codebase: [packages/contracts/evm-contracts/contracts/token](https://github.com/PaimaStudios/paima-engine/blob/master/packages/contracts/evm-contracts/contracts/token).
+All contracts and interfaces live in the EffectStream codebase: [packages/chains/evm-contracts/src/contracts/token](https://github.com/effectstream/effectstream/tree/main/packages/chains/evm-contracts/src/contracts/token).
 
 ## Security considerations
 

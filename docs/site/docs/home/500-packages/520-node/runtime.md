@@ -6,7 +6,7 @@ sidebar_label: "runtime"
 
 <!-- Generated from packages/node-sdk/runtime/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/runtime)
+> Package: **[`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/runtime)
 
 The state-machine runtime — the loop that ties sync, state machine,
 database, events, and HTTP API together inside an EffectStream node.
@@ -94,7 +94,7 @@ are full working `init()` + `start()` examples. The simplest is
 End-to-end EVM sync test:
 [`e2e/evm/sync/`](https://github.com/effectstream/effectstream/tree/main/e2e/evm/sync).
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/runtime/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/runtime/test/examples.test.ts).
 
 ## Links
 

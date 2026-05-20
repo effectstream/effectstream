@@ -33,9 +33,9 @@ bun packages/build-tools/orchestrator/src/cli.ts status
 DISABLE_EVM=true DISABLE_BITCOIN=true bun run ...
 
 # Docs (from docs/site/)
-deno install --allow-scripts
-npx docusaurus start        # dev server with live reload
-npx docusaurus build         # production build
+bun install
+bun run start                # dev server with live reload (syncs READMEs + docusaurus start)
+bun run build                # production build
 ```
 
 ## Architecture
@@ -47,11 +47,11 @@ npx docusaurus build         # production build
 - **`packages/chains/`** — Per-chain smart contract interfaces: evm-contracts, evm-hardhat, bitcoin-contracts, cardano-contracts, midnight-contracts, avail-contracts
 - **`packages/binaries/`** — NPM-wrapped blockchain node binaries (midnight-node, bitcoin-core, near-sandbox, etc.)
 - **`packages/batcher/`** — Cross-chain transaction batching: core SDK, adapters, batch-data-builder, Fastify server
-- **`packages/build-tools/`** — orchestrator (multi-chain local env), explorer, tui
+- **`packages/build-tools/`** — orchestrator (multi-chain local env), explorer (deprecated). `tui/` is internal sources only, not a publishable package.
 - **`packages/frontend/`** — React frontend SDK
 - **`e2e/`** — Integration test suites per chain, run serially via `runner.ts`
-- **`templates/`** — 8 starter project templates (minimal, chess, dice, evm-midnight, etc.)
-- **`docs/site/`** — Docusaurus 3 documentation site (built with Deno)
+- **`templates/`** — 16 starter project templates (minimal, evm-midnight-v2, chess-v2, preorder, etc.). Five legacy templates (dice, rock-paper-scissors, world-map-2d, night-bitcoin, multi-chain-token-transfer) still use `@paimaexample/*` 0.3.x and have not been migrated to `@effectstream/*`.
+- **`docs/site/`** — Docusaurus 3 documentation site (built with Bun). Package READMEs are the source of truth and are auto-synced into `docs/site/docs/home/500-packages/**` by `docs/site/scripts/sync-package-readmes.ts`.
 
 ### Module System
 
@@ -67,4 +67,4 @@ Packages use dual exports — `exports.bun` points to `.ts` source for developme
 
 ### Docs Site
 
-Located in `docs/site/`, uses Docusaurus 3 with Deno. Has a swizzled `src/theme/Mermaid/` component wrapping the default with `BrowserOnly` to fix SSG crashes. Content lives in `docs/site/docs/home/` with numbered directory prefixes for ordering. Supports English and Japanese locales.
+Located in `docs/site/`, uses Docusaurus 3 with Bun. Has a swizzled `src/theme/Mermaid/` component wrapping the default with `BrowserOnly` to fix SSG crashes. Content lives in `docs/site/docs/home/` with numbered directory prefixes for ordering. Supports English and Japanese locales.

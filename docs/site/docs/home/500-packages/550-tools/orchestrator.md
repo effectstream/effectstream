@@ -6,7 +6,7 @@ sidebar_label: "orchestrator"
 
 <!-- Generated from packages/build-tools/orchestrator/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/orchestrator`](https://www.npmjs.com/package/@effectstream/orchestrator)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/build-tools/orchestrator)
+> Package: **[`@effectstream/orchestrator`](https://www.npmjs.com/package/@effectstream/orchestrator)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/build-tools/orchestrator)
 
 A multi-chain local development environment for EffectStream. One CLI
 starts every dependency a template needs — Postgres / PgLite, Hardhat,
@@ -121,7 +121,7 @@ is the same machinery, serialised across nine chain suites.
 - Templates: every directory under [`templates/`](https://github.com/effectstream/effectstream/tree/main/templates) ships a working orchestrator config.
 - E2E: [`e2e/`](https://github.com/effectstream/effectstream/tree/main/e2e) drives the orchestrator under the hood.
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/build-tools/orchestrator/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/build-tools/orchestrator/test/examples.test.ts).
 
 ## Links
 

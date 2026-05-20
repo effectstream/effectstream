@@ -6,7 +6,7 @@ sidebar_label: "crypto"
 
 <!-- Generated from packages/effectstream-sdk/crypto/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/crypto`](https://www.npmjs.com/package/@effectstream/crypto)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/crypto)
+> Package: **[`@effectstream/crypto`](https://www.npmjs.com/package/@effectstream/crypto)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/crypto)
 
 Multi-chain signature verification — one API that verifies wallet signatures
 from EVM, Cardano, Polkadot, Algorand, Mina, and Midnight. Also includes the
@@ -83,8 +83,8 @@ machine uses to derive randomness from on-chain hashes
 
 ## Examples
 
-Runnable examples: [`src/Prando.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/crypto/src/Prando.test.ts) and
-[`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/crypto/test/examples.test.ts). Both run as part of
+Runnable examples: [`src/Prando.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/crypto/src/Prando.test.ts) and
+[`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/crypto/test/examples.test.ts). Both run as part of
 `bun test ./packages`.
 
 For end-to-end signature flows, see

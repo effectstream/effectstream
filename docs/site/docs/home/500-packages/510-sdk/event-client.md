@@ -6,7 +6,7 @@ sidebar_label: "event-client"
 
 <!-- Generated from packages/effectstream-sdk/events/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/event-client`](https://www.npmjs.com/package/@effectstream/event-client)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/events)
+> Package: **[`@effectstream/event-client`](https://www.npmjs.com/package/@effectstream/event-client)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/events)
 
 MQTT-based event subscriber for EffectStream. Subscribe to type-safe events
 streamed by the engine and the batcher — blocks, transactions, primitive
@@ -91,7 +91,7 @@ Also exported: `EventConnect`, `EventBrokerNames`, `TopicPrefix`,
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/events/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/events/test/examples.test.ts).
 
 ## Links
 

@@ -6,7 +6,7 @@ sidebar_label: "bitcoin-core"
 
 <!-- Generated from packages/binaries/bitcoin-core/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/bitcoin-core`](https://www.npmjs.com/package/@effectstream/bitcoin-core)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/bitcoin-core)
+> Package: **[`@effectstream/bitcoin-core`](https://www.npmjs.com/package/@effectstream/bitcoin-core)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/bitcoin-core)
 
 A pinned Bitcoin Core binary, packaged for npm. Installing this drops a
 versioned `bitcoind` and `bitcoin-cli` into `node_modules/.bin` so the

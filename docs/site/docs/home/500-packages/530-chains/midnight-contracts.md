@@ -6,7 +6,7 @@ sidebar_label: "midnight-contracts"
 
 <!-- Generated from packages/chains/midnight-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/midnight-contracts`](https://www.npmjs.com/package/@effectstream/midnight-contracts)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/midnight-contracts)
+> Package: **[`@effectstream/midnight-contracts`](https://www.npmjs.com/package/@effectstream/midnight-contracts)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/chains/midnight-contracts)
 
 Utilities for reading and deploying Midnight contracts from inside an Effectstream node or test. Two functions: `readMidnightContract` to load contract metadata + ABI by name, and `deployMidnightContract` to deploy and persist the resulting address.
 

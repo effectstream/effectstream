@@ -6,7 +6,7 @@ sidebar_label: "celestia"
 
 <!-- Generated from packages/binaries/celestia/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/celestia`](https://www.npmjs.com/package/@effectstream/celestia)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/celestia)
+> Package: **[`@effectstream/celestia`](https://www.npmjs.com/package/@effectstream/celestia)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/celestia)
 
 NPM wrapper around the [Celestia](https://celestia.org/) node binaries.
 Installs a pinned version into `node_modules/.bin/celestia` so the

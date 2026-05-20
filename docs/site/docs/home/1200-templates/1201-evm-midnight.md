@@ -1,6 +1,6 @@
 #  EVM-Midnight Token Metadata
 
--   **Location**: `/templates/evm-midnight`
+-   **Location**: `/templates/evm-midnight-v2`
 -   **Highlights**: EVM & Midnight Interoperability. Web Application to create ERC721 Tokens and add metadata through a Midnight Contract.
 
 The `evm-midnight` template is a powerful starting point that demonstrates one of EffectStream's core strengths: **multi-chain interoperability**. It showcases a complete, end-to-end dApp that seamlessly combines a public, asset-focused EVM chain with a private, computation-focused ZK chain (Midnight).

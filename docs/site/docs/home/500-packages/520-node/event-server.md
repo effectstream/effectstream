@@ -6,7 +6,7 @@ sidebar_label: "event-server"
 
 <!-- Generated from packages/node-sdk/events/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/event-server`](https://www.npmjs.com/package/@effectstream/event-server)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/events)
+> Package: **[`@effectstream/event-server`](https://www.npmjs.com/package/@effectstream/event-server)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/events)
 
 A localhost-only MQTT broker built on Aedes — the server side of
 EffectStream's event system. The runtime publishes block, transaction,
@@ -65,7 +65,7 @@ exposed here.
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/events/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/events/test/examples.test.ts).
 
 ## Links
 
