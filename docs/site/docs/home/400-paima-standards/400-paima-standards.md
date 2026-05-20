@@ -1,8 +1,8 @@
 ---
-title: Paima Standards (PRCs)
+title: PRC Standards
 ---
 
-# Paima Standards (PRCs)
+# PRC Standards
 
 The Paima Request for Comments — **PRCs** — are open specifications for on-chain application primitives. They are independent of any particular framework or language and can be implemented by any project; EffectStream ships first-class support for them as part of the framework.
 
