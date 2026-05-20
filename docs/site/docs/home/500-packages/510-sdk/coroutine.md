@@ -6,7 +6,7 @@ sidebar_label: "coroutine"
 
 <!-- Generated from packages/effectstream-sdk/coroutine/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/coroutine`](https://www.npmjs.com/package/@effectstream/coroutine)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/coroutine)
+> Package: **[`@effectstream/coroutine`](https://www.npmjs.com/package/@effectstream/coroutine)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/coroutine)
 
 Generator-based control flow primitives for EffectStream's state machine.
 Defines the `StateUpdateStream` generator type and the `World.*` helpers
@@ -72,7 +72,7 @@ the rows so `World.resolve` can hand them back to the generator.
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/coroutine/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/coroutine/test/examples.test.ts).
 
 For real state-machine code that uses these primitives, see the primitives
 implemented in

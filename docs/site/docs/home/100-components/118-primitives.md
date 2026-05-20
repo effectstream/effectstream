@@ -66,7 +66,7 @@ A key advantage of built-in primitives is that many come with automatic database
 
 ## Custom Primitives
 
-For dApps that interact with unique, non-standard smart contracts or require custom data processing logic, you can create a **custom primitive**. The `multi-chain-token-swap` template uses a custom primitive (`MCTErc1155Primitive`) to listen for its specific `TransferToMidnight` event.
+For dApps that interact with unique, non-standard smart contracts or require custom data processing logic, you can create a **custom primitive**. The `multi-chain-token-transfer` template uses a custom primitive (`MCTErc1155Primitive`) to listen for its specific `TransferToMidnight` event.
 
 ### How it Works
 

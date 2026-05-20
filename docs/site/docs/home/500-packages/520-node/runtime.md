@@ -6,7 +6,7 @@ sidebar_label: "runtime"
 
 <!-- Generated from packages/node-sdk/runtime/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/runtime)
+> Package: **[`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/runtime)
 
 The state-machine runtime — the loop that ties sync, state machine,
 database, events, and HTTP API together inside an EffectStream node.
@@ -36,21 +36,27 @@ This package **owns the node's process model**. You don't pick parts of
 it; you call `init()` once at boot and then `start(config)`. The config
 brings together everything else:
 
+`init()` and `start()` are Effection operations, so they must be
+yielded inside an Effection `main()`:
+
 ```typescript
+import { main } from "effection";
 import { init, start } from "@effectstream/runtime";
 import { Stm } from "@effectstream/sm";
 import { config } from "./config.dev.ts";
 
-await init();
+await main(function* () {
+  yield* init();
 
-const gameStm = new Stm(grammar);
-gameStm.addStateTransition("join", function* () { /* ... */ });
+  const gameStm = new Stm(grammar);
+  gameStm.addStateTransition("join", function* () { /* ... */ });
 
-await start({
-  config,
-  gameStateTransitions: [gameStm],
-  apiRouter: undefined,           // optional Fastify route plugin
-  dbMigrations: [],               // SQL migrations
+  yield* start({
+    config,
+    gameStateTransitions: [gameStm],
+    apiRouter: undefined,           // optional Fastify route plugin
+    migrations: [],                 // SQL migrations
+  });
 });
 ```
 
@@ -94,7 +100,7 @@ are full working `init()` + `start()` examples. The simplest is
 End-to-end EVM sync test:
 [`e2e/evm/sync/`](https://github.com/effectstream/effectstream/tree/main/e2e/evm/sync).
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/runtime/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/runtime/test/examples.test.ts).
 
 ## Links
 

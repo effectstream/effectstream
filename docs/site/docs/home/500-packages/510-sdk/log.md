@@ -6,7 +6,7 @@ sidebar_label: "log"
 
 <!-- Generated from packages/effectstream-sdk/log/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/log`](https://www.npmjs.com/package/@effectstream/log)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/log)
+> Package: **[`@effectstream/log`](https://www.npmjs.com/package/@effectstream/log)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/log)
 
 OpenTelemetry-instrumented structured logging for EffectStream. Wraps
 `tslog` and the OpenTelemetry SDK behind a single `log` object that emits
@@ -88,7 +88,7 @@ powers the orchestrator's per-component log views.
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/log/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/log/test/examples.test.ts).
 
 ## Links
 

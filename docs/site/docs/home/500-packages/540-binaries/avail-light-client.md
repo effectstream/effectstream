@@ -6,7 +6,7 @@ sidebar_label: "avail-light-client"
 
 <!-- Generated from packages/binaries/avail-light-client/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/npm-avail-light-client`](https://www.npmjs.com/package/@effectstream/npm-avail-light-client)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/avail-light-client)
+> Package: **[`@effectstream/npm-avail-light-client`](https://www.npmjs.com/package/@effectstream/npm-avail-light-client)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/avail-light-client)
 
 NPM wrapper around the [Avail](https://www.availproject.org/) light client
 CLI. Installs a pinned binary into `node_modules/.bin/npm-avail-light-client`

@@ -196,7 +196,7 @@ More about the [State Machine](../100-components/102-state-machine.md)
 ## Frontend (dApp)
 
 The frontend is your user-facing application, such as a web game or a dashboard.
-The `/templates/evm-midnight/` comes with a folder called `/packages/frontend/` with an example Web App. It interacts with EffectStream in two primary ways:
+The `/templates/evm-midnight-v2/` comes with a folder called `/packages/frontend/` with an example Web App. It interacts with EffectStream in two primary ways:
 
 ### Writes (Sending Actions)
 
@@ -330,11 +330,7 @@ export const grammar = {
     ["playerId", Type.Integer()],
     ["moveId", Type.Integer()],
   ],
-
-  // Auto-generate other primitives
-  ...Object.fromEntries(
-    Object.entries(mapPrimitivesToGrammar(localhostConfig.primitives))
-  ),
+  // Add one entry per on-chain event you want to route to an STF.
 } as const satisfies GrammarDefinition;
 ```
 

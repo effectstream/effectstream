@@ -24,8 +24,8 @@ import { Glob } from "bun";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 const DOCS_OUT = resolve(import.meta.dir, "../docs/home/500-packages");
-const GH_BLOB = "https://github.com/PaimaStudios/paima-engine/blob/main";
-const GH_TREE = "https://github.com/PaimaStudios/paima-engine/tree/main";
+const GH_BLOB = "https://github.com/effectstream/effectstream/blob/main";
+const GH_TREE = "https://github.com/effectstream/effectstream/tree/main";
 
 const DEPRECATED = new Set(["@effectstream/explorer"]);
 const CATEGORIES = {

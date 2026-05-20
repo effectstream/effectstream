@@ -6,7 +6,7 @@ sidebar_label: "midnight-proof-server"
 
 <!-- Generated from packages/binaries/midnight-proof-server/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/npm-midnight-proof-server`](https://www.npmjs.com/package/@effectstream/npm-midnight-proof-server)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/midnight-proof-server)
+> Package: **[`@effectstream/npm-midnight-proof-server`](https://www.npmjs.com/package/@effectstream/npm-midnight-proof-server)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/midnight-proof-server)
 
 NPM wrapper around the Midnight proof-server binary. Installs a pinned
 version into `node_modules/.bin/npm-midnight-proof-server` so the

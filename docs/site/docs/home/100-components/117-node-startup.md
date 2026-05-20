@@ -2,7 +2,7 @@
 
 Once configured your [chains](./101-sync-service.md), defined your [grammar](./111-grammar.md), and written your [state machine](./102-state-machine.md) logic. The final step is to bring all these pieces together and hand them off to the EffectStream to be executed.
 
-> We will be using the /templates/evm-midnight as example
+> We will be using the /templates/evm-midnight-v2 as example
 
 `start(...)` Is the main entry point, located at `/packages/client/node/src/main.ts` in the template project. This file acts as the central launch system of your EffectStream Node, importing all the different components of your application and passing them to the EffectStream Runtime.
 

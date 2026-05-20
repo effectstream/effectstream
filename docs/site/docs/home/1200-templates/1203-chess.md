@@ -1,6 +1,6 @@
 # Chess (Game)
 
-* Location: `/templates/chess`
+* Location: `/templates/chess-v2`
 * Highlights: A fully-featured turn-based game (Chess) on an EVM chain using EffectStream's L2.
 
 The `chess` template provides a complete implementation of a web-based chess game. It's an excellent example of how to build turn-based games using EffectStream, showcasing lobby creation, player matching, and in-game move submission, all handled through a EffectStream L2 contract on an EVM chain.

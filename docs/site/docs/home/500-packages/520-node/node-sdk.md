@@ -6,7 +6,7 @@ sidebar_label: "node-sdk"
 
 <!-- Generated from packages/node-sdk/node/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/node-sdk`](https://www.npmjs.com/package/@effectstream/node-sdk)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/node)
+> Package: **[`@effectstream/node-sdk`](https://www.npmjs.com/package/@effectstream/node-sdk)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/node)
 
 An umbrella package that re-exports every EffectStream runtime piece
 (runtime, state machine, sync, database, events, config, utils, concise
@@ -69,7 +69,7 @@ the corresponding package:
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/node/test/examples.test.ts) — verifies
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/node/test/examples.test.ts) — verifies
 each subpath resolves.
 
 For full working nodes, see:

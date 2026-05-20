@@ -56,9 +56,9 @@ the batcher publishes its own lifecycle events. Frontends and tools
 subscribe through this package; the runtime publishes via the matching
 `@effectstream/event-server`.
 
-The most-imported symbols across the repo are `getEvmEvent` (used by
-state-machine primitives to decode EVM logs against an ABI),
-`EventManager`, and `BuiltinEvents`.
+The most-imported symbols from this package are `EventManager` and
+`BuiltinEvents`. (`getEvmEvent`, often paired with these in
+state-machine primitives, lives in `@effectstream/config` — not here.)
 
 > **Bun caveat:** the `mqtt` package's WebSocket transport isn't supported
 > on Bun yet. Use Node (or a TCP MQTT broker) when consuming events
@@ -69,7 +69,6 @@ state-machine primitives to decode EVM logs against an ABI),
 
 Heavily used across the repo:
 
-- `getEvmEvent(abi, signatureHash)` — pull an event definition out of an EVM ABI by signature hash. Used by EVM-side state-machine primitives.
 - `EventManager` — singleton with `.subscribe`, `.subscribeExplicit`, `.unsubscribe`, `.sendMessage`, `.sendMessageExplicit`. Use `EventManager.Instance`.
 - `BuiltinEvents` — pre-baked typed event definitions for `RollupBlock`, `SyncChains`, batcher `BatcherHash`, etc. Pass these into `EventManager.Instance.subscribe(...)`.
 - `toSignature(event)` — `"name(type1,type2,...)"` string for a typed event.

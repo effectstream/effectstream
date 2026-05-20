@@ -6,7 +6,7 @@ sidebar_label: "concise"
 
 <!-- Generated from packages/effectstream-sdk/concise/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/concise`](https://www.npmjs.com/package/@effectstream/concise)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/concise)
+> Package: **[`@effectstream/concise`](https://www.npmjs.com/package/@effectstream/concise)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/concise)
 
 Type-safe, compact message schemas for EffectStream — the wire format the
 batcher uses to pack many small user inputs into one on-chain transaction.
@@ -124,9 +124,9 @@ Also exported: `KeyedBatcherGrammar`, `parseRawStmInput`, `usesPrefix`.
 
 ## Examples
 
-Runnable: [`src/batcher.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/concise/src/batcher.test.ts),
-[`src/delegate.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/concise/src/delegate.test.ts), and
-[`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/concise/test/examples.test.ts).
+Runnable: [`src/batcher.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/concise/src/batcher.test.ts),
+[`src/delegate.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/concise/src/delegate.test.ts), and
+[`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/concise/test/examples.test.ts).
 
 End-to-end batcher flow:
 [`e2e/evm/sync/batcher.test.ts`](https://github.com/effectstream/effectstream/blob/main/e2e/evm/sync/batcher.test.ts).

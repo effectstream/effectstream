@@ -6,7 +6,7 @@ sidebar_label: "midnight-node"
 
 <!-- Generated from packages/binaries/midnight-node/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/npm-midnight-node`](https://www.npmjs.com/package/@effectstream/npm-midnight-node)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/midnight-node)
+> Package: **[`@effectstream/npm-midnight-node`](https://www.npmjs.com/package/@effectstream/npm-midnight-node)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/midnight-node)
 
 NPM wrapper that downloads and runs the
 [Midnight](https://midnight.network/) Node binary. Installs a pinned

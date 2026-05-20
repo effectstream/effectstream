@@ -1,9 +1,13 @@
+---
+draft: true
+---
+
 # Multi-Chain Token Swap
 
--   **Location**: `/templates/multi-chain-token-swap`
+-   **Location**: `/templates/multi-chain-token-transfer`
 -   **Highlights**: A dApp that showcases interoperability between EVM and Midnight, allowing users to swap ERC1155 tokens between the two chains.
 
-The `multi-chain-token-swap` template is a sophisticated example demonstrating how EffectStream can create a seamless multi-chain experience. It builds a dApp where a user's token balance is unified across an EVM chain and a Midnight ZK chain. When a user initiates a cross-chain transfer by triggering an event on one chain, the EffectStream detects this and uses a Batcher service to automatically mint a corresponding token on the other chain.
+The `multi-chain-token-transfer` template is a sophisticated example demonstrating how EffectStream can create a seamless multi-chain experience. It builds a dApp where a user's token balance is unified across an EVM chain and a Midnight ZK chain. When a user initiates a cross-chain transfer by triggering an event on one chain, the EffectStream detects this and uses a Batcher service to automatically mint a corresponding token on the other chain.
 
 ![UI](./1204-ui.png)
 ## Core Concept: A Unified Multi-Chain Balance
@@ -585,7 +589,7 @@ Finally, the custom primitive is registered in the main configuration file, wher
 
 ### Project Folder Structure
 
-The `multi-chain-token-swap` template is organized as a Bun workspace monorepo. This structure helps separate concerns, with distinct packages for the frontend, the EffectStream node, and shared code. Understanding this layout is key to navigating and modifying the template.
+The `multi-chain-token-transfer` template is organized as a Bun workspace monorepo. This structure helps separate concerns, with distinct packages for the frontend, the EffectStream node, and shared code. Understanding this layout is key to navigating and modifying the template.
 
 ```
 /

@@ -6,7 +6,7 @@ sidebar_label: "evm-contracts"
 
 <!-- Generated from packages/chains/evm-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/evm-contracts`](https://www.npmjs.com/package/@effectstream/evm-contracts)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/evm-contracts)
+> Package: **[`@effectstream/evm-contracts`](https://www.npmjs.com/package/@effectstream/evm-contracts)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/chains/evm-contracts)
 
 Solidity sources and compiled ABIs for Effectstream's EVM contracts, distributed as an npm package. Pairs with [`@effectstream/evm-hardhat`](https://www.npmjs.com/package/@effectstream/evm-hardhat), which ships the Hardhat tooling (config builder, JSON-RPC server, deploy helpers).
 

@@ -1,3 +1,7 @@
+---
+draft: true
+---
+
 # World Map 2D (Open World Game)
 
 * **Path**: `/templates/world-map-2d`

@@ -6,7 +6,7 @@ sidebar_label: "avail-node"
 
 <!-- Generated from packages/binaries/avail-node/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/npm-avail-node`](https://www.npmjs.com/package/@effectstream/npm-avail-node)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/avail-node)
+> Package: **[`@effectstream/npm-avail-node`](https://www.npmjs.com/package/@effectstream/npm-avail-node)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/avail-node)
 
 NPM wrapper around the [Avail](https://www.availproject.org/) node
 binary. Installs a pinned version into `node_modules/.bin/npm-avail-node`

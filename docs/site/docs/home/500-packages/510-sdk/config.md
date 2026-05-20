@@ -6,7 +6,7 @@ sidebar_label: "config"
 
 <!-- Generated from packages/effectstream-sdk/config/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/config`](https://www.npmjs.com/package/@effectstream/config)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/config)
+> Package: **[`@effectstream/config`](https://www.npmjs.com/package/@effectstream/config)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/config)
 
 Type-safe configuration builders for EffectStream nodes — networks, deployed
 contract addresses, sync protocols, primitives, and security namespaces. A
@@ -87,7 +87,7 @@ and aren't typically imported by app code.
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/config/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/config/test/examples.test.ts).
 
 Real-world usage in templates:
 - [`templates/preorder/packages/node/config.dev.ts`](https://github.com/effectstream/effectstream/blob/main/templates/preorder/packages/node/config.dev.ts)

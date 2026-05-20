@@ -35,19 +35,26 @@ CREATE TABLE effectstream.system_table (
 EffectStream uses `pgtyped` to bridge the gap between your SQL database and your TypeScript code. It automatically generates fully type-safe TypeScript functions directly from your raw SQL queries, eliminating an entire class of bugs and providing excellent editor autocompletion.
 
 ### Writing Named Queries
-You write your SQL queries in files within the `/TODO` directory. To make a query available to `pgtyped`, you must give it a special named comment.
+In a template, SQL queries live under `packages/database/sql/` (see [`templates/minimal/packages/database/sql/queries.sql`](https://github.com/effectstream/effectstream/blob/main/templates/minimal/packages/database/sql/queries.sql) for a working reference). Each query gets a `@name` comment that `pgtyped` uses as the generated function name.
 
-**Example (`TODO.sql`):**
+**Example (`packages/database/sql/queries.sql`):**
 ```sql
--- TODO
+/* @name insertInput */
+INSERT INTO inputs_log (signer, payload, block_height)
+VALUES (:signer!, :payload!, :block_height!);
+
+/* @name getAllInputs */
+SELECT * FROM inputs_log
+ORDER BY id DESC
+LIMIT 100;
 ```
 
 ### Generating TypeScript Functions
-After writing your queries, you run a simple command:
+After writing your queries, run the `pgtyped:update` script defined in your app's `database` package:
 ```sh
-bun run --cwd packages/node-sdk/db pgtyped:update
+bun run --cwd packages/database pgtyped:update
 ```
-This command introspects your SQL files and your database schema, then generates corresponding TypeScript functions.
+This introspects your SQL files and database schema, then writes a `*.queries.ts` file next to each `*.sql` with fully-typed wrapper functions.
 
 ### System Tables Overview
 
