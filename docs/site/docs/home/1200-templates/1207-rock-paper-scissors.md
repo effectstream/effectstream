@@ -1,3 +1,7 @@
+---
+draft: true
+---
+
 # Rock Paper Scissors Wars (Turn-Based Multiplayer)
 
 * **Path**: `/templates/rock-paper-scissors`
