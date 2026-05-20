@@ -25,12 +25,22 @@ bun run publish-bun.effectstream.ts --publish --allow-uncommitted
 # Unpublish/deprecate bad versions (dry-run by default)
 bun run unpublish-bun.effectstream.ts
 
-# Local multi-chain dev environment
-bun packages/build-tools/orchestrator/src/cli.ts start
+# Local multi-chain dev environment (orchestrator CLI)
+# --background runs as a daemon and exposes an HTTP API.
+# status, logs, and restart require the daemon to be running (i.e. start with --background first).
+bun packages/build-tools/orchestrator/src/cli.ts start --background
 bun packages/build-tools/orchestrator/src/cli.ts status
+bun packages/build-tools/orchestrator/src/cli.ts logs [name]      # follow daemon logs; omit name to follow all
+bun packages/build-tools/orchestrator/src/cli.ts restart <name>   # restart a single process
+bun packages/build-tools/orchestrator/src/cli.ts stop             # stop everything (frees up ports)
 
-# Disable specific chains in orchestrator/e2e
-DISABLE_EVM=true DISABLE_BITCOIN=true bun run ...
+# IMPORTANT: always run `stop` before launching the orchestrator again or
+# starting tests, so ports from the previous run are cleaned up.
+
+# Select e2e suites (see e2e/runner.ts):
+bun run e2e/runner.ts celestia                       # run only celestia
+bun run e2e/runner.ts evm bitcoin                    # run a subset
+DISABLE_EVM=1 DISABLE_AVAIL=1 bun run e2e/runner.ts  # exclude by env var (older form, still works)
 
 # Docs (from docs/site/)
 bun install
