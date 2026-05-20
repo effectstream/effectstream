@@ -7,6 +7,23 @@
 > - Contracts (base contracts, L2 contract): `docs/site/docs/home/100-components/105-contracts.md`, `docs/site/docs/home/100-components/104-l2-contract.md`, `docs/site/docs/home/200-chains/210-contracts.md`
 > - Per-package: `docs/site/docs/home/500-packages/530-chains/evm-contracts.md`, `docs/site/docs/home/500-packages/530-chains/evm-hardhat.md`
 
+## Tools (probe before scaffolding)
+
+Run this check before generating any EVM template code:
+
+```sh
+which bun forge 2>&1
+```
+
+| Tool | Required for | If missing |
+|---|---|---|
+| `bun` | All Effectstream work | Stop — you can't build, run, or verify anything. Install Bun before continuing. |
+| `forge` (Foundry) | `bun run build:evm` (forge build pass; produces the ABI/bytecode that the TypeScript binding generator consumes) | Stop and tell the user before scaffolding. Install: `curl -L https://foundry.paradigm.xyz \| bash && foundryup`. Without `forge`, `bun run build:evm` reports "Nothing to compile" and the generated `build/mod.ts` is empty — every importer (`mct_erc1155`, etc.) then fails to resolve. |
+
+Optional but commonly expected:
+- `anvil` / `cast` (ship with Foundry; you get them when `forge` is installed).
+- `hardhat` is provided as a dev dependency of `packages/contracts-evm/` — no system install needed.
+
 ## Layout
 
 ```

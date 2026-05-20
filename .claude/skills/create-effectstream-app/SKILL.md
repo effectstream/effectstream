@@ -13,6 +13,20 @@ This skill exists because there are ~80 sharp edges (Bun workspace symlinking, M
 - **Create a new template (95% case)** → start with [Discovery](#discovery-confirm-scope-with-the-user-before-scaffolding) below, then follow [Build order](#build-order).
 - **Migrate an existing Paima/Effectstream-v1 project** → jump to `references/migration.md`. The rest of this file still applies after the structural migration.
 
+> ## Verification is mandatory — read this before you write any code
+>
+> A scaffold that hasn't been run is not a scaffold; it's a draft. Half the sharp edges this skill exists to avoid only surface at runtime, in Docker, or when the user opens the page in a browser. Static review of the generated files will not catch them.
+>
+> **The rules:**
+>
+> 1. **`bun run dev` MUST run at least once before you report completion.** Not `tsc`, not `vite build`, not "looks right to me" — the actual full-stack boot. If you can't get to it, the task is not done.
+> 2. **Verify incrementally, one step at a time.** Don't batch `bun install && bun run build:evm && bun run build:midnight && bun run dev` into one command — when something breaks you won't know which step. Run each separately and check the exit code / output before moving to the next.
+> 3. **Stop on the first failure.** Fix the actual problem before continuing. Don't paper over it with `|| true`, don't skip ahead and hope a later step fixes it, don't add a TODO and move on.
+> 4. **Probe the environment before scaffolding.** Run `which bun 2>&1` always; then run the `which` check from the **Tools** section of each chain reference the template will use (`references/chains/<chain>.md`). Add `docker --version` if Docker was requested. If a tool needed by the template is missing, tell the user **before** writing 60+ files you can't verify. Do NOT default to "the user probably doesn't have these installed" — check.
+> 5. **When reporting, quote the verification trail.** Default assumption in your final message is "I ran it and here's what happened" — not "you should run this." If a step genuinely failed and you couldn't fix it, name the exact command, the exact error, and what you tried. See [What to give the user when you're done](#what-to-give-the-user-when-youre-done).
+>
+> Full per-step acceptance criteria in [Verification — mandatory, incremental, stop on error](#verification--mandatory-incremental-stop-on-error).
+
 ## Discovery — confirm scope with the user before scaffolding
 
 **Don't pick chains, contracts, or primitives by default — these are user decisions with real production consequences.** Suggest options, present trade-offs, then wait for explicit confirmation before writing any code.
@@ -99,7 +113,7 @@ For each step the right-hand column tells you which reference file to load. Don'
 | 9 | (optional) `config.mainnet.ts`, `main.mainnet.ts`, `batcher.mainnet.ts`, `"start:mainnet"` script. **Every `*.mainnet.ts` file MUST start with a "PLACEHOLDER FOR PRODUCTION" disclaimer comment** telling the user to replace hard-coded values and source secrets from env vars — see the multi-env reference for the exact block. | `references/multi-env.md` | `docs/site/docs/home/300-deployment/301-deploy-game.md`, `docs/site/docs/home/100-components/199-environment-variables.md` |
 | 10 | (**optional, only if the user asks for containerization**) `Dockerfile` + `.dockerignore`. Most templates don't need Docker on day one — skip unless the user explicitly requests it. | `references/docker.md` | (skill-only; docs have no Docker section) |
 | 11 | `README.md` at project root following the canonical structure. | `references/readme.md` | (skill-only style guide) |
-| 12 | Verify: `bun install && bun run dev` boots the full stack, `bun run test` passes. If the user asked for Docker, also: `docker build` succeeds, `docker run <image> bun run test` passes. | — | — |
+| 12 | **Verify — MANDATORY, incremental, stop on error.** Run each command separately and check it succeeded before moving to the next: `bun install` → `bun run build:evm` (per chain) → `bun run build:midnight` → `bun run build:pgtypes` → `bun run dev` (must reach a known boot state) → `bun run test`. If Docker was requested, also `docker build` then `docker run <image> bun run test`. Don't report completion until at least `bun run dev` has booted. Full criteria: [Verification — mandatory, incremental, stop on error](#verification--mandatory-incremental-stop-on-error). | — | — |
 
 ### Why orchestrator before contracts
 
@@ -127,17 +141,83 @@ Use these to frame trade-offs for the user — they don't override the rule that
 
 **Docker.** Suggest no unless the user asks for containerization. Most templates don't need Docker on day one.
 
-## Verification, in order
+## Verification — mandatory, incremental, stop on error
 
-Don't skip any of these — each catches a different class of error.
+**Verification is not optional. The scaffold is not done until `bun run dev` has booted to a known state (success, or a specific recorded failure you couldn't fix).** See the banner at the top of this file for the rules. This section gives the per-step acceptance criteria.
 
-1. `bun install` succeeds at the project root. Sibling deps declared as `workspace:*` will resolve through Bun's workspace graph (no `node_modules/<scope>/<pkg>` symlinks expected or needed on Mac).
-2. **For each contract package**: `bun run build:evm` / `bun run build:midnight` produces artifacts. Until this passes, the node won't typecheck.
-3. **`bun run build:pgtypes`** generates `sql/*.queries.ts`. Commit these — sibling packages can't import `@my-template/database` without them.
-4. **`bun run dev`** brings up the full local stack. Watch for: chain nodes responding on expected ports, sync node indexing blocks, contracts deployed, no `Cannot find module` errors. If you see `Cannot find module '@my-template/<x>'`, the importer is missing `"@my-template/<x>": "workspace:*"` in its `package.json`.
-5. **`bun run test`** — Phase A (infra), Phase B (submit-tx → DB → API), Phase C (frontend if present). The Playwright render test catches Vite/browser-only bugs that `vite build` succeeds on (e.g., `node-fetch` polyfill blowing up at mount).
-6. **`docker build`** *(only if the user opted into Docker)* — catches missing system deps (`procps`, `lsof`, `iproute2`, `xz-utils` for Midnight, Foundry for EVM) and the workspace-symlink workaround. Bun on Linux does NOT resolve workspace siblings the way it does on Mac, so the Dockerfile MUST create `node_modules/<scope>/<pkg>` symlinks inline after `bun install` — see `references/docker.md`.
-7. **`docker run <image> bun run test`** *(only if Docker)* — catches `cwd` vs `resolveFrom` issues in the orchestrator config.
+### Ground rules
+
+- **One step at a time.** Run each command separately. Do NOT chain them with `&&` or `;` — when something breaks, you need to know which step. The cost of running six commands instead of one is trivial compared to debugging a batched failure.
+- **Stop on the first failure.** Don't continue with later steps hoping they'll mask the earlier one. Don't add `|| true`, `--ignore-scripts`, `--force`, or `--no-verify` to work around an error. Diagnose, fix, re-run the failed step, then move on.
+- **Check, don't assume.** Look at the actual exit code and output before declaring success. `bun install` printing `error:` and exiting non-zero is a failure, even if it produced some `node_modules/`.
+- **Tools may already be installed.** Before reporting "I couldn't run X because Y isn't available," actually try to run X. The engine monorepo and developer machines typically have `bun`, `forge`, `compact`, `docker` installed; assume they're there until a command actually fails.
+
+### Step 0 — Environment probe (do this BEFORE scaffolding)
+
+Run `which bun 2>&1` first — if `bun` is missing, stop immediately. You can't build or verify anything without it.
+
+Then, for **each chain the template targets**, open the chain's reference file and run the `which` command from its **Tools (probe before scaffolding)** section. The chain reference is the source of truth for what binaries each chain needs and what to do if one is missing:
+
+| Chain | Reference (Tools section) |
+|---|---|
+| EVM | `references/chains/evm.md` — needs `forge` |
+| Midnight | `references/chains/midnight.md` — needs `compact` |
+| Cardano | `references/chains/cardano.md` |
+| Bitcoin | `references/chains/bitcoin.md` |
+| Avail | `references/chains/avail.md` |
+| Celestia | `references/chains/celestia.md` |
+| NEAR | `references/chains/near.md` |
+
+If Docker was requested, also run `docker --version 2>&1`.
+
+If a chain's required tool is missing, surface this to the user **before** writing any code — don't scaffold something you can't verify. When adding a new chain to the skill, add its tool list to the chain's own reference (not here) so the entry-point remains a router.
+
+### Step 1 — `bun install`
+
+Run at the project root. **Accept only:** exit code 0, no `error:` lines in stderr. Workspace sibling deps declared as `workspace:*` resolve through Bun's workspace graph (no `node_modules/<scope>/<pkg>` symlinks expected or needed on Mac).
+
+**Common failures:**
+- `error: package "@effectstream/X" not found` → version pinned to a tag that doesn't exist on npm. Check `npm view @effectstream/orchestrator version` and re-pin.
+- `Cannot find package @midnight-ntwrk/wallet-sdk-address-format` later at runtime → add it to the **root** `package.json` (phantom dep).
+
+### Step 2 — `bun run build:evm` (per EVM chain, if any)
+
+**Accept only:** exit code 0 AND `packages/contracts-evm/build/contractAddressesEvmMain.ts` exists AND it exports an address (not an empty `export {}`). Until this passes, `packages/node/` can't import `contractAddressesEvmMain` and won't typecheck.
+
+### Step 3 — `bun run build:midnight` (if Midnight chain)
+
+**Accept only:** exit code 0 AND `packages/contracts-midnight/contract-*/src/managed/*/contract/index.ts` exists. If compact fails with version mismatch errors, check `references/chains/midnight.md` for the compatibility matrix.
+
+### Step 4 — `bun run build:pgtypes`
+
+**Accept only:** exit code 0 AND `packages/database/sql/*.queries.ts` files exist AND are non-empty AND contain `PreparedQuery` instances (not `export {}`). Empty output means the script ran from the wrong cwd — use the root script, not raw pgtyped.
+
+### Step 5 — `bun run dev` (MANDATORY — every template must reach this)
+
+**This step is required before reporting completion.** It's the only verification that catches runtime issues like missing `workspace:*` declarations, `Cannot find module` errors, port collisions, and orchestrator-config bugs that all earlier static checks miss.
+
+**Accept only one of:**
+- **Success path:** Orchestrator boots, chain nodes are up on expected ports (8545 / 9944 / 8088 / etc.), sync node logs `indexing block N`, no `Cannot find module` or `current transaction is aborted` errors. Then `Ctrl-C` cleanly. Record the highest block height observed.
+- **Recorded-failure path:** A specific command failed with a specific error message. Quote both verbatim in your final report. Do NOT round "didn't reach a stable state" off to "looks fine."
+
+**The wrong outcomes:**
+- "I didn't run it because the user probably doesn't have Foundry" — check before assuming, see Step 0.
+- "I ran `tsc` and it typechecked" — typechecking does not verify boot.
+- "It ran for 30 seconds, looked OK, I killed it" — record what state it reached. "Looked OK" is not an acceptance criterion.
+
+If `bun run dev` doesn't terminate on its own (which it shouldn't — it's a long-running process), let it run until you see the sync node indexing AND any chain-specific deployment processes complete, then stop it cleanly. Use the orchestrator's `stop` command or `Ctrl-C`, not `kill -9`.
+
+### Step 6 — `bun run test`
+
+**Accept only:** Phase A passes (chains up), Phase B passes (tx → DB → API round trip), and Phase C passes if a frontend exists. The Playwright render test in Phase C catches Vite/browser-only bugs that `vite build` succeeds on (e.g., `node-fetch` polyfill blowing up at mount). If any phase fails, fix the underlying issue — don't skip the phase.
+
+### Step 7 — `docker build` *(only if Docker was opted in)*
+
+**Accept only:** exit code 0. Catches missing system deps (`procps`, `lsof`, `iproute2`, `xz-utils` for Midnight, Foundry for EVM) and the workspace-symlink workaround. Bun on Linux does NOT resolve workspace siblings the way it does on Mac, so the Dockerfile MUST create `node_modules/<scope>/<pkg>` symlinks inline after `bun install` — see `references/docker.md`.
+
+### Step 8 — `docker run <image> bun run test` *(only if Docker)*
+
+**Accept only:** the in-container test run passes. Catches `cwd` vs `resolveFrom` issues in the orchestrator config that only fail on Linux/Docker.
 
 ## Sharp edges you will hit if you skip the references
 
@@ -159,12 +239,12 @@ These are the failure modes that have wasted the most engineering time. Each one
 
 ## What to give the user when you're done
 
-After the template scaffold passes `bun run dev` and `bun run test`, report:
+**Do not report completion until `bun run dev` has booted to a known state.** See [Verification — mandatory, incremental, stop on error](#verification--mandatory-incremental-stop-on-error). Once it has, report:
 
 1. **Where it is** — full path to the template directory.
 2. **What chains/features it includes** — e.g. "EVM (Hardhat) + batcher + Vite/React frontend + Phase A/B/C tests + Dockerfile + mainnet config".
 3. **How to run it** — `bun install && bun run dev`, plus the frontend URL (default `http://localhost:10599`).
-4. **What's not verified** — be explicit if you couldn't actually run `bun run dev` (e.g. no Docker, no Foundry installed). Don't claim "it works" if you only ran `tsc`.
+4. **Verification trail — quote what you actually ran, in order.** Default framing is "I ran it and here's what happened," not "you should run this." For each step in [Verification](#verification--mandatory-incremental-stop-on-error), name the command, the exit code or key output (highest block height, contract address, test count), and any errors. Example: `bun install` → exit 0; `bun run build:evm` → `Erc1155DevModule#MCT_ERC1155` deployed to `0x5FbD…`; `bun run dev` → orchestrator booted, sync node at block 14, frontend responding at http://localhost:10599. If a step failed and you couldn't fix it, name the **exact** command and **exact** error verbatim, plus what you tried — don't paraphrase. Speculating "the tools are probably not installed" without checking is not an acceptable failure mode.
 5. **Next steps that the user must do** — e.g. fill in real RPC URLs for `config.mainnet.ts`, customize the grammar/STM for actual app logic (the scaffold ships with a placeholder `createRoom` example).
 
 ## Engine features to know about (don't reinvent these)

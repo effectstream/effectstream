@@ -9,6 +9,23 @@ Midnight is the trickiest chain to set up because every layer (compiler, runtime
 > - PRC-6 Midnight dApp integration (per-channel metrics + identity): `docs/site/docs/home/400-paima-standards/prc6.md` — relevant for any Midnight-template README.
 > - `PrimitiveTypeMidnightGeneric` + `ledgerSchema`: `docs/site/docs/home/100-components/118-primitives.md`
 
+## Tools (probe before scaffolding)
+
+Run this check before generating any Midnight template code:
+
+```sh
+which bun compact 2>&1
+```
+
+| Tool | Required for | If missing |
+|---|---|---|
+| `bun` | All Effectstream work | Stop — you can't build, run, or verify anything. Install Bun before continuing. |
+| `compact` (Midnight Compact compiler) | `bun run build:midnight` (compiles `.compact` to JS + zkir keys/verifiers) | Stop and tell the user before scaffolding. Install: `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh \| sh` then `compact update`. The compiler downloads a per-version backend (e.g. `0.30.0`), so the **first** `compact compile +X.Y.Z` may take longer than later runs. |
+
+Other Midnight binaries (`midnight-node`, `midnight-indexer`, `midnight-proof-server`) are NOT required as system tools — `launchMidnight` ships them via the `@effectstream/npm-midnight-*` packages and the orchestrator extracts them on first run.
+
+After confirming the tools are available, pin the **compiler version** in the contract package's `compact` script (e.g. `compact compile +0.30.0 …`) so a different default install doesn't silently produce mismatched output — see [Compact compiler ↔ runtime version alignment](#compact-compiler--runtime-version-alignment) below.
+
 ## Required `launchMidnight` package scripts
 
 The `packages/contracts-midnight/package.json` must expose:
