@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Effectstream (formerly Paima Engine) is a multi-chain blockchain application framework. It's a Bun-based monorepo with ~40+ publishable packages supporting EVM, Midnight, Bitcoin, Cardano, Avail, Celestia, and NEAR chains.
+Effectstream (formerly Paima Engine) is a multi-chain blockchain application framework. It's a Bun-based monorepo with 38 publishable packages. Full sync + batcher support: EVM, Midnight, Bitcoin, Cardano, Avail, Celestia, NEAR. Wallet-connect + signature-verify only (no L1 sync yet): Polkadot, Mina, Algorand.
 
 ## Common Commands
 
@@ -43,7 +43,7 @@ bun run build                # production build
 ### Workspace Layout
 
 - **`packages/effectstream-sdk/`** — Core SDK split into 10 modules: config, events, crypto, wallets, log, precompile, concise (type-safe schemas), chain-types, coroutine, utils
-- **`packages/node-sdk/`** — Runtime engine: db (PostgreSQL/PgLite), db-emulator (in-memory for tests), runtime, sm (state machine DSL), node (main entrypoint that re-exports everything)
+- **`packages/node-sdk/`** — Runtime engine: db (PostgreSQL/PgLite), db-emulator (in-memory for tests), events (MQTT broker / event server), runtime, sm (state machine DSL + builtin primitives), sync (per-chain fetchers + sync protocols), node (main entrypoint that re-exports everything)
 - **`packages/chains/`** — Per-chain smart contract interfaces: evm-contracts, evm-hardhat, bitcoin-contracts, cardano-contracts, midnight-contracts, avail-contracts
 - **`packages/binaries/`** — NPM-wrapped blockchain node binaries (midnight-node, bitcoin-core, near-sandbox, etc.)
 - **`packages/batcher/`** — Cross-chain transaction batching: core SDK, adapters, batch-data-builder, Fastify server
@@ -67,4 +67,4 @@ Packages use dual exports — `exports.bun` points to `.ts` source for developme
 
 ### Docs Site
 
-Located in `docs/site/`, uses Docusaurus 3 with Bun. Has a swizzled `src/theme/Mermaid/` component wrapping the default with `BrowserOnly` to fix SSG crashes. Content lives in `docs/site/docs/home/` with numbered directory prefixes for ordering. Supports English and Japanese locales.
+Located in `docs/site/`, uses Docusaurus 3 with Bun. Has a swizzled `src/theme/Mermaid/` component wrapping the default with `BrowserOnly` to fix SSG crashes. Content lives in `docs/site/docs/home/` with numbered directory prefixes for ordering. English-only (no `i18n/` directory).
