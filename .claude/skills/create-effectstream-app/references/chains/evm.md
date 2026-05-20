@@ -1,6 +1,6 @@
-# EVM Contracts
+# EVM
 
-`packages/contracts-evm/` holds Solidity sources, Hardhat config, deployment, and generated TypeScript bindings. **Compile (`bun run build:evm`) and verify before moving to the node package** — downstream packages depend on the generated ABIs and addresses.
+`packages/contracts-evm/` — Solidity sources, Hardhat config, deployment scripts, and generated TypeScript bindings. **Compile (`bun run build:evm`) and verify before moving to the node package** — downstream packages depend on the generated ABIs and addresses.
 
 > **See also (concept docs).**
 > - EVM chain overview + supported chains: `docs/site/docs/home/200-chains/201-evm.md`
@@ -24,22 +24,11 @@ Optional but commonly expected:
 - `anvil` / `cast` (ship with Foundry; you get them when `forge` is installed).
 - `hardhat` is provided as a dev dependency of `packages/contracts-evm/` — no system install needed.
 
-## Layout
+## Local dev environment
 
-```
-packages/contracts-evm/
-├── package.json                      # @my-template/contracts-evm
-├── hardhat.config.ts
-├── deploy.ts
-├── mod.ts                            # AUTO-GENERATED — do not edit
-├── build/                            # Generated artifacts (ABIs, addresses)
-├── src/contracts/
-│   └── MyEffectstreamL2.sol
-└── ignition/modules/
-    └── effectstreamL2.ts
-```
+`launchEvm` starts Hardhat as the local EVM node (port 8545), compiles the contracts, deploys them via Hardhat Ignition, and generates `mod.ts` with the deployed addresses.
 
-## Required npm scripts (driven by `launchEvm`)
+## Required `launchEvm` package scripts
 
 ```json
 {
@@ -56,11 +45,50 @@ packages/contracts-evm/
 }
 ```
 
-## `mod.ts` is auto-generated — do not hand-edit
+## Sync protocol + primitives
 
-The orchestrator's `generate-evm-mod` step (and `bun run build:evm`) writes `packages/contracts-evm/mod.ts`, which exports `contractAddressesEvmMain()` reading deployed addresses from `ignition/deployments/`. The generated file also re-exports from `./build/mod.ts` and `./build/contracts.ts` (ABI bindings when forge artifacts exist). Anything you put there manually will be overwritten.
+Sync protocol: `EVM_RPC_PARALLEL`.
 
-## Solidity contract — extend `EffectstreamL2Contract`
+| Primitive | Grammar | Use |
+|---|---|---|
+| `PrimitiveTypeEVMEffectstreamL2` | your custom grammar | **Opt-in.** Parses `effectstreamSubmitGameInput` calls on the L2 contract. See Sharp edges. |
+| `PrimitiveTypeEVMERC721` | `builtinGrammars.evmErc721` | ERC-721 Transfer events |
+| `PrimitiveTypeEVMERC20` | `builtinGrammars.evmErc20` | ERC-20 Transfer events |
+| `PrimitiveTypeEVMERC1155` | `builtinGrammars.evmErc1155` | ERC-1155 TransferSingle events |
+
+## Batcher adapters
+
+| Adapter | Batching criteria |
+|---|---|
+| `EffectstreamL2DefaultAdapter` | time, size, hybrid — for `effectstreamSubmitGameInput` payloads |
+| `EvmContractAdapter` | time, size, hybrid — for custom contract calls |
+
+## Orchestrator wiring
+
+```ts
+...launchEvm("@my-template/contracts-evm", { cwd: path.join(root, "packages/contracts-evm") }),
+
+{
+  name: "sync",
+  args: ["run", "packages/node/main.dev.ts"],
+  waitToExit: false,
+  type: "system-dependency",
+  env: { PGLITE: "true" },
+  dependsOn: [DbNames.PGLITE_WAIT, EvmNames.GENERATE_MOD],
+},
+```
+
+## Sharp edges
+
+### `PrimitiveTypeEVMEffectstreamL2` is opt-in — confirm with the user first
+
+`PrimitiveTypeEVMEffectstreamL2` is needed only when the template accepts **user-submitted inputs via custom grammar** (i.e. `effectstreamSubmitGameInput` on the L2 contract, or through the batcher which routes to it). It is an EVM-specific tool — a contract + scanner that lets users send arbitrary messages (concise/game inputs) to the backend.
+
+**Do not add it by default** — scanning an extra contract is expensive (one more RPC call per block, one more contract address to deploy and audit). Add it only when the template has standalone user actions that don't originate from events already emitted by other contracts (ERC-20 transfers, Midnight state changes, etc.).
+
+If you do need it, register it in `buildPrimitives` with `stateMachinePrefix: ""` pointing at the L2 contract address. **Without this primitive when it IS needed, the sync node silently ignores L2 inputs — no error, no crash, just empty results.** See `references/grammar-stm.md` §6 for the config example.
+
+### Solidity contract — extend `EffectstreamL2Contract`
 
 ```solidity
 // packages/contracts-evm/src/contracts/MyEffectstreamL2.sol
@@ -73,9 +101,9 @@ contract MyEffectstreamL2 is EffectstreamL2Contract {
 }
 ```
 
-Note: This contract was previously `PaimaL2Contract.sol` — the import path uses `EffectstreamL2Contract.sol` now.
+Note: previously named `PaimaL2Contract.sol` — update the import path.
 
-## Ignition module
+### Ignition module
 
 ```ts
 // packages/contracts-evm/ignition/modules/effectstreamL2.ts
@@ -89,7 +117,7 @@ export default buildModule("EffectstreamL2Module", (m) => {
 });
 ```
 
-## Hardhat config
+### Hardhat config
 
 ```ts
 // packages/contracts-evm/hardhat.config.ts
@@ -123,7 +151,9 @@ const config: HardhatUserConfig = createHardhatConfig({
 export default config;
 ```
 
-## Sharp edges
+### `mod.ts` is auto-generated — do not hand-edit
+
+The orchestrator's `generate-evm-mod` step (and `bun run build:evm`) writes `packages/contracts-evm/mod.ts`, which exports `contractAddressesEvmMain()` reading deployed addresses from `ignition/deployments/`. The generated file also re-exports from `./build/mod.ts` and `./build/contracts.ts` (ABI bindings when forge artifacts exist). Anything you put there manually will be overwritten.
 
 ### Forge build is required for TypeScript ABI generation
 
@@ -142,3 +172,22 @@ The `swap:remappings:*` scripts accept a `--depth` flag that controls how many `
 ```
 
 `bun run <package>` fails in Docker because the package bin entry isn't resolvable through Bun's `.bun/` cache. The dynamic import works everywhere.
+
+## Frontend / wallet integration
+
+EVM templates use the standard `@effectstream/wallets` integration: `EffectstreamConfig` + `walletLogin` + `sendTransaction`. Browser-injected wallets (MetaMask, etc.) sign payloads that go through the batcher → `effectstreamSubmitGameInput` → `PrimitiveTypeEVMEffectstreamL2` → STM. See `references/frontend.md` for the wiring.
+
+### Layout
+
+```
+packages/contracts-evm/
+├── package.json                      # @my-template/contracts-evm
+├── hardhat.config.ts
+├── deploy.ts
+├── mod.ts                            # AUTO-GENERATED — do not edit
+├── build/                            # Generated artifacts (ABIs, addresses)
+├── src/contracts/
+│   └── MyEffectstreamL2.sol
+└── ignition/modules/
+    └── effectstreamL2.ts
+```

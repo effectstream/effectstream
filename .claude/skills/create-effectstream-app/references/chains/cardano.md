@@ -1,33 +1,75 @@
-# Cardano Templates (YACI DevKit + Dolos)
+# Cardano
+
+`packages/contracts-cardano/` — Cardano dev environment config (YACI DevKit + Dolos) + scripts. No EVM-style contracts; logic typically lives in Plutus/Aiken scripts deployed via Lucid from the frontend.
 
 > **See also (concept docs).**
 > - Cardano chain overview + YACI / Dolos / browser wallets: `docs/site/docs/home/200-chains/203-cardano.md` (the doc has more detail than this file on per-primitive payload fields — cross-reference when documenting STM transitions)
 > - Per-package: `docs/site/docs/home/500-packages/530-chains/cardano-contracts.md`
 > - Five Cardano-specific primitives: `docs/site/docs/home/100-components/118-primitives.md` (Cardano section)
 
-Cardano local dev uses three services, started by `launchCardano`:
+## Tools (probe before scaffolding)
 
-1. **YACI DevKit** — local Cardano devnet with a faucet at `localhost:10000` and web UI at `localhost:8090`
-2. **Dolos** — lightweight Cardano node exposing UTxO-RPC (gRPC at `localhost:50051`) and a Blockfrost-compatible API at `localhost:3000`
-3. **cardano-submit-tx** — one-shot process that submits initial transactions (e.g., stake delegation to bootstrap the pool). **Filter this out in dev** — see below.
+(no extra system tools — `bun` is enough; YACI and Dolos are vendored through their `@effectstream/npm-*` packages)
 
-## Frontend uses Lucid Evolution (no batcher)
+## Local dev environment
 
-Cardano templates typically have **no batcher**: the frontend builds, signs, and submits transactions directly via Lucid. The node API is GET-only.
+`launchCardano` starts three services:
 
-Required packages:
-- `@lucid-evolution/lucid`
-- `@lucid-evolution/provider`
-- `@lucid-evolution/utils`
-- `@lucid-evolution/core-types`
+1. **YACI DevKit** — local Cardano devnet with a faucet at `localhost:10000` and a web UI at `localhost:8090`.
+2. **Dolos** — lightweight Cardano node exposing UTxO-RPC (gRPC at `localhost:50051`) and a Blockfrost-compatible API at `localhost:3000`.
+3. **cardano-submit-tx** — one-shot process that submits initial transactions (e.g. stake delegation to bootstrap the pool). **Filter this out in dev** — see Sharp edges.
 
-`Lucid.new()` connects to the Dolos Blockfrost provider at `http://localhost:3000`. For dev wallets, `generateSeedPhrase()` creates a new wallet; fund it via the YACI faucet.
+## Required `launchCardano` package scripts
 
-## YACI faucet field name is `adaAmount`
+- `yaci-devkit:start`, `yaci-devkit:wait`
+- `dolos:start`, `dolos:wait`, `dolos:fill-template`, `dolos:minibf-wait`
+- `cardano:submit-tx`
+
+## Sync protocol + primitives
+
+Sync protocol: `CARDANO_UTXORPC_PARALLEL` (via Dolos). Cardano-specific primitives (in addition to `PrimitiveTypeUtxorpcGeneric`):
+
+| Primitive | Fields | Use |
+|---|---|---|
+| `CardanoPoolDelegation` | `address` (staking cred hash), `pool` (pool keyhash), `epoch` | Stake delegation detection — eligibility, governance |
+| `CardanoMintBurn` | `policy`, `asset`, `quantity` | Native token mint/burn tracking |
+| `CardanoTransfer` | `address`, `amount`, ... | ADA/token transfers |
+| `CardanoDelayedAsset` | ... | Delayed asset claim tracking |
+| `CardanoProjectedNFT` | ... | Projected NFT state changes |
+
+## Batcher adapters
+
+(none — Cardano templates typically submit transactions directly from the browser via Lucid; the node API stays GET-only)
+
+## Orchestrator wiring
+
+```ts
+...launchCardano("@my-template/contracts-cardano", {
+  cwd: path.join(root, "packages/contracts-cardano"),
+}).filter((p) => p.name !== CardanoNames.CARDANO_SUBMIT_TX),
+
+{
+  name: "sync",
+  dependsOn: [
+    DbNames.PGLITE_WAIT,
+    EvmNames.GENERATE_MOD,
+    // CardanoNames.CARDANO_SUBMIT_TX,  // removed in dev — see Sharp edges
+    CardanoNames.DOLOS_MINIBF_WAIT,
+  ],
+},
+```
+
+## Sharp edges
+
+### Filter `CARDANO_SUBMIT_TX` in dev
+
+`launchCardano()` always returns a `CARDANO_SUBMIT_TX` process that submits an initial stake-pool delegation. In dev with a frontend-driven faucet (Faucet button calling YACI), this generates unwanted delegation events in the DB. Filter it out as shown in **Orchestrator wiring** above. Keep `CARDANO_SUBMIT_TX` in `start.test.ts` if tests need a pre-funded wallet.
+
+### YACI faucet field name is `adaAmount`
 
 The topup endpoint at `POST http://localhost:10000/local-cluster/api/addresses/topup` expects `{ address, adaAmount }`, NOT `{ address, amount }`. Wrong field name returns HTTP 400. Topups take ~5 seconds to produce UTxOs.
 
-## Lucid provider overrides for YACI+Dolos
+### Lucid provider overrides for YACI+Dolos
 
 Dolos does NOT support tx evaluation (`evaluateTx`), and YACI's submit endpoint requires `application/cbor`. Override both on the Blockfrost provider:
 
@@ -53,7 +95,7 @@ provider.submitTx = async (tx: string): Promise<string> => {
 };
 ```
 
-## YACI POSIX vs wall-clock time mismatch
+### YACI POSIX vs wall-clock time mismatch
 
 `genesis.systemStart` (used for on-chain POSIX time via Shelley genesis) differs from `devnet.startTime` (used for Lucid's `SLOT_CONFIG_NETWORK["Custom"].zeroTime`). The offset (often hours) must be subtracted from on-chain POSIX values when comparing to `Date.now()`:
 
@@ -64,26 +106,6 @@ const wallClockMs = cardanoPosixMs - epochOffset;
 
 Failing this causes time-lock comparisons (e.g. `canClaim`) to never become true.
 
-## YACI genesis pool
-
-YACI DevKit creates one genesis stake pool:
-- Pool hash: `7301761068762f5900bde9eb7c1c15b09840285130f5b0f53606cc57`
-- Bech32: `pool1wvqhvyrgwch4jq9aa84hc8q4kzvyq2z3xr6mpafkqmx9wce39zy`
-
-Use this pool for delegation tests. The `cardanoPoolDelegation` primitive detects delegations to it via UTxO-RPC cert scanning.
-
-## Five Cardano primitives
-
-All use `CARDANO_UTXORPC_PARALLEL` sync protocol via Dolos:
-
-| Primitive | Fields | Use |
-|---|---|---|
-| `CardanoPoolDelegation` | `address` (staking cred hash), `pool` (pool keyhash), `epoch` | Stake delegation detection — eligibility, governance |
-| `CardanoMintBurn` | `policy`, `asset`, `quantity` | Native token mint/burn tracking |
-| `CardanoTransfer` | `address`, `amount`, ... | ADA/token transfers |
-| `CardanoDelayedAsset` | ... | Delayed asset claim tracking |
-| `CardanoProjectedNFT` | ... | Projected NFT state changes |
-
 ### `cardanoPoolDelegation` carries no ADA amount
 
 Delegation certificates emit `{ address, pool, epoch }` only — they do not include delegated ADA. To get the amount, query the wallet's UTxO balance separately (`lucid.utxosAt(address)` or Blockfrost).
@@ -92,24 +114,24 @@ Delegation certificates emit `{ address, pool, epoch }` only — they do not inc
 
 Each lock event is inserted twice (once for UTxO consumed, once for UTxO produced). Frontends querying `cardano_projected_nft` must deduplicate by `(current_tx_id, current_output_index, status)`.
 
-## BUG: filter `CARDANO_SUBMIT_TX` in dev
+### YACI genesis pool (for delegation tests)
 
-`launchCardano()` always returns a `CARDANO_SUBMIT_TX` process that submits an initial stake-pool delegation. In dev with a frontend-driven faucet (Faucet button calling YACI), this generates unwanted delegation events in the DB. Filter it out:
+YACI DevKit creates one genesis stake pool:
+- Pool hash: `7301761068762f5900bde9eb7c1c15b09840285130f5b0f53606cc57`
+- Bech32: `pool1wvqhvyrgwch4jq9aa84hc8q4kzvyq2z3xr6mpafkqmx9wce39zy`
 
-```ts
-...launchCardano("@my-template/contracts-cardano", {
-  cwd: path.join(root, "packages/contracts-cardano"),
-}).filter((p) => p.name !== CardanoNames.CARDANO_SUBMIT_TX),
+Use this pool for delegation tests. The `cardanoPoolDelegation` primitive detects delegations to it via UTxO-RPC cert scanning.
 
-{
-  name: "sync",
-  dependsOn: [
-    DbNames.PGLITE_WAIT,
-    EvmNames.GENERATE_MOD,
-    // CardanoNames.CARDANO_SUBMIT_TX,  // removed in dev
-    CardanoNames.DOLOS_MINIBF_WAIT,
-  ],
-},
-```
+## Frontend / wallet integration
 
-Keep `CARDANO_SUBMIT_TX` in `start.test.ts` if tests need pre-funded wallets.
+Cardano templates typically have **no batcher** — the frontend builds, signs, and submits transactions directly via Lucid Evolution. The node API is GET-only.
+
+Required packages:
+- `@lucid-evolution/lucid`
+- `@lucid-evolution/provider`
+- `@lucid-evolution/utils`
+- `@lucid-evolution/core-types`
+
+`Lucid.new()` connects to the Dolos Blockfrost provider at `http://localhost:3000`. For dev wallets, `generateSeedPhrase()` creates a new wallet; fund it via the YACI faucet (`{ address, adaAmount }` — see Sharp edges).
+
+The Fastify static server must include proxies for `/api/*` (engine), `/yaci/*`, `/dolos/*` and a CBOR content-type parser — see `references/frontend.md` for the canonical setup.

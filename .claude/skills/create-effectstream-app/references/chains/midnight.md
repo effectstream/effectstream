@@ -1,6 +1,8 @@
-# Midnight Contracts
+# Midnight
 
-Midnight is the trickiest chain to set up because every layer (compiler, runtime, JS SDK, ledger, wallet SDK, node Docker image) has tightly-coupled version requirements. Most "weird Midnight errors" trace back to version drift.
+`packages/contracts-midnight/` — Midnight Compact contracts + deploy scripts. The compiled contract lives in a nested subpackage (e.g. `packages/contracts-midnight/contract-round-value/`) that must be declared explicitly in the root `workspaces` array (see Sharp edges).
+
+Midnight is the trickiest chain to set up because every layer (compiler, runtime, JS SDK, ledger, wallet SDK, node Docker image) has tightly-coupled version requirements. Most "weird Midnight errors" trace back to version drift — read the **Compatibility matrix** below before changing any `@midnight-ntwrk/*` version.
 
 > **See also (concept docs).**
 > - Midnight chain overview, indexer + proof-server architecture: `docs/site/docs/home/200-chains/202-midnight.md`
@@ -24,7 +26,11 @@ which bun compact 2>&1
 
 Other Midnight binaries (`midnight-node`, `midnight-indexer`, `midnight-proof-server`) are NOT required as system tools — `launchMidnight` ships them via the `@effectstream/npm-midnight-*` packages and the orchestrator extracts them on first run.
 
-After confirming the tools are available, pin the **compiler version** in the contract package's `compact` script (e.g. `compact compile +0.30.0 …`) so a different default install doesn't silently produce mismatched output — see [Compact compiler ↔ runtime version alignment](#compact-compiler--runtime-version-alignment) below.
+After confirming the tools are available, pin the **compiler version** in the contract package's `compact` script (e.g. `compact compile +0.30.0 …`) so a different default install doesn't silently produce mismatched output — see Sharp edges → **Compact compiler ↔ runtime version alignment**.
+
+## Local dev environment
+
+`launchMidnight` starts three services: the Midnight node, the GraphQL indexer (port 8088), and the proof server (port 6300). All three are slow to come up compared to EVM Hardhat — expect tens of seconds for Phase A tests.
 
 ## Required `launchMidnight` package scripts
 
@@ -35,37 +41,43 @@ The `packages/contracts-midnight/package.json` must expose:
 - `midnight-proof-server:start`, `midnight-proof-server:wait`
 - `midnight-contract:deploy`
 
-## Use direct paths, not `bunx`
+## Sync protocol + primitives
 
-`bunx @effectstream/npm-midnight-node` may fail to resolve the binary. Use direct paths:
+Sync protocol: `MIDNIGHT_PARALLEL`.
 
-```json
-"midnight-node:start": "bun ./node_modules/.bin/npm-midnight-node --port 30333"
-```
+| Primitive | Grammar | Use |
+|---|---|---|
+| `PrimitiveTypeMidnightGeneric` | `builtinGrammars.midnightGeneric` | Read Midnight ledger contract state (raw or schema-decoded) |
+| `PrimitiveTypeMidnightNullifier` | — | Track nullifiers without owning the contract |
 
-Same for `npm-midnight-indexer` and `npm-midnight-proof-server`.
+## Batcher adapters
 
-## `--port 30333` is required for `midnight-node:start`
+| Adapter | Batching criteria |
+|---|---|
+| `MidnightAdapter` | size (typically 1) — Midnight tx submission carries ZK proofs |
 
-Without an explicit P2P port the node may crash. Set `--port 30333` in the start script.
-
-## `MIDNIGHT_STORAGE_PASSWORD` is required
-
-The Midnight node and deploy script both need `MIDNIGHT_STORAGE_PASSWORD`. Pass via `launchMidnight`'s `opts.env`:
+## Orchestrator wiring
 
 ```ts
-launchMidnight(
+...launchMidnight(
   "@my-template/contracts-midnight",
   { cwd: path.join(root, "packages/contracts-midnight") },
   { env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" } },
-)
+),
+
+{
+  name: "sync",
+  // ...
+  dependsOn: [
+    DbNames.PGLITE_WAIT,
+    MidnightNames.CONTRACT_DEPLOY,
+  ],
+},
 ```
 
-### Password complexity rules
+## Sharp edges
 
-`@midnight-ntwrk/midnight-js-level-private-state-provider` validates the password — must contain **at least 3 of**: uppercase letters, lowercase letters, digits, special characters. `yourpasswordmypassword` fails. Use `YourPasswordMy1!` or similar.
-
-## Compact compiler ↔ runtime version alignment
+### Compact compiler ↔ runtime version alignment
 
 The Compact compiler version (set in `compact compile +X.Y.Z`) determines the output format. The `compact-runtime` npm dep MUST match. If the `compact-js` SDK expects `provableCircuits` (added in runtime `0.15.0`), older compiler output (e.g. `0.11.0`) fails at deploy with:
 
@@ -75,7 +87,7 @@ undefined is not an object (evaluating 'Object.keys(contract.provableCircuits)')
 
 Pin to exact versions from the compatibility matrix below. **No `^` or `~` ranges anywhere in `@midnight-ntwrk/*` dependencies.**
 
-## Midnight SDK compatibility matrix (as of 2026-04-07)
+### Midnight SDK compatibility matrix (as of 2026-04-07)
 
 All `@midnight-ntwrk/*` packages must come from the same compatibility set. Always check the official matrix before bumping any version: https://github.com/midnightntwrk/midnight-sdk/blob/main/COMPATIBILITY.md
 
@@ -105,7 +117,35 @@ All `@midnight-ntwrk/*` packages must come from the same compatibility set. Alwa
 
 Mismatched versions produce errors like "Failed to decode ledger event payload", "Could not deserialize Ledger Event", or `provableCircuits is undefined`.
 
-## Nested workspace for compiled contract
+### Use direct paths, not `bunx`
+
+`bunx @effectstream/npm-midnight-node` may fail to resolve the binary. Use direct paths:
+
+```json
+"midnight-node:start": "bun ./node_modules/.bin/npm-midnight-node --port 30333"
+```
+
+Same for `npm-midnight-indexer` and `npm-midnight-proof-server`.
+
+### `--port 30333` is required for `midnight-node:start`
+
+Without an explicit P2P port the node may crash. Set `--port 30333` in the start script.
+
+### `MIDNIGHT_STORAGE_PASSWORD` is required + 3-of-4 complexity
+
+The Midnight node and deploy script both need `MIDNIGHT_STORAGE_PASSWORD`. Pass via `launchMidnight`'s `opts.env`:
+
+```ts
+launchMidnight(
+  "@my-template/contracts-midnight",
+  { cwd: path.join(root, "packages/contracts-midnight") },
+  { env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" } },
+)
+```
+
+`@midnight-ntwrk/midnight-js-level-private-state-provider` validates the password — must contain **at least 3 of**: uppercase letters, lowercase letters, digits, special characters. `yourpasswordmypassword` fails. Use `YourPasswordMy1!` or similar.
+
+### Nested workspace for compiled contract
 
 Midnight Compact contracts compile into `src/managed/`. The contract subpackage must stay a separate workspace. List it explicitly in the root `package.json` because `packages/*` doesn't recurse:
 
@@ -116,17 +156,17 @@ Midnight Compact contracts compile into `src/managed/`. The contract subpackage 
 ]
 ```
 
-## Compact Map iteration
+### Compact `Map<K, V>` iteration
 
 Compact's `Map<K, V>` compiles to JavaScript objects with `member()`, `lookup()`, `isEmpty()`, `size()`, and `[Symbol.iterator]()` methods — but `Object.entries()` / `Object.keys()` return the method names, NOT the map data. When accessing Map data in STM handlers, iterate via `[Symbol.iterator]()` or use `member(key)` + `lookup(key)`.
 
-When serializing Compact state to JSON (e.g., `MidnightGenericPrimitive`'s `makeJsonSafe()` pipeline), detect and iterate Maps explicitly — `JSON.stringify` will drop function values silently, producing `{}`.
+When serializing Compact state to JSON (e.g. `MidnightGenericPrimitive`'s `makeJsonSafe()` pipeline), detect and iterate Maps explicitly — `JSON.stringify` will drop function values silently, producing `{}`.
 
-## `MidnightGenericPrimitive`'s `ledgerSchema` option
+### `MidnightGenericPrimitive`'s `ledgerSchema` option
 
 The `MidnightGenericPrimitive` accepts an optional `ledgerSchema` mapping Compact ledger field names to types (`uint8`–`uint128`, `bytes`, `boolean`, `option`, `map`). When provided, the primitive parses raw `StateValue` arrays into named fields. Schema keys must be in **Compact declaration order** — the parser maps each key to the corresponding positional index. Without `ledgerSchema`, the raw `payload` object is passed through (after `makeJsonSafe` serialization).
 
-## Deploy import path
+### Deploy import path
 
 ```ts
 import { deployMidnightContract } from "@effectstream/midnight-contracts/deploy";
@@ -135,7 +175,7 @@ import type { DeployConfig } from "@effectstream/midnight-contracts/types";
 
 Not `./deploy-ledger6` or other legacy names.
 
-## WASM runtime workaround
+### WASM runtime import order
 
 `@midnight-ntwrk/onchain-runtime` MUST be imported **at the top of `main.ts` before any other Midnight imports** — otherwise the WASM module fails to initialize at runtime.
 
@@ -147,16 +187,22 @@ if (!isEnvTrue("DISABLE_MIDNIGHT")) {
 }
 ```
 
-## `DISABLE_MIDNIGHT` dynamic-import pattern
+### `DISABLE_MIDNIGHT` dynamic-import pattern
 
 Multi-chain templates should support running without optional toolchains. Any top-level import from a Midnight package (contract types, SDK modules) will fail if the Compact compiler output (`managed/`) doesn't exist. Convert to dynamic imports — see `references/multi-env.md` for the full pattern.
 
-### Managed-directory stubs for `DISABLE_MIDNIGHT` mode
-
-The Midnight contract package's `_index.ts` re-exports from `./managed/contract/index.js`. For the frontend to build without the compiler:
+Managed-directory stubs for `DISABLE_MIDNIGHT` mode: the Midnight contract package's `_index.ts` re-exports from `./managed/contract/index.js`. For the frontend to build without the compiler:
 
 - `src/managed/contract/index.js` — minimal `Contract` class + `ledger` function that throw "not compiled" errors
 - `src/managed/contract/index.d.ts` — type stubs matching the generated interface
 - `src/managed/keys/.gitkeep` and `src/managed/zkir/.gitkeep` — empty directories for `viteStaticCopy`
 
 These are overwritten when `bun run build:midnight` runs the real Compact compiler.
+
+### Midnight indexer/contract timing gates in tests
+
+The indexer's GraphQL endpoint on port 8088 takes significantly longer to come up than EVM's Hardhat on 8545. In `packages/tests/run-tests.ts`, wait for `midnight-indexer-wait` (waitForExit) **before** `chainReadyTest()`. After `deployTest()`, wait for `midnight-contract` (timeout ≥600s) **before** Phase B — Midnight Compact deployment is much slower than EVM Hardhat Ignition. See `references/tests.md`.
+
+## Frontend / wallet integration
+
+Midnight wallet integration uses `@midnight-ntwrk/dapp-connector-api` against the Lace Midnight wallet extension. The frontend builds and signs Compact contract calls in the browser; the engine indexes resulting on-chain state via `PrimitiveTypeMidnightGeneric`. Frontend Vite config needs the `stream/web` shim and `node-fetch` aliasing — see `references/frontend.md` for the canonical setup. When the template ships in `DISABLE_MIDNIGHT=true` mode (e.g. for CI runs without the Compact compiler), the managed-dir stubs above let `vite build` succeed.
