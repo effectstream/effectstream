@@ -95,7 +95,7 @@ Snapshots:
 Dynamic table / event helpers:
 
 - `createDynamicTables` registers tables a primitive wants to own.
-- `createIndexesForEvents` and `registerEventHandlers` register pgtyped indexes for app events.
+- `createIndexesForEvents` creates pgtyped indexes for app events; `registerEventTypes` records each event's topic/name in the database.
 
 Subpath entry points (executable scripts):
 

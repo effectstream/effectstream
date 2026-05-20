@@ -330,11 +330,7 @@ export const grammar = {
     ["playerId", Type.Integer()],
     ["moveId", Type.Integer()],
   ],
-
-  // Auto-generate other primitives
-  ...Object.fromEntries(
-    Object.entries(mapPrimitivesToGrammar(localhostConfig.primitives))
-  ),
+  // Add one entry per on-chain event you want to route to an STF.
 } as const satisfies GrammarDefinition;
 ```
 
