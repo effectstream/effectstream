@@ -36,21 +36,27 @@ This package **owns the node's process model**. You don't pick parts of
 it; you call `init()` once at boot and then `start(config)`. The config
 brings together everything else:
 
+`init()` and `start()` are Effection operations, so they must be
+yielded inside an Effection `main()`:
+
 ```typescript
+import { main } from "effection";
 import { init, start } from "@effectstream/runtime";
 import { Stm } from "@effectstream/sm";
 import { config } from "./config.dev.ts";
 
-await init();
+await main(function* () {
+  yield* init();
 
-const gameStm = new Stm(grammar);
-gameStm.addStateTransition("join", function* () { /* ... */ });
+  const gameStm = new Stm(grammar);
+  gameStm.addStateTransition("join", function* () { /* ... */ });
 
-await start({
-  config,
-  gameStateTransitions: [gameStm],
-  apiRouter: undefined,           // optional Fastify route plugin
-  dbMigrations: [],               // SQL migrations
+  yield* start({
+    config,
+    gameStateTransitions: [gameStm],
+    apiRouter: undefined,           // optional Fastify route plugin
+    migrations: [],                 // SQL migrations
+  });
 });
 ```
 

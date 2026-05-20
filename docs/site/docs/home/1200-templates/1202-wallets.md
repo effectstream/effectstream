@@ -1,6 +1,6 @@
 # Web Wallets
 
-*   Location: `/e2e/e2e-wallets/`
+*   Location: `/e2e/wallets-ui/`
 *   Highlights: A comprehensive example frontend to use the `@effectstream/wallets` library, demonstrating multi-chain wallet connections and different transaction submission methods.
 
 The Wallets Demo is a developer tool and an interactive example that showcases how to integrate various blockchain wallets into a EffectStream dApp. It provides a clear, hands-on demonstration of connecting to different chains, signing messages, and submitting transactions, serving as a practical guide for developers.
