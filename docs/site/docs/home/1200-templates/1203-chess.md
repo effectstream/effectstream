@@ -47,8 +47,8 @@ The chess template uses a `EffectStream L2 Contract` on the EVM chain. This cont
 EffectStream monitors the `EffectStreamGameInteraction` event from this contract to receive and process player inputs.
 
 ```solidity
-// Simplified example of what the EffectStreamL2Contract does
-contract EffectStreamL2 {
+// Simplified example of what the EffectstreamL2Contract does
+contract EffectstreamL2 {
     event EffectStreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
 
     function submitInput(bytes calldata input) external payable {

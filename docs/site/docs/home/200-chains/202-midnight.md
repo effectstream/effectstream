@@ -130,7 +130,7 @@ Writing to Midnight involves proving and submitting ZK circuits. EffectStream pr
 The `MidnightAdapter` manages the ZK proof generation (via a proof server) and transaction submission.
 
 ```ts
-import { MidnightAdapter } from "@effectstream/batcher";
+import { MidnightAdapter } from "@effectstream/batcher-sdk";
 
 const midnightAdapter = new MidnightAdapter(
   contractAddress,

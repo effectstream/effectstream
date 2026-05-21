@@ -140,8 +140,8 @@ The world-map-2d template uses a `EffectStream L2 Contract` deployed on the loca
 The contract is deployed at `0x5FbDB2315678afecb367f032d93F642f64180aa3` (local Hardhat deployment).
 
 ```solidity
-// Simplified example of what the EffectStreamL2Contract does
-contract EffectStreamL2 {
+// Simplified example of what the EffectstreamL2Contract does
+contract EffectstreamL2 {
     event EffectStreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
 
     function submitInput(bytes calldata input) external payable {

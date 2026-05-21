@@ -103,8 +103,8 @@ When you run `bun run dev`, the [Process Orchestrator](../100-components/106-pro
 The template uses a `EffectStream L2 Contract` deployed on the local EVM chain at `0x5FbDB2315678afecb367f032d93F642f64180aa3`. Players submit formatted input strings, and EffectStream processes them to update game state.
 
 ```solidity
-// The EffectStreamL2Contract acts as an input mailbox
-contract EffectStreamL2 {
+// The EffectstreamL2Contract acts as an input mailbox
+contract EffectstreamL2 {
     event EffectStreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
 
     function submitInput(bytes calldata input) external payable {

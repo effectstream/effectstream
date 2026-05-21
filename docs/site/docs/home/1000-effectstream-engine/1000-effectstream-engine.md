@@ -24,7 +24,7 @@ EffectStream is distributed through `NPM` packages.
 *  @effectstream/npm-midnight-proof-server  
     A wrapper for the Midnight proof server binary.
 
-*  @effectstream/batcher  
+*  @effectstream/batcher-sdk  
     HTTP service to collect and submit user inputs, replacing the need for manually sending input to the blockchain EffectStream L2 contract.
 
 *  @effectstream/chain-types  
