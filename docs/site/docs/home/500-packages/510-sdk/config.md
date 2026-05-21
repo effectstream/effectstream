@@ -6,12 +6,17 @@ sidebar_label: "config"
 
 <!-- Generated from packages/effectstream-sdk/config/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/config`](https://www.npmjs.com/package/@effectstream/config)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/config)
+> Package: **[`@effectstream/config`](https://www.npmjs.com/package/@effectstream/config)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/config)
 
 Type-safe configuration builders for EffectStream nodes — networks, deployed
 contract addresses, sync protocols, primitives, and security namespaces. A
 fluent API with strict TypeScript inference: each builder step refines the
 type of what comes next, so misuse fails at compile time.
+
+- Fluent, type-safe configuration builders for Effectstream nodes.
+- Strict inference: each step refines the type of what comes next, so misuse is a compile error.
+- Used by every template's `packages/node/config.dev.ts`.
+- Covers networks, deployed contract addresses, sync protocols, primitives, security namespaces.
 
 ## Install
 
@@ -57,7 +62,7 @@ running a full node.
 
 `config` is what every node component reads to find out which chains to
 sync from, where contracts live, and what primitives to emit. The
-templates under [`templates/*`](https://github.com/PaimaStudios/paima-engine/tree/main/templates)
+templates under [`templates/*`](https://github.com/effectstream/effectstream/tree/main/templates)
 all define their config with `ConfigBuilder` in `packages/node/config.dev.ts`.
 
 ## Key exports
@@ -82,13 +87,13 @@ and aren't typically imported by app code.
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/config/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/config/test/examples.test.ts).
 
 Real-world usage in templates:
-- [`templates/preorder/packages/node/config.dev.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/templates/preorder/packages/node/config.dev.ts)
-- [`templates/evm-cardano/packages/node/config.dev.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/templates/evm-cardano/packages/node/config.dev.ts)
+- [`templates/preorder/packages/node/config.dev.ts`](https://github.com/effectstream/effectstream/blob/main/templates/preorder/packages/node/config.dev.ts)
+- [`templates/evm-cardano/packages/node/config.dev.ts`](https://github.com/effectstream/effectstream/blob/main/templates/evm-cardano/packages/node/config.dev.ts)
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/config
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/config
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/config

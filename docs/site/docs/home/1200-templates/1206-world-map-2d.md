@@ -1,3 +1,7 @@
+---
+draft: true
+---
+
 # World Map 2D (Open World Game)
 
 * **Path**: `/templates/world-map-2d`
@@ -28,13 +32,10 @@ This template serves as a foundation for:
 
 ```sh
 # Install dependencies
-deno install --allow-scripts && ./patch.sh
+bun i
 
-# Build EVM contracts
-deno task build:evm
-
-# Start the EffectStream Node
-deno task dev
+# Start the EffectStream Node (compiles contracts and starts the full local stack)
+bun run dev
 ```
 
 ### Frontend Setup
@@ -43,14 +44,14 @@ In a separate terminal:
 
 ```sh
 cd packages/frontend
-npm install
-node esbuild.js      # Build the frontend bundle
-npx http-server .    # Serve on http://127.0.0.1:8080
+bun i
+bun run build       # Build the frontend bundle
+bun run serve       # Serve on http://127.0.0.1:8080
 ```
 
-Or use the Deno task:
+Or from the repository root:
 ```sh
-deno task -f @world-map-2d/frontend dev
+bun run --cwd packages/frontend dev
 ```
 
 Then open http://127.0.0.1:8080 in your browser.
@@ -84,7 +85,7 @@ docker build -t world-map-2d-sample -f Dockerfile .
 ```
 
 This will:
-- Install all dependencies (Deno, Node.js, Foundry)
+- Install all dependencies (Bun, Node.js, Foundry)
 - Build the EVM contracts
 - Build the frontend bundle
 - Set up the launch script
@@ -126,7 +127,7 @@ docker run --rm world-map-2d-sample ls -la /app/packages/frontend/
 
 ## The Components in Action
 
-When you run `deno task dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
+When you run `bun run dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
 *   **Hardhat EVM Node**: A local EVM blockchain running on port 8545.
 *   **Development Services**: The development database, log collector, TUI, and the Explorer.
 *   **EffectStream Node**: Backend service on port 9999 to sync the chain and process game logic.

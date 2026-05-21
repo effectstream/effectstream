@@ -6,12 +6,17 @@ sidebar_label: "db-emulator"
 
 <!-- Generated from packages/node-sdk/db-emulator/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/db-emulator`](https://www.npmjs.com/package/@effectstream/db-emulator)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db-emulator)
+> Package: **[`@effectstream/db-emulator`](https://www.npmjs.com/package/@effectstream/db-emulator)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/db-emulator)
 
 A standalone migration runner for EffectStream's database. Apply the
 EffectStream system schema plus your migrations to a Postgres or PgLite
 instance without booting the full runtime — handy for unit tests and CI
 fixtures.
+
+- Standalone migration runner: apply Effectstream's system schema + your migrations to a fresh DB.
+- For tests and CI fixtures; do not point at a production database.
+- Exists separately from `@effectstream/db` to break a circular dep with `@effectstream/sm`.
+- Single export: `standAloneApplyMigrations`.
 
 ## Install
 
@@ -62,7 +67,7 @@ write.
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/db-emulator/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/db-emulator/test/examples.test.ts).
 
 For the broader migration pattern, see
 `templates/*/packages/client/database/sql-to-ts.ts`.
@@ -70,4 +75,4 @@ For the broader migration pattern, see
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/db-emulator
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db-emulator
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/db-emulator

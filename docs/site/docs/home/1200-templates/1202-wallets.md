@@ -1,6 +1,6 @@
 # Web Wallets
 
-*   Location: `/e2e/e2e-wallets/`
+*   Location: `/e2e/wallets-ui/`
 *   Highlights: A comprehensive example frontend to use the `@effectstream/wallets` library, demonstrating multi-chain wallet connections and different transaction submission methods.
 
 The Wallets Demo is a developer tool and an interactive example that showcases how to integrate various blockchain wallets into a EffectStream dApp. It provides a clear, hands-on demonstration of connecting to different chains, signing messages, and submitting transactions, serving as a practical guide for developers.
@@ -27,15 +27,15 @@ This demo is an essential resource for any developer looking to build a multi-ch
 
 (TODO move to own template)
 ```
-deno install --allow-scripts && ./patch.sh
-deno task -f @e2e/evm-contracts build
-deno task -f @e2e/evm-contracts deploy:standalone
-deno task -f @e2e/midnight-contracts midnight-contract:compile
-deno task -f @e2e/node dev
+bun i
+bun run --cwd e2e/shared/contracts/evm build
+bun run --cwd e2e/shared/contracts/evm deploy:standalone
+bun run --cwd e2e/shared/contracts/midnight midnight-contract:compile
+bun run --cwd e2e/evm dev
 ```
 In another terminal, run the demo:
 ```
-deno task -f @e2e/wallets-ui dev
+bun run --cwd e2e/wallets-ui dev
 ```
 
 ## The Components in Action

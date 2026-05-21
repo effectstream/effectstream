@@ -1,4 +1,4 @@
 ```
-deno install --allow-scripts
-deno task start
+bun i
+bun run start
 ```

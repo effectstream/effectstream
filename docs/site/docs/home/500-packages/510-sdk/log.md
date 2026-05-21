@@ -6,12 +6,17 @@ sidebar_label: "log"
 
 <!-- Generated from packages/effectstream-sdk/log/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/log`](https://www.npmjs.com/package/@effectstream/log)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/log)
+> Package: **[`@effectstream/log`](https://www.npmjs.com/package/@effectstream/log)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/log)
 
 OpenTelemetry-instrumented structured logging for EffectStream. Wraps
 `tslog` and the OpenTelemetry SDK behind a single `log` object that emits
 both pretty console output (`log.local`) and OTLP traces/logs to your
 collector (`log.remote`).
+
+- OpenTelemetry-instrumented structured logging on top of `tslog`.
+- Pretty console output and OTLP traces / logs from one `log` object.
+- Used by every package in the framework so the node emits one trace tree.
+- `ComponentNames` constants tag log records by component, powering per-component log views.
 
 ## Install
 
@@ -70,22 +75,22 @@ powers the orchestrator's per-component log views.
 
 ## Key exports
 
-- `log.local(component, namespace, level, deferred)` — console-only logging. `level` is `SeverityNumber`; `deferred = (l) => l(...args)` is called only if the level passes the filter.
-- `log.localForce(...)` — bypasses level filtering.
-- `log.remote(...)` — console + OpenTelemetry log record. Same signature as `local`.
-- `log.remoteForce(...)` — `remote` without level filtering.
+- `log.local(component, namespace, level, deferred)`: console-only logging. `level` is `SeverityNumber`; `deferred = (l) => l(...args)` is called only if the level passes the filter.
+- `log.localForce(...)` bypasses level filtering.
+- `log.remote(...)`: console + OpenTelemetry log record. Same signature as `local`.
+- `log.remoteForce(...)` is `remote` without level filtering.
 - `log.formatMessage(...)` — the formatter used internally; useful for custom transports.
-- `defaultOtelSetup(opts)` — one-call OpenTelemetry SDK setup with sensible defaults.
-- `attachTransport(transport)` — register a custom tslog transport (e.g. ship logs to a file).
-- `SeverityNumber` — re-export of OpenTelemetry severity levels.
-- `ComponentNames` — string-enum constants used to tag logs by component.
-- `Namespace` — `string | string[]` for log namespacing.
+- `defaultOtelSetup(opts)`: one-call OpenTelemetry SDK setup with sensible defaults.
+- `attachTransport(transport)` registers a custom tslog transport (e.g. ship logs to a file).
+- `SeverityNumber`: re-export of OpenTelemetry severity levels.
+- `ComponentNames`: string-enum constants used to tag logs by component.
+- `Namespace`: `string | string[]` for log namespacing.
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/log/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/log/test/examples.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/log
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/log
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/log

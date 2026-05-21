@@ -6,7 +6,7 @@ sidebar_label: "frontend-sdk"
 
 <!-- Generated from packages/frontend/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/frontend-sdk`](https://www.npmjs.com/package/@effectstream/frontend-sdk)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/frontend)
+> Package: **[`@effectstream/frontend-sdk`](https://www.npmjs.com/package/@effectstream/frontend-sdk)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/frontend)
 
 Umbrella name for EffectStream's frontend code. Currently re-exports
 everything from `@effectstream/wallets`. Depend on this if you want a
@@ -73,13 +73,13 @@ from `@effectstream/wallets` directly.
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/frontend/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/frontend/test/examples.test.ts).
 
 Real-world: every frontend in
-[`templates/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates)
+[`templates/`](https://github.com/effectstream/effectstream/tree/main/templates)
 demonstrates the same surface.
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/tools/frontend-sdk
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/frontend
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/frontend

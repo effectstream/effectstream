@@ -2,7 +2,7 @@
 
 > This section is intended for developers who require advanced knowledge about the engine or plan to contribute to `EffectStream`
 
-EffectStream is distributed for `deno` through `NPM` and `JSR` packages
+EffectStream is distributed through `NPM` packages.
 
 ## NPM Packages:
 
@@ -24,7 +24,6 @@ EffectStream is distributed for `deno` through `NPM` and `JSR` packages
 *  @effectstream/npm-midnight-proof-server  
     A wrapper for the Midnight proof server binary.
 
-## JSR Packages:
 *  @effectstream/batcher  
     HTTP service to collect and submit user inputs, replacing the need for manually sending input to the blockchain EffectStream L2 contract.
 

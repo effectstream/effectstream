@@ -121,17 +121,16 @@ processesToLaunch: [
 ]
 ```
 
-> NOTE: To use this launcher you need to implement some `deno task` in your project. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
+> NOTE: To use this launcher you need to implement some scripts in your project's `package.json`. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
 
 ```json
 {
   "name": "@e2e/avail-contracts",
-  ...
-  "tasks": {
-    "avail-node:start": "deno run -A --unstable-detect-cjs @effectstream/npm-avail-node --dev --rpc-port 9955 --no-telemetry",
+  "scripts": {
+    "avail-node:start": "bun ./node_modules/.bin/npm-avail-node --dev --rpc-port 9955 --no-telemetry",
     "avail-node:wait": "wait-on tcp:9955",
-    "avail-light-client:deploy": "deno task avail-light-client:clean && deno run -A --unstable-detect-cjs ./deploy.ts",
-    "avail-light-client:start": "deno run -A --unstable-detect-cjs @effectstream/npm-avail-light-client --config ./config.yml --app-id $AVAIL_APP_ID",
+    "avail-light-client:deploy": "bun run avail-light-client:clean && bun ./deploy.ts",
+    "avail-light-client:start": "bun ./node_modules/.bin/npm-avail-light-client --config ./config.yml --app-id $AVAIL_APP_ID",
     "avail-light-client:wait": "wait-on tcp:7007",
     "avail-light-client:clean": "rm -rf ./avail_path"
   }

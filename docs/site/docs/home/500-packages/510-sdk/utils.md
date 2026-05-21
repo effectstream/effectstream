@@ -6,7 +6,7 @@ sidebar_label: "utils"
 
 <!-- Generated from packages/effectstream-sdk/utils/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/utils`](https://www.npmjs.com/package/@effectstream/utils)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/utils)
+> Package: **[`@effectstream/utils`](https://www.npmjs.com/package/@effectstream/utils)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/utils)
 
 Shared utilities for the EffectStream framework — chain-aware address
 types and validators, TypeBox schemas, Effection-based concurrency
@@ -17,6 +17,11 @@ TypeScript project.
 This is the bottom-of-stack package: `@effectstream/crypto`,
 `@effectstream/concise`, `@effectstream/wallets`, and most node packages
 depend on it.
+
+- Shared chain-aware types, TypeBox schemas, viem helpers, Effection primitives.
+- Bottom-of-stack: `crypto`, `concise`, `wallets`, and most node packages depend on it.
+- Safe to use standalone, no runtime dependency on the rest of Effectstream.
+- `AddressType` is the most-imported symbol from the package (~170 cross-package references).
 
 ## Install
 
@@ -104,12 +109,12 @@ Subpath entries:
 
 ## Examples
 
-Runnable: [`src/binary-search.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/utils/src/binary-search.test.ts),
-[`src/concurrency/latch.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/utils/src/concurrency/latch.test.ts),
-[`src/concurrency/retry.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/utils/src/concurrency/retry.test.ts), and
-[`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/utils/test/examples.test.ts).
+Runnable: [`src/binary-search.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/utils/src/binary-search.test.ts),
+[`src/concurrency/latch.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/utils/src/concurrency/latch.test.ts),
+[`src/concurrency/retry.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/utils/src/concurrency/retry.test.ts), and
+[`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/utils/test/examples.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/utils
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/utils
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/utils

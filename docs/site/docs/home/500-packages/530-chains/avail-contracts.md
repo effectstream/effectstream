@@ -6,12 +6,17 @@ sidebar_label: "avail-contracts"
 
 <!-- Generated from packages/chains/avail-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/avail-contracts`](https://www.npmjs.com/package/@effectstream/avail-contracts)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/avail-contracts)
+> Package: **[`@effectstream/avail-contracts`](https://www.npmjs.com/package/@effectstream/avail-contracts)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/chains/avail-contracts)
 
 Contract-interface package for Avail (data-availability layer) inside
 EffectStream. Reserved as the home for Avail-side bindings, helpers, and
 deployment scripts that an EffectStream app might use when posting data
 blobs to or syncing rollup inputs from Avail.
+
+- Reserved namespace for Avail-side bindings, helpers, and deployment scripts.
+- Ships intentionally empty today: `mod.ts` re-exports nothing.
+- Mirrors the per-chain "contracts" slot used by EVM, Midnight, Cardano, Bitcoin.
+- For sync-side Avail support today, see `@effectstream/sync` and the Avail binary wrappers.
 
 ## Install
 
@@ -23,17 +28,13 @@ npm install @effectstream/avail-contracts
 
 ## Standalone usage
 
-This package is currently a **stub**. It ships so that
-`@effectstream/sync` and `@effectstream/orchestrator` can declare a
-stable dependency on the Avail integration namespace; concrete exports
-(message-encoding helpers, address utilities) will land here as the
-Avail integration evolves.
+This package is intentionally empty today. It ships so that `@effectstream/sync` and `@effectstream/orchestrator` can declare a stable dependency on the Avail integration namespace; concrete exports (message-encoding helpers, address utilities) land here as the Avail integration grows.
 
 For sync-side Avail support today, see:
 
 - `@effectstream/sync` — `AvailFetcher`, `AvailSyncState`.
 - `@effectstream/npm-avail-node`, `@effectstream/npm-avail-light-client` — pinned binary wrappers.
-- [`templates/avail/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/avail) — a working node configured against an Avail testnet.
+- [`e2e/avail/`](https://github.com/effectstream/effectstream/tree/main/e2e/avail) — Avail-side E2E suite.
 
 ## Inside EffectStream
 
@@ -51,5 +52,5 @@ helper.
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/chains/avail-contracts
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/avail-contracts
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/chains/avail-contracts
 - Avail docs: https://docs.availproject.org/

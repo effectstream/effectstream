@@ -1,3 +1,7 @@
+---
+draft: true
+---
+
 # Night-Bitcoin (Intents Swap)
 
 -   **Location**: `/templates/night-bitcoin`
@@ -19,21 +23,14 @@ The `night-bitcoin` template demonstrates a cutting-edge pattern in Web3: **Inte
 
 ```sh
 # Clone the repository
-git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next effectstream-demo
-cd effectstream-demo/templates/night-bitcoin
-
-# Check for external dependencies
-./../check.sh
+git clone https://github.com/effectstream/effectstream.git
+cd effectstream/templates/night-bitcoin
 
 # Install packages
-deno install --allow-scripts && ./patch.sh
+bun i
 
-# Compile contracts (Compact for Midnight)
-deno task build:midnight
-deno task build:bitcoin
-
-# Launch EffectStream Node
-deno task dev
+# Launch EffectStream Node (compiles contracts and starts the full local stack)
+bun run dev
 ```
 
 **Terminal:**

@@ -19,7 +19,7 @@ fi
 
 echo "Building docs..."
 cd "$SCRIPT_DIR"
-npx docusaurus build
+bun run build
 
 echo "Syncing build to $DOCS_FOLDER..."
 # Remove old content but preserve .git and README.md

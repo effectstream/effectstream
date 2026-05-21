@@ -6,12 +6,17 @@ sidebar_label: "bitcoin-core"
 
 <!-- Generated from packages/binaries/bitcoin-core/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/bitcoin-core`](https://www.npmjs.com/package/@effectstream/bitcoin-core)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/bitcoin-core)
+> Package: **[`@effectstream/bitcoin-core`](https://www.npmjs.com/package/@effectstream/bitcoin-core)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/bitcoin-core)
 
 A pinned Bitcoin Core binary, packaged for npm. Installing this drops a
 versioned `bitcoind` and `bitcoin-cli` into `node_modules/.bin` so the
 EffectStream orchestrator and E2E tests can boot a local regtest
 without each developer running their own install script.
+
+- Pins Bitcoin Core 28.1 for local regtest.
+- Linux / macOS, x64 and arm64.
+- Pairs with `@effectstream/bitcoin-contracts` for `generate-blocks` and `wait-for-block`.
+- Used by the orchestrator's Bitcoin step.
 
 ## Install
 
@@ -50,11 +55,11 @@ for the `generate-blocks` and `wait-for-block` helpers.
 The orchestrator (`@effectstream/orchestrator`) declares this as a
 dependency of its `bitcoin-core` step, so `bun packages/build-tools/orchestrator/src/cli.ts start`
 brings up a regtest chain automatically. The Bitcoin E2E suite at
-[`e2e/bitcoin/`](https://github.com/PaimaStudios/paima-engine/tree/main/e2e/bitcoin)
+[`e2e/bitcoin/`](https://github.com/effectstream/effectstream/tree/main/e2e/bitcoin)
 runs against this same binary.
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/binaries/bitcoin-core
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/bitcoin-core
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/binaries/bitcoin-core
 - Upstream Bitcoin Core: https://bitcoincore.org/

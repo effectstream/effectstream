@@ -63,10 +63,10 @@ The EffectStream templates come with pre-configured scripts to compile your smar
 You can compile all contracts in your project with the following commands:
 ```sh
 # Compile EVM contracts (Solidity)
-deno task build:evm
+bun run --cwd packages/contracts-evm build
 
 # Compile Midnight contracts
-deno task build:midnight
+bun run --cwd packages/contracts-midnight build
 ```
 The templates also include scripts for deploying these contracts to local development chains or public testnets/mainnets.
 

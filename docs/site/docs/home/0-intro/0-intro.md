@@ -25,25 +25,18 @@ EffectStream is a Web3 Engine optimized for dApps, games, gamification and auton
 
 > This is a preview of the EffectStream V2 documentation. We welcome any feedback you have on errors, missing information, or parts that aren't clear.
 
-First, clone the repository and use the `templates/evm-midnight/` folder as a working template:
+First, clone the repository and use the `templates/evm-midnight-v2/` folder as a working template:
 
 ```sh
-# Clone and move to evm-midnight template
-git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next
-cd paima-engine/templates/evm-midnight
-
-# Check for external dependencies
-../check.sh
+# Clone and move to evm-midnight-v2 template
+git clone https://github.com/effectstream/effectstream.git
+cd effectstream/templates/evm-midnight-v2
 
 # Install packages
-deno install --allow-scripts && ./patch.sh
+bun i
 
-# Compile contracts
-deno task build:evm
-deno task build:midnight
-
-# Launch EffectStream Node
-deno task dev
+# Launch EffectStream Node (compiles contracts and starts the full local stack)
+bun run dev
 ```
 
 Now you should see the dApp running in your browser!

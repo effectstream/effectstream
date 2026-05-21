@@ -4,7 +4,7 @@ The frontend is the user-facing part of your decentralized application, such as 
 
 ## Getting Started
 
-The `/templates/evm-midnight/` template includes a `/packages/frontend/` folder containing a complete, working web application to serve as a starting point.
+The `/templates/evm-midnight-v2/` template includes a `/packages/frontend/` folder containing a complete, working web application to serve as a starting point.
 
 A frontend's interaction with EffectStream can be broken down into two main activities:
 *   **Writes**: Submitting new actions (transactions or signed messages) to the blockchain to change the application's state.

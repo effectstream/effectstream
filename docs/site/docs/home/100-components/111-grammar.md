@@ -45,29 +45,6 @@ Each argument is defined as a tuple `[name, type]`:
 | `name` (string) | The name of the argument. This becomes the key in the parsed object available in your STF. |
 | `type` (TypeBox Schema) | A schema from **TypeBox** that defines the data type and constraints for the argument. The engine uses this to validate the input and provide type safety. |
 
-## Automating Grammar for Primitives
-
-You don't have to define grammar rules for every on-chain event manually. To save time, EffectStream provides the `mapPrimitivesToGrammar` helper function. This function automatically inspects the **Primitives** you've defined in your [Sync Service Config](./101-sync-service.md) and generates the corresponding grammar rules for you.
-
-For example, if you have a primitive tracking an ERC20 `Transfer(address from, address to, uint256 value)` event with the scheduled prefix `transfer`, this helper will create a `transfer` grammar rule that expects a payload object with `from`, `to`, and `value` fields.
-
-```ts
-import { mapPrimitivesToGrammar } from "@effectstream/concise";
-import { localhostConfig } from "./config.ts";
-
-export const grammar = {
-  // Your custom, application-specific commands
-  attack: [
-    ["playerId", Type.Integer()],
-    ["moveId", Type.Integer()],
-  ],
-
-  // Automatically generate grammar rules from all configured primitives
-  ...mapPrimitivesToGrammar(localhostConfig.primitives)
-
-} as const satisfies GrammarDefinition;
-```
-
 ## How Grammar Connects to the State Machine
 
 The grammar is the central piece that links an on-chain event to your application logic. Here’s the flow:

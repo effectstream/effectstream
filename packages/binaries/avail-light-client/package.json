@@ -19,11 +19,11 @@
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PaimaStudios/paima-engine",
+    "url": "https://github.com/effectstream/effectstream",
     "directory": "packages/binaries/avail-light-client"
   },
   "bugs": {
-    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+    "url": "https://github.com/effectstream/effectstream/issues"
   },
   "dependencies": {
     "extract-zip": "^2.0.1",

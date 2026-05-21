@@ -88,16 +88,15 @@ processesToLaunch: [
 
 It is also common to include a process to mine blocks automatically in the background to ensure transaction processing during development.
 
-> NOTE: To use this launcher you need to implement some `deno task` in your project. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
+> NOTE: To use this launcher you need to implement some scripts in your project's `package.json`. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
 
 ```json
 {
   "name": "@e2e/bitcoin-contracts",
-  ...
-  "tasks": {
-    "chain:start": "deno run -A @effectstream/bitcoin-core",
+  "scripts": {
+    "chain:start": "bun ./node_modules/.bin/bitcoin-core",
     "chain:wait": "wait-on tcp:18443",
-    "generate:blocks": "deno run -A ./generate-blocks.ts",
-    "wait-for-block": "deno run -A wait-for-block.ts"
+    "generate:blocks": "bun ./generate-blocks.ts",
+    "wait-for-block": "bun ./wait-for-block.ts"
   }
 }
