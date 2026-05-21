@@ -19,8 +19,10 @@
 
 - `chain:start` — start Bitcoin Core in regtest mode
 - `chain:wait` — wait until RPC port is responsive
-- `mine-blocks` — mint blocks to advance the chain
+- `generate:blocks` — mint blocks to advance the chain (the launcher invokes this script name explicitly; an older skill version called it `mine-blocks`, which is wrong)
 - `wait-for-block` — block until a specific height is reached
+
+Cross-reference: `packages/build-tools/orchestrator/scripts/launch-bitcoin.ts` in the engine monorepo is the source of truth for the exact script names the launcher invokes.
 
 ## Sync protocol + primitives
 
@@ -52,7 +54,13 @@ Sync protocol: `BITCOIN_RPC_PARALLEL`.
 
 ## Sharp edges
 
-(none documented — when you hit one, add it here)
+### Bitcoin sync polls slowly — tune test timeouts upward
+
+A typical Bitcoin sync protocol config uses `pollingInterval: 10000` and `delayMs: 20000` (regtest blocks are 1s but the sync gates for finality). Phase B's `assertSQL` should use a generous timeout (~180s) and `waitForProcess` for sync up to ~600s — defaults built for Hardhat-speed will time out.
+
+### Address-primitive only emits direction; the funding address isn't surfaced
+
+`PrimitiveTypeBitcoinAddress` emits `{ direction, txid, vout, amount, recipient }` for each input/output touching the watched address. The funding (sender) UTXO's address is NOT included — recovering it requires an extra `getrawtransaction` per event or a custom primitive. Most templates record `sender = ""` and document the limitation.
 
 ## Frontend / wallet integration
 

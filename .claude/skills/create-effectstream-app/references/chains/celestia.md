@@ -51,7 +51,32 @@ Since there's no launcher, add a custom process pointing at the external node:
 
 ## Sharp edges
 
-(none documented — when you hit one, add it here)
+### Built-in primitive only threads `suppliedValue` into `parsedInput`
+
+`PrimitiveTypeCelestiaGeneric` puts the blob's raw bytes (as a binary string, `atob(blob.data)`) into `data.parsedInput.suppliedValue` — but the other interesting fields (`namespace`, `commitment`, `blobIndex`) live in the primitive's `accountingPayload` and are NOT exposed to the STM. Templates needing those columns must either:
+- Store the configured namespace as an invariant column (it's per-primitive-instance, so safe to hard-code in the row);
+- Subclass `CelestiaGenericPrimitive` and override `getPayload()` to thread the extra fields into the STM input.
+
+Convert `suppliedValue` to hex via `Buffer.from(suppliedValue, "binary").toString("hex")` for storage.
+
+### Celestia sync uses long polling — bump test timeouts
+
+`CELESTIA_PARALLEL` typically uses `delayMs: 12_000` + `pollingInterval: 6_000`. Phase B's `assertSQL` should use ~240s timeout (4 minutes). Default test timeouts built for EVM (~20s) will fail well before the engine indexes the blob.
+
+### Cold-start binary download
+
+On a fresh checkout the first `bun run dev` takes ~60-90s because `@effectstream/npm-celestia-*` downloads `celestia-appd` and `celestia-node` from GitHub. Subsequent runs are ~10s. The `celestia-bridge-wait` step needs at least a 300s timeout to accommodate the cold case.
+
+### `blob.Submit` JSON-RPC shape (for tests / batchers)
+
+Params is `[[blobObj], txConfig]`:
+
+```ts
+const blobObj = { namespace, data, share_version: 0 };
+const txConfig = { fee: 2000, gasLimit: 100000 };  // devnet values
+```
+
+Namespace is base64-encoded 29 bytes: 1 version byte `0x00` + 28-byte ID, right-aligned. The canonical encoding helper is `CelestiaClient.celestiaNamespaceToBase64` in `packages/batcher/adapters/celestia-adapter.ts`. Lifting that snippet into the Phase B test is the simplest path.
 
 ## Frontend / wallet integration
 

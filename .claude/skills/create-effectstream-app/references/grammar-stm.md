@@ -388,6 +388,30 @@ Every app: exactly one `addMain` (the `NTP_MAIN` clock) and one or more `addPara
 
 Common sync-protocol fields: `startBlockHeight`, `pollingInterval`, `confirmationDepth`, `stepSize`, `delayMs` (mainnet sync alignment).
 
+### ⚠️ Silent killer: `stateMachinePrefix` vs `scheduledPrefix`
+
+The `ConfigBuilder.addPrimitive(...)` TypeScript schema exposes the field as **`scheduledPrefix`**. The built-in primitive constructors (`Nep141Primitive`, `Erc20Primitive`, `BitcoinPrimitive`, …) read the field as **`stateMachinePrefix`** (per `packages/node-sdk/sm/primitives/Primitive.ts:37` — `this.stateMachinePrefix = config.stateMachinePrefix`). The engine's runtime spreads `primitiveConfig` straight into the constructor without renaming, so whichever name you write in `addPrimitive(...)` is the only one the constructor sees.
+
+**The bug:** if you only set `scheduledPrefix` (because that's what TypeScript completes), the constructor's `stateMachinePrefix` is `undefined`. The primitive then writes to `effectstream.primitive_accounting` (and any chain-specific IVM tables it ships with) but **never schedules an STM input**. User STM transitions silently never fire — no error, no crash, just empty `public.*` tables. The engine's own `e2e/` tests don't catch this because they only assert against `primitive_accounting` and IVM tables.
+
+**Workaround until the engine reconciles the names**: set BOTH keys to the same value:
+
+```ts
+.addPrimitive((s) => s.parallelEvmRPC, () => ({
+  name: "MyERC721",
+  type: PrimitiveTypeEVMERC721,
+  contractAddress: addresses.chain31337["…"],
+  startBlockHeight: 0,
+  // Cast to `any` because TypeScript only knows about `scheduledPrefix`.
+  // The constructor reads `stateMachinePrefix`; the output payload uses
+  // `scheduledPrefix`. They MUST match.
+  stateMachinePrefix: "nftTransfer",
+  scheduledPrefix: "nftTransfer",
+} as any))
+```
+
+The symptom of getting it wrong is identical to the symptom of forgetting `PrimitiveTypeEVMEffectstreamL2` (Core invariant §9) — silent empty results. Always assertSQL against the user-side table (not just `primitive_accounting`) in Phase B tests to surface this immediately.
+
 ### Built-in primitives (`@effectstream/sm/builtin`)
 
 | Primitive | Grammar | Chain | Use |

@@ -54,14 +54,62 @@ Sync protocol: `NEAR_RPC_PARALLEL`.
 
 {
   name: "sync",
-  dependsOn: [DbNames.PGLITE_WAIT, NearNames.CHAIN_WAIT],
+  dependsOn: [DbNames.PGLITE_WAIT, NearNames.SANDBOX_WAIT],
   // ...
 },
 ```
 
+The launcher exports `NearNames.SANDBOX` and `NearNames.SANDBOX_WAIT`. Older skill versions wrote `NearNames.CHAIN_WAIT` — that constant does NOT exist; using it produces a `ReferenceError` at startup.
+
 ## Sharp edges
 
-(none documented — when you hit one, add it here)
+### `stateMachinePrefix` MUST be set alongside `scheduledPrefix`
+
+See `references/grammar-stm.md` § "Silent killer: `stateMachinePrefix` vs `scheduledPrefix`". This affects every chain's primitive config, but NEAR is where it was first surfaced because NEP-141 has no auto-IVM table that a template author would notice missing.
+
+### Sync from genesis is slow — pin `startBlockHeight` to current tip
+
+By the time tests start, `near-sandbox` is already at block 300+. Setting `startBlockHeight: 1` makes the sync take ~3-5 min to catch up before it can see live test transfers. Read the sandbox tip at config-build time and use `currentTip - 5`:
+
+```ts
+async function nearTip(): Promise<number> {
+  const res = await fetch("http://localhost:3030", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "status", params: [] }),
+  });
+  return (await res.json()).result?.sync_info?.latest_block_height ?? 1;
+}
+
+const startBlockHeight = Math.max(1, (await nearTip()) - 5);
+// ... pass to addPrimitive
+```
+
+### `near-sdk` needs the `"legacy"` feature for `LookupMap`
+
+In `Cargo.toml`:
+
+```toml
+[dependencies]
+near-sdk = { version = "=5.5.0", features = ["legacy"] }
+```
+
+Without `"legacy"`, the old `near_sdk::collections::LookupMap` path is gone — the new path is `near_sdk::store::IterableMap`. Existing examples that use `LookupMap` won't compile.
+
+### `cargo-near` ABI requires `JsonSchema` on returned structs
+
+For ABI generation to work, structs returned by `#[near]`-methods must derive `JsonSchema`. Cleanest spelling:
+
+```rust
+#[near(serializers = [json])]
+pub struct FtMetadata { ... }
+```
+
+This avoids pulling in `schemars` as an extra dep.
+
+### NEP-141 primitive doesn't surface `tx_hash` in the STM data
+
+`Nep141Primitive.getPayload()` extracts `{ from, to, amount }` but doesn't thread the originating receipt's `transactionHash` into the per-input data field, even though it IS available upstream in `primitiveTransactionData.syncProtocol.transactionHash`. If you need `tx_hash` in your user table, you either (a) write a custom subclass, or (b) leave the column empty and document it. The engine's own primitives have this same limitation across most chains — relying on `tx_hash` from chain primitives is unsafe in general.
 
 ## Frontend / wallet integration
 

@@ -135,7 +135,21 @@ It depends on Node.js internals not present in Bun, so the build fails when Node
 
 The shim re-exports native browser web streams (`globalThis.ReadableStream`, etc.).
 
-### 3. `node-fetch` in the browser bundle (the silent killer)
+### 3. `viteStaticCopy` fails the build when the glob matches nothing
+
+If you use `vite-plugin-static-copy` to ship Compact artifacts, the deployment-address JSON, etc., **set `silent: true` on the plugin invocation**. If the file the glob references doesn't yet exist (common on a fresh checkout before the orchestrator's deploy step has run), `vite build` errors out with "No file was found to copy" and aborts. With `silent: true`, the build completes and the glob is retried at runtime.
+
+```ts
+viteStaticCopy({
+  silent: true,
+  targets: [
+    { src: "../../packages/contracts-midnight/contract-counter/src/managed/keys/*", dest: "midnight-keys" },
+    { src: "../../packages/contracts-midnight/contract-counter.*.json", dest: "midnight-deployment" },
+  ],
+})
+```
+
+### 4. `node-fetch` in the browser bundle (the silent killer)
 
 The Midnight SDK pulls in `node-fetch`, which does `require("fs").promises` at module init. Even though `vite-plugin-node-stdlib-browser` replaces `fs` with `memfs`, `memfs` returns `null` for `.promises`, crashing React before it can mount. Fix by aliasing `node-fetch` to a shim that re-exports the browser's native `fetch`:
 

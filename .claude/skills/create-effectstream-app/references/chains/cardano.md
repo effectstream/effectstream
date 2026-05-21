@@ -21,9 +21,13 @@
 
 ## Required `launchCardano` package scripts
 
-- `yaci-devkit:start`, `yaci-devkit:wait`
-- `dolos:start`, `dolos:wait`, `dolos:fill-template`, `dolos:minibf-wait`
-- `cardano:submit-tx`
+(Names verified against `packages/build-tools/orchestrator/scripts/launch-cardano.ts` on engine `0.100.15` — earlier skill versions had slightly wrong names that the cardano-delegation reference template also still uses. If the launcher complains "missing script X", the launcher script is the source of truth.)
+
+- `devkit:start`, `devkit:wait`
+- `dolos:fill-template`, `dolos:start`, `dolos:wait`
+- `cardano-submit-tx` (note: hyphen, NOT `cardano:submit-tx`)
+
+There is no `dolos:minibf-wait` script — that process is synthesized internally by the launcher itself; you only need to depend on `CardanoNames.DOLOS_MINIBF_WAIT` in `start.dev.ts`.
 
 ## Sync protocol + primitives
 
@@ -60,6 +64,29 @@ Sync protocol: `CARDANO_UTXORPC_PARALLEL` (via Dolos). Cardano-specific primitiv
 ```
 
 ## Sharp edges
+
+### `exact_address` predicate is base64, NOT hex
+
+The `CARDANO_UTXORPC_PARALLEL` sync protocol's `has_address` predicate has a quirk: `exact_address` is base64-encoded raw address bytes, but `payment_part` and `delegation_part` are hex. The sync layer at `packages/node-sdk/sync/src/sync-protocols/utxorpc/utils.ts:57` does `atob(exact_address)` while the other two fields go through `hexStringToUint8Array`.
+
+**Symptom of getting it wrong:** the predicate filters out every block silently — no STM transition ever runs for the watched address, no DB rows, no errors. Looks like the sync is broken but actually it's matching nothing.
+
+Convert from Lucid's bech32 → hex → base64 once at config build time:
+
+```ts
+import { getAddressDetails } from "@lucid-evolution/utils";
+
+const watchAddressBech32 = process.env.WATCH_ADDRESS ?? "...";
+const addrHex = getAddressDetails(watchAddressBech32).address.hex;
+const addrBytes = Buffer.from(addrHex, "hex");
+const exactAddressB64 = addrBytes.toString("base64");
+
+// Use exactAddressB64 in the primitive config:
+.addPrimitive(/* ... */, (network) => ({
+  // ...
+  predicates: { has_address: { exact_address: exactAddressB64 } },
+}))
+```
 
 ### Filter `CARDANO_SUBMIT_TX` in dev
 

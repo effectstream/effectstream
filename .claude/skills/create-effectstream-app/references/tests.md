@@ -88,6 +88,28 @@ export async function deployTest() {
 
 ## Phase B: STM / DB / API
 
+> **Precondition before the first `SELECT`: confirm the target table exists.** The sync node's `/health` returning OK means the HTTP server is up — it does NOT mean user migrations have been applied yet. Migrations land when the first block is finalized, which can be a few seconds after `/health` reports OK. A Phase B test that runs `SELECT * FROM counter_history` immediately after `waitForHealth()` will hit `42P01: relation "counter_history" does not exist` and fail.
+>
+> Poll `information_schema.tables` for the table before any application `SELECT`:
+>
+> ```ts
+> async function waitForTable(db: Client, name: string, timeoutMs = 30_000): Promise<void> {
+>   const start = Date.now();
+>   while (Date.now() - start < timeoutMs) {
+>     const res = await db.query(
+>       `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1`,
+>       [name],
+>     );
+>     if (res.rows.length) return;
+>     await new Promise((r) => setTimeout(r, 500));
+>   }
+>   throw new Error(`Table "${name}" not created within ${timeoutMs/1000}s`);
+> }
+> ```
+>
+> Call this before any `assertSQL` against a user-schema table.
+
+
 The core loop: submit transactions on-chain, wait for the sync node to index them, then assert (1) STM wrote correct values to DB and (2) API returns expected responses.
 
 ```ts
