@@ -20,6 +20,7 @@
     "./launch-cardano": "./scripts/launch-cardano.ts",
     "./launch-midnight": "./scripts/launch-midnight.ts",
     "./launch-avail": "./scripts/launch-avail.ts",
+    "./launch-celestia": "./scripts/launch-celestia.ts",
     "./launch-near": "./scripts/launch-near.ts",
     "./wait-tcp": "./scripts/wait-tcp.ts",
     "./wait-http": "./scripts/wait-http.ts"
