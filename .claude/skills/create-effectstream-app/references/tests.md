@@ -51,6 +51,21 @@ Templates can add more phases for cross-chain tests, privacy tests, etc. — the
 
 ## Phase A: Infrastructure
 
+> **Every chain has its own pre-`chainReadyTest()` gate.** `/health` on the orchestrator API (4747) reports OK as soon as the daemon is up — well before chain-specific health is achieved. If `chain-ready.test.ts` makes assumptions like "block height > 100" or "indexer GraphQL responds", you MUST `await waitForProcess(<chain-specific gate>, { waitForExit: true })` first.
+>
+> | Chain | Gate to wait on before `chainReadyTest()` |
+> |---|---|
+> | EVM (Hardhat) | `EvmNames.HARDHAT_WAIT` |
+> | Bitcoin | `bitcoin-wait-for-block` (the chain reaches a usable height) — `BitcoinNames.WAIT_FOR_BLOCK` |
+> | Cardano | `CardanoNames.DOLOS_MINIBF_WAIT` |
+> | Midnight | `MidnightNames.INDEXER_WAIT` (GraphQL on 8088 takes much longer than EVM's 8545) |
+> | NEAR | `NearNames.SANDBOX_WAIT` |
+> | Avail | `AvailNames.LIGHT_CLIENT_WAIT` |
+> | Celestia | `celestia-bridge-wait` (custom process; no launcher) |
+>
+> Without the wait, the first Phase A assertion fires too early and the test suite aborts before any other check runs. The empirical "fixed-after-the-fact" Midnight case is the long-tail extreme (~60s before indexer GraphQL responds), but EVERY chain has this in some form.
+
+
 Verifies the orchestrator boots correctly — chain nodes respond, contracts deploy, sync node healthy, blocks indexing.
 
 **Midnight timing gate.** If the template includes Midnight, you MUST `await waitForProcess("midnight-indexer-wait", { waitForExit: true })` before running `chainReadyTest()`. The Midnight indexer's GraphQL endpoint on port 8088 takes significantly longer to start than the EVM chain on 8545. Without this wait, the `chainReadyTest` will attempt to query port 8088, fail, and abort the entire test suite — even though the indexer would have been ready a few seconds later. The `midnight-indexer-wait` process is an orchestrator-managed health probe that exits once the indexer responds to GraphQL queries. Similarly, wait for `midnight-contract` (with a long timeout, e.g. 600s) after `deployTest()` before proceeding to Phase B, since Midnight contract deployment via Compact is much slower than EVM Hardhat Ignition.

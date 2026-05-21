@@ -85,6 +85,71 @@ const startBlockHeight = Math.max(1, (await nearTip()) - 5);
 // ... pass to addPrimitive
 ```
 
+### `cargo build` produces a WASM nearcore rejects — use `cargo near build`
+
+The naive `cargo build --target wasm32-unknown-unknown --release` produces a WASM that loads in Wasmtime but nearcore's VM rejects with:
+
+```
+Failed to prepare WASM because of 'Deserialization'
+```
+
+The fix is to use `cargo-near` instead — it applies NEAR-specific section ordering and exports:
+
+```sh
+cargo near build non-reproducible-wasm
+```
+
+Wire it into a `build:contract` shell script and call from `packages/contracts-near/package.json`:
+
+```json
+"scripts": {
+  "build:contract": "./build-contract.sh"
+}
+```
+
+```bash
+# build-contract.sh
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/contract"
+cargo near build non-reproducible-wasm
+```
+
+`cargo-near` itself is a separate install (`cargo install cargo-near` or via prebuilt binary). Worth noting in the Tools probe above.
+
+### Pin the Rust toolchain to ≤1.86 with `rust-toolchain.toml`
+
+nearcore's VM rejects WASM compiled with rustc 1.87+ (the system default on a current macOS is 1.90). Ship a `rust-toolchain.toml` in the contract directory:
+
+```toml
+# packages/contracts-near/contract/rust-toolchain.toml
+[toolchain]
+channel = "1.86.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
+```
+
+Without this, the first `cargo near build` either silently produces a WASM that deploys-then-fails-at-runtime, or rustup refuses with a "wrong toolchain" error from cargo-near. Both fail-mode look unrelated to the actual cause.
+
+### `Account.callFunction<T>()` returns the parsed result, not the RPC response
+
+In `near-api-js` v7, `Account.callFunction<T>()` returns the *parsed contract return value* — for `ft_transfer` (which returns `void`), that's `null`. Trying to read `result.transaction.hash` always gets `undefined`.
+
+To get the raw RPC response (with `transaction.hash`), use `callFunctionRaw`:
+
+```ts
+const raw = await account.callFunctionRaw({
+  contractId: FT_CONTRACT_ACCOUNT,
+  methodName: "ft_transfer",
+  args: { receiver_id, amount, memo },
+  gas: 30_000_000_000_000n,
+  attachedDeposit: 1n, // NEP-141 requires exactly 1 yoctoNEAR
+});
+const txHash = raw.transaction.hash;
+```
+
+The engine's own `e2e/shared/contracts/near/deploy-and-call.ts` uses `callFunction` and gets away with it because it never reads the hash; templates that need the hash for assertion or DB rows must use `callFunctionRaw`.
+
 ### `near-sdk` needs the `"legacy"` feature for `LookupMap`
 
 In `Cargo.toml`:

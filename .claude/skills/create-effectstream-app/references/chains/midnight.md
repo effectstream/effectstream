@@ -179,6 +179,8 @@ Not `./deploy-ledger6` or other legacy names.
 
 `@midnight-ntwrk/onchain-runtime` MUST be imported **at the top of `main.ts` before any other Midnight imports** — otherwise the WASM module fails to initialize at runtime.
 
+Same rule applies in `packages/tests/run-tests.ts` if it dynamically imports any `@midnight-ntwrk/*` SDK (most test runners do, via the Phase B counter-increment helper). **Additionally**, the tests package must declare `@midnight-ntwrk/onchain-runtime` as a direct dependency in `packages/tests/package.json` — relying on workspace hoisting from `packages/node/` is not enough; Bun's `await import()` resolver from `run-tests.ts` cwd won't find the hoisted copy.
+
 With `DISABLE_MIDNIGHT=true`, guard the import:
 
 ```ts

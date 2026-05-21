@@ -17,8 +17,15 @@
 
 ## Required `launchAvail` package scripts
 
-- `avail-node:start` — start the Avail node
-- `avail-light-client:start`, `avail-light-client:wait` — light client for syncing
+(Names verified against `packages/build-tools/orchestrator/scripts/launch-avail.ts`; earlier skill versions had the wrong light-client script name and would fail launcher validation.)
+
+- `avail-node:start`, `avail-node:wait` — start the Avail node + wait for RPC
+- `avail-light-client:deploy` — registers the app key + spawns the light client (NOT `:start`)
+- `avail-light-client:wait` — wait for light client RPC
+
+## Primitive config
+
+`PrimitiveTypeAvailGeneric` requires THREE fields beyond the common ones — `appId`, `applicationKey`, and `genesisHash`. All three live in the per-`buildPrimitives` config. The `applicationKey` and `genesisHash` are written to `avail_app.json` by `avail-light-client:deploy` — read them at config-build time. Without them, the `ConfigBuilder` schema check fails before launch.
 
 ## Sync protocol + primitives
 
@@ -48,7 +55,21 @@ Sync protocol: `AVAIL_PARALLEL`.
 
 ## Sharp edges
 
-(none documented — when you hit one, add it here)
+### Avail finality is ~60s — test timeouts must accommodate
+
+`AVAIL_PARALLEL` typically uses `delayMs: 60000` (one minute) for confirmation. Phase B `assertSQL` should use ~240s budget. Defaults built for Hardhat (~20s) will time out before the first blob round-trips.
+
+### First-boot binary download is slow
+
+Both the Avail node and the light client download their binaries (~70MB each) from GitHub releases on first boot, then extract into `node_modules/@effectstream/npm-avail-*/vendor/`. This adds 30-60s per binary per platform. Subsequent boots are ~10s.
+
+### Light client port is 9955, not the substrate-default 9944
+
+The launcher overrides Avail's WS RPC port to 9955 (avoiding collisions with other substrate-based dev nodes). Include BOTH `9944` and `9955` in `killStalePorts()` defensively — older configs sometimes use 9944.
+
+### `PrimitiveTypeAvailGeneric` only threads `suppliedValue` into the STM
+
+Same pattern as Celestia/NEAR — the STM transition's `data.parsedInput` only contains `suppliedValue` (the blob bytes). `extrinsicIndex`, `(blockNumber, extrinsicIndex)` substrate coordinates, and any extrinsic-level metadata are NOT exposed. Subclass the primitive to surface them, or store invariant fields (`appId`) directly from config.
 
 ## Frontend / wallet integration
 
