@@ -15,11 +15,13 @@ There are two migration paths:
 
 ## Version lineage
 
-| Era | SDK prefix | Runtime | Workspace pattern | Package prefix |
-|---|---|---|---|---|
-| paima-engine-v1 | `@paima/sdk`, `@paima/node-sdk` | Node.js | flat top-level (`api/`, `db/`, etc.) | `@game/*` |
-| effectstream-v1 | `@paimaexample/*` | Deno/Bun | nested (`packages/client/`, `packages/shared/`) | `@chess/*`, `@dice/*` |
-| effectstream-v2 | `@effectstream/*` | Bun | flat `packages/*` | `@my-template/*` |
+| Era | SDK prefix | Runtime | Workspace pattern |
+|---|---|---|---|
+| paima-engine-v1 | `@paima/sdk`, `@paima/node-sdk` | Node.js | flat top-level (`api/`, `db/`, etc.) |
+| effectstream-v1 | `@paimaexample/*` | Deno/Bun | nested (`packages/client/`, `packages/shared/`) |
+| effectstream-v2 | `@effectstream/*` | Bun | flat `packages/*` |
+
+Template-specific package scopes (e.g. `@chess/*`, `@my-template/*`) are an orthogonal naming choice — they evolve as templates get renamed, so they aren't a reliable era marker. Use the SDK prefix + runtime + workspace pattern to identify which migration you're doing.
 
 After the structural migration, **everything in SKILL.md and the other reference files applies** — the layout, invariants, and gotchas are the same as for new templates.
 
