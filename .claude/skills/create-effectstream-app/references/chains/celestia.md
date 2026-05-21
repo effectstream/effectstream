@@ -1,6 +1,6 @@
 # Celestia
 
-`packages/contracts-celestia/` — Celestia DA layer config + bridge funding. No smart contracts and no dedicated `launchCelestia` helper; the node is expected to run externally.
+`packages/contracts-celestia/` — Celestia DA layer config + bridge funding. The `launchCelestia` helper (added in engine `0.100.16`) handles the four-process boot chain.
 
 > **See also (concept docs).**
 > - Celestia chain overview: `docs/site/docs/home/200-chains/209-celestia.md`
@@ -8,15 +8,26 @@
 
 ## Tools (probe before scaffolding)
 
-(no extra system tools — `bun` is enough; the Celestia node itself is expected to be provided externally)
+(no extra system tools — `bun` is enough; the Celestia consensus node and bridge are vendored through `@effectstream/npm-celestia-*` and extracted on first run)
 
 ## Local dev environment
 
-There is no `launchCelestia` helper. Bring the Celestia node up however suits the user (Docker Compose alongside the orchestrator, hosted node, etc.) and point the sync protocol at it. If a local node is needed inside the orchestrator, write a custom `ProcessConfig` entry — but most templates target a remote/shared node.
+`launchCelestia` starts a four-process chain:
+
+1. `celestia-clean` — wipes stale `CELESTIA_HOME` data
+2. `celestia-devnet` — Celestia consensus node + bridge (ports 26657 / 26658)
+3. `celestia-bridge-wait` — waits for the bridge RPC to be ready
+4. `celestia-fund-bridge` — funds the bridge node wallet
+
+`CelestiaNames` exports the names: `CLEAN`, `DEVNET`, `BRIDGE_WAIT`, `FUND`. The sync node should `dependsOn: CelestiaNames.FUND` to start only after the bridge is funded.
 
 ## Required `launchCelestia` package scripts
 
-n/a — no launcher.
+(Verified against `packages/build-tools/orchestrator/scripts/launch-celestia.ts`.)
+
+- `celestia-bridge:start` — start the consensus node + bridge
+- `celestia-bridge:wait` — wait for bridge RPC (port 26658)
+- `celestia-fund:bridge` — fund the bridge wallet
 
 ## Sync protocol + primitives
 
@@ -28,26 +39,38 @@ Sync protocol: `CELESTIA_PARALLEL`.
 
 ## Batcher adapters
 
-(none — interact with Celestia directly; the batcher pattern doesn't apply to DA-layer writes)
+| Adapter | Notes |
+|---|---|
+| `CelestiaAdapter` | Submits PayForBlob (PFB) txs via the bridge JSON-RPC |
 
 ## Orchestrator wiring
 
-Since there's no launcher, add a custom process pointing at the external node:
-
 ```ts
-{
-  name: "celestia-wait",
-  description: "Wait for the external Celestia node to respond",
-  args: ["./scripts/wait-for-celestia.ts"],
-  waitToExit: true,
-  type: "system-dependency",
-},
-{
-  name: "sync",
-  // ...
-  dependsOn: [DbNames.PGLITE_WAIT, "celestia-wait"],
-},
+import { launchCelestia, CelestiaNames } from "@effectstream/orchestrator/launch-celestia";
+
+const root = import.meta.dirname!;
+
+export default {
+  processes: [
+    ...launchPglite(),
+    ...launchCelestia(
+      "@my-template/contracts-celestia",
+      { cwd: path.join(root, "packages/contracts-celestia") },
+      // optional: { ports: [26657, 26658], home: "/tmp/my-template-celestia-home" }
+    ),
+    {
+      name: "sync",
+      args: ["run", "packages/node/main.dev.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      env: { PGLITE: "true" },
+      dependsOn: [DbNames.PGLITE_WAIT, CelestiaNames.FUND],
+    },
+  ],
+} satisfies OrchestratorConfig;
 ```
+
+For multiple Celestia instances side by side (e.g. one in dev mode, another in test mode), pass distinct `home` paths through `opts.home` so the chains don't share `CELESTIA_HOME`.
 
 ## Sharp edges
 
@@ -80,4 +103,4 @@ Namespace is base64-encoded 29 bytes: 1 version byte `0x00` + 28-byte ID, right-
 
 ## Frontend / wallet integration
 
-n/a — Celestia DA isn't wallet-driven. Interact with the engine's GET API only.
+Celestia is a DA layer — no browser-wallet integration is needed for typical templates. The frontend usually just polls the engine's GET API to surface indexed blobs.

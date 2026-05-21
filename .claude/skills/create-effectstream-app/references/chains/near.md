@@ -3,7 +3,7 @@
 `packages/contracts-near/` — Rust → WASM compiled contracts, deployed to a local NEAR sandbox.
 
 > **See also (concept docs).**
-> - **Note: docs are missing a top-level NEAR chain page** (`docs/site/docs/home/200-chains/` has no NEAR entry). Until one exists, this file is the primary reference.
+> - NEAR chain overview, NEP-141/171/245 + intents support: `docs/site/docs/home/200-chains/210-near.md`
 > - Per-binary: `docs/site/docs/home/500-packages/540-binaries/near-sandbox.md`
 > - NEAR primitives (NEP-141, NEP-171, NEP-245, intent, generic, account-watch): `docs/site/docs/home/100-components/118-primitives.md`
 

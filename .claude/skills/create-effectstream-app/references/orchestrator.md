@@ -6,7 +6,8 @@
 > - Orchestrator processes concept + CLI reference (`start`, `status`, `restart`, `stop`, `list`, `silence/unsilence`, `logs`): `docs/site/docs/home/500-packages/550-tools/orchestrator.md`
 > - High-level "what is the process orchestrator": `docs/site/docs/home/100-components/106-processes.md`
 > - **`DISABLE_*` env vars** (`DISABLE_EVM`, `DISABLE_MIDNIGHT`, `DISABLE_BITCOIN`, `DISABLE_CARDANO`, `DISABLE_NEAR`, `DISABLE_AVAIL`, `DISABLE_CELESTIA`) for skipping optional chains in dev — see the orchestrator doc.
-> - Beyond `start`/`stop`, the CLI also has `status`, `restart <name>`, `logs <name>` — handy for the template's README and for debugging stuck processes.
+> - **Daemon mode**: `bunx orchestrator start --background` runs the orchestrator as a detached daemon and exposes the full HTTP API on port 4747. The follow-up commands `status`, `restart <name>`, `logs <name>`, and `stop` all require the daemon to be running first. For interactive use (single terminal, foreground TUI) drop `--background`. README quick-starts should default to foreground; CI / containerized dev rigs should use daemon mode.
+> - **Always run `bunx orchestrator stop` before relaunching** or before running tests — clears stale ports from the previous run. The skill bakes this into the canonical `build:pgtypes` script for the same reason.
 
 ## Minimal example (EVM only)
 

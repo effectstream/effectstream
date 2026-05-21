@@ -6,7 +6,7 @@ Use this only when porting an existing project. For new templates, follow the bu
 > - "What is Effectstream" (currently self-flagged as V1-era): `docs/site/docs/home/0-intro/1-what-is-effectstream.md`
 > - Authoritative new-name list (per-package): `docs/site/docs/home/500-packages/500-packages.md`
 > - `Stm` class (renamed from `PaimaSTM`): `docs/site/docs/home/500-packages/520-node/sm.md`
-> - L2 contract rename `PaimaL2Contract.sol` → `EffectstreamL2Contract.sol`: `docs/site/docs/home/100-components/104-l2-contract.md`, `docs/site/docs/home/200-chains/210-contracts.md`
+> - L2 contract rename `PaimaL2Contract.sol` → `EffectstreamL2Contract.sol`: `docs/site/docs/home/100-components/104-l2-contract.md`, `docs/site/docs/home/200-chains/211-contracts.md`
 
 There are two migration paths:
 
