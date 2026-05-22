@@ -69,8 +69,10 @@ export const config: OrchestratorConfig = {
 
 Common chain launchers ship as subpath scripts you can compose: `./launch-pglite`,
 `./launch-evm`, `./launch-bitcoin`, `./launch-cardano`, `./launch-midnight`,
-`./launch-avail`, `./launch-near`. Each wraps a pinned binary from
-`@effectstream/binaries/*` with sensible defaults.
+`./launch-avail`, `./launch-near`. Each wraps a pinned binary from a
+package under `packages/binaries/` (e.g. `@effectstream/npm-midnight-node`,
+`@effectstream/bitcoin-core`, `@effectstream/near-sandbox`) with sensible
+defaults.
 
 > **Tip:** Disable chains you don't need with env vars: `DISABLE_EVM=true`,
 > `DISABLE_BITCOIN=true`, `DISABLE_MIDNIGHT=true`, etc. Same flags work for
