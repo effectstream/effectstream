@@ -233,6 +233,7 @@ const config = {
         },
         items: [
           { to: "/", label: "Docs", position: "left" },
+          { to: "/scaffold-with-ai", label: "Scaffold with AI", position: "left" },
           { to: "/blog", label: "Blog", position: "left" },
           // {
           //   type: "localeDropdown",
