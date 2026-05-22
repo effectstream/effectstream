@@ -58,24 +58,60 @@ Sync protocol: `MIDNIGHT_PARALLEL`.
 
 ## Orchestrator wiring
 
-```ts
-...launchMidnight(
-  "@my-template/contracts-midnight",
-  { cwd: path.join(root, "packages/contracts-midnight") },
-  { env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" } },
-),
+Unlike `launchEvm` (which bundles a `compile-evm-contracts` process), **`launchMidnight` does NOT compile the Compact contract for you** — it goes straight from `midnight-*-wait` to `midnight-contract:deploy`, which reads pre-compiled artifacts from `src/managed/`. On a fresh checkout where `managed/` doesn't exist yet, the deploy will fail.
 
-{
-  name: "sync",
-  // ...
-  dependsOn: [
-    DbNames.PGLITE_WAIT,
-    MidnightNames.CONTRACT_DEPLOY,
+To make `bun run dev` self-sufficient (so users don't have to run `bun run build:midnight` separately), inject a `compile-midnight` ProcessConfig into `start.dev.ts` and wire `launchMidnight`'s `opts.dependsOn` to it. The Compact compile runs once at boot, completes, then the rest of the Midnight chain comes up:
+
+```ts
+import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
+
+const root = import.meta.dirname!;
+
+export default {
+  processes: [
+    ...launchPglite(),
+
+    // Compile Compact contracts before launchMidnight's deploy step runs.
+    // Mirrors launchEvm's built-in `compile-evm-contracts` step.
+    {
+      name: "compile-midnight",
+      description: "Compile Midnight Compact contracts (bun run build:midnight)",
+      args: ["run", "build:midnight"],   // root script
+      waitToExit: true,
+      critical: true,
+      type: "system-dependency",
+    },
+
+    ...launchMidnight(
+      "@my-template/contracts-midnight",
+      { cwd: path.join(root, "packages/contracts-midnight") },
+      {
+        env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
+        dependsOn: ["compile-midnight"],   // ← injected into MidnightNames.CONTRACT_DEPLOY's deps
+      },
+    ),
+
+    {
+      name: "sync",
+      // ...
+      dependsOn: [
+        DbNames.PGLITE_WAIT,
+        MidnightNames.CONTRACT_DEPLOY,
+      ],
+    },
   ],
-},
+} satisfies OrchestratorConfig;
 ```
 
+With this, the user can just `bun install && bun run dev` — same as EVM templates. The standalone `bun run build:midnight` script stays in the root `package.json` for CI/release use cases, but it's no longer a prereq for local dev.
+
+(If the engine fixes the asymmetry by adding a `midnight-contract:compile` script to `launchMidnight`'s `REQUIRED_SCRIPTS`, the inline ProcessConfig above becomes unnecessary. As of engine `0.100.x` it's still required.)
+
 ## Sharp edges
+
+### `launchMidnight` does NOT compile the contract — wire it yourself
+
+See **Orchestrator wiring** above. The canonical `templates/evm-midnight-v2/` doesn't include the `compile-midnight` step either, which is why its docs tell you to run `bun run build:midnight` before `bun run dev`. New templates should bake the compile step into `start.dev.ts` so `bun run dev` works on a fresh checkout.
 
 ### Compact compiler ↔ runtime version alignment
 
