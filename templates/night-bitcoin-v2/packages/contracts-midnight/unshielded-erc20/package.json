@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@night-bitcoin/midnight-contract-unshielded-erc20": "workspace:*",
-    "@midnight-ntwrk/compact-runtime": "0.15.0",
     "vitest": "^3.2.4"
   }
 }

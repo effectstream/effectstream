@@ -22,6 +22,7 @@
     "@midnight-ntwrk/ledger-v8": "8.0.3",
     "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
     "@midnight-ntwrk/midnight-js-contracts": "4.0.4",
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.4",
     "@midnight-ntwrk/midnight-js-types": "4.0.4",
     "@midnight-ntwrk/midnight-js-utils": "4.0.4",
     "bitcoinjs-lib": "^6.1.5",

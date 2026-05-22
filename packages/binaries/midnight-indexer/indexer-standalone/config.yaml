@@ -43,10 +43,16 @@ infra:
         batch_size: 20
       dust_ledger_events:
         batch_size: 20
+      dust_generations:
+        batch_size: 20
+      dust_nullifier_transactions:
+        batch_size: 20
       shielded_transactions:
         batch_size: 20
         progress_update_interval: "30s"
         keep_wallet_alive_interval: "1m"
+      shielded_nullifier_transactions:
+        batch_size: 20
       unshielded_transactions:
         batch_size: 20
         progress_update_interval: "30s"

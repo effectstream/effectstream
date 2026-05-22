@@ -1,5 +1,8 @@
 // TODO Remove references to "src/managed" as this is not standard.
 
+// Single WASM instance for ContractState / ContractMaintenanceAuthority.
+import "@midnight-ntwrk/onchain-runtime-v3";
+
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import { statSync, readdirSync } from "node:fs";

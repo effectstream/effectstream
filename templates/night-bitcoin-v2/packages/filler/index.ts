@@ -1,3 +1,12 @@
+// Load wasm before other Midnight SDK code (matches frontend / node entrypoints).
+import "@midnight-ntwrk/onchain-runtime-v3";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
+
+// Configure network ID on the same module instance midnight-js-contracts uses.
+// Without this, callTx throws when batcher-sdk's adapter set it on a duplicate copy.
+setNetworkId(midnightNetworkConfig.id as never);
+
 // Per-filler service: HTTP API for quotes + cross-chain payment notification.
 //
 // Each filler is a separate orchestrator process with its own port + wallet
@@ -28,7 +37,6 @@ import {
   MidnightAdapter,
 } from "@effectstream/batcher-sdk";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
-import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { AddressType } from "@effectstream/utils";
 import {
   SimpleToken,
@@ -121,8 +129,17 @@ const midnightWalletData = JSON.parse(
   readFileSync(MIDNIGHT_WALLET_PATH, "utf-8"),
 );
 const midnightSeed: string = midnightWalletData.seed;
+const midnightUnshieldedAddress: string =
+  midnightWalletData.unshieldedAddress ?? midnightWalletData.address;
+if (!midnightUnshieldedAddress?.startsWith("mn_addr_")) {
+  throw new Error(
+    `Midnight wallet at ${MIDNIGHT_WALLET_PATH} is missing unshieldedAddress (mn_addr_…); re-run create-wallets`,
+  );
+}
 
-console.log(`Loaded Midnight wallet: ${midnightWalletData.address}`);
+console.log(
+  `Loaded Midnight wallet (unshielded): ${midnightUnshieldedAddress}`,
+);
 
 // --- Embedded batcher setup ---
 
@@ -230,6 +247,8 @@ const QuoteResponseSchema = Type.Object({
   fromAmount: Type.Number(),
   toAmount: Type.Number(),
   fee: Type.Number(),
+  /** Lace unshielded-send destination for M20 → filler payments */
+  midnightUnshieldedAddress: Type.String(),
 });
 
 const NotifyPaymentSchema = Type.Object({
@@ -303,6 +322,7 @@ server.post<{
     fromAmount,
     toAmount: conversionRate - fee,
     fee,
+    midnightUnshieldedAddress,
   };
 
   reply.send(quote);

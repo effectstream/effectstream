@@ -193,8 +193,59 @@ textarea {
   border: 2px solid transparent;
   transition: border-color 0.2s;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+}
+
+.quote-deposit-address {
+  flex-basis: 100%;
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #b0bec5;
+}
+
+.quote-deposit-address-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-all;
+}
+
+.copy-address-button {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border: 1px solid var(--secondary-accent, #5c6bc0);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--secondary-accent, #7986cb);
+  cursor: pointer;
+}
+
+.copy-address-button:hover:not(:disabled) {
+  background-color: rgba(92, 107, 192, 0.15);
+}
+
+.copy-address-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.copyable-address-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.copyable-address-cell > span {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .quote-item:hover {

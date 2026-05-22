@@ -128,6 +128,62 @@ const formatNumber = (n: number | string): string => {
   return num.toFixed(decimalPlacesToKeep);
 };
 
+const FILLER_DEPOSIT_DETAIL_KEY = "Send M20 to (filler)";
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+function CopyButton({
+  text,
+  label = "Copy",
+  className = "",
+}: {
+  text: string;
+  label?: string;
+  className?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (event: React.MouseEvent) => {
+    event.stopPropagation();
+    const ok = await copyTextToClipboard(text);
+    if (ok) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className={`copy-address-button ${className}`.trim()}
+      onClick={handleCopy}
+      disabled={!text}
+      title="Copy to clipboard"
+    >
+      {copied ? "Copied!" : label}
+    </button>
+  );
+}
+
 function App() {
   const [fromToken, setFromToken] = useState(tokens[0].symbol);
   const [toToken, setToToken] = useState(tokens[1].symbol);
@@ -387,6 +443,7 @@ function App() {
         toAmount: quote.toAmount,
         fee: quote.fee,
         orderId: orderId,
+        midnightUnshieldedAddress: quote.midnightUnshieldedAddress ?? "",
       }));
 
       const sortedQuotes = [...formattedQuotes].sort(
@@ -571,26 +628,22 @@ function App() {
         return;
       }
 
-      // v2 escrow note: in v1 the next step was an in-contract `transferFrom`
-      // to lock M20 with the filler. With the new native-unshielded M20, that
-      // contract method no longer exists — the user must move M20 to the
-      // filler's unshielded (`mn_addr_…`) address using Lace's send UI. For
-      // demo purposes we just submit the intent and let the filler observe
-      // the M20 arrival via the sync node. TODO: surface the filler's
-      // unshielded address in the quote so the user can copy/send via Lace.
+      const fillerDepositAddress = selectedQuote.midnightUnshieldedAddress;
       setTimeout(() => updateM20Balance(midnightWallet), 2000);
       setPopup({
         show: true,
         title: "Intent submitted",
         message:
           `Your ${fromToken} → ${toToken} intent is in the batcher. ` +
-          "To complete the swap, send the M20 from your Lace wallet to the " +
-          "filler's unshielded address (mn_addr_*) using Lace's native " +
-          "unshielded-send. The filler will observe the M20 arrival and " +
-          "release the BTC.",
+          "Send the exact M20 amount from Lace (unshielded send) to the filler " +
+          "address below. The filler will observe the arrival and release BTC.",
         details: {
+          [FILLER_DEPOSIT_DETAIL_KEY]:
+            fillerDepositAddress || "(missing — re-fetch quotes)",
+          Amount: amount,
           "Intent Tx ID": intentResult.txId,
           "Intent Block": intentResult.blockHeight,
+          Filler: selectedQuote.provider,
           ...intentConfig,
         },
       });
@@ -891,6 +944,19 @@ function App() {
                   <div className="quote-fee">
                     Fee: {formatNumber(quote.fee)} {toToken}
                   </div>
+                  {fromToken === "M20" &&
+                    toToken === "BTC" &&
+                    quote.midnightUnshieldedAddress && (
+                      <div
+                        className="quote-deposit-address"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="quote-deposit-address-text">
+                          Deposit M20 to: {quote.midnightUnshieldedAddress}
+                        </span>
+                        <CopyButton text={quote.midnightUnshieldedAddress} />
+                      </div>
+                    )}
                 </div>
               ))}
             </div>
@@ -937,12 +1003,28 @@ function App() {
               {popup.details && (
                 <table className="popup-details-table">
                   <tbody>
-                    {Object.entries(popup.details).map(([key, value]) => (
-                      <tr key={key}>
-                        <td>{key}</td>
-                        <td>{formatPopupValue(value)}</td>
-                      </tr>
-                    ))}
+                    {Object.entries(popup.details).map(([key, value]) => {
+                      const display = formatPopupValue(value);
+                      const isFillerDeposit =
+                        key === FILLER_DEPOSIT_DETAIL_KEY &&
+                        typeof value === "string" &&
+                        value.startsWith("mn_addr_");
+                      return (
+                        <tr key={key}>
+                          <td>{key}</td>
+                          <td>
+                            {isFillerDeposit ? (
+                              <div className="copyable-address-cell">
+                                <span>{display}</span>
+                                <CopyButton text={value} />
+                              </div>
+                            ) : (
+                              display
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}

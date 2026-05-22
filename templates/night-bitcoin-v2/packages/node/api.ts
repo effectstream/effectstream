@@ -102,6 +102,7 @@ export const apiRouter: StartConfigApiRouter = function (
     fromAmount: Type.Number(),
     toAmount: Type.Number(),
     fee: Type.Number(),
+    midnightUnshieldedAddress: Type.String(),
   });
   const GetQuotesResponseSchemaArray = Type.Array(GetQuotesResponseSchema);
 

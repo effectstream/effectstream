@@ -1,5 +1,7 @@
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
+import { midnightLedgerFromTxStateHex } from "@effectstream/midnight-contracts/ledger-from-tx-state";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
+import { ContractState } from "@midnight-ntwrk/compact-runtime";
 import { getConnection } from "@effectstream/db";
 import {
   ConfigBuilder,
@@ -87,7 +89,7 @@ export const config = new ConfigBuilder()
           pollingInterval: 1000,
           delayMs: 18000,
           indexer: midnightNetworkConfig.indexer,
-          indexerWs: midnightNetworkConfig.indexerWS,
+          indexerWS: midnightNetworkConfig.indexerWS,
         }),
       )
       .addParallel(
@@ -116,7 +118,13 @@ export const config = new ConfigBuilder()
             { networkId: midnightNetworkConfig.id },
           ).contractAddress,
           stateMachinePrefix: "midnightContractStateERC20",
-          contract: { ledger: UnshieldedErc20Contract.ledger },
+          contract: {
+            ledger: UnshieldedErc20Contract.ledger,
+            ledgerFromTxStateHex: midnightLedgerFromTxStateHex(
+              UnshieldedErc20Contract.ledger,
+              ContractState,
+            ),
+          },
           networkId: midnightNetworkConfig.id,
         }),
       )
@@ -131,7 +139,13 @@ export const config = new ConfigBuilder()
             { networkId: midnightNetworkConfig.id },
           ).contractAddress,
           stateMachinePrefix: "midnightContractStateERC7683",
-          contract: { ledger: Erc7683Contract.ledger },
+          contract: {
+            ledger: Erc7683Contract.ledger,
+            ledgerFromTxStateHex: midnightLedgerFromTxStateHex(
+              Erc7683Contract.ledger,
+              ContractState,
+            ),
+          },
           networkId: midnightNetworkConfig.id,
         }),
       )
