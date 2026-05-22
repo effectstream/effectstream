@@ -103,6 +103,16 @@ export async function deployTest() {
 
 ## Phase B: STM / DB / API
 
+> **End-to-end ≠ chain-side submission alone.** Phase B's job is to verify the **full user-facing flow**: the input the user actually sends (or that custom server code sends on their behalf) makes it through the system into the DB and back out through the API. If the template ships a batcher OR a custom server-side relayer (bridge daemon, server-side mint button, etc.), Phase B MUST include a request through THAT path, not just an on-chain submission that bypasses it. A test that submits directly on-chain when production traffic goes batcher → on-chain is testing the wrong code path.
+>
+> Concretely:
+>
+> - **Template has no batcher** (read-only indexer, or wallet submits directly to chain): on-chain submission via the chain's SDK (viem, Lucid, near-api-js, etc.) is the right Phase B path.
+> - **Template ships a batcher**: Phase B MUST include a `POST /send-input` to the batcher with `confirmationLevel: "wait-effectstream-processed"`, then `assertSQL` the row appears. The schema is in `references/batcher.md` § `/send-input` request shape. Catches: wrong request shape (`400 must have required property 'data'`), namespace ≠ appName signature mismatches (`401 Invalid signature`), adapter wiring errors, and confirmation-level bugs. None of these surface when you submit on-chain directly.
+> - **Template has a custom server-side relayer** (e.g. a bridge daemon that watches one chain and submits to another via the batcher): Phase B MUST trigger the relayer's input path and `assertSQL` the row appears in the destination chain's table. The relayer is the user's actual code path; testing around it is the test passing while the actual flow is broken.
+>
+> Pattern: at least one Phase B `stm/*.test.ts` per write-path the template ships.
+
 > **Precondition before the first `SELECT`: confirm the target table exists.** The sync node's `/health` returning OK means the HTTP server is up — it does NOT mean user migrations have been applied yet. Migrations land when the first block is finalized, which can be a few seconds after `/health` reports OK. A Phase B test that runs `SELECT * FROM counter_history` immediately after `waitForHealth()` will hit `42P01: relation "counter_history" does not exist` and fail.
 >
 > Poll `information_schema.tables` for the table before any application `SELECT`:

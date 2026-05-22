@@ -96,6 +96,51 @@ main(function* () {
 });
 ```
 
+## `/send-input` request shape (the only HTTP contract the batcher exposes)
+
+The batcher's HTTP server has one write endpoint: `POST /send-input`. Anything that submits a user action through the batcher — the frontend (`sendTransaction` from `@effectstream/wallets`), a custom bridge daemon, a CI test, etc. — hits this endpoint. The schema is:
+
+```ts
+// Request body
+{
+  data: {
+    address: string,                    // wallet address (lowercased for EVM, bech32 for Cardano, etc.)
+    addressType: number,                // see AddressType enum from @effectstream/utils
+    input: string,                      // the concise/grammar-encoded payload (e.g. JSON.stringify(["createRoom", "test", 4]))
+    signature?: string,                 // wallet signature; required for namespaces that verify
+    timestamp: string,                  // millisecond Unix timestamp as a string
+    target?: string,                    // adapter name to route to (defaults to defaultTarget)
+  },
+  confirmationLevel?: "no-wait" | "wait-receipt" | "wait-effectstream-processed",  // default "wait-receipt"
+  timeoutMs?: number,                   // default 60000ms for receipt-level confirmation
+}
+```
+
+**The most common bug**: posting the inner fields directly (`{ address, addressType, input, ... }`) without the `data:` wrapper. The batcher's Fastify validator responds with `400 must have required property 'data'`. The `data` wrapper exists so `confirmationLevel` and `timeoutMs` can sit alongside it without colliding with the input itself.
+
+```ts
+// ❌ WRONG — Fastify returns 400 "must have required property 'data'"
+fetch(`${BATCHER_URL}/send-input`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ address, addressType: 1, input, timestamp: String(Date.now()) }),
+});
+
+// ✅ CORRECT
+fetch(`${BATCHER_URL}/send-input`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    data: { address, addressType: 1, input, timestamp: String(Date.now()) },
+    confirmationLevel: "wait-effectstream-processed",
+  }),
+});
+```
+
+`@effectstream/wallets`' `sendTransaction` builds this body automatically — anything that uses the wallet SDK is fine. Custom code (bridge daemons, server-side relayers, CI tests) needs to wrap manually.
+
+The OpenAPI explorer at `${BATCHER_URL}/documentation` reflects the live schema and is the authoritative reference if anything ever changes.
+
 ## ⚠️ Namespace must equal frontend appName
 
 `BatcherConfig.namespace` **must exactly match** the `EffectstreamConfig` `appName` used by the frontend when signing transactions. The signed message includes `appName`; the batcher validates the signature against `namespace`. A mismatch produces `401 Invalid signature` from `/send-input`.
