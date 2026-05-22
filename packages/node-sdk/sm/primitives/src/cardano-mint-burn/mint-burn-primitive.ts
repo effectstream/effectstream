@@ -63,14 +63,23 @@ export class CardanoMintBurnPrimitive extends Primitive<
   }
 
   override getConfig(): ProtocolPrimitiveMap[ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL] {
+    // UTxO-RPC's `mints_asset` predicate is interpreted by Dolos as
+    // "creates new supply" — it matches only positive-quantity mints and
+    // silently filters burns. To catch burns we also match `moves_asset`,
+    // which fires when the asset appears in any input/output of the tx
+    // (true for burns, since the asset is in the input UTxO being spent).
+    // Downstream consumers see both mint and burn payloads through the
+    // same primitive; sign-of-quantity discriminates.
+    const matchPolicy = (pid: string): UtxorpcTxPredicate => ({
+      any_of: [
+        { match: { cardano: { mints_asset: { policy_id: pid } } } },
+        { match: { cardano: { moves_asset: { policy_id: pid } } } },
+      ],
+    });
     const predicate: UtxorpcTxPredicate =
       this.policyIds.length === 1
-        ? { match: { cardano: { mints_asset: { policy_id: this.policyIds[0] } } } }
-        : {
-            any_of: this.policyIds.map((pid) => ({
-              match: { cardano: { mints_asset: { policy_id: pid } } },
-            })),
-          };
+        ? matchPolicy(this.policyIds[0])
+        : { any_of: this.policyIds.map(matchPolicy) };
 
     return {
       name: this.instanceName,
