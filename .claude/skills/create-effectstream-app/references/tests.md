@@ -223,8 +223,8 @@ The render test below is a **smoke test**, not an interaction test:
 | `vite build` fails (Vite config error, plugin crash, missing imports at build time) | ✅ | ✅ | ✅ |
 | React doesn't mount (top-level component crashes) | ❌ | ✅ | ✅ |
 | `node-fetch` in browser bundle → `require("fs").promises` crash before mount | ❌ | ✅ | ✅ |
-| Wallet button click triggers a runtime error in a lazily-loaded WASM module (`Cannot read properties of undefined (reading 'nativeScriptFromJson')` from Lucid; `provableCircuits is undefined` from Midnight; etc.) | ❌ | ❌ | ✅ |
-| `Mint demo NFT` / `Send N ADA` / `Increment counter` actions error mid-tx | ❌ | ❌ | ✅ |
+| User-action triggers an error in a lazily-loaded module (browser wallet handshake, WASM init that defers until first call, SDK code path that's only reached on a click) — chain-specific examples in each `references/chains/{chain}.md` § Sharp edges | ❌ | ❌ | ✅ |
+| Tx-submission flow (Mint / Send / Increment / Connect Wallet / etc.) errors before the request even leaves the page | ❌ | ❌ | ✅ |
 
 The middle column is what the previous skill version required. **The right column — "Phase C must exercise every primary CTA" — is what's actually load-bearing for catching real-user breakage.** The wallet-load error pattern (CSL/WASM init failing on first click) is a known Cardano-Lucid issue that page-load tests miss entirely.
 
