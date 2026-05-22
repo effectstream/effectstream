@@ -27,11 +27,24 @@ This skill exists because there are ~80 sharp edges (Bun workspace symlinking, M
 >
 > Full per-step acceptance criteria in [Verification — mandatory, incremental, stop on error](#verification--mandatory-incremental-stop-on-error).
 
-## Discovery — confirm scope with the user before scaffolding
+## Discovery — confirm the infrastructure with the user before scaffolding
 
-**Don't pick chains, contracts, or primitives by default — these are user decisions with real production consequences.** Suggest options, present trade-offs, then wait for explicit confirmation before writing any code.
+**Don't pick chains, sync protocols, primitives, contracts, or batchers by default — these are user decisions with real production consequences.** Each one has its own ongoing cost (indexer per chain, RPC bills per sync protocol, gas + audit + deployment burden per contract, batcher infra). Suggest options, present trade-offs, then wait for explicit confirmation **on each axis** before writing any code.
 
 This phase looks like a short interview, not a code change. Run it even if the user's prompt sounds complete — the prompt almost never spells out cost or deployment implications, and the wrong default is much more expensive than a thirty-second clarifying conversation.
+
+**The confirmation matrix** (echo this back to the user before scaffolding, and don't proceed until they say yes on every row):
+
+| Axis | Suggest | User confirms | Cost they're accepting |
+|---|---|---|---|
+| **Chains** | Smallest set that satisfies the use case | Exact chain list | Indexer + RPC + monitoring per chain, 24/7 in production |
+| **Sync protocols** | One `addMain` (NTP_MAIN) + one `addParallel` per chain | Specific protocol per chain | RPC calls / block × polling rate. Higher confirmation depth = slower but safer. |
+| **Primitives** | Built-in primitives that don't require contracts (read-only watchers) | Exact primitive list per chain + the events they listen to | Per-block scan work for each primitive — adds up |
+| **Contracts** | Minimal set or "none if a primitive covers it" | What gets deployed, by whom, on which chains | Deployment gas + audit + lifetime upgrade burden — borne by the user |
+| **Batchers** | Yes only if gasless UX or time/size amortization is needed | Yes/no per chain that supports batching | Batcher process + private-key custody + namespace coordination with the frontend |
+| **STM design** | Sketched after the above are locked | Grammar keys, transitions, DB tables, API endpoints | The shape of the rewrite if it changes later |
+
+If the user only said "build me an X" and the matrix isn't filled in, **stop and ask**. The skill assumes every row has been agreed before any of the build-order steps below run.
 
 ### 1. Which chain(s)?
 
@@ -43,7 +56,26 @@ Each chain a template indexes costs **real money in production** — an RPC prov
 
 Don't proceed until the user has named the chains explicitly.
 
-### 2. Which contract(s) — and does the use case even need contracts?
+### 2. Which sync protocols?
+
+A sync protocol is **how the engine reads a chain**. Each app has exactly one `addMain` (the `NTP_MAIN` clock) and one `addParallel` per chain you target. The defaults are usually right but worth surfacing:
+
+| Chain | Default sync protocol | Pick differently if |
+|---|---|---|
+| EVM | `EVM_RPC_PARALLEL` | (only option today) |
+| Midnight | `MIDNIGHT_PARALLEL` | (only option today) |
+| Cardano | `CARDANO_UTXORPC_PARALLEL` (via Dolos) | You need CARP indexer instead — pick `CARDANO_CARP_PARALLEL` |
+| Bitcoin | `BITCOIN_RPC_PARALLEL` | (only option today) |
+| NEAR | `NEAR_RPC_PARALLEL` | (only option today) |
+| Avail | `AVAIL_PARALLEL` | (only option today) |
+| Celestia | `CELESTIA_PARALLEL` | (only option today) |
+
+What you DO need to confirm with the user even when there's only one protocol:
+
+- **`startBlockHeight`** — replay from genesis or from now? Genesis is correct but slow on long-running chains. For testnet/dev, "current tip - 5" is the common idiom; for mainnet, the user should pick a deliberate starting block (the block their contract was deployed at, typically).
+- **`pollingInterval`** and **`confirmationDepth`** — defaults vary per chain. Surface them: shorter intervals = lower latency, more RPC calls, higher cost. Higher confirmation depth = safer against reorgs, slower index. The user should approve these values per chain before scaffolding.
+
+### 3. Which contract(s) — and does the use case even need contracts?
 
 Contracts come with the highest cost: **the user has to deploy them**, audit them, manage upgrades, and pay deployment gas. The agent doesn't deploy contracts; the user does. So:
 
@@ -52,7 +84,7 @@ Contracts come with the highest cost: **the user has to deploy them**, audit the
 - Mention deployment: "You'll need to deploy this to <chain> mainnet. Want me to scaffold a deploy script and a placeholder address that's env-var configurable?"
 - Cross-check against the primitive surface (next step) — sometimes a built-in primitive removes the need for a custom contract entirely.
 
-### 3. Which primitives?
+### 4. Which primitives?
 
 **Primitives are how the engine sees on-chain events.** Many use cases don't need contracts at all — they need a built-in primitive that watches a chain-native event:
 
@@ -66,7 +98,30 @@ These primitives **must still be explicitly confirmed with the user** — they s
 
 The default-unless-asked rule: don't add primitives the user didn't sign off on. Several primitives are opt-in for cost reasons — see Core invariant §9 and the relevant `references/chains/{chain}.md` § **Sharp edges** for which primitives those are.
 
-### 4. State machine design
+### 5. Do you need a batcher? (per chain, if applicable)
+
+A batcher aggregates user transactions and submits them to one or more chains. Batchers come with their own infrastructure cost: an extra long-running process, a custodial private key (gas-payer), and a `namespace` that MUST match the frontend's `EffectstreamConfig` `appName` exactly (mismatch → `401 Invalid signature`).
+
+Confirm with the user, **per chain** the template targets:
+
+- **Suggest YES if** the frontend will submit user actions and you want (a) gasless UX (the batcher pays gas, not the user), or (b) time/size amortization (group N user txs into one chain tx).
+- **Suggest NO if** the frontend builds and submits transactions directly using the user's own wallet (e.g. Cardano templates with Lucid Evolution submit to YACI/Dolos directly; many Midnight templates submit Compact proofs via Lace; Bitcoin templates typically don't batch). A no-batcher template's HTTP API stays GET-only.
+
+Available adapters (one per target chain):
+
+| Adapter | Chain | Batching criteria |
+|---|---|---|
+| `EffectstreamL2DefaultAdapter` | EVM | time, size, hybrid |
+| `EvmContractAdapter` | EVM (custom contract) | time, size, hybrid |
+| `MidnightAdapter` | Midnight | size (typically 1; ZK proofs are heavy) |
+| `BitcoinAdapter` | Bitcoin | hybrid |
+| `NearAdapter` | NEAR | time, size |
+| `NearIntentAdapter` | NEAR (DIP-4 intents) | time, size |
+| `CelestiaAdapter` | Celestia | size (PFB has its own gas semantics) |
+
+For each batcher the user wants, also confirm: **which gas-payer key** (where will the private key live in production — env var, KMS, etc.) and **what batching criteria** (time window? size threshold? hybrid?).
+
+### 6. State machine design
 
 Once chains, contracts, and primitives are confirmed, **design the STM with the user before writing transitions**. The STM is where every write to the DB happens; getting its shape wrong means rewriting all the dependent layers. Specifically:
 
@@ -75,7 +130,7 @@ Once chains, contracts, and primitives are confirmed, **design the STM with the 
 - **Ask clarifying questions.** If the user said "store ADA sent to my address," reasonable questions are: only `lovelace` amount, or full UTxO metadata? Do we care about the sender too? Should multiple incoming UTxOs in one tx be one row or several? What's the unique constraint — `(tx_hash, output_index)`? Asking up front is much cheaper than reshaping the schema later.
 - **Echo back the design** in a short bullet list before scaffolding (`grammar.ts` keys, STM transitions, DB tables, API endpoints). Get the user's "yes" on that summary before writing code.
 
-If anything is ambiguous, ASK. The skill assumes you'll do the interview; downstream steps are written for the case where chains + contracts + primitives + STM are already agreed.
+If anything is ambiguous, ASK. The skill assumes you'll do the interview; downstream steps are written for the case where **chains + sync protocols + primitives + contracts + batchers + STM** are already agreed.
 
 ## Core invariants (the rules that keep the template buildable)
 
