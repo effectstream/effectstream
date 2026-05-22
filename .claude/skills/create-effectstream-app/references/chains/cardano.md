@@ -122,6 +122,16 @@ provider.submitTx = async (tx: string): Promise<string> => {
 };
 ```
 
+### Lucid wallet load fails with `Cannot read properties of undefined (reading 'nativeScriptFromJson')`
+
+This is a Lucid Evolution / cardano-multiplatform-lib (CSL) WASM init failure. `nativeScriptFromJson` lives in CSL; the "undefined" object is CSL itself — it didn't initialize before Lucid tried to call into it. Common causes (in order of frequency):
+
+1. **CSL WASM not loaded before Lucid is first used.** Lucid's lazy init does NOT await CSL module load. If `Lucid.new()` (or any wallet-load call) fires synchronously on a button click before the WASM has finished streaming, you get this error. Fix: explicitly `await Lucid.new(...)` inside an async event handler, AND make sure the page has had at least one tick after mount before the user can click — or pre-warm CSL with a no-op call (e.g. `getAddressDetails("addr_test1...")`) at module init.
+2. **`vite-plugin-top-level-await` was added back.** This plugin pulls Lucid into a polyfill path that breaks WASM init in Bun's build. Vite's `build.target: "esnext"` already supports top-level await natively. The skill's `references/frontend.md` § 1 rule "Do NOT use `vite-plugin-top-level-await`" applies to Cardano templates too — the symptom here is exactly the error pattern this section is about.
+3. **CSL version skew between Lucid Evolution sub-packages.** Pin `@lucid-evolution/lucid`, `@lucid-evolution/provider`, `@lucid-evolution/utils`, `@lucid-evolution/core-types`, and `@lucid-evolution/wallet` to the same minor (e.g. all `0.4.x`). Mismatched versions can leave one of them holding a stale CSL reference.
+
+**Phase C interaction tests catch this** — see `references/tests.md` § "Phase C — interaction tests". A page-load smoke test will NOT catch it because the error fires on first wallet call, after `pageerror` has already been counted as zero.
+
 ### YACI POSIX vs wall-clock time mismatch
 
 `genesis.systemStart` (used for on-chain POSIX time via Shelley genesis) differs from `devnet.startTime` (used for Lucid's `SLOT_CONFIG_NETWORK["Custom"].zeroTime`). The offset (often hours) must be subtracted from on-chain POSIX values when comparing to `Date.now()`:

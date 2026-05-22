@@ -214,6 +214,20 @@ export async function frontendBuildTest() {
 }
 ```
 
+### What Phase C tests catch vs miss — read this before you write them
+
+The render test below is a **smoke test**, not an interaction test:
+
+| Failure mode | Caught by build-smoke | Caught by render.test load-only | Caught by render.test with CTA clicks |
+|---|---|---|---|
+| `vite build` fails (Vite config error, plugin crash, missing imports at build time) | ✅ | ✅ | ✅ |
+| React doesn't mount (top-level component crashes) | ❌ | ✅ | ✅ |
+| `node-fetch` in browser bundle → `require("fs").promises` crash before mount | ❌ | ✅ | ✅ |
+| Wallet button click triggers a runtime error in a lazily-loaded WASM module (`Cannot read properties of undefined (reading 'nativeScriptFromJson')` from Lucid; `provableCircuits is undefined` from Midnight; etc.) | ❌ | ❌ | ✅ |
+| `Mint demo NFT` / `Send N ADA` / `Increment counter` actions error mid-tx | ❌ | ❌ | ✅ |
+
+The middle column is what the previous skill version required. **The right column — "Phase C must exercise every primary CTA" — is what's actually load-bearing for catching real-user breakage.** The wallet-load error pattern (CSL/WASM init failing on first click) is a known Cardano-Lucid issue that page-load tests miss entirely.
+
 ### Render test (catches runtime browser bugs)
 
 ```ts
@@ -244,6 +258,58 @@ export async function frontendRenderTest() {
 Use `playwright-core` (not `@playwright/test`) to avoid bundling browsers — `findChrome()` (or `CHROME_PATH`) discovers Chrome on the host.
 
 This catches the `node-fetch` / `stream/web` / `vite-plugin-top-level-await` class of bug that `vite build` succeeds on but blows up at mount time.
+
+### Phase C — interaction tests (REQUIRED for every CTA)
+
+The render test above catches mount-time errors but misses everything gated behind a user click. Every template with a frontend MUST include an interaction test per primary CTA. Pattern:
+
+```ts
+// packages/tests/frontend/interactions.test.ts
+import { assert } from "../helpers.ts";
+import { chromium } from "playwright-core";
+
+const FRONTEND_PORT = 10599;
+
+export async function frontendInteractionsTest() {
+  const browser = await chromium.launch({ executablePath: findChrome(), headless: true });
+  const page = await browser.newPage();
+
+  const jsErrors: string[] = [];
+  page.on("pageerror", (err) => jsErrors.push(`${err.name}: ${err.message}`));
+  page.on("console", (msg) => {
+    if (msg.type() === "error") jsErrors.push(`console.error: ${msg.text()}`);
+  });
+
+  await page.goto(`http://localhost:${FRONTEND_PORT}/`, { waitUntil: "load" });
+  await page.waitForSelector(".container", { timeout: 10_000 });
+
+  // For EACH primary CTA in the frontend's main view:
+  //   1. Click it (use data-testid so the selector is stable).
+  //   2. Wait briefly — many wallet/Lucid/CSL errors fire async on first call.
+  //   3. Snapshot jsErrors AFTER each click.
+  //
+  // The test should fail if any click produces a NEW pageerror, even if the
+  // happy-path action can't complete in the test env (e.g. no real wallet
+  // extension installed). The point is to surface init-time errors that
+  // page-load tests never see.
+
+  // Example for a Cardano template with a Connect Wallet button:
+  await assert("Connect wallet button does not throw on click", async () => {
+    const before = jsErrors.length;
+    await page.click('[data-testid="connect-wallet-btn"]', { timeout: 5_000 });
+    await page.waitForTimeout(2_000); // give async wallet init time to fail
+    return jsErrors.length === before;
+  });
+
+  // Repeat per CTA: Send N ADA, Mint NFT, Increment, etc.
+
+  await browser.close();
+}
+```
+
+**Tag every primary CTA with `data-testid`.** Test selectors that depend on text content or class names break with normal UI iteration. The skill's frontend snippets should use `data-testid` for every clickable element a Phase C test needs to exercise.
+
+If `playwright-core` isn't installed (grader running in a no-Chrome env), the interaction test must gracefully skip — same `[SKIP]` pattern as `render.test.ts`. But on any machine that does have Chrome, the test runs and catches click-time errors that page-load assertions miss.
 
 ### Playwright E2E for richer UIs
 
