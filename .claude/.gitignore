@@ -1,0 +1,8 @@
+# User-local Claude Code settings — not for sharing.
+settings.local.json
+
+# Skill eval workspaces are development-time bookkeeping (grader, aggregator,
+# per-iteration evidence). They're useful for iterating on a skill locally
+# but don't belong in the shipped skill — consumers only need the skill
+# directory itself. Keep the whole `*-workspace/` pattern out of the repo.
+skills/*-workspace/
