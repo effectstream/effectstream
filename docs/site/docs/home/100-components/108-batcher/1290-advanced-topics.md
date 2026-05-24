@@ -1002,7 +1002,7 @@ The default storage backend uses JSONL (JSON Lines) files for simplicity and hum
 
 **Usage:**
 ```typescript
-import { FileStorage } from "@effectstream/batcher";
+import { FileStorage } from "@effectstream/batcher-sdk";
 
 const storage = new FileStorage("./batcher-data");
 const batcher = createNewBatcher(config, storage);
@@ -1042,7 +1042,7 @@ Implement `BatcherStorage` to use any backend:
 
 ```typescript
 import { Pool } from "pg";
-import type { BatcherStorage, DefaultBatcherInput } from "@effectstream/batcher";
+import type { BatcherStorage, DefaultBatcherInput } from "@effectstream/batcher-sdk";
 
 export class PostgreSQLStorage<T extends DefaultBatcherInput>
   implements BatcherStorage<T> {
@@ -1156,7 +1156,7 @@ const batcher = createNewBatcher(config, storage);
 
 ```typescript
 import Redis from "ioredis";
-import type { BatcherStorage, DefaultBatcherInput } from "@effectstream/batcher";
+import type { BatcherStorage, DefaultBatcherInput } from "@effectstream/batcher-sdk";
 
 export class RedisStorage<T extends DefaultBatcherInput>
   implements BatcherStorage<T> {
@@ -1327,7 +1327,7 @@ The batcher provides a `runBatcher()` operation that:
 
 ```typescript
 import { main, suspend } from "effection";
-import { Batcher } from "@effectstream/batcher";
+import { Batcher } from "@effectstream/batcher-sdk";
 
 const batcher = new Batcher(config, storage);
 
@@ -1354,7 +1354,7 @@ Here's a production-ready example from the E2E tests:
 
 ```typescript
 import { main, suspend } from "effection";
-import { Batcher } from "@effectstream/batcher";
+import { Batcher } from "@effectstream/batcher-sdk";
 import { config, storage } from "./config.ts";
 
 const batcher = new Batcher(config, storage);

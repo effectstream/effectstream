@@ -25,7 +25,7 @@ The generic type parameter `T` allows you to extend `DefaultBatcherInput` with c
 
 **Example:**
 ```typescript
-import { createNewBatcher, FileStorage } from "@effectstream/batcher";
+import { createNewBatcher, FileStorage } from "@effectstream/batcher-sdk";
 
 const batcher = createNewBatcher(
   {
@@ -181,13 +181,13 @@ const config: BatcherConfig = {
   
   // Configure multiple adapters for multi-chain support
   adapters: {
-    ethereum: new EffectStreamL2DefaultAdapter(
+    ethereum: new EffectstreamL2DefaultAdapter(
       "0x...", // Contract address
       "0x...", // Private key
       0n,      // Fee
       "eth-mainnet" // Sync protocol name
     ),
-    polygon: new EffectStreamL2DefaultAdapter(
+    polygon: new EffectstreamL2DefaultAdapter(
       "0x...",
       "0x...",
       0n,
@@ -233,7 +233,7 @@ There are **two different `maxBatchSize` settings** that serve different purpose
 
 **Example showing both:**
 ```typescript
-const ethereumAdapter = new EffectStreamL2DefaultAdapter(
+const ethereumAdapter = new EffectstreamL2DefaultAdapter(
   "0x...",
   "0x...",
   0n,
@@ -332,12 +332,12 @@ interface BlockchainAdapter<TOutput> {
 }
 ```
 
-### Example: EffectStreamL2DefaultAdapter
+### Example: EffectstreamL2DefaultAdapter
 
-The built-in `EffectStreamL2DefaultAdapter` provides a complete EVM implementation:
+The built-in `EffectstreamL2DefaultAdapter` provides a complete EVM implementation:
 
 ```typescript
-export class EffectStreamL2DefaultAdapter implements BlockchainAdapter<string> {
+export class EffectstreamL2DefaultAdapter implements BlockchainAdapter<string> {
   constructor(
     effectstreamL2Address: EvmAddress,
     batcherPrivateKey: EvmPrivateKey,
@@ -358,7 +358,7 @@ export class EffectStreamL2DefaultAdapter implements BlockchainAdapter<string> {
   }
 
   async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> {
-    // Submits to EffectStreamL2 contract via viem
+    // Submits to EffectstreamL2 contract via viem
     const hexData = encodeHexFromString(data);
     const hash = await this.walletClient.writeContract({
       address: this.effectstreamL2Address,
@@ -530,11 +530,11 @@ Here's a complete flow showing how all core concepts interact, including **exten
 import { 
   createNewBatcher, 
   BatcherConfig,
-  EffectStreamL2DefaultAdapter,
+  EffectstreamL2DefaultAdapter,
   FileStorage,
   DefaultBatcherInput,
   AddressType 
-} from "@effectstream/batcher";
+} from "@effectstream/batcher-sdk";
 
 // 1. Define custom input type with additional fields
 interface GameBatcherInput extends DefaultBatcherInput {
@@ -558,8 +558,8 @@ const batcher = createNewBatcher<GameBatcherInput>(config, new FileStorage("./da
 
 // 4. Create and add blockchain adapter dynamically
 // This must be done BEFORE init() or runBatcher()
-const ethereumAdapter = new EffectStreamL2DefaultAdapter(
-  "0x1234...",  // EffectStreamL2 contract address
+const ethereumAdapter = new EffectstreamL2DefaultAdapter(
+  "0x1234...",  // EffectstreamL2 contract address
   "0xabcd...",  // Batcher private key
   0n,           // Transaction fee
   "eth-mainnet" // Sync protocol name (target can differ from this)

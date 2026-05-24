@@ -7,9 +7,9 @@ In any decentralized application, the user's wallet is their identity, their key
 
 A major challenge in building multi-chain dApps is that every blockchain ecosystem has its own wallet standards and connection methods. EffectStream solves this problem by providing a single, unified interface that handles the complexity for you.
 
-## The `@effectstream/wallet` Package
+## The `@effectstream/wallets` Package
 
-The `@effectstream/wallet` package is the core frontend library for managing user identity. It provides a single, easy-to-use API for connecting to and interacting with a wide variety of blockchain wallets, abstracting away the chain-specific implementation details.
+The `@effectstream/wallets` package is the core frontend library for managing user identity. It provides a single, easy-to-use API for connecting to and interacting with a wide variety of blockchain wallets, abstracting away the chain-specific implementation details.
 
 ## AddressType
 
@@ -31,7 +31,7 @@ This table is a EffectStream numeric representation of wallet address type. Norm
 Integrating wallet connectivity into your dApp is streamlined with a single `login` function. You simply specify which type of wallet you want to connect to using the `WalletMode` enum, and the library handles the rest.
 
 ```ts
-import { WalletMode, login } from '@effectstream/wallet';
+import { WalletMode, login } from '@effectstream/wallets';
 
 const effectstreamConfig = new EffectStreamConfig(...); // see EffectStreamConfig in the @effectstream/wallets package
 
@@ -120,7 +120,7 @@ const result = await sendBatcherTransaction(walletClient, conciseInput, effectst
 
 For specific, high-stakes actions, or if your dApp doesn't use a Batcher, you can use the wallet to send traditional on-chain transactions.
 
-*   **Direct EffectStream L2 Contract Interaction**: Call the `submitInput` function on the `EffectStreamL2Contract` to send a game move directly.
+*   **Direct EffectStream L2 Contract Interaction**: Call the `submitInput` function on the `EffectstreamL2Contract` to send a game move directly.
 This can be done using the `sendSelfSequencedTransaction` function.
 ```ts
 const result = await sendSelfSequencedTransaction(walletClient, conciseInput, effectstreamConfig);
@@ -148,6 +148,6 @@ This allows for an "account abstraction" experience where:
 *   A single EffectStream Account can be controlled by multiple wallet addresses.
 *   The primary (controlling) wallet of an account can be changed.
 
-A user manages their account by sending built-in system commands (like `&linkAddress`) to the `EffectStreamL2Contract`, using their connected wallet to authorize the action with a signature.
+A user manages their account by sending built-in system commands (like `&linkAddress`) to the `EffectstreamL2Contract`, using their connected wallet to authorize the action with a signature.
 
 **[Learn more about the EffectStream Account System](./116-accounts.md)**

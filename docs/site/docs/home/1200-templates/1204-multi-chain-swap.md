@@ -416,7 +416,7 @@ The `batchingCriteria` is set to `size` with a `maxBatchSize` of 1. This means t
 
 #### Custom EVM Adapter (`erc1155-adapter.ts`)
 
-A custom adapter is required because the Batcher isn't submitting generic inputs to a `EffectStreamL2Contract`. Instead, it needs to call specific functions (`mint` or `transferToMidnight`) on the `MCT_ERC1155` contract. The custom adapter parses a JSON payload from the State Machine's request to determine which function to call and with what arguments.
+A custom adapter is required because the Batcher isn't submitting generic inputs to a `EffectstreamL2Contract`. Instead, it needs to call specific functions (`mint` or `transferToMidnight`) on the `MCT_ERC1155` contract. The custom adapter parses a JSON payload from the State Machine's request to determine which function to call and with what arguments.
 
 ```ts
 // In packages/client/batcher/erc1155-adapter.ts

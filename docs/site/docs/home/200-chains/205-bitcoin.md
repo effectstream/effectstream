@@ -64,7 +64,7 @@ To submit transactions to Bitcoin (e.g., for settlement or payments), you use th
 This adapter manages UTXO selection, transaction building (PSBT), and signing using `bitcoinjs-lib`.
 
 ```ts
-import { BitcoinAdapter } from "@effectstream/batcher";
+import { BitcoinAdapter } from "@effectstream/batcher-sdk";
 
 const bitcoinAdapter = new BitcoinAdapter({
   rpcUrl: "http://127.0.0.1:18443",
