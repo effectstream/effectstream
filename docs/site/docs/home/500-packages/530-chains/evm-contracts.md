@@ -37,7 +37,7 @@ For the full list of contracts and their export paths, see [the docs](https://ef
 
 ## Inside Effectstream
 
-The state machine and batcher read EVM events against ABIs exported here. Templates that target EVM include this package transitively through `@effectstream/evm-hardhat`'s deploy pipeline, so you usually don't import it by hand — you reference the contract names you want to deploy.
+The state machine and batcher read EVM events against ABIs exported here. Templates that target EVM include this package transitively through `@effectstream/evm-hardhat`'s deploy pipeline, so you usually don't import it by hand - you reference the contract names you want to deploy.
 
 ## Building from source
 
@@ -52,8 +52,8 @@ The Hardhat config used during compilation is built by `@effectstream/evm-hardha
 
 ## Examples
 
-- [`templates/minimal/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal) — smallest template that deploys an Effectstream contract.
-- [`templates/dice/`](https://github.com/effectstream/effectstream/tree/main/templates/dice) — full game-on-EVM example.
+- [`templates/minimal/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal) - smallest template that deploys an Effectstream contract.
+- [`templates/dice/`](https://github.com/effectstream/effectstream/tree/main/templates/dice) - full game-on-EVM example.
 
 ## Links
 

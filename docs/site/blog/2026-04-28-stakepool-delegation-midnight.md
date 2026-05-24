@@ -5,7 +5,7 @@ authors: [effectstream]
 tags: [cardano, stakepools, delegation, midnight, partner-chains, technical]
 ---
 
-In [Part 1](/docs/blog/stakepool-delegation) through [Part 3](/docs/blog/stakepool-delegation-batcher) we built a stack that **observes** Cardano delegation — index the certificates, persist them, gate user inputs on pool membership. The application reads delegation; delegation does not read the application. There is a more ambitious place to put stake pools, though: at the consensus layer of a chain itself. That is where Midnight lives. Once you go there, "react to delegation" stops being a feature flag inside a game and starts being block production for an entire ecosystem of games.
+In [Part 1](/docs/blog/stakepool-delegation) through [Part 3](/docs/blog/stakepool-delegation-batcher) we built a stack that **observes** Cardano delegation - index the certificates, persist them, gate user inputs on pool membership. The application reads delegation; delegation does not read the application. There is a more ambitious place to put stake pools, though: at the consensus layer of a chain itself. That is where Midnight lives. Once you go there, "react to delegation" stops being a feature flag inside a game and starts being block production for an entire ecosystem of games.
 
 <!-- truncate -->
 
@@ -20,17 +20,17 @@ The progression across this series goes like this:
 | 3 | Batcher validation | An accept/reject decision per input |
 | 4 | **Consensus weight** | **Block production share on Midnight** |
 
-By Part 3 a stake pool delegation could already decide whether your transaction gets free batching. Part 4 raises the stakes: delegating to a registered SPO contributes to that pool's share of blocks produced on Midnight. The same delegation certificate now does two things at once — it routes ADA rewards on Cardano, and it weights consensus participation on a partner chain.
+By Part 3 a stake pool delegation could already decide whether your transaction gets free batching. Part 4 raises the stakes: delegating to a registered SPO contributes to that pool's share of blocks produced on Midnight. The same delegation certificate now does two things at once - it routes ADA rewards on Cardano, and it weights consensus participation on a partner chain.
 
 ## What a Partner Chain is
 
-Midnight is a [Partner Chain](https://github.com/input-output-hk/partner-chains). Partner Chains are blockchains that run in parallel to Cardano and inherit Cardano's security model by reusing its set of Stake Pool Operators as block producers. The Partner Chains Toolkit — built by IOG, the same engineering team behind Cardano itself — provides the off-chain CLI, on-chain Plutus scripts, and Substrate runtime pallets that turn a generic Substrate chain into a Cardano-anchored partner chain.
+Midnight is a [Partner Chain](https://github.com/input-output-hk/partner-chains). Partner Chains are blockchains that run in parallel to Cardano and inherit Cardano's security model by reusing its set of Stake Pool Operators as block producers. The Partner Chains Toolkit - built by IOG, the same engineering team behind Cardano itself - provides the off-chain CLI, on-chain Plutus scripts, and Substrate runtime pallets that turn a generic Substrate chain into a Cardano-anchored partner chain.
 
 The toolkit pulls three things from Cardano:
 
-1. **SPO registrations** — a Cardano transaction in which an SPO signs a message declaring they want to produce blocks on the partner chain.
-2. **Delegation stake** — read off Cardano's ledger via `db-sync`, used to weight how many blocks a registered SPO produces.
-3. **Governance parameters** — the *D-Parameter* and the permissioned validator whitelist, written to a Cardano script address and observed by the partner chain runtime.
+1. **SPO registrations** - a Cardano transaction in which an SPO signs a message declaring they want to produce blocks on the partner chain.
+2. **Delegation stake** - read off Cardano's ledger via `db-sync`, used to weight how many blocks a registered SPO produces.
+3. **Governance parameters** - the *D-Parameter* and the permissioned validator whitelist, written to a Cardano script address and observed by the partner chain runtime.
 
 ```mermaid
 flowchart TB
@@ -59,7 +59,7 @@ flowchart TB
     Cardano --> Observability --> Midnight --> Apps
 ```
 
-The arrows are not metaphorical. Every Midnight epoch, the runtime re-reads Cardano state — registrations from the `CommitteeCandidateValidator` address, the D-Parameter from `DParameterValidator`, the permissioned candidates list — and feeds them into [Ariadne](https://github.com/input-output-hk/partner-chains), the committee selection algorithm. Ariadne outputs the validator set for the next epoch. That set is what Aura (Substrate's slot-based consensus) uses to produce Midnight blocks.
+The arrows are not metaphorical. Every Midnight epoch, the runtime re-reads Cardano state - registrations from the `CommitteeCandidateValidator` address, the D-Parameter from `DParameterValidator`, the permissioned candidates list - and feeds them into [Ariadne](https://github.com/input-output-hk/partner-chains), the committee selection algorithm. Ariadne outputs the validator set for the next epoch. That set is what Aura (Substrate's slot-based consensus) uses to produce Midnight blocks.
 
 ## How Cardano SPOs become Midnight validators
 
@@ -84,7 +84,7 @@ pc-node smart-contracts register \
   --spo-public-key $SPO_PUB \
   --spo-signature $SPO_SIG
 
-# 3. Confirm activation — registrations made in epoch N
+# 3. Confirm activation - registrations made in epoch N
 #    become active in epoch N+2
 pc-node registration-status \
   --stake-pool-pub-key $SPO_PUB \
@@ -93,14 +93,14 @@ pc-node registration-status \
 
 What lands on Cardano after step 2 is a UTXO at the `CommitteeCandidateValidator` script address, with a datum that carries the SPO's main-chain public key, their partner-chain public key, their Aura and Grandpa session keys, and the cross-signature proving the same operator controls both sides. Midnight's runtime reads that datum every epoch and treats it as a vote: "I, this SPO, with my Cardano delegators behind me, want to produce blocks on this chain."
 
-The crucial property is that **the stake weight comes from Cardano's ledger, not from a token on Midnight**. There is no separate "Midnight validator stake" to bond. The delegators who already delegated their ADA to that SPO on Cardano are — without any extra action — backing the SPO's block production on Midnight.
+The crucial property is that **the stake weight comes from Cardano's ledger, not from a token on Midnight**. There is no separate "Midnight validator stake" to bond. The delegators who already delegated their ADA to that SPO on Cardano are - without any extra action - backing the SPO's block production on Midnight.
 
 ## The D-Parameter: governance over the registered/permissioned ratio
 
 Block producers on a partner chain come from two pools:
 
-- **Registered validators** — Cardano SPOs who completed the registration flow above.
-- **Permissioned validators** — a whitelist maintained by the chain's governance authority, intended to bootstrap the network when SPO registrations are still rolling in.
+- **Registered validators** - Cardano SPOs who completed the registration flow above.
+- **Permissioned validators** - a whitelist maintained by the chain's governance authority, intended to bootstrap the network when SPO registrations are still rolling in.
 
 The split between them is governed by a single on-chain value, the **D-Parameter**, written to Cardano via:
 
@@ -120,8 +120,8 @@ A chain typically launches near `permissioned=N, registered=0` and ramps toward 
 
 Everything above is observable, which means application code can read it. The Partner Chains Toolkit exposes the relevant state via CLI commands and JSON-RPC. For an EffectStream app running on top of (or alongside) a partner chain, the two queries that matter for delegation-aware logic are:
 
-- **`ariadne-parameters --mc-epoch-number N`** — returns the registered candidates, the permissioned candidates, the D-Parameter, and the delegation stakes effective at epoch *N*. Use this to find out which SPOs are actually producing blocks right now.
-- **`registration-status --stake-pool-pub-key K --mc-epoch-number N`** — returns whether SPO `K` is registered and active at epoch *N*. Use this to gate features on whether a specific pool has joined the partner chain.
+- **`ariadne-parameters --mc-epoch-number N`** - returns the registered candidates, the permissioned candidates, the D-Parameter, and the delegation stakes effective at epoch *N*. Use this to find out which SPOs are actually producing blocks right now.
+- **`registration-status --stake-pool-pub-key K --mc-epoch-number N`** - returns whether SPO `K` is registered and active at epoch *N*. Use this to gate features on whether a specific pool has joined the partner chain.
 
 Wired into a state machine transition, these become first-class inputs alongside the `delegations` table from Part 2:
 
@@ -179,7 +179,7 @@ What this handler captures is the full loop:
 3. The SPO registered on the partner chain and is now in the block-production committee.
 4. The application reads both sides and rewards the user proportional to consensus participation, not just delegation existence.
 
-A user who switches to a non-registered pool keeps earning Cardano staking rewards but loses the application-side bonus. A user who switches to a pool that just got into the committee for next epoch picks it up automatically two epochs later — the same cadence Cardano itself uses for stake-distribution snapshots.
+A user who switches to a non-registered pool keeps earning Cardano staking rewards but loses the application-side bonus. A user who switches to a pool that just got into the committee for next epoch picks it up automatically two epochs later - the same cadence Cardano itself uses for stake-distribution snapshots.
 
 ## Cross-chain identity: associating Cardano and partner-chain addresses
 
@@ -196,7 +196,7 @@ Once associated, application code on the partner chain can resolve `partner-chai
 
 ## What runs on this today
 
-The applications already deployed on Midnight are the proof that this is not a thought experiment. Four games — Safe Solver, Kachina Kolosseum, Block Kart Legends, and Dust-2-Dust — run on a chain whose validator set is selected from registered Cardano SPOs by Ariadne, and whose epoch boundaries are tied to Cardano's. We covered the games themselves in the [game templates post](/docs/blog/game-templates); the point here is that the consensus underneath them is *the same delegation system we spent Parts 1–3 indexing from inside an application*. The difference in Part 4 is that the chain itself does the reading.
+The applications already deployed on Midnight are the proof that this is not a thought experiment. Four games - Safe Solver, Kachina Kolosseum, Block Kart Legends, and Dust-2-Dust - run on a chain whose validator set is selected from registered Cardano SPOs by Ariadne, and whose epoch boundaries are tied to Cardano's. We covered the games themselves in the [game templates post](/docs/blog/game-templates); the point here is that the consensus underneath them is *the same delegation system we spent Parts 1–3 indexing from inside an application*. The difference in Part 4 is that the chain itself does the reading.
 
 For SPOs the practical consequence is a second product line:
 
@@ -205,11 +205,11 @@ For SPOs the practical consequence is a second product line:
 - Registration is permissionless and observable; deregistration is symmetric.
 - Block participation rewards (covered in the Partner Chains Toolkit's `block-participation-rewards` module) flow back to delegators in the partner chain's native token.
 
-The outreach mechanic is the registration mechanic. SPOs don't need a marketing pitch from us to participate — they need a Cardano transaction and two epochs of patience.
+The outreach mechanic is the registration mechanic. SPOs don't need a marketing pitch from us to participate - they need a Cardano transaction and two epochs of patience.
 
 ## Wrap-up
 
-Four parts in, the story has gone from "watch a UTXO change" to "weight a consensus committee." The same `pool` field that started as a string in a `delegations` row in Part 1 ends up, in Part 4, as a vote that decides who produces the next block on a chain that hosts production games. The indexing layer, the state machine, and the batcher we built in Parts 1–3 still apply on top — they just now sit on a chain that already shares their assumption that stake pool delegation is a first-class signal.
+Four parts in, the story has gone from "watch a UTXO change" to "weight a consensus committee." The same `pool` field that started as a string in a `delegations` row in Part 1 ends up, in Part 4, as a vote that decides who produces the next block on a chain that hosts production games. The indexing layer, the state machine, and the batcher we built in Parts 1–3 still apply on top - they just now sit on a chain that already shares their assumption that stake pool delegation is a first-class signal.
 
 ---
 

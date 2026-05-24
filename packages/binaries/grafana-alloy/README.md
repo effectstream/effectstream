@@ -1,6 +1,6 @@
 # @effectstream/grafana-alloy
 
-NPM wrapper around [Grafana Alloy](https://grafana.com/oss/alloy/) — the
+NPM wrapper around [Grafana Alloy](https://grafana.com/oss/alloy/) - the
 OpenTelemetry-compatible collector EffectStream nodes ship traces, logs,
 and metrics to during local development. Installs a pinned binary into
 `node_modules/.bin/grafana-alloy`.

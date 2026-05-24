@@ -2,7 +2,7 @@
 
 Developing a multi-chain dApp is complex. It often requires running multiple local blockchains, indexers, deploying contracts, and managing various services simultaneously. Doing this manually is tedious, error-prone, and slows down development.
 
-The **Process Orchestrator** is a powerful tool built into EffectStream that solves this problem. It automates the setup of your entire local development environment. When you run `bun run dev` in the `/templates/evm-midnight-v2/` example, the orchestrator reads a configuration file (`orchestrator.ts`) and launches all the necessary processes—from blockchains and databases to the batcher and frontend server—in the correct order.
+The **Process Orchestrator** is a powerful tool built into EffectStream that solves this problem. It automates the setup of your entire local development environment. When you run `bun run dev` in the `/templates/evm-midnight-v2/` example, the orchestrator reads a configuration file (`orchestrator.ts`) and launches all the necessary processes-from blockchains and databases to the batcher and frontend server-in the correct order.
 
 Its main goal is to create a complete, "mini-production" environment on your machine, so you can focus on building your dApp, not on managing infrastructure.
 

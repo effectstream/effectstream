@@ -9,7 +9,7 @@ sidebar_label: "near-sandbox"
 > Package: **[`@effectstream/near-sandbox`](https://www.npmjs.com/package/@effectstream/near-sandbox)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/near-sandbox)
 
 NPM wrapper around the
-[NEAR sandbox](https://github.com/near/sandbox) binary — a single-node
+[NEAR sandbox](https://github.com/near/sandbox) binary - a single-node
 NEAR chain for local development. Installs a pinned version into
 `node_modules/.bin/near-sandbox` so the orchestrator can boot it
 without each developer fetching it separately.

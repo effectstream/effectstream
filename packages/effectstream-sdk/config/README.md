@@ -1,6 +1,6 @@
 # @effectstream/config
 
-Type-safe configuration builders for EffectStream nodes — networks, deployed
+Type-safe configuration builders for EffectStream nodes - networks, deployed
 contract addresses, sync protocols, primitives, and security namespaces. A
 fluent API with strict TypeScript inference: each builder step refines the
 type of what comes next, so misuse fails at compile time.
@@ -61,11 +61,11 @@ all define their config with `ConfigBuilder` in `packages/node/config.dev.ts`.
 
 What app code typically imports:
 
-- `ConfigBuilder` — fluent top-level builder. Chain `.setNamespace()`, `.buildNetworks()`, `.buildDeployments()`, `.buildSyncProtocols()`, `.buildPrimitives()`, then `.build()`. Used by every template.
-- `ConfigNetworkType`, `ConfigSyncProtocolType` — enums for the network and sync-protocol kinds (EVM, Cardano, Midnight, Bitcoin, Avail, NEAR, Algorand, Mina, Polkadot, NTP variants). The most-imported symbols from this package by far.
-- `withEffectstreamStaticConfig(config)` — Effection generator that publishes the built config to the runtime context.
-- `toSyncProtocolWithNetwork(...)` — joins a sync protocol with its source network config; used by app code when wiring custom primitives.
-- `getViemNetwork(networkName)` — generator that returns a viem `Chain` from the active config.
+- `ConfigBuilder` - fluent top-level builder. Chain `.setNamespace()`, `.buildNetworks()`, `.buildDeployments()`, `.buildSyncProtocols()`, `.buildPrimitives()`, then `.build()`. Used by every template.
+- `ConfigNetworkType`, `ConfigSyncProtocolType` - enums for the network and sync-protocol kinds (EVM, Cardano, Midnight, Bitcoin, Avail, NEAR, Algorand, Mina, Polkadot, NTP variants). The most-imported symbols from this package by far.
+- `withEffectstreamStaticConfig(config)` - Effection generator that publishes the built config to the runtime context.
+- `toSyncProtocolWithNetwork(...)` - joins a sync protocol with its source network config; used by app code when wiring custom primitives.
+- `getViemNetwork(networkName)` - generator that returns a viem `Chain` from the active config.
 
 Per-section builders (`NetworkBuilder`, `DeployedAddressBuilder`,
 `SyncProtocolBuilder`, `PrimitiveBuilder`, `SecurityNamespaceBuilder`)

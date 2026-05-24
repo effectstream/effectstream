@@ -8,7 +8,7 @@ sidebar_label: "grafana-loki"
 
 > Package: **[`@effectstream/grafana-loki`](https://www.npmjs.com/package/@effectstream/grafana-loki)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/grafana-loki)
 
-NPM wrapper around [Grafana Loki](https://grafana.com/oss/loki/) — the
+NPM wrapper around [Grafana Loki](https://grafana.com/oss/loki/) - the
 log-aggregation backend EffectStream nodes ship structured logs to in
 local development. Installs a pinned binary into
 `node_modules/.bin/grafana-loki`.

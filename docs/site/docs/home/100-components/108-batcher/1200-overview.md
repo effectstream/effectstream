@@ -17,7 +17,7 @@ Get started quickly with these essential guides:
 Batch transactions for multiple blockchains simultaneously. Each blockchain gets its own adapter with independent batching rules and configuration.
 
 ### 🔄 Flexible Batching Strategies
-Configure when batches are submitted using time-based, size-based, value-based, hybrid, or custom criteria—independently per blockchain.
+Configure when batches are submitted using time-based, size-based, value-based, hybrid, or custom criteria-independently per blockchain.
 
 ### 💾 Crash-Safe Storage
 All inputs are persisted immediately to storage (file, PostgreSQL, Redis, or custom). No in-memory queues that can be lost on restart.

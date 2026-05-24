@@ -39,7 +39,7 @@ import {
   SeverityNumber,
 } from "@effectstream/log";
 
-// Initialize OpenTelemetry once at startup (optional — defaults work too).
+// Initialize OpenTelemetry once at startup (optional - defaults work too).
 defaultOtelSetup({ serviceName: "my-app" });
 
 // Local-only: pretty console output, no OTLP.
@@ -60,7 +60,7 @@ log.remote(
 ```
 
 The deferred `(l) => l(...)` form means message construction is skipped
-entirely when the level is filtered out — handy when log arguments are
+entirely when the level is filtered out - handy when log arguments are
 expensive to format (`JSON.stringify` of a big object).
 
 Point the SDK at any OTLP-compatible collector (Grafana Alloy, Tempo,
@@ -68,7 +68,7 @@ Honeycomb, …) via the standard `OTEL_EXPORTER_OTLP_ENDPOINT` env var.
 
 ## Inside EffectStream
 
-Every package in the framework — sync, runtime, batcher, sm — logs through
+Every package in the framework - sync, runtime, batcher, sm - logs through
 this module so the whole node emits one consistent trace tree. The
 `ComponentNames` constants tag log records by component, which is what
 powers the orchestrator's per-component log views.
@@ -79,7 +79,7 @@ powers the orchestrator's per-component log views.
 - `log.localForce(...)` bypasses level filtering.
 - `log.remote(...)`: console + OpenTelemetry log record. Same signature as `local`.
 - `log.remoteForce(...)` is `remote` without level filtering.
-- `log.formatMessage(...)` — the formatter used internally; useful for custom transports.
+- `log.formatMessage(...)` - the formatter used internally; useful for custom transports.
 - `defaultOtelSetup(opts)`: one-call OpenTelemetry SDK setup with sensible defaults.
 - `attachTransport(transport)` registers a custom tslog transport (e.g. ship logs to a file).
 - `SeverityNumber`: re-export of OpenTelemetry severity levels.

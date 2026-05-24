@@ -2,7 +2,7 @@
 
 Generator-based control flow primitives for EffectStream's state machine.
 Defines the `StateUpdateStream` generator type and the `World.*` helpers
-that EffectStream's runtime executes — the API your state-transition
+that EffectStream's runtime executes - the API your state-transition
 functions yield against.
 
 - Generator-based control flow for state transitions: `World.resolve`, `World.all`, `World.promise`.
@@ -55,12 +55,12 @@ the rows so `World.resolve` can hand them back to the generator.
 
 ## Key exports
 
-- `World.resolve(query, input)` — yield a typed pgtyped query and receive its result rows.
-- `World.all(streams)` — yield several generators in parallel; receive a tuple of their return values.
-- `World.promise(promise)` — embed a plain async result into a generator stream.
-- `QueuedUpdate<Input>` — branded `[SQLQueryIR, Input]` tuple that the runtime knows how to execute.
-- `SyncStateUpdateStream<Return>`, `StateUpdateStream<Return>` — types for state-transition generators (sync and async variants).
-- `ExecPromise<T>` — yieldable wrapper around a promise.
+- `World.resolve(query, input)` - yield a typed pgtyped query and receive its result rows.
+- `World.all(streams)` - yield several generators in parallel; receive a tuple of their return values.
+- `World.promise(promise)` - embed a plain async result into a generator stream.
+- `QueuedUpdate<Input>` - branded `[SQLQueryIR, Input]` tuple that the runtime knows how to execute.
+- `SyncStateUpdateStream<Return>`, `StateUpdateStream<Return>` - types for state-transition generators (sync and async variants).
+- `ExecPromise<T>` - yieldable wrapper around a promise.
 
 ## Examples
 

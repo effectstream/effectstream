@@ -52,12 +52,12 @@ app code that depended on the umbrella name.
 Everything `@effectstream/wallets` exports. The most-imported symbols
 across templates are:
 
-- `walletLogin(...)` — one-call wallet connection + signed batcher message.
-- `WalletMode` — enum of supported wallet types.
-- `Wallet` — type for a connected wallet.
-- `EffectstreamConfig` — runtime config the wallet helpers consume.
-- `sendTransaction`, `sendBatcherTransaction`, `signMessage`, `waitForEffectstreamBlockProcessed` — send/wait helpers.
-- `allInjectedWallets`, `getAddressType`, `WalletNameMap` — discovery + identification helpers.
+- `walletLogin(...)` - one-call wallet connection + signed batcher message.
+- `WalletMode` - enum of supported wallet types.
+- `Wallet` - type for a connected wallet.
+- `EffectstreamConfig` - runtime config the wallet helpers consume.
+- `sendTransaction`, `sendBatcherTransaction`, `signMessage`, `waitForEffectstreamBlockProcessed` - send/wait helpers.
+- `allInjectedWallets`, `getAddressType`, `WalletNameMap` - discovery + identification helpers.
 
 For lower-level connector machinery (`connectInjectedWallet`,
 `WalletModeMap`, `IProvider`, `IConnector`, `IInjectedConnector`), import

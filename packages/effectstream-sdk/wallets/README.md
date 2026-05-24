@@ -57,7 +57,7 @@ const evmOptions = available[WalletMode.EvmInjected]; // [{ metadata, ... }, …
 ```
 
 > **Browser only.** This package depends on `window.ethereum`, the
-> Cardano CIP-30 API, etc. — it won't load in plain Node. Server-side
+> Cardano CIP-30 API, etc. - it won't load in plain Node. Server-side
 > signature verification is `@effectstream/crypto`.
 
 ## Inside EffectStream
@@ -76,14 +76,14 @@ Login + signing:
 
 - `walletLogin(args)`: top-level helper that discovers, connects, and produces a signed batcher login.
 - `EffectstreamConfig`: runtime config (chain URLs, batcher URL, ...) the helpers consume.
-- `signMessage(wallet, message)` — sign an arbitrary message with the connected wallet.
+- `signMessage(wallet, message)` - sign an arbitrary message with the connected wallet.
 
 Sending transactions:
 
 - `sendTransaction(wallet, conciseInput, opts?)`: submit through the batcher and (by default) wait for processing.
 - `sendBatcherTransaction(...)`: explicit batcher submission.
 - `sendSelfSequencedTransaction(...)` bypasses the batcher.
-- `waitForEffectstreamBlockProcessed(...)` — block-height poller used by the above.
+- `waitForEffectstreamBlockProcessed(...)` - block-height poller used by the above.
 
 Wallet discovery / identification:
 

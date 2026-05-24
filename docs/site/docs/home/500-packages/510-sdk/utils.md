@@ -8,7 +8,7 @@ sidebar_label: "utils"
 
 > Package: **[`@effectstream/utils`](https://www.npmjs.com/package/@effectstream/utils)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/utils)
 
-Shared utilities for the EffectStream framework — chain-aware address
+Shared utilities for the EffectStream framework - chain-aware address
 types and validators, TypeBox schemas, Effection-based concurrency
 primitives, viem helpers, and small type-level utilities. No runtime
 dependency on the rest of EffectStream; safe to use standalone in any
@@ -67,13 +67,13 @@ state machine, and the batcher pulls something from here.
 
 Address types and validators:
 
-- `AddressType` — enum of chain identifiers (EVM, CARDANO, SUBSTRATE, ALGORAND, MINA, MIDNIGHT, AVAIL, POLKADOT, NEAR).
-- `AddressValidator` — `Record<AddressType, TSchema>` of TypeBox validators, one per chain.
-- `AddressAndType` — tagged-union shape for `{ type, address }` pairs.
+- `AddressType` - enum of chain identifiers (EVM, CARDANO, SUBSTRATE, ALGORAND, MINA, MIDNIGHT, AVAIL, POLKADOT, NEAR).
+- `AddressValidator` - `Record<AddressType, TSchema>` of TypeBox validators, one per chain.
+- `AddressAndType` - tagged-union shape for `{ type, address }` pairs.
 
 TypeBox schemas:
 
-- `TypeboxHelpers.{Evm,Cardano,Substrate,Algorand,Mina,Midnight,Avail,Polkadot,Near}` — `.Address`, `.BlockHash`, `.TxHash`, `.Signature`, `.PrivateKey`, plus chain-specific extras (`PolicyId`, `AssetName`, `Selector`, …).
+- `TypeboxHelpers.{Evm,Cardano,Substrate,Algorand,Mina,Midnight,Avail,Polkadot,Near}` - `.Address`, `.BlockHash`, `.TxHash`, `.Signature`, `.PrivateKey`, plus chain-specific extras (`PolicyId`, `AssetName`, `Selector`, …).
 - Plain primitives: `TypeboxHelpers.Uint256`, `BlockNumber`, `AbsoluteSlotNumber`, `EpochNumber`.
 
 Type aliases (heavily imported as nominal types):
@@ -91,7 +91,7 @@ Result + binary helpers:
 
 Decorators:
 
-- `bound` — method-binding decorator (heavily used in classes that pass methods around).
+- `bound` - method-binding decorator (heavily used in classes that pass methods around).
 
 Viem helpers:
 
@@ -103,9 +103,9 @@ Concurrency (Effection-based):
 
 Subpath entries:
 
-- `@effectstream/utils/node-env` — `dotenv`-aware env loader, for Node-only callers.
-- `@effectstream/utils/runtime` — Effection runtime helpers.
-- `@effectstream/utils/runtime-spawn` — child-process spawn helpers built on Effection.
+- `@effectstream/utils/node-env` - `dotenv`-aware env loader, for Node-only callers.
+- `@effectstream/utils/runtime` - Effection runtime helpers.
+- `@effectstream/utils/runtime-spawn` - child-process spawn helpers built on Effection.
 
 ## Examples
 

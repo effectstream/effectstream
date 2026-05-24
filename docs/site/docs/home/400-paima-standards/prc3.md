@@ -1,4 +1,4 @@
-# PRC-3 — Paima Inverse Projection Interface (ERC-721)
+# PRC-3 - Paima Inverse Projection Interface (ERC-721)
 
 ## Use case
 
@@ -6,9 +6,9 @@ List your in-game ERC-721 assets on any L1 marketplace, with live metadata serve
 
 ## Summary
 
-Games that need significant compute typically run on sidechains, L2s, or appchains. That keeps execution affordable but fragments liquidity — buyers and sellers congregate on popular L1 NFT marketplaces, which don't know about the game's home chain.
+Games that need significant compute typically run on sidechains, L2s, or appchains. That keeps execution affordable but fragments liquidity - buyers and sellers congregate on popular L1 NFT marketplaces, which don't know about the game's home chain.
 
-PRC-3 lets the game **inverse-project** its state outward: a smart contract on an L1 mints ERC-721 tokens whose `tokenURI` resolves *back to the game node* over HTTP. When the L1 NFT is sold, the buyer's claim on the in-game state transfers with it. When it is burned, the asset is returned (or transferred) in-game. No traditional bridge — the L1 is just a tradeable surface on top of the game's own state.
+PRC-3 lets the game **inverse-project** its state outward: a smart contract on an L1 mints ERC-721 tokens whose `tokenURI` resolves *back to the game node* over HTTP. When the L1 NFT is sold, the buyer's claim on the in-game state transfers with it. When it is burned, the asset is returned (or transferred) in-game. No traditional bridge - the L1 is just a tradeable surface on top of the game's own state.
 
 ## Specification
 
@@ -16,7 +16,7 @@ Every PRC-3 compliant contract MUST implement `IInverseProjectedNft`, which exte
 
 - A public `burn()` callable by the token owner.
 - A configurable `baseURI` and `baseExtension`.
-- Multiple `tokenURI(...)` variants — the default uses the game's RPC, but callers can pass either a custom RPC base URL or a contract implementing `IUri` for fully on-chain metadata.
+- Multiple `tokenURI(...)` variants - the default uses the game's RPC, but callers can pass either a custom RPC base URL or a contract implementing `IUri` for fully on-chain metadata.
 
 ### Base URI shape
 
@@ -24,11 +24,11 @@ Every PRC-3 compliant contract MUST implement `IInverseProjectedNft`, which exte
 https://{rpcBase}/inverseProjection/{standard}/{purpose}/{chainIdentifier}/{identifier}
 ```
 
-- `rpcBase` — the URL of an RPC for the game (defaults to the project's hosted node).
-- `standard` — the PRC version, e.g. `prc3`.
-- `purpose` — app-specific (e.g. `cards`, `weapons`).
-- `chainIdentifier` — CAIP-2 chain id (e.g. `eip155:1` for Ethereum mainnet).
-- `identifier` — depends on initialisation mode (see below).
+- `rpcBase` - the URL of an RPC for the game (defaults to the project's hosted node).
+- `standard` - the PRC version, e.g. `prc3`.
+- `purpose` - app-specific (e.g. `cards`, `weapons`).
+- `chainIdentifier` - CAIP-2 chain id (e.g. `eip155:1` for Ethereum mainnet).
+- `identifier` - depends on initialisation mode (see below).
 
 A concrete URI looks like `https://rpc.mygame.com/inverseProjection/prc3/cards/eip155:1/0xabc.../42`.
 
@@ -66,14 +66,14 @@ Marketplace features like collection offers and "floor sweeping" need a way to d
 { "attributes": [{ "trait_type": "validity", "value": "valid" }] }
 ```
 
-- `valid` — game-state matches the mint claim.
-- `invalid` — mint exists but is not honoured by *this version* of the game.
+- `valid` - game-state matches the mint claim.
+- `invalid` - mint exists but is not honoured by *this version* of the game.
 
 Critically, **invalid mints still increment the counter**. A mint that's invalid in one game variant may be valid in another (forks, mods, parallel deployments). Failing to increment would cause the same valid mint to map to a different `userTokenId` across variants and break interoperability.
 
 ### Endpoint error cases
 
-- A `userTokenId` (or `tokenId`) the game hasn't seen yet → return **HTTP 404** (don't return dummy data — NFT marketplaces aggressively cache).
+- A `userTokenId` (or `tokenId`) the game hasn't seen yet → return **HTTP 404** (don't return dummy data - NFT marketplaces aggressively cache).
 - A token marked invalid for this game variant → return **HTTP 404** (same reason).
 
 ## Rationale
@@ -82,10 +82,10 @@ Instead of pinning metadata to IPFS or other immutable storage, the `tokenURI` *
 
 `tokenURI` overloads exist so neither the user nor the marketplace is locked into trusting the original game's RPC:
 
-1. `tokenURI(id, customBaseUri)` — pass any RPC you trust.
-2. `tokenURI(id, IUri customSource)` — use any on-chain source implementing `IUri`.
+1. `tokenURI(id, customBaseUri)` - pass any RPC you trust.
+2. `tokenURI(id, IUri customSource)` - use any on-chain source implementing `IUri`.
 
-The contract emits ERC-4906 metadata-update events so marketplaces invalidate their caches when the game advances. ERC-4906 in PRC-3 is callable by **anyone**, not just the admin — if the game updates and marketplaces are stale, any user can trigger a refresh.
+The contract emits ERC-4906 metadata-update events so marketplaces invalidate their caches when the game advances. ERC-4906 in PRC-3 is callable by **anyone**, not just the admin - if the game updates and marketplaces are stale, any user can trigger a refresh.
 
 ## Security model
 

@@ -50,7 +50,7 @@ import {
 
 Tracks the creation and spending of native asset UTxOs. "Delayed" refers to asset ownership only becoming final after on-chain confirmation (unlike account-model chains with instant balance updates). The primitive uses the `moves_asset` UTxORPC predicate filtered by policy ID.
 
-Maintains an **IVM materialized view** (`cardano_asset_utxos_view_<name>`) with current unspent asset holdings — INSERTs on UTxO creation, DELETEs on spending.
+Maintains an **IVM materialized view** (`cardano_asset_utxos_view_<name>`) with current unspent asset holdings - INSERTs on UTxO creation, DELETEs on spending.
 
 ```ts
 .buildPrimitives(builder =>
@@ -114,7 +114,7 @@ Captures native token minting and burning events. Positive quantities indicate m
 
 Tracks stake pool delegation changes. Monitors both pre-Conway (`stakeDelegation`) and Conway-era (`stakeRegDelegCert`, `stakeVoteDelegCert`) delegation certificates using the `has_certificate` UTxORPC predicate. Supports an optional `pools` allowlist to filter by specific stake pool key hashes.
 
-Maintains an **IVM materialized view** (`cardano_pool_delegation_view_<name>`) with the current delegation per staking credential — UPSERTs on each delegation change.
+Maintains an **IVM materialized view** (`cardano_pool_delegation_view_<name>`) with the current delegation per staking credential - UPSERTs on each delegation change.
 
 ```ts
 .buildPrimitives(builder =>
@@ -146,7 +146,7 @@ See the [cardano-delegation template](https://github.com/effectstream/effectstre
 
 Tracks the lock → unlock → claim lifecycle of NFTs locked at a Plutus script (hololocker). This enables "projecting" on-chain NFTs into off-chain game state while they remain provably locked on-chain. Uses the `has_address` UTxORPC predicate filtered by the script address.
 
-Maintains an **IVM materialized view** (`cardano_projected_nft_view_<name>`) — UPSERTs on Lock/Unlocking transitions, DELETEs on Claims.
+Maintains an **IVM materialized view** (`cardano_projected_nft_view_<name>`) - UPSERTs on Lock/Unlocking transitions, DELETEs on Claims.
 
 ```ts
 .buildPrimitives(builder =>

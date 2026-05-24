@@ -137,7 +137,7 @@ interface BatcherConfig<
 
 ### Confirmation Level: Global Default for HTTP API
 
-The `confirmationLevel` configuration defines the **default waiting behavior** when inputs are submitted via the HTTP API without an explicit confirmation level. It does **not** affect the internal batch processing—it only controls what happens after an input is queued.
+The `confirmationLevel` configuration defines the **default waiting behavior** when inputs are submitted via the HTTP API without an explicit confirmation level. It does **not** affect the internal batch processing-it only controls what happens after an input is queued.
 
 **Three Levels:**
 - **`"no-wait"`** - Returns immediately after input is queued
@@ -613,7 +613,7 @@ console.log(`Transaction confirmed in block ${receipt.blockNumber}`);
 2. **Type Safety**: TypeScript enforces that all calls to `batchInput()` include custom fields
 3. **Custom Criteria Access**: Batching criteria functions receive the extended type with custom fields
 4. **Storage & Adapter Receive Extended Type**: The generic flows to storage operations and adapter methods
-5. **Zero Runtime Overhead**: This is pure TypeScript—no runtime checks or transformations needed
+5. **Zero Runtime Overhead**: This is pure TypeScript-no runtime checks or transformations needed
 
 ---
 

@@ -6,14 +6,14 @@ The orchestrator and `main.dev.ts` flow you used in [Quickstart](../10-quickstar
 
 | | Dev | Prod |
 |---|---|---|
-| Process supervisor | `@effectstream/orchestrator` (`bun cli.ts start`) | systemd / k8s / your own — **do not use the orchestrator in prod** |
+| Process supervisor | `@effectstream/orchestrator` (`bun cli.ts start`) | systemd / k8s / your own - **do not use the orchestrator in prod** |
 | Node entrypoint | `packages/node/main.dev.ts` | `packages/node/main.mainnet.ts` |
 | Batcher entrypoint | `packages/batcher/batcher.dev.ts` | `packages/batcher/batcher.mainnet.ts` |
 | Config | `config.dev.ts` (PgLite, local chains) | `config.mainnet.ts` (managed PostgreSQL, real chain endpoints, deployed contract addresses) |
 | Database | In-memory PgLite | Managed PostgreSQL (RDS, Cloud SQL, self-hosted, …) |
 | Chain infra | Local dev nodes spun up by the orchestrator | Real RPCs / indexers / light nodes you provision |
 
-MQTT is currently **in-process inside the node** — there is no separate broker to host. The batcher is a pure MQTT client.
+MQTT is currently **in-process inside the node** - there is no separate broker to host. The batcher is a pure MQTT client.
 
 ## Running the processes
 
@@ -24,7 +24,7 @@ bun run packages/node/main.mainnet.ts
 bun run packages/batcher/batcher.mainnet.ts
 ```
 
-In production both should be supervised — `systemd` is the simplest fit. Example unit for the node:
+In production both should be supervised - `systemd` is the simplest fit. Example unit for the node:
 
 ```ini
 # /etc/systemd/system/effectstream-node.service
@@ -52,15 +52,15 @@ Mirror this for the batcher (`effectstream-batcher.service`). Each process shoul
 
 A managed PostgreSQL instance is the only durable storage requirement. Point `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PW` / `DB_NAME` at it via your environment file (see [Environment variables](../100-components/199-environment-variables.md)).
 
-**Schema migrations apply automatically on node startup.** Both the engine's own `effectstream.*` tables and your app's migrations (declared in `migrationTable` and passed to `start({ migrations })`) are applied idempotently every boot — you do not run a manual migration step.
+**Schema migrations apply automatically on node startup.** Both the engine's own `effectstream.*` tables and your app's migrations (declared in `migrationTable` and passed to `start({ migrations })`) are applied idempotently every boot - you do not run a manual migration step.
 
 ## Per-chain infrastructure you must provide
 
-Production sync requires real network access for each chain you enable. Whatever the dev orchestrator was spinning up locally, **you are responsible for the production equivalent** — and for deploying any application-specific contracts.
+Production sync requires real network access for each chain you enable. Whatever the dev orchestrator was spinning up locally, **you are responsible for the production equivalent** - and for deploying any application-specific contracts.
 
 ### EVM (Ethereum, Arbitrum, Base, …)
 
-- **RPC endpoint.** Use a private endpoint with adequate rate limits — Alchemy, Infura, QuickNode, or a self-hosted node. Public RPCs will not survive a sync.
+- **RPC endpoint.** Use a private endpoint with adequate rate limits - Alchemy, Infura, QuickNode, or a self-hosted node. Public RPCs will not survive a sync.
 - **Deploy your contracts.** If you extend `EffectstreamL2Contract` (see [105 Contracts](../100-components/105-contracts.md)) or use the launchpad / NFT-sale contracts, deploy them to the target network and put the resulting addresses in `config.mainnet.ts`.
 
 ### Midnight
@@ -70,7 +70,7 @@ Production sync requires real network access for each chain you enable. Whatever
 
 ### Cardano
 
-- **UTxO-RPC endpoint.** All Cardano primitives stream from a UTxO-RPC source. [Dolos](https://github.com/txpipe/dolos) is the recommended option for production — run a private instance. (Yaci-devkit is dev-only.)
+- **UTxO-RPC endpoint.** All Cardano primitives stream from a UTxO-RPC source. [Dolos](https://github.com/txpipe/dolos) is the recommended option for production - run a private instance. (Yaci-devkit is dev-only.)
 - See [203 Cardano](../200-chains/203-cardano.md) for primitive-specific endpoint config.
 
 ### Bitcoin
@@ -92,4 +92,4 @@ Production sync requires real network access for each chain you enable. Whatever
 
 ## Observability (optional)
 
-For long-running production nodes you'll want logs and traces shipped off the host. The repo ships `@effectstream/grafana-alloy` and `@effectstream/grafana-loki` as a reference setup — point Alloy at your Loki instance and your application logs flow through automatically. Not required, but strongly recommended.
+For long-running production nodes you'll want logs and traces shipped off the host. The repo ships `@effectstream/grafana-alloy` and `@effectstream/grafana-loki` as a reference setup - point Alloy at your Loki instance and your application logs flow through automatically. Not required, but strongly recommended.

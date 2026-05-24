@@ -45,8 +45,8 @@ The orchestrator's Avail step boots this binary alongside the Avail node
 wrapper (`@effectstream/npm-avail-node`) so syncs against Avail-DA work
 locally. See:
 
-- [`e2e/avail/`](https://github.com/effectstream/effectstream/tree/main/e2e/avail) — E2E suite.
-- `@effectstream/sync` — `AvailFetcher`, `AvailSyncState` on the runtime side.
+- [`e2e/avail/`](https://github.com/effectstream/effectstream/tree/main/e2e/avail) - E2E suite.
+- `@effectstream/sync` - `AvailFetcher`, `AvailSyncState` on the runtime side.
 
 ## Links
 

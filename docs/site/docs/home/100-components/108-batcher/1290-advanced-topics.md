@@ -567,7 +567,7 @@ isBatchReadyFn: async (inputs) => {
 
 4. **Test under load**: Simulate traffic patterns to validate criteria performance
 
-5. **Per-chain optimization**: Different chains have different cost profiles—configure accordingly
+5. **Per-chain optimization**: Different chains have different cost profiles-configure accordingly
 
 ---
 
@@ -584,7 +584,7 @@ const config: BatcherConfig = {
 };
 ```
 
-**Note:** Even with `enableEventSystem: false`, you can still register listeners—they just won't be called.
+**Note:** Even with `enableEventSystem: false`, you can still register listeners-they just won't be called.
 
 ### Adding Event Listeners
 
@@ -878,7 +878,7 @@ batcher.addStateTransition("batch:process:start", ({ target, inputCount }) => {
 
 #### 2. Error Handling in Listeners
 
-Event listeners should **not throw errors**—they run in background fibers and failures don't affect the main batcher:
+Event listeners should **not throw errors**-they run in background fibers and failures don't affect the main batcher:
 
 ```typescript
 batcher.addStateTransition("batch:submit", async ({ txHash }) => {
@@ -886,7 +886,7 @@ batcher.addStateTransition("batch:submit", async ({ txHash }) => {
     await database.recordTransaction(txHash);
   } catch (error) {
     console.error("Failed to record transaction:", error);
-    // Don't throw—just log and continue
+    // Don't throw-just log and continue
   }
 });
 ```
@@ -949,7 +949,7 @@ batcher.addStateTransition("error", ({ phase, target, error }) => {
 
 ## Storage System
 
-Storage is the **single source of truth** for all pending inputs. There are no in-memory queues—everything is persisted immediately, making the batcher crash-safe.
+Storage is the **single source of truth** for all pending inputs. There are no in-memory queues-everything is persisted immediately, making the batcher crash-safe.
 
 ### The `BatcherStorage` Interface
 
@@ -1185,7 +1185,7 @@ export class RedisStorage<T extends DefaultBatcherInput>
   async removeProcessedInputs(processedInputs: T[]): Promise<void> {
     if (processedInputs.length === 0) return;
     
-    // Remove by value (inefficient for large lists—consider using sorted sets instead)
+    // Remove by value (inefficient for large lists-consider using sorted sets instead)
     const pipeline = this.redis.pipeline();
     for (const input of processedInputs) {
       pipeline.lrem(this.queueKey, 1, JSON.stringify(input));
@@ -1745,7 +1745,7 @@ This guide covered five advanced topics:
 
 1. **HTTP API**: REST endpoints for input submission (`/send-input`), monitoring (`/status`, `/queue-stats`), and developer operations (`/force-batch`, `/clear-inputs`)
 
-2. **Batching Criteria**: Five strategies for controlling batch submission timing—time, size, value, hybrid, and custom—each with distinct use cases
+2. **Batching Criteria**: Five strategies for controlling batch submission timing-time, size, value, hybrid, and custom-each with distinct use cases
 
 3. **Event System**: Lifecycle hooks for observability, emitting events like `startup`, `batch:submit`, `batch:receipt`, and `error` for monitoring and integration
 

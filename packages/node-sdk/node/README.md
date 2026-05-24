@@ -29,7 +29,7 @@ import { getConnection } from "@effectstream/node-sdk/db";
 import { ConfigBuilder, ConfigNetworkType } from "@effectstream/node-sdk/config";
 ```
 
-The subpaths are thin re-exports — semantics are identical to importing
+The subpaths are thin re-exports - semantics are identical to importing
 from the underlying packages.
 
 ## Inside EffectStream
@@ -50,7 +50,7 @@ the corresponding package:
 - `@effectstream/node-sdk/sm`: `Stm` plus state-machine types and helpers.
 - `@effectstream/node-sdk/sm/builtin` ships built-in primitive type tags (ERC20, ERC721, ERC1155, Cardano transfer/mint-burn/pool-delegation, Midnight generic, NEAR, Avail, Celestia, ...).
 - `@effectstream/node-sdk/sm/grammar`: concise/grammar parsing utilities.
-- `@effectstream/node-sdk/sync` — `genSyncProtocols` and per-chain fetcher classes.
+- `@effectstream/node-sdk/sync` - `genSyncProtocols` and per-chain fetcher classes.
 - `@effectstream/node-sdk/db`: `getConnection`, query helpers, snapshot utilities.
 - `@effectstream/node-sdk/db/start-pglite`, `./db/apply-migrations`, `./db/db-wait`, `./db/pgtyped-update`, `./db/version`: DB operations scripts.
 - `@effectstream/node-sdk/db-emulator`: in-memory test DB migration runner.
@@ -61,7 +61,7 @@ the corresponding package:
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](./test/examples.test.ts) — verifies
+Runnable: [`test/examples.test.ts`](./test/examples.test.ts) - verifies
 each subpath resolves.
 
 For full working nodes, see:

@@ -8,7 +8,7 @@ sidebar_label: "concise"
 
 > Package: **[`@effectstream/concise`](https://www.npmjs.com/package/@effectstream/concise)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/concise)
 
-Type-safe, compact message schemas for EffectStream — the wire format the
+Type-safe, compact message schemas for EffectStream - the wire format the
 batcher uses to pack many small user inputs into one on-chain transaction.
 Define a grammar of allowed commands; the package generates, parses, and
 validates inputs against it with TypeBox.
@@ -111,7 +111,7 @@ Grammar / schema (heavily used across the runtime + state machine):
 - `toFullJsonGrammar(...)`, `toKeyedJsonGrammar(...)`: derive TypeBox schemas from a grammar map.
 - `extractBatches(inputData)`: inverse of `buildBatchData`.
 - `extractDelegateWallet(...)` pulls the delegated wallet out of an account-delegation input.
-- `accountMessages`, `accountPayload_` — helpers for the standard account-linking commands.
+- `accountMessages`, `accountPayload_` - helpers for the standard account-linking commands.
 
 Batcher message construction (intended for external client SDKs and
 tests; the in-repo batcher uses a lower-level path):

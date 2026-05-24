@@ -9,8 +9,8 @@ sidebar_label: "event-client"
 > Package: **[`@effectstream/event-client`](https://www.npmjs.com/package/@effectstream/event-client)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/events)
 
 MQTT-based event subscriber for EffectStream. Subscribe to type-safe events
-streamed by the engine and the batcher — blocks, transactions, primitive
-events, and any app-defined event — without writing raw MQTT topic strings.
+streamed by the engine and the batcher - blocks, transactions, primitive
+events, and any app-defined event - without writing raw MQTT topic strings.
 
 - MQTT subscriber for Effectstream events: blocks, transactions, primitives, app-defined.
 - Type-safe topics; no raw topic strings.
@@ -66,7 +66,7 @@ subscribe through this package; the runtime publishes via the matching
 
 The most-imported symbols from this package are `EventManager` and
 `BuiltinEvents`. (`getEvmEvent`, often paired with these in
-state-machine primitives, lives in `@effectstream/config` — not here.)
+state-machine primitives, lives in `@effectstream/config` - not here.)
 
 > **Bun caveat:** the `mqtt` package's WebSocket transport isn't supported
 > on Bun yet. Use Node (or a TCP MQTT broker) when consuming events
@@ -77,9 +77,9 @@ state-machine primitives, lives in `@effectstream/config` — not here.)
 
 Heavily used across the repo:
 
-- `EventManager` — singleton with `.subscribe`, `.subscribeExplicit`, `.unsubscribe`, `.sendMessage`, `.sendMessageExplicit`. Use `EventManager.Instance`.
-- `BuiltinEvents` — pre-baked typed event definitions for `RollupBlock`, `SyncChains`, batcher `BatcherHash`, etc. Pass these into `EventManager.Instance.subscribe(...)`.
-- `toSignature(event)` — `"name(type1,type2,...)"` string for a typed event.
+- `EventManager` - singleton with `.subscribe`, `.subscribeExplicit`, `.unsubscribe`, `.sendMessage`, `.sendMessageExplicit`. Use `EventManager.Instance`.
+- `BuiltinEvents` - pre-baked typed event definitions for `RollupBlock`, `SyncChains`, batcher `BatcherHash`, etc. Pass these into `EventManager.Instance.subscribe(...)`.
+- `toSignature(event)` - `"name(type1,type2,...)"` string for a typed event.
 
 Types you'll see in callback signatures: `CallbackArgs<E>`,
 `CallbackAndMetadata<E>`, `EventPathAndDef`, `LogEvent`,

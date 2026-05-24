@@ -9,10 +9,10 @@ sidebar_label: "orchestrator"
 > Package: **[`@effectstream/orchestrator`](https://www.npmjs.com/package/@effectstream/orchestrator)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/build-tools/orchestrator)
 
 A multi-chain local development environment for EffectStream. One CLI
-starts every dependency a template needs — Postgres / PgLite, Hardhat,
+starts every dependency a template needs - Postgres / PgLite, Hardhat,
 contracts, Bitcoin Core, Midnight node + indexer + proof server,
 Cardano-side services, Avail node + light client, NEAR sandbox,
-Celestia, plus the EffectStream sync + runtime + batcher — in the right
+Celestia, plus the EffectStream sync + runtime + batcher - in the right
 order, with health checks.
 
 - One CLI that starts every dependency a template needs: DB, chains, sync, runtime, batcher.
@@ -113,10 +113,10 @@ is the same machinery, serialised across nine chain suites.
 
 ## Key subpath exports
 
-- `@effectstream/orchestrator/config` — `OrchestratorConfig`, `ProcessConfig` types.
-- `@effectstream/orchestrator/resolve-package` — resolve a package's bin to an absolute path (used by launcher scripts).
-- `@effectstream/orchestrator/launch-pglite`, `./launch-evm`, `./launch-bitcoin`, `./launch-cardano`, `./launch-midnight`, `./launch-avail`, `./launch-near` — opinionated launcher scripts for each chain.
-- `@effectstream/orchestrator/wait-tcp`, `./wait-http` — readiness-check helpers.
+- `@effectstream/orchestrator/config` - `OrchestratorConfig`, `ProcessConfig` types.
+- `@effectstream/orchestrator/resolve-package` - resolve a package's bin to an absolute path (used by launcher scripts).
+- `@effectstream/orchestrator/launch-pglite`, `./launch-evm`, `./launch-bitcoin`, `./launch-cardano`, `./launch-midnight`, `./launch-avail`, `./launch-near` - opinionated launcher scripts for each chain.
+- `@effectstream/orchestrator/wait-tcp`, `./wait-http` - readiness-check helpers.
 
 ## Examples
 

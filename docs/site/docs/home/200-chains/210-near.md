@@ -32,7 +32,7 @@ The protocol type is `NEAR_RPC_PARALLEL`. It polls the NEAR JSON-RPC, batches bl
       pollingInterval: 2000,
       delayMs: 2400,
       confirmationDepth: 1,
-      // stepSize: 10,   // optional — blocks per fetch batch (default: 10)
+      // stepSize: 10,   // optional - blocks per fetch batch (default: 10)
     })
   )
 )
@@ -57,7 +57,7 @@ A complete working example exercising all six lives at [`e2e/near/config.ts`](ht
 
 #### Generic NEP-297 Event (`PrimitiveTypeNEARGeneric`)
 
-Capture any NEP-297 event from a contract by `standard` + `event` strings. Use this when none of the typed primitives below match — for example, an application-specific NEP-297 emit. Each captured event lands in `effectstream.primitive_accounting` with the parsed event `data` field as payload.
+Capture any NEP-297 event from a contract by `standard` + `event` strings. Use this when none of the typed primitives below match - for example, an application-specific NEP-297 emit. Each captured event lands in `effectstream.primitive_accounting` with the parsed event `data` field as payload.
 
 ```ts
 .buildPrimitives(builder =>
@@ -100,7 +100,7 @@ Captures DIP-4 `token_diff` settlement events emitted by a NEAR Intents Verifier
 )
 ```
 
-Event-standard and event-type fields are hard-coded to `dip4` / `token_diff` — the primitive only watches that one signature.
+Event-standard and event-type fields are hard-coded to `dip4` / `token_diff` - the primitive only watches that one signature.
 
 #### Account Watch (`PrimitiveTypeNEARAccountWatch`)
 
@@ -125,8 +125,8 @@ Captures **every FunctionCall** made to a target contract, regardless of whether
 
 Tracks `ft_transfer` events emitted by NEP-141 fungible token contracts. Maintains two IVM tables:
 
-- `primitives.nep141_balance_intermediate_<name>` — per-block balance deltas per `account_id`.
-- `primitives.nep141_balance_view_<name>` — aggregated current balance view (positive balances only).
+- `primitives.nep141_balance_intermediate_<name>` - per-block balance deltas per `account_id`.
+- `primitives.nep141_balance_view_<name>` - aggregated current balance view (positive balances only).
 
 ```ts
 .buildPrimitives(builder =>
@@ -232,16 +232,16 @@ const intentAdapter = new NearIntentAdapter({
 
 ## 3. Browser Wallets (Connect)
 
-There is **no `WalletMode.NEAR` yet** — browser wallet connection (e.g. MyNearWallet, Meteor, Sender) is not part of `@effectstream/wallets` today. Applications that need to identify NEAR users from a browser have two options:
+There is **no `WalletMode.NEAR` yet** - browser wallet connection (e.g. MyNearWallet, Meteor, Sender) is not part of `@effectstream/wallets` today. Applications that need to identify NEAR users from a browser have two options:
 
 - **Pair with another chain's wallet** (e.g. EVM or Midnight) and treat NEAR purely as a sync + write target.
 - **Use the NEAR wallet SDK directly** in your frontend (e.g. [`near-api-js`](https://github.com/near/near-api-js)), then post the signed action through the batcher.
 
-`AddressType.NEAR` is defined in `@effectstream/utils` so NEAR account IDs can flow through the address-typed surfaces (events, schemas, primitive payloads), but the `CryptoManager` does not yet ship a NEAR verifier — see the next section.
+`AddressType.NEAR` is defined in `@effectstream/utils` so NEAR account IDs can flow through the address-typed surfaces (events, schemas, primitive payloads), but the `CryptoManager` does not yet ship a NEAR verifier - see the next section.
 
 ## 4. Cryptography (Verify)
 
-NEAR account IDs are recognized as `AddressType.NEAR`. There is **no built-in `CryptoManager` case for NEAR** at present (the chain set with built-in verifiers is EVM, Cardano, Polkadot, Algorand, Mina, Midnight — see `packages/effectstream-sdk/crypto/src/chains/`). If you need to verify NEAR signatures inside a state transition function, use [`near-api-js`](https://github.com/near/near-api-js) directly or import the Ed25519 primitives from `@noble/ed25519` and verify against the account's public key.
+NEAR account IDs are recognized as `AddressType.NEAR`. There is **no built-in `CryptoManager` case for NEAR** at present (the chain set with built-in verifiers is EVM, Cardano, Polkadot, Algorand, Mina, Midnight - see `packages/effectstream-sdk/crypto/src/chains/`). If you need to verify NEAR signatures inside a state transition function, use [`near-api-js`](https://github.com/near/near-api-js) directly or import the Ed25519 primitives from `@noble/ed25519` and verify against the account's public key.
 
 ## 5. Orchestration
 
@@ -276,8 +276,8 @@ The `launchNear` helper expects your `near-contracts` workspace package to expos
 }
 ```
 
-A complete reference setup — sandbox launch, contract deploy, primitive tests — lives in the e2e suite at [`e2e/near/`](https://github.com/effectstream/effectstream/tree/main/e2e/near). In particular:
+A complete reference setup - sandbox launch, contract deploy, primitive tests - lives in the e2e suite at [`e2e/near/`](https://github.com/effectstream/effectstream/tree/main/e2e/near). In particular:
 
-- [`e2e/near/launcher.cli.ts`](https://github.com/effectstream/effectstream/blob/main/e2e/near/launcher.cli.ts) — orchestrator config that launches the sandbox, deploys a test contract, and starts the sync node.
-- [`e2e/near/config.ts`](https://github.com/effectstream/effectstream/blob/main/e2e/near/config.ts) — `ConfigBuilder` wiring for all six primitives against a single sandbox.
-- [`e2e/near/sync/`](https://github.com/effectstream/effectstream/tree/main/e2e/near/sync) — one test file per primitive showing the expected `primitive_accounting` row shapes and IVM table contents.
+- [`e2e/near/launcher.cli.ts`](https://github.com/effectstream/effectstream/blob/main/e2e/near/launcher.cli.ts) - orchestrator config that launches the sandbox, deploys a test contract, and starts the sync node.
+- [`e2e/near/config.ts`](https://github.com/effectstream/effectstream/blob/main/e2e/near/config.ts) - `ConfigBuilder` wiring for all six primitives against a single sandbox.
+- [`e2e/near/sync/`](https://github.com/effectstream/effectstream/tree/main/e2e/near/sync) - one test file per primitive showing the expected `primitive_accounting` row shapes and IVM table contents.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `BlockchainAdapter` interface is the core extension point for supporting new blockchains in the Batcher. By implementing this interface, you can integrate any blockchain—whether EVM-based, zero-knowledge chains like Midnight, or custom Layer 2 solutions—into the unified batching pipeline.
+The `BlockchainAdapter` interface is the core extension point for supporting new blockchains in the Batcher. By implementing this interface, you can integrate any blockchain-whether EVM-based, zero-knowledge chains like Midnight, or custom Layer 2 solutions-into the unified batching pipeline.
 
 This guide walks you through:
 - Understanding the `BlockchainAdapter<TOutput>` interface
@@ -392,7 +392,7 @@ export class BinaryProtocolAdapter implements BlockchainAdapter<Uint8Array> {
 ```
 
 :::tip Size Management
-Always respect `options?.maxSize` or `this.maxBatchSize`. If an input doesn't fit, **don't include it**—it will be processed in the next batch automatically.
+Always respect `options?.maxSize` or `this.maxBatchSize`. If an input doesn't fit, **don't include it**-it will be processed in the next batch automatically.
 :::
 
 ---
@@ -907,7 +907,7 @@ Without `recoverState()`, stateful adapters can experience memory leaks after cr
 
 ## Helper Classes for Batch Serialization
 
-The batcher provides two helper classes for common serialization patterns. These are **optional**—you can always implement custom logic in `buildBatchData()`.
+The batcher provides two helper classes for common serialization patterns. These are **optional**-you can always implement custom logic in `buildBatchData()`.
 
 ### `DefaultBatchBuilderLogic`
 
@@ -1273,7 +1273,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
 
 ## Key Takeaways
 
-1. **Format Flexibility**: `TOutput` can be any type—string, object, binary. The only requirement is that `submitBatch()` can parse what `buildBatchData()` produces.
+1. **Format Flexibility**: `TOutput` can be any type-string, object, binary. The only requirement is that `submitBatch()` can parse what `buildBatchData()` produces.
 
 2. **Helper Classes are Optional**: Use `DefaultBatchBuilderLogic` or `MidnightBatchBuilderLogic` for standard formats, or implement custom serialization for unique requirements.
 

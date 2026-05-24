@@ -11,7 +11,7 @@ EffectStream is chain-agnostic. It can connect to, monitor, and write to multipl
 *   [**Mina**](./207-mina.md): The lightweight ZK blockchain.
 *   [**Algorand**](./208-algorand.md): Pure Proof-of-Stake blockchain.
 *   [**Celestia**](./209-celestia.md): Modular Data Availability (DA) layer for blob storage.
-*   [**NEAR**](./210-near.md): NEAR Protocol — sharded PoS chain with NEP token standards and DIP-4 cross-chain intents.
+*   [**NEAR**](./210-near.md): NEAR Protocol - sharded PoS chain with NEP token standards and DIP-4 cross-chain intents.
 *   [**Contracts**](./211-contracts.md): First-party Solidity and Aiken contracts shipped with EffectStream.
 
 Each chain integration can contain up to 4 parts:

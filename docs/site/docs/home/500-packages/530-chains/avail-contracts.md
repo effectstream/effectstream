@@ -32,9 +32,9 @@ This package is intentionally empty today. It ships so that `@effectstream/sync`
 
 For sync-side Avail support today, see:
 
-- `@effectstream/sync` — `AvailFetcher`, `AvailSyncState`.
-- `@effectstream/npm-avail-node`, `@effectstream/npm-avail-light-client` — pinned binary wrappers.
-- [`e2e/avail/`](https://github.com/effectstream/effectstream/tree/main/e2e/avail) — Avail-side E2E suite.
+- `@effectstream/sync` - `AvailFetcher`, `AvailSyncState`.
+- `@effectstream/npm-avail-node`, `@effectstream/npm-avail-light-client` - pinned binary wrappers.
+- [`e2e/avail/`](https://github.com/effectstream/effectstream/tree/main/e2e/avail) - Avail-side E2E suite.
 
 ## Inside EffectStream
 
@@ -45,7 +45,7 @@ and `@effectstream/bitcoin-contracts`.
 
 ## Key exports
 
-None at present — the module currently re-exports nothing. Watch the
+None at present - the module currently re-exports nothing. Watch the
 `mod.ts` for future entry points, or open an issue if you need a specific
 helper.
 

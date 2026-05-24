@@ -2,7 +2,7 @@
 
 ## Overview
 
-Configuring the Batcher involves creating a unified configuration object that defines global settings, blockchain adapters, and batching behavior. This guide walks through the complete configuration process—from instantiating adapters to launching the batcher service.
+Configuring the Batcher involves creating a unified configuration object that defines global settings, blockchain adapters, and batching behavior. This guide walks through the complete configuration process-from instantiating adapters to launching the batcher service.
 
 Understanding the configuration system helps you:
 - Wire multiple blockchain adapters to a single batcher
@@ -51,7 +51,7 @@ batcher
 await batcher.init();
 ```
 
-This approach offers maximum flexibility—adapters can be added progressively before initialization.
+This approach offers maximum flexibility-adapters can be added progressively before initialization.
 
 ### 2. Unified Configuration (Alternative)
 
@@ -114,7 +114,7 @@ The dynamic configuration approach follows these steps:
 
 ### Step 1: Create Base Configuration
 
-Create the base configuration object with global settings. **Adapters are not included here**—they'll be added dynamically in Step 3:
+Create the base configuration object with global settings. **Adapters are not included here**-they'll be added dynamically in Step 3:
 
 ```typescript
 import { type BatcherConfig } from "@effectstream/batcher-sdk";

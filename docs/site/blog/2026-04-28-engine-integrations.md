@@ -31,12 +31,12 @@ This is a complete local dev environment for building cross-chain applications. 
 
 ### Controlling the stack: the orchestrator
 
-A multi-chain dev environment is not one process — it's six or seven, with dependencies between them: PGLite has to come up before the sync node, Dolos needs cardano-node, the contracts have to be deployed before the frontend can talk to them. We built `bunx orchestrator` as the master controller for this. It launches every process in dependency order, restarts individual ones, follows their logs, and silences the noisy ones, all from a single CLI.
+A multi-chain dev environment is not one process - it's six or seven, with dependencies between them: PGLite has to come up before the sync node, Dolos needs cardano-node, the contracts have to be deployed before the frontend can talk to them. We built `bunx orchestrator` as the master controller for this. It launches every process in dependency order, restarts individual ones, follows their logs, and silences the noisy ones, all from a single CLI.
 
 ```text
 $ bunx orchestrator --help
 
-orchestrator — Bun-based process orchestration CLI
+orchestrator - Bun-based process orchestration CLI
 
 Usage:
   orchestrator <command> [options]
@@ -80,9 +80,9 @@ bunx orchestrator logs sync-node     # tail the logs of one process
 bunx orchestrator stop               # tear everything down
 ```
 
-The `--only` and `--except` flags let you run partial stacks — useful when you're iterating on the sync node and don't need the frontend rebuilding, or when you're testing the batcher in isolation. `--background` runs the whole orchestrator as a detached daemon with logs going to files, which is how the e2e test suite runs the same stack on CI.
+The `--only` and `--except` flags let you run partial stacks - useful when you're iterating on the sync node and don't need the frontend rebuilding, or when you're testing the batcher in isolation. `--background` runs the whole orchestrator as a detached daemon with logs going to files, which is how the e2e test suite runs the same stack on CI.
 
-The point is that the same `bun run dev` command that boots the EVM-Cardano template also boots the cardano-delegation template, the zk-cardano template, and every other template in the monorepo — they all share the orchestrator and just declare a different process graph in their config.
+The point is that the same `bun run dev` command that boots the EVM-Cardano template also boots the cardano-delegation template, the zk-cardano template, and every other template in the monorepo - they all share the orchestrator and just declare a different process graph in their config.
 
 <iframe src="https://drive.google.com/file/d/1dmXshwpqeXi9sez5ekfqfrlXBdjVVABW/preview" width="100%" height="480" allow="autoplay"></iframe>
 

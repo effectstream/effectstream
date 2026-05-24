@@ -116,7 +116,7 @@ export class DelegationAwareBatcherAdapter
 }
 ```
 
-The `getDelegationsByAddress` query is the same pgtyped query from Part 2 — it returns delegations ordered by `id DESC`, so `delegations[0]` is the most recent one.
+The `getDelegationsByAddress` query is the same pgtyped query from Part 2 - it returns delegations ordered by `id DESC`, so `delegations[0]` is the most recent one.
 
 ## 2. Configuring the batcher
 
@@ -192,14 +192,14 @@ The `fee: 0n` means the SPO covers the cost. Users delegating to the enabled poo
 
 When a user submits an input, the batcher pipeline processes it in order:
 
-1. **Targeting** — route to the correct adapter based on `input.target`
-2. **Signature verification** — verify the user's wallet signature (inherited from `EffectStreamL2DefaultAdapter`)
-3. **Input validation** — our custom `validateInput()` runs:
+1. **Targeting** - route to the correct adapter based on `input.target`
+2. **Signature verification** - verify the user's wallet signature (inherited from `EffectStreamL2DefaultAdapter`)
+3. **Input validation** - our custom `validateInput()` runs:
    - Query `delegations` table by `input.address`
    - Check if the latest delegation pool is in `enabledPools`
    - Return `{ valid: true }` or `{ valid: false, error: "..." }`
-4. **Storage** — if valid, the input is persisted to disk
-5. **Batching** — when criteria are met, inputs are serialized and submitted
+4. **Storage** - if valid, the input is persisted to disk
+5. **Batching** - when criteria are met, inputs are serialized and submitted
 
 A rejected input returns immediately with an error:
 
@@ -223,7 +223,7 @@ curl -X POST http://localhost:3334/send-input \
 # { "success": true, "hash": "0x..." }
 ```
 
-The walkthrough below shows the full flow end-to-end: the batcher is started with two enabled pools, a delegator of one of those pools submits a transaction and is accepted, and a non-delegator submits the same transaction and is rejected — both responses visible at the HTTP layer.
+The walkthrough below shows the full flow end-to-end: the batcher is started with two enabled pools, a delegator of one of those pools submits a transaction and is accepted, and a non-delegator submits the same transaction and is rejected - both responses visible at the HTTP layer.
 
 <iframe src="https://drive.google.com/file/d/1EI3hvbpCP8QzSTyyzcr2pHFQHeH9D2A_/preview" width="100%" height="480" allow="autoplay"></iframe>
 
@@ -284,16 +284,16 @@ batcher.addStateTransition("input:rejected", ({ error }) => {
 
 With the delegation-aware batcher, stake pool operators can offer tangible benefits to their delegators:
 
-- **Free game transactions** — delegators play without paying gas fees, the SPO covers the cost
-- **Priority batching** — delegators of partner pools get their inputs processed first
-- **Tiered access** — different pools unlock different game features or areas
-- **Dynamic pricing** — charge non-delegators, subsidize delegators
+- **Free game transactions** - delegators play without paying gas fees, the SPO covers the cost
+- **Priority batching** - delegators of partner pools get their inputs processed first
+- **Tiered access** - different pools unlock different game features or areas
+- **Dynamic pricing** - charge non-delegators, subsidize delegators
 
 The configuration is straightforward: add your pool hash to `ENABLED_POOLS`, fund the batcher wallet, and point your game's frontend at the batcher endpoint. The delegation check happens automatically on every input.
 
 ## Running the full stack
 
-The complete delegation + batcher stack runs as two pieces: the cardano-delegation template (sync node + indexing) and the pool-aware batcher adapter from [PR #691](https://github.com/effectstream/effectstream/pull/691). Both share the same PostgreSQL database — the sync node writes delegation events, the batcher reads them during validation.
+The complete delegation + batcher stack runs as two pieces: the cardano-delegation template (sync node + indexing) and the pool-aware batcher adapter from [PR #691](https://github.com/effectstream/effectstream/pull/691). Both share the same PostgreSQL database - the sync node writes delegation events, the batcher reads them during validation.
 
 ```bash
 # Terminal 1: Start the delegation sync node
@@ -310,7 +310,7 @@ bun run dev
 
 ---
 
-- [Pool-aware batcher code example (PR #691)](https://github.com/effectstream/effectstream/pull/691) — the `DelegationAwareBatcherAdapter` source
+- [Pool-aware batcher code example (PR #691)](https://github.com/effectstream/effectstream/pull/691) - the `DelegationAwareBatcherAdapter` source
 - [Batcher documentation](/docs/home/components/batcher/overview)
 - [Custom Adapters guide](/docs/home/components/batcher/adapter)
 - [Part 1: Connecting Cardano SPOs](/docs/blog/stakepool-delegation)

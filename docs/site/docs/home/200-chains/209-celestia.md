@@ -94,14 +94,14 @@ batcher.addBlockchainAdapter("celestia", celestiaAdapter, {
 | :--- | :--- | :--- |
 | `rpcUrl` | *(required)* | Celestia Light/Bridge Node RPC URL. |
 | `namespace` | *(required)* | Hex-encoded namespace to submit blobs to. |
-| `authToken` | — | Optional Bearer token for authenticated RPC. |
-| `network` | `"devnet"` | `"devnet"` or `"mainnet"` — controls fee/gas defaults. |
+| `authToken` | - | Optional Bearer token for authenticated RPC. |
+| `network` | `"devnet"` | `"devnet"` or `"mainnet"` - controls fee/gas defaults. |
 | `fee` | `2000` | Transaction fee (devnet). |
 | `gasLimit` | `100000` | Gas limit (devnet). |
-| `gasPrice` | — | Gas price (mainnet only). |
-| `gas` | — | Gas amount (mainnet only). |
-| `maxGasPrice` | — | Max gas price (mainnet only). |
-| `txPriority` | — | Transaction priority (mainnet only). |
+| `gasPrice` | - | Gas price (mainnet only). |
+| `gas` | - | Gas amount (mainnet only). |
+| `maxGasPrice` | - | Max gas price (mainnet only). |
+| `txPriority` | - | Transaction priority (mainnet only). |
 | `maxBlobBytes` | `1.5 MB` | Maximum blob size. Inputs exceeding this are rejected. |
 | `maxRetries` | `4` | Number of retries on rate-limited RPC calls. |
 | `baseDelayMs` | `1500` | Base delay for exponential backoff on retries. |
@@ -109,7 +109,7 @@ batcher.addBlockchainAdapter("celestia", celestiaAdapter, {
 
 ## 3. Browser Wallets (Connect)
 
-Celestia is a DA layer — user interactions are typically submitted through the batcher rather than directly from browser wallets. The batcher's bridge node holds the signing key and submits blobs on behalf of the application.
+Celestia is a DA layer - user interactions are typically submitted through the batcher rather than directly from browser wallets. The batcher's bridge node holds the signing key and submits blobs on behalf of the application.
 
 For applications that need to identify users, pair Celestia with another chain's wallet (e.g., EVM or Midnight) for authentication, and use Celestia purely for data availability.
 

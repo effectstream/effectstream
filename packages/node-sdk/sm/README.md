@@ -27,7 +27,7 @@ it inside a per-block postgres transaction. You author the DSL here;
 the runtime executes it.
 
 The DSL is also directly testable in a pure-TS unit test (parse + dispatch
-without a database) — see
+without a database) - see
 [`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts).
 
 ```typescript
@@ -62,15 +62,15 @@ yields `World.resolve(...)` so the runtime can execute the pgtyped queries.
 loop wires each user input through the corresponding `Stm` instance,
 collects yielded SQL, and commits it inside the per-block transaction.
 The built-in primitives package (`@effectstream/sm/builtin`) covers
-common on-chain events — ERC-20/721/1155 transfers, Cardano transfers,
-Midnight events, etc. — so you don't re-implement them.
+common on-chain events - ERC-20/721/1155 transfers, Cardano transfers,
+Midnight events, etc. - so you don't re-implement them.
 
 ## Key exports
 
 - `Stm<Grammar, Events>`: the state machine. `.addStateTransition(prefix, handler)`, `.processInput(input)`, `.grammar`, `.fullJsonGrammar`, `.keyedJsonGrammar`.
 - `ParamToData<Params>` derives the typed argument shape from a grammar entry.
 - `BaseStfInput`: input shape passed to every handler. Includes `msTimestamp`, `blockHeight`, etc.
-- `delegate-wallet` helpers — account delegation primitives reused by built-ins.
+- `delegate-wallet` helpers - account delegation primitives reused by built-ins.
 
 `MessageListener<Events, Params>` is exported as the handler type but is
 inferred at call sites rather than imported directly.
@@ -82,7 +82,7 @@ Subpath exports:
 
 ## Examples
 
-- [`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts) — a real primitive's behavior unit-tested.
+- [`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts) - a real primitive's behavior unit-tested.
 - Game logic in
   [`templates/dice/packages/node/`](https://github.com/effectstream/effectstream/tree/main/templates/dice/packages/node)
   shows the full `new Stm(...).addStateTransition(...)` pattern.

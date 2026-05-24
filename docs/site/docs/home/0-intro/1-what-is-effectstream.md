@@ -74,7 +74,7 @@ EffectStream state machine L2s are not only significantly more efficient than th
 
 ## Built-in Blockchain Sync and Primitives
 
-EffectStream ships a sync service that reads from every supported chain and feeds events into a single unified state machine. You declare which chains and which on-chain shapes you care about; the sync service handles polling, finality, dynamic table generation, and per-block transaction boundaries — and your state-transition functions see a uniform interface regardless of which chain the event came from.
+EffectStream ships a sync service that reads from every supported chain and feeds events into a single unified state machine. You declare which chains and which on-chain shapes you care about; the sync service handles polling, finality, dynamic table generation, and per-block transaction boundaries - and your state-transition functions see a uniform interface regardless of which chain the event came from.
 
 The library of **primitives** is what makes this easy. A primitive is a typed event watcher you compose into your config: it filters on-chain events at the source, parses them, and exposes payload fields plus (for many primitives) a materialized SQL view that you can query directly from your state machine. Examples that ship today:
 
@@ -95,13 +95,13 @@ EffectStream can enable much more flexible account abstraction by providing this
 
 ### Based rollup & Sequencer SDKs
 
-L2s created with EffectStream run as a [based rollup](https://ethresear.ch/t/based-rollups-superpowers-from-l1-sequencing/15016) — that is to say its sequencing is simply done by the DA layer (which is generally the underlying L1) and so it fully inherits its finality. This means that EffectStream L2s can be run without a sequencer (sometimes referred to as "self sequencing") and fully inherit the decentralization and security of the L1, and do this without the downsides traditionally associated with based rollups thanks to EffectStream's support for parallelization.
+L2s created with EffectStream run as a [based rollup](https://ethresear.ch/t/based-rollups-superpowers-from-l1-sequencing/15016) - that is to say its sequencing is simply done by the DA layer (which is generally the underlying L1) and so it fully inherits its finality. This means that EffectStream L2s can be run without a sequencer (sometimes referred to as "self sequencing") and fully inherit the decentralization and security of the L1, and do this without the downsides traditionally associated with based rollups thanks to EffectStream's support for parallelization.
 
 Although apps may not always need sequencers, they can still improve scalability and also help user onboarding. Notably, they can
 - Batch transactions together to amortize transaction fees
 - Cover the transaction fees for specified users through meta-transactions (ex: free txs for users who hold a specific NFT, who delegate to a stake pool, or who paid on a separate chain).
 
-Thanks to the flexibility of the batcher system, EffectStream can even support games built without an enshrined sequencer — that is to say environments with multiple sequencers where anybody can choose to run their own decentralized sequencer for the game and monetize it how they want. This gives the benefit of sequencing without the centralization or censorship concerns.
+Thanks to the flexibility of the batcher system, EffectStream can even support games built without an enshrined sequencer - that is to say environments with multiple sequencers where anybody can choose to run their own decentralized sequencer for the game and monetize it how they want. This gives the benefit of sequencing without the centralization or censorship concerns.
 
 ### Cross-chain NFTs
 
@@ -140,7 +140,7 @@ ZK cryptography is often used in Web3 for two different properties:
 
 Both these use-cases are of interest in games, as being able to prove world state helps with composability of worlds, and private inputs allow games with private state (ex: fog of war), commit-reveal schemes that don't require every participant to be online for the reveal phase, and compliance flows (proving you know information without revealing the sensitive information publicly).
 
-EffectStream supports [Midnight](../200-chains/202-midnight.md) as a first-class ZK chain — full L1 sync, batcher writes, and ZK contract event capture via `PrimitiveTypeMidnightGeneric`. The [`evm-midnight-v2`](https://github.com/effectstream/effectstream/tree/main/templates/evm-midnight-v2) template is an end-to-end working example of an app that combines an EVM L1 with a Midnight ZK chain.
+EffectStream supports [Midnight](../200-chains/202-midnight.md) as a first-class ZK chain - full L1 sync, batcher writes, and ZK contract event capture via `PrimitiveTypeMidnightGeneric`. The [`evm-midnight-v2`](https://github.com/effectstream/effectstream/tree/main/templates/evm-midnight-v2) template is an end-to-end working example of an app that combines an EVM L1 with a Midnight ZK chain.
 
 # Why Sovereign rollups?
 
@@ -175,7 +175,7 @@ Unfortunately there is no "free lunch", and so usage of sovereign rollups comes 
 
 ### Extra work for trading L2 assets on the L1
 
-Although assets that stay on the L1 are supported, if assets are stored on the L2, extra work is required to make these assets from the L2 available on the L1 (that is to say, supporting the ability to put \$5 into the L2, make some money, then take \$10 out requires extra work). EffectStream supports this through its concept of *inverse projections* — see [PRC-3](../400-paima-standards/prc3.md) for ERC-721 NFTs and [PRC-5](../400-paima-standards/prc5.md) for ERC-1155 (semi-fungible) tokens.
+Although assets that stay on the L1 are supported, if assets are stored on the L2, extra work is required to make these assets from the L2 available on the L1 (that is to say, supporting the ability to put \$5 into the L2, make some money, then take \$10 out requires extra work). EffectStream supports this through its concept of *inverse projections* - see [PRC-3](../400-paima-standards/prc3.md) for ERC-721 NFTs and [PRC-5](../400-paima-standards/prc5.md) for ERC-1155 (semi-fungible) tokens.
 
 ### Optional compatibility with other L1 dApps
 

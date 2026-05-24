@@ -5,7 +5,7 @@ authors: [effectstream]
 tags: [cardano, primitives, dolos, utxorpc, technical]
 ---
 
-When we set out to connect Cardano to game state, we started from the obvious place: write an indexer task. Each new use-case got its own custom Carp module, its own SQL schema, its own glue code. After the third one — stake-pool delegation, projected NFTs, native-asset transfers — it was clear we'd been writing the same scaffold three times. EffectStream now ships those scaffolds as **Cardano Primitives**: a shared architecture that turns Dolos/UTxORPC streams into typed, queryable state machine events, with five concrete primitives delivered out of the box.
+When we set out to connect Cardano to game state, we started from the obvious place: write an indexer task. Each new use-case got its own custom Carp module, its own SQL schema, its own glue code. After the third one - stake-pool delegation, projected NFTs, native-asset transfers - it was clear we'd been writing the same scaffold three times. EffectStream now ships those scaffolds as **Cardano Primitives**: a shared architecture that turns Dolos/UTxORPC streams into typed, queryable state machine events, with five concrete primitives delivered out of the box.
 
 <!-- truncate -->
 
@@ -14,9 +14,9 @@ When we set out to connect Cardano to game state, we started from the obvious pl
 A primitive is a small contract between a chain and an application state machine:
 
 1. **A predicate** that the indexer (Dolos via UTxORPC) evaluates server-side to filter transactions before they ever leave the gRPC stream.
-2. **A typed grammar** — a TypeBox schema declaring the shape of the event the primitive emits.
-3. **An IVM (Indexed View Materializer)** — a PostgreSQL materialised view definition that maintains a queryable snapshot of state as events arrive.
-4. **A state-machine prefix** — every event the primitive emits routes to the application's `addStateTransition(prefix, ...)` handler under this name.
+2. **A typed grammar** - a TypeBox schema declaring the shape of the event the primitive emits.
+3. **An IVM (Indexed View Materializer)** - a PostgreSQL materialised view definition that maintains a queryable snapshot of state as events arrive.
+4. **A state-machine prefix** - every event the primitive emits routes to the application's `addStateTransition(prefix, ...)` handler under this name.
 
 Five primitives ship with EffectStream today, all sharing the same architecture:
 
@@ -36,15 +36,15 @@ The temptation when wiring a new chain integration is to start with a generic bl
 
 The primitive pattern pushes three concerns down the stack:
 
-- **Filtering** moves to the gRPC layer. Dolos evaluates the predicate before serialising — your application never sees a transaction it doesn't care about.
-- **Parsing** moves into the primitive. The Hololocker datum, Conway delegation certificates, CIP-14 asset fingerprints — each gets parsed once, in the primitive, into a stable typed payload.
+- **Filtering** moves to the gRPC layer. Dolos evaluates the predicate before serialising - your application never sees a transaction it doesn't care about.
+- **Parsing** moves into the primitive. The Hololocker datum, Conway delegation certificates, CIP-14 asset fingerprints - each gets parsed once, in the primitive, into a stable typed payload.
 - **State materialisation** moves into Postgres. The IVM definition declares the table shape and the triggers; EffectStream keeps it consistent with the stream.
 
 What's left in the application is the part you actually wanted to write: the state transition handler that decides what *your game* does when a delegation changes or an NFT gets locked.
 
 ## Worked example: the Projected NFT primitive
 
-The `CardanoProjectedNFT` primitive is the densest of the five because the Hololocker contract has a non-trivial state machine — Lock, Unlocking (with a time-lock expiry), and Claim — and each of those transitions has to be reconstructed from raw inputs and outputs.
+The `CardanoProjectedNFT` primitive is the densest of the five because the Hololocker contract has a non-trivial state machine - Lock, Unlocking (with a time-lock expiry), and Claim - and each of those transitions has to be reconstructed from raw inputs and outputs.
 
 The grammar declares the typed payload:
 
@@ -108,14 +108,14 @@ The `CardanoPoolDelegation` primitive was the first to ship under this pattern (
 
 What differs is local: the predicate (`has_certificate` for delegation, `has_address` for the script), the payload (delegation triple vs. NFT lock state), the IVM trigger logic (replace-on-change vs. lock/unlocking/claim lifecycle), and the datum parser (no datum for delegation; a CBOR Plutus datum walk for Projected NFTs). The shared scaffold is what lets a new primitive be a few hundred lines of focused code rather than a multi-week integration.
 
-The five primitives that ship today are the ones we needed for the templates we're building. Adding a sixth — Cardano voting, drep delegation, governance actions — would follow the same shape.
+The five primitives that ship today are the ones we needed for the templates we're building. Adding a sixth - Cardano voting, drep delegation, governance actions - would follow the same shape.
 
 ## Running the template
 
 Each primitive is paired with a runnable template that exercises it end-to-end:
 
-- `templates/cardano-delegation` — `CardanoPoolDelegation` + Stake Pool Delegation Explorer dApp
-- `templates/projected-nft-preorder` — `CardanoProjectedNFT` + Hololocker lock/unlock/claim UI plus a campaign + marketplace state machine on top
+- `templates/cardano-delegation` - `CardanoPoolDelegation` + Stake Pool Delegation Explorer dApp
+- `templates/projected-nft-preorder` - `CardanoProjectedNFT` + Hololocker lock/unlock/claim UI plus a campaign + marketplace state machine on top
 
 Both templates start the same way:
 
@@ -126,17 +126,17 @@ bun install
 bun run dev
 ```
 
-The orchestrator brings up PGLite, YACI DevKit, Dolos, the sync node, and the frontend together. Open the URL printed in the terminal and the primitive is live — every state transition emitted by the primitive is observable in the materialised view and surfaced on the frontend.
+The orchestrator brings up PGLite, YACI DevKit, Dolos, the sync node, and the frontend together. Open the URL printed in the terminal and the primitive is live - every state transition emitted by the primitive is observable in the materialised view and surfaced on the frontend.
 
 ## What this unlocks
 
-Once a chain has a primitive layer, the cost of adding a new on-chain integration drops to "implement the predicate + parser + IVM, then write the game logic." The five primitives that ship today cover the most common Cardano integration patterns — fungible transfers, native-asset lifecycle, mint/burn, stake-pool delegation, and projected-NFT custody. A new primitive can plug into the same machinery without touching the framework.
+Once a chain has a primitive layer, the cost of adding a new on-chain integration drops to "implement the predicate + parser + IVM, then write the game logic." The five primitives that ship today cover the most common Cardano integration patterns - fungible transfers, native-asset lifecycle, mint/burn, stake-pool delegation, and projected-NFT custody. A new primitive can plug into the same machinery without touching the framework.
 
 ---
 
 - [All five Cardano primitives source](https://github.com/effectstream/effectstream/tree/v-next/packages/node-sdk/sm/primitives/src)
 - [Cardano Primitives reference docs](/docs/home/chains/cardano#primitives)
-- [Stake Pool Delegation post](/docs/blog/stakepool-delegation) — the first primitive built on this architecture
-- [Projected NFTs post](/docs/blog/projected-nfts) — the Hololocker dApp + ProjectedNFT primitive end-to-end
+- [Stake Pool Delegation post](/docs/blog/stakepool-delegation) - the first primitive built on this architecture
+- [Projected NFTs post](/docs/blog/projected-nfts) - the Hololocker dApp + ProjectedNFT primitive end-to-end
 - [`cardano-delegation` template](https://github.com/effectstream/effectstream/tree/v-next/templates/cardano-delegation)
 - [`projected-nft-preorder` template](https://github.com/effectstream/effectstream/tree/v-next/templates/projected-nft-preorder)

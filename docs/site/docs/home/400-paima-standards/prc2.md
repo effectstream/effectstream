@@ -1,12 +1,12 @@
-# PRC-2 — Paima Hololocker Interface
+# PRC-2 - Paima Hololocker Interface
 
 ## Use case
 
-Use any L1 ERC-721 NFT inside your game without bridging — locked on-chain, withdrawable on a cooldown.
+Use any L1 ERC-721 NFT inside your game without bridging - locked on-chain, withdrawable on a cooldown.
 
 ## Summary
 
-Games are data- and computation-heavy and typically run on sidechains, L2s, or appchains, while popular NFT collections live on a different L1. PRC-2 lets users **project** an NFT they hold on the L1 directly into the game — no bridging, no wrapped tokens, no separate canonical copy. The user keeps unambiguous ownership of the L1 asset and can withdraw it at any time after a time-locked release.
+Games are data- and computation-heavy and typically run on sidechains, L2s, or appchains, while popular NFT collections live on a different L1. PRC-2 lets users **project** an NFT they hold on the L1 directly into the game - no bridging, no wrapped tokens, no separate canonical copy. The user keeps unambiguous ownership of the L1 asset and can withdraw it at any time after a time-locked release.
 
 The interface supports projecting one or many NFTs in a single call to save gas.
 
@@ -54,7 +54,7 @@ interface HololockerInterface is IERC721Receiver {
 
 A Hololocker also implements `IERC721Receiver`, so that NFTs can be locked by calling `IERC721.safeTransferFrom(..., locker, ...)`. When called this way, the implementation MUST initialise the same `LockInfo` it would have created via `lock()` and emit the `Lock` event.
 
-> **Safety note.** Always use `safeTransferFrom` when sending an NFT to the locker. Plain `transferFrom` skips `onERC721Received`, and the locker has no way to record the previous owner — the NFT gets stuck in the contract.
+> **Safety note.** Always use `safeTransferFrom` when sending an NFT to the locker. Plain `transferFrom` skips `onERC721Received`, and the locker has no way to record the previous owner - the NFT gets stuck in the contract.
 
 ### Standard user flow
 
@@ -62,7 +62,7 @@ A Hololocker also implements `IERC721Receiver`, so that NFTs can be locked by ca
 Lock  →  Request Unlock  →  ⏳ lockTime elapses  →  Withdraw
 ```
 
-The cooldown (`lockTime`) is what makes simultaneous double-use impossible. It should reflect the L1's finality budget — long enough that the in-game world can rely on a locked NFT being locked when it acts on it.
+The cooldown (`lockTime`) is what makes simultaneous double-use impossible. It should reflect the L1's finality budget - long enough that the in-game world can rely on a locked NFT being locked when it acts on it.
 
 ## Rationale
 
@@ -70,7 +70,7 @@ The Hololocker is essentially an NFT-staking contract with an "Unlocking" state.
 
 ### Why "Unlocking" + `lockTime`?
 
-Without a delay between *requesting* an unlock and *receiving* the NFT, the same asset could be used in two places at once — the game holds it, the L1 transfer finishes, and the new owner uses it too. A bounded cooldown forces a single source of truth.
+Without a delay between *requesting* an unlock and *receiving* the NFT, the same asset could be used in two places at once - the game holds it, the L1 transfer finishes, and the new owner uses it too. A bounded cooldown forces a single source of truth.
 
 ### Consistent contract address
 
@@ -78,7 +78,7 @@ To give users a predictable experience, the Hololocker SHOULD be deployed to the
 
 ### Why not mint a "receipt NFT" on lock?
 
-A receipt token would help UX — users could see the asset in their wallet — but it nearly doubles `lock`'s gas cost (85 k → 161 k) and increases `withdraw` cost by ~60 % (7.5 k → 12.1 k). PRC-2 deliberately doesn't include one.
+A receipt token would help UX - users could see the asset in their wallet - but it nearly doubles `lock`'s gas cost (85 k → 161 k) and increases `withdraw` cost by ~60 % (7.5 k → 12.1 k). PRC-2 deliberately doesn't include one.
 
 ### Why ERC-721 only?
 
@@ -92,7 +92,7 @@ Other standards (ERC-20, ERC-1155) can be supported by analogous interfaces with
 
 - The locker MUST be entered via `safeTransferFrom`. `transferFrom` will permanently strand the NFT.
 - The `lockTime` setter MUST be access-controlled and SHOULD have an upper-bound check to prevent griefing.
-- The cooldown is the only mechanism preventing "use in two places at once" — it MUST be at least the L1's finality window for the deployed chain.
+- The cooldown is the only mechanism preventing "use in two places at once" - it MUST be at least the L1's finality window for the deployed chain.
 
 ---
 

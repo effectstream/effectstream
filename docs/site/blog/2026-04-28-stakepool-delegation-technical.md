@@ -76,7 +76,7 @@ export const config = new ConfigBuilder()
   )
 ```
 
-The key detail is `CARDANO_UTXORPC_PARALLEL` — this tells EffectStream to use a parallel sync protocol that streams blocks from Dolos via gRPC, independently of the main NTP clock. The `confirmationDepth: 0` means we process blocks immediately (appropriate for a local devnet).
+The key detail is `CARDANO_UTXORPC_PARALLEL` - this tells EffectStream to use a parallel sync protocol that streams blocks from Dolos via gRPC, independently of the main NTP clock. The `confirmationDepth: 0` means we process blocks immediately (appropriate for a local devnet).
 
 ## 2. The primitive: filtering and extracting delegation certificates
 
@@ -104,7 +104,7 @@ The primitive is registered in the config with a pool filter:
 
 The `pools` array filters which delegation events to track. Only delegations to these specific pool operator keyhashes will reach the state machine. Remove the filter to track all pools.
 
-Under the hood, the primitive uses a UTxORPC predicate to tell Dolos to only send transactions containing certificates — filtering out the vast majority of transfer-only transactions at the gRPC level:
+Under the hood, the primitive uses a UTxORPC predicate to tell Dolos to only send transactions containing certificates - filtering out the vast majority of transfer-only transactions at the gRPC level:
 
 ```typescript
 // CardanoPoolDelegationPrimitive.getConfig()
@@ -217,7 +217,7 @@ export const gameStateTransitions: StartConfigGameStateTransitions =
 
 ## 5. Database schema
 
-The database has two tables — raw delegation events and aggregate pool statistics:
+The database has two tables - raw delegation events and aggregate pool statistics:
 
 ```sql
 -- packages/database/migrations/000-init.sql
@@ -325,12 +325,12 @@ main(function* () {
 
 The `start.dev.ts` orchestrator config launches the full stack in dependency order:
 
-1. **PGLite** — embedded PostgreSQL (no external DB needed)
-2. **YACI DevKit** — local Cardano devnet with instant block production
-3. **Dolos** — lightweight Cardano node exposing UTxORPC gRPC
-4. **Register test pool** — registers a second stake pool on the devnet
-5. **Sync node** — the EffectStream application (config + state machine + API)
-6. **Frontend** — builds and serves the Delegation Explorer dApp
+1. **PGLite** - embedded PostgreSQL (no external DB needed)
+2. **YACI DevKit** - local Cardano devnet with instant block production
+3. **Dolos** - lightweight Cardano node exposing UTxORPC gRPC
+4. **Register test pool** - registers a second stake pool on the devnet
+5. **Sync node** - the EffectStream application (config + state machine + API)
+6. **Frontend** - builds and serves the Delegation Explorer dApp
 
 ```bash
 git clone https://github.com/effectstream/effectstream.git
@@ -346,9 +346,9 @@ The orchestrator handles dependency ordering, port management, health checks, an
 
 To add your own delegation logic, modify the state machine transition in `packages/node/state-machine.ts`. The `data` object gives you:
 
-- `data.parsedInput` — the delegation event (`address`, `pool`, `epoch`)
-- `data.blockHeight` — the block number
-- `data.blockTimestamp` — the block timestamp
+- `data.parsedInput` - the delegation event (`address`, `pool`, `epoch`)
+- `data.blockHeight` - the block number
+- `data.blockTimestamp` - the block timestamp
 
 For example, to unlock content for delegators of a specific pool:
 

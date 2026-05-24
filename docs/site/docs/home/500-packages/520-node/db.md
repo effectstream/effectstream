@@ -57,7 +57,7 @@ try {
 
 For PgLite (in-memory) the package ships `./start-pglite`,
 `./apply-migrations`, `./db-wait`, `./pgtyped-update`, `./version` as
-small executable subpaths — used directly by the orchestrator.
+small executable subpaths - used directly by the orchestrator.
 
 > **PgLite caveat:** PgLite is single-writer. Wrap PgLite-bound code in
 > `acquireDBMutex(name)` / `releaseDBMutex(name)` so concurrent generators
@@ -77,7 +77,7 @@ Connection management (heavily used):
 
 - `getConnection(creds?)`: pooled `Pool` singleton. Dominant entry point (~31 call sites across the repo).
 - `acquireDBMutex(name, priority?)` and `releaseDBMutex(name)` coordinate PgLite access; ~7 call sites each.
-- `waitUntilFree()` — companion to the mutex.
+- `waitUntilFree()` - companion to the mutex.
 - `getPersistentConnection(creds)` returns a non-pooled `Client` for long-lived listeners.
 
 Queries (pgtyped-generated, shipped under one umbrella):
@@ -88,7 +88,7 @@ Queries (pgtyped-generated, shipped under one umbrella):
 
 Snapshots:
 
-- `runSnapshotLoop` — periodic `pg_dump` of synced state.
+- `runSnapshotLoop` - periodic `pg_dump` of synced state.
 - `createSnapshot`: single-shot snapshot helper.
 - `SnapshotConfig`, `SnapshotRetentionConfig`: config types.
 
@@ -100,10 +100,10 @@ Dynamic table / event helpers:
 Subpath entry points (executable scripts):
 
 - `@effectstream/db/start-pglite`: boot a PgLite instance.
-- `@effectstream/db/apply-migrations` — apply SQL migrations against the active DB.
+- `@effectstream/db/apply-migrations` - apply SQL migrations against the active DB.
 - `@effectstream/db/db-wait`: block until the DB accepts a connection.
 - `@effectstream/db/pgtyped-update`: regenerate pgtyped types.
-- `@effectstream/db/version` — print schema version.
+- `@effectstream/db/version` - print schema version.
 
 ## Examples
 

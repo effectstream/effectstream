@@ -8,7 +8,7 @@ sidebar_label: "runtime"
 
 > Package: **[`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/runtime)
 
-The state-machine runtime — the loop that ties sync, state machine,
+The state-machine runtime - the loop that ties sync, state machine,
 database, events, and HTTP API together inside an EffectStream node.
 Boot it with `init()` then drive it with `start(config)` and your node
 is up.
@@ -79,15 +79,15 @@ runtime exposes a Fastify router.
 
 ## Key exports
 
-- `init()` — `Operation<void>`. One-shot setup: OpenTelemetry, config validation, version pinning. Call before `start`.
-- `start(config: StartConfig)` — `Operation<void>`. Run the node loop until cancelled.
+- `init()` - `Operation<void>`. One-shot setup: OpenTelemetry, config validation, version pinning. Call before `start`.
+- `start(config: StartConfig)` - `Operation<void>`. Run the node loop until cancelled.
 
 Types and helpers re-exported alongside `init` / `start`:
 
-- `DBMigrations` — versioned SQL migrations passed into `start`.
-- `StartConfig`, `StartConfigGameStateTransitions`, `StartConfigApiRouter` — `start`'s config types. Templates type-check against these implicitly but don't usually import them by name.
-- `PrimitiveConstructor<T>` — extension point for new primitives.
-- `VERSION` — `${number}.${number}.${number}` literal type for version pinning.
+- `DBMigrations` - versioned SQL migrations passed into `start`.
+- `StartConfig`, `StartConfigGameStateTransitions`, `StartConfigApiRouter` - `start`'s config types. Templates type-check against these implicitly but don't usually import them by name.
+- `PrimitiveConstructor<T>` - extension point for new primitives.
+- `VERSION` - `${number}.${number}.${number}` literal type for version pinning.
 - Pagination helpers re-exported from `./api/pagination.ts`.
 
 ## Examples

@@ -28,7 +28,7 @@ npm install @effectstream/bitcoin-contracts
 
 ## Standalone usage
 
-The package exports two scripts (no `bin` entries — invoke them via the
+The package exports two scripts (no `bin` entries - invoke them via the
 subpath exports):
 
 ```bash
@@ -48,7 +48,7 @@ to get the actual Bitcoin Core binary.
 
 `@effectstream/orchestrator/launch-bitcoin` declares the Bitcoin step's
 process graph and resolves these scripts by name from your template's
-package — so as long as your template's `package.json` exposes
+package - so as long as your template's `package.json` exposes
 `chain:start`, `wait-for-block`, and `generate:blocks` scripts that
 delegate to this package's subpaths, the orchestrator picks them up.
 
@@ -57,9 +57,9 @@ consume the regtest chain that these scripts keep moving.
 
 ## Key exports
 
-- `./generate-blocks` — script for regtest block generation. Args: `--block-interval <ms>`.
-- `./wait-for-block` — script to poll Bitcoin Core until a target height. Args: `--block-height <n>`.
-- `./mod` — re-exports `./generate-blocks` (the `bitcoin.payments` / `ECPair` helpers it builds on are inlined, not exported separately).
+- `./generate-blocks` - script for regtest block generation. Args: `--block-interval <ms>`.
+- `./wait-for-block` - script to poll Bitcoin Core until a target height. Args: `--block-height <n>`.
+- `./mod` - re-exports `./generate-blocks` (the `bitcoin.payments` / `ECPair` helpers it builds on are inlined, not exported separately).
 
 ## Examples
 

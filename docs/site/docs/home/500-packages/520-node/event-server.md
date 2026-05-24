@@ -8,7 +8,7 @@ sidebar_label: "event-server"
 
 > Package: **[`@effectstream/event-server`](https://www.npmjs.com/package/@effectstream/event-server)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/events)
 
-A localhost-only MQTT broker built on Aedes — the server side of
+A localhost-only MQTT broker built on Aedes - the server side of
 EffectStream's event system. The runtime publishes block, transaction,
 primitive, and app events to this broker; frontends and workers
 subscribe via `@effectstream/event-client`.
@@ -59,7 +59,7 @@ exposed here.
 
 ## Key exports
 
-- `EventBroker` — broker class. Constructor takes `"effectstream-engine" | "Batcher"`. Methods: `start()` (async; binds the configured TCP + WS ports), `createServer()` (fire-and-forget wrapper around `start()`), `stop()`. Clients publish and subscribe via the MQTT protocol, not direct class methods.
+- `EventBroker` - broker class. Constructor takes `"effectstream-engine" | "Batcher"`. Methods: `start()` (async; binds the configured TCP + WS ports), `createServer()` (fire-and-forget wrapper around `start()`), `stop()`. Clients publish and subscribe via the MQTT protocol, not direct class methods.
 
 ## Examples
 

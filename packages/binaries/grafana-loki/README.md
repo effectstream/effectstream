@@ -1,6 +1,6 @@
 # @effectstream/grafana-loki
 
-NPM wrapper around [Grafana Loki](https://grafana.com/oss/loki/) — the
+NPM wrapper around [Grafana Loki](https://grafana.com/oss/loki/) - the
 log-aggregation backend EffectStream nodes ship structured logs to in
 local development. Installs a pinned binary into
 `node_modules/.bin/grafana-loki`.

@@ -33,7 +33,7 @@ bunx npm-midnight-proof-server --only-clean
 
 The orchestrator's Midnight step starts the proof server together with
 `@effectstream/npm-midnight-node`. ZK-heavy templates and tests rely on
-it implicitly — you don't import this package from app code, you just
+it implicitly - you don't import this package from app code, you just
 add it to the orchestrator's dependency graph (which the templates
 already do).
 

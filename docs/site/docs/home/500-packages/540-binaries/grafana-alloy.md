@@ -8,7 +8,7 @@ sidebar_label: "grafana-alloy"
 
 > Package: **[`@effectstream/grafana-alloy`](https://www.npmjs.com/package/@effectstream/grafana-alloy)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/grafana-alloy)
 
-NPM wrapper around [Grafana Alloy](https://grafana.com/oss/alloy/) — the
+NPM wrapper around [Grafana Alloy](https://grafana.com/oss/alloy/) - the
 OpenTelemetry-compatible collector EffectStream nodes ship traces, logs,
 and metrics to during local development. Installs a pinned binary into
 `node_modules/.bin/grafana-alloy`.

@@ -8,7 +8,7 @@ sidebar_label: "crypto"
 
 > Package: **[`@effectstream/crypto`](https://www.npmjs.com/package/@effectstream/crypto)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/crypto)
 
-Multi-chain signature verification — one API that verifies wallet signatures
+Multi-chain signature verification - one API that verifies wallet signatures
 from EVM, Cardano, Polkadot, Algorand, Mina, and Midnight. Also includes the
 `Prando` seeded RNG used for on-chain-derived randomness.
 
@@ -47,7 +47,7 @@ if (!ok) throw new Error("bad signature");
 ```
 
 The same `CryptoManager` works for Cardano, Polkadot, Algorand, Mina, and
-Midnight signatures — switch the `AddressType` and pass the chain-native
+Midnight signatures - switch the `AddressType` and pass the chain-native
 signature string.
 
 ### Deterministic randomness with Prando
@@ -76,10 +76,10 @@ machine uses to derive randomness from on-chain hashes
 
 ## Key exports
 
-- `CryptoManager` — chain-aware factory. `CryptoManager.getCryptoManager(addressType)` returns an `IVerify`. Per-chain accessors: `CryptoManager.Evm()`, `.Cardano()`, `.Polkadot()`, `.Algorand()`, `.Mina()`, `.Midnight()`.
-- `IVerify` — common interface: `verifyAddress`, `verifySignature`, `decodeAddress`.
-- `Prando` — seeded deterministic RNG. `next()`, `nextInt(lo, hi)`, `nextString(n)`, `reset()`.
-- `generateEffectstreamBlockHash` — block-hash helper used by the EffectStream runtime.
+- `CryptoManager` - chain-aware factory. `CryptoManager.getCryptoManager(addressType)` returns an `IVerify`. Per-chain accessors: `CryptoManager.Evm()`, `.Cardano()`, `.Polkadot()`, `.Algorand()`, `.Mina()`, `.Midnight()`.
+- `IVerify` - common interface: `verifyAddress`, `verifySignature`, `decodeAddress`.
+- `Prando` - seeded deterministic RNG. `next()`, `nextInt(lo, hi)`, `nextString(n)`, `reset()`.
+- `generateEffectstreamBlockHash` - block-hash helper used by the EffectStream runtime.
 
 ## Examples
 

@@ -4,7 +4,7 @@ EffectStream follows [**Semantic Versioning**](https://semver.org/) (`MAJOR.MINO
 
 ## Coordinated releases
 
-**Every publishable package always ships with the same version number.** When we cut a release, all 38 `@effectstream/*` packages are bumped and published together — even if a given package had no code changes that cycle.
+**Every publishable package always ships with the same version number.** When we cut a release, all 38 `@effectstream/*` packages are bumped and published together - even if a given package had no code changes that cycle.
 
 This is intentional. It means:
 
@@ -17,7 +17,7 @@ The current shared version is whatever you see in any `packages/*/package.json` 
 
 ## Versioning your own application
 
-- **Pin to one matching version** for every `@effectstream/*` dependency in your `package.json`. The starter templates do this already — every dep is the same pinned version.
+- **Pin to one matching version** for every `@effectstream/*` dependency in your `package.json`. The starter templates do this already - every dep is the same pinned version.
 - **Upgrade in lockstep.** Bump every `@effectstream/*` dep together, never one at a time.
 - **MAJOR bumps may include breaking changes.** Read the changelog before bumping `0.x` → `0.(x+1)` while we're pre-1.0; pre-1.0 minor bumps can carry breaking changes per semver convention.
 - **Your app's own version is independent.** Templates start at `1.0.0`. Bump it however your release process needs.

@@ -32,8 +32,8 @@ This package is intentionally empty today. It ships so that `@effectstream/sync`
 
 For Cardano support today, see:
 
-- `@effectstream/sync` — `UtxoRpcFetcher`, `UtxoRpcSyncState` for Cardano UTXO-RPC sync.
-- `@effectstream/sm/builtin` — `PrimitiveTypeCardanoTransfer`, `PrimitiveTypeCardanoMintBurn`, `PrimitiveTypeCardanoPoolDelegation`, `PrimitiveTypeCardanoDelayedAsset`, `PrimitiveTypeCardanoProjectedNFT`.
+- `@effectstream/sync` - `UtxoRpcFetcher`, `UtxoRpcSyncState` for Cardano UTXO-RPC sync.
+- `@effectstream/sm/builtin` - `PrimitiveTypeCardanoTransfer`, `PrimitiveTypeCardanoMintBurn`, `PrimitiveTypeCardanoPoolDelegation`, `PrimitiveTypeCardanoDelayedAsset`, `PrimitiveTypeCardanoProjectedNFT`.
 - Templates: [`templates/cardano-delegation/`](https://github.com/effectstream/effectstream/tree/main/templates/cardano-delegation), [`templates/preorder/`](https://github.com/effectstream/effectstream/tree/main/templates/preorder), [`templates/evm-cardano/`](https://github.com/effectstream/effectstream/tree/main/templates/evm-cardano), [`templates/projected-nft-preorder/`](https://github.com/effectstream/effectstream/tree/main/templates/projected-nft-preorder), [`templates/zk-cardano/`](https://github.com/effectstream/effectstream/tree/main/templates/zk-cardano).
 
 ## Inside EffectStream
@@ -44,7 +44,7 @@ slot, mirroring `@effectstream/evm-contracts`,
 
 ## Key exports
 
-None at present — the module currently re-exports nothing. Open an issue
+None at present - the module currently re-exports nothing. Open an issue
 if you have a Cardano-side helper you'd like to upstream.
 
 ## Links

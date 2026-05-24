@@ -49,7 +49,7 @@ The Docker path pulls `midnightntwrk/indexer-standalone` and maps container port
 
 | Variable | Required | Docker default | Binary default | Purpose |
 | --- | --- | --- | --- | --- |
-| `APP__INFRA__SECRET` | yes | — | — | Indexer secret. |
+| `APP__INFRA__SECRET` | yes | - | - | Indexer secret. |
 | `LEDGER_NETWORK_ID` | no | `Undeployed` | `Undeployed` | Ledger network selector. |
 | `SUBSTRATE_NODE_WS_URL` | no | `ws://node:9944` | `ws://localhost:9944` | Substrate node WS. |
 | `FEATURES_WALLET_ENABLED` | no | `true` | `true` | Wallet features. |
@@ -72,9 +72,9 @@ The orchestrator's Midnight step starts this indexer behind `@effectstream/npm-m
 
 A few common failures and where to look:
 
-- `Docker is not installed or not available` — install Docker Desktop / Engine and confirm `docker --version` from the same shell.
-- `APP__INFRA__SECRET environment variable is required` — required for both modes; export it or pass inline.
-- `Failed to start midnight-indexer` — check that ports 8088, 6300, and 9944 are free and that the Midnight node is reachable.
+- `Docker is not installed or not available` - install Docker Desktop / Engine and confirm `docker --version` from the same shell.
+- `APP__INFRA__SECRET environment variable is required` - required for both modes; export it or pass inline.
+- `Failed to start midnight-indexer` - check that ports 8088, 6300, and 9944 are free and that the Midnight node is reachable.
 
 ## Examples
 

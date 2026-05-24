@@ -29,12 +29,12 @@ npm install @effectstream/evm-hardhat
 
 The EVM tooling is split deliberately:
 
-- `@effectstream/evm-contracts` — Solidity sources + compiled ABIs.
-- `@effectstream/evm-hardhat` — Hardhat scripts, JSON-RPC server, deploy helpers (this package).
+- `@effectstream/evm-contracts` - Solidity sources + compiled ABIs.
+- `@effectstream/evm-hardhat` - Hardhat scripts, JSON-RPC server, deploy helpers (this package).
 
 ## Standalone usage
 
-### `./json-rpc-server` — JSON-RPC façade over a Hardhat node
+### `./json-rpc-server` - JSON-RPC façade over a Hardhat node
 
 ```typescript
 import { startJsonRpcServer } from "@effectstream/evm-hardhat/json-rpc-server";
@@ -45,7 +45,7 @@ await startJsonRpcServer({ port: 8545 });
 Exposes the JSON-RPC endpoints templates' frontends and indexers expect
 during local dev.
 
-### `./hardhat-config-builder` — opinionated Hardhat config
+### `./hardhat-config-builder` - opinionated Hardhat config
 
 ```typescript
 import { buildHardhatConfig } from "@effectstream/evm-hardhat/hardhat-config-builder";
@@ -81,12 +81,12 @@ The sync side then reads those addresses through `@effectstream/config`'s
 - `@effectstream/evm-hardhat/hardhat-config-builder`: opinionated Hardhat config factory.
 - `@effectstream/evm-hardhat/deploy` runs Hardhat scripts and writes the deployed address into a deterministic file.
 - `@effectstream/evm-hardhat/addresses`: read/write the deployed-address file.
-- `@effectstream/evm-hardhat/remappings-hardhat`, `./remappings-forge` — Solidity import remappings.
+- `@effectstream/evm-hardhat/remappings-hardhat`, `./remappings-forge` - Solidity import remappings.
 
 ## Examples
 
-- [`templates/minimal/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal) — the smallest template that wires this package via the orchestrator.
-- [`templates/dice/`](https://github.com/effectstream/effectstream/tree/main/templates/dice) — full game with hardhat-deployed contracts.
+- [`templates/minimal/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal) - the smallest template that wires this package via the orchestrator.
+- [`templates/dice/`](https://github.com/effectstream/effectstream/tree/main/templates/dice) - full game with hardhat-deployed contracts.
 
 ## Links
 

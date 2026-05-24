@@ -1,7 +1,7 @@
 # @effectstream/precompile
 
 Generate deterministic EVM-sized (20-byte) addresses from string names
-by hashing with keccak256. The intended use is "precompile" addresses —
+by hashing with keccak256. The intended use is "precompile" addresses -
 synthetic 0x-addresses reserved by an EffectStream node for non-user
 logic (intrinsic primitives, timers, internal accounts).
 
@@ -20,7 +20,7 @@ npm install @effectstream/precompile
 
 ## Standalone usage
 
-Pure functions. Given a name, get an address. Same name, same address —
+Pure functions. Given a name, get an address. Same name, same address -
 always.
 
 ```typescript
@@ -50,8 +50,8 @@ a future build of the same name.
 
 ## Key exports
 
-- `generatePrecompile(name: string): HexString0x` — `0x` + first 40 hex chars of `keccak256(name)`.
-- `generatePrecompiles(names: Record<string, string>)` — bulk variant. Returns `{ [value]: address }`.
+- `generatePrecompile(name: string): HexString0x` - `0x` + first 40 hex chars of `keccak256(name)`.
+- `generatePrecompiles(names: Record<string, string>)` - bulk variant. Returns `{ [value]: address }`.
 
 ## Examples
 

@@ -1,12 +1,12 @@
-# PRC-5 — Paima Inverse Projection Interface for ERC-1155
+# PRC-5 - Paima Inverse Projection Interface for ERC-1155
 
 ## Use case
 
-List your in-game stackable items — gold, materials, potions — as ERC-1155 tokens on any L1, with live metadata from your game.
+List your in-game stackable items - gold, materials, potions - as ERC-1155 tokens on any L1, with live metadata from your game.
 
 ## Summary
 
-Many in-game items aren't unique — crafting materials, gold, potions, ticket counts. ERC-721 (and PRC-3) treats every token as one-of-a-kind. PRC-5 mirrors PRC-3's mechanism using ERC-1155 so the same item type can have any amount, with batch operations and metadata that describe quantities.
+Many in-game items aren't unique - crafting materials, gold, potions, ticket counts. ERC-721 (and PRC-3) treats every token as one-of-a-kind. PRC-5 mirrors PRC-3's mechanism using ERC-1155 so the same item type can have any amount, with batch operations and metadata that describe quantities.
 
 The game stays the source of truth; the L1 ERC-1155 token is a tradeable claim on game state whose metadata is fetched dynamically from the game's RPC.
 
@@ -27,7 +27,7 @@ interface IInverseProjected1155 is IERC1155MetadataURI, IERC4906Agnostic {
     /// Burn `value` of `id` from sender. Reverts on insufficient balance.
     function burn(uint256 id, uint256 value) external;
 
-    /// Burn batch — same semantics, multiple ids/values at once.
+    /// Burn batch - same semantics, multiple ids/values at once.
     function burnBatch(uint256[] memory ids, uint256[] memory values) external;
 
     /// Owner-only setters. Emit the corresponding event.
@@ -173,12 +173,12 @@ Marketplace features like collection offers and floor-sweeping work only if inva
 { "attributes": [{ "trait_type": "validity", "value": "valid" }] }
 ```
 
-- `valid` — game-state matches the mint claim.
-- `invalid` — mint exists but isn't honoured by *this version* of the game.
+- `valid` - game-state matches the mint claim.
+- `invalid` - mint exists but isn't honoured by *this version* of the game.
 
 ### Tracking invalid mints
 
-Regardless of which initialisation path is used, the state transition that processes an inverse projection MUST NOT fail for any reason other than signature mismatch. A mint that's invalid for one variant of the game must still increment that variant's `userTokenId` counter — otherwise, parallel variants assign different ids to the same valid mint and interoperability breaks.
+Regardless of which initialisation path is used, the state transition that processes an inverse projection MUST NOT fail for any reason other than signature mismatch. A mint that's invalid for one variant of the game must still increment that variant's `userTokenId` counter - otherwise, parallel variants assign different ids to the same valid mint and interoperability breaks.
 
 ```mermaid
 sequenceDiagram
@@ -197,20 +197,20 @@ sequenceDiagram
 
 PRC-5 mirrors PRC-3's design decisions:
 
-- **No IPFS metadata** — `tokenURI` returns the game's live RPC response.
-- **`tokenURI` overloads** — callers may pass a custom RPC base or an on-chain `IUri` to avoid trusting the project's hosted node.
-- **ERC-4906 events callable by anyone** — anybody can force marketplaces to refresh their caches when the game advances.
-- **`chainIdentifier` enforced on-chain** — a contract deployed on chain A cannot pretend to mint tokens for chain B.
+- **No IPFS metadata** - `tokenURI` returns the game's live RPC response.
+- **`tokenURI` overloads** - callers may pass a custom RPC base or an on-chain `IUri` to avoid trusting the project's hosted node.
+- **ERC-4906 events callable by anyone** - anybody can force marketplaces to refresh their caches when the game advances.
+- **`chainIdentifier` enforced on-chain** - a contract deployed on chain A cannot pretend to mint tokens for chain B.
 
 Key differences from vanilla ERC-1155:
 
-- `mint` is callable by anyone, anytime — supply is unbounded by design.
+- `mint` is callable by anyone, anytime - supply is unbounded by design.
 - `verificationData` is supported on app-initiated mints when the app layer is verifiable (e.g. a ZK rollup).
 
 ### Trade-offs
 
-- **App-initiated** — no L1 finality wait, batch-friendly, supports verifiable game state. Costs more gas and requires coordinated signing.
-- **Base-initiated** — no app-layer transaction needed, lower gas. Must wait for L1 finality and may need to reject mints that became invalid in the interim.
+- **App-initiated** - no L1 finality wait, batch-friendly, supports verifiable game state. Costs more gas and requires coordinated signing.
+- **Base-initiated** - no app-layer transaction needed, lower gas. Must wait for L1 finality and may need to reject mints that became invalid in the interim.
 
 ## Reference implementation
 
@@ -218,6 +218,6 @@ All contracts and interfaces live in the EffectStream codebase: [packages/chains
 
 ## Security considerations
 
-- **Honest RPC** — same assumption as PRC-3 and most existing dApps. Users with stronger requirements can run their own node and supply their own RPC via the `tokenURI` overloads.
-- **App-layer finality** — if the app layer can roll back, mint metadata can change or become invalid. Marketplaces can be forced to refresh via the ERC-4906 events (callable by anyone).
+- **Honest RPC** - same assumption as PRC-3 and most existing dApps. Users with stronger requirements can run their own node and supply their own RPC via the `tokenURI` overloads.
+- **App-layer finality** - if the app layer can roll back, mint metadata can change or become invalid. Marketplaces can be forced to refresh via the ERC-4906 events (callable by anyone).
 

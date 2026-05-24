@@ -43,7 +43,7 @@ Once the `sync`process starts, open [http://localhost:10599](http://localhost:10
 
 ### Core Concept: Intent flow overview
 
-Instead of executing a direct transaction to swap tokens, users sign an **Intent**—a message declaring *what* they want (e.g., "I offer 1 BTC to receive at least 1000 M20 on Midnight").
+Instead of executing a direct transaction to swap tokens, users sign an **Intent**-a message declaring *what* they want (e.g., "I offer 1 BTC to receive at least 1000 M20 on Midnight").
 
 > Note Fillers and Solvers are the same in this example.
 
