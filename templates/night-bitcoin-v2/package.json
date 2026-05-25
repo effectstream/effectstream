@@ -28,6 +28,14 @@
   },
   "overrides": {
     "@effect/platform": "0.96.1",
-    "@midnight-ntwrk/ledger-v8": "8.1.0"
+    "@midnight-ntwrk/ledger-v8": "8.1.0",
+    "@midnight-ntwrk/wallet-sdk-abstractions": "2.1.0",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.1",
+    "@midnight-ntwrk/wallet-sdk-capabilities": "3.3.0",
+    "@midnight-ntwrk/wallet-sdk-dust-wallet": "4.0.0",
+    "@midnight-ntwrk/wallet-sdk-facade": "4.0.0",
+    "@midnight-ntwrk/wallet-sdk-hd": "3.0.2",
+    "@midnight-ntwrk/wallet-sdk-shielded": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "3.0.0"
   }
 }
