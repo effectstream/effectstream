@@ -8,8 +8,21 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 import { normalizePath } from "vite";
 import path from "node:path";
 import { existsSync } from "node:fs";
-
 const cryptoShim = path.resolve(import.meta.dirname!, "client/src/shims/crypto.ts");
+
+function resolveOnchainRuntimeV3(): string {
+  for (const base of [
+    path.resolve(import.meta.dirname!, "node_modules/@midnight-ntwrk/onchain-runtime-v3"),
+    path.resolve(import.meta.dirname!, "../../node_modules/@midnight-ntwrk/onchain-runtime-v3"),
+  ]) {
+    if (existsSync(path.join(base, "midnight_onchain_runtime_wasm.js"))) return base;
+  }
+  throw new Error(
+    "Cannot find @midnight-ntwrk/onchain-runtime-v3 — run ./link.sh from the template root",
+  );
+}
+
+const onchainRuntimeV3 = resolveOnchainRuntimeV3();
 
 // Vite's SPA fallback serves index.html for any unmatched path, which makes
 // requests for missing ZK artifacts return HTML instead of a 404. The proof
@@ -51,6 +64,10 @@ export default defineConfig({
     // would otherwise rewrite `crypto` → bare `crypto-browserify`, dropping
     // `timingSafeEqual` that midnight-js storage encryption needs).
     alias: [
+      {
+        find: /^@midnight-ntwrk\/onchain-runtime$/,
+        replacement: path.join(onchainRuntimeV3, "midnight_onchain_runtime_wasm.js"),
+      },
       { find: /^crypto$/, replacement: cryptoShim },
       { find: /^node:crypto$/, replacement: cryptoShim },
       { find: /^npm:@polkadot\/extension-dapp@\^0\.61\.7$/, replacement: "@polkadot/extension-dapp" },
@@ -209,7 +226,7 @@ export default defineConfig({
   ],
 
   optimizeDeps: {
-    exclude: ["@midnight-ntwrk/onchain-runtime"],
+    exclude: ["@midnight-ntwrk/onchain-runtime-v3"],
     include: [
       "react/jsx-runtime",
       "npm:@midnight-ntwrk/compact-runtime",

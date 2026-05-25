@@ -53,10 +53,7 @@ import * as ecpair from "ecpair";
 import * as tinysecp from "tiny-secp256k1";
 import * as bip32 from "bip32";
 // Midnight address parsing
-import {
-  MidnightBech32m,
-  ShieldedAddress,
-} from "@midnight-ntwrk/wallet-sdk-address-format";
+import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 
 const ECPair = ecpair.ECPairFactory(tinysecp);
 const BIP32 = bip32.BIP32Factory(tinysecp);
@@ -273,12 +270,20 @@ const wrapInEither = (value: unknown) => ({
   right: { bytes: toHex(new Uint8Array(32).fill(0)) },
 });
 
-const extractPublicAddress = (bech32mAddress: string) => {
-  const shieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(bech32mAddress),
-  );
-  return toHex(shieldedAddress.coinPublicKey.data);
+// Decode a bech32m unshielded address (`mn_addr_<network>1...`) to the
+// 32-byte UserAddress hex string that `mint_unshielded` expects as its
+// `recipient.bytes` argument.
+//
+// An unshielded address is simply bech32m(UserAddress_bytes) — 32 bytes.
+// We must NOT decode it as a ShieldedAddress (which is a different, larger
+// structure); doing so extracts coinPublicKey which is a different key type
+// and would cause tokens to be minted to an unreachable address.
+const extractPublicAddress = (unshieldedBech32m: string) => {
+  const parsed = MidnightBech32m.parse(unshieldedBech32m);
+  // `parsed.data` is the raw bech32m payload — for unshielded addresses that
+  // is exactly the 32-byte UserAddress. Matches `userAddressBytes()` in
+  // the frontend's interface.ts.
+  return toHex(Uint8Array.prototype.slice.call(parsed.data, 0, 32));
 };
 
 const tokens = ["btc", "eth", "m20", "wbtc"];

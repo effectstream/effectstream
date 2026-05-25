@@ -17,7 +17,8 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
-import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
+import { ContractState } from "@midnight-ntwrk/compact-runtime";
+import type { StateValue } from "@effectstream/config";
 import { decodeZswapInputEvent } from "./zswap-decoder.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
@@ -223,17 +224,21 @@ export class MidnightFetcher extends BaseDataFetcher<
         // Addresses length can be padded by 0's
         return c.address.padStart(longest, '0') === contractAddress.padStart(longest, '0');
       })!.state!;
-      const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
       const primitive = primitiveEntry.primitive;
-      const contractState = ContractState.deserialize(byteState);
-      const stateValue = contractState.data.state;
-      // Parse additional fields from the schema (defined per-contract on the primitive)
-      const additionalFields = primitive.parseAdditionalLedgerFields?.(stateValue) ?? {};
-      // Keep generated ledger fields, but let schema-parsed fields override.
-      // This is important for map-like fields where contract.ledger() exposes
-      // iterable wrappers that are not directly JSON-serializable.
       const f = primitive.contract ?? { ledger: (_: StateValue): Record<string, any> => ({}) };
-      const state = { ...f.ledger(stateValue), ...additionalFields };
+      const ledgerFromTxStateHex = (f as {
+        ledgerFromTxStateHex?: (rawHexState: string) => Record<string, any>;
+      }).ledgerFromTxStateHex;
+      let state: Record<string, any>;
+      if (typeof ledgerFromTxStateHex === "function") {
+        state = ledgerFromTxStateHex(rawState);
+      } else {
+        const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+        const contractState = ContractState.deserialize(byteState);
+        const stateValue = contractState.data.state;
+        const additionalFields = primitive.parseAdditionalLedgerFields?.(stateValue) ?? {};
+        state = { ...f.ledger(stateValue), ...additionalFields };
+      }
       return {
         syncProtocol: {
           name: primitiveEntry.syncProtocol,

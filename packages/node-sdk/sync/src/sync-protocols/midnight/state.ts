@@ -135,12 +135,7 @@ export class MidnightSyncState extends SyncState<
       page,
       config,
       fetcher,
-      // TODO: The urls should be part of the config.
-      new MidnightClient(
-        config.syncProtocol.indexer,
-        config.syncProtocol.indexerWS ??
-          "ws://127.0.0.1:8088/api/v3/graphql/ws",
-      ),
+      fetcher.client,
       dbConn,
     );
   }

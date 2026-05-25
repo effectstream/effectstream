@@ -188,3 +188,11 @@ export function logError(msg: string): void {
 export function logWarn(msg: string): void {
   console.warn(`${c.yellow}⚠${c.reset} ${msg}`);
 }
+
+export function logWaitingForExit(names: string[]): void {
+  const list = names.join(", ");
+  console.log(
+    `${c.gray}…${c.reset} ${c.dim}waiting on${c.reset} ${c.bold}${list}${c.reset}` +
+      `${c.dim}  (see logs/*.log — often midnight-indexer-wait or midnight-contract)${c.reset}`,
+  );
+}

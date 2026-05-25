@@ -695,7 +695,11 @@ function App() {
         minReceived_amount: BigInt(
           Math.round(selectedQuote.toAmount * Math.pow(10, 8)),
         ),
-        minReceived_recipient: midnightWallet.addr,
+        // Must be the UNSHIELDED address — the filler calls mint_unshielded
+        // which mints native unshielded coins to a UserAddress. Shielded
+        // addresses encode a different key (ZswapCoinPublicKey) that won't
+        // appear in the user's Lace unshielded balance.
+        minReceived_recipient: midnightWallet.unshieldedAddr,
         minReceived_chainId: 9999n,
 
         originData: {

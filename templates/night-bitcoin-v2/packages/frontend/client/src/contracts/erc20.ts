@@ -32,9 +32,6 @@ import type {
   TransactionId,
   UnprovenTransaction,
 } from "@midnight-ntwrk/ledger-v8";
-import { type Resource } from "@midnight-ntwrk/wallet";
-import type { Wallet } from "@midnight-ntwrk/wallet-api";
-
 // ── Misc third-party ──────────────────────────────────────────────────────
 import semver from "semver";
 
@@ -334,18 +331,6 @@ const initializeProviders = async (
     ),
     walletProvider: walletAndMidnightProvider,
     midnightProvider: walletAndMidnightProvider,
-  };
-};
-
-const configureProviders = async (
-  connectedAPI: ConnectedAPI,
-  injectedWallet: Wallet & Resource,
-) => {
-  const shieldedAddresses = await connectedAPI.getShieldedAddresses();
-  const providers = await initializeProviders(connectedAPI, shieldedAddresses);
-  return {
-    ...providers,
-    injectedWalletProvider: injectedWallet,
   };
 };
 
