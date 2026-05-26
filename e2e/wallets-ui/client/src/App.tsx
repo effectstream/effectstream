@@ -87,6 +87,31 @@ interface PrimitiveInfo {
   networkType: string;
 }
 
+/**
+ * Coerce anything thrown by a wallet/SDK to a readable string. Wallets
+ * (notably Midnight Lace) reject with plain objects like
+ * `{ code: -3, info: "Please configure the active account in the extension" }`,
+ * which `String(err)` renders as the useless "[object Object]".
+ */
+function formatError(err: unknown): string {
+  if (err == null) return "";
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (typeof err === "object") {
+    const o = err as { info?: string; message?: string; code?: number };
+    if (typeof o.info === "string") {
+      return o.code != null ? `${o.info} (code ${o.code})` : o.info;
+    }
+    if (typeof o.message === "string") return o.message;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      // Fallthrough to String(err); cyclic objects land here.
+    }
+  }
+  return String(err);
+}
+
 function logMidnightWalletAddresses(addresses: any): void {
   console.log("🔗 Midnight Wallet Connected Successfully!");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -246,7 +271,7 @@ function App() {
         setError(result.errorMessage);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     }
   };
 
@@ -329,7 +354,7 @@ function App() {
         return;
       }
       console.error("Increment failed:", error);
-      setError(error instanceof Error ? error.message : String(error));
+      setError(formatError(error));
     }
   };
 
@@ -565,7 +590,7 @@ function App() {
             setError(result.errorMessage);
           }
         } catch (e) {
-          setError(e instanceof Error ? e.message : String(e));
+          setError(formatError(e));
         }
       },
       types: ["midnight"],
@@ -612,7 +637,7 @@ function App() {
       setEditableMessage(messageToSign);
       setEditableSignature(signedMessage);
     } catch (e) {
-      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setActionResult(`Error: ${formatError(e)}`);
     }
   };
 
@@ -636,7 +661,7 @@ function App() {
         `Batcher transaction sent. Result: ${JSON.stringify(result, null, 2)}`,
       );
     } catch (e) {
-      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setActionResult(`Error: ${formatError(e)}`);
     }
   };
 
@@ -659,7 +684,7 @@ function App() {
       setVerificationArgs(args);
       setSignatureVerification(isCorrect);
     } catch (e) {
-      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setActionResult(`Error: ${formatError(e)}`);
     }
   };
 
@@ -734,7 +759,7 @@ function App() {
         }
       }
     } catch (e) {
-      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setActionResult(`Error: ${formatError(e)}`);
     }
   };
 
