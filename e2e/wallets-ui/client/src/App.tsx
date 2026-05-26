@@ -10,6 +10,9 @@ import {
   WalletMode,
   WalletNameMap,
   getAddressType,
+  evmViemIcon,
+  cardanoLocalIcon,
+  midnightLocalIcon,
 } from "@effectstream/wallets";
 import {
   sendBatcherTransaction,
@@ -497,6 +500,7 @@ function App() {
       metadata: {
         name: "evm-viem-local",
         displayName: "EVM (Viem Local)",
+        icon: evmViemIcon,
       },
     });
 
@@ -516,6 +520,7 @@ function App() {
       metadata: {
         name: "cardano-lucid-local",
         displayName: "Cardano (Lucid Local)",
+        icon: cardanoLocalIcon,
       },
     });
 
@@ -535,6 +540,7 @@ function App() {
       metadata: {
         name: "midnight-local-seed",
         displayName: "Midnight (Local Seed)",
+        icon: midnightLocalIcon,
       },
     });
 

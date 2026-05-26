@@ -16,4 +16,11 @@ export type {
   LocalOptionsForChain,
   InjectedOptionsForChain,
 } from "./helpers/pick-mode.ts";
+// Inline data-URI icons for the three local-JS wallet modes (orange/blue/black
+// JS circles), suitable for use as `WalletOption.icon`.
+export {
+  evmViemIcon,
+  cardanoLocalIcon,
+  midnightLocalIcon,
+} from "./helpers/local-icons.ts";
 export * from "./effectstream.ts";
