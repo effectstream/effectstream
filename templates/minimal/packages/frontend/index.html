@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Effectstream Example</title>
+    <title>Effectstream Minimal</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 
@@ -12,59 +12,44 @@
     <div class="container">
         <h2>Connect Wallet</h2>
         <div id="address">Not connected</div>
-        <button id="login" onclick="walletLogin()">Connect Wallet</button>
-        <br />
-        <br />
-        <h2>Send Transaction to PaimaL2 Contract</h2>
+        <button id="login" onclick="walletConnect()">Connect Wallet</button>
+
+        <h2>Send transaction to Effectstream L2</h2>
         <input id="transaction-input" type="text" value="" placeholder="Enter your message" />
-        <button id="Sent TX to Paima L2" onclick="sendTransactionPaimaL2()">
-            Send TX
-        </button>
+        <button onclick="sendTx()">Send TX</button>
+
         <hr />
-        <h2>PaimaL2 Contract: Data Received</h2>
-        <button onclick="fetchAccountingData()">Refresh Paima L2 data</button>
-        <pre id="accounting-data"></pre>
+        <h2>Inputs Log</h2>
+        <button onclick="fetchInputs()">Refresh</button>
+        <pre id="inputs-data"></pre>
     </div>
 </body>
-
-</html>
 
 <script type="module" src="./min.js"></script>
 
 <script>
-    function hexToString(hex) {
-        if (!hex.startsWith("0x")) return hex;
-        return decodeURIComponent(hex.slice(2).replace(/(..)/g, "%$1"));
-    }
-
-    async function fetchAccountingData() {
-        const response = await fetch(
-            "http://localhost:9999/fetch-primitive-accounting"
-        );
+    async function fetchInputs() {
+        const response = await fetch("http://localhost:9999/api/inputs");
         const data = await response.json();
-        data.sort((a, b) => b.id - a.id);
-        document.getElementById("accounting-data").innerText = JSON.stringify(
-            data,
+        document.getElementById("inputs-data").innerText = JSON.stringify(
+            data.inputs,
             null,
-            2
+            2,
         );
     }
 
-    async function walletLogin() {
-        console.log(window.effectstream);
-        const result = await effectstream.login();
-        const { metadata, provider } = result;
-        const { address: address1 } = provider;
-        const address2 = await provider.getAddress();
-        console.log(provider);
-        console.log({ address1, address2 });
-        document.getElementById("address").innerText = address2.address;
+    async function walletConnect() {
+        const wallet = await effectstream.login();
+        const { address } = wallet.provider.getAddress();
+        document.getElementById("address").innerText = address;
     }
 
-    async function sendTransactionPaimaL2() {
+    async function sendTx() {
         const input = document.getElementById("transaction-input").value;
-        const result = await effectstream.sendTransactionPaimaL2(input);
+        const result = await effectstream.sendTransactionEffectstreamL2(input);
         console.log(result);
-        await fetchAccountingData();
+        await fetchInputs();
     }
 </script>
+
+</html>

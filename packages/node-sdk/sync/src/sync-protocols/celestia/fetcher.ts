@@ -47,6 +47,9 @@ export class CelestiaFetcher extends BaseDataFetcher<
     lastPage: LastPage<Page, RootPage> | undefined,
   ): Operation<DataFetched<Output, Page, RootPage>> {
     const outputs: OutputAndCleanup<Output>[] = [];
+    const fetchAllBlocks = this.config.primitives.some(
+      (p) => p.primitive.getAllBlockHeaders,
+    );
 
     console.log(
       `[Celestia] Fetching blocks from ${data.from} to ${data.to}.${
@@ -54,6 +57,7 @@ export class CelestiaFetcher extends BaseDataFetcher<
       }`,
     );
 
+    let lastFetchedOutput: Output | undefined;
     for (let height = data.from; height <= data.to; height++) {
       let extHeader;
       try {
@@ -61,7 +65,6 @@ export class CelestiaFetcher extends BaseDataFetcher<
           this.client.getHeaderAtHeight(height)
         );
       } catch (_e) {
-        // Likely reached the chain tip; stop here
         break;
       }
 
@@ -73,18 +76,23 @@ export class CelestiaFetcher extends BaseDataFetcher<
         this.config.primitives,
       );
 
-      outputs.push({
-        output: {
-          timestamp: extHeader.header.time,
-          height,
-          hash: blockHash,
-          primitives,
-        },
-        cleanup: () => {},
-      });
+      const output: Output = {
+        timestamp: extHeader.header.time,
+        height,
+        hash: blockHash,
+        primitives,
+      };
+      lastFetchedOutput = output;
+
+      if (fetchAllBlocks || primitives.length > 0 || height === data.to) {
+        outputs.push({
+          output,
+          cleanup: () => {},
+        });
+      }
     }
 
-    if (outputs.length === 0) {
+    if (!lastFetchedOutput) {
       if (!lastPage) {
         throw new Error(
           `[Celestia] Could not fetch any blocks from ${data.from} to ${data.to} and no previous page was found.`,
@@ -96,16 +104,15 @@ export class CelestiaFetcher extends BaseDataFetcher<
       };
     }
 
-    const lastOutput = outputs[outputs.length - 1].output;
     return {
       output: outputs,
       lastPage: {
-        ownBlockNumber: lastOutput.height,
+        ownBlockNumber: lastFetchedOutput.height,
         own: {
-          height: lastOutput.height,
-          hash: lastOutput.hash,
+          height: lastFetchedOutput.height,
+          hash: lastFetchedOutput.hash,
         },
-        root: rootConversion.toRootPage(lastOutput),
+        root: rootConversion.toRootPage(lastFetchedOutput),
       },
     };
   }

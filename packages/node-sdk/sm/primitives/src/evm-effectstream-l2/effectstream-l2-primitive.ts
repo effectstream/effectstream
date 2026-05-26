@@ -1,4 +1,5 @@
-import { getEvmEvent } from "@effectstream/config";
+import { getEvmEvent, getReadNamespaces } from "@effectstream/config";
+import type { SecurityNamespace } from "@effectstream/config";
 import {
   type AddressAndType,
   AddressType,
@@ -60,12 +61,14 @@ export class EffectstreamL2Primitive extends Primitive<
   readonly contractAddress: EvmAddress;
   override grammar = [];
   readonly effectstreamL2Grammar: GrammarDefinition;
+  readonly securityNamespace: SecurityNamespace | undefined;
 
   constructor(config: {
     instanceName: string;
     startBlockHeight: number;
     contractAddress: EvmAddress;
     effectstreamL2Grammar: GrammarDefinition;
+    securityNamespace: SecurityNamespace | undefined;
   }) {
     super({ ...config, stateMachinePrefix: undefined });
     this.contractAddress = Value.Decode(
@@ -73,6 +76,7 @@ export class EffectstreamL2Primitive extends Primitive<
       config.contractAddress,
     );
     this.effectstreamL2Grammar = config.effectstreamL2Grammar;
+    this.securityNamespace = config.securityNamespace;
   }
 
   override *getPayload(
@@ -370,23 +374,34 @@ export class EffectstreamL2Primitive extends Primitive<
           input: conciseInput,
           target: batcherTarget,
         } = parsed;
-        // TODO: We need to setup & configure the namespace.
-        const message = createMessageForBatcher(
-          null,
-          millisecondTimestamp,
-          userAddress,
-          addressType,
-          conciseInput,
-          batcherTarget,
+        // Re-verify the batched signature against each acceptable namespace
+        // (matches what the batcher checked when admitting the input). The
+        // frontend signs with the game's configured security namespace; if we
+        // don't try it here, every batched input is silently dropped.
+        // Namespace is injected at construction by the runtime — see
+        // processPrimitives in @effectstream/runtime.
+        const acceptableNamespaces = getReadNamespaces(
+          this.securityNamespace,
+          effectstream_block_height,
         );
-        // We yield the promise to the generator caller.
-        // Sync Generators cannot resolve promises.
-        const validSignature = yield* verifySignature(
-          addressType,
-          userAddress,
-          message,
-          userSignature,
-        );
+        let validSignature = false;
+        for (const ns of acceptableNamespaces) {
+          const message = createMessageForBatcher(
+            ns,
+            millisecondTimestamp,
+            userAddress,
+            addressType,
+            conciseInput,
+            batcherTarget,
+          );
+          validSignature = yield* verifySignature(
+            addressType,
+            userAddress,
+            message,
+            userSignature,
+          );
+          if (validSignature) break;
+        }
 
         const cryptoManager = CryptoManager.getCryptoManager(addressType);
         const signerAddress = cryptoManager.decodeAddress(userAddress);

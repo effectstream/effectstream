@@ -3,7 +3,6 @@ thread_stack_size: "24MiB"
 application:
   network_id: "undeployed"
   blocks_buffer: 10
-  save_ledger_state_after: 1000
   caught_up_max_distance: 10
   caught_up_leeway: 5
   active_wallets_query_delay: "500ms"
@@ -12,11 +11,9 @@ application:
   # 1 by default
   # concurrency_limit:
 
-# CHECK: linux binary requires this flag in the root.
-run_migrations: true
-
 infra:
   run_migrations: true
+
   storage:
     cnn_url: "data/indexer.sqlite"
 
@@ -41,11 +38,13 @@ infra:
         batch_size: 20
       contract_actions:
         batch_size: 20
-      dust_ledger_events:
-        batch_size: 20
       dust_generations:
         batch_size: 20
+      dust_ledger_events:
+        batch_size: 20
       dust_nullifier_transactions:
+        batch_size: 20
+      shielded_nullifier_transactions:
         batch_size: 20
       shielded_transactions:
         batch_size: 20

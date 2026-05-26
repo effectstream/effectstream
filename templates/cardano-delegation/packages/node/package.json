@@ -1,0 +1,22 @@
+{
+  "name": "@cardano-delegation/node",
+  "version": "1.0.0",
+  "exports": {
+    ".": "./main.dev.ts"
+  },
+  "dependencies": {
+    "@effectstream/runtime": "0.100.13",
+    "@effectstream/sm": "0.100.13",
+    "@effectstream/config": "0.100.13",
+    "@effectstream/concise": "0.100.13",
+    "@effectstream/coroutine": "0.100.13",
+    "@effectstream/db": "0.100.13",
+    "@effectstream/log": "0.100.13",
+    "@effectstream/utils": "0.100.13",
+    "@sinclair/typebox": "^0.34.30",
+    "fastify": "^5.4.0",
+    "pg": "^8.14.0",
+    "effection": "^3.5.0",
+    "@cardano-delegation/database": "workspace:*"
+  }
+}

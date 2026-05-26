@@ -1,0 +1,8 @@
+{
+  "label": "SDK",
+  "collapsible": true,
+  "collapsed": true,
+  "link": {
+    "type": "generated-index"
+  }
+}

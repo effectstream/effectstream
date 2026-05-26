@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
-import { ADDRESSES_ENDPOINT, BATCHER_ENDPOINT, explorerFetch } from "../config.ts";
+import {
+  ADDRESSES_ENDPOINT,
+  BATCHER_ENDPOINT,
+  explorerFetch,
+  getCachedSecurityNamespace,
+} from "../config.ts";
 import { createMessageForBatcher } from "@effectstream/concise";
 
 interface AddressRow {
@@ -53,7 +58,7 @@ async function createSignedInput(
   const addressType = AddressType.EVM;
 
   const message = createMessageForBatcher(
-    null,
+    getCachedSecurityNamespace(),
     timestamp,
     userAddress,
     addressType,

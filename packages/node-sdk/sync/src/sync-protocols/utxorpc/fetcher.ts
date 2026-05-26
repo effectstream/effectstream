@@ -2,31 +2,30 @@ import { BaseDataFetcher, type DataFetched } from "../base/fetcher.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Operation } from "effection";
 import { bound, uint8ArrayToHexString } from "@effectstream/utils";
-import type { ChainPoint, ConfigType, Input, Output, Page, PrimitiveType } from "./types.ts";
+import type { ChainPoint, CompletedBlock, ConfigType, Input, Output, Page, PrimitiveType } from "./types.ts";
 import type { OutputAndCleanup, RootConversion } from "../base/state.ts";
-import type { BufferedRpc } from "./BufferedRpc.ts";
-import { Buffer } from "node:buffer";
+import type { WatchMultiplexer } from "./WatchMultiplexer.ts";
 import type { cardano } from "@utxorpc/spec";
-import { hashEqual, matchesPredicate } from "./utils.ts";
+import { matchesPredicate, predicateKey } from "./utils.ts";
 
 export class UtxoRpcFetcher
-  extends BaseDataFetcher<Input, Output, RootOutput, Page, RootPage> // PrimitiveFetcher<Input, Page, cardano.Block, PrimitiveType>,
+  extends BaseDataFetcher<Input, Output, RootOutput, Page, RootPage>
 {
   constructor(
     readonly config: ConfigType,
-    readonly client: BufferedRpc,
+    readonly multiplexer: WatchMultiplexer,
   ) {
     super(config.syncProtocol.name);
   }
 
   @bound
   async startAsync(point?: ChainPoint) {
-    await this.client.start(point);
+    await this.multiplexer.start(point);
   }
 
   @bound
   async resolveOrigin(): Promise<ChainPoint> {
-    return this.client.resolveOrigin();
+    return this.multiplexer.resolveOrigin();
   }
 
   @bound
@@ -40,63 +39,79 @@ export class UtxoRpcFetcher
       }`,
     );
     const outputs: OutputAndCleanup<Output>[] = [];
-    const blocks = this.client.fetchBlocks(data.from, data.to);
-    for (const block of blocks) {
-      outputs.push({
-        output: {
-          // TODO: What is the correct block hash?
-          blockHashes: [String(block.output.header?.hash)],
-          raw: block.output,
-          primitives: this.findPrimitives(block.output),
-        },
-        cleanup: block.cleanup,
-      });
+    const blocks = this.multiplexer.fetchBlocks(data.from, data.to);
+    let lastEntry: typeof blocks[number] | undefined;
+    for (const entry of blocks) {
+      lastEntry = entry;
+      const completed = entry.output;
+      const primitives = this.findPrimitivesFromWatchData(completed);
+      if (primitives.length > 0) {
+        outputs.push({
+          output: {
+            blockHashes: [completed.hash],
+            raw: completed.block,
+            primitives,
+          },
+          cleanup: entry.cleanup,
+        });
+      }
     }
+    const lastCompleted = lastEntry!.output;
     return {
       output: outputs,
       lastPage: {
         ownBlockNumber: Number(data.to),
         own: {
-          slot: Number(
-            outputs[outputs.length - 1].output.raw.header!.slot,
-          ),
-          height: Number(
-            outputs[outputs.length - 1].output.raw.header!.height,
-          ),
-          hash: Buffer.from(
-            outputs[outputs.length - 1].output.raw.header!.hash,
-          )
-            .toString("hex"),
+          slot: Number(lastCompleted.block.header!.slot),
+          height: Number(lastCompleted.block.header!.height),
+          hash: lastCompleted.hash,
         },
         root: rootConversion.toRootPage({
           blockHashes: [],
-          primitives: [], // TODO: I think this can be left empty here
-          raw: outputs[outputs.length - 1].output.raw,
+          primitives: [],
+          raw: lastCompleted.block,
         }),
       },
     };
   }
 
   @bound
-  findPrimitives(block: cardano.Block): PrimitiveType[] {
+  findPrimitivesFromWatchData(completed: CompletedBlock): PrimitiveType[] {
     const primitiveResponses: PrimitiveType[] = [];
-    for (const tx of block.body?.tx ?? []) {
+    const block = completed.block;
+    const txIndexCache = new Map<string, number>();
+
+    for (const primitiveEntry of this.config.primitives) {
+      const pKey = predicateKey(primitiveEntry.primitive.predicate);
+      const matchedTxs = completed.matchedTxsByPredicate.get(pKey)
+        ?? this.findFallbackTxs(completed, primitiveEntry.primitive.predicate);
+
       let logIndex = 0;
-      for (const primitveEntry of this.config.primitives) {
-        if (!matchesPredicate(tx, primitveEntry.primitive.predicate)) {
+      for (const tx of matchedTxs) {
+        if (!matchesPredicate(tx, primitiveEntry.primitive.predicate)) {
           continue;
         }
-        const transactionIndex = block.body?.tx.findIndex(t => hashEqual(t.hash, tx.hash));
+
+        const txHashHex = uint8ArrayToHexString(tx.hash);
+        let transactionIndex = txIndexCache.get(txHashHex);
+        if (transactionIndex === undefined) {
+          transactionIndex = block.body?.tx.findIndex(t =>
+            t.hash.length === tx.hash.length && t.hash.every((b, i) => b === tx.hash[i])
+          ) ?? -1;
+          txIndexCache.set(txHashHex, transactionIndex);
+        }
+
         primitiveResponses.push({
           syncProtocol: {
-            name: primitveEntry.syncProtocol,
+            name: primitiveEntry.syncProtocol,
             blockNumber: Number(block.header!.height),
-            transactionHash: uint8ArrayToHexString(tx.hash),
+            transactionHash: txHashHex,
             transactionIndex,
             contractAddress: '',
             logIndex,
+            absoluteSlot: Number(block.header!.slot),
           },
-          primitive: primitveEntry.primitive.name,
+          primitive: primitiveEntry.primitive.name,
           output: {
             payloadType: 'utxorpc-response',
             payload: { tx }
@@ -108,9 +123,30 @@ export class UtxoRpcFetcher
     return primitiveResponses;
   }
 
+  /**
+   * When a primitive's predicate key doesn't exactly match any watcher key
+   * (e.g., has_certificate primitives merged into match-all watcher),
+   * fall back to scanning all matched txs across all watchers.
+   */
+  private findFallbackTxs(
+    completed: CompletedBlock,
+    _predicate: unknown,
+  ): cardano.Tx[] {
+    const seen = new Set<string>();
+    const txs: cardano.Tx[] = [];
+    for (const [, watcherTxs] of completed.matchedTxsByPredicate) {
+      for (const tx of watcherTxs) {
+        const hash = uint8ArrayToHexString(tx.hash);
+        if (!seen.has(hash)) {
+          seen.add(hash);
+          txs.push(tx);
+        }
+      }
+    }
+    return txs;
+  }
+
   lastHeight(): bigint | undefined {
-    // Calling this.client.syncClient.getTip(); 
-    // returns the hash and slot, but not the block height
-    return this.client.lastHeight();
+    return this.multiplexer.lastHeight();
   }
 }

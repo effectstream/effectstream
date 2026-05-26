@@ -20,7 +20,11 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { hardhat } from "viem/chains";
 import { AddressType } from "@effectstream/utils";
 import { createMessageForBatcher } from "@effectstream/concise";
+import { getWriteNamespace } from "@effectstream/config";
 import type { Client } from "pg";
+import { config as evmConfig } from "../config.ts";
+
+const SIGNING_NAMESPACE = getWriteNamespace(evmConfig.securityNamespace);
 
 const BATCHER_PORT = parseInt(process.env["BATCHER_PORT"] || "3334", 10);
 const BATCHER_URL = `http://localhost:${BATCHER_PORT}/send-input`;
@@ -46,7 +50,7 @@ export async function batcherSyncTest(db: Client, sharedState: SharedState) {
 
   const signature = await walletClient.signMessage({
     message: createMessageForBatcher(
-      null,
+      SIGNING_NAMESPACE,
       timestamp,
       account.address,
       AddressType.EVM,
@@ -128,7 +132,7 @@ export async function batcherSyncTest(db: Client, sharedState: SharedState) {
 
   const counterSignature = await walletClient.signMessage({
     message: createMessageForBatcher(
-      null,
+      SIGNING_NAMESPACE,
       counterTimestamp,
       account.address,
       AddressType.EVM,

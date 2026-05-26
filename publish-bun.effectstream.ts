@@ -2,7 +2,7 @@
 
 import { $ } from "bun";
 import { resolve, join, relative } from "path";
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 import { Glob } from "bun";
 
 const ROOT = import.meta.dir;
@@ -93,7 +93,38 @@ for await (const path of glob.scan({ cwd: ROOT })) {
 
 packageDirs.sort((a, b) => a.name.localeCompare(b.name));
 
-// --- Step 1b: Check for uncommitted changes early (before we modify files) ---
+// --- Step 1b: Verify each package ships a real README ---
+// npm renders the README on the package page. Without one, the package looks
+// abandoned. We fail the publish unless --allow-missing-readme is set.
+
+const MIN_README_CHARS = 400;
+const missingReadme: string[] = [];
+const stubReadme: string[] = [];
+
+for (const { name, dir } of packageDirs) {
+  const readmePath = join(dir, "README.md");
+  if (!existsSync(readmePath)) {
+    missingReadme.push(name);
+    continue;
+  }
+  const content = readFileSync(readmePath, "utf-8").trim();
+  if (content.length < MIN_README_CHARS) stubReadme.push(name);
+}
+
+if (missingReadme.length || stubReadme.length) {
+  console.error("\nREADME check failed:");
+  for (const n of missingReadme) console.error(`  missing:  ${n}`);
+  for (const n of stubReadme) console.error(`  stub:     ${n}`);
+  if (!process.argv.includes("--allow-missing-readme")) {
+    console.error(
+      "\nAdd a real README.md to each package, or pass --allow-missing-readme to bypass.\n",
+    );
+    process.exit(1);
+  }
+  console.error("  (continuing because --allow-missing-readme was set)\n");
+}
+
+// --- Step 1c: Check for uncommitted changes early (before we modify files) ---
 
 console.log("Checking git status...");
 

@@ -12,8 +12,8 @@ export default {
     ...launchPglite().map(p =>
       p.name === "pglite" ? { ...p, env: { ...p.env, DEBUG_PGLITE: "0" } } : p
     ),
-    ...launchEvm("@evm-midnight/contracts-evm", { resolveFrom: root }),
-    ...launchMidnight("@evm-midnight/contracts-midnight", { resolveFrom: root }, {
+    ...launchEvm("@evm-midnight/contracts-evm", { cwd: path.join(root, "packages/contracts-evm") }),
+    ...launchMidnight("@evm-midnight/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
           env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
     }),
 

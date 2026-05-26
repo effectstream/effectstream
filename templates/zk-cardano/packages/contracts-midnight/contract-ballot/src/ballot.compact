@@ -1,0 +1,57 @@
+pragma language_version >= 0.17;
+
+export {create_proposal, cast_vote, close_proposal}
+
+import CompactStandardLibrary;
+
+export ledger deployer: Bytes<32>;
+
+constructor() {
+  const sk = private$secret_key();
+  deployer = public_key(sk);
+}
+export ledger proposal_count: Counter;
+export ledger proposal_active: Map<Uint<64>, Boolean>;
+export ledger proposal_text: Map<Uint<64>, Opaque<"string">>;
+export ledger tally_yes: Counter;
+export ledger tally_no: Counter;
+ledger voted: Map<Bytes<32>, Boolean>;
+
+witness private$secret_key(): Bytes<32>;
+
+circuit voter_nullifier(sk: Bytes<32>): Bytes<32> {
+  return disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "zk-cardano:nul:"), sk]));
+}
+
+circuit public_key(sk: Bytes<32>): Bytes<32> {
+  return disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "zk-cardano:pk:"), sk]));
+}
+
+circuit create_proposal(text: Opaque<"string">): Uint<64> {
+  const sk = private$secret_key();
+  assert(public_key(sk) == deployer.read(), "only deployer");
+  proposal_count.increment(1);
+  const id = proposal_count.read();
+  proposal_active.insert(disclose(id), true);
+  proposal_text.insert(disclose(id), disclose(text));
+  return id;
+}
+
+circuit cast_vote(proposal_id: Uint<64>, proposal_id_bytes: Bytes<32>, vote_yes: Boolean): [] {
+  const sk = private$secret_key();
+  const nul = voter_nullifier(sk);
+  const vk = disclose(persistentHash<Vector<2, Bytes<32>>>([nul, disclose(proposal_id_bytes)]));
+  assert(!voted.member(vk), "already voted");
+  voted.insert(vk, true);
+  if (disclose(vote_yes)) {
+    tally_yes.increment(1);
+  } else {
+    tally_no.increment(1);
+  }
+}
+
+circuit close_proposal(proposal_id: Uint<64>): [] {
+  const sk = private$secret_key();
+  assert(public_key(sk) == deployer.read(), "only deployer");
+  proposal_active.insert(disclose(proposal_id), false);
+}

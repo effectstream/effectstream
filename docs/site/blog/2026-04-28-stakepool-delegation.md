@@ -1,64 +1,95 @@
 ---
 slug: stakepool-delegation
-title: "Stake Pool Delegation: Connecting Cardano SPOs to On-Chain Applications"
+title: "Stake Pool Delegation Part 1: Connecting Cardano SPOs to On-Chain Applications"
 authors: [effectstream]
-tags: [cardano, stakepools, delegation, indexing]
+tags: [cardano, stakepools, delegation, dolos, utxorpc]
 ---
 
-`WRITE: Cardano's stake pool ecosystem has millions of ADA delegated across hundreds of pools, but delegation has been a one-way relationship — delegators earn rewards, and that's it. What if games and apps could react to where you delegate? What if stake pool operators could offer in-game benefits to their delegators? This article covers how EffectStream makes this possible.`
+Cardano's stake pool ecosystem has millions of ADA delegated across hundreds of pools, but delegation has always been a one-way relationship: delegators earn rewards, and that's it. What if games and apps could react to where you delegate? What if stake pool operators could offer in-game benefits to their delegators? EffectStream now makes this possible with a new PoolDelegation primitive that streams delegation changes in real-time.
 
 <!-- truncate -->
 
-## Indexing Stake Delegations
+```mermaid
+flowchart TB
+    subgraph Cardano["Cardano Network"]
+        direction LR
+        U["User"] -->|"Delegate ADA"| SP["Stake Pool"] --> CN["Cardano Node"]
+    end
 
-The first step is knowing who delegates to which pool. We built a [Carp](https://dcspark.github.io/carp/) indexer task that tracks stake delegations across the Cardano network, with an OpenAPI definition so any application can query delegation status.
+    subgraph Indexing["Indexing Layer"]
+        direction LR
+        Dolos -->|"gRPC stream"| W["UTxORPC Watch"]
+    end
 
-`ADD: Link to OpenAPI spec`
+    subgraph ES["EffectStream"]
+        direction LR
+        PD["PoolDelegation Primitive"] --> IVM["IVM (PostgreSQL)"] --> SM["L2 State Machine"]
+    end
 
-`WRITE: What makes indexing delegation different from indexing transactions — delegation is a ledger state change, not a transaction in the traditional sense. The indexer needs to track the current state of every stake address, not just process individual events.`
+    subgraph App["Application Logic"]
+        direction LR
+        R1["Unlock content"] ~~~ R2["Distribute rewards"] ~~~ R3["Free batching"]
+    end
 
-## Connecting Delegation Data to EffectStream
+    Cardano --> Indexing --> ES --> App
+```
 
-We extended EffectStream's funnel system to ingest delegation data as first-class events. When a user changes their delegation, EffectStream apps receive this as an event they can react to — just like they react to smart contract events or token transfers.
+## The challenge: indexing delegation state
 
-- [Implementation PR](https://github.com/PaimaStudios/paima-engine/pull/265)
-- [Documentation](https://docs.paimastudios.com/home/state-machine/react-to-events/primitive-catalogue/cardano/stakepools)
+Delegation changes on Cardano are ledger state transitions, not traditional transactions. When a user delegates to a new pool, there's no explicit "delegation event" in the transaction log; the change shows up in the ledger state at epoch boundaries. That makes delegation harder to index than token transfers or smart contract interactions.
 
-`WRITE: Technical deep-dive on ledger state vs. on-chain actions — delegation changes are ledger state transitions, not traditional transactions. This creates interesting challenges: how do you detect a change that isn't an explicit event? How do you handle epoch boundaries? (Get Enzo's input on the nuances)`
+The original approach used [Carp](https://dcspark.github.io/carp/) as the indexer, but Carp requires syncing the full Cardano chain history. That takes days on testnet and even longer on mainnet. For local development and rapid iteration, it was a non-starter.
 
-`ADD VIDEO HERE explaining the integration architecture`
+## The solution: Dolos + UTxORPC Watch
 
-`NOTE: Docs need migration — this primitive is not yet implemented in v2`
+We replaced Carp with [Dolos](https://github.com/txpipe/dolos), a lightweight Cardano node that exposes chain data via the UTxORPC gRPC protocol. The key part is the [UTxORPC Watch module](https://utxorpc.org/watch/intro/), which provides real-time transaction streaming with filtering:
 
-## Reacting to Delegation Changes in Game Logic
+- **By address** - watch all transactions involving a specific address
+- **By delegation part** - watch transactions by stake credential, finding all UTxOs delegated to a specific stake key
+- **By asset policy** - watch transactions involving tokens from a specific policy
+
+For stake pool delegation, the "by delegation part" filter is the important one. It lets EffectStream detect when any address changes its delegation to or from a monitored pool, without scanning the entire chain.
+
+## The PoolDelegation primitive
+
+The **PoolDelegation** primitive is one of [five Cardano primitives](https://github.com/effectstream/effectstream/tree/v-next-bun/packages/node-sdk/sm/primitives/src) in EffectStream. It reads delegation events from Dolos via UTxORPC and materializes them into PostgreSQL using EffectStream's IVM (Indexed View Materializer). See the [Cardano Primitives documentation](/docs/home/chains/cardano#primitives) for the full reference.
+
+The primitive tracks:
+- **Stake registrations** - new stake addresses entering the system
+- **Delegation changes** - an address moving from one pool to another
+- **Deregistrations** - stake addresses leaving the system
+
+All state is kept in PostgreSQL materialized views, giving applications fast query access to current delegation state without re-scanning the chain. When a delegation change occurs, the event flows through EffectStream's funnel system into the application's state machine as a first-class event, just like a smart contract interaction or token transfer.
+
+Here's the Cardano Stake Pool Delegation Explorer dApp, where you can look up delegation info, register stake keys, and trigger delegations:
+
+![Cardano Stake Pool Delegation Explorer dApp](/img/blog/delegate-pool1.png)
+
+And this is the terminal output showing EffectStream detecting delegation changes as they happen, with the state machine reacting to each one:
+
+![Terminal showing delegation side effects being detected in real-time](/img/blog/delegate-pool2.png)
+
+<iframe src="https://drive.google.com/file/d/1KrFfkgRWf_OKqH6agM6T44NyPS5aIqAc/preview" width="100%" height="480" allow="autoplay"></iframe>
+
+## What developers can build
 
 With delegation data flowing into the state machine, developers can build game logic that reacts to where players delegate:
 
-- **Unlock content**: "This area is accessible only to delegators of Pool X"
-- **Distribute rewards**: "All delegators of Pool Y receive a bonus item at epoch boundary"
-- **Dynamic difficulty**: Adjust game parameters based on which pools your players support
+- "This area is accessible only to delegators of Pool X" (unlock content)
+- "All delegators of Pool Y receive a bonus item at epoch boundary" (distribute rewards)
+- Adjust game parameters based on which pools your players support (dynamic difficulty)
+- Delegators of partner pools get free transaction batching via the `BATCHER_CARDANO_ENABLED_POOLS` config (the SPO covers the cost)
 
-`IMPLEMENT: Need to build an example state machine demonstrating these patterns`
+## End-to-end testing
 
-`BLOCKED: Cardano localhost testing is difficult — no Cardano wallet currently supports localhost connections (unlike MetaMask for EVM). This makes it hard to create a live demo, though the architecture works in production.`
+The PoolDelegation primitive is covered by EffectStream's [E2E test suite](https://github.com/effectstream/effectstream/tree/v-next-bun/e2e), which verifies the full Cardano primitive lifecycle. The delegation tests cover stake address registration, initial delegation to a pool, delegation change detection, and state verification in PostgreSQL materialized views. All tests run against a local Dolos instance with YACI DevKit, so CI runs fast with no mainnet or testnet dependencies.
 
-`NOTE: Several Cardano primitives still need migration to v2: Pool Delegation, Delayed State, Transfer, Mint/Burn, Projected NFT`
+## The bigger picture
 
-`WRITE: Even without a live demo, describe the architecture with a diagram: delegation event → Carp indexer → funnel → state machine → game state update. Show what a handler function looks like in code.`
+Stake pool delegation becomes a game mechanic. SPOs offer in-game benefits, players choose pools based on gameplay advantages, and a new economic layer sits on top of Cardano's existing delegation system. Delegation goes from a passive yield-earning activity to an active strategic decision: you delegate to a pool not just for staking rewards, but for the games and apps that pool supports.
 
-## Batcher Pool Verification
-
-We also added pool-aware batching. The batcher can check which pool an address delegates to before processing a transaction — enabling scenarios like free batching for users delegating to partner pools.
-
-- [Implementation PR](https://github.com/PaimaStudios/paima-engine/pull/246)
-- Configuration: `BATCHER_CARDANO_ENABLED_POOLS` environment variable
-
-`WRITE: Expand on the use case — a stake pool operator partners with a game. Their delegators get free transaction batching (the SPO covers the cost). This creates a new incentive for delegation beyond staking rewards: "delegate to our pool and play for free."`
-
-## Conclusion — Vision for SPO-Powered Gameplay
-
-`WRITE: The bigger picture — stake pool delegation becomes a game mechanic. SPOs offer in-game benefits, players choose pools based on gameplay advantages, and a new economic layer emerges on top of Cardano's existing delegation system. This transforms delegation from a passive yield-earning activity into an active strategic decision.`
-
-`DECISION: Need direction from Nico — what's the current roadmap? Midnight Cities path or alternative?`
-
-`ADD VIDEO HERE if possible — even a conceptual demo or architecture walkthrough`
+- [PoolDelegation primitive source](https://github.com/effectstream/effectstream/tree/v-next-bun/packages/node-sdk/sm/primitives/src/cardano-pool-delegation) - implementation
+- [Cardano delegation template](https://github.com/effectstream/effectstream/tree/v-next-bun/templates/cardano-delegation) - starter project
+- [Cardano Primitives documentation](/docs/home/chains/cardano#primitives) - full reference for all five Cardano primitives
+- [UTxORPC Watch Module](https://utxorpc.org/watch/intro/) - streaming transaction protocol
+- [Dolos](https://github.com/txpipe/dolos) - lightweight Cardano node

@@ -361,7 +361,11 @@ export function addHashes<T extends LogEvent<LogEventFields<TSchema>[]>>(
   return {
     name: event.name,
     fields: event.fields.flatMap(field => {
-      if (field.indexed === false) return field;
+      // Treat `indexed: undefined` as non-indexed (same as `false`). User-
+      // declared events default `indexed` to undefined when the field is not
+      // meant to be indexed; only inject a `${name}Hash` slot for fields
+      // explicitly marked `indexed: true`.
+      if (field.indexed !== true) return field;
       const isString = Type.Extends(
         field.type,
         Type.String(),

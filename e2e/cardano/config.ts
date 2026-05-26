@@ -4,11 +4,42 @@ import {
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@effectstream/config";
-import { PrimitiveTypeUtxorpcGeneric } from "@effectstream/sm/builtin";
+import {
+  PrimitiveTypeUtxorpcGeneric,
+  PrimitiveTypeCardanoMintBurn,
+  PrimitiveTypeCardanoTransfer,
+  PrimitiveTypeCardanoPoolDelegation,
+  PrimitiveTypeCardanoDelayedAsset,
+  PrimitiveTypeCardanoProjectedNFT,
+} from "@effectstream/sm/builtin";
+import { existsSync, readFileSync } from "fs";
+import path from "path";
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
 let yaciDevKitStartTime: number | undefined;
+
+// Read the test policy ID created by submit-tx.ts (available because sync depends on submit-tx)
+const policyIdFile = path.resolve(import.meta.dirname!, "../shared/contracts/cardano/temp/test-policy-id.txt");
+const TEST_POLICY_ID = existsSync(policyIdFile)
+  ? readFileSync(policyIdFile, "utf-8").trim()
+  : "";
+
+const scriptHashFile = path.resolve(import.meta.dirname!, "../shared/contracts/cardano/temp/hololocker-script-hash.txt");
+const HOLOLOCKER_SCRIPT_HASH = existsSync(scriptHashFile)
+  ? readFileSync(scriptHashFile, "utf-8").trim()
+  : "";
+
+if (TEST_POLICY_ID) {
+  console.log(`[config] Loaded test policy ID: ${TEST_POLICY_ID}`);
+} else {
+  console.warn("[config] No test policy ID found — MintBurn/DelayedAsset primitives will not match.");
+}
+if (HOLOLOCKER_SCRIPT_HASH) {
+  console.log(`[config] Loaded hololocker script hash: ${HOLOLOCKER_SCRIPT_HASH}`);
+} else {
+  console.warn("[config] No hololocker script hash found — ProjectedNFT primitive will not match.");
+}
 
 if (typeof process !== "undefined") {
   // NOTE: This guard prevents this code from running in the browser.
@@ -99,6 +130,62 @@ export const config = new ConfigBuilder()
           startBlockHeight: 1,
           stateMachinePrefix: "cardano-utxo-rpc-generic",
           predicate: {},
+        }),
+      )
+
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
+        () => ({
+          name: "CardanoMintBurn",
+          type: PrimitiveTypeCardanoMintBurn,
+          startBlockHeight: 1,
+          stateMachinePrefix: "cardano-mint-burn",
+          policyIds: TEST_POLICY_ID ? [TEST_POLICY_ID] : [],
+        }),
+      )
+
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
+        () => ({
+          name: "CardanoTransfer",
+          type: PrimitiveTypeCardanoTransfer,
+          startBlockHeight: 1,
+          stateMachinePrefix: "cardano-transfer",
+          predicate: {},
+        }),
+      )
+
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
+        () => ({
+          name: "CardanoPoolDelegation",
+          type: PrimitiveTypeCardanoPoolDelegation,
+          startBlockHeight: 1,
+          stateMachinePrefix: "cardano-pool-delegation",
+          pools: ["7301761068762f5900bde9eb7c1c15b09840285130f5b0f53606cc57"],
+          network: "yaci",
+        }),
+      )
+
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
+        () => ({
+          name: "CardanoDelayedAsset",
+          type: PrimitiveTypeCardanoDelayedAsset,
+          startBlockHeight: 1,
+          stateMachinePrefix: "cardano-delayed-asset",
+          policyIds: TEST_POLICY_ID ? [TEST_POLICY_ID] : [],
+        }),
+      )
+
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
+        () => ({
+          name: "CardanoProjectedNFT",
+          type: PrimitiveTypeCardanoProjectedNFT,
+          startBlockHeight: 1,
+          stateMachinePrefix: "cardano-projected-nft",
+          scriptHash: HOLOLOCKER_SCRIPT_HASH || "0000000000000000000000000000000000000000000000000000000000",
         }),
       )
   )

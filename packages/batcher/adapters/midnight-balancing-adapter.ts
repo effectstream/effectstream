@@ -84,6 +84,7 @@ export interface MidnightBalancingAdapterConfig {
 const TTL_DURATION_MS = 60 * 60 * 1000;
 const SUBMIT_TX_TIMEOUT_MS = 90 * 1000;
 const SPECKS_PER_DUST = 1_000_000_000_000_000n; // 1 DUST = 10^15 Specks
+const DUST_REGISTRATION_PRECHECK_TIMEOUT_MS = 60_000;
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
 function formatDust(specks: bigint): string {
@@ -451,6 +452,26 @@ export class MidnightBalancingAdapter
     }
   }
 
+  /**
+   * Read the dust state and update the cached UTXO count + exhausted flag.
+   * Called in the background after each balance so the next tx's fast path
+   * reflects current chain state. Errors are swallowed — if the read fails,
+   * the slow path will refresh on the next call.
+   */
+  private async refreshUtxoCountAfterBalance(walletIndex: number): Promise<void> {
+    const wr = this.walletResults[walletIndex];
+    if (!wr) return;
+    try {
+      // deno-lint-ignore no-explicit-any
+      const dustState = await getInitialDustState((wr.wallet as any).dust);
+      const count = dustState.availableCoins?.length ?? 0;
+      this.availableDustUtxoCounts[walletIndex] = count;
+      this.walletDustExhausted[walletIndex] = count === 0;
+    } catch {
+      // ignore — next slow-path call will re-sync
+    }
+  }
+
   // -----------------------------------------------------------------------
   // Interface: identity & readiness
   // -----------------------------------------------------------------------
@@ -770,7 +791,19 @@ export class MidnightBalancingAdapter
       shieldedSecretKeys: walletResult.walletZswapSecretKeys,
       dustSecretKey: walletResult.walletDustSecretKey,
     };
-    const opts = { ttl: createTtl() };
+    // Restrict balancing to dust ONLY. The batcher's purpose is to pay fees;
+    // it must NOT balance the user's shielded/unshielded portion.
+    //
+    // Without this, balanceFinalizedTransaction defaults to tokenKindsToBalance:'all',
+    // which makes the batcher's wallet call shielded.balanceTransaction() on the
+    // user's tx. For a mint output (an unbalanced shielded outflow with no input)
+    // the batcher's shielded balancer either tries to spend a coin it doesn't own
+    // or absorbs the imbalance into its own wallet — either way the user never
+    // sees the minted coin in their balance.
+    //
+    // Shielded padding (when enabled via addShieldedPadding) is added separately
+    // via applyShieldedPadding(), so this restriction does not break it.
+    const opts = { ttl: createTtl(), tokenKindsToBalance: ["dust"] as const };
 
     if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
       try {
@@ -918,6 +951,9 @@ export class MidnightBalancingAdapter
     } finally {
       releaseBalanceLock();
     }
+    // Refresh cached UTXO count in the background so the next tx's fast
+    // path reflects what's left after this balance.
+    void this.refreshUtxoCountAfterBalance(walletIdx);
     const dustAfter = await this.getDustBalance(walletIdx);
     const dustCost = dustBefore - dustAfter;
     const balanceMs = Math.round(performance.now() - balanceStart);
@@ -936,6 +972,39 @@ export class MidnightBalancingAdapter
 
     // --- Phase 3: Submit ---
     const txHash = finalized.transactionHash().toString();
+
+    // Diagnostic: dump what the merged tx is going to put on chain. Specifically,
+    // we want to see (a) the per-segment imbalances (a missing entry for a token
+    // that should be present means the user's output was stripped during merge)
+    // and (b) the intent identifiers (one per intent — if only the batcher's
+    // intent is here, the user's intent disappeared during balance/merge).
+    try {
+      // deno-lint-ignore no-explicit-any
+      const ftx = finalized as any;
+      const ids = typeof ftx.identifiers === "function" ? ftx.identifiers() : undefined;
+      const segImbalances: Record<string, unknown> = {};
+      for (const seg of [0, 1]) {
+        try {
+          const m = typeof ftx.imbalances === "function" ? ftx.imbalances(seg) : undefined;
+          if (m && typeof m.entries === "function") {
+            const entries: [string, string][] = [];
+            for (const [k, v] of m.entries() as Iterable<[unknown, bigint]>) {
+              entries.push([
+                typeof k === "object" && k !== null ? JSON.stringify(k, (_, vv) => typeof vv === "bigint" ? vv.toString() : vv) : String(k),
+                v.toString(),
+              ]);
+            }
+            segImbalances[`seg${seg}`] = entries;
+          }
+        } catch (_e) {
+          // ignore — segment may not exist
+        }
+      }
+      this.log.log(`[${tag}] merged-tx ids=${JSON.stringify(ids)} imbalances=${JSON.stringify(segImbalances)}`);
+    } catch (e) {
+      this.log.warn(`[${tag}] merged-tx diagnostic failed: ${e}`);
+    }
+
     this.log.log(`[${tag}] Submitting (hash: ${txHash})...`);
     const submitStart = performance.now();
 

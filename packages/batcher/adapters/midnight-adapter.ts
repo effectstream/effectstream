@@ -85,6 +85,8 @@ const TTL_DURATION_MS = 60 * 60 * 1000;
 const SPECKS_PER_DUST = 1_000_000_000_000_000n; // 1 DUST = 10^15 Specks
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
+const DUST_REGISTRATION_PRECHECK_TIMEOUT_MS = 60_000;
+
 function formatDust(specks: bigint): string {
   const abs = specks < 0n ? -specks : specks;
   const sign = specks < 0n ? "-" : "";

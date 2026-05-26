@@ -1,6 +1,6 @@
 **/node_modules
 forge-std
-logs/
+/logs/
 
 # e2e tests
 /cache
@@ -11,8 +11,14 @@ e2e-midnight-batcher-data/
 midnight-level-db*
 batcher-debug.log
 .orchestrator-logs/
+e2e/**/logs/
 # Frontend
 .vite
+dist/
+
+# Playwright
+test-results/
+playwright-report/
 
 # Batcher file storage
 batcher-data/

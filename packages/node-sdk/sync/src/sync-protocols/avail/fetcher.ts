@@ -48,11 +48,16 @@ export class AvailFetcher extends BaseDataFetcher<
     lastPage: LastPage<Page, RootPage> | undefined,
   ): Operation<DataFetched<Output, Page, RootPage>> {
     const outputs: OutputAndCleanup<Output>[] = [];
+    const fetchAllBlocks = this.config.primitives.some(
+      (p) => p.primitive.getAllBlockHeaders,
+    );
     console.log(
       `[Avail] Fetching blocks from ${data.from} to ${data.to}. ${
         data.isPresync ? "[presync]" : ""
       }`,
     );
+
+    let lastHeader: Output["raw"] | undefined;
     for (let height = data.from; height <= data.to; height++) {
       let header;
       try {
@@ -60,26 +65,28 @@ export class AvailFetcher extends BaseDataFetcher<
           this.client.getBlockHeaderFromHeight(height)
         );
       } catch (_e) {
-        // Likely reached the tip; stop here
         break;
       }
 
+      lastHeader = header;
       const primitives = yield* this.readPrimitives(
         height,
         header,
         this.config.primitives,
       );
 
-      outputs.push({
-        output: {
-          raw: header,
-          primitives,
-        },
-        cleanup: () => {},
-      });
+      if (fetchAllBlocks || primitives.length > 0 || height === data.to) {
+        outputs.push({
+          output: {
+            raw: header,
+            primitives,
+          },
+          cleanup: () => {},
+        });
+      }
     }
 
-    if (outputs.length === 0) {
+    if (!lastHeader) {
       if (!lastPage) {
         throw new Error(
           `Could not fetch any blocks from ${data.from} to ${data.to} and no previous page was found.`,
@@ -91,16 +98,18 @@ export class AvailFetcher extends BaseDataFetcher<
       };
     }
 
-    const lastOutput = outputs[outputs.length - 1].output;
     return {
       output: outputs,
       lastPage: {
-        ownBlockNumber: lastOutput.raw.number,
+        ownBlockNumber: lastHeader.number,
         own: {
-          height: lastOutput.raw.number,
-          hash: lastOutput.raw.hash,
+          height: lastHeader.number,
+          hash: lastHeader.hash,
         },
-        root: rootConversion.toRootPage(lastOutput),
+        root: rootConversion.toRootPage({
+          raw: lastHeader,
+          primitives: [],
+        }),
       },
     };
   }

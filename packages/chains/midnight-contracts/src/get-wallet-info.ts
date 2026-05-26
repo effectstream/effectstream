@@ -949,11 +949,26 @@ function getInitialUnshieldedState(
   return Promise.resolve(null);
 }
 
+export interface RegisterNightForDustOptions {
+  /**
+   * Override for the wait-for-sync precheck timeout. The default
+   * (`resolveWalletSyncTimeoutMs()`, 10 min) is correct when the wallet has
+   * an active unshielded subscription. Callers that built the wallet with
+   * `syncMode: 'dust-only'` should pass a small value (e.g. 30s) — the
+   * unshielded sync is stopped, so this wait can never succeed and the
+   * full timeout is wasted.
+   */
+  precheckSyncTimeoutMs?: number;
+}
+
 /**
  * Register unshielded Night UTXOs for dust generation
  * This is required before the wallet can pay transaction fees
  */
-export async function registerNightForDust(walletResult: WalletResult): Promise<boolean> {
+export async function registerNightForDust(
+  walletResult: WalletResult,
+  options?: RegisterNightForDustOptions,
+): Promise<boolean> {
   log.info("Checking for unshielded Night UTXOs to register for dust generation...");
 
   const state = await Rx.firstValueFrom(
@@ -964,7 +979,7 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
         return dustSynced && unshieldedSynced;
       }),
       Rx.timeout({
-        each: resolveWalletSyncTimeoutMs(),
+        each: options?.precheckSyncTimeoutMs ?? resolveWalletSyncTimeoutMs(),
         with: () => Rx.throwError(() => new Error("Timeout waiting for unshielded+dust sync for dust registration")),
       })
     )

@@ -1,14 +1,21 @@
 {
+  "name": "minimal",
   "private": true,
-  "workspaces": [
-    "packages/client",
-    "packages/evm-contracts"
-  ],
+  "workspaces": ["packages/*"],
   "scripts": {
-    "dev": "bun run --filter @minimal/node dev",
-    "check": "bun run --filter @minimal/node check"
+    "dev": "NODE_ENV=development bunx orchestrator start",
+    "start:mainnet": "bun run packages/node/main.mainnet.ts",
+    "test": "bun run packages/tests/run-tests.ts",
+    "build:evm": "bun run --filter @minimal/contracts-evm build:mod",
+    "build:pgtypes": "bun run --filter @minimal/database pgtyped:update"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.3.14"
+    "@electric-sql/pglite": "^0.3.14",
+    "@effectstream/orchestrator": "0.100.13",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "wait-on": "8.0.3"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
   }
 }
