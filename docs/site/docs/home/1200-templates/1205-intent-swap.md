@@ -1,6 +1,6 @@
 # Night-Bitcoin (Intents Swap)
 
--   **Location**: `/templates/night-bitcoin`
+-   **Location**: `/templates/night-bitcoin-v2`
 -   **Highlights**: Bitcoin & Midnight Interoperability, ERC-7683 Cross-Chain Intents, Solver/Filler Architecture.
 
 The `night-bitcoin` template demonstrates a cutting-edge pattern in Web3: **Intent-Based Cross-Chain Swaps**. It utilizes EffectStream to orchestrate trades between a UTXO-based chain (Bitcoin) and a ZK-privacy chain (Midnight) without a traditional bridge, relying instead on a network of "Fillers" (Solvers) and an intent standard.
@@ -20,7 +20,7 @@ The `night-bitcoin` template demonstrates a cutting-edge pattern in Web3: **Inte
 ```sh
 # Clone the repository
 git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next effectstream-demo
-cd effectstream-demo/templates/night-bitcoin
+cd effectstream-demo/templates/night-bitcoin-v2
 
 # Check for external dependencies
 ./../check.sh

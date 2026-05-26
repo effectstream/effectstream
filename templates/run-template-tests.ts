@@ -27,7 +27,6 @@ const ENABLED = [
   // "evm-midnight",    // TODO: migrate to effectstream-bun
   // "minimal",         // TODO: migrate to effectstream-bun
   // "multi-chain-token-transfer", // TODO: migrate to effectstream-bun
-  // "night-bitcoin",   // TODO: migrate to effectstream-bun
   // "rock-paper-scissors", // TODO: migrate to effectstream-bun
   // "world-map-2d",    // TODO: migrate to effectstream-bun
 ];

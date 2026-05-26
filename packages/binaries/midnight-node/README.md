@@ -35,7 +35,7 @@ The orchestrator's Midnight step starts this binary, plus
 Midnight:
 
 - [`templates/evm-midnight/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/evm-midnight)
-- [`templates/night-bitcoin/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/night-bitcoin)
+- [`templates/night-bitcoin-v2/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/night-bitcoin-v2)
 - [`templates/zswap-da/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/zswap-da)
 - [`templates/zk-cardano/`](https://github.com/PaimaStudios/paima-engine/tree/main/templates/zk-cardano)
 
