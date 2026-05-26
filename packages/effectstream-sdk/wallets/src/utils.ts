@@ -99,9 +99,12 @@ export async function allInjectedWallets(config: {
     [WalletMode.Polkadot]: await PolkadotConnector.getWalletOptions(),
     [WalletMode.Mina]: MinaConnector.getWalletOptions(),
     // TODO: Algorand signature support is not implemented yet.
-    // NOTE: Midnight Do not support signature yet.
     [WalletMode.Algorand]: signatureSupport? [] : AlgorandConnector.getWalletOptions(),
-    [WalletMode.Midnight]: signatureSupport? [] : MidnightConnector.getWalletOptions(),
+    // Midnight signing via ConnectedAPI.signData(message, {keyType: "unshielded"})
+    // works as of @effectstream/crypto's MidnightCrypto.verifySignature
+    // implementation, so it now surfaces in the injected-wallet list even when
+    // signature support is requested.
+    [WalletMode.Midnight]: MidnightConnector.getWalletOptions(),
   };
 
   return wallets;

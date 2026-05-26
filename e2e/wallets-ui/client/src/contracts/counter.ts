@@ -415,7 +415,16 @@ const initializeProviders = async (
   );
   return {
     privateStateProvider: levelPrivateStateProvider({
-      privateStoragePasswordProvider: async () => "PAIMA_STORAGE_PASSWORD"
+      // `accountId` scopes the level-db storage per-wallet so two wallets on
+      // the same browser don't trample each other's private state. The
+      // unshielded address is a stable per-wallet identifier (the shielded
+      // address falls back if no unshielded one was returned).
+      accountId:
+        addresses.unshieldedAddress.unshieldedAddress ||
+        addresses.shieldedAddress ||
+        "default-account",
+      // Must hit 3-of-4 character classes (upper, lower, digit, special).
+      privateStoragePasswordProvider: async () => "EffectstreamStorage1!",
     } as any),
     zkConfigProvider,
     proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER, zkConfigProvider),

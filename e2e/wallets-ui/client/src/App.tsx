@@ -465,6 +465,10 @@ function App() {
     if (injectedWallets) {
       for (const [modeStr, walletList] of Object.entries(injectedWallets)) {
         const mode = Number(modeStr) as WalletMode;
+        // Midnight is handled by the bespoke "Connect Midnight Wallet" entry
+        // below (it wires up the Counter contract + providers). Skip here so
+        // we don't render Lace twice.
+        if (mode === WalletMode.Midnight) continue;
         if (Array.isArray(walletList) && walletList.length > 0) {
           for (const wallet of walletList as any[]) {
             // Get a lower-case network type like 'evm' or 'cardano' from the wallet mode.
@@ -565,8 +569,19 @@ function App() {
       },
     });
 
+    // Lace (or whatever Midnight wallet the user has) was discovered via
+    // window.midnight — borrow its metadata so the card shows the real icon
+    // + name instead of a gray "M" placeholder.
+    const midnightInjected = (injectedWallets?.[WalletMode.Midnight] as
+      | { metadata: { name: string; displayName: string; icon?: string } }[]
+      | undefined)?.[0];
+    const midnightMetadata = midnightInjected?.metadata ?? {
+      name: "Midnight Wallet",
+      displayName: "Midnight Wallet",
+    };
+
     wallets.push({
-      name: "Connect Midnight Wallet",
+      name: midnightMetadata.displayName,
       mode: WalletMode.Midnight,
       login: async () => {
         try {
@@ -600,10 +615,7 @@ function App() {
         }
       },
       types: ["midnight"],
-      metadata: {
-        name: "Midnight Wallet",
-        displayName: "Midnight Wallet",
-      },
+      metadata: midnightMetadata,
     });
 
     return wallets;
