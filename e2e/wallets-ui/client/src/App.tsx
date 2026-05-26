@@ -17,10 +17,8 @@ import {
   signMessage,
 } from "@effectstream/wallets";
 
-import { createWalletClient, http } from "viem";
 import { hardhat as hardhatChain } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
-import { BrowserProvider, JsonRpcSigner } from "ethers";
+import type { Hex } from "viem";
 import { useMemo } from "react";
 import { grammar } from "@e2e/data-types";
 import { config } from "@e2e/data-types/config-localhost";
@@ -58,15 +56,27 @@ const chainIdToWalletType = (chainId: WalletMode): string => {
   return WalletNameMap[chainId] || `Unknown (${chainId})`;
 };
 
-// Local Wallet
-const viemAccount = privateKeyToAccount(
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-);
-const viemClient = createWalletClient({
-  account: viemAccount,
-  chain: network,
-  transport: http(),
-});
+// Local-wallet config. Picked up by the three new buttons below (EVM Viem,
+// Cardano Lucid, Midnight Local). Each falls back to a deterministic test
+// value so the Playwright harness can drive the page without env wiring.
+const env = (import.meta as any).env ?? {};
+const EVM_LOCAL_PRIVATE_KEY: Hex = (env.VITE_EVM_LOCAL_PRIVATE_KEY as Hex)
+  // Hardhat default account #0.
+  ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const EVM_LOCAL_RPC_URL: string = env.VITE_EVM_LOCAL_RPC_URL
+  ?? "http://localhost:8545";
+const CARDANO_LOCAL_SEED: string | undefined = env.VITE_CARDANO_LOCAL_SEED;
+const CARDANO_LOCAL_NETWORK = (env.VITE_CARDANO_LOCAL_NETWORK as
+  | "Mainnet"
+  | "Preprod"
+  | "Preview"
+  | "Custom"
+  | undefined) ?? "Preview";
+const MIDNIGHT_LOCAL_SEED: string = env.VITE_MIDNIGHT_LOCAL_SEED
+  // Genesis-style seed used for "undeployed" local Midnight chains.
+  ?? "0000000000000000000000000000000000000000000000000000000000000001";
+const MIDNIGHT_LOCAL_NETWORK_ID: string = env.VITE_MIDNIGHT_LOCAL_NETWORK_ID
+  ?? "undeployed";
 
 interface PrimitiveInfo {
   name: string;
@@ -75,21 +85,6 @@ interface PrimitiveInfo {
   signature?: string;
   type: string;
   networkType: string;
-}
-
-// localhostConfig.primitives['evm-rpc-effectstream-l2'].primitive.abi = effectstreamL2Abi;
-/** Convert Viem to Ether Signer */
-/** Hook to convert a viem Wallet Client to an ethers.js Signer. */
-function clientToSigner(client: any) { // Client<Transport, Chain, Account>) {
-  const { account, chain, transport } = client;
-  const network = {
-    chainId: chain.id,
-    name: chain.name,
-    ensAddress: chain.contracts?.ensRegistry?.address,
-  };
-  const provider = new BrowserProvider(transport, network);
-  const signer = new JsonRpcSigner(provider, account.address);
-  return signer;
 }
 
 function logMidnightWalletAddresses(addresses: any): void {
@@ -460,27 +455,61 @@ function App() {
     }
 
     wallets.push({
-      name: "EVM (Viem Local Wallet)",
-      mode: WalletMode.EvmEthers,
+      name: "EVM (Viem Local)",
+      mode: WalletMode.EvmViem,
       login: () =>
         handleLogin(() =>
           walletLogin({
-            mode: WalletMode.EvmEthers,
-            connection: {
-              metadata: {
-                name: "Viem Local Wallet",
-                displayName: "Viem Local Wallet",
-              },
-              api: clientToSigner(viemClient),
-            },
+            mode: WalletMode.EvmViem,
+            privateKey: EVM_LOCAL_PRIVATE_KEY,
+            rpcUrl: EVM_LOCAL_RPC_URL,
+            chain: network,
             preferBatchedMode: false,
           }),
-          WalletMode.EvmEthers,
+          WalletMode.EvmViem,
         ),
       types: ["evm"],
       metadata: {
-        name: "Viem Local Wallet",
-        displayName: "EVM (Viem Local Wallet)",
+        name: "evm-viem-local",
+        displayName: "EVM (Viem Local)",
+      },
+    });
+
+    wallets.push({
+      name: "Cardano (Lucid Local)",
+      mode: WalletMode.CardanoLocal,
+      login: () =>
+        handleLogin(() =>
+          walletLogin({
+            mode: WalletMode.CardanoLocal,
+            seedPhrase: CARDANO_LOCAL_SEED,
+            network: CARDANO_LOCAL_NETWORK,
+          }),
+          WalletMode.CardanoLocal,
+        ),
+      types: ["cardano"],
+      metadata: {
+        name: "cardano-lucid-local",
+        displayName: "Cardano (Lucid Local)",
+      },
+    });
+
+    wallets.push({
+      name: "Midnight (Local Seed)",
+      mode: WalletMode.MidnightLocal,
+      login: () =>
+        handleLogin(() =>
+          walletLogin({
+            mode: WalletMode.MidnightLocal,
+            seed: MIDNIGHT_LOCAL_SEED,
+            networkId: MIDNIGHT_LOCAL_NETWORK_ID,
+          }),
+          WalletMode.MidnightLocal,
+        ),
+      types: ["midnight"],
+      metadata: {
+        name: "midnight-local-seed",
+        displayName: "Midnight (Local Seed)",
       },
     });
 
@@ -802,6 +831,7 @@ function App() {
                 displayedWallets.map((wallet) => (
                   <div
                     key={`${wallet.metadata.name} :: ${wallet.mode}`}
+                    data-testid={`login-${wallet.metadata.name}`}
                     onClick={wallet.login}
                     style={{
                       display: "flex",
@@ -911,7 +941,7 @@ function App() {
       </div>
 
       {wallet && (
-        <div style={{ display: "flex", gap: "2rem", marginTop: "2rem" }}>
+        <div style={{ display: "flex", gap: "2rem", marginTop: "2rem" }} data-testid="wallet-info">
           {/* Left Column: Logs */}
           <div style={{ flex: '0 0 50%' }}>
             <div className="info-box">
@@ -933,7 +963,7 @@ function App() {
                 <h2>Wallet Info</h2>
               </div>
               <div>
-                <p><strong>Address:</strong> {wallet.walletAddress}</p>
+                <p><strong>Address:</strong> <span data-testid="wallet-address">{wallet.walletAddress}</span></p>
                 <p>
                   <strong>Address Validity:</strong>{" "}
                   {isAddressValid === true
@@ -992,6 +1022,7 @@ function App() {
                 <label style={{ color: 'white' }}>Sign Message:</label>
                 <input
                   type="text"
+                  data-testid="message-input"
                   value={messageToSign}
                   onChange={(e) => setMessageToSign(e.target.value)}
                   placeholder="message to sign"
@@ -1004,6 +1035,7 @@ function App() {
                 />
                 <button
                   type="button"
+                  data-testid="sign-message"
                   onClick={handleSignMessage}
                   disabled={!messageToSign}
                   style={{ width: "80px" }}
@@ -1065,9 +1097,9 @@ function App() {
             </div>
 
             {actionResult && (
-              <div className="info-box result-box" style={{ marginTop: "1rem" }}>
+              <div className="info-box result-box" style={{ marginTop: "1rem" }} data-testid="action-result">
                 <h3>Result</h3>
-                <pre>{actionResult}</pre>
+                <pre data-testid="signature-result">{actionResult}</pre>
               </div>
             )}
 
@@ -1089,6 +1121,7 @@ function App() {
                   </div>
                   <button
                     type="button"
+                    data-testid="verify-signature"
                     onClick={handleVerifySignature}
                     style={{ marginTop: '0.5rem' }}
                   >
@@ -1106,7 +1139,11 @@ function App() {
             )}
 
             {signatureVerification !== null && (
-              <div className="info-box result-box" style={{ marginTop: "1rem" }}>
+              <div
+                className="info-box result-box"
+                style={{ marginTop: "1rem" }}
+                data-testid={signatureVerification ? "verification-ok" : "verification-failed"}
+              >
                 <h3>Signature Verification</h3>
                 <p>{signatureVerification ? '✅ Signature is valid' : '❌ Signature is invalid'}</p>
               </div>

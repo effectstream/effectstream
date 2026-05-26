@@ -2,8 +2,11 @@ import type { ApiPromise } from "avail-js-sdk";
 import type { Result } from "@effectstream/utils";
 import type { AlgorandApi } from "./algorand/algorand.ts";
 import type { CardanoApi } from "./cardano/cardano.ts";
+import type { CardanoLocalNetwork } from "./cardano/local.ts";
 import type { EthersApi } from "./evm/ethers.ts";
+import type { ViemApi } from "./evm/viem.ts";
 import type { EvmApi } from "./evm/injected.ts";
+import type { Hex } from "viem";
 import type {
   ActiveConnection,
   IInjectedConnector,
@@ -18,6 +21,7 @@ import {
 } from "./utils.ts";
 import { AddressType } from "@effectstream/utils";
 import type { MidnightApi } from "./midnight/midnight.ts";
+import type {} from "./midnight/local.ts";
 import type { Chain } from "viem/chains";
 import { Wallet } from "ethers";
 
@@ -42,7 +46,25 @@ export type LoginInfoMap = {
     connection: ActiveConnection<EthersApi>;
     preferBatchedMode: boolean;
   };
+  [WalletMode.EvmViem]: {
+    /** 0x-prefixed 32-byte hex private key. */
+    privateKey: Hex;
+    /** RPC URL the viem WalletClient should target. */
+    rpcUrl: string;
+    /** Optional viem Chain — pass to enable chain-aware tx fields (chainId etc). */
+    chain?: Chain;
+    /** If true, even EVM inputs are batched (sign + send to batcher). */
+    preferBatchedMode?: boolean;
+  };
   [WalletMode.Cardano]: BaseLoginInfo<CardanoApi>;
+  [WalletMode.CardanoLocal]: {
+    /** BIP-39 mnemonic. Generated when omitted. */
+    seedPhrase?: string;
+    /** Cardano network — sets the bech32 prefix. */
+    network: CardanoLocalNetwork;
+    /** Optional Lucid Provider; only needed for on-chain ops, not pure signing. */
+    provider?: unknown;
+  };
   [WalletMode.Polkadot]: BaseLoginInfo<PolkadotApi>;
   [WalletMode.Algorand]: BaseLoginInfo<AlgorandApi>;
   [WalletMode.Mina]: BaseLoginInfo<MinaApi>;
@@ -53,6 +75,12 @@ export type LoginInfoMap = {
   };
   [WalletMode.Midnight]: BaseLoginInfo<MidnightApi> & {
     networkId?: string;
+  };
+  [WalletMode.MidnightLocal]: {
+    /** 64-char hex seed. Generated when omitted. */
+    seed?: string;
+    /** Midnight network id ("undeployed" | "testnet" | …) — sets the bech32 prefix. */
+    networkId: string;
   };
 };
 
@@ -103,8 +131,10 @@ export function getAddressType(mode: WalletMode): AddressType {
 
     case WalletMode.EvmInjected:
     case WalletMode.EvmEthers:
+    case WalletMode.EvmViem:
       return AddressType.EVM;
     case WalletMode.Cardano:
+    case WalletMode.CardanoLocal:
       return AddressType.CARDANO;
     case WalletMode.Polkadot:
       return AddressType.POLKADOT;
@@ -113,6 +143,7 @@ export function getAddressType(mode: WalletMode): AddressType {
     case WalletMode.Mina:
       return AddressType.MINA;
     case WalletMode.Midnight:
+    case WalletMode.MidnightLocal:
       return AddressType.MIDNIGHT;
     case WalletMode.AvailJs:
       return AddressType.AVAIL;

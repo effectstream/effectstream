@@ -7,18 +7,24 @@ import type {
 
 import { AlgorandConnector } from "./algorand/algorand.ts";
 import { EthersConnector } from "./evm/ethers.ts";
+import { ViemConnector } from "./evm/viem.ts";
 import { EvmInjectedConnector } from "./evm/injected.ts";
 import { CardanoConnector } from "./cardano/cardano.ts";
+import { CardanoLocalConnector } from "./cardano/local.ts";
 import { PolkadotConnector } from "./polkadot/polkadot.ts";
 import { MinaConnector } from "./mina/mina.ts";
 import { AvailConnector } from "./avail/avail.ts";
 import { MidnightConnector } from "./midnight/midnight.ts";
+import { MidnightLocalConnector } from "./midnight/local.ts";
 
 export const enum WalletMode {
   EvmInjected,
   EvmEthers,
+  EvmViem,
   Midnight,
+  MidnightLocal,
   Cardano,
+  CardanoLocal,
   Polkadot,
   Algorand,
   Mina,
@@ -28,8 +34,11 @@ export const enum WalletMode {
 export const WalletNameMap: Record<WalletMode, string> = {
   [WalletMode.EvmInjected]: "EVM",
   [WalletMode.EvmEthers]: "EVM",
+  [WalletMode.EvmViem]: "EVM",
   [WalletMode.Midnight]: "Midnight",
+  [WalletMode.MidnightLocal]: "Midnight",
   [WalletMode.Cardano]: "Cardano",
+  [WalletMode.CardanoLocal]: "Cardano",
   [WalletMode.Polkadot]: 'Polkadot',
   [WalletMode.Algorand]: 'Algorand',
   [WalletMode.Mina]: "Mina",
@@ -39,8 +48,11 @@ export const WalletNameMap: Record<WalletMode, string> = {
 export const WalletModeMap = {
   [WalletMode.EvmInjected]: EvmInjectedConnector.instance(),
   [WalletMode.EvmEthers]: EthersConnector.instance(),
+  [WalletMode.EvmViem]: ViemConnector.instance(),
   [WalletMode.Midnight]: MidnightConnector.instance(),
+  [WalletMode.MidnightLocal]: MidnightLocalConnector.instance(),
   [WalletMode.Cardano]: CardanoConnector.instance(),
+  [WalletMode.CardanoLocal]: CardanoLocalConnector.instance(),
   [WalletMode.Polkadot]: PolkadotConnector.instance(),
   [WalletMode.Algorand]: AlgorandConnector.instance(),
   [WalletMode.Mina]: MinaConnector.instance(),
