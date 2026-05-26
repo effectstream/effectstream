@@ -445,7 +445,9 @@ main(function* () {
     console.log(
       "Initializing batcher (waiting for Midnight wallet sync & funds)...",
     );
-    yield* call(() => batcher.init());
+    // We drive polling via runPollingLoop() below; skip init's setInterval
+    // to avoid two polling systems racing and submitting duplicate txs.
+    yield* call(() => batcher.init({ startPolling: false }));
     console.log("Batcher initialized and ready");
   } catch (error) {
     console.error("Batcher initialization failed:", error);
