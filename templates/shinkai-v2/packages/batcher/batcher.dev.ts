@@ -18,6 +18,9 @@ const config: BatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   adapters: { paimaL2 },
   defaultTarget: "paimaL2",
+  // Must match what the sync-side `EffectstreamL2Primitive` uses to re-verify
+  // signatures. The SDK currently hardcodes namespace = null there, so we sign
+  // and verify with an empty namespace end-to-end until the SDK exposes it.
   namespace: "",
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
