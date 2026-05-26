@@ -20,6 +20,7 @@ import {
   WalletMode,
 } from "./utils.ts";
 import { AddressType } from "@effectstream/utils";
+import { formatError } from "./helpers/format-error.ts";
 import type { MidnightApi } from "./midnight/midnight.ts";
 import type {} from "./midnight/local.ts";
 import type { Chain } from "viem/chains";
@@ -121,7 +122,7 @@ export async function connectInjected<Api>(
 
     return {
       success: false,
-      errorMessage: err instanceof Error ? err.message : String(err),
+      errorMessage: formatError(err),
     };
   }
 }

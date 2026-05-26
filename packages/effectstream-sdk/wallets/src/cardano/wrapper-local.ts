@@ -3,6 +3,7 @@ import type { IProvider } from "../IProvider.ts";
 import type { WalletMode, ApiForMode } from "../utils.ts";
 import type { LoginInfoMap } from "../wallet-modes.ts";
 import { CardanoLocalConnector } from "./local.ts";
+import { formatError } from "../helpers/format-error.ts";
 
 export async function cardanoLocalLoginWrapper(
   loginInfo: LoginInfoMap[WalletMode.CardanoLocal],
@@ -24,7 +25,7 @@ export async function cardanoLocalLoginWrapper(
     console.log("cardanoLocalLoginWrapper: error while building local Cardano wallet");
     return {
       success: false,
-      errorMessage: err instanceof Error ? err.message : String(err),
+      errorMessage: formatError(err),
     };
   }
 }

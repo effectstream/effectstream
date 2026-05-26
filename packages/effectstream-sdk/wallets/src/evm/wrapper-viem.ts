@@ -3,6 +3,7 @@ import type { IProvider } from "../IProvider.ts";
 import type { WalletMode, ApiForMode } from "../utils.ts";
 import type { LoginInfoMap } from "../wallet-modes.ts";
 import { type ViemApi, ViemConnector } from "./viem.ts";
+import { formatError } from "../helpers/format-error.ts";
 
 export async function viemLoginWrapper(
   loginInfo: LoginInfoMap[WalletMode.EvmViem],
@@ -22,7 +23,7 @@ export async function viemLoginWrapper(
     console.log("viemLoginWrapper: error while building local viem wallet");
     return {
       success: false,
-      errorMessage: err instanceof Error ? err.message : String(err),
+      errorMessage: formatError(err),
     };
   }
 }

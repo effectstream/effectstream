@@ -23,4 +23,7 @@ export {
   cardanoLocalIcon,
   midnightLocalIcon,
 } from "./helpers/local-icons.ts";
+// Coerces wallet/SDK rejects (including CIP-30-style `{code, info}` objects)
+// to a readable string.
+export { formatError } from "./helpers/format-error.ts";
 export * from "./effectstream.ts";

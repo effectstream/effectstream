@@ -13,6 +13,7 @@ import {
   evmViemIcon,
   cardanoLocalIcon,
   midnightLocalIcon,
+  formatError,
 } from "@effectstream/wallets";
 import {
   sendBatcherTransaction,
@@ -88,31 +89,6 @@ interface PrimitiveInfo {
   signature?: string;
   type: string;
   networkType: string;
-}
-
-/**
- * Coerce anything thrown by a wallet/SDK to a readable string. Wallets
- * (notably Midnight Lace) reject with plain objects like
- * `{ code: -3, info: "Please configure the active account in the extension" }`,
- * which `String(err)` renders as the useless "[object Object]".
- */
-function formatError(err: unknown): string {
-  if (err == null) return "";
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  if (typeof err === "object") {
-    const o = err as { info?: string; message?: string; code?: number };
-    if (typeof o.info === "string") {
-      return o.code != null ? `${o.info} (code ${o.code})` : o.info;
-    }
-    if (typeof o.message === "string") return o.message;
-    try {
-      return JSON.stringify(err);
-    } catch {
-      // Fallthrough to String(err); cyclic objects land here.
-    }
-  }
-  return String(err);
 }
 
 function logMidnightWalletAddresses(addresses: any): void {
