@@ -968,8 +968,11 @@ function App() {
 
       {wallet && (
         <div style={{ display: "flex", gap: "2rem", marginTop: "2rem" }} data-testid="wallet-info">
-          {/* Left Column: Logs */}
-          <div style={{ flex: '0 0 50%' }}>
+          {/* Left Column: Logs.
+              `minWidth: 0` lets the flex item shrink below its content's
+              intrinsic width, otherwise long bech32 addresses + hex blobs
+              blow the column out and the whole row overflows the page. */}
+          <div style={{ flex: "1 1 0", minWidth: 0 }}>
             <div className="info-box">
               <div
                 style={{
@@ -989,7 +992,10 @@ function App() {
                 <h2>Wallet Info</h2>
               </div>
               <div>
-                <p><strong>Address:</strong> <span data-testid="wallet-address">{wallet.walletAddress}</span></p>
+                <p style={{ overflowWrap: "anywhere" }}>
+                  <strong>Address:</strong>{" "}
+                  <span data-testid="wallet-address">{wallet.walletAddress}</span>
+                </p>
                 <p>
                   <strong>Address Validity:</strong>{" "}
                   {isAddressValid === true
@@ -999,7 +1005,7 @@ function App() {
                     : "⏳ Unknown"}
                 </p>
                 <p><strong>Metadata:</strong></p>
-                <pre>
+                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                   {JSON.stringify(wallet.metadata || {}, null, 2)}
                 </pre>
               </div>
@@ -1041,10 +1047,18 @@ function App() {
           </div>
 
           {/* Right Column: Actions */}
-          <div style={{ flex: '0 0 50%' }}>
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ flex: "1 1 0", minWidth: 0 }}>
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
               <h2>Actions</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '1rem', alignItems: 'center' }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "auto minmax(0, 1fr) auto",
+                  gap: "1rem",
+                  alignItems: "center",
+                  minWidth: 0,
+                }}
+              >
                 <label style={{ color: 'white' }}>Sign Message:</label>
                 <input
                   type="text"
@@ -1057,6 +1071,8 @@ function App() {
                     borderRadius: "4px",
                     border: "1px solid #ccc",
                     width: "100%",
+                    boxSizing: "border-box",
+                    minWidth: 0,
                   }}
                 />
                 <button
@@ -1080,6 +1096,8 @@ function App() {
                     borderRadius: "4px",
                     border: "1px solid #ccc",
                     width: "100%",
+                    boxSizing: "border-box",
+                    minWidth: 0,
                   }}
                 />
                 <button
@@ -1123,16 +1141,27 @@ function App() {
             </div>
 
             {actionResult && (
-              <div className="info-box result-box" style={{ marginTop: "1rem" }} data-testid="action-result">
+              <div className="info-box result-box" style={{ marginTop: "1rem", minWidth: 0 }} data-testid="action-result">
                 <h3>Result</h3>
-                <pre data-testid="signature-result">{actionResult}</pre>
+                <pre
+                  data-testid="signature-result"
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    overflowWrap: "anywhere",
+                    maxHeight: "16rem",
+                    overflowY: "auto",
+                    margin: 0,
+                  }}
+                >
+                  {actionResult}
+                </pre>
               </div>
             )}
 
             {signatureToVerify && (
-              <div className="card info-box" style={{ marginTop: "1rem" }}>
-                <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem' }}>
-                  <h3>Verify Signature</h3>
+              <div className="card info-box" style={{ marginTop: "1rem", minWidth: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <h3 style={{ margin: 0 }}>Verify Signature</h3>
                   <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                     <label>User Address:</label>
                     <input type="text" value={editableUserAddress} onChange={(e) => setEditableUserAddress(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
@@ -1149,7 +1178,7 @@ function App() {
                     type="button"
                     data-testid="verify-signature"
                     onClick={handleVerifySignature}
-                    style={{ marginTop: '0.5rem' }}
+                    style={{ alignSelf: 'flex-start' }}
                   >
                     Verify Signature
                   </button>
@@ -1158,9 +1187,11 @@ function App() {
             )}
 
             {verificationArgs && (
-              <div className="info-box result-box" style={{ marginTop: "1rem" }}>
+              <div className="info-box result-box" style={{ marginTop: "1rem", minWidth: 0 }}>
                 <h3>Signature Verification Arguments</h3>
-                <pre>{JSON.stringify(verificationArgs, null, 2)}</pre>
+                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", margin: 0 }}>
+                  {JSON.stringify(verificationArgs, null, 2)}
+                </pre>
               </div>
             )}
 
