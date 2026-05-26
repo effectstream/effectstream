@@ -19,6 +19,8 @@ Shinkai solves this by running models locally with deterministic inference. Same
 
 To show what AI-powered on-chain gameplay looks like, we built **Quest for Tokens**, a game where an AI NPC judges player answers and awards tokens based on response quality.
 
+<iframe width="100%" height="415" src="https://www.youtube.com/embed/QZkM4W8Md-E" title="Quest for Tokens: AI-powered on-chain gameplay" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
+
 ![Quest for Tokens: title screen with floating castle and "Enter the Kingdom"](/img/blog/taiko1.png)
 
 Here's the game flow:
