@@ -152,7 +152,12 @@ export class MidnightProvider implements IProvider<MidnightApi> {
       encoding: "text",
       keyType,
     })) as Signature;
-    return signature.signature;
+    // Format: "signature|verifyingKey". Midnight unshielded signatures are
+    // not self-recovering, so `@effectstream/crypto`'s verifier needs the
+    // public key alongside the signature (matches the local-seed wallet
+    // and mirrors Cardano's "sig+key" convention with a different
+    // separator).
+    return `${signature.signature}|${signature.verifyingKey}`;
   };
 
   getAddress(): AddressAndType {
@@ -162,12 +167,22 @@ export class MidnightProvider implements IProvider<MidnightApi> {
     }
   }
 
+  /**
+   * Returns the wallet's UNSHIELDED address — the one that pairs with the
+   * unshielded signing key used by `signMessage`. `addressFromKey(vk)` must
+   * map to this address for `MidnightCrypto.verifySignature` to accept the
+   * signature; the shielded address is derived from independent zswap keys,
+   * so verification against it can't be done from a `signData` result.
+   *
+   * The shielded address is still reachable via
+   * `getConnection().api.getShieldedAddresses()` for callers that need it.
+   */
   static fetchAddress = async (conn: ActiveConnection<MidnightApi>): Promise<string> => {
-    const addresses = await conn.api.getShieldedAddresses();
-    if (!addresses?.shieldedAddress) {
-      throw new Error("Midnight wallet did not return a shielded address");
+    const res = await conn.api.getUnshieldedAddress();
+    if (!res?.unshieldedAddress) {
+      throw new Error("Midnight wallet did not return an unshielded address");
     }
-    return addresses.shieldedAddress;
+    return res.unshieldedAddress;
   };
 }
 
