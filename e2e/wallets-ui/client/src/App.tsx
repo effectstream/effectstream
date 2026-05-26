@@ -1162,18 +1162,23 @@ function App() {
               <div className="card info-box" style={{ marginTop: "1rem", minWidth: 0 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <h3 style={{ margin: 0 }}>Verify Signature</h3>
-                  <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label>User Address:</label>
-                    <input type="text" value={editableUserAddress} onChange={(e) => setEditableUserAddress(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
+                  {/* Row 1: the three fields side by side (each shrinks via
+                      flex:1 + minWidth:0 so long values don't overflow). */}
+                  <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', minWidth: 0 }}>
+                    <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: '1 1 0', minWidth: 0 }}>
+                      <label>User Address:</label>
+                      <input type="text" value={editableUserAddress} onChange={(e) => setEditableUserAddress(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minWidth: 0 }} />
+                    </div>
+                    <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: '1 1 0', minWidth: 0 }}>
+                      <label>Message:</label>
+                      <input type="text" value={editableMessage} onChange={(e) => setEditableMessage(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minWidth: 0 }} />
+                    </div>
+                    <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: '1 1 0', minWidth: 0 }}>
+                      <label>Signature:</label>
+                      <input type="text" value={editableSignature} onChange={(e) => setEditableSignature(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minWidth: 0 }} />
+                    </div>
                   </div>
-                  <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label>Message:</label>
-                    <input type="text" value={editableMessage} onChange={(e) => setEditableMessage(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
-                  </div>
-                  <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label>Signature:</label>
-                    <input type="text" value={editableSignature} onChange={(e) => setEditableSignature(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
-                  </div>
+                  {/* Row 2: the action button. */}
                   <button
                     type="button"
                     data-testid="verify-signature"
