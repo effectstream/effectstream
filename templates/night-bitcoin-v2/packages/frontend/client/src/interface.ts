@@ -18,22 +18,28 @@ const BATCHER_URL =
 const MIDNIGHT_NETWORK_ID =
   import.meta.env.VITE_MIDNIGHT_NETWORK_ID || "undeployed";
 
+// Pass txStage explicitly for already-proven txs (e.g. Lace's makeTransfer);
+// leave undefined for callTx-captured unproven txs so auto-detect handles them.
 async function submitToBatcher(
   serializedTx: string,
   circuitId: string,
   addr: string,
+  txStage?: "unproven" | "unbound" | "finalized",
 ) {
-  console.log(`🚀 Sending ${circuitId} transaction to Batcher...`);
+  console.log(`🚀 Sending ${circuitId} transaction to Batcher (stage=${txStage ?? "auto"})...`);
+
+  const inputPayload: Record<string, unknown> = {
+    tx: serializedTx,
+    circuitId: circuitId,
+  };
+  if (txStage) inputPayload.txStage = txStage;
 
   const body = {
     data: {
       target: "midnight_balancing",
       address: addr,
       addressType: AddressType.MIDNIGHT,
-      input: JSON.stringify({
-        tx: serializedTx,
-        circuitId: circuitId,
-      }),
+      input: JSON.stringify(inputPayload),
       timestamp: Date.now(),
     },
     confirmationLevel: "no-wait",
@@ -299,25 +305,28 @@ export async function m20_mint(
   }
 }
 
+// Sends M20 to the filler via the balancing batcher so the user needs no DUST.
 export async function m20_transferFrom(
-  contract: any,
+  connectedApi: ConnectedAPI,
+  contractAddress: string,
   fromAccount: string,
   toAccount: string,
   amount: bigint,
 ) {
-  const toAccountBytes = cpkBytes(toAccount);
+  const tokenColor = m20TokenColor(contractAddress);
   try {
     return await unshielded_erc20.transferFrom(
-      contract,
-      fromAccount,
-      toAccountBytes,
+      connectedApi,
+      tokenColor,
+      toAccount,
       amount,
     );
   } catch (error) {
     if (isDelegatedBalancingError(error)) {
       const tx = unshielded_erc20.getLastCapturedTx();
       if (!tx) throw new Error("No transaction captured for delegation");
-      await submitToBatcher(tx, "transfer", fromAccount);
+      // Lace's makeTransfer returns a finalized tx, so hint the batcher.
+      await submitToBatcher(tx, "unshielded_transfer", fromAccount, "finalized");
       return { txId: "delegated", blockHeight: 0 };
     }
     console.error(" interface.ts: m20_transferFrom failed", {

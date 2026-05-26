@@ -443,6 +443,56 @@ const getIntentToMatchTransferIR: any = {"usedParamSet":{"max_spent_token":true,
 export const getIntentToMatchTransfer = new PreparedQuery<IGetIntentToMatchTransferParams,IGetIntentToMatchTransferResult>(getIntentToMatchTransferIR);
 
 
+/** 'GetLatestOpenIntentByToken' parameters type */
+export interface IGetLatestOpenIntentByTokenParams {
+  max_spent_token: string;
+}
+
+/** 'GetLatestOpenIntentByToken' return type */
+export interface IGetLatestOpenIntentByTokenResult {
+  created_at: Date;
+  destination_chain_id: string;
+  destination_settler: string;
+  fill_deadline: string;
+  id: number;
+  max_spent_amount: string;
+  max_spent_chain_id: string;
+  max_spent_recipient: string;
+  max_spent_token: string;
+  min_received_amount: string;
+  min_received_chain_id: string;
+  min_received_recipient: string;
+  min_received_token: string;
+  open_deadline: string;
+  order_id: string;
+  origin_chain_id: string;
+  origin_data: string;
+  resolved_by: string | null;
+  status: string;
+  user_address: string;
+}
+
+/** 'GetLatestOpenIntentByToken' query type */
+export interface IGetLatestOpenIntentByTokenQuery {
+  params: IGetLatestOpenIntentByTokenParams;
+  result: IGetLatestOpenIntentByTokenResult;
+}
+
+const getLatestOpenIntentByTokenIR: any = {"usedParamSet":{"max_spent_token":true},"params":[{"name":"max_spent_token","required":true,"transform":{"type":"scalar"},"locs":[{"a":63,"b":79}]}],"statement":"SELECT * FROM intents\nWHERE status = '0'\nAND max_spent_token = :max_spent_token!\nORDER BY created_at DESC\nLIMIT 1"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM intents
+ * WHERE status = '0'
+ * AND max_spent_token = :max_spent_token!
+ * ORDER BY created_at DESC
+ * LIMIT 1
+ * ```
+ */
+export const getLatestOpenIntentByToken = new PreparedQuery<IGetLatestOpenIntentByTokenParams,IGetLatestOpenIntentByTokenResult>(getLatestOpenIntentByTokenIR);
+
+
 /** 'UpdateIntentResolved' parameters type */
 export interface IUpdateIntentResolvedParams {
   order_id: string;

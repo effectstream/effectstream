@@ -20,6 +20,7 @@ import * as UnshieldedErc20Contract from "@night-bitcoin/midnight-contract-unshi
 import * as Erc7683Contract from "@night-bitcoin/midnight-contract-erc7683/contract";
 import {
   PrimitiveTypeMidnightGeneric,
+  PrimitiveTypeMidnightUnshieldedSpend,
   PrimitiveTypeBitcoinAddress,
 } from "@effectstream/sm/builtin";
 import type { BlockNumber } from "@effectstream/utils";
@@ -183,6 +184,20 @@ export const config = new ConfigBuilder()
           startBlockHeight: BITCOIN_START_BLOCK,
           watchAddress: SYSTEM_WALLET_BTC,
           stateMachinePrefix: "bitcoin-transaction",
+        }),
+      )
+      // Detect native unshielded UTXO spends on Midnight (not contract events).
+      // Used to observe M20 transfers from the user to the filler that go via
+      // the balancing batcher (Lace's makeTransfer + payFees:false), since
+      // those don't fire any contract-state event.
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.parallelMidnight,
+        () => ({
+          name: "Midnight-UnshieldedSpend",
+          type: PrimitiveTypeMidnightUnshieldedSpend,
+          startBlockHeight: 1,
+          stateMachinePrefix: "midnight-unshielded-spend",
+          networkId: midnightNetworkConfig.id,
         }),
       ),
   )

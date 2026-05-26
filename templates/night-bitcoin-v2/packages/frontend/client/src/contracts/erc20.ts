@@ -205,20 +205,43 @@ const mintUnshielded = async (
   return finalizedTxData.public;
 };
 
-// Transfers of M20 between users are no longer contract operations — M20 is
-// a native Midnight unshielded coin. Senders should move the coin via the
-// connected Lace wallet's standard unshielded-send flow, not via this module.
+// Transfers of M20 between users are native Midnight unshielded coin moves —
+// not a Compact circuit call — so we cannot use callTx.
+//
+// Lace's dapp-connector APIs (both makeTransfer and makeIntent) always return
+// a FINALIZED transaction with header `proof,pedersen-schnorr` — the wallet
+// generates the ZK proofs and binding internally before returning. There is no
+// API to obtain a `proof-preimage,embedded-fr` (unproven) tx from Lace.
+//
+// The batcher's MidnightBalancingAdapter handles this case via
+// wallet.balanceFinalizedTransaction(), but ONLY when the submitter explicitly
+// passes txStage:"finalized" (auto-detect never tries that stage). See the
+// "finalized" hint we pass from m20_transferFrom in interface.ts.
+//
+// We use makeTransfer (not makeIntent) since the wallet auto-selects input
+// UTXOs from the user's M20 balance and the API is simpler.
 const transferFrom = async (
-  _simpleTokenContract: DeployedSimpleTokenContract,
-  _fromAccount: string,
-  _toAccountBytes: Uint8Array,
-  _amount: bigint,
-): Promise<any> => {
-  throw new Error(
-    "M20 transfers are no longer routed through the contract. " +
-      "The new unshielded-mint contract only exposes mint_unshielded; " +
-      "use the Lace wallet's unshielded-send to move M20 between users.",
+  connectedAPI: ConnectedAPI,
+  tokenColor: string,           // hex M20 raw token type (from m20TokenColor())
+  toUnshieldedAddress: string,  // filler's bech32m mn_addr_... address
+  amount: bigint,
+): Promise<never> => {
+  console.log("🚀 erc20.ts: transferFrom via balancing batcher (makeTransfer)", {
+    tokenColor,
+    toUnshieldedAddress,
+    amount,
+  });
+  // payFees:false → Lace does not add dust to the tx, leaving the M20 transfer
+  // unbalanced w.r.t. fees. The batcher's balanceFinalizedTransaction() will
+  // attach its dust UTXOs so the user does not need DUST in their wallet.
+  const result = await connectedAPI.makeTransfer(
+    [{ kind: "unshielded", type: tokenColor, value: amount, recipient: toUnshieldedAddress }],
+    { payFees: false },
   );
+  // Mirror the balanceTx interception used by the mint circuit: stash the tx
+  // hex so the delegation handler in interface.ts can submit it to the batcher.
+  lastCapturedTx = result.tx;
+  throw new DelegatedBalancingSentError();
 };
 
 const displaySimpleTokenValue = async (

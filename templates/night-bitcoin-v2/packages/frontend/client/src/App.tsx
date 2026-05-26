@@ -629,22 +629,27 @@ function App() {
       }
 
       const fillerDepositAddress = selectedQuote.midnightUnshieldedAddress;
+      await apiInterface.m20_transferFrom(
+        midnightWallet.connectedApi,
+        midnightWallet.contractAddress.unshielded_erc20,
+        midnightWallet.unshieldedAddr,
+        fillerDepositAddress,
+        intentConfig.maxSpent_amount,
+      );
+
       setTimeout(() => updateM20Balance(midnightWallet), 2000);
       setPopup({
         show: true,
-        title: "Intent submitted",
+        title: "Swap in progress",
         message:
-          `Your ${fromToken} → ${toToken} intent is in the batcher. ` +
-          "Send the exact M20 amount from Lace (unshielded send) to the filler " +
-          "address below. The filler will observe the arrival and release BTC.",
+          `${fromToken} → ${toToken}: intent registered and M20 transfer ` +
+          "submitted to the balancing batcher (dust-free). " +
+          "The filler will release BTC once the transfer is confirmed.",
         details: {
-          [FILLER_DEPOSIT_DETAIL_KEY]:
-            fillerDepositAddress || "(missing — re-fetch quotes)",
           Amount: amount,
           "Intent Tx ID": intentResult.txId,
           "Intent Block": intentResult.blockHeight,
           Filler: selectedQuote.provider,
-          ...intentConfig,
         },
       });
     } catch (error) {

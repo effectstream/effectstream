@@ -124,6 +124,14 @@ AND max_spent_amount = :max_spent_amount!
 AND status = '0'
 ;
 
+/* @name getLatestOpenIntentByToken */
+SELECT * FROM intents
+WHERE status = '0'
+AND max_spent_token = :max_spent_token!
+ORDER BY created_at DESC
+LIMIT 1
+;
+
 /* @name updateIntentResolved */
 UPDATE intents
 SET resolved_by = :resolved_by!,  status = '3'

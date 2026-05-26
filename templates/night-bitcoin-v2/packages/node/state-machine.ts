@@ -10,6 +10,7 @@ import {
   getTransferToMatchIntent,
   type IGetTransferToMatchIntentResult,
   getIntentToMatchTransfer,
+  getLatestOpenIntentByToken,
   getTransferById,
   getSomeUnusedTransfer,
   updateTransferUsed,
@@ -20,7 +21,21 @@ import { transferFunds } from "@night-bitcoin/contracts-bitcoin/transfer-funds";
 import { transferFunds as transferFundsMidnight } from "@night-bitcoin/contracts-midnight/transfer-funds";
 import { resolve } from "node:path";
 import { readFileSync } from "node:fs";
+import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 import { grammar } from "./grammar.ts";
+
+// Convert a Midnight bech32m unshielded address (`mn_addr_*`) to its raw 32-byte
+// payload as a lowercase hex string. This is the same format the state machine's
+// contract event indexer stores in the `transfers.to_address` column (the new
+// midnight-js representation hands us Bytes<N> fields as hex strings, and
+// `decodeToByteString` returns them with any leading "0x" stripped).
+const unshieldedBech32mToHex = (addr: string): string => {
+  const parsed = MidnightBech32m.parse(addr);
+  const bytes = Uint8Array.prototype.slice.call(parsed.data, 0, 32);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+};
 
 const stm = new Stm<typeof grammar, {}>(grammar);
 
@@ -142,7 +157,9 @@ const walletBasePaths = {
 
 type FillerWalletAddresses = {
   btc: string;
-  midnight: string;
+  midnight: string;            // shielded bech32m (legacy field, kept for compat)
+  midnightUnshielded: string;  // unshielded bech32m (mn_addr_*) — used as M20 mint target
+  midnightUnshieldedHex: string; // 32-byte hex of unshielded address — matches DB indexer format
 };
 
 const preloadedFillerWallets = new Map<string, FillerWalletAddresses>();
@@ -156,13 +173,22 @@ try {
       const bitcoinWalletData = JSON.parse(readFileSync(bitcoinWalletPath, "utf8"));
       const midnightWalletData = JSON.parse(readFileSync(midnightWalletPath, "utf8"));
 
+      // wallet-N.json schema: { seed, shieldedAddress, unshieldedAddress }.
+      // The previous `.address` lookup was undefined — fix that here.
+      const shielded: string = midnightWalletData.shieldedAddress ?? "";
+      const unshielded: string = midnightWalletData.unshieldedAddress ?? "";
+      const unshieldedHex = unshielded ? unshieldedBech32mToHex(unshielded) : "";
+
       preloadedFillerWallets.set(filler.name, {
         btc: bitcoinWalletData.derivedAddress,
-        midnight: midnightWalletData.address,
+        midnight: shielded,
+        midnightUnshielded: unshielded,
+        midnightUnshieldedHex: unshieldedHex,
       });
 
       console.log(
-        `Preloaded wallets for filler: ${filler.name} (BTC: ${bitcoinWalletData.derivedAddress}, Midnight: ${midnightWalletData.address})`,
+        `Preloaded wallets for filler: ${filler.name} (BTC: ${bitcoinWalletData.derivedAddress}, ` +
+          `Midnight shielded: ${shielded}, unshielded: ${unshielded}, hex: ${unshieldedHex})`,
       );
     } catch (error) {
       console.error(`Failed to preload wallets for filler ${filler.name}:`, error);
@@ -193,13 +219,37 @@ function* checkAndTransferFunds(params: CheckParamsType) {
       return;
     }
 
-    const SYSTEM_WALLET_MIDNIGHT =
-      "220166137110127226240106199190331042231369820222674119411322414010010938131779810395";
+    // For M20 intents the payment arrives via the midnight-unshielded-spend
+    // primitive (native unshielded UTXO move by the user, fee-sponsored by
+    // the balancing batcher). The spend handler inserts a synthetic transfer
+    // row matched to the filler's unshielded address (hex). Look it up here.
+    // For BTC intents the payment is observed via the bitcoin-transaction
+    // primitive deposited to SYSTEM_WALLET_BTC.
+    const [quoteForLookup] = yield* World.resolve(getBestQuoteForOrder, {
+      order_id: intent.order_id,
+    });
+    const fillerForLookup = quoteForLookup
+      ? getFillerWalletAddresses(quoteForLookup.filler)
+      : null;
+
     const SYSTEM_WALLET_BTC = "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03";
 
+    let expectedToAddress: string;
+    if (intent.max_spent_token === TOKENS.M20) {
+      if (!fillerForLookup?.midnightUnshieldedHex) {
+        console.error(
+          "No filler unshielded address available for M20 intent matching",
+          { orderId: intent.order_id, filler: quoteForLookup?.filler },
+        );
+        return;
+      }
+      expectedToAddress = fillerForLookup.midnightUnshieldedHex;
+    } else {
+      expectedToAddress = SYSTEM_WALLET_BTC;
+    }
+
     const [payment] = yield* World.resolve(getTransferToMatchIntent, {
-      to_address:
-        intent.max_spent_token === TOKENS.M20 ? SYSTEM_WALLET_MIDNIGHT : SYSTEM_WALLET_BTC,
+      to_address: expectedToAddress,
       amount: intent.max_spent_amount,
       token: intent.max_spent_token,
       chain_id: intent.max_spent_chain_id,
@@ -208,7 +258,7 @@ function* checkAndTransferFunds(params: CheckParamsType) {
     if (payment) {
       paymentData = payment;
     } else {
-      console.error("No payment found", params);
+      console.error("No payment found", { ...params, expectedToAddress });
       return;
     }
   } else if (params.type === "transfer-received") {
@@ -397,8 +447,10 @@ stm.addStateTransition("midnightContractStateERC20", function* (data) {
     const targetWallet = decodeToByteString(payload.actionTarget.left.bytes);
     const initiatorWallet = "0";
 
-    // Mint action
-    console.log("[MIDNIGHT] Mint action");
+    // Mint action — issuing the user their initial M20 supply.
+    // Payment matching for swaps is handled by the midnight-unshielded-spend
+    // transition below, fired when the user actually spends M20 to the filler.
+    console.log("[MIDNIGHT] Mint action", { targetWallet, amount: payload.actionValue });
     yield* World.resolve(insertTransfer, {
       from_address: initiatorWallet,
       to_address: targetWallet,
@@ -555,6 +607,122 @@ stm.addStateTransition("midnightContractStateERC7683", function* (data) {
   yield* checkAndTransferFunds({
     type: "intent-received",
     orderId: parsedPayload.lastIntentEvent.orderId as string,
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Native unshielded UTXO spend on Midnight (PrimitiveTypeMidnightUnshieldedSpend)
+//
+// Fires once per UTXO that gets spent on Midnight's unshielded ledger.
+// Payload (after primitive normalization): { owner, intentHash, outputIndex, txHash }.
+//
+// In the M20 → BTC swap flow, this fires when the frontend's m20_transferFrom
+// (via the balancing batcher) consumes the user's M20 UTXO and lands a new
+// M20 output at the filler's unshielded address. The spend event does NOT
+// carry amount or recipient info — those live in the tx outputs which the
+// indexer doesn't expose here. So we use the spend as a signal that:
+//
+//   "user `owner` just spent at least one unshielded UTXO; if they have an
+//   open M20 intent matched to one of our known fillers, treat this spend
+//   as the payment for that intent."
+//
+// We synthesize a `transfers` row matched to the filler's hex address +
+// intent.max_spent_amount, so the existing intent-matching pipeline (which
+// queries getTransferToMatchIntent by to_address+amount+token) picks it up.
+// ─────────────────────────────────────────────────────────────────────────────
+stm.addStateTransition("midnight-unshielded-spend", function* (data) {
+  const payload: any = (data.parsedInput as any).payload;
+  const ownerRaw: unknown = payload?.owner;
+
+  // Normalize owner to 32-byte hex (the indexer can hand us bech32m, raw
+  // bytes, or hex depending on which code path).
+  let owner: string;
+  if (ownerRaw instanceof Uint8Array) {
+    owner = Array.from(ownerRaw)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } else if (typeof ownerRaw === "string") {
+    if (ownerRaw.startsWith("mn_")) {
+      try {
+        owner = unshieldedBech32mToHex(ownerRaw);
+      } catch {
+        owner = ownerRaw.toLowerCase();
+      }
+    } else {
+      owner = ownerRaw.toLowerCase().replace(/^0x/, "");
+    }
+  } else {
+    console.warn("[MIDNIGHT] Unshielded-spend: unrecognized owner type", payload);
+    return;
+  }
+
+  console.log("[MIDNIGHT] Unshielded UTXO spent", {
+    owner,
+    intentHash: payload?.intentHash,
+    outputIndex: payload?.outputIndex,
+    txHash: payload?.txHash,
+  });
+
+  // Pick the most recent open M20 intent. The spend event doesn't carry
+  // amount or recipient info (the indexer's unshieldedSpentOutputs field
+  // only exposes spend identifiers, not output details), so we assume:
+  //   - There is at most one outstanding M20 intent at a time per app instance
+  //   - The spend's amount matches that intent's max_spent_amount
+  // This is sufficient for the demo flow and can be tightened later (e.g.
+  // by storing the user's unshielded address in originData and matching by
+  // that, or by re-fetching the tx's outputs from the indexer for verification).
+  const [intent] = yield* World.resolve(getLatestOpenIntentByToken, {
+    max_spent_token: TOKENS.M20,
+  });
+  if (!intent) {
+    console.log("[MIDNIGHT] Unshielded-spend: no open M20 intent to match", { owner });
+    return;
+  }
+
+  const [quote] = yield* World.resolve(getBestQuoteForOrder, {
+    order_id: intent.order_id,
+  });
+  const filler = quote ? getFillerWalletAddresses(quote.filler) : null;
+  if (!filler?.midnightUnshieldedHex) {
+    console.warn("[MIDNIGHT] Unshielded-spend: no filler hex for matched intent", {
+      orderId: intent.order_id,
+      filler: quote?.filler,
+    });
+    return;
+  }
+
+  // Insert a synthetic transfer row pointing at the filler's address with
+  // the intent's expected amount. The existing intent-received handler will
+  // find it via getTransferToMatchIntent on next intent processing, and the
+  // transfer-received path we trigger below also matches it via getSomeUnusedTransfer.
+  yield* World.resolve(insertTransfer, {
+    from_address: owner,
+    to_address: filler.midnightUnshieldedHex,
+    amount: parseInt(String(intent.max_spent_amount), 10),
+    token: TOKENS.M20,
+    chain_id: CHAIN_IDS.MIDNIGHT,
+  });
+
+  const [insertedPayment] = yield* World.resolve(getSomeUnusedTransfer, {
+    from_address: owner,
+    to_address: filler.midnightUnshieldedHex,
+    amount: String(intent.max_spent_amount),
+    token: TOKENS.M20,
+    chain_id: CHAIN_IDS.MIDNIGHT,
+  });
+  if (!insertedPayment) {
+    console.error("[MIDNIGHT] Unshielded-spend: failed to retrieve inserted transfer", {
+      owner,
+      to_address: filler.midnightUnshieldedHex,
+    });
+    return;
+  }
+
+  yield* checkAndTransferFunds({
+    type: "transfer-received",
+    id: insertedPayment.id,
+    amount: String(intent.max_spent_amount),
+    token: TOKENS.M20,
   });
 });
 
