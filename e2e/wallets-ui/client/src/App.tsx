@@ -45,10 +45,17 @@ network.rpcUrls = {
 const contractAddressOnNetwork = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 const batcherUrl = "http://localhost:3334";
 const syncProtocolName = "parallelEvmRPC_fast";
+// Security namespace MUST match the running batcher's `BatcherConfig.namespace`.
+// The e2e/evm/batcher uses `getWriteNamespace(evmConfig.securityNamespace)`
+// where evmConfig sets `setSecurityNamespace("e2e-evm")` — so we have to sign
+// against that exact string or every batcher submission fails with
+// "Invalid signature".
+const securityNamespace =
+  (import.meta as any).env?.VITE_BATCHER_NAMESPACE ?? "e2e-evm";
 // END LOCAL CONFIG
 
 const effectstreamConfig = new EffectstreamConfig(
-  undefined, // no app name
+  securityNamespace,
   syncProtocolName, // paima l2 sync protocol name
   contractAddressOnNetwork, // paima l2 contract address
   network, // paima l2 chain
