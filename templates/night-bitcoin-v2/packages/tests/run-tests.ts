@@ -143,6 +143,12 @@ async function test() {
     const { intentsTest } = await import("./stm/intents.test.ts");
     await intentsTest(db);
 
+    const { queriesTest } = await import("./stm/queries.test.ts");
+    await queriesTest(db);
+
+    const { unshieldedSpendTest } = await import("./stm/unshielded-spend.test.ts");
+    await unshieldedSpendTest(db);
+
     const { apiTest } = await import("./stm/api.test.ts");
     await apiTest();
 
