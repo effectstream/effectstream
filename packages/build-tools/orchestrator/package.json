@@ -32,7 +32,7 @@
     "start": "bun src/cli.ts start"
   },
   "dependencies": {
-    "@effectstream/db": "0.100.17"
+    "@effectstream/db": "workspace:*"
   },
   "description": "Multi-chain local development environment for EffectStream"
 }

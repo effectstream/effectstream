@@ -21,7 +21,7 @@
     "mina-signer": "^3.0.7",
     "viem": "2.37.3",
     "web3-utils": "^4.3.3",
-    "@effectstream/utils": "0.100.17"
+    "@effectstream/utils": "workspace:*"
   },
   "description": "Multi-chain signature verification for EffectStream"
 }
