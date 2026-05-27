@@ -35,6 +35,12 @@ export default defineConfig({
     Bun: undefined,
   },
   resolve: {
+    // Multiple workspace packages pin slightly different @sinclair/typebox
+    // versions (0.34.41 and 0.34.49). Vite would otherwise load both, splitting
+    // the per-instance `FormatRegistry` so address-format validators registered
+    // by @effectstream/utils never resolve at the Value.Check call site
+    // ("Unknown format 'cardano-address'" -> address validity reads as Invalid).
+    dedupe: ["@sinclair/typebox"],
     alias: {
       "@e2e/midnight-contract-eip-20/contract": midnightContractEip20Path + "index.js",
       "@e2e/midnight-contract-counter-basic/contract": midnightContractCounterBasicPath + "index.js",

@@ -132,11 +132,15 @@ export class MidnightProvider implements IProvider<MidnightApi> {
   static init = async (
     conn: ActiveConnection<MidnightApi>
   ): Promise<MidnightProvider> => {
-    const hexAddress = await MidnightProvider.fetchAddress(conn);
-    // const prefix = pickBech32Prefix(hexAddress);
-    // const words = bech32.toWords(hexStringToUint8Array(hexAddress));
-    // const userAddress = bech32.encode(prefix, words, 200);
-
+    // The IProvider's primary address must be the UNSHIELDED one — that's
+    // the address `addressFromKey(verifyingKey)` resolves to for the
+    // `signData({keyType: "unshielded"})` signatures we produce in
+    // `signMessage`, which is what `CryptoManager.Midnight().verifySignature`
+    // (and therefore the batcher) cross-checks. The shielded and dust
+    // addresses remain reachable via `fetchAddress(conn, { type })` or
+    // directly through `conn.api.getShieldedAddresses()` /
+    // `getDustAddress()`.
+    const hexAddress = await MidnightProvider.fetchAddress(conn, { type: "unshielded" });
     return new MidnightProvider(conn, hexAddress as MidnightAddress);
   };
 
@@ -152,7 +156,12 @@ export class MidnightProvider implements IProvider<MidnightApi> {
       encoding: "text",
       keyType,
     })) as Signature;
-    return signature.signature;
+    // Format: "signature|verifyingKey". Midnight unshielded signatures are
+    // not self-recovering, so `@effectstream/crypto`'s verifier needs the
+    // public key alongside the signature (matches the local-seed wallet
+    // and mirrors Cardano's "sig+key" convention with a different
+    // separator).
+    return `${signature.signature}|${signature.verifyingKey}`;
   };
 
   getAddress(): AddressAndType {
@@ -162,12 +171,49 @@ export class MidnightProvider implements IProvider<MidnightApi> {
     }
   }
 
-  static fetchAddress = async (conn: ActiveConnection<MidnightApi>): Promise<string> => {
-    const addresses = await conn.api.getShieldedAddresses();
-    if (!addresses?.shieldedAddress) {
-      throw new Error("Midnight wallet did not return a shielded address");
+  /**
+   * Fetch a specific address type from a connected Midnight wallet. Defaults
+   * to the **shielded** address to keep existing callers backwards-compatible
+   * with the pre-multi-address behaviour. The IProvider primary address
+   * (`getAddress()`) is the **unshielded** one — that's the address
+   * `addressFromKey(verifyingKey)` resolves to and what
+   * `CryptoManager.Midnight().verifySignature` needs to cross-check.
+   *
+   * @example
+   * ```ts
+   * const shielded = await MidnightProvider.fetchAddress(conn);
+   * const unshielded = await MidnightProvider.fetchAddress(conn, { type: "unshielded" });
+   * const dust = await MidnightProvider.fetchAddress(conn, { type: "dust" });
+   * ```
+   */
+  static fetchAddress = async (
+    conn: ActiveConnection<MidnightApi>,
+    options: { type?: "shielded" | "unshielded" | "dust" } = {},
+  ): Promise<string> => {
+    const type = options.type ?? "shielded";
+    switch (type) {
+      case "shielded": {
+        const res = await conn.api.getShieldedAddresses();
+        if (!res?.shieldedAddress) {
+          throw new Error("Midnight wallet did not return a shielded address");
+        }
+        return res.shieldedAddress;
+      }
+      case "unshielded": {
+        const res = await conn.api.getUnshieldedAddress();
+        if (!res?.unshieldedAddress) {
+          throw new Error("Midnight wallet did not return an unshielded address");
+        }
+        return res.unshieldedAddress;
+      }
+      case "dust": {
+        const res = await conn.api.getDustAddress();
+        if (!res?.dustAddress) {
+          throw new Error("Midnight wallet did not return a dust address");
+        }
+        return res.dustAddress;
+      }
     }
-    return addresses.shieldedAddress;
   };
 }
 

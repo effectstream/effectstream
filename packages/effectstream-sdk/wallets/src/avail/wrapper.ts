@@ -3,6 +3,7 @@ import type { IProvider } from "../IProvider.ts";
 import type { WalletMode, ApiForMode } from "../utils.ts";
 import type { LoginInfoMap } from "../wallet-modes.ts";
 import { type AvailJsApi, AvailConnector } from "./avail.ts";
+import { formatError } from "../helpers/format-error.ts";
 
 // Problematic dependency for deno-fresh
 import { Keyring } from "avail-js-sdk";
@@ -31,7 +32,7 @@ async function connectWallet(
     console.log(`availJsLoginWrapper: Error while logging into wallet name}`);
     return {
       success: false,
-      errorMessage: err.message ?? String(err),
+      errorMessage: formatError(err),
     }
   }
 }

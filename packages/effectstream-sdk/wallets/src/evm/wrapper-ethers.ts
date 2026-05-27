@@ -3,6 +3,7 @@ import type { IProvider } from "../IProvider.ts";
 import type { WalletMode, ApiForMode } from "../utils.ts";
 import type { LoginInfoMap } from "../wallet-modes.ts";
 import { type EthersApi, EthersConnector } from "./ethers.ts";
+import { formatError } from "../helpers/format-error.ts";
 
 async function connectWallet(
   loginInfo: LoginInfoMap[WalletMode.EvmEthers]
@@ -22,7 +23,7 @@ async function connectWallet(
 
     return {
       success: false,
-      errorMessage: err instanceof Error ? err.message : String(err),
+      errorMessage: formatError(err),
     };
   }
 }
