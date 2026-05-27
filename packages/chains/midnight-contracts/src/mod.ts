@@ -1,4 +1,5 @@
 export { deployMidnightContract } from "./deploy.ts";
+export { deployMidnightContractPhased } from "./deploy-phased.ts";
 export type {
     DeployConfig,
     NetworkUrls,
