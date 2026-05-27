@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/sync",
-  "version": "0.100.16",
+  "version": "0.100.17",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -13,10 +13,10 @@
   },
   "exports": "./src/mod.ts",
   "dependencies": {
-    "@effectstream/config": "workspace:*",
-    "@effectstream/db": "workspace:*",
-    "@effectstream/log": "workspace:*",
-    "@effectstream/utils": "workspace:*",
+    "@effectstream/config": "0.100.17",
+    "@effectstream/db": "0.100.17",
+    "@effectstream/log": "0.100.17",
+    "@effectstream/utils": "0.100.17",
     "@midnight-ntwrk/ledger-v8": "8.0.3",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v3@3.0.0",

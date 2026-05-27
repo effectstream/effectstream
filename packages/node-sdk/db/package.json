@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/db",
-  "version": "0.100.16",
+  "version": "0.100.17",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -21,11 +21,11 @@
     "./version": "./migrations/system-version.ts"
   },
   "dependencies": {
-    "@effectstream/coroutine": "workspace:*",
-    "@effectstream/log": "workspace:*",
-    "@effectstream/runtime": "workspace:*",
-    "@effectstream/sync": "workspace:*",
-    "@effectstream/utils": "workspace:*",
+    "@effectstream/coroutine": "0.100.17",
+    "@effectstream/log": "0.100.17",
+    "@effectstream/runtime": "0.100.17",
+    "@effectstream/sync": "0.100.17",
+    "@effectstream/utils": "0.100.17",
     "@electric-sql/pglite": "^0.3.14",
     "@pgtyped/runtime": "2.4.2",
     "@pgtyped/parser": "2.4.2",

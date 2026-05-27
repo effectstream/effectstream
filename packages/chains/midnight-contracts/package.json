@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/midnight-contracts",
-  "version": "0.100.16",
+  "version": "0.100.17",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -20,7 +20,7 @@
     "./types": "./src/types.ts"
   },
   "dependencies": {
-    "@effectstream/utils": "workspace:*",
+    "@effectstream/utils": "0.100.17",
     "@scure/bip39": "^2.0.1",
     "dotenv": "^16.4.7",
     "@midnight-ntwrk/wallet": "5.0.0",

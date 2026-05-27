@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/evm-hardhat",
-  "version": "0.100.16",
+  "version": "0.100.17",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -21,8 +21,8 @@
     "./addresses": "./src/addresses.ts"
   },
   "dependencies": {
-    "@effectstream/log": "workspace:*",
-    "@effectstream/utils": "workspace:*",
+    "@effectstream/log": "0.100.17",
+    "@effectstream/utils": "0.100.17",
     "ws": "8.18.1",
     "hardhat": "3.0.4",
     "@nomicfoundation/hardhat-ignition": "3.0.2",

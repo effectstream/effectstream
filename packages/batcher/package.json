@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/batcher-sdk",
-  "version": "0.100.16",
+  "version": "0.100.17",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -48,10 +48,10 @@
     "tiny-secp256k1": "^2.2.1",
     "rxjs": "7.8.2",
     "@midnight-ntwrk/compact-js": "2.5.0",
-    "@effectstream/utils": "workspace:*",
-    "@effectstream/crypto": "workspace:*",
-    "@effectstream/midnight-contracts": "workspace:*",
-    "@effectstream/event-client": "workspace:*"
+    "@effectstream/utils": "0.100.17",
+    "@effectstream/crypto": "0.100.17",
+    "@effectstream/midnight-contracts": "0.100.17",
+    "@effectstream/event-client": "0.100.17"
   },
   "description": "Cross-chain transaction batching SDK for EffectStream"
 }
