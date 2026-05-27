@@ -6,12 +6,17 @@ sidebar_label: "concise"
 
 <!-- Generated from packages/effectstream-sdk/concise/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/concise`](https://www.npmjs.com/package/@effectstream/concise)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/concise)
+> Package: **[`@effectstream/concise`](https://www.npmjs.com/package/@effectstream/concise)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/concise)
 
-Type-safe, compact message schemas for EffectStream — the wire format the
+Type-safe, compact message schemas for EffectStream - the wire format the
 batcher uses to pack many small user inputs into one on-chain transaction.
 Define a grammar of allowed commands; the package generates, parses, and
 validates inputs against it with TypeBox.
+
+- Type-safe, compact message schemas for Effectstream's batcher.
+- TypeBox grammar, encoder + parser + batcher message construction.
+- Used by the batcher to pack many small inputs into one on-chain transaction.
+- Also exports the canonical wallet-signing message and subunit hashing helpers for client SDKs.
 
 ## Install
 
@@ -98,35 +103,35 @@ later reads.
 
 Grammar / schema (heavily used across the runtime + state machine):
 
-- `generateRawStmInput(grammarEntry, prefix, data)` — the high-volume encoder (`~46` cross-package call sites in this repo).
-- `buildBatchData(maxSize, inputs)` — pack as many subunits as fit under a byte budget (used in the batcher's submission path; `~35` sites).
-- `BatcherGrammar`, `BuiltinGrammar` — built-in command sets.
-- `generateStmInput(grammar, command, data)` — typed value → JSON tuple.
-- `parseStmInput(rawJson, grammar, keyed)` — parse and validate.
-- `toFullJsonGrammar(...)`, `toKeyedJsonGrammar(...)` — derive TypeBox schemas from a grammar map.
-- `extractBatches(inputData)` — inverse of `buildBatchData`.
-- `extractDelegateWallet(...)` — pull the delegated wallet out of an account-delegation input.
-- `accountMessages`, `accountPayload_` — helpers for the standard account-linking commands.
+- `generateRawStmInput(grammarEntry, prefix, data)`: the high-volume encoder (~46 cross-package call sites in this repo).
+- `buildBatchData(maxSize, inputs)` packs as many subunits as fit under a byte budget; used in the batcher's submission path with ~35 sites.
+- `BatcherGrammar`, `BuiltinGrammar`: built-in command sets.
+- `generateStmInput(grammar, command, data)`: typed value to JSON tuple.
+- `parseStmInput(rawJson, grammar, keyed)` parses and validates.
+- `toFullJsonGrammar(...)`, `toKeyedJsonGrammar(...)`: derive TypeBox schemas from a grammar map.
+- `extractBatches(inputData)`: inverse of `buildBatchData`.
+- `extractDelegateWallet(...)` pulls the delegated wallet out of an account-delegation input.
+- `accountMessages`, `accountPayload_` - helpers for the standard account-linking commands.
 
 Batcher message construction (intended for external client SDKs and
 tests; the in-repo batcher uses a lower-level path):
 
-- `createMessageForBatcher(namespace, ts, address, addressType, input, target?)` — canonical string the wallet signs.
-- `createBatcherSubunit(ts, address, addressType, signature, input)` — pack a signed input into a subunit shape.
-- `hashBatchSubunit(input)` — `0x`-prefixed keccak256 over the subunit.
+- `createMessageForBatcher(namespace, ts, address, addressType, input, target?)`: canonical string the wallet signs.
+- `createBatcherSubunit(ts, address, addressType, signature, input)` packs a signed input into a subunit shape.
+- `hashBatchSubunit(input)`: `0x`-prefixed keccak256 over the subunit.
 
 Also exported: `KeyedBatcherGrammar`, `parseRawStmInput`, `usesPrefix`.
 
 ## Examples
 
-Runnable: [`src/batcher.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/concise/src/batcher.test.ts),
-[`src/delegate.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/concise/src/delegate.test.ts), and
-[`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/concise/test/examples.test.ts).
+Runnable: [`src/batcher.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/concise/src/batcher.test.ts),
+[`src/delegate.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/concise/src/delegate.test.ts), and
+[`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/concise/test/examples.test.ts).
 
 End-to-end batcher flow:
-[`e2e/evm/sync/batcher.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/e2e/evm/sync/batcher.test.ts).
+[`e2e/evm/sync/batcher.test.ts`](https://github.com/effectstream/effectstream/blob/main/e2e/evm/sync/batcher.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/concise
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/concise
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/concise

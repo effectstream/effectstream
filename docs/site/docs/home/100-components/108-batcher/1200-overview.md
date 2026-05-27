@@ -17,7 +17,7 @@ Get started quickly with these essential guides:
 Batch transactions for multiple blockchains simultaneously. Each blockchain gets its own adapter with independent batching rules and configuration.
 
 ### 🔄 Flexible Batching Strategies
-Configure when batches are submitted using time-based, size-based, value-based, hybrid, or custom criteria—independently per blockchain.
+Configure when batches are submitted using time-based, size-based, value-based, hybrid, or custom criteria-independently per blockchain.
 
 ### 💾 Crash-Safe Storage
 All inputs are persisted immediately to storage (file, PostgreSQL, Redis, or custom). No in-memory queues that can be lost on restart.
@@ -119,10 +119,10 @@ batcher.addBlockchainAdapter("nft", nftAdapter, {
 
 ```typescript
 import { main, suspend } from "effection";
-import { Batcher, FileStorage, EffectStreamL2DefaultAdapter } from "@effectstream/batcher";
+import { Batcher, FileStorage, EffectstreamL2DefaultAdapter } from "@effectstream/batcher-sdk";
 
 // 1. Create adapter
-const adapter = new EffectStreamL2DefaultAdapter(
+const adapter = new EffectstreamL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",  // Contract address
   process.env.PRIVATE_KEY!,                       // Private key
   0n,                                              // Fee

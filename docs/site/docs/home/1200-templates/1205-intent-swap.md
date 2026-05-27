@@ -1,3 +1,7 @@
+---
+draft: true
+---
+
 # Night-Bitcoin (Intents Swap)
 
 -   **Location**: `/templates/night-bitcoin-v2`
@@ -19,21 +23,14 @@ The `night-bitcoin` template demonstrates a cutting-edge pattern in Web3: **Inte
 
 ```sh
 # Clone the repository
-git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next effectstream-demo
-cd effectstream-demo/templates/night-bitcoin-v2
-
-# Check for external dependencies
-./../check.sh
+git clone https://github.com/effectstream/effectstream.git
+cd effectstream/templates/night-bitcoin
 
 # Install packages
-deno install --allow-scripts && ./patch.sh
+bun i
 
-# Compile contracts (Compact for Midnight)
-deno task build:midnight
-deno task build:bitcoin
-
-# Launch EffectStream Node
-deno task dev
+# Launch EffectStream Node (compiles contracts and starts the full local stack)
+bun run dev
 ```
 
 **Terminal:**
@@ -46,7 +43,7 @@ Once the `sync`process starts, open [http://localhost:10599](http://localhost:10
 
 ### Core Concept: Intent flow overview
 
-Instead of executing a direct transaction to swap tokens, users sign an **Intent**—a message declaring *what* they want (e.g., "I offer 1 BTC to receive at least 1000 M20 on Midnight").
+Instead of executing a direct transaction to swap tokens, users sign an **Intent**-a message declaring *what* they want (e.g., "I offer 1 BTC to receive at least 1000 M20 on Midnight").
 
 > Note Fillers and Solvers are the same in this example.
 

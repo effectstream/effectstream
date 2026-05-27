@@ -53,7 +53,7 @@ A game could grant in-game powers when a player projects a specific NFT, remove 
 
 The integration is end-to-end tested with 21 E2E tests covering the full lifecycle: stake registration, delegation, lock, unlock, and claim, all verified against a local Dolos instance.
 
-- [ProjectedNFT primitive source code](https://github.com/effectstream/effectstream/tree/v-next-bun-start/packages/node-sdk/sm/primitives/src)
+- [ProjectedNFT primitive source code](https://github.com/effectstream/effectstream/tree/v-next/packages/node-sdk/sm/primitives/src)
 - [Cardano Primitives documentation](/docs/home/chains/cardano#primitives)
 
 ## The full stack

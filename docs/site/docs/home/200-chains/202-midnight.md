@@ -83,7 +83,7 @@ The protocol type `MIDNIGHT_PARALLEL` connects to the Midnight Indexer (GraphQL)
 ### Contract Development
 
 *   **Language**: Compact (a TypeScript-inspired DSL for ZK).
-*   **Compilation**: `deno task build:midnight`
+*   **Compilation**: `bun run --cwd packages/contracts-midnight build`
 
 A Midnight contract defines private state transitions (`circuits`) and can choose to expose certain data publicly in its `ledger`. EffectStream can only see what is in the public `ledger`.
 
@@ -130,7 +130,7 @@ Writing to Midnight involves proving and submitting ZK circuits. EffectStream pr
 The `MidnightAdapter` manages the ZK proof generation (via a proof server) and transaction submission.
 
 ```ts
-import { MidnightAdapter } from "@effectstream/batcher";
+import { MidnightAdapter } from "@effectstream/batcher-sdk";
 
 const midnightAdapter = new MidnightAdapter(
   contractAddress,
@@ -217,22 +217,21 @@ processesToLaunch: [
 ]
 ```
 
-> NOTE: To use this launcher you need to implement some `deno task` in your project. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
+> NOTE: To use this launcher you need to implement some scripts in your project's `package.json`. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
 
 ```json
 {
   "name": "@e2e/midnight-contracts",
-  ...
-  "tasks": {
-    "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs @effectstream/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
+  "scripts": {
+    "midnight-node:start": "CFG_PRESET=dev bun ./node_modules/.bin/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
     "midnight-node:wait": "wait-on tcp:9944",
-    "midnight-indexer:start": "RUST_BACKTRACE=1 LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @effectstream/npm-midnight-indexer --binary --clean",
+    "midnight-indexer:start": "RUST_BACKTRACE=1 LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" bun ./node_modules/.bin/npm-midnight-indexer --binary --clean",
     "midnight-indexer:wait": "wait-on tcp:8088",
-    "midnight-proof-server:start": "LEDGER_NETWORK_ID=\"Undeployed\" RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @effectstream/npm-midnight-proof-server",
+    "midnight-proof-server:start": "LEDGER_NETWORK_ID=\"Undeployed\" RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" bun ./node_modules/.bin/npm-midnight-proof-server",
     "midnight-proof-server:wait": "wait-on tcp:6300",
     "midnight-contract:clean": "rm -rf midnight-level-db contract-eip-20.json contract-counter.json",
-    "midnight-contract:deploy": "deno task midnight-contract:clean && deno task contract-eip20:deploy && deno task contract-counter:deploy",
-    "contract-counter:deploy": "deno --unstable-detect-cjs -A contract-counter-deploy.ts",
-    "contract-eip20:deploy": "deno --unstable-detect-cjs -A contract-eip-20-deploy.ts"
+    "midnight-contract:deploy": "bun run midnight-contract:clean && bun run contract-eip20:deploy && bun run contract-counter:deploy",
+    "contract-counter:deploy": "bun ./contract-counter-deploy.ts",
+    "contract-eip20:deploy": "bun ./contract-eip-20-deploy.ts"
   }
 }

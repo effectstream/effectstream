@@ -1,16 +1,16 @@
 {
   "name": "@effectstream/evm-contracts",
-  "version": "0.100.14",
+  "version": "0.100.16",
   "description": "EVM smart contract interfaces for EffectStream",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PaimaStudios/paima-engine",
+    "url": "https://github.com/effectstream/effectstream",
     "directory": "packages/chains/evm-contracts"
   },
   "bugs": {
-    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+    "url": "https://github.com/effectstream/effectstream/issues"
   },
   "type": "module",
   "exports": {

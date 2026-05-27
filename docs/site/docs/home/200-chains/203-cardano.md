@@ -50,7 +50,7 @@ import {
 
 Tracks the creation and spending of native asset UTxOs. "Delayed" refers to asset ownership only becoming final after on-chain confirmation (unlike account-model chains with instant balance updates). The primitive uses the `moves_asset` UTxORPC predicate filtered by policy ID.
 
-Maintains an **IVM materialized view** (`cardano_asset_utxos_view_<name>`) with current unspent asset holdings — INSERTs on UTxO creation, DELETEs on spending.
+Maintains an **IVM materialized view** (`cardano_asset_utxos_view_<name>`) with current unspent asset holdings - INSERTs on UTxO creation, DELETEs on spending.
 
 ```ts
 .buildPrimitives(builder =>
@@ -114,7 +114,7 @@ Captures native token minting and burning events. Positive quantities indicate m
 
 Tracks stake pool delegation changes. Monitors both pre-Conway (`stakeDelegation`) and Conway-era (`stakeRegDelegCert`, `stakeVoteDelegCert`) delegation certificates using the `has_certificate` UTxORPC predicate. Supports an optional `pools` allowlist to filter by specific stake pool key hashes.
 
-Maintains an **IVM materialized view** (`cardano_pool_delegation_view_<name>`) with the current delegation per staking credential — UPSERTs on each delegation change.
+Maintains an **IVM materialized view** (`cardano_pool_delegation_view_<name>`) with the current delegation per staking credential - UPSERTs on each delegation change.
 
 ```ts
 .buildPrimitives(builder =>
@@ -146,7 +146,7 @@ See the [cardano-delegation template](https://github.com/effectstream/effectstre
 
 Tracks the lock → unlock → claim lifecycle of NFTs locked at a Plutus script (hololocker). This enables "projecting" on-chain NFTs into off-chain game state while they remain provably locked on-chain. Uses the `has_address` UTxORPC predicate filtered by the script address.
 
-Maintains an **IVM materialized view** (`cardano_projected_nft_view_<name>`) — UPSERTs on Lock/Unlocking transitions, DELETEs on Claims.
+Maintains an **IVM materialized view** (`cardano_projected_nft_view_<name>`) - UPSERTs on Lock/Unlocking transitions, DELETEs on Claims.
 
 ```ts
 .buildPrimitives(builder =>
@@ -290,18 +290,17 @@ processesToLaunch: [
 ]
 ```
 
-> NOTE: To use this launcher you need to implement some `deno task` in your project. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
+> NOTE: To use this launcher you need to implement some scripts in your project's `package.json`. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
 
 ```json
 {
   "name": "@e2e/cardano-contracts",
-  ...
-  "tasks": {
-    "devkit:start": "deno run -A --node-modules-dir npm:@bloxbean/yaci-devkit up",
+  "scripts": {
+    "devkit:start": "bun ./node_modules/.bin/yaci-devkit up",
     "devkit:wait": "wait-on tcp:3001",
-    "dolos:fill-template": "deno run -A ./fill-template.ts",
-    "dolos:start": "rm -rf ./data && rm -rf ./dolos.socket && deno task dolos:fill-template && deno run -A --node-modules-dir npm:@txpipe/dolos bootstrap relay && deno run -A --node-modules-dir npm:@txpipe/dolos daemon",
-    "dolos:wait": "wait-on tcp:50051" // utxorpc port
+    "dolos:fill-template": "bun ./fill-template.ts",
+    "dolos:start": "rm -rf ./data && rm -rf ./dolos.socket && bun run dolos:fill-template && bun ./node_modules/.bin/dolos bootstrap relay && bun ./node_modules/.bin/dolos daemon",
+    "dolos:wait": "wait-on tcp:50051"
   }
 }
 ```

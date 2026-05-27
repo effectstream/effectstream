@@ -2,7 +2,7 @@
 
 ## Overview
 
-Understanding how an input flows through the Batcher system is essential for effective integration and customization. This document provides a comprehensive, step-by-step overview of an input's lifecycle—from the initial API call to final chain confirmation.
+Understanding how an input flows through the Batcher system is essential for effective integration and customization. This document provides a comprehensive, step-by-step overview of an input's lifecycle-from the initial API call to final chain confirmation.
 
 This knowledge helps you:
 - Understand where adapter customization hooks in

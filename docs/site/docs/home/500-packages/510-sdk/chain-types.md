@@ -6,13 +6,18 @@ sidebar_label: "chain-types"
 
 <!-- Generated from packages/effectstream-sdk/chain-types/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/chain-types`](https://www.npmjs.com/package/@effectstream/chain-types)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/chain-types)
+> Package: **[`@effectstream/chain-types`](https://www.npmjs.com/package/@effectstream/chain-types)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/chain-types)
 
 Type definitions and deterministic hash helpers for EffectStream blocks,
 rollup inputs, and timer triggers. Re-exported through
 [`@effectstream/node-sdk/chain-types`](https://www.npmjs.com/package/@effectstream/node-sdk).
-Use it to compute EffectStream block / input / timer hashes off-chain —
+Use it to compute EffectStream block / input / timer hashes off-chain -
 for example, in an external indexer, a proof system, or a verifier.
+
+- Type definitions and deterministic block / input / timer hashes for Effectstream.
+- Pure functions, no runtime dependency on the rest of the framework.
+- Useful for off-chain verifiers and external indexers.
+- Re-exported through `@effectstream/node-sdk/chain-types`.
 
 ## Install
 
@@ -24,7 +29,7 @@ npm install @effectstream/chain-types
 
 ## Standalone usage
 
-Pure functions over plain data — no runtime dependency on the rest of
+Pure functions over plain data - no runtime dependency on the rest of
 EffectStream.
 
 ```typescript
@@ -58,19 +63,19 @@ const inputHashHex = hashRollupInput.hash({
 
 A small types package. The hashing helpers exist so an off-chain
 reconstruction of an EffectStream block matches what the node would
-compute — useful as a stable schema reference and verifier kit.
+compute - useful as a stable schema reference and verifier kit.
 
 ## Key exports
 
-- `genV1BlockHeader(mainChainInfo, prevBlockHash, successfulTxs, failedTxs)` — assembles a `PostExecutionBlockHeader<1>`.
-- `hashTransactions`, `hashBlockV1`, `hashRollupInput`, `hashTimerData` — `{ preHash, hash }` pairs. `preHash` returns the canonical string; `hash` returns `keccak256(preHash(input))`.
+- `genV1BlockHeader(mainChainInfo, prevBlockHash, successfulTxs, failedTxs)` - assembles a `PostExecutionBlockHeader<1>`.
+- `hashTransactions`, `hashBlockV1`, `hashRollupInput`, `hashTimerData` - `{ preHash, hash }` pairs. `preHash` returns the canonical string; `hash` returns `keccak256(preHash(input))`.
 - Types: `PostExecutionBlockHeader<V>`, `PreExecutionBlockHeaderV1`, `BlockVersions`, `RollupInputHashInfo`, `TimerHashInfo`, `IntrinsicPrimitive`, `ExtrinsicPrimitive`, `BasePrimitive`, `PrimitiveCommon`, plus small wire types (`InputDataString`, `NonceString`, `ScheduleTrigger`).
 
 ## Examples
 
-Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/effectstream-sdk/chain-types/test/examples.test.ts).
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/chain-types/test/examples.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/chain-types
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/chain-types
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/chain-types

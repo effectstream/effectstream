@@ -22,7 +22,7 @@ A game implementing PRC-1 exposes two endpoints:
 - `GET /achievements/public/list` returns all achievements defined by the game (name, description, display metadata)
 - `GET /achievements/wallet/:wallet` returns which achievements a specific player has earned, with timestamps and completion data
 
-The achievement list response is a flat TypeScript shape — no chain-specific fields, no platform-specific fields:
+The achievement list response is a flat TypeScript shape - no chain-specific fields, no platform-specific fields:
 
 ```typescript
 interface AchievementPublicList {

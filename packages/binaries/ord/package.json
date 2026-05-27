@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/ord",
-  "version": "0.100.14",
+  "version": "0.100.16",
   "type": "module",
   "main": "./index.js",
   "bin": {
@@ -15,11 +15,11 @@
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PaimaStudios/paima-engine",
+    "url": "https://github.com/effectstream/effectstream",
     "directory": "packages/binaries/ord"
   },
   "bugs": {
-    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+    "url": "https://github.com/effectstream/effectstream/issues"
   },
   "description": "Ord binary wrapper for EffectStream"
 }

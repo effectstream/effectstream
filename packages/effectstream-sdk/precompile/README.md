@@ -1,9 +1,14 @@
 # @effectstream/precompile
 
 Generate deterministic EVM-sized (20-byte) addresses from string names
-by hashing with keccak256. The intended use is "precompile" addresses —
+by hashing with keccak256. The intended use is "precompile" addresses -
 synthetic 0x-addresses reserved by an EffectStream node for non-user
 logic (intrinsic primitives, timers, internal accounts).
+
+- Deterministic 20-byte addresses from string names via keccak256.
+- Pure functions; same name in, same address out.
+- Used by intrinsic primitives, timers, and internal accounts.
+- Result is an EVM-shaped `0x[40 hex chars]` string, usable wherever viem/ethers expects an `Address`.
 
 ## Install
 
@@ -15,7 +20,7 @@ npm install @effectstream/precompile
 
 ## Standalone usage
 
-Pure functions. Given a name, get an address. Same name, same address —
+Pure functions. Given a name, get an address. Same name, same address -
 always.
 
 ```typescript
@@ -45,8 +50,8 @@ a future build of the same name.
 
 ## Key exports
 
-- `generatePrecompile(name: string): HexString0x` — `0x` + first 40 hex chars of `keccak256(name)`.
-- `generatePrecompiles(names: Record<string, string>)` — bulk variant. Returns `{ [value]: address }`.
+- `generatePrecompile(name: string): HexString0x` - `0x` + first 40 hex chars of `keccak256(name)`.
+- `generatePrecompiles(names: Record<string, string>)` - bulk variant. Returns `{ [value]: address }`.
 
 ## Examples
 
@@ -55,4 +60,4 @@ Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/sdk/precompile
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/effectstream-sdk/precompile
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/effectstream-sdk/precompile

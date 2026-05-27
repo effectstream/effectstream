@@ -14,7 +14,7 @@ import { GameState } from "./game-state.ts";
 import { sendTransaction } from "@effectstream/wallets";
 import { paimaConfig } from "./config.ts";
 import { getGame, getGameRound, getNewGame, getTokens } from "./api.ts";
-import { connectWallet } from "./main.ts";
+import { connectWallet, refreshCardanoSession } from "./main.ts";
 
 export abstract class QFTScreen {
   public abstract assets: (Sprite | Text | Input | Graphics)[];
@@ -43,20 +43,38 @@ export abstract class QFTScreen {
       const l = loader(GameState.app);
       GameState.isLoading = true;
 
-      await sendTransaction(
+      const sendAi = () => sendTransaction(
         GameState.walletObj!,
         ["ai", animal, GameState.gameId, value],
         paimaConfig,
         "wait-effectstream-processed",
       );
 
-      const round = await getGameRound(GameState.gameId, animal);
-      GameState.isLoading = false;
-
-      if (!round) {
+      let round: Awaited<ReturnType<typeof getGameRound>> | undefined;
+      try {
+        await sendAi();
+        round = await getGameRound(GameState.gameId, animal);
+      } catch (e: any) {
+        console.error("ai action failed", e);
+        // Cardano CIP-30 wallets sometimes drop the dApp session between
+        // actions (auto-lock, origin permission rotated). Refreshing the
+        // underlying api via window.cardano[name].enable() prompts the user
+        // to unlock / re-approve, then we retry the action once.
+        if (e?.name === "APIError") {
+          try {
+            await refreshCardanoSession();
+            await sendAi();
+            round = await getGameRound(GameState.gameId, animal);
+          } catch (re) {
+            console.error("retry after reconnect failed", re);
+          }
+        }
+      } finally {
+        GameState.isLoading = false;
         l.forEach((o) => o.destroy());
-        return;
       }
+
+      if (!round) return;
 
       cleanup();
       await animalTalk(GameState.app, round.answer ?? "...");

@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/npm-avail-light-client",
-  "version": "0.100.14",
+  "version": "0.100.16",
   "description": "A wrapper for the Avail Light Client CLI",
   "main": "_index.js",
   "bin": {
@@ -19,11 +19,11 @@
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PaimaStudios/paima-engine",
+    "url": "https://github.com/effectstream/effectstream",
     "directory": "packages/binaries/avail-light-client"
   },
   "bugs": {
-    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+    "url": "https://github.com/effectstream/effectstream/issues"
   },
   "dependencies": {
     "extract-zip": "^2.0.1",

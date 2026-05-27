@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/npm-midnight-node",
-  "version": "0.100.14",
+  "version": "0.100.16",
   "description": "Downloads and starts the binary for Midnight Node",
   "main": "index.js",
   "scripts": {
@@ -16,11 +16,11 @@
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PaimaStudios/paima-engine",
+    "url": "https://github.com/effectstream/effectstream",
     "directory": "packages/binaries/midnight-node"
   },
   "bugs": {
-    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+    "url": "https://github.com/effectstream/effectstream/issues"
   },
   "supportedPlatforms": [
     "linux-arm64",

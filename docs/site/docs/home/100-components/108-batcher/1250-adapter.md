@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `BlockchainAdapter` interface is the core extension point for supporting new blockchains in the Batcher. By implementing this interface, you can integrate any blockchain—whether EVM-based, zero-knowledge chains like Midnight, or custom Layer 2 solutions—into the unified batching pipeline.
+The `BlockchainAdapter` interface is the core extension point for supporting new blockchains in the Batcher. By implementing this interface, you can integrate any blockchain-whether EVM-based, zero-knowledge chains like Midnight, or custom Layer 2 solutions-into the unified batching pipeline.
 
 This guide walks you through:
 - Understanding the `BlockchainAdapter<TOutput>` interface
@@ -55,7 +55,7 @@ The `TOutput` parameter defines what `buildBatchData()` produces and what `submi
 
 | Blockchain Type | `TOutput` Example | Description |
 |----------------|-------------------|-------------|
-| **EVM (EffectStreamL2)** | `string` | JSON string like `["&B", [...]]` |
+| **EVM (EffectstreamL2)** | `string` | JSON string like `["&B", [...]]` |
 | **Midnight** | `MidnightBatchPayload` | Structured object with circuit args |
 | **Custom Chain** | `Uint8Array` | Raw bytes for binary protocols |
 | **Solana** | `Transaction` | Native transaction object |
@@ -276,10 +276,10 @@ interface BatchBuildingResult<TOutput> {
 
 If your blockchain uses a standard format (like EffectStream's JSON batching format), use a helper class:
 
-**Example: EffectStreamL2DefaultAdapter (EVM)**
+**Example: EffectstreamL2DefaultAdapter (EVM)**
 
 ```typescript
-export class EffectStreamL2DefaultAdapter implements BlockchainAdapter<string> {
+export class EffectstreamL2DefaultAdapter implements BlockchainAdapter<string> {
   private readonly batchBuilderLogic = new DefaultBatchBuilderLogic();
   
   buildBatchData(
@@ -392,7 +392,7 @@ export class BinaryProtocolAdapter implements BlockchainAdapter<Uint8Array> {
 ```
 
 :::tip Size Management
-Always respect `options?.maxSize` or `this.maxBatchSize`. If an input doesn't fit, **don't include it**—it will be processed in the next batch automatically.
+Always respect `options?.maxSize` or `this.maxBatchSize`. If an input doesn't fit, **don't include it**-it will be processed in the next batch automatically.
 :::
 
 ---
@@ -414,7 +414,7 @@ submitBatch(data: TOutput, fee: string | bigint): Promise<BlockchainHash>
 3. **Sign and submit** the transaction
 4. **Return** the transaction hash
 
-**Example: EffectStreamL2DefaultAdapter (EVM)**
+**Example: EffectstreamL2DefaultAdapter (EVM)**
 
 ```typescript
 async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> {
@@ -426,7 +426,7 @@ async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> 
   // Convert JSON string to hex bytes
   const hexData = encodeHexFromString(data);
   
-  // Submit to EffectStreamL2 contract
+  // Submit to EffectstreamL2 contract
   const hash = await this.walletClient.writeContract({
     account: this.account,
     chain: this.walletClient.chain,
@@ -907,11 +907,11 @@ Without `recoverState()`, stateful adapters can experience memory leaks after cr
 
 ## Helper Classes for Batch Serialization
 
-The batcher provides two helper classes for common serialization patterns. These are **optional**—you can always implement custom logic in `buildBatchData()`.
+The batcher provides two helper classes for common serialization patterns. These are **optional**-you can always implement custom logic in `buildBatchData()`.
 
 ### `DefaultBatchBuilderLogic`
 
-**Purpose:** Create the standard EffectStream JSON batch format used by the EffectStreamL2 contract.
+**Purpose:** Create the standard EffectStream JSON batch format used by the EffectstreamL2 contract.
 
 **Output Format:**
 ```json
@@ -924,7 +924,7 @@ The batcher provides two helper classes for common serialization patterns. These
 
 **Usage:**
 ```typescript
-import { DefaultBatchBuilderLogic } from "@effectstream/batcher";
+import { DefaultBatchBuilderLogic } from "@effectstream/batcher-sdk";
 
 export class MyEVMAdapter implements BlockchainAdapter<string> {
   private readonly batchBuilderLogic = new DefaultBatchBuilderLogic();
@@ -973,7 +973,7 @@ The helper:
 
 **Usage:**
 ```typescript
-import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "@effectstream/batcher";
+import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "@effectstream/batcher-sdk";
 
 export class MyMidnightAdapter implements BlockchainAdapter<MidnightBatchPayload | null> {
   private readonly batchBuilderLogic = new MidnightBatchBuilderLogic();
@@ -1012,8 +1012,8 @@ This adapter uses `DefaultBatchBuilderLogic` for serialization but implements cu
 - ✅ Pre-validates function names and argument counts
 
 ```typescript
-import { DefaultBatchBuilderLogic } from "@effectstream/batcher";
-import type { BlockchainAdapter, DefaultBatcherInput } from "@effectstream/batcher";
+import { DefaultBatchBuilderLogic } from "@effectstream/batcher-sdk";
+import type { BlockchainAdapter, DefaultBatcherInput } from "@effectstream/batcher-sdk";
 
 export class ERC1155CustomAdapter implements BlockchainAdapter<string | null> {
   private readonly batchBuilderLogic = new DefaultBatchBuilderLogic();
@@ -1133,8 +1133,8 @@ This adapter uses `MidnightBatchBuilderLogic` for serialization and implements c
 - ✅ Queries Midnight indexer GraphQL API for transaction confirmation
 
 ```typescript
-import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "@effectstream/batcher";
-import type { BlockchainAdapter, DefaultBatcherInput } from "@effectstream/batcher";
+import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "@effectstream/batcher-sdk";
+import type { BlockchainAdapter, DefaultBatcherInput } from "@effectstream/batcher-sdk";
 
 export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload | null> {
   private readonly batchBuilderLogic = new MidnightBatchBuilderLogic();
@@ -1273,7 +1273,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
 
 ## Key Takeaways
 
-1. **Format Flexibility**: `TOutput` can be any type—string, object, binary. The only requirement is that `submitBatch()` can parse what `buildBatchData()` produces.
+1. **Format Flexibility**: `TOutput` can be any type-string, object, binary. The only requirement is that `submitBatch()` can parse what `buildBatchData()` produces.
 
 2. **Helper Classes are Optional**: Use `DefaultBatchBuilderLogic` or `MidnightBatchBuilderLogic` for standard formats, or implement custom serialization for unique requirements.
 

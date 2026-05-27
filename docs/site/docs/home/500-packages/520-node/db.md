@@ -6,12 +6,17 @@ sidebar_label: "db"
 
 <!-- Generated from packages/node-sdk/db/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/db`](https://www.npmjs.com/package/@effectstream/db)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db)
+> Package: **[`@effectstream/db`](https://www.npmjs.com/package/@effectstream/db)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/db)
 
 The PostgreSQL (and PgLite) layer for EffectStream. Wraps `pg` with a
 connection pool, ships every pgtyped-generated SQL query the runtime
 needs, owns the snapshot loop, and provides a mutex needed for safe
 single-threaded PgLite access.
+
+- Pooled Postgres client plus every pgtyped query the runtime needs.
+- Snapshot loop (`runSnapshotLoop`) and `acquireDBMutex` / `releaseDBMutex` for PgLite.
+- Subpath scripts for in-memory PgLite, migrations, and version checks.
+- `getConnection()` is the dominant entry point, ~31 call sites across the repo.
 
 ## Install
 
@@ -52,7 +57,7 @@ try {
 
 For PgLite (in-memory) the package ships `./start-pglite`,
 `./apply-migrations`, `./db-wait`, `./pgtyped-update`, `./version` as
-small executable subpaths — used directly by the orchestrator.
+small executable subpaths - used directly by the orchestrator.
 
 > **PgLite caveat:** PgLite is single-writer. Wrap PgLite-bound code in
 > `acquireDBMutex(name)` / `releaseDBMutex(name)` so concurrent generators
@@ -70,42 +75,42 @@ can rejoin without re-syncing from genesis.
 
 Connection management (heavily used):
 
-- `getConnection(creds?)` — pooled `Pool` singleton. The dominant entry point (~31 cross-package call sites).
-- `acquireDBMutex(name, priority?)` / `releaseDBMutex(name)` — coordination for PgLite (~7 cross-package call sites each).
-- `waitUntilFree()` — companion to the mutex.
-- `getPersistentConnection(creds)` — a non-pooled `Client` for long-lived listeners.
+- `getConnection(creds?)`: pooled `Pool` singleton. Dominant entry point (~31 call sites across the repo).
+- `acquireDBMutex(name, priority?)` and `releaseDBMutex(name)` coordinate PgLite access; ~7 call sites each.
+- `waitUntilFree()` - companion to the mutex.
+- `getPersistentConnection(creds)` returns a non-pooled `Client` for long-lived listeners.
 
 Queries (pgtyped-generated, shipped under one umbrella):
 
-- `getBlockHeights`, `getBlockByHash`, `blockHeightDone`, `saveLastBlock`, `getLatestProcessedBlockHeight` — block bookkeeping.
-- `getAchievementProgress`, `setAchievementProgress` — achievements.
+- Block bookkeeping: `getBlockHeights`, `getBlockByHash`, `blockHeightDone`, `saveLastBlock`, `getLatestProcessedBlockHeight`.
+- Achievements: `getAchievementProgress`, `setAchievementProgress`.
 - Re-exports of `*.queries.ts` for statistics, nonces, rollup inputs, accounts, events, sync protocol pages, primitives, system, tables.
 
 Snapshots:
 
-- `runSnapshotLoop` — periodic `pg_dump` of synced state.
-- `createSnapshot` — single-shot snapshot helper.
-- `SnapshotConfig`, `SnapshotRetentionConfig` — config types.
+- `runSnapshotLoop` - periodic `pg_dump` of synced state.
+- `createSnapshot`: single-shot snapshot helper.
+- `SnapshotConfig`, `SnapshotRetentionConfig`: config types.
 
 Dynamic table / event helpers:
 
-- `createDynamicTables` — register tables a primitive wants to own.
-- `createIndexesForEvents`, `registerEventHandlers` — register pgtyped indexes for app events.
+- `createDynamicTables` registers tables a primitive wants to own.
+- `createIndexesForEvents` creates pgtyped indexes for app events; `registerEventTypes` records each event's topic/name in the database.
 
 Subpath entry points (executable scripts):
 
-- `@effectstream/db/start-pglite` — boot a PgLite instance.
-- `@effectstream/db/apply-migrations` — apply SQL migrations against the active DB.
-- `@effectstream/db/db-wait` — block until the DB accepts a connection.
-- `@effectstream/db/pgtyped-update` — regenerate pgtyped types.
-- `@effectstream/db/version` — print schema version.
+- `@effectstream/db/start-pglite`: boot a PgLite instance.
+- `@effectstream/db/apply-migrations` - apply SQL migrations against the active DB.
+- `@effectstream/db/db-wait`: block until the DB accepts a connection.
+- `@effectstream/db/pgtyped-update`: regenerate pgtyped types.
+- `@effectstream/db/version` - print schema version.
 
 ## Examples
 
-- Real connection round-trip: [`src/pg-connection.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/db/src/pg-connection.test.ts).
-- Runnable: [`test/examples.test.ts`](https://github.com/PaimaStudios/paima-engine/blob/main/packages/node-sdk/db/test/examples.test.ts).
+- Real connection round-trip: [`src/pg-connection.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/db/src/pg-connection.test.ts).
+- Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/db/test/examples.test.ts).
 
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/db
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/db

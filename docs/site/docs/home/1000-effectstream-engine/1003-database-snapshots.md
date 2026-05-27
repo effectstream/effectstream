@@ -1,16 +1,16 @@
 # Database Snapshots
 
-EffectStream supports automated database snapshots using **`pg_dump`**. Snapshots let you take point-in-time backups of your node's database while it continues syncing — no downtime, no interruption.
+EffectStream supports automated database snapshots using **`pg_dump`**. Snapshots let you take point-in-time backups of your node's database while it continues syncing - no downtime, no interruption.
 
 ## How it works
 
-Snapshots are triggered by **wall-clock time** — once the configured interval (default: 1 hour) has elapsed since the last snapshot, the next processed block triggers a new one.
+Snapshots are triggered by **wall-clock time** - once the configured interval (default: 1 hour) has elapsed since the last snapshot, the next processed block triggers a new one.
 
-The runtime spawns `pg_dump` as a **background task** using Effection's `spawn()`, so the sync loop continues processing blocks while the dump runs. A guard flag prevents overlapping dumps — if `pg_dump` is still running when the next interval elapses, it waits until the current dump finishes.
+The runtime spawns `pg_dump` as a **background task** using Effection's `spawn()`, so the sync loop continues processing blocks while the dump runs. A guard flag prevents overlapping dumps - if `pg_dump` is still running when the next interval elapses, it waits until the current dump finishes.
 
-Because `pg_dump` uses PostgreSQL's **MVCC**, it takes a consistent snapshot at the moment the command starts. Normal operations — `SELECT`, `INSERT`, `UPDATE`, `DELETE` — continue uninterrupted. Only DDL statements (`DROP TABLE`, `ALTER TABLE`, `TRUNCATE`) are briefly blocked.
+Because `pg_dump` uses PostgreSQL's **MVCC**, it takes a consistent snapshot at the moment the command starts. Normal operations - `SELECT`, `INSERT`, `UPDATE`, `DELETE` - continue uninterrupted. Only DDL statements (`DROP TABLE`, `ALTER TABLE`, `TRUNCATE`) are briefly blocked.
 
-This feature requires a **real PostgreSQL** instance — snapshots are skipped when running under PGlite (`PGLITE=true`), because PGlite's internal catalog schema may not match the locally-installed `pg_dump` version.
+This feature requires a **real PostgreSQL** instance - snapshots are skipped when running under PGlite (`PGLITE=true`), because PGlite's internal catalog schema may not match the locally-installed `pg_dump` version.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ This feature requires a **real PostgreSQL** instance — snapshots are skipped w
 | `DB_PW` | PostgreSQL password | `mysecretpassword` |
 | `DB_NAME` | Database to snapshot | `effectstream` |
 
-These are the same variables used by the node's database connection — no extra configuration needed. The password is passed to `pg_dump` via the `PGPASSWORD` environment variable (the standard `libpq` mechanism).
+These are the same variables used by the node's database connection - no extra configuration needed. The password is passed to `pg_dump` via the `PGPASSWORD` environment variable (the standard `libpq` mechanism).
 
 Additionally, `pg_dump` must be installed and on the `PATH` of the process running the node:
 - **Debian/Ubuntu:** `apt install postgresql-client`
@@ -32,7 +32,7 @@ Additionally, `pg_dump` must be installed and on the `PATH` of the process runni
 
 ## Setup
 
-Add `snapshotConfig` to your `StartConfig`. Every field is optional — an empty object `{}` is enough to get started:
+Add `snapshotConfig` to your `StartConfig`. Every field is optional - an empty object `{}` is enough to get started:
 
 ```typescript
 yield* start({
@@ -91,7 +91,7 @@ The retention policy is **time-based**, using each file's modification time (`mt
 
 Within each time window the **newest** file is kept; older files in the same window are deleted.
 
-Setting a tier flag to `false` disables that tier's pruning — all files in that age range are kept as-is.
+Setting a tier flag to `false` disables that tier's pruning - all files in that age range are kept as-is.
 
 ## Restoring a snapshot
 

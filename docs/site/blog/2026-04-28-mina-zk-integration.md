@@ -56,7 +56,7 @@ Here's the concept: a governance vote where voting power comes from your Cardano
 
 ![Private Delegation Voting: Cardano + Midnight cross-chain ZK voting with stake pool delegation](/img/blog/zk-cardano.png)
 
-The full [ZK-Cardano template](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/zk-cardano) is available in the monorepo alongside five new [Cardano primitives](/docs/home/chains/cardano#primitives).
+The full [ZK-Cardano template](https://github.com/effectstream/effectstream/tree/v-next/templates/zk-cardano) is available in the monorepo alongside five new [Cardano primitives](/docs/home/chains/cardano#primitives).
 
 <iframe src="https://drive.google.com/file/d/1qeFPXN3cjsd66aFn-kgu2q8fqTr8SA-A/preview" width="100%" height="480" allow="autoplay"></iframe>
 
@@ -95,23 +95,23 @@ The trade-off is in verification: chain-verified proofs inherit the chain's secu
 
 ## Template: Werewolf (multiplayer ZK with browser proofs)
 
-The clearest worked example of local proofs is **Werewolf** — a multiplayer Mafia-style template where every player's role, night action, and vote stays private behind a ZK proof. The Compact contract tracks alive players in a Merkle tree and uses nullifiers to prevent double-voting; each player-side proof is generated **in the browser** before the input reaches the game server.
+The clearest worked example of local proofs is **Werewolf** - a multiplayer Mafia-style template where every player's role, night action, and vote stays private behind a ZK proof. The Compact contract tracks alive players in a Merkle tree and uses nullifiers to prevent double-voting; each player-side proof is generated **in the browser** before the input reaches the game server.
 
-![Werewolf game — 3D table with multiple players, ZK roles hidden, Compact contract enforcing inclusion proofs and nullifiers](/img/blog/werewolf-game.png)
+![Werewolf game - 3D table with multiple players, ZK roles hidden, Compact contract enforcing inclusion proofs and nullifiers](/img/blog/werewolf-game.png)
 
 The night/day loop is structured around two ZK actions:
 
-- **Night action** — werewolves submit an encrypted target with a ZK proof that they hold the werewolf role. The role itself never appears in any log.
-- **Vote** — any alive player votes to eliminate, attaching a ZK inclusion proof against the alive-player Merkle root plus a nullifier so the same player can't vote twice.
+- **Night action** - werewolves submit an encrypted target with a ZK proof that they hold the werewolf role. The role itself never appears in any log.
+- **Vote** - any alive player votes to eliminate, attaching a ZK inclusion proof against the alive-player Merkle root plus a nullifier so the same player can't vote twice.
 
 The full stack runs locally with no external dependency: Midnight node, indexer, proof server, game server, and frontend all spin up from the template's README. Template source: [`effectstream/werewolf-game`](https://github.com/effectstream/werewolf-game).
 
-A second template, [Go Fish](https://github.com/effectstream/go-fish), uses the same local-proof pattern for ZK Mental Poker — trustless card games without a dealer, with all card commitments and reveals proved client-side.
+A second template, [Go Fish](https://github.com/effectstream/go-fish), uses the same local-proof pattern for ZK Mental Poker - trustless card games without a dealer, with all card commitments and reveals proved client-side.
 
 - [Werewolf template code](https://github.com/effectstream/werewolf-game)
 - [Werewolf Compact contract source](https://github.com/effectstream/werewolf-game/tree/main/packages/shared/contracts/midnight/contract-werewolf/src)
 - [Go Fish template (ZK Mental Poker)](https://github.com/effectstream/go-fish)
-- [ZK-Cardano template code](https://github.com/effectstream/effectstream/tree/v-next-bun-start/templates/zk-cardano)
+- [ZK-Cardano template code](https://github.com/effectstream/effectstream/tree/v-next/templates/zk-cardano)
 - [Cardano Primitives documentation](/docs/home/chains/cardano#primitives)
 - [Midnight Network](https://midnight.network/)
 - [UTxORPC Watch Module](https://utxorpc.org/watch/intro/) - streaming protocol for Cardano data

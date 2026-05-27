@@ -9,6 +9,16 @@ const ROOT = import.meta.dir;
 const rootPkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8"));
 const version = rootPkg.version;
 
+const FLAGS_HELP = `
+Flags:
+  --publish                real publish (default is dry-run via \`bun publish --dry-run\`)
+  --allow-uncommitted      skip the git-clean check
+  --allow-missing-readme   skip the per-package README presence / 400-char check
+`;
+function printFlags() {
+  console.error(FLAGS_HELP);
+}
+
 const DEPRECATED = new Set([
   "@effectstream/explorer",
 ]);
@@ -17,10 +27,10 @@ const PACKAGE_META = {
   homepage: "https://effectstream.github.io/docs/",
   repository: {
     type: "git",
-    url: "https://github.com/PaimaStudios/paima-engine",
+    url: "https://github.com/effectstream/effectstream",
   },
   bugs: {
-    url: "https://github.com/PaimaStudios/paima-engine/issues",
+    url: "https://github.com/effectstream/effectstream/issues",
   },
 } as const;
 
@@ -117,8 +127,9 @@ if (missingReadme.length || stubReadme.length) {
   for (const n of stubReadme) console.error(`  stub:     ${n}`);
   if (!process.argv.includes("--allow-missing-readme")) {
     console.error(
-      "\nAdd a real README.md to each package, or pass --allow-missing-readme to bypass.\n",
+      "\nAdd a real README.md to each package, or pass --allow-missing-readme to bypass.",
     );
+    printFlags();
     process.exit(1);
   }
   console.error("  (continuing because --allow-missing-readme was set)\n");
@@ -137,6 +148,7 @@ if (status.trim().length > 0) {
     console.error("\n❌ Uncommitted changes detected:\n");
     console.error(status);
     console.error("Commit or stash changes before publishing.");
+    printFlags();
     process.exit(1);
   }
 } else {
@@ -240,6 +252,7 @@ for (const { name, dir } of packageDirs) {
     console.error(`  ${name} build failed ✗`);
     console.error(`    ${e.stderr?.toString().trim() || e.message}`);
     restoreWorkspaceDeps();
+    printFlags();
     process.exit(1);
   }
 }
@@ -273,4 +286,7 @@ console.log(
   `\nDone: ${packageDirs.length - failed} ok, ${failed} failed out of ${packageDirs.length} packages.`
 );
 
-if (failed > 0) process.exit(1);
+if (failed > 0) {
+  printFlags();
+  process.exit(1);
+}

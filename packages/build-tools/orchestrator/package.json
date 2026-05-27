@@ -1,15 +1,15 @@
 {
   "name": "@effectstream/orchestrator",
-  "version": "0.100.14",
+  "version": "0.100.16",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PaimaStudios/paima-engine",
+    "url": "https://github.com/effectstream/effectstream",
     "directory": "packages/build-tools/orchestrator"
   },
   "bugs": {
-    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+    "url": "https://github.com/effectstream/effectstream/issues"
   },
   "exports": {
     "./config": "./src/config.ts",
@@ -20,6 +20,7 @@
     "./launch-cardano": "./scripts/launch-cardano.ts",
     "./launch-midnight": "./scripts/launch-midnight.ts",
     "./launch-avail": "./scripts/launch-avail.ts",
+    "./launch-celestia": "./scripts/launch-celestia.ts",
     "./launch-near": "./scripts/launch-near.ts",
     "./wait-tcp": "./scripts/wait-tcp.ts",
     "./wait-http": "./scripts/wait-http.ts"

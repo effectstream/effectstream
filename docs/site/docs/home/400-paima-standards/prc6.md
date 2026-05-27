@@ -1,4 +1,4 @@
-# PRC-6 — Midnight dApp Integration Interface
+# PRC-6 - Midnight dApp Integration Interface
 
 ## Use case
 
@@ -6,13 +6,13 @@ Expose your dApp's channels, leaderboards, and auto-sign identity behind one sta
 
 ## Summary
 
-PRC-6 defines the interface a developer implements so that the Midnight platform (or any compatible aggregator) can index their dApp. It is a strict superset of [PRC-1](./prc1.md) — every PRC-6 endpoint is consistent with PRC-1, plus per-channel metric streams and identity resolution.
+PRC-6 defines the interface a developer implements so that the Midnight platform (or any compatible aggregator) can index their dApp. It is a strict superset of [PRC-1](./prc1.md) - every PRC-6 endpoint is consistent with PRC-1, plus per-channel metric streams and identity resolution.
 
 In this architecture the application is the **source of truth** for:
 
-- **Metrics** — channel-specific scores per user.
-- **Achievements** — unlocking and progress tracking (inherited from PRC-1).
-- **Identity** — linking *session wallets* (temporary keys used during interactions) to *main wallets* (durable identity for reputation and aggregation).
+- **Metrics** - channel-specific scores per user.
+- **Achievements** - unlocking and progress tracking (inherited from PRC-1).
+- **Identity** - linking *session wallets* (temporary keys used during interactions) to *main wallets* (durable identity for reputation and aggregation).
 
 The platform is an aggregator. It queries the application's endpoints and presents a unified profile across the ecosystem.
 
@@ -29,7 +29,7 @@ GET {BASE_URL}/metrics/users/mn_addr_undeployed1234567890?channel=leaderboard
 
 All endpoints are public and read-only by default. Channels MAY be declared **private** by setting `auth: true` in their channel definition.
 
-When a request targets a private channel — directly via `GET {BASE_URL}/metrics/{channel}` or via the `channel` query param on `GET {BASE_URL}/metrics/users/{address}` — the application MUST authenticate the caller using an API key:
+When a request targets a private channel - directly via `GET {BASE_URL}/metrics/{channel}` or via the `channel` query param on `GET {BASE_URL}/metrics/users/{address}` - the application MUST authenticate the caller using an API key:
 
 | Method | Format |
 |---|---|
@@ -42,32 +42,32 @@ Header takes precedence over query param.
 |---|---|
 | `401` | API key missing or invalid on a request targeting a private channel. |
 
-Private channels MAY expose sensitive data that public channels omit — e.g. exact USD volumes, granular financials, raw transaction values. The platform forwards the API key when querying private channels on behalf of authorized integrations.
+Private channels MAY expose sensitive data that public channels omit - e.g. exact USD volumes, granular financials, raw transaction values. The platform forwards the API key when querying private channels on behalf of authorized integrations.
 
 ## Standard channels
 
-Each application exposes one or more **channels** — independent metric streams. The following channel IDs are recognised by the platform; applications MAY also expose custom channels.
+Each application exposes one or more **channels** - independent metric streams. The following channel IDs are recognised by the platform; applications MAY also expose custom channels.
 
 | Channel ID | `scoreUnit` | `type` |
 |---|---|---|
-| `leaderboard` | app-defined (e.g. `"Points"`, `"Lap Time (s)"`) | — |
-| `volume` | `"USD Volume"` | — |
-| `transactions` | `"Transactions"` | — |
+| `leaderboard` | app-defined (e.g. `"Points"`, `"Lap Time (s)"`) | - |
+| `volume` | `"USD Volume"` | - |
+| `transactions` | `"Transactions"` | - |
 | `tvl` | `"USD"` | `snapshot` |
-| `verifications` | `"Verifications"` | — |
-| `access_grants` | `"Access Grants"` | — |
-| `votes` | `"Votes"` | — |
-| `proposals` | `"Proposals"` | — |
-| `credentials` | `"Credentials"` | — |
-| `reputation_checks` | `"Reputation Checks"` | — |
-| `endorsements` | `"Endorsements"` | — |
-| `buyers` | `"Buyers"` | — |
-| `sellers` | `"Sellers"` | — |
-| `compliance_proofs` | `"Compliance Proofs"` | — |
-| `messages` | `"Messages"` | — |
-| `interactions` | `"Interactions"` | — |
+| `verifications` | `"Verifications"` | - |
+| `access_grants` | `"Access Grants"` | - |
+| `votes` | `"Votes"` | - |
+| `proposals` | `"Proposals"` | - |
+| `credentials` | `"Credentials"` | - |
+| `reputation_checks` | `"Reputation Checks"` | - |
+| `endorsements` | `"Endorsements"` | - |
+| `buyers` | `"Buyers"` | - |
+| `sellers` | `"Sellers"` | - |
+| `compliance_proofs` | `"Compliance Proofs"` | - |
+| `messages` | `"Messages"` | - |
+| `interactions` | `"Interactions"` | - |
 
-> `type` defaults to `cumulative`; `snapshot` channels reflect current state only and don't support `startDate` / `endDate` filtering. All channels are optional — implementers expose only those relevant to their use case.
+> `type` defaults to `cumulative`; `snapshot` channels reflect current state only and don't support `startDate` / `endDate` filtering. All channels are optional - implementers expose only those relevant to their use case.
 
 ## 1. App Metadata & Channels
 
@@ -144,7 +144,7 @@ GET {BASE_URL}/metrics/{channel}
 
 Returns the ordered ranking for a channel. Cumulative channels report totals within the time window; snapshot channels ignore `startDate`/`endDate`.
 
-> **Identity-resolution requirement.** Scores MUST be aggregated such that if a user interacts via multiple session wallets that delegate to the same main wallet, only the *main wallet* appears in the ranking — with its score consolidated across all its session wallets. A session wallet defaults to delegating to itself.
+> **Identity-resolution requirement.** Scores MUST be aggregated such that if a user interacts via multiple session wallets that delegate to the same main wallet, only the *main wallet* appears in the ranking - with its score consolidated across all its session wallets. A session wallet defaults to delegating to itself.
 
 **Query parameters:**
 
@@ -199,7 +199,7 @@ Returns identity and (optionally) per-channel stats for a wallet.
 
 > **Identity-resolution requirement.** Accept *either* a session wallet or a main wallet address. If the queried address is a session wallet, return the main wallet's combined stats. The `identity` object MUST explicitly show the relationship between the queried and the resolved address.
 
-If no `channel` is supplied, only `identity` and `achievements` are returned — useful for identity-resolution lookups that don't need metric data. If any requested channel has `auth: true`, the request MUST include an API key (public channels in the same request remain unauthenticated).
+If no `channel` is supplied, only `identity` and `achievements` are returned - useful for identity-resolution lookups that don't need metric data. If any requested channel has `auth: true`, the request MUST include an API key (public channels in the same request remain unauthenticated).
 
 **Response:**
 
@@ -247,7 +247,7 @@ If no `channel` is supplied, only `identity` and `achievements` are returned —
 
 ## 4. Custom channels
 
-Applications MAY define their own channels beyond the standard table — anything passed by the `/metrics` channel list works. Custom channels follow the same shape and the same authentication rules. The platform treats them generically: it queries `/metrics/{custom-id}` exactly like a standard channel.
+Applications MAY define their own channels beyond the standard table - anything passed by the `/metrics` channel list works. Custom channels follow the same shape and the same authentication rules. The platform treats them generically: it queries `/metrics/{custom-id}` exactly like a standard channel.
 
 ---
 
@@ -266,5 +266,5 @@ EffectStream is the framework that produces PRC-6-compatible servers. For an app
 
 ### Walkthroughs
 
-- [Achievement-system blog post](/docs/blog/achievement-system) — full Fastify walkthrough, TypeScript types, JSON examples.
-- [Achievements component reference](/docs/home/components/achievements) — the EffectStream developer-facing entry point.
+- [Achievement-system blog post](/docs/blog/achievement-system) - full Fastify walkthrough, TypeScript types, JSON examples.
+- [Achievements component reference](/docs/home/components/achievements) - the EffectStream developer-facing entry point.

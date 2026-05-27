@@ -13,23 +13,22 @@ Setting them allows to have different runtime scripts for different environments
 * `.env.${EFFECTSTREAM_ENV}` is loaded automatically.
 * Optionally `config.{env}.ts` can be created to load specific configuration for the environment, this file is imported by `main.{env}.ts`.
 
-The main entry point for the node is located at: `/packages/client/node/deno.json`.  
+The main entry point for the node is located at: `/packages/node/package.json`.  
 For example, if you have 2 environments: `local` and `testnet`
-```ts
+```json
 {
     "name": "@my-project-name/node",
-    "tasks": {
-        "node:start:local": "deno run -A --inspect --unstable-raw-imports src/main.local.ts",
-        "node:start:testnet": "deno run -A --inspect --unstable-raw-imports src/main.testnet.ts",
+    "scripts": {
+        "node:start:local": "bun --inspect ./src/main.local.ts",
+        "node:start:testnet": "bun --inspect ./src/main.testnet.ts",
 
-        "local": "EFFECTSTREAM_ENV=local NODE_ENV=development deno run -A --check --unstable-raw-imports scripts/start.local.ts",
-        "testnet": "EFFECTSTREAM_ENV=testnet deno run -A --check --unstable-raw-imports scripts/start.testnet.ts",
-        ...
+        "local": "EFFECTSTREAM_ENV=local NODE_ENV=development bun ./scripts/start.local.ts",
+        "testnet": "EFFECTSTREAM_ENV=testnet bun ./scripts/start.testnet.ts"
     }
 }
 ```
 
-By running `deno task testnet`:
+By running `bun run testnet`:
 1. `.env.testnet` is loaded
 2. `start.testnet.ts` is launch all the processes, once completed it will call `node:start:testnet`
 > IMPORTANT: `node:start:testnet` must match the `EFFECTSTREAM_ENV=testnet` value.

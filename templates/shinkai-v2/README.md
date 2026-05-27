@@ -1,6 +1,6 @@
 # Shinkai Quest Template
 
-AI-powered RPG demonstrating Shinkai AI node integration with Effectstream on EVM. Players navigate animal NPCs at the Panda King's court, each posing challenges evaluated by AI. Features a global token economy and PixiJS frontend.
+AI-powered RPG demonstrating Shinkai AI node integration with Effectstream. Players sign in with a **Cardano wallet** (any CIP-30 extension — Nami, Lace, Eternl, Flint, …) and navigate animal NPCs at the Panda King's court, each posing challenges evaluated by AI. Cardano CIP-8 signatures are verified by the batcher; batched inputs settle on an EVM L2 (Hardhat/Arbitrum). Features a global token economy and PixiJS frontend.
 
 ## Quick Start
 
@@ -84,7 +84,7 @@ Transaction batcher with EVM adapter factory.
 
 ### packages/frontend
 
-PixiJS game with Vite build. Players connect wallet, start a new game, and interact with four animal NPCs (Tiger, Monkey, Bison, Panda King).
+PixiJS game with Vite build. Players connect a Cardano wallet (CIP-30 picker if multiple are installed), start a new game, and interact with four animal NPCs (Tiger, Monkey, Bison, Panda King). Each in-game action is signed with CIP-8 `signData` and submitted through the batcher.
 
 ### packages/tests
 

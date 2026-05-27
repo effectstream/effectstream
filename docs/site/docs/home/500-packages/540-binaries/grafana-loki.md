@@ -6,12 +6,17 @@ sidebar_label: "grafana-loki"
 
 <!-- Generated from packages/binaries/grafana-loki/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/grafana-loki`](https://www.npmjs.com/package/@effectstream/grafana-loki)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/grafana-loki)
+> Package: **[`@effectstream/grafana-loki`](https://www.npmjs.com/package/@effectstream/grafana-loki)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/grafana-loki)
 
-NPM wrapper around [Grafana Loki](https://grafana.com/oss/loki/) — the
+NPM wrapper around [Grafana Loki](https://grafana.com/oss/loki/) - the
 log-aggregation backend EffectStream nodes ship structured logs to in
 local development. Installs a pinned binary into
 `node_modules/.bin/grafana-loki`.
+
+- Pinned Grafana Loki binary, the local log backend for `@effectstream/log` output.
+- One-command start via `bunx grafana-loki -config.file=loki.yaml`.
+- Pairs with `@effectstream/grafana-alloy` so traces and logs land in one place.
+- Component-tagged logs queryable from a local Grafana out of the box.
 
 ## Install
 
@@ -44,5 +49,5 @@ config.
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/binaries/grafana-loki
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/binaries/grafana-loki
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/binaries/grafana-loki
 - Upstream Grafana Loki: https://grafana.com/oss/loki/

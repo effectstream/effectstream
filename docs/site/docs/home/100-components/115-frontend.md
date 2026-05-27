@@ -4,7 +4,7 @@ The frontend is the user-facing part of your decentralized application, such as 
 
 ## Getting Started
 
-The `/templates/evm-midnight/` template includes a `/packages/frontend/` folder containing a complete, working web application to serve as a starting point.
+The `/templates/evm-midnight-v2/` template includes a `/packages/frontend/` folder containing a complete, working web application to serve as a starting point.
 
 A frontend's interaction with EffectStream can be broken down into two main activities:
 *   **Writes**: Submitting new actions (transactions or signed messages) to the blockchain to change the application's state.
@@ -35,10 +35,10 @@ Integration is possible with many popular game engines:
 To change the state of the application, the frontend must initiate a transaction or a signed message.
 
 ### Connecting a Wallet
-All write operations begin with connecting a user's wallet. The `@effectstream/wallet` package provides a unified interface for connecting to various blockchain ecosystems.
+All write operations begin with connecting a user's wallet. The `@effectstream/wallets` package provides a unified interface for connecting to various blockchain ecosystems.
 
 ```ts
-import { WalletMode, login } from '@effectstream/wallet';
+import { WalletMode, login } from '@effectstream/wallets';
 
 // Example for an injected EVM wallet like MetaMask
 const loginInfo = await login(WalletMode.EvmInjected);
@@ -47,7 +47,7 @@ Supported wallet modes include `EvmInjected`, `Cardano`, `Mina`, `AvailJs`, and 
 
 ### Submission Methods
 1.  **Direct Contract Interaction**: The standard Web3 approach where your frontend calls a function on a smart contract directly (e.g., minting an NFT).
-2.  **Direct EffectStream L2 Contract Interaction**: A specific direct interaction where your frontend calls the `submitInput` method on your game's `EffectStreamL2Contract` with a grammar-formatted payload. The user pays the gas for this transaction.
+2.  **Direct EffectStream L2 Contract Interaction**: A specific direct interaction where your frontend calls the `submitInput` method on your game's `EffectstreamL2Contract` with a grammar-formatted payload. The user pays the gas for this transaction.
 3.  **Batcher Interaction**: The recommended approach for the best UX. The user signs a message, and the frontend sends it to a **Batcher** service via an HTTP request. The Batcher then submits the input on-chain, often covering the gas fee and allowing users from different chains to interact.
 
 Here is an example of a frontend submitting an input to the batcher:

@@ -6,12 +6,17 @@ sidebar_label: "bitcoin-contracts"
 
 <!-- Generated from packages/chains/bitcoin-contracts/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
 
-> Package: **[`@effectstream/bitcoin-contracts`](https://www.npmjs.com/package/@effectstream/bitcoin-contracts)** · [Source](https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/bitcoin-contracts)
+> Package: **[`@effectstream/bitcoin-contracts`](https://www.npmjs.com/package/@effectstream/bitcoin-contracts)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/chains/bitcoin-contracts)
 
 Bitcoin-side helper scripts for local EffectStream development. Ships
 two `bun run` scripts used by the orchestrator and templates: a regtest
 block generator and a "wait for block N" RPC poller. Built on
 [`bitcoinjs-lib`](https://github.com/bitcoinjs/bitcoinjs-lib).
+
+- Two `bun run` scripts: regtest block generator and wait-for-block RPC poller.
+- Talks to Bitcoin Core's JSON-RPC at `http://127.0.0.1:18443` by default.
+- Pair with `@effectstream/bitcoin-core` for the binary.
+- Used by the orchestrator's Bitcoin step and the Bitcoin E2E suite.
 
 ## Install
 
@@ -23,7 +28,7 @@ npm install @effectstream/bitcoin-contracts
 
 ## Standalone usage
 
-The package exports two scripts (no `bin` entries — invoke them via the
+The package exports two scripts (no `bin` entries - invoke them via the
 subpath exports):
 
 ```bash
@@ -43,7 +48,7 @@ to get the actual Bitcoin Core binary.
 
 `@effectstream/orchestrator/launch-bitcoin` declares the Bitcoin step's
 process graph and resolves these scripts by name from your template's
-package — so as long as your template's `package.json` exposes
+package - so as long as your template's `package.json` exposes
 `chain:start`, `wait-for-block`, and `generate:blocks` scripts that
 delegate to this package's subpaths, the orchestrator picks them up.
 
@@ -52,14 +57,14 @@ consume the regtest chain that these scripts keep moving.
 
 ## Key exports
 
-- `./generate-blocks` — script for regtest block generation. Args: `--block-interval <ms>`.
-- `./wait-for-block` — script to poll Bitcoin Core until a target height. Args: `--block-height <n>`.
-- `./mod` — re-exports `./generate-blocks` (the `bitcoin.payments` / `ECPair` helpers it builds on are inlined, not exported separately).
+- `./generate-blocks` - script for regtest block generation. Args: `--block-interval <ms>`.
+- `./wait-for-block` - script to poll Bitcoin Core until a target height. Args: `--block-height <n>`.
+- `./mod` - re-exports `./generate-blocks` (the `bitcoin.payments` / `ECPair` helpers it builds on are inlined, not exported separately).
 
 ## Examples
 
 The Bitcoin sync E2E suite at
-[`e2e/bitcoin/`](https://github.com/PaimaStudios/paima-engine/tree/main/e2e/bitcoin)
+[`e2e/bitcoin/`](https://github.com/effectstream/effectstream/tree/main/e2e/bitcoin)
 shows the full flow: orchestrator boots `@effectstream/bitcoin-core`,
 this package generates blocks, sync ingests them, the test asserts on
 the DB.
@@ -67,5 +72,5 @@ the DB.
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/chains/bitcoin-contracts
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/chains/bitcoin-contracts
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/chains/bitcoin-contracts
 - bitcoinjs-lib: https://github.com/bitcoinjs/bitcoinjs-lib

@@ -30,7 +30,7 @@ erDiagram
 
 ### Managing Accounts via Built-in Commands
 
-You do not need to write any custom STFs to manage accounts. EffectStream provides a suite of built-in [Grammar](./111-grammar.md) commands that you can call directly through the `EffectStreamL2Contract`. All administrative actions are secured by cryptographic signatures.
+You do not need to write any custom STFs to manage accounts. EffectStream provides a suite of built-in [Grammar](./111-grammar.md) commands that you can call directly through the `EffectstreamL2Contract`. All administrative actions are secured by cryptographic signatures.
 
 #### `&createAccount`
 This is the entry point for creating a new EffectStream Account.

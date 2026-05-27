@@ -97,7 +97,7 @@ const config = {
           rehypePlugins: [katex],
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          editUrl: "https://github.com/PaimaStudios/paima-engine-docs/tree/main",
+          editUrl: "https://github.com/effectstream/effectstream/tree/main/docs/site/",
         },
         // pages: {
         //   path: 'docs/home',
@@ -233,6 +233,7 @@ const config = {
         },
         items: [
           { to: "/", label: "Docs", position: "left" },
+          { to: "/scaffold-with-ai", label: "Scaffold with AI", position: "left" },
           { to: "/blog", label: "Blog", position: "left" },
           // {
           //   type: "localeDropdown",

@@ -1,6 +1,6 @@
 # EffectStream L2 Contract
 
-The `EffectStreamL2Contract` is a specialized, gas-efficient smart contract that serves as the primary "mailbox" or data entry point for your EffectStream application. While EffectStream can monitor any contract, the `EffectStreamL2Contract` is optimized for submitting user actions and game moves directly to your state machine.
+The `EffectstreamL2Contract` is a specialized, gas-efficient smart contract that serves as the primary "mailbox" or data entry point for your EffectStream application. While EffectStream can monitor any contract, the `EffectstreamL2Contract` is optimized for submitting user actions and game moves directly to your state machine.
 
 Its design is intentionally simple: its main job is to accept arbitrary data from a user, wrap it in an event, and securely log that event on the blockchain for the EffectStream to process.
 
@@ -11,7 +11,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/utils/Address.sol";
 
 /// @dev The main L2 contract for an EffectStream L2.
-contract EffectStreamL2Contract {
+contract EffectstreamL2Contract {
     // ... (events and state variables)
 
     /// @dev Emits the `EffectStreamGameInteraction` event, logging the `msg.sender`, `data`, and `msg.value`.
@@ -38,9 +38,9 @@ The contract's logic centers around a single function and a single event.
 
 ### How it Connects to the Grammar and State Machine
 
-The `EffectStreamL2Contract` is the critical on-chain starting point that triggers your off-chain logic. The connection happens through a precise sequence of steps orchestrated by the EffectStream:
+The `EffectstreamL2Contract` is the critical on-chain starting point that triggers your off-chain logic. The connection happens through a precise sequence of steps orchestrated by the EffectStream:
 
-1.  **User Action**: A user on your frontend initiates an action, which calls `effectstreamSubmitGameInput` on the deployed `EffectStreamL2Contract` with a formatted string (e.g., `["attack","player1","monster7"]`).
+1.  **User Action**: A user on your frontend initiates an action, which calls `effectstreamSubmitGameInput` on the deployed `EffectstreamL2Contract` with a formatted string (e.g., `["attack","player1","monster7"]`).
 2.  **Event Emission**: The contract executes and emits the `EffectStreamGameInteraction` event onto the blockchain.
 3.  **Sync Service Detection**: The EffectStream's **Sync Service**, which is constantly monitoring the blockchain, has a **Primitive** configured to listen specifically for the `EffectStreamGameInteraction` event from your contract's address.
 4.  **Grammar Parsing**: When the Sync Service detects a new event, it takes the `data` payload and passes it to the **Grammar Parser**. The parser checks the prefix (`["attack",...`) to identify which rule to apply. It then validates and parses the rest of the string into a structured, type-safe object.
@@ -51,14 +51,14 @@ This flow creates a secure and deterministic bridge from an on-chain event to yo
 ```mermaid
 sequenceDiagram
     participant User/Frontend
-    participant EVM Blockchain (EffectStreamL2Contract)
+    participant EVM Blockchain (EffectstreamL2Contract)
     participant EffectStream (Sync Service)
     participant EffectStream (Grammar Parser)
     participant EffectStream (State Machine)
 
-    User/Frontend->>EVM Blockchain (EffectStreamL2Contract): Calls `effectstreamSubmitGameInput("attack|p1|m7")`
-    EVM Blockchain (EffectStreamL2Contract)->>EVM Blockchain (EffectStreamL2Contract): Emits `EffectStreamGameInteraction` event
-    EffectStream (Sync Service)->>EVM Blockchain (EffectStreamL2Contract): [Primitive] Detects Event
+    User/Frontend->>EVM Blockchain (EffectstreamL2Contract): Calls `effectstreamSubmitGameInput("attack|p1|m7")`
+    EVM Blockchain (EffectstreamL2Contract)->>EVM Blockchain (EffectstreamL2Contract): Emits `EffectStreamGameInteraction` event
+    EffectStream (Sync Service)->>EVM Blockchain (EffectstreamL2Contract): [Primitive] Detects Event
     EffectStream (Sync Service)->>EffectStream (Grammar Parser): Passes raw data: ["attack","p1","m7"]
     EffectStream (Grammar Parser)->>EffectStream (State Machine): Parses input and identifies 'attack' prefix
     EffectStream (State Machine)->>EffectStream (State Machine): Executes 'attack' STF with parsed data
@@ -66,7 +66,7 @@ sequenceDiagram
 
 ### Ownership and Monetization
 
-The `EffectStreamL2Contract` also includes administrative functions that allow the contract owner to manage it and optionally generate revenue.
+The `EffectstreamL2Contract` also includes administrative functions that allow the contract owner to manage it and optionally generate revenue.
 
 *   **`setOwner(address newOwner)`**: Transfers ownership of the contract to a new address.
 *   **`setFee(uint256 newFee)`**: Sets a fee (in wei) that users must pay to call `effectstreamSubmitGameInput`. This is a simple way to monetize your dApp, as every action can contribute to a fee pool.
@@ -113,7 +113,7 @@ Typically, you will not construct this `&B` string manually. The Batcher service
 
 EffectStream includes a flexible, L2-native account system that goes beyond simple wallet addresses. A single "EffectStream Account" can be controlled by multiple wallets (e.g., a hot wallet on a mobile device and a hardware wallet for security), and the primary controlling wallet can be changed. This provides a form of L2 Account Abstraction.
 
-These commands allow users to manage their EffectStream Account directly through the `EffectStreamL2Contract`.
+These commands allow users to manage their EffectStream Account directly through the `EffectstreamL2Contract`.
 
 *   **`&createAccount`**
     *   **Description**: Creates a new, empty EffectStream Account. The wallet that sends this transaction (`msg.sender`) automatically becomes the first and primary address for this new account.

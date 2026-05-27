@@ -2,8 +2,13 @@
 
 A standalone migration runner for EffectStream's database. Apply the
 EffectStream system schema plus your migrations to a Postgres or PgLite
-instance without booting the full runtime — handy for unit tests and CI
+instance without booting the full runtime - handy for unit tests and CI
 fixtures.
+
+- Standalone migration runner: apply Effectstream's system schema + your migrations to a fresh DB.
+- For tests and CI fixtures; do not point at a production database.
+- Exists separately from `@effectstream/db` to break a circular dep with `@effectstream/sm`.
+- Single export: `standAloneApplyMigrations`.
 
 ## Install
 
@@ -14,7 +19,7 @@ npm install @effectstream/db-emulator
 ```
 
 This package exists separately from `@effectstream/db` to break the
-circular dependency between `@effectstream/db` and `@effectstream/sm` —
+circular dependency between `@effectstream/db` and `@effectstream/sm` -
 both of which `standAloneApplyMigrations` needs.
 
 ## Standalone usage
@@ -50,7 +55,7 @@ write.
 
 ## Key exports
 
-- `standAloneApplyMigrations(db, migrationTable, config, userPrimitives?)` — apply the EffectStream system migrations plus your own, against the given pg client.
+- `standAloneApplyMigrations(db, migrationTable, config, userPrimitives?)` - apply the EffectStream system migrations plus your own, against the given pg client.
 
 ## Examples
 
@@ -62,4 +67,4 @@ For the broader migration pattern, see
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/node/db-emulator
-- Source: https://github.com/PaimaStudios/paima-engine/tree/main/packages/node-sdk/db-emulator
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/db-emulator
