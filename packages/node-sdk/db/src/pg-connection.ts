@@ -1,10 +1,28 @@
 import type { Client, PoolClient, PoolConfig } from "pg";
 import pg from "pg";
-import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
+import {
+  ComponentNames,
+  installUnhandledRejectionLogger,
+  log,
+  SeverityNumber,
+} from "@effectstream/log";
 import { type Operation, run, sleep } from "effection";
 import { ENV } from "@effectstream/utils/node-env";
+import { isTransientPgError } from "./transient-pg-errors.ts";
+
+export { isTransientPgError } from "./transient-pg-errors.ts";
 
 let readonlyDBConn: pg.Pool | null;
+let unhandledRejectionLoggerInstalled = false;
+
+function logPoolError(err: unknown, tags: string[]): void {
+  log.remote(
+    ComponentNames.EFFECTSTREAM_PGLITE,
+    tags,
+    isTransientPgError(err) ? SeverityNumber.WARN : SeverityNumber.ERROR,
+    (l) => l(err),
+  );
+}
 
 // PGLite does not support multiple connections, so we need to use a mutex to ensure that only one query is executed at a time.
 // * For transactions use yield* acquireDBMutex(); ...Your Operations... releaseDBMutex();
@@ -148,6 +166,14 @@ export const getConnection = (
   creds?: PoolConfig,
   readonly = false,
 ): pg.Pool => {
+  if (!unhandledRejectionLoggerInstalled) {
+    unhandledRejectionLoggerInstalled = true;
+    installUnhandledRejectionLogger(
+      ComponentNames.EFFECTSTREAM_PGLITE,
+      isTransientPgError,
+    );
+  }
+
   if (!creds) {
     creds = {
       host: ENV.DB_HOST,
@@ -163,30 +189,19 @@ export const getConnection = (
   const MAX_CONNECTIONS = ENV.PGLITE ? 1 : 10;
 
   const pool = new pg.Pool({ ...creds, max: MAX_CONNECTIONS });
-  pool.on("error", (err: unknown) =>
-    log.remote(
-      ComponentNames.EFFECTSTREAM_PGLITE,
-      ["query"],
-      SeverityNumber.ERROR,
-      (log) => log(err),
-    ));
+  pool.on("error", (err: unknown) => logPoolError(err, ["query"]));
   pool.on("connect", (_client: PoolClient) => {
     // On each new client initiated, need to register for error(this is a serious bug on pg, the client throw errors although it should not)
     // https://github.com/brianc/node-postgres/issues/2499#issuecomment-805477725
-    _client.on("error", (err: Error) => {
-      log.remote(
-        ComponentNames.EFFECTSTREAM_PGLITE,
-        ["connect"],
-        SeverityNumber.ERROR,
-        (log) => log(err),
-      );
-    });
+    _client.on("error", (err: Error) => logPoolError(err, ["connect"]));
   });
 
   if (readonly) {
     const ensureReadOnly =
       `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;`;
-    void pool.query(ensureReadOnly); // note: this query modifies the DB state
+    void pool.query(ensureReadOnly).catch((err: unknown) =>
+      logPoolError(err, ["readonly-setup"]),
+    );
     readonlyDBConn = pool;
   }
 
@@ -199,13 +214,6 @@ export const getPersistentConnection = (creds: PoolConfig): Client => {
   client.connect(() => {});
   // https://github.com/brianc/node-postgres/issues/2499#issuecomment-805477725
   // On each new client initiated, need to register for error(this is a serious bug on pg, the client throw errors although it should not)
-  client.on("error", (err: Error) => {
-    log.remote(
-      ComponentNames.EFFECTSTREAM_PGLITE,
-      ["query"],
-      SeverityNumber.ERROR,
-      (log) => log(err),
-    );
-  });
+  client.on("error", (err: Error) => logPoolError(err, ["persistent"]));
   return client;
 };
