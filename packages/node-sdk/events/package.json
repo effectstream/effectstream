@@ -15,7 +15,7 @@
     ".": "./src/mod.ts"
   },
   "dependencies": {
-    "@effectstream/utils": "0.100.17",
+    "@effectstream/utils": "workspace:*",
     "@seriousme/opifex": "^1.11.2"
   },
   "description": "Event server for EffectStream"

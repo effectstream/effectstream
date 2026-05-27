@@ -21,8 +21,8 @@
     "./addresses": "./src/addresses.ts"
   },
   "dependencies": {
-    "@effectstream/log": "0.100.17",
-    "@effectstream/utils": "0.100.17",
+    "@effectstream/log": "workspace:*",
+    "@effectstream/utils": "workspace:*",
     "ws": "8.18.1",
     "hardhat": "3.0.4",
     "@nomicfoundation/hardhat-ignition": "3.0.2",
