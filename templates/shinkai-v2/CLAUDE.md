@@ -2,7 +2,7 @@
 
 ## What this is
 
-AI-powered RPG Effectstream template: EVM (Hardhat/Arbitrum) + Shinkai AI node. Players interact with four animal NPCs at the Panda King's court. Each NPC poses a challenge evaluated by the Shinkai AI, and the final NPC (Panda King) distributes tokens from a shared world pool based on cumulative scores.
+AI-powered RPG Effectstream template: Cardano-wallet login (any CIP-30 wallet — Nami, Lace, Eternl, Flint, …) over EVM L2 settlement (Hardhat/Arbitrum) + Shinkai AI node. Players sign in with their Cardano wallet (CIP-8 `signData`); the batcher accepts the signature and submits batched inputs to the on-chain L2. Players interact with four animal NPCs at the Panda King's court. Each NPC poses a challenge evaluated by the Shinkai AI, and the final NPC (Panda King) distributes tokens from a shared world pool based on cumulative scores.
 
 ## Commands
 
@@ -33,7 +33,7 @@ Bun monorepo with flat `packages/*` layout. All `@effectstream/*` deps are from 
 - **State machine AI calls**: `yield* World.promise(shinkai.askQuestion(...))` for async AI within STM transitions.
 - **Scheduled data**: `tick` command runs every ~60s via `createScheduledData`, adds 20 tokens to global pool.
 - **Token economy**: Global world pool starts at 10000. Panda King distributes tokens to players based on cumulative NPC scores.
-- **Frontend**: PixiJS 8 with `@pixi/ui` Input widget. Uses `@effectstream/wallets` for wallet connection and `sendTransaction` for game inputs.
+- **Frontend**: PixiJS 8 with `@pixi/ui` Input widget. Uses `@effectstream/wallets` (`WalletMode.Cardano` + `allInjectedWallets` for the CIP-30 picker) for wallet connection and `sendTransaction(..., preferBatchedMode: true)` for game inputs — routes Cardano CIP-8 signatures through the batcher.
 
 ## Ports
 
