@@ -1,5 +1,29 @@
+import { spawnSync } from "node:child_process";
 import type { ProcessConfig } from "../src/config.ts";
 import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
+
+/**
+ * Foundry's `forge` is required to compile the EVM contracts (the mod builder
+ * derives the TypeScript bindings from the Forge artifacts). It is a system
+ * toolchain, not an npm dependency, so verify it is on PATH up front and stop
+ * with an actionable message instead of letting `build:forge` die with a
+ * cryptic "command not found" (exit 127) mid-run.
+ */
+function assertForgeInstalled(): void {
+  const found = spawnSync("forge", ["--version"], { stdio: "ignore" });
+  if (found.status === 0) return;
+  throw new Error(
+    [
+      "",
+      "Foundry's `forge` was not found on your PATH, but it is required to compile the EVM contracts.",
+      "",
+      "  Install Foundry from:  https://www.getfoundry.sh/",
+      "",
+      "  (quick install)        curl -L https://foundry.paradigm.xyz | bash && foundryup",
+      "",
+    ].join("\n"),
+  );
+}
 
 export const EvmNames = {
   HARDHAT: "hardhat",
@@ -24,6 +48,7 @@ export function launchEvm(
   opts?: { ports?: number[] },
 ): ProcessConfig[] {
   const cwd = resolvePackageDir("launchEvm", packageName, location, REQUIRED_SCRIPTS);
+  assertForgeInstalled();
   const ports = opts?.ports ?? [8545, 8546];
 
   return [
