@@ -9,7 +9,6 @@
   },
   "scripts": {
     "dev": "vite",
-    "dev:with-batcher": "./scripts/dev-with-batcher.sh",
     "build": "vite build",
     "server:start": "bun --watch ./server/main.ts",
     "serve": "bun run build && bun run server:start"
