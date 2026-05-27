@@ -1,28 +1,16 @@
 import type { Client, PoolClient, PoolConfig } from "pg";
 import pg from "pg";
-import {
-  ComponentNames,
-  installUnhandledRejectionLogger,
-  log,
-  SeverityNumber,
-} from "@effectstream/log";
+import { ComponentNames, installUnhandledRejectionLogger } from "@effectstream/log";
 import { type Operation, run, sleep } from "effection";
 import { ENV } from "@effectstream/utils/node-env";
 import { isTransientPgError } from "./transient-pg-errors.ts";
+import { poolErrors } from "./pool-error-tracker.ts";
 
 export { isTransientPgError } from "./transient-pg-errors.ts";
+export { poolErrors, PoolErrorTracker } from "./pool-error-tracker.ts";
 
 let readonlyDBConn: pg.Pool | null;
 let unhandledRejectionLoggerInstalled = false;
-
-function logPoolError(err: unknown, tags: string[]): void {
-  log.remote(
-    ComponentNames.EFFECTSTREAM_PGLITE,
-    tags,
-    isTransientPgError(err) ? SeverityNumber.WARN : SeverityNumber.ERROR,
-    (l) => l(err),
-  );
-}
 
 // PGLite does not support multiple connections, so we need to use a mutex to ensure that only one query is executed at a time.
 // * For transactions use yield* acquireDBMutex(); ...Your Operations... releaseDBMutex();
@@ -156,6 +144,8 @@ export async function runPreparedQuery<T>(
     });
     result = await Promise.race([p, timeout]);
     clearTimeout(t);
+    // A successful query proves the DB is reachable end-to-end
+    poolErrors.markHealthy();
   } finally {
     releaseDBMutex(`pq:${name}`);
   }
@@ -189,18 +179,20 @@ export const getConnection = (
   const MAX_CONNECTIONS = ENV.PGLITE ? 1 : 10;
 
   const pool = new pg.Pool({ ...creds, max: MAX_CONNECTIONS });
-  pool.on("error", (err: unknown) => logPoolError(err, ["query"]));
+  pool.on("error", (err: unknown) => poolErrors.log(err, ["query"]));
   pool.on("connect", (_client: PoolClient) => {
-    // On each new client initiated, need to register for error(this is a serious bug on pg, the client throw errors although it should not)
+    // Successful connect proves the DB is reachable — reset the failure clock.
+    poolErrors.markHealthy();
+    // Register a per-client error handler; pg can emit errors on idle clients.
     // https://github.com/brianc/node-postgres/issues/2499#issuecomment-805477725
-    _client.on("error", (err: Error) => logPoolError(err, ["connect"]));
+    _client.on("error", (err: Error) => poolErrors.log(err, ["connect"]));
   });
 
   if (readonly) {
     const ensureReadOnly =
       `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;`;
     void pool.query(ensureReadOnly).catch((err: unknown) =>
-      logPoolError(err, ["readonly-setup"]),
+      poolErrors.log(err, ["readonly-setup"]),
     );
     readonlyDBConn = pool;
   }
@@ -213,7 +205,6 @@ export const getPersistentConnection = (creds: PoolConfig): Client => {
   const client = new pg.Client(creds);
   client.connect(() => {});
   // https://github.com/brianc/node-postgres/issues/2499#issuecomment-805477725
-  // On each new client initiated, need to register for error(this is a serious bug on pg, the client throw errors although it should not)
-  client.on("error", (err: Error) => logPoolError(err, ["persistent"]));
+  client.on("error", (err: Error) => poolErrors.log(err, ["persistent"]));
   return client;
 };
