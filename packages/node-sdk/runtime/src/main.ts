@@ -6,8 +6,11 @@ import {
 import {
   acquireDBMutex,
   createDynamicTables,
+  detectCapabilities,
   getConnection,
   getLastNonEmptyBlockHash,
+  pgIvmStrategy,
+  plainViewStrategy,
   releaseDBMutex,
   resetPublicTables,
   runSnapshotLoop,
@@ -317,11 +320,15 @@ function* startup(
   const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
     syncInfo);
 
+  const capabilities = yield* until(detectCapabilities(dbConn as any));
+  const viewStrategy = capabilities.pgIvm ? pgIvmStrategy : plainViewStrategy;
+
   yield* createDynamicTables(
     versionInfo,
     lastBlockHeight,
     dbConn as any, // Client,
     syncProtocols,
+    viewStrategy,
   );
 
   releaseDBMutex(`startup-node`);
