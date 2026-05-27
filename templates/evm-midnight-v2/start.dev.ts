@@ -9,37 +9,13 @@ const midnightDeps = [MidnightNames.CONTRACT_DEPLOY];
 
 export default {
   processes: [
-    // Build the frontend alone, before the memory-heavy Midnight runtime starts:
-    // low-memory machines OOM when the vite build runs alongside the Midnight
-    // node/proof-server/indexer. Its only generated dependency is the EVM
-    // bindings (erc721dev, from GENERATE_MOD) — the Compact contract it imports
-    // is committed — so it can run as soon as the EVM contracts are ready.
-    {
-      name: "frontend-build",
-      description: "Build frontend",
-      cwd: path.join(root, "packages/frontend"),
-      args: ["run", "build"],
-      waitToExit: true,
-      type: "system-dependency",
-      critical: true,
-      dependsOn: [EvmNames.GENERATE_MOD],
-    },
-
     ...launchPglite().map(p =>
       p.name === "pglite" ? { ...p, env: { ...p.env, DEBUG_PGLITE: "0" } } : p
     ),
     ...launchEvm("@evm-midnight/contracts-evm", { cwd: path.join(root, "packages/contracts-evm") }),
-
-    // Gate the whole Midnight runtime on frontend-build (and transitively
-    // sync/batcher, which depend on the contract deploy) so nothing heavy runs
-    // during the build.
     ...launchMidnight("@evm-midnight/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
-      env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
-    }).map(p =>
-      p.name === MidnightNames.NODE
-        ? { ...p, dependsOn: [...(p.dependsOn ?? []), "frontend-build"] }
-        : p
-    ),
+          env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
+    }),
 
     {
       name: "sync",
@@ -67,12 +43,21 @@ export default {
     },
 
     {
-      // Serves the output produced by frontend-build (server:start, no rebuild)
-      // so the heavy vite build only ever runs once — in the isolated step above.
+      name: "frontend-build",
+      description: "Build frontend",
+      cwd: path.join(root, "packages/frontend"),
+      args: ["run", "build"],
+      waitToExit: true,
+      type: "system-dependency",
+      critical: true,
+      dependsOn: [EvmNames.GENERATE_MOD, ...midnightDeps],
+    },
+
+    {
       name: "frontend-server",
       description: "Serve frontend",
       cwd: path.join(root, "packages/frontend"),
-      args: ["run", "server:start"],
+      args: ["run", "serve"],
       waitToExit: false,
       type: "system-dependency",
       critical: true,
