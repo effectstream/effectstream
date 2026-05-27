@@ -63,7 +63,7 @@ export {
   getPrimitiveIntermediatePrefix,
   getPrimitivePrefix,
 } from "./dynamic-tables.ts";
-export { detectCapabilities } from "./capabilities.ts";
+export { detectCapabilities, selectViewStrategy } from "./capabilities.ts";
 export type { DatabaseCapabilities } from "./capabilities.ts";
 export {
   pgIvmStrategy,

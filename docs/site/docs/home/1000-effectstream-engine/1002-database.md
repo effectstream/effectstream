@@ -56,6 +56,40 @@ bun run --cwd packages/database pgtyped:update
 ```
 This introspects your SQL files and database schema, then writes a `*.queries.ts` file next to each `*.sql` with fully-typed wrapper functions.
 
+### Required Extension: `pg_ivm`
+
+Effectstream relies on the [`pg_ivm`](https://github.com/sraoss/pg_ivm) PostgreSQL extension to maintain the read-side views over each Primitive's intermediate state (`primitives.<view>`). `pg_ivm` produces an *incrementally maintained materialized view* — a compact, up-to-date projection that the engine writes through synchronously on each accounting update, so reads from `primitives.<view>` hit a small physical table instead of scanning the full intermediate.
+
+This matters because the intermediate tables grow monotonically: when an ERC20 holder transfers their full balance out, their row stays (with `balance = 0`) so that future credits can find it. On a long-lived token with millions of historical addresses, the intermediate can be 10× to 100× the size of the currently-active set. `pg_ivm` filters that down at write time so reads stay fast forever.
+
+**The engine aborts at startup when `pg_ivm` is not installed.** You will see a multi-line error explaining the two ways forward. To install:
+
+```sh
+# From source — works on any self-hosted Postgres 14+
+git clone --depth 1 --branch v1.11 https://github.com/sraoss/pg_ivm
+cd pg_ivm && make && sudo make install
+
+# Then in your database (as a superuser):
+CREATE EXTENSION pg_ivm;
+```
+
+#### `ALLOW_NO_PG_IVM=true` — dev/test fallback
+
+If you cannot install `pg_ivm` (managed Postgres providers like RDS, Cloud SQL, or Neon don't allow custom extensions), you can opt into a fallback path by setting:
+
+```sh
+ALLOW_NO_PG_IVM=true
+```
+
+In this mode the engine creates plain SQL `VIEW`s over the intermediate tables instead of incrementally maintained ones. Correctness is identical — the underlying trigger that maintains the intermediate is the same in both modes, so reads always see a transactionally-consistent snapshot. **But performance is not.** Every read of `primitives.<view>` becomes a sequential scan over the full intermediate with the filter applied at read time. For high-cardinality contracts (popular tokens, long-running games) this becomes unusable past some scale.
+
+| Mode | Read cost | Suitable for |
+| :--- | :--- | :--- |
+| `pg_ivm` (default) | Index lookup on a compact materialized table | Production at any scale |
+| `ALLOW_NO_PG_IVM=true` | Seq scan + filter over the full intermediate | Dev / test / low-volume apps only |
+
+When running with `ALLOW_NO_PG_IVM=true`, the engine emits a prominent `[WARN]` log line on every startup so the degraded mode is visible.
+
 ### System Tables Overview
 
 The `effectstream` schema contains a number of tables essential for the engine's operation. Here are a few of the most important ones:

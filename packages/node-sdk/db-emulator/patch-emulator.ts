@@ -2,8 +2,7 @@ import { run } from "effection";
 import {
   createDynamicTables,
   detectCapabilities,
-  pgIvmStrategy,
-  plainViewStrategy,
+  selectViewStrategy,
 } from "@effectstream/db";
 import type { Client } from "pg";
 import { applyMigrations } from "@effectstream/db/version";
@@ -67,6 +66,7 @@ export async function standAloneApplyMigrations(
   );
 
   const capabilities = await detectCapabilities(db as any);
+  const viewStrategy = selectViewStrategy(capabilities);
 
   await run(function* () {
     return yield* createDynamicTables(
@@ -79,7 +79,7 @@ export async function standAloneApplyMigrations(
       0,
       db,
       config as any,
-      capabilities.pgIvm ? pgIvmStrategy : plainViewStrategy,
+      viewStrategy,
     );
   });
   const migrations = migrationTable;

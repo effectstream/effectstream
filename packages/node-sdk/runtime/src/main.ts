@@ -9,11 +9,10 @@ import {
   detectCapabilities,
   getConnection,
   getLastNonEmptyBlockHash,
-  pgIvmStrategy,
-  plainViewStrategy,
   releaseDBMutex,
   resetPublicTables,
   runSnapshotLoop,
+  selectViewStrategy,
 } from "@effectstream/db";
 import { EventBroker } from "@effectstream/event-server";
 import { ENV } from "@effectstream/utils/node-env";
@@ -321,7 +320,7 @@ function* startup(
     syncInfo);
 
   const capabilities = yield* until(detectCapabilities(dbConn as any));
-  const viewStrategy = capabilities.pgIvm ? pgIvmStrategy : plainViewStrategy;
+  const viewStrategy = selectViewStrategy(capabilities);
 
   yield* createDynamicTables(
     versionInfo,
