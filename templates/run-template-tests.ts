@@ -47,6 +47,23 @@ async function runTemplate(name: string): Promise<Result> {
   console.log(`${"=".repeat(60)}\n`);
 
   try {
+    console.log(`> bun install\n`);
+    const install = Bun.spawn(["bun", "install"], {
+      cwd: dir,
+      stdout: "inherit",
+      stderr: "inherit",
+      env: { ...process.env },
+    });
+    const installExit = await install.exited;
+    if (installExit !== 0) {
+      return {
+        name,
+        success: false,
+        duration: Date.now() - start,
+        error: `bun install failed (exit code ${installExit})`,
+      };
+    }
+
     const proc = Bun.spawn(["bun", "run", "test"], {
       cwd: dir,
       stdout: "inherit",
