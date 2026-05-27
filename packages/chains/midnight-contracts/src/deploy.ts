@@ -19,6 +19,7 @@ import { mnemonicToSeed } from "./mnemonicToSeed.ts";
 import type { NetworkUrls, DeployConfig, WalletResult } from "./types.ts";
 import { buildWalletAndWaitForFunds, extractInitialOwnerFromWallet } from "./build-wallet.ts";
 import { configureMidnightNodeProviders } from "./providers.ts";
+import { deployMidnightContractPhased } from "./deploy-phased.ts";
 import { midnightNetworkConfig } from "./midnight-env.ts";
 
 function checkEnvVariables(): void {
@@ -218,32 +219,47 @@ export async function deployMidnightContract(
       CompiledContract.withCompiledFileAssets(managedDir),
     );
 
-    const deployOptions: {
-      compiledContract: CompiledContract.CompiledContract<
-        Contract<undefined, Witnesses<undefined>>,
-        undefined,
-        never
-      >;
-      privateStateId: PrivateStateId;
-      initialPrivateState: Contract.PrivateState<any>;
-      signingKey?: SigningKey;
-      args: Contract.InitializeParameters<any>;
-    } = {
-      compiledContract: MyCompiledContract as any,
-      privateStateId: config.privateStateId as PrivateStateId,
-      initialPrivateState:
-        config.initialPrivateState as Contract.PrivateState<any>,
-      args: (deployArgs && deployArgs.length > 0
-        ? deployArgs
-        : []) as Contract.InitializeParameters<any>,
-      signingKey: undefined,
-    };
+    let contractAddress: string;
+    if (config.phasedVerifierKeys) {
+      // Opt-in path for contracts with too many circuits to deploy in a single
+      // transaction: deploy with no verifier keys, then insert each circuit's
+      // key one transaction at a time.
+      log.info("Phased verifier-key deployment enabled.");
+      contractAddress = await deployMidnightContractPhased(
+        providers,
+        MyCompiledContract,
+        config,
+        deployArgs,
+        walletResult,
+        zkConfigPath,
+      );
+      log.info("Contract deployed (phased).");
+    } else {
+      const deployOptions: {
+        compiledContract: CompiledContract.CompiledContract<
+          Contract<undefined, Witnesses<undefined>>,
+          undefined,
+          never
+        >;
+        privateStateId: PrivateStateId;
+        initialPrivateState: Contract.PrivateState<any>;
+        signingKey?: SigningKey;
+        args: Contract.InitializeParameters<any>;
+      } = {
+        compiledContract: MyCompiledContract as any,
+        privateStateId: config.privateStateId as PrivateStateId,
+        initialPrivateState:
+          config.initialPrivateState as Contract.PrivateState<any>,
+        args: (deployArgs && deployArgs.length > 0
+          ? deployArgs
+          : []) as Contract.InitializeParameters<any>,
+        signingKey: undefined,
+      };
 
-    const deployedContract = await deployContract(providers, deployOptions);
-    log.info("Contract deployed.");
-
-    const contractAddress =
-      deployedContract.deployTxData.public.contractAddress;
+      const deployedContract = await deployContract(providers, deployOptions);
+      log.info("Contract deployed.");
+      contractAddress = deployedContract.deployTxData.public.contractAddress;
+    }
     log.info(`Contract address: ${contractAddress}`);
 
     const baseContractFileName =

@@ -75,6 +75,25 @@ const address = await deployMidnightContract(config, network);
 
 The deploy helper creates and funds a wallet from the genesis mint seed, runs the deployment, and writes the resulting address to `${contractName}.${networkId}.json` so the next `readMidnightContract` call picks it up.
 
+### Contracts with many circuits (phased deployment)
+
+A standard deploy carries every circuit's verifier key in a single transaction. For contracts with enough circuits, that transaction exceeds the node's per-block limits and fails with `Transaction would exhaust block limits`. Set `phasedVerifierKeys: true` to instead deploy the contract with no verifier keys and then insert each circuit's key in its own transaction:
+
+```typescript
+const address = await deployMidnightContract({
+  ...config,
+  phasedVerifierKeys: true, // opt-in; default is a single-transaction deploy
+});
+```
+
+Phased mode writes progress to a resume-state file (`deployment-state.json` by default) and removes it on success, so an interrupted run can be re-run to continue from the last inserted circuit instead of redeploying. Tunables:
+
+- `phasedVerifierKeys?: boolean` — enable phased deployment (default `false`).
+- `vkInsertRetries?: number` — per-circuit retry count for key insertion (default `3`).
+- `phasedStateFile?: string` — resume-state file path (default `deployment-state.json` in the CWD).
+
+The circuit list is enumerated automatically from the contract's compiled `keys/` directory, so no per-contract configuration is required.
+
 ## Inside Effectstream
 
 `@effectstream/midnight-contracts` is the seam between Midnight contract artifacts on disk and the code that reads or deploys them. Templates that target Midnight call `readMidnightContract` from their node startup to resolve the on-chain address; the orchestrator's deploy step calls `deployMidnightContract` to put one there in the first place. On the sync side, `@effectstream/sync`'s `MidnightFetcher` consumes the node behind both calls.
@@ -87,7 +106,8 @@ The deploy helper creates and funds a wallet from the genesis mint seed, runs th
 
 `@effectstream/midnight-contracts/deploy`:
 
-- `deployMidnightContract(config, networkUrls?)`: deploys and returns the address. Persists the address to a JSON file.
+- `deployMidnightContract(config, networkUrls?)`: deploys and returns the address. Persists the address to a JSON file. Set `config.phasedVerifierKeys` for contracts whose circuits don't fit in a single deploy transaction.
+- `deployMidnightContractPhased(...)`: the phased deploy routine `deployMidnightContract` delegates to when `phasedVerifierKeys` is set. Exported for advanced callers that already have built providers and a wallet.
 - `DeployConfig`, `NetworkUrls`: input types.
 
 ## Examples

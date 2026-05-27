@@ -35,6 +35,25 @@ export interface DeployConfig {
     baseDir?: string;
     /** Optional flag to extract wallet address info (for contracts that need initialOwner) */
     extractWalletAddress?: boolean;
+    /**
+     * Deploy in phases instead of a single transaction.
+     *
+     * When `true`, the contract is first deployed with NO verifier keys, then each
+     * circuit's verifier key is inserted in its own transaction. Use this for
+     * contracts with many circuits whose combined verifier keys would otherwise
+     * exceed the node's per-block transaction limits ("Transaction would exhaust
+     * block limits"). Defaults to `false` (single-transaction deploy).
+     */
+    phasedVerifierKeys?: boolean;
+    /** Per-circuit retry count when inserting verifier keys in phased mode (default 3). */
+    vkInsertRetries?: number;
+    /**
+     * Path to the resume-state file used by phased mode to track progress so an
+     * interrupted deployment can be resumed. Defaults to `deployment-state.json`
+     * in the current working directory. This file is removed once the phased
+     * deployment completes successfully.
+     */
+    phasedStateFile?: string;
 }
 
 /**
