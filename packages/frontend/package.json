@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/frontend-sdk",
-  "version": "0.100.16",
+  "version": "0.100.17",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -27,7 +27,7 @@
     "build": "bun run build.ts"
   },
   "dependencies": {
-    "@effectstream/wallets": "workspace:*"
+    "@effectstream/wallets": "0.100.17"
   },
   "description": "React frontend SDK for EffectStream"
 }

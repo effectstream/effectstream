@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/log",
-  "version": "0.100.16",
+  "version": "0.100.17",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -13,7 +13,7 @@
   },
   "exports": "./src/mod.ts",
   "dependencies": {
-    "@effectstream/utils": "workspace:*",
+    "@effectstream/utils": "0.100.17",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "0.56.0",
     "@opentelemetry/exporter-logs-otlp-http": "0.56.0",

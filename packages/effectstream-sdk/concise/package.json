@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/concise",
-  "version": "0.100.16",
+  "version": "0.100.17",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -13,8 +13,8 @@
   },
   "exports": "./src/mod.ts",
   "dependencies": {
-    "@effectstream/crypto": "workspace:*",
-    "@effectstream/utils": "workspace:*",
+    "@effectstream/crypto": "0.100.17",
+    "@effectstream/utils": "0.100.17",
     "@sinclair/typebox": "0.34.41",
     "js-sha3": "^0.9.3",
     "viem": "2.37.3"

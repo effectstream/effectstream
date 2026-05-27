@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/crypto",
-  "version": "0.100.16",
+  "version": "0.100.17",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -21,7 +21,7 @@
     "mina-signer": "^3.0.7",
     "viem": "2.37.3",
     "web3-utils": "^4.3.3",
-    "@effectstream/utils": "workspace:*"
+    "@effectstream/utils": "0.100.17"
   },
   "description": "Multi-chain signature verification for EffectStream"
 }

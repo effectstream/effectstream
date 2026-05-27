@@ -1,5 +1,30 @@
+import { spawnSync } from "node:child_process";
 import type { ProcessConfig } from "../src/config.ts";
 import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
+
+/**
+ * Midnight's `compact` compiler is required to compile the Compact contracts
+ * (the midnight-contract:deploy step). It is a system toolchain, not an npm
+ * dependency, so verify it is on PATH up front and stop with an actionable
+ * message instead of failing with a cryptic "command not found" mid-deploy.
+ * Install tips mirror .github/Dockerfile.
+ */
+function assertCompactInstalled(): void {
+  const found = spawnSync("compact", ["--version"], { stdio: "ignore" });
+  if (found.status === 0) return;
+  throw new Error(
+    [
+      "",
+      "Midnight's `compact` compiler was not found on your PATH, but it is required to compile the Midnight contracts.",
+      "",
+      "  Install Compact from:  https://github.com/midnightntwrk/compact",
+      "",
+      "  (quick install)        curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh",
+      "                         compact update 0.30.0",
+      "",
+    ].join("\n"),
+  );
+}
 
 export const MidnightNames = {
   NODE: "midnight-node",
@@ -30,6 +55,7 @@ export function launchMidnight(
   },
 ): ProcessConfig[] {
   const cwd = resolvePackageDir("launchMidnight", packageName, location, REQUIRED_SCRIPTS);
+  assertCompactInstalled();
   const deployEnv: Record<string, string> = {};
   if (opts?.env?.MIDNIGHT_STORAGE_PASSWORD) {
     deployEnv.MIDNIGHT_STORAGE_PASSWORD = opts.env.MIDNIGHT_STORAGE_PASSWORD;

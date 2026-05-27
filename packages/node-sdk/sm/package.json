@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/sm",
-  "version": "0.100.16",
+  "version": "0.100.17",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -17,14 +17,14 @@
     "./grammar": "./primitives/src/grammar.ts"
   },
   "dependencies": {
-    "@effectstream/concise": "workspace:*",
-    "@effectstream/config": "workspace:*",
-    "@effectstream/coroutine": "workspace:*",
-    "@effectstream/crypto": "workspace:*",
-    "@effectstream/db": "workspace:*",
-    "@effectstream/event-client": "workspace:*",
-    "@effectstream/log": "workspace:*",
-    "@effectstream/utils": "workspace:*",
+    "@effectstream/concise": "0.100.17",
+    "@effectstream/config": "0.100.17",
+    "@effectstream/coroutine": "0.100.17",
+    "@effectstream/crypto": "0.100.17",
+    "@effectstream/db": "0.100.17",
+    "@effectstream/event-client": "0.100.17",
+    "@effectstream/log": "0.100.17",
+    "@effectstream/utils": "0.100.17",
     "pg": "8.17.2",
     "pg-tx": "^1.0.1",
     "@sinclair/typebox": "0.34.41",
