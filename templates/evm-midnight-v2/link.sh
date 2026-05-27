@@ -74,7 +74,7 @@ link_pkg "effectstream" "midnight-contracts"       "$P/chains/midnight-contracts
 link_pkg "effectstream" "npm-midnight-indexer"     "$P/binaries/midnight-indexer"
 link_pkg "effectstream" "npm-midnight-node"        "$P/binaries/midnight-node"
 link_pkg "effectstream" "npm-midnight-proof-server" "$P/binaries/midnight-proof-server"
-link_pkg "effectstream" "orchestrator-v2"          "$P/build-tools/orchestrator-v2"
+link_pkg "effectstream" "orchestrator"             "$P/build-tools/orchestrator"
 link_pkg "effectstream" "runtime"                  "$P/node-sdk/runtime"
 link_pkg "effectstream" "sm"                       "$P/node-sdk/sm"
 link_pkg "effectstream" "utils"                    "$P/effectstream-sdk/utils"
