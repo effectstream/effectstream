@@ -64,6 +64,10 @@ async function buildContracts(): Promise<void> {
   const contractsFile = "./build/contracts.ts";
   let contractsContent = getBaseContractsContent();
 
+  // Ensure the output dir exists so writeFile (which does not create parents)
+  // succeeds regardless of caller — the builder owns its own ./build directory.
+  await fs.mkdir("./build", { recursive: true });
+
   // Find all .sol files in the contracts directory
   const solFiles = await findFiles("./src/contracts", ".sol");
 
@@ -93,8 +97,13 @@ async function buildTypeScriptArtifacts(): Promise<void> {
   const forgeArtifactsDir = "./build/artifacts/forge";
 
   if (!(await exists(forgeArtifactsDir))) {
-    console.log("No forge artifacts found, skipping TypeScript generation.");
-    return;
+    // Fail loudly rather than silently emitting an empty mod.ts. The TypeScript
+    // bindings are generated from the Forge artifacts, so a missing forge build
+    // means the contract ABIs (e.g. `erc721dev`) would be absent and downstream
+    // imports would break far from the cause. Run `build:forge` before this.
+    throw new Error(
+      `No forge artifacts found at "${forgeArtifactsDir}". Run \`build:forge\` (forge build) before generating the mod — the TypeScript bindings are derived from the Forge output.`,
+    );
   }
 
   const modFile = "./build/mod.ts";
