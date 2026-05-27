@@ -6,6 +6,7 @@ packages/contracts-cardano/data/
 packages/contracts-cardano/temp/
 packages/contracts-cardano/dolos.toml
 packages/contracts-cardano/yaci-cli.history
+packages/contracts-cardano/logs/
 
 # Orchestrator logs
 .orchestrator-logs/
