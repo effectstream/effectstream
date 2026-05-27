@@ -11,21 +11,21 @@ import type { UnshieldedKeystore } from "@midnight-ntwrk/wallet-sdk-unshielded-w
  * Configuration for deploying a Midnight contract
  */
 export interface DeployConfig {
-    /** Name of the contract directory (e.g., "contract-counter", "contract-eip-20") */
+    /** Name of the contract directory containing `src/managed` (e.g., "contract-counter", "contract-eip-20"). Required. */
     contractName: string;
-    /** Base filename for contract address (e.g., "contract-counter.json"); a network suffix is appended */
-    contractFileName: string;
-    /** The Contract class to deploy */
+    /** The compiled Contract class to deploy (e.g. `Foo.Contract`). Required. */
     // deno-lint-ignore no-explicit-any
     contractClass: any;
-    /** Witness definitions */
+    /** Base filename the deployed address is written to; a network suffix is appended. Defaults to `${contractName}.json`. */
+    contractFileName?: string;
+    /** Witness definitions. Defaults to `{}` (no witnesses). */
     // deno-lint-ignore no-explicit-any
-    witnesses: any;
-    /** On-chain private state ID */
-    privateStateId: string;
-    /** Initial private state object */
+    witnesses?: any;
+    /** On-chain private state ID. Defaults to `"privateState"`. */
+    privateStateId?: string;
+    /** Initial private state object. Defaults to `{}` (for contracts with no private state). */
     // deno-lint-ignore no-explicit-any
-    initialPrivateState: any;
+    initialPrivateState?: any;
     /** Optional deployment arguments array */
     // deno-lint-ignore no-explicit-any
     deployArgs?: any[];

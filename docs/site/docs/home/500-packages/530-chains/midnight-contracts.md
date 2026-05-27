@@ -49,6 +49,8 @@ Returns `{ contractAddress, contractInfo, zkConfigPath }`. Results are cached pe
 
 ### Deploy a contract
 
+Only `contractName` and `contractClass` are required — everything else has a sensible default, so a minimal deploy is just:
+
 ```typescript
 import {
   deployMidnightContract,
@@ -56,13 +58,24 @@ import {
   type NetworkUrls,
 } from "@effectstream/midnight-contracts/deploy";
 
+// contractName must match the directory that holds `src/managed`;
+// contractClass is the compiled Contract (e.g. `export * as Counter from "./managed/contract"`).
+const address = await deployMidnightContract({
+  contractName: "contract-counter",
+  contractClass: Counter.Contract,
+});
+```
+
+Supply the rest only when your contract needs it:
+
+```typescript
 const config: DeployConfig = {
   contractName: "contract-counter",
-  contractFileName: "contract-counter.json",
   contractClass: Counter.Contract,
-  witnesses,
-  privateStateId: "counterPrivateState",
-  initialPrivateState: { privateCounter: 0 },
+  witnesses,                              // default: {} (no witnesses)
+  privateStateId: "counterPrivateState",  // default: "privateState"
+  initialPrivateState: { privateCounter: 0 }, // default: {} (no private state)
+  contractFileName: "contract-counter.json",  // default: `${contractName}.json`
 };
 
 const address = await deployMidnightContract(config);

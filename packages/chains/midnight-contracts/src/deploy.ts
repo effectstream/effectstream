@@ -210,17 +210,28 @@ export async function deployMidnightContract(
 
     log.info("Deploying contract...");
 
+    // Apply defaults so callers only pass what their contract needs. Only
+    // contractName and contractClass are truly required; everything else has a
+    // sensible default.
+    const resolvedConfig: DeployConfig = {
+      ...config,
+      contractFileName: config.contractFileName ?? `${config.contractName}.json`,
+      witnesses: config.witnesses ?? {},
+      privateStateId: config.privateStateId ?? "privateState",
+      initialPrivateState: config.initialPrivateState ?? {},
+    };
+
     // First, create the compiled contract
     const MyCompiledContract = CompiledContract.make(
-      config.contractName,
-      config.contractClass,
+      resolvedConfig.contractName,
+      resolvedConfig.contractClass,
     ).pipe(
-      CompiledContract.withWitnesses(config.witnesses as never),
+      CompiledContract.withWitnesses(resolvedConfig.witnesses as never),
       CompiledContract.withCompiledFileAssets(managedDir),
     );
 
     let contractAddress: string;
-    if (config.phasedVerifierKeys) {
+    if (resolvedConfig.phasedVerifierKeys) {
       // Opt-in path for contracts with too many circuits to deploy in a single
       // transaction: deploy with no verifier keys, then insert each circuit's
       // key one transaction at a time.
@@ -228,7 +239,7 @@ export async function deployMidnightContract(
       contractAddress = await deployMidnightContractPhased(
         providers,
         MyCompiledContract,
-        config,
+        resolvedConfig,
         deployArgs,
         walletResult,
         zkConfigPath,
@@ -247,9 +258,9 @@ export async function deployMidnightContract(
         args: Contract.InitializeParameters<any>;
       } = {
         compiledContract: MyCompiledContract as any,
-        privateStateId: config.privateStateId as PrivateStateId,
+        privateStateId: resolvedConfig.privateStateId as PrivateStateId,
         initialPrivateState:
-          config.initialPrivateState as Contract.PrivateState<any>,
+          resolvedConfig.initialPrivateState as Contract.PrivateState<any>,
         args: (deployArgs && deployArgs.length > 0
           ? deployArgs
           : []) as Contract.InitializeParameters<any>,
@@ -263,7 +274,7 @@ export async function deployMidnightContract(
     log.info(`Contract address: ${contractAddress}`);
 
     const baseContractFileName =
-      config.contractFileName ?? `${config.contractName}.json`;
+      resolvedConfig.contractFileName ?? `${config.contractName}.json`;
     const {
       dir: contractFileDir,
       name: contractFileBaseName,
