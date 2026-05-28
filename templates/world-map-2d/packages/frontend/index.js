@@ -58,7 +58,12 @@ async function joinWorld() {
     wallet,
     ["joinWorld"],
     effectstreamConfig,
-    "wait-effectstream-processed",
+    // wait-receipt: confirm the chain has the tx; the indexer + DB update
+    // arrive a beat later. We chose this over wait-effectstream-processed
+    // because that level subscribes to an MQTT WebSocket which the test
+    // orchestrator's sync node doesn't always serve. The render() poll
+    // (setTimeout in index.html) re-fetches and shows the new state.
+    "wait-receipt",
   );
 }
 
@@ -68,7 +73,12 @@ async function submitMove(x, y) {
     wallet,
     ["submitMove", x, y],
     effectstreamConfig,
-    "wait-effectstream-processed",
+    // wait-receipt: confirm the chain has the tx; the indexer + DB update
+    // arrive a beat later. We chose this over wait-effectstream-processed
+    // because that level subscribes to an MQTT WebSocket which the test
+    // orchestrator's sync node doesn't always serve. The render() poll
+    // (setTimeout in index.html) re-fetches and shows the new state.
+    "wait-receipt",
   );
 }
 
@@ -78,7 +88,12 @@ async function submitIncrement(x, y) {
     wallet,
     ["submitIncrement", x, y],
     effectstreamConfig,
-    "wait-effectstream-processed",
+    // wait-receipt: confirm the chain has the tx; the indexer + DB update
+    // arrive a beat later. We chose this over wait-effectstream-processed
+    // because that level subscribes to an MQTT WebSocket which the test
+    // orchestrator's sync node doesn't always serve. The render() poll
+    // (setTimeout in index.html) re-fetches and shows the new state.
+    "wait-receipt",
   );
 }
 

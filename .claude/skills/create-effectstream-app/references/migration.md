@@ -209,6 +209,26 @@ Replace Oak / http-server / Express with Fastify + `@fastify/static` — see `re
 >
 > Failing this is the silent-quality killer of these migrations: the test suite goes green because Phase A/B still pass and Phase C only checks "the page mounts", while the actual interactive experience is gone. Add per-template-specific `data-testid` selectors for the load-bearing gameplay elements (grid, game pieces, lobby list) so Phase C catches their absence.
 
+> ### Wallet UI: always expose both an injected and a local-JS wallet per chain
+>
+> Every migrated frontend that ships **any** wallet interaction must expose BOTH:
+>
+> 1. **An injected wallet** for production users — `WalletMode.EvmInjected` (MetaMask, Brave, Coinbase, …), `WalletMode.Cardano` (CIP-30: Nami, Eternl, …), `WalletMode.Midnight` (Lace).
+> 2. **A local-JS wallet** for dev + headless e2e — `WalletMode.EvmViem`, `WalletMode.CardanoLocal`, `WalletMode.MidnightLocal`. These are pure-JS implementations in `@effectstream/wallets` — no browser extension required.
+>
+> **Prefer `WalletMode.EvmViem` over `WalletMode.EvmEthers`.** EvmViem takes a private key + RPC URL directly and builds the viem WalletClient in-process; EvmEthers requires a pre-built `ActiveConnection<EthersApi>` that the frontend must provide externally, which is a frontend-side implementation burden that doesn't add capability. For Cardano + Midnight, the `…Local` variants are the only local-JS choice.
+>
+> Two reasons this is non-negotiable:
+> 1. **Headless e2e becomes possible.** A Playwright-driven Chromium can't install MetaMask, so the injected path is unreachable headless. The local-JS path runs entirely in-process — the headless browser can connect, sign, and submit, letting Phase C drive the full user flow (connect → grid render → submit move → API reflects move) instead of stopping at "the page mounts". `templates/world-map-2d/packages/tests/frontend/e2e.test.ts` is the reference.
+> 2. **Dev ergonomics.** The local-JS wallet is the one a dev can click through repeatedly during development without funding accounts in a real extension. The injected option stays for users on real wallets.
+>
+> Reference UI: `templates/world-map-2d/packages/frontend/index.html` (vanilla JS, dual buttons) and `templates/evm-midnight-v2/packages/frontend/client/src/components/WalletModal.tsx` (MUI). The pattern is two clearly-labelled buttons (`Connect Browser Wallet` / `Connect Local Wallet (dev)`), each calling `walletLogin({ mode, … })` with the appropriate `LoginInfo`. Tag both with `data-testid` (`connect-browser-wallet` / `connect-local-wallet`) so the Phase C interaction tests can exercise both branches.
+>
+> **Known engine gap when migrating to EvmViem (worth surfacing in this skill rather than rediscovering per template):** the `@effectstream/wallets` high-level `sendTransaction(wallet, …)` helper calls `provider.sendTransaction(...)` internally. The EvmViem provider doesn't currently implement that method — only signing primitives + a viem `walletClient`. Concrete consequences:
+> - **Connect + sign + read state from the frontend works headless.** That's already a meaningful Phase C lift over the previous smoke-only ceiling.
+> - **`sendTransaction` driven from the frontend's JS namespace under EvmViem currently rejects** with `evmProvider.sendTransaction is not a function`. The Phase B STM tests side-step this by calling `viem.walletClient.writeContract` directly, which works — so functional STM/DB coverage isn't lost.
+> - When migrating a template, write the e2e to assert connect + render + namespace exposure (per `world-map-2d`), leave a `// TODO when EvmViem implements sendTransaction` block, and **submit a separate engine fix** to round out the EvmViem provider's `IProvider` surface.
+
 ### Step 11: Remove `@ts-rest`
 
 Chess uses `@ts-rest/core`. Replace with plain Fastify routes in `packages/node/api.ts` (see `grammar-stm.md` §4).
@@ -253,7 +273,8 @@ Verify each step before moving to the next:
 - [ ] `packages/batcher/` with adapter factories + env-specific entry points
 - [ ] `packages/tests/` with phases A, B, C
 - [ ] **Frontend UX preserved** — original game grid / pieces / lobby UI is rendered, not replaced with placeholder inputs (see Step 10 banner). Add a `data-testid` on the load-bearing gameplay element (`world-grid`, `chess-board`, `lobby-list`, …) and assert it in Phase C `render.test.ts`.
-- [ ] **Wallet UI is additive** — both `Connect Browser Wallet` (`WalletMode.EvmInjected`) and `Connect Local Wallet` (`WalletMode.EvmViem` for EVM, `CardanoLocal` / `MidnightLocal` per chain) are exposed in the frontend; the original gameplay UI is untouched (model: `templates/world-map-2d/packages/frontend/index.html`).
+- [ ] **Wallet UI is additive** — both `Connect Browser Wallet` (`WalletMode.EvmInjected`) and `Connect Local Wallet` (`WalletMode.EvmViem` for EVM — **not** `EvmEthers`; `CardanoLocal` / `MidnightLocal` per chain) are exposed in the frontend; the original gameplay UI is untouched (model: `templates/world-map-2d/packages/frontend/index.html`).
+- [ ] **Headless e2e drives the local-JS wallet** — Phase C ships an `e2e.test.ts` that connects via `EvmViem` (or `CardanoLocal` / `MidnightLocal`) inside Playwright Chromium and asserts the gameplay surface renders correctly with the wallet's state (model: `templates/world-map-2d/packages/tests/frontend/e2e.test.ts`). This is the only Phase C tier that exercises the wallet path end-to-end.
 - [ ] `bun run dev` works AND the gameplay surface is visibly rendered when you open the dev URL
 - [ ] `bun run test` passes
 

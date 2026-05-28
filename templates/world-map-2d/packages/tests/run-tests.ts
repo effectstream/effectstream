@@ -144,6 +144,14 @@ async function test() {
     );
     await frontendInteractionsTest();
 
+    // Real end-to-end test: drives the local-JS wallet (EvmViem) through the
+    // full user flow in headless Chromium — connect → grid render at the
+    // current position → submit a move from the in-grid CTA → see the cell
+    // repaint. Only possible because EvmViem doesn't need a browser
+    // extension; same shape applies to CardanoLocal + MidnightLocal flows.
+    const { frontendE2ETest } = await import("./frontend/e2e.test.ts");
+    await frontendE2ETest();
+
     printSummary();
   } catch (e) {
     caughtError = true;
