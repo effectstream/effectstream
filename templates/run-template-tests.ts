@@ -43,7 +43,7 @@ const ENABLED = [
   // "multi-chain-token-transfer", // TODO: migrate to effectstream-bun
   // "night-bitcoin",   // TODO: migrate to effectstream-bun
   // "rock-paper-scissors", // TODO: migrate to effectstream-bun
-  // "world-map-2d",    // TODO: migrate to effectstream-bun
+  "world-map-2d",
 ];
 
 interface Result {
