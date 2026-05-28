@@ -35,7 +35,7 @@ const ENABLED = [
   "zk-cardano",
   "zswap-da",
   "batcher-validations",
-  // "chess-v2",        // TODO: migrate to effectstream-bun
+  // "chess-v2",        // re-enable once frontend test tolerates @mui "use client" warnings (see plan)
   // "chess",           // TODO: migrate to effectstream-bun
   // "dice",            // TODO: migrate to effectstream-bun
   // "evm-midnight",    // TODO: migrate to effectstream-bun
