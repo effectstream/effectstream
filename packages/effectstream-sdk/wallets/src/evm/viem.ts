@@ -119,4 +119,54 @@ export class ViemEvmProvider implements IProvider<ViemApi> {
       message,
     });
   };
+
+  /**
+   * Submit an EIP-1193-shaped transaction request (matching the
+   * `EvmInjectedProvider.sendTransaction` shape — all numeric fields are
+   * hex strings) by delegating to viem's hoisted `walletClient.sendTransaction`.
+   *
+   * `account` + `chain` are hoisted on the underlying `WalletClient` at
+   * connect time (see `ViemConnector.connectFromPrivateKey`), so we only
+   * need to convert the hex-string numeric fields to bigints that viem
+   * expects, and pass through `to` / `data` as 0x-strings.
+   *
+   * Without this method, the high-level `sendTransaction(wallet, …)` helper
+   * in `effectstream.ts` rejects with `evmProvider.sendTransaction is not a
+   * function` when invoked against a `WalletMode.EvmViem` wallet — blocking
+   * any frontend that wants to drive the engine's tx flow via the local-JS
+   * wallet (e.g. headless Playwright e2e tests).
+   */
+  sendTransaction = async (tx: {
+    to?: string;
+    from: string;
+    gas?: string;
+    gasPrice?: string;
+    data: string;
+    value?: string;
+    maxPriorityFeePerGas?: string;
+    maxFeePerGas?: string;
+  }): Promise<{ txHash: string }> => {
+    if (this.account == null) {
+      throw new Error("ViemEvmProvider.sendTransaction: account is missing");
+    }
+    const toBigInt = (h?: string): bigint | undefined =>
+      h == null ? undefined : BigInt(h);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hash = await (this.conn.api as any).sendTransaction({
+      account: this.account,
+      to: tx.to as `0x${string}` | undefined,
+      data: tx.data as `0x${string}`,
+      value: toBigInt(tx.value),
+      gas: toBigInt(tx.gas),
+      gasPrice: toBigInt(tx.gasPrice),
+      maxFeePerGas: toBigInt(tx.maxFeePerGas),
+      maxPriorityFeePerGas: toBigInt(tx.maxPriorityFeePerGas),
+    });
+    if (typeof hash !== "string") {
+      throw new Error(
+        `[ViemEvmProvider.sendTransaction] expected string tx hash, got ${typeof hash}`,
+      );
+    }
+    return { txHash: hash };
+  };
 }
