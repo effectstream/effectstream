@@ -1,4 +1,5 @@
 import {
+  createPublicClient,
   createWalletClient,
   http,
   type Chain,
@@ -118,5 +119,77 @@ export class ViemEvmProvider implements IProvider<ViemApi> {
       account: this.account,
       message,
     });
+  };
+
+  /**
+   * Submit an EIP-1193-shaped transaction request (matching the
+   * `EvmInjectedProvider.sendTransaction` shape — all numeric fields are
+   * hex strings) by delegating to viem's hoisted `walletClient.sendTransaction`.
+   *
+   * `account` + `chain` are hoisted on the underlying `WalletClient` at
+   * connect time (see `ViemConnector.connectFromPrivateKey`), so we only
+   * need to convert the hex-string numeric fields to bigints that viem
+   * expects, and pass through `to` / `data` as 0x-strings.
+   *
+   * Without this method, the high-level `sendTransaction(wallet, …)` helper
+   * in `effectstream.ts` rejects with `evmProvider.sendTransaction is not a
+   * function` when invoked against a `WalletMode.EvmViem` wallet — blocking
+   * any frontend that wants to drive the engine's tx flow via the local-JS
+   * wallet (e.g. headless Playwright e2e tests).
+   */
+  sendTransaction = async (tx: {
+    to?: string;
+    from: string;
+    gas?: string;
+    gasPrice?: string;
+    data: string;
+    value?: string;
+    maxPriorityFeePerGas?: string;
+    maxFeePerGas?: string;
+  }): Promise<{ txHash: string }> => {
+    if (this.account == null) {
+      throw new Error("ViemEvmProvider.sendTransaction: account is missing");
+    }
+    const toBigInt = (h?: string): bigint | undefined =>
+      h == null ? undefined : BigInt(h);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hash = await (this.conn.api as any).sendTransaction({
+      account: this.account,
+      to: tx.to as `0x${string}` | undefined,
+      data: tx.data as `0x${string}`,
+      value: toBigInt(tx.value),
+      gas: toBigInt(tx.gas),
+      gasPrice: toBigInt(tx.gasPrice),
+      maxFeePerGas: toBigInt(tx.maxFeePerGas),
+      maxPriorityFeePerGas: toBigInt(tx.maxPriorityFeePerGas),
+    });
+    if (typeof hash !== "string") {
+      throw new Error(
+        `[ViemEvmProvider.sendTransaction] expected string tx hash, got ${typeof hash}`,
+      );
+    }
+
+    // Wait for the receipt + verify status. viem's sendTransaction returns
+    // the hash as soon as the tx is broadcast, NOT once it has mined. If we
+    // returned the hash without checking the receipt, a reverted tx would
+    // look "successful" to the engine's `wait-receipt` confirmation path,
+    // and the indexer would never see a matching event because the contract
+    // call reverted on chain. Match the EvmInjected / EthersEvmProvider
+    // contract: only return when the tx is mined AND its status is 0x1.
+    const chain = (this.conn.api as WalletClient).chain;
+    const transport = (this.conn.api as WalletClient).transport;
+    const publicClient = createPublicClient({
+      chain: chain ?? undefined,
+      transport: http((transport as { url?: string })?.url),
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: hash as `0x${string}`,
+    });
+    if (receipt.status !== "success") {
+      throw new Error(
+        `[ViemEvmProvider.sendTransaction] tx ${hash} reverted on chain (status=${receipt.status})`,
+      );
+    }
+    return { txHash: hash };
   };
 }
