@@ -5,6 +5,7 @@ import { type Chain, numberToHex } from "viem";
 import { utf8ToHex } from "web3-utils";
 import type { EthersEvmProvider } from "./evm/ethers.ts";
 import type { EvmInjectedProvider } from "./evm/injected.ts";
+import type { ViemEvmProvider } from "./evm/viem.ts";
 import type { AbiItem } from "web3-utils";
 import { type TransactionReceipt, Web3 } from "web3";
 import { createMessageForBatcher } from "@effectstream/concise";
@@ -189,7 +190,8 @@ export async function sendSelfSequencedTransaction(
 
   const evmProvider = wallet.provider as
     | EthersEvmProvider
-    | EvmInjectedProvider;
+    | EvmInjectedProvider
+    | ViemEvmProvider;
 
   const hexData = utf8ToHex(JSON.stringify(conciseData));
   const effectstreamL2Contract = await effectstreamConfig.getEffectstreamL2Contract();
