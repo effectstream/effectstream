@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { Buffer } from "node:buffer";
 import { AddressType } from "@effectstream/utils";
 import { verifySignature } from "@midnight-ntwrk/ledger-v8";
@@ -53,6 +53,81 @@ describe("MidnightLocalProvider", () => {
       innerSig as never,
     );
     expect(okAgain).toBe(true);
+  });
+
+  test("facade mode: networkUrls triggers buildWalletFacade and exposes the full WalletFacade on the api", async () => {
+    // Sentinel objects so we can assert the facade-path code actually wired
+    // through whatever buildWalletFacade returned.
+    const fakeFacade = { __kind: "WalletFacade", shielded: {}, dust: {}, unshielded: {} };
+    const fakeShielded = {
+      address: {
+        coinPublicKeyString: () => "deadbeef-coin-pub-key",
+        encryptionPublicKeyString: () => "deadbeef-enc-pub-key",
+      },
+      balances: {},
+    };
+    const buildSpy = mock(async (
+      networkUrls: unknown,
+      seed: string,
+      _networkId: unknown,
+      _syncMode: unknown,
+    ) => ({
+      wallet: fakeFacade,
+      zswapSecretKeys: {} as never,
+      walletZswapSecretKeys: {} as never,
+      dustSecretKey: {} as never,
+      walletDustSecretKey: {} as never,
+      dustAddress: `dust-for-${seed.slice(0, 8)}`,
+      unshieldedAddress: `unshielded-for-${seed.slice(0, 8)}`,
+      unshieldedKeystore: {} as never,
+      __echoedNetworkUrls: networkUrls,
+    }));
+    const getInitialSpy = mock(async (_shielded: unknown) => fakeShielded);
+
+    mock.module("@effectstream/midnight-contracts", () => ({
+      buildWalletFacade: buildSpy,
+      getInitialShieldedState: getInitialSpy,
+    }));
+
+    const provider = await MidnightLocalConnector.instance().connectFromSeed({
+      seed: DETERMINISTIC_SEED,
+      networkId: "undeployed",
+      networkUrls: {
+        indexer: "http://127.0.0.1:8088/api/v3/graphql",
+        indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
+        node: "http://127.0.0.1:9944",
+        proofServer: "http://127.0.0.1:6300",
+      },
+    });
+
+    expect(buildSpy).toHaveBeenCalledTimes(1);
+    const [networkUrlsArg, seedArg, networkIdArg, syncModeArg] = buildSpy.mock.calls[0]!;
+    expect(seedArg).toBe(DETERMINISTIC_SEED);
+    expect(networkIdArg).toBe("undeployed");
+    expect(syncModeArg).toBe("all");
+    expect(networkUrlsArg).toMatchObject({
+      indexer: "http://127.0.0.1:8088/api/v3/graphql",
+      indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
+      node: "http://127.0.0.1:9944",
+      proofServer: "http://127.0.0.1:6300",
+      id: "undeployed",
+    });
+
+    const api = provider.getConnection().api as unknown as MidnightLocalApi;
+    expect(api.walletFacade).toBe(fakeFacade);
+    expect(api.dustAddress).toBe(`dust-for-${DETERMINISTIC_SEED.slice(0, 8)}`);
+    expect(api.shieldedAddress).toBe("deadbeef-coin-pub-key");
+
+    // getShieldedAddresses no longer throws in facade mode.
+    await expect(api.getShieldedAddresses()).resolves.toEqual({
+      shieldedAddress: "deadbeef-coin-pub-key",
+    });
+
+    expect(provider.getConnection().metadata.displayName).toBe(
+      "Midnight (local seed, facade)",
+    );
+
+    mock.restore();
   });
 
   test("signMessage round-trips through CryptoManager.Midnight().verifySignature", async () => {
