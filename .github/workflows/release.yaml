@@ -1,0 +1,68 @@
+on:
+  release:
+    types: [published]
+
+name: Effectstream Release Publish
+
+permissions:
+  contents: write          # needed to push the version-bump commit
+
+concurrency:
+  group: release-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout v-next
+        uses: actions/checkout@v4
+        with:
+          ref: v-next
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Configure npm auth
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # All version validation (semver + strictly-greater), root bump, per-package
+      # bump, dep pinning, publish, and version-only cleanup live in the script.
+      # No --allow-uncommitted: the tree is clean at the script's git-check, since
+      # it writes the root version only after that check (.npmrc is gitignored).
+      - name: Publish
+        run: bun run .github/publish-bun.effectstream.ts --publish --release-version "${{ github.event.release.tag_name }}"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Commit & push version bumps
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Stage ONLY package.json files (root + every package). Thanks to the
+          # script's version-only cleanup, the staged diff is version fields only.
+          git add package.json packages/**/package.json
+          # Safety net: if anything other than a `version:` line slipped into the
+          # staged diff, abort rather than commit unexpected content.
+          if git diff --cached -U0 -- package.json packages/**/package.json \
+               | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
+               | grep -vqE '^[+-][[:space:]]*"version":'; then
+            echo "::error::Staged diff contains non-version changes — aborting commit."
+            git --no-pager diff --cached
+            exit 1
+          fi
+          if git diff --cached --quiet; then
+            echo "no version changes to commit"
+          else
+            git commit -m "chore(release): ${{ github.event.release.tag_name }}"
+            git push origin v-next
+          fi
