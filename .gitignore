@@ -28,6 +28,8 @@ e2e-batcher-data/
 .docusaurus/
 
 tmp/
+# npm auth (written by CI during release publish)
+.npmrc
 # System files
 .DS_Store
 .cursor

@@ -6,12 +6,12 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { Glob } from "bun";
 
 const ROOT = import.meta.dir;
-const rootPkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8"));
-const version = rootPkg.version;
 
 const FLAGS_HELP = `
 Flags:
   --publish                real publish (default is dry-run via \`bun publish --dry-run\`)
+  --release-version <ver>  validate <ver> (semver, must be > current root version) and
+                           use it as the version to publish; also writes it into root package.json
   --allow-uncommitted      skip the git-clean check
   --allow-missing-readme   skip the per-package README presence / 400-char check
 `;
@@ -77,216 +77,335 @@ const PACKAGE_DESCRIPTIONS: Record<string, string> = {
   "@effectstream/celestia": "Celestia binary wrapper for EffectStream",
 };
 
-// --- Step 1: Find all publishable packages ---
+// --- Version helpers (pure, exported for unit testing) ---
 
-console.log(`\n📦 Publishing version: ${version}\n`);
-
-const glob = new Glob("packages/**/package.json");
-const packageDirs: { name: string; dir: string; pkg: any }[] = [];
-
-for await (const path of glob.scan({ cwd: ROOT })) {
-  if (path.includes("node_modules")) continue;
-
-  const fullPath = resolve(ROOT, path);
-  const pkg = JSON.parse(readFileSync(fullPath, "utf-8"));
-
-  if (!pkg.name) continue;
-  if (pkg.private) continue;
-  if (DEPRECATED.has(pkg.name)) continue;
-
-  packageDirs.push({
-    name: pkg.name,
-    dir: resolve(ROOT, path, ".."),
-    pkg,
-  });
-}
-
-packageDirs.sort((a, b) => a.name.localeCompare(b.name));
-
-// --- Step 1b: Verify each package ships a real README ---
-// npm renders the README on the package page. Without one, the package looks
-// abandoned. We fail the publish unless --allow-missing-readme is set.
-
-const MIN_README_CHARS = 400;
-const missingReadme: string[] = [];
-const stubReadme: string[] = [];
-
-for (const { name, dir } of packageDirs) {
-  const readmePath = join(dir, "README.md");
-  if (!existsSync(readmePath)) {
-    missingReadme.push(name);
-    continue;
+/** Parse a `MAJOR.MINOR.PATCH` string (optional leading `v`) into a numeric tuple. */
+export function parseSemver(input: string): [number, number, number] {
+  const m = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(input.trim());
+  if (!m) {
+    throw new Error(`"${input}" is not a MAJOR.MINOR.PATCH version`);
   }
-  const content = readFileSync(readmePath, "utf-8").trim();
-  if (content.length < MIN_README_CHARS) stubReadme.push(name);
+  return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
 
-if (missingReadme.length || stubReadme.length) {
-  console.error("\nREADME check failed:");
-  for (const n of missingReadme) console.error(`  missing:  ${n}`);
-  for (const n of stubReadme) console.error(`  stub:     ${n}`);
-  if (!process.argv.includes("--allow-missing-readme")) {
-    console.error(
-      "\nAdd a real README.md to each package, or pass --allow-missing-readme to bypass.",
+/** Compare two semver tuples: negative if a<b, 0 if equal, positive if a>b. */
+export function compareSemver(
+  a: [number, number, number],
+  b: [number, number, number],
+): number {
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i];
+  }
+  return 0;
+}
+
+/**
+ * Resolve and validate a release version against the current one.
+ * Strips an optional leading `v`, requires both to be MAJOR.MINOR.PATCH, and
+ * requires the release version to be strictly greater than `current`.
+ * Returns the normalized (no-`v`) version string, or throws on any violation.
+ */
+export function resolveReleaseVersion(tag: string, current: string): string {
+  const next = parseSemver(tag);
+  const cur = parseSemver(current);
+  if (compareSemver(next, cur) <= 0) {
+    throw new Error(
+      `Release version ${next.join(".")} must be strictly greater than current ${cur.join(".")}`,
     );
-    printFlags();
-    process.exit(1);
   }
-  console.error("  (continuing because --allow-missing-readme was set)\n");
+  return next.join(".");
 }
 
-// --- Step 1c: Check for uncommitted changes early (before we modify files) ---
+/**
+ * Replace the top-level `"version": "..."` value in a package.json text while
+ * preserving the rest of the file's formatting byte-for-byte. Only the first
+ * `"version"` occurrence (the package's own version) is changed.
+ */
+export function setVersionInText(text: string, version: string): string {
+  return text.replace(/"version":(\s*)"[^"]*"/, `"version":$1"${version}"`);
+}
 
-console.log("Checking git status...");
+/** Read a `--flag value` or `--flag=value` argument from argv. */
+function getFlagValue(flag: string): string | undefined {
+  const argv = process.argv;
+  const eq = argv.find((a) => a.startsWith(`${flag}=`));
+  if (eq) return eq.slice(flag.length + 1);
+  const i = argv.indexOf(flag);
+  if (i !== -1 && i + 1 < argv.length) return argv[i + 1];
+  return undefined;
+}
 
-const allowUncommitted = process.argv.includes("--allow-uncommitted");
-const status = await $`git status --porcelain`.text();
-if (status.trim().length > 0) {
-  if (allowUncommitted) {
-    console.log("  ⚠ Uncommitted changes (--allow-uncommitted)\n");
+if (import.meta.main) {
+  const rootPkgPath = join(ROOT, "package.json");
+  const rootPkg = JSON.parse(readFileSync(rootPkgPath, "utf-8"));
+
+  // --- Resolve target version ---
+  // With --release-version the tag drives (and validates) the version; otherwise
+  // we publish whatever is already in root package.json (the original behavior).
+  const releaseArg = getFlagValue("--release-version");
+  let version: string;
+  if (releaseArg !== undefined) {
+    try {
+      version = resolveReleaseVersion(releaseArg, rootPkg.version);
+    } catch (e: any) {
+      console.error(`\n❌ ${e.message}`);
+      printFlags();
+      process.exit(1);
+    }
+    console.log(
+      `\n🔖 Release version ${version} (from "${releaseArg}"), current root ${rootPkg.version}`,
+    );
   } else {
-    console.error("\n❌ Uncommitted changes detected:\n");
-    console.error(status);
-    console.error("Commit or stash changes before publishing.");
-    printFlags();
-    process.exit(1);
-  }
-} else {
-  console.log("  Working tree clean ✓\n");
-}
-
-// --- Step 2: Bump versions ---
-
-console.log(`Bumping ${packageDirs.length} packages to v${version}:\n`);
-
-for (const { name, dir, pkg } of packageDirs) {
-  const fullPath = join(dir, "package.json");
-  const oldVersion = pkg.version;
-
-  if (oldVersion === version) {
-    console.log(`  ${name} — already at ${version}`);
-    continue;
+    version = rootPkg.version;
   }
 
-  pkg.version = version;
-  writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + "\n");
-  console.log(`  ${name} — ${oldVersion} → ${version}`);
-}
+  // --- Step 1: Find all publishable packages ---
 
-// --- Step 2b: Inject package metadata ---
+  console.log(`\n📦 Publishing version: ${version}\n`);
 
-console.log(`Injecting package metadata...\n`);
+  const glob = new Glob("packages/**/package.json");
+  const packageDirs: { name: string; dir: string; pkg: any }[] = [];
 
-for (const { name, dir, pkg } of packageDirs) {
-  const fullPath = join(dir, "package.json");
-  const relDir = relative(ROOT, dir);
+  for await (const path of glob.scan({ cwd: ROOT })) {
+    if (path.includes("node_modules")) continue;
 
-  pkg.homepage = PACKAGE_META.homepage;
-  pkg.repository = { ...PACKAGE_META.repository, directory: relDir };
-  pkg.bugs = { ...PACKAGE_META.bugs };
-  if (PACKAGE_DESCRIPTIONS[name]) {
-    pkg.description = PACKAGE_DESCRIPTIONS[name];
+    const fullPath = resolve(ROOT, path);
+    const pkg = JSON.parse(readFileSync(fullPath, "utf-8"));
+
+    if (!pkg.name) continue;
+    if (pkg.private) continue;
+    if (DEPRECATED.has(pkg.name)) continue;
+
+    packageDirs.push({
+      name: pkg.name,
+      dir: resolve(ROOT, path, ".."),
+      pkg,
+    });
   }
 
-  writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + "\n");
-}
+  packageDirs.sort((a, b) => a.name.localeCompare(b.name));
 
-console.log(`  Updated ${packageDirs.length} packages\n`);
+  // --- Step 1b: Verify each package ships a real README ---
+  // npm renders the README on the package page. Without one, the package looks
+  // abandoned. We fail the publish unless --allow-missing-readme is set.
 
-// --- Step 2c: Replace workspace:* with concrete version ---
-// `bun publish` resolves `workspace:*` from the lockfile, which may still
-// point at the previous version. We replace `workspace:*` with the target
-// version in every package.json before publishing, then restore afterwards.
+  const MIN_README_CHARS = 400;
+  const missingReadme: string[] = [];
+  const stubReadme: string[] = [];
 
-console.log(`\nReplacing workspace:* with v${version}...`);
+  for (const { name, dir } of packageDirs) {
+    const readmePath = join(dir, "README.md");
+    if (!existsSync(readmePath)) {
+      missingReadme.push(name);
+      continue;
+    }
+    const content = readFileSync(readmePath, "utf-8").trim();
+    if (content.length < MIN_README_CHARS) stubReadme.push(name);
+  }
 
-const workspacePackageNames = new Set(packageDirs.map((p) => p.name));
-const restoreList: { path: string; original: string }[] = [];
+  if (missingReadme.length || stubReadme.length) {
+    console.error("\nREADME check failed:");
+    for (const n of missingReadme) console.error(`  missing:  ${n}`);
+    for (const n of stubReadme) console.error(`  stub:     ${n}`);
+    if (!process.argv.includes("--allow-missing-readme")) {
+      console.error(
+        "\nAdd a real README.md to each package, or pass --allow-missing-readme to bypass.",
+      );
+      printFlags();
+      process.exit(1);
+    }
+    console.error("  (continuing because --allow-missing-readme was set)\n");
+  }
 
-for (const { dir, pkg } of packageDirs) {
-  const fullPath = join(dir, "package.json");
-  const original = readFileSync(fullPath, "utf-8");
-  let changed = false;
+  // --- Step 1c: Check for uncommitted changes early (before we modify files) ---
 
-  for (const depField of ["dependencies", "devDependencies", "peerDependencies"]) {
-    const deps = pkg[depField];
-    if (!deps) continue;
-    for (const [name, ver] of Object.entries(deps)) {
-      if (typeof ver === "string" && ver.startsWith("workspace:") && workspacePackageNames.has(name)) {
-        deps[name] = version;
-        changed = true;
+  console.log("Checking git status...");
+
+  const allowUncommitted = process.argv.includes("--allow-uncommitted");
+  const status = await $`git status --porcelain`.text();
+  if (status.trim().length > 0) {
+    if (allowUncommitted) {
+      console.log("  ⚠ Uncommitted changes (--allow-uncommitted)\n");
+    } else {
+      console.error("\n❌ Uncommitted changes detected:\n");
+      console.error(status);
+      console.error("Commit or stash changes before publishing.");
+      printFlags();
+      process.exit(1);
+    }
+  } else {
+    console.log("  Working tree clean ✓\n");
+  }
+
+  // --- Step 1d: Apply the release version to root package.json ---
+  // Done AFTER the git-clean check so the check still guards a pristine tree.
+  // Edit the version string in place to preserve the file's exact formatting.
+  if (releaseArg !== undefined && rootPkg.version !== version) {
+    const rootText = readFileSync(rootPkgPath, "utf-8");
+    writeFileSync(rootPkgPath, setVersionInText(rootText, version));
+    console.log(`Set root package.json version → ${version}\n`);
+  }
+
+  // --- Cleanup: always restore each package.json to "pristine + new version" ---
+  // We snapshot the committed on-disk text BEFORE any mutation. On exit we rewrite
+  // each file from that snapshot with only `version` updated — which reverts both
+  // the dependency pinning (Step 2c) and the metadata injection (Step 2b) while
+  // keeping the intended version bump. npm still receives pinned deps + metadata
+  // because those live on disk *during* `bun publish`; only the post-run tree is
+  // version-only. Registered on exit/SIGINT/SIGTERM so deps are ALWAYS reverted.
+
+  const pristine = new Map<string, string>();
+  for (const { dir } of packageDirs) {
+    const fp = join(dir, "package.json");
+    pristine.set(fp, readFileSync(fp, "utf-8"));
+  }
+
+  let restored = false;
+  function restore() {
+    if (restored) return;
+    restored = true;
+    for (const { dir } of packageDirs) {
+      const fp = join(dir, "package.json");
+      // Rewrite the pristine TEXT with only the version string changed, so the
+      // file's exact original formatting (and metadata/deps) is preserved.
+      writeFileSync(fp, setVersionInText(pristine.get(fp)!, version));
+    }
+    console.log(
+      `\nRestored ${packageDirs.length} package.json files (version-only; deps & metadata reverted)`,
+    );
+  }
+  process.on("exit", restore);
+  process.on("SIGINT", () => {
+    restore();
+    process.exit(130);
+  });
+  process.on("SIGTERM", () => {
+    restore();
+    process.exit(143);
+  });
+
+  // --- Step 2: Bump versions ---
+
+  console.log(`Bumping ${packageDirs.length} packages to v${version}:\n`);
+
+  for (const { name, dir, pkg } of packageDirs) {
+    const fullPath = join(dir, "package.json");
+    const oldVersion = pkg.version;
+
+    if (oldVersion === version) {
+      console.log(`  ${name} — already at ${version}`);
+      continue;
+    }
+
+    pkg.version = version;
+    writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + "\n");
+    console.log(`  ${name} — ${oldVersion} → ${version}`);
+  }
+
+  // --- Step 2b: Inject package metadata ---
+
+  console.log(`Injecting package metadata...\n`);
+
+  for (const { name, dir, pkg } of packageDirs) {
+    const fullPath = join(dir, "package.json");
+    const relDir = relative(ROOT, dir);
+
+    pkg.homepage = PACKAGE_META.homepage;
+    pkg.repository = { ...PACKAGE_META.repository, directory: relDir };
+    pkg.bugs = { ...PACKAGE_META.bugs };
+    if (PACKAGE_DESCRIPTIONS[name]) {
+      pkg.description = PACKAGE_DESCRIPTIONS[name];
+    }
+
+    writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + "\n");
+  }
+
+  console.log(`  Updated ${packageDirs.length} packages\n`);
+
+  // --- Step 2c: Replace workspace:* with concrete version ---
+  // `bun publish` resolves `workspace:*` from the lockfile, which may still
+  // point at the previous version. We replace `workspace:*` with the target
+  // version in every package.json before publishing; restore() reverts it.
+
+  console.log(`\nReplacing workspace:* with v${version}...`);
+
+  const workspacePackageNames = new Set(packageDirs.map((p) => p.name));
+  let patched = 0;
+
+  for (const { dir, pkg } of packageDirs) {
+    const fullPath = join(dir, "package.json");
+    let changed = false;
+
+    for (const depField of ["dependencies", "devDependencies", "peerDependencies"]) {
+      const deps = pkg[depField];
+      if (!deps) continue;
+      for (const [name, ver] of Object.entries(deps)) {
+        if (typeof ver === "string" && ver.startsWith("workspace:") && workspacePackageNames.has(name)) {
+          deps[name] = version;
+          changed = true;
+        }
       }
+    }
+
+    if (changed) {
+      writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + "\n");
+      patched++;
     }
   }
 
-  if (changed) {
-    writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + "\n");
-    restoreList.push({ path: fullPath, original });
+  console.log(`  Patched ${patched} package.json files\n`);
+
+  // --- Step 3: Build packages that need it ---
+
+  const BUILD_PACKAGES = new Set(["@effectstream/frontend-sdk"]);
+
+  for (const { name, dir } of packageDirs) {
+    if (!BUILD_PACKAGES.has(name)) continue;
+
+    console.log(`\nBuilding ${name}...`);
+    try {
+      await $`cd ${dir} && bun run build`.quiet();
+      console.log(`  ${name} built ✓`);
+    } catch (e: any) {
+      console.error(`  ${name} build failed ✗`);
+      console.error(`    ${e.stderr?.toString().trim() || e.message}`);
+      restore();
+      printFlags();
+      process.exit(1);
+    }
   }
-}
 
-console.log(`  Patched ${restoreList.length} package.json files\n`);
+  // --- Step 4: Publish ---
 
-// Register cleanup to restore workspace:* after publish
-function restoreWorkspaceDeps() {
-  for (const { path, original } of restoreList) {
-    writeFileSync(path, original);
+  const isPublish = process.argv.includes("--publish");
+  const dryRunArgs = isPublish ? [] : ["--dry-run"];
+
+  console.log(`Running ${isPublish ? "LIVE" : "dry-run"} publish:\n`);
+
+  let failed = 0;
+
+  for (const { name, dir } of packageDirs) {
+    const rel = relative(ROOT, dir);
+    process.stdout.write(`  ${name} (${rel}) ... `);
+
+    try {
+      await $`cd ${dir} && bun publish ${dryRunArgs} --access public`.quiet();
+      console.log("✓");
+    } catch (e: any) {
+      console.log("✗");
+      console.error(`    ${e.stderr?.toString().trim() || e.message}`);
+      failed++;
+    }
   }
-  if (restoreList.length > 0) {
-    console.log(`\nRestored workspace:* in ${restoreList.length} package.json files`);
-  }
-}
 
-// --- Step 3: Build packages that need it ---
+  restore();
 
-const BUILD_PACKAGES = new Set(["@effectstream/frontend-sdk"]);
+  console.log(
+    `\nDone: ${packageDirs.length - failed} ok, ${failed} failed out of ${packageDirs.length} packages.`,
+  );
 
-for (const { name, dir } of packageDirs) {
-  if (!BUILD_PACKAGES.has(name)) continue;
-
-  console.log(`\nBuilding ${name}...`);
-  try {
-    await $`cd ${dir} && bun run build`.quiet();
-    console.log(`  ${name} built ✓`);
-  } catch (e: any) {
-    console.error(`  ${name} build failed ✗`);
-    console.error(`    ${e.stderr?.toString().trim() || e.message}`);
-    restoreWorkspaceDeps();
+  if (failed > 0) {
     printFlags();
     process.exit(1);
   }
-}
-
-// --- Step 4: Publish ---
-
-const isPublish = process.argv.includes("--publish");
-const dryRunArgs = isPublish ? [] : ["--dry-run"];
-
-console.log(`Running ${isPublish ? "LIVE" : "dry-run"} publish:\n`);
-
-let failed = 0;
-
-for (const { name, dir } of packageDirs) {
-  const rel = relative(ROOT, dir);
-  process.stdout.write(`  ${name} (${rel}) ... `);
-
-  try {
-    await $`cd ${dir} && bun publish ${dryRunArgs} --access public`.quiet();
-    console.log("✓");
-  } catch (e: any) {
-    console.log("✗");
-    console.error(`    ${e.stderr?.toString().trim() || e.message}`);
-    failed++;
-  }
-}
-
-restoreWorkspaceDeps();
-
-console.log(
-  `\nDone: ${packageDirs.length - failed} ok, ${failed} failed out of ${packageDirs.length} packages.`
-);
-
-if (failed > 0) {
-  printFlags();
-  process.exit(1);
 }
