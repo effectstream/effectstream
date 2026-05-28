@@ -88,6 +88,7 @@ async function waitForHealth(timeoutMs = 120_000): Promise<void> {
 
 async function test() {
   let db: Client | null = null;
+  let caughtError = false;
   try {
     await startInfrastructure();
     await waitForOrchestrator();
@@ -125,12 +126,13 @@ async function test() {
 
     printSummary();
   } catch (e) {
+    caughtError = true;
     printSummary();
     console.error(e);
   } finally {
     if (db) await db.end();
     await stopInfrastructure();
-    if (anyError()) process.exit(1);
+    if (caughtError || anyError()) process.exit(1);
     process.exit(0);
   }
 }
