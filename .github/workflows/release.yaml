@@ -55,7 +55,7 @@ jobs:
           # staged diff, abort rather than commit unexpected content.
           if git diff --cached -U0 -- package.json packages/**/package.json \
                | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
-               | grep -vqE '^[+-]\s*"version":'; then
+               | grep -vqE '^[+-][[:space:]]*"version":'; then
             echo "::error::Staged diff contains non-version changes — aborting commit."
             git --no-pager diff --cached
             exit 1
