@@ -18,6 +18,7 @@
     "./midnight-local": "./src/midnight/local.ts"
   },
   "peerDependencies": {
+    "@effectstream/midnight-contracts": "workspace:*",
     "@lucid-evolution/lucid": "^0.4.29",
     "@lucid-evolution/provider": "^0.1.90",
     "@lucid-evolution/utils": "^0.1.66",
@@ -26,6 +27,7 @@
     "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "^2.1.0"
   },
   "peerDependenciesMeta": {
+    "@effectstream/midnight-contracts": { "optional": true },
     "@lucid-evolution/lucid": { "optional": true },
     "@lucid-evolution/provider": { "optional": true },
     "@lucid-evolution/utils": { "optional": true },
@@ -34,6 +36,7 @@
     "@midnight-ntwrk/wallet-sdk-unshielded-wallet": { "optional": true }
   },
   "devDependencies": {
+    "@effectstream/midnight-contracts": "workspace:*",
     "@lucid-evolution/lucid": "^0.4.30",
     "@lucid-evolution/provider": "^0.1.91",
     "@lucid-evolution/utils": "^0.1.66",
