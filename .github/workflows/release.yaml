@@ -48,12 +48,14 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Stage ONLY package.json files (root + every package). Thanks to the
-          # script's version-only cleanup, the staged diff is version fields only.
-          git add package.json packages/**/package.json
+          # Stage ONLY package.json files (root + every package, ANY depth).
+          # Quote the pathspec and use git's :(glob) magic so `**` matches nested
+          # dirs (packages/node-sdk/node/...) — bash globstar is off in CI, which
+          # would otherwise collapse `**` to one level and miss most packages.
+          git add package.json ':(glob)packages/**/package.json'
           # Safety net: if anything other than a `version:` line slipped into the
           # staged diff, abort rather than commit unexpected content.
-          if git diff --cached -U0 -- package.json packages/**/package.json \
+          if git diff --cached -U0 -- package.json ':(glob)packages/**/package.json' \
                | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
                | grep -vqE '^[+-][[:space:]]*"version":'; then
             echo "::error::Staged diff contains non-version changes — aborting commit."
