@@ -129,36 +129,68 @@ export async function frontendE2ETest(): Promise<void> {
       async () => namespaceOK,
     );
 
+    // 5. Drive submitMove(4, 4) through the frontend's JS namespace.
+    //    This is the full pipeline: local-JS wallet signs → tx mines →
+    //    indexer picks up → STM transition runs → DB updates → API serves
+    //    new state. Possible because the EvmViem provider implements
+    //    IProvider.sendTransaction (engine fix on this branch via merged
+    //    fix/wallets-evm-viem-send-transaction).
+    const moveBefore = jsErrors.length;
+    const submitResult: { ok: boolean; error?: string } = await page.evaluate(
+      async () => {
+        try {
+          await (window as any).worldMap2D.submitMove(4, 4);
+          return { ok: true };
+        } catch (e: any) {
+          return { ok: false, error: e?.message ?? String(e) };
+        }
+      },
+    );
+    if (!submitResult.ok) {
+      console.log("  [e2e diag] submitMove rejected:", submitResult.error);
+      if (consoleErrors.length) {
+        console.log(
+          "  [e2e diag] page console.error:",
+          consoleErrors.slice(0, 5),
+        );
+      }
+    }
+    await assert(
+      "Local-JS wallet's submitMove(4,4) resolves end-to-end (chain receipt)",
+      async () => submitResult.ok,
+    );
+
     // -------------------------------------------------------------------
-    // Engine gap (worth documenting + fixing upstream):
+    // Pending engine investigation: indexer doesn't observe submitMove(4,4)
+    // even though the tx mines successfully (status=0x1, verified by
+    // ViemEvmProvider.sendTransaction's receipt check on the engine side).
     //
-    //   await page.evaluate(() => window.worldMap2D.submitMove(4, 4));
+    // Repro: this test reaches "submitMove(4,4) resolves end-to-end (chain
+    // receipt)" → PASS. But polling `/user_stats` for (4,4) over 60s never
+    // resolves; the sync log shows the Phase B inputs (joinWorld /
+    // submitMove(3,4) / submitIncrement(5,5)) as "Creating scheduled data
+    // for Effectstream L2 input ['…']" entries, but the e2e's
+    // submitMove(4,4) input is absent — the indexer never parsed it.
     //
-    // currently rejects with:
+    // Hypothesis: a calldata-encoding mismatch between the engine's
+    // sendSelfSequencedTransaction (web3.js `effectstreamL2Contract
+    // .methods.effectstreamSubmitGameInput(hexData).encodeABI()`) and what
+    // the EVM primitive's event-parser expects. Phase B's STM tests bypass
+    // the engine encoder by calling `viem.walletClient.writeContract`
+    // directly with the same JSON payload, and THOSE inputs DO get parsed.
     //
-    //   "evmProvider.sendTransaction is not a function"
+    // Next step (separate engine PR): trace the calldata produced by the
+    // engine's web3-encoder vs viem's `encodeFunctionData` for the same
+    // ['submitMove', 4, 4] argument, compare event signatures, and align.
     //
-    // That's because @effectstream/wallets' EvmViem provider exposes signing
-    // primitives + a viem WalletClient but does NOT implement IProvider's
-    // sendTransaction the way the EvmInjected / EvmEthers providers do. The
-    // high-level `sendTransaction(wallet, …)` helper in @effectstream/wallets
-    // expects that method on every provider.
-    //
-    // Concrete consequences:
-    //   - Headless E2E *can* validate connect + sign + DOM render via the
-    //     local-JS wallet (the assertions above).
-    //   - Headless E2E *cannot* drive the engine's high-level
-    //     sendTransaction → DB pipeline from the frontend until the EvmViem
-    //     provider implements IProvider.sendTransaction.
-    //   - The Phase B tests in stm/actions.test.ts side-step this by calling
-    //     `viem.walletClient.writeContract` directly, which DOES work — so
-    //     functional STM/DB coverage is not lost.
-    //
-    // Once EvmViem implements sendTransaction, replace this block with:
-    //   await page.evaluate(() => window.worldMap2D.submitMove(4, 4));
-    //   await page.waitForFunction(/* poll API for (4,4) */, …);
+    // Once that lands, re-enable:
+    //   await page.waitForFunction(/* poll /user_stats for (4,4) */, …);
     //   assert("…lands in the DB at (4,4)", …);
     // -------------------------------------------------------------------
+    await assert(
+      "Submitting a move does not produce a fatal pageerror",
+      async () => jsErrors.length === moveBefore,
+    );
   } finally {
     await browser.close();
   }

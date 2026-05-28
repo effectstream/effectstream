@@ -1,4 +1,5 @@
 import {
+  createPublicClient,
   createWalletClient,
   http,
   type Chain,
@@ -165,6 +166,28 @@ export class ViemEvmProvider implements IProvider<ViemApi> {
     if (typeof hash !== "string") {
       throw new Error(
         `[ViemEvmProvider.sendTransaction] expected string tx hash, got ${typeof hash}`,
+      );
+    }
+
+    // Wait for the receipt + verify status. viem's sendTransaction returns
+    // the hash as soon as the tx is broadcast, NOT once it has mined. If we
+    // returned the hash without checking the receipt, a reverted tx would
+    // look "successful" to the engine's `wait-receipt` confirmation path,
+    // and the indexer would never see a matching event because the contract
+    // call reverted on chain. Match the EvmInjected / EthersEvmProvider
+    // contract: only return when the tx is mined AND its status is 0x1.
+    const chain = (this.conn.api as WalletClient).chain;
+    const transport = (this.conn.api as WalletClient).transport;
+    const publicClient = createPublicClient({
+      chain: chain ?? undefined,
+      transport: http((transport as { url?: string })?.url),
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: hash as `0x${string}`,
+    });
+    if (receipt.status !== "success") {
+      throw new Error(
+        `[ViemEvmProvider.sendTransaction] tx ${hash} reverted on chain (status=${receipt.status})`,
       );
     }
     return { txHash: hash };
