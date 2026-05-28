@@ -1,10 +1,16 @@
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import { isTransientPgError } from "./transient-pg-errors.ts";
 
+function envMs(name: string, fallback: number): number {
+  const raw = process.env[name];
+  const parsed = raw != null ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 /** After this long, treat continuous transient failures as a real outage. */
-const SUSTAINED_THRESHOLD_MS = 60_000;
+const SUSTAINED_THRESHOLD_MS = envMs("POOL_SUSTAINED_THRESHOLD_MS", 60_000);
 /** After this long, exit so the orchestrator restarts the process. */
-const FATAL_THRESHOLD_MS = 5 * 60_000;
+const FATAL_THRESHOLD_MS = envMs("POOL_FATAL_THRESHOLD_MS", 5 * 60_000);
 
 /**
  * Tracks consecutive transient pool errors. Severity escalates WARN → ERROR

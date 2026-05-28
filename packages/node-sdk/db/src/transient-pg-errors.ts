@@ -4,6 +4,7 @@ const TRANSIENT_PG_MESSAGES = [
   "Connection terminated unexpectedly",
   "Client has encountered a connection error",
   "Client network socket disconnected before secure TLS connection",
+  "Query read timeout",
 ] as const;
 
 function* walkErrors(reason: unknown): Generator<unknown> {
@@ -35,7 +36,8 @@ function isTransientPgErrorSingle(err: unknown): boolean {
   if (hasTransientPgMessage(err)) return true;
   if (!isFromPgStack(err)) return false;
   const code = (err as { code?: string }).code;
-  return code === "ECONNRESET" || code === "EPIPE";
+  return code === "ECONNRESET" || code === "EPIPE" ||
+    code === "ECONNREFUSED";
 }
 
 /**
