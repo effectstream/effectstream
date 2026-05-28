@@ -88,6 +88,7 @@ async function waitForHealth(timeoutMs = 120_000): Promise<void> {
 
 async function test() {
   let db: Client | null = null;
+  let caughtError = false;
   try {
     await startInfrastructure();
     await waitForOrchestrator();
@@ -117,20 +118,24 @@ async function test() {
     db.connect(() => {});
     db.on("error", (err: Error) => console.error("DB error:", err));
 
-    const { submitInputTest } = await import("./stm/submit-input.test.ts");
-    await submitInputTest(db);
+    const { joinWorldTest, submitMoveTest, submitIncrementTest } =
+      await import("./stm/actions.test.ts");
+    await joinWorldTest(db);
+    await submitMoveTest(db);
+    await submitIncrementTest(db);
 
     const { apiTest } = await import("./stm/api.test.ts");
     await apiTest();
 
     printSummary();
   } catch (e) {
+    caughtError = true;
     printSummary();
     console.error(e);
   } finally {
     if (db) await db.end();
     await stopInfrastructure();
-    if (anyError()) process.exit(1);
+    if (caughtError || anyError()) process.exit(1);
     process.exit(0);
   }
 }
