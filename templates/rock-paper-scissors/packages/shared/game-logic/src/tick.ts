@@ -1,4 +1,4 @@
-import type { Prando } from '@paimaexample/crypto';
+import type { Prando } from '@effectstream/crypto';
 import type { IGetCachedMovesResult } from '@rock-paper-scissors/db';
 import type { MatchEnvironment, MatchState, RPSActions, TickEvent } from './types.ts';
 import { GameResult, RPSExtendedStates, RPSSummary } from './types.ts';

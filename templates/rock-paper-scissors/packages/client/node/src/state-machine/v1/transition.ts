@@ -1,5 +1,5 @@
-import type { Prando } from "@paimaexample/crypto";
-import type { WalletAddress } from "@paimaexample/utils";
+import type { Prando } from "@effectstream/crypto";
+import type { WalletAddress } from "@effectstream/utils";
 import type {
   IGetLobbyByIdResult,
   IGetRoundDataResult,

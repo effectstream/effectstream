@@ -1,4 +1,4 @@
-import type { WalletAddress } from "@paimaexample/utils";
+import type { WalletAddress } from "@effectstream/utils";
 
 // Lobby states
 export type LobbyState = "open" | "active" | "finished" | "closed";

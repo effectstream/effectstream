@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
-import type { StartConfigApiRouter } from "@paimaexample/runtime";
+import type { StartConfigApiRouter } from "@effectstream/runtime";
 import type { FastifyInstance } from "fastify";
-import { runPreparedQuery } from "@paimaexample/db";
+import { runPreparedQuery } from "@effectstream/db";
 import {
   getLobbyById,
   getUserStats,

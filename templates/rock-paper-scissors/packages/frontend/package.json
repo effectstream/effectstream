@@ -4,7 +4,6 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "install": "npm install",
     "build": "node esbuild.js",
     "serve": "bunx http-server@14.1.1 ./public -p 8080"
   },
@@ -12,7 +11,7 @@
   "license": "ISC",
   "description": "Rock Paper Scissors frontend",
   "dependencies": {
-    "@paimaexample/wallets": "0.3.124",
+    "@effectstream/wallets": "0.100.18",
     "phaser": "^3.70.0",
     "viem": "^2.37.5"
   },

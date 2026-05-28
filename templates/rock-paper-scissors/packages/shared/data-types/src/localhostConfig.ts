@@ -1,10 +1,10 @@
 import { contractAddressesEvmMain } from "@rock-paper-scissors/evm-contracts";
-import { PrimitiveTypeEVMPaimaL2 } from "@paimaexample/sm/builtin";
+import { PrimitiveTypeEVMPaimaL2 } from "@effectstream/sm/builtin";
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@paimaexample/config";
+} from "@effectstream/config";
 import { hardhat } from "viem/chains";
 import { grammar } from "@rock-paper-scissors/data-types/grammar";
 

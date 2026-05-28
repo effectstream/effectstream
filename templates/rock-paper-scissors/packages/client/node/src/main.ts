@@ -1,10 +1,10 @@
-import { init, start } from "@paimaexample/runtime";
+import { init, start } from "@effectstream/runtime";
 import { main, suspend } from "effection";
 import { localhostConfig } from "@rock-paper-scissors/data-types/localhostConfig";
 import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
-} from "@paimaexample/config";
+} from "@effectstream/config";
 import { migrationTable } from "@rock-paper-scissors/db";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";

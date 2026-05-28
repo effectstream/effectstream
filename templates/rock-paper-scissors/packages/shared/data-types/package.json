@@ -8,10 +8,10 @@
     "./types": "./src/types.ts"
   },
   "dependencies": {
-    "@paimaexample/sm": "0.3.124",
-    "@paimaexample/concise": "0.3.124",
-    "@paimaexample/config": "0.3.124",
-    "@paimaexample/utils": "0.3.124",
+    "@effectstream/sm": "0.100.18",
+    "@effectstream/concise": "0.100.18",
+    "@effectstream/config": "0.100.18",
+    "@effectstream/utils": "0.100.18",
     "@sinclair/typemap": "^0.10.1",
     "viem": "2.37.3",
     "@sinclair/typebox": "^0.34.30",

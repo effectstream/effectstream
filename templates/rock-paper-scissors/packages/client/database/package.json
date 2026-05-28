@@ -8,11 +8,11 @@
     "pgtyped:update": "(bunx @paimaexample/db/db-up &) && bun run _pgtyped:my-sql"
   },
   "dependencies": {
-    "@paimaexample/config": "0.3.124",
-    "@paimaexample/runtime": "0.3.124",
+    "@effectstream/config": "0.100.18",
+    "@effectstream/runtime": "0.100.18",
     "@pgtyped/runtime": "2.4.2",
-    "@paimaexample/db": "0.3.124",
-    "@paimaexample/db-emulator": "0.3.124",
+    "@effectstream/db": "0.100.18",
+    "@effectstream/db-emulator": "0.100.18",
     "pg": "^8.14.0",
     "effection": "3.5.0"
   },
