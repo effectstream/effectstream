@@ -127,6 +127,23 @@ async function test() {
     const { apiTest } = await import("./stm/api.test.ts");
     await apiTest();
 
+    console.log("\n--- Phase C: Frontend Tests ---\n");
+    await waitForProcess("frontend-build", { waitForExit: true, timeoutMs: 180_000 });
+    await waitForProcess("frontend-server", { timeoutMs: 60_000 });
+
+    const { frontendBuildTest } = await import(
+      "./frontend/build-smoke.test.ts"
+    );
+    await frontendBuildTest();
+
+    const { frontendRenderTest } = await import("./frontend/render.test.ts");
+    await frontendRenderTest();
+
+    const { frontendInteractionsTest } = await import(
+      "./frontend/interactions.test.ts"
+    );
+    await frontendInteractionsTest();
+
     printSummary();
   } catch (e) {
     caughtError = true;

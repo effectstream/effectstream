@@ -1,18 +1,16 @@
 {
   "name": "@world-map-2d/frontend",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
   "type": "module",
   "scripts": {
     "build": "node esbuild.js",
-    "serve": "npx http-server . -p 8080",
-    "dev": "npm install && node esbuild.js && npx http-server . -p 8080"
+    "serve": "bun run server.ts"
   },
-  "author": "",
-  "license": "ISC",
-  "description": "World Map 2D frontend",
   "dependencies": {
     "@effectstream/wallets": "0.100.18",
+    "@fastify/static": "^7.0.4",
+    "fastify": "^4.28.1",
     "viem": "^2.37.5"
   },
   "devDependencies": {

@@ -5,6 +5,7 @@
   "dependencies": {
     "@world-map-2d/contracts-evm": "workspace:*",
     "pg": "^8.14.0",
-    "viem": "^2.21.0"
+    "viem": "^2.21.0",
+    "playwright-core": "^1.48.0"
   }
 }
