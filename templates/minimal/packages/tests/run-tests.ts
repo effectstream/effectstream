@@ -88,6 +88,11 @@ async function waitForHealth(timeoutMs = 120_000): Promise<void> {
 
 async function test() {
   let db: Client | null = null;
+  // Track exceptions thrown before any failed assertion. Without this flag the
+  // runner exits 0 whenever Phase A passes ≥1 test and Phase B/C then throws
+  // before incrementing failCount — anyError() evaluates `0 > 0 || (n+0)===0`
+  // → false, so [PASS] is reported despite the run being broken.
+  let caughtError = false;
   try {
     await startInfrastructure();
     await waitForOrchestrator();
@@ -123,14 +128,27 @@ async function test() {
     const { apiTest } = await import("./stm/api.test.ts");
     await apiTest();
 
+    console.log("\n--- Phase C: Frontend Tests ---\n");
+    await waitForProcess("frontend-build", { waitForExit: true, timeoutMs: 180_000 });
+    await waitForProcess("frontend-server", { timeoutMs: 60_000 });
+
+    const { frontendBuildTest } = await import(
+      "./frontend/build-smoke.test.ts"
+    );
+    await frontendBuildTest();
+
+    const { frontendRenderTest } = await import("./frontend/render.test.ts");
+    await frontendRenderTest();
+
     printSummary();
   } catch (e) {
+    caughtError = true;
     printSummary();
     console.error(e);
   } finally {
     if (db) await db.end();
     await stopInfrastructure();
-    if (anyError()) process.exit(1);
+    if (caughtError || anyError()) process.exit(1);
     process.exit(0);
   }
 }
