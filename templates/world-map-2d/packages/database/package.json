@@ -1,5 +1,5 @@
 {
-  "name": "@world-map-2d/db",
+  "name": "@world-map-2d/database",
   "version": "0.1.0",
   "license": "MIT",
   "exports": "./src/mod.ts",

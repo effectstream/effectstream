@@ -1,4 +1,4 @@
-import { contractAddressesEvmMain } from "@world-map-2d/evm-contracts";
+import { contractAddressesEvmMain } from "@world-map-2d/contracts-evm";
 import { PrimitiveTypeEVMPaimaL2 } from "@effectstream/sm/builtin";
 import {
   ConfigBuilder,

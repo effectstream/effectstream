@@ -4,7 +4,7 @@ import {
   createGlobalUserState,
   updateUserGlobalPosition,
   updateWorldStateCounter,
-} from "@world-map-2d/db";
+} from "@world-map-2d/database";
 
 type SQLUpdate = [any, any];
 

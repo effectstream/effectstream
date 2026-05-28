@@ -24,7 +24,7 @@ const config = Value.Parse(OrchestratorConfig, {
   },
 
   processesToLaunch: [
-    ...launchEvm("@world-map-2d/evm-contracts"),
+    ...launchEvm("@world-map-2d/contracts-evm"),
     ...customProcesses,
   ],
 });

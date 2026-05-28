@@ -2,7 +2,7 @@ import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@effectstream/runtime";
 import type fastify from "fastify";
 import { runPreparedQuery } from "@effectstream/db";
-import { getUserStats, getAllWorldStats } from "@world-map-2d/db";
+import { getUserStats, getAllWorldStats } from "@world-map-2d/database";
 
 export const apiRouter: StartConfigApiRouter = async function (
   server: fastify.FastifyInstance,

@@ -5,7 +5,7 @@ import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
-import { migrationTable } from "@world-map-2d/db";
+import { migrationTable } from "@world-map-2d/database";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "@world-map-2d/data-types/grammar";
