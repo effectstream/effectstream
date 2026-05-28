@@ -11,21 +11,21 @@ import type { UnshieldedKeystore } from "@midnight-ntwrk/wallet-sdk-unshielded-w
  * Configuration for deploying a Midnight contract
  */
 export interface DeployConfig {
-    /** Name of the contract directory (e.g., "contract-counter", "contract-eip-20") */
+    /** Name of the contract directory containing `src/managed` (e.g., "contract-counter", "contract-eip-20"). Required. */
     contractName: string;
-    /** Base filename for contract address (e.g., "contract-counter.json"); a network suffix is appended */
-    contractFileName: string;
-    /** The Contract class to deploy */
+    /** The compiled Contract class to deploy (e.g. `Foo.Contract`). Required. */
     // deno-lint-ignore no-explicit-any
     contractClass: any;
-    /** Witness definitions */
+    /** Base filename the deployed address is written to; a network suffix is appended. Defaults to `${contractName}.json`. */
+    contractFileName?: string;
+    /** Witness definitions. Defaults to `{}` (no witnesses). */
     // deno-lint-ignore no-explicit-any
-    witnesses: any;
-    /** On-chain private state ID */
-    privateStateId: string;
-    /** Initial private state object */
+    witnesses?: any;
+    /** On-chain private state ID. Defaults to `"privateState"`. */
+    privateStateId?: string;
+    /** Initial private state object. Defaults to `{}` (for contracts with no private state). */
     // deno-lint-ignore no-explicit-any
-    initialPrivateState: any;
+    initialPrivateState?: any;
     /** Optional deployment arguments array */
     // deno-lint-ignore no-explicit-any
     deployArgs?: any[];
@@ -35,6 +35,25 @@ export interface DeployConfig {
     baseDir?: string;
     /** Optional flag to extract wallet address info (for contracts that need initialOwner) */
     extractWalletAddress?: boolean;
+    /**
+     * Deploy in phases instead of a single transaction.
+     *
+     * When `true`, the contract is first deployed with NO verifier keys, then each
+     * circuit's verifier key is inserted in its own transaction. Use this for
+     * contracts with many circuits whose combined verifier keys would otherwise
+     * exceed the node's per-block transaction limits ("Transaction would exhaust
+     * block limits"). Defaults to `false` (single-transaction deploy).
+     */
+    phasedVerifierKeys?: boolean;
+    /** Per-circuit retry count when inserting verifier keys in phased mode (default 3). */
+    vkInsertRetries?: number;
+    /**
+     * Path to the resume-state file used by phased mode to track progress so an
+     * interrupted deployment can be resumed. Defaults to `deployment-state.json`
+     * in the current working directory. This file is removed once the phased
+     * deployment completes successfully.
+     */
+    phasedStateFile?: string;
 }
 
 /**

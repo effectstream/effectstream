@@ -10,6 +10,10 @@ import {
   WalletMode,
   WalletNameMap,
   getAddressType,
+  evmViemIcon,
+  cardanoLocalIcon,
+  midnightLocalIcon,
+  formatError,
 } from "@effectstream/wallets";
 import {
   sendBatcherTransaction,
@@ -17,10 +21,8 @@ import {
   signMessage,
 } from "@effectstream/wallets";
 
-import { createWalletClient, http } from "viem";
 import { hardhat as hardhatChain } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
-import { BrowserProvider, JsonRpcSigner } from "ethers";
+import type { Hex } from "viem";
 import { useMemo } from "react";
 import { grammar } from "@e2e/data-types";
 import { config } from "@e2e/data-types/config-localhost";
@@ -43,10 +45,17 @@ network.rpcUrls = {
 const contractAddressOnNetwork = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 const batcherUrl = "http://localhost:3334";
 const syncProtocolName = "parallelEvmRPC_fast";
+// Security namespace MUST match the running batcher's `BatcherConfig.namespace`.
+// The e2e/evm/batcher uses `getWriteNamespace(evmConfig.securityNamespace)`
+// where evmConfig sets `setSecurityNamespace("e2e-evm")` — so we have to sign
+// against that exact string or every batcher submission fails with
+// "Invalid signature".
+const securityNamespace =
+  (import.meta as any).env?.VITE_BATCHER_NAMESPACE ?? "e2e-evm";
 // END LOCAL CONFIG
 
 const effectstreamConfig = new EffectstreamConfig(
-  undefined, // no app name
+  securityNamespace,
   syncProtocolName, // paima l2 sync protocol name
   contractAddressOnNetwork, // paima l2 contract address
   network, // paima l2 chain
@@ -58,15 +67,27 @@ const chainIdToWalletType = (chainId: WalletMode): string => {
   return WalletNameMap[chainId] || `Unknown (${chainId})`;
 };
 
-// Local Wallet
-const viemAccount = privateKeyToAccount(
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-);
-const viemClient = createWalletClient({
-  account: viemAccount,
-  chain: network,
-  transport: http(),
-});
+// Local-wallet config. Picked up by the three new buttons below (EVM Viem,
+// Cardano Lucid, Midnight Local). Each falls back to a deterministic test
+// value so the Playwright harness can drive the page without env wiring.
+const env = (import.meta as any).env ?? {};
+const EVM_LOCAL_PRIVATE_KEY: Hex = (env.VITE_EVM_LOCAL_PRIVATE_KEY as Hex)
+  // Hardhat default account #0.
+  ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const EVM_LOCAL_RPC_URL: string = env.VITE_EVM_LOCAL_RPC_URL
+  ?? "http://localhost:8545";
+const CARDANO_LOCAL_SEED: string | undefined = env.VITE_CARDANO_LOCAL_SEED;
+const CARDANO_LOCAL_NETWORK = (env.VITE_CARDANO_LOCAL_NETWORK as
+  | "Mainnet"
+  | "Preprod"
+  | "Preview"
+  | "Custom"
+  | undefined) ?? "Preview";
+const MIDNIGHT_LOCAL_SEED: string = env.VITE_MIDNIGHT_LOCAL_SEED
+  // Genesis-style seed used for "undeployed" local Midnight chains.
+  ?? "0000000000000000000000000000000000000000000000000000000000000001";
+const MIDNIGHT_LOCAL_NETWORK_ID: string = env.VITE_MIDNIGHT_LOCAL_NETWORK_ID
+  ?? "undeployed";
 
 interface PrimitiveInfo {
   name: string;
@@ -75,21 +96,6 @@ interface PrimitiveInfo {
   signature?: string;
   type: string;
   networkType: string;
-}
-
-// localhostConfig.primitives['evm-rpc-effectstream-l2'].primitive.abi = effectstreamL2Abi;
-/** Convert Viem to Ether Signer */
-/** Hook to convert a viem Wallet Client to an ethers.js Signer. */
-function clientToSigner(client: any) { // Client<Transport, Chain, Account>) {
-  const { account, chain, transport } = client;
-  const network = {
-    chainId: chain.id,
-    name: chain.name,
-    ensAddress: chain.contracts?.ensRegistry?.address,
-  };
-  const provider = new BrowserProvider(transport, network);
-  const signer = new JsonRpcSigner(provider, account.address);
-  return signer;
 }
 
 function logMidnightWalletAddresses(addresses: any): void {
@@ -251,7 +257,7 @@ function App() {
         setError(result.errorMessage);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     }
   };
 
@@ -334,7 +340,7 @@ function App() {
         return;
       }
       console.error("Increment failed:", error);
-      setError(error instanceof Error ? error.message : String(error));
+      setError(formatError(error));
     }
   };
 
@@ -442,6 +448,10 @@ function App() {
     if (injectedWallets) {
       for (const [modeStr, walletList] of Object.entries(injectedWallets)) {
         const mode = Number(modeStr) as WalletMode;
+        // Midnight is handled by the bespoke "Connect Midnight Wallet" entry
+        // below (it wires up the Counter contract + providers). Skip here so
+        // we don't render Lace twice.
+        if (mode === WalletMode.Midnight) continue;
         if (Array.isArray(walletList) && walletList.length > 0) {
           for (const wallet of walletList as any[]) {
             // Get a lower-case network type like 'evm' or 'cardano' from the wallet mode.
@@ -460,27 +470,64 @@ function App() {
     }
 
     wallets.push({
-      name: "EVM (Viem Local Wallet)",
-      mode: WalletMode.EvmEthers,
+      name: "EVM (Viem Local)",
+      mode: WalletMode.EvmViem,
       login: () =>
         handleLogin(() =>
           walletLogin({
-            mode: WalletMode.EvmEthers,
-            connection: {
-              metadata: {
-                name: "Viem Local Wallet",
-                displayName: "Viem Local Wallet",
-              },
-              api: clientToSigner(viemClient),
-            },
+            mode: WalletMode.EvmViem,
+            privateKey: EVM_LOCAL_PRIVATE_KEY,
+            rpcUrl: EVM_LOCAL_RPC_URL,
+            chain: network,
             preferBatchedMode: false,
           }),
-          WalletMode.EvmEthers,
+          WalletMode.EvmViem,
         ),
       types: ["evm"],
       metadata: {
-        name: "Viem Local Wallet",
-        displayName: "EVM (Viem Local Wallet)",
+        name: "evm-viem-local",
+        displayName: "EVM (Viem Local)",
+        icon: evmViemIcon,
+      },
+    });
+
+    wallets.push({
+      name: "Cardano (Lucid Local)",
+      mode: WalletMode.CardanoLocal,
+      login: () =>
+        handleLogin(() =>
+          walletLogin({
+            mode: WalletMode.CardanoLocal,
+            seedPhrase: CARDANO_LOCAL_SEED,
+            network: CARDANO_LOCAL_NETWORK,
+          }),
+          WalletMode.CardanoLocal,
+        ),
+      types: ["cardano"],
+      metadata: {
+        name: "cardano-lucid-local",
+        displayName: "Cardano (Lucid Local)",
+        icon: cardanoLocalIcon,
+      },
+    });
+
+    wallets.push({
+      name: "Midnight (Local Seed)",
+      mode: WalletMode.MidnightLocal,
+      login: () =>
+        handleLogin(() =>
+          walletLogin({
+            mode: WalletMode.MidnightLocal,
+            seed: MIDNIGHT_LOCAL_SEED,
+            networkId: MIDNIGHT_LOCAL_NETWORK_ID,
+          }),
+          WalletMode.MidnightLocal,
+        ),
+      types: ["midnight"],
+      metadata: {
+        name: "midnight-local-seed",
+        displayName: "Midnight (Local Seed)",
+        icon: midnightLocalIcon,
       },
     });
 
@@ -505,8 +552,19 @@ function App() {
       },
     });
 
+    // Lace (or whatever Midnight wallet the user has) was discovered via
+    // window.midnight — borrow its metadata so the card shows the real icon
+    // + name instead of a gray "M" placeholder.
+    const midnightInjected = (injectedWallets?.[WalletMode.Midnight] as
+      | { metadata: { name: string; displayName: string; icon?: string } }[]
+      | undefined)?.[0];
+    const midnightMetadata = midnightInjected?.metadata ?? {
+      name: "Midnight Wallet",
+      displayName: "Midnight Wallet",
+    };
+
     wallets.push({
-      name: "Connect Midnight Wallet",
+      name: midnightMetadata.displayName,
       mode: WalletMode.Midnight,
       login: async () => {
         try {
@@ -536,14 +594,11 @@ function App() {
             setError(result.errorMessage);
           }
         } catch (e) {
-          setError(e instanceof Error ? e.message : String(e));
+          setError(formatError(e));
         }
       },
       types: ["midnight"],
-      metadata: {
-        name: "Midnight Wallet",
-        displayName: "Midnight Wallet",
-      },
+      metadata: midnightMetadata,
     });
 
     return wallets;
@@ -583,7 +638,7 @@ function App() {
       setEditableMessage(messageToSign);
       setEditableSignature(signedMessage);
     } catch (e) {
-      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setActionResult(`Error: ${formatError(e)}`);
     }
   };
 
@@ -607,7 +662,7 @@ function App() {
         `Batcher transaction sent. Result: ${JSON.stringify(result, null, 2)}`,
       );
     } catch (e) {
-      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setActionResult(`Error: ${formatError(e)}`);
     }
   };
 
@@ -630,7 +685,7 @@ function App() {
       setVerificationArgs(args);
       setSignatureVerification(isCorrect);
     } catch (e) {
-      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setActionResult(`Error: ${formatError(e)}`);
     }
   };
 
@@ -705,7 +760,7 @@ function App() {
         }
       }
     } catch (e) {
-      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      setActionResult(`Error: ${formatError(e)}`);
     }
   };
 
@@ -802,6 +857,7 @@ function App() {
                 displayedWallets.map((wallet) => (
                   <div
                     key={`${wallet.metadata.name} :: ${wallet.mode}`}
+                    data-testid={`login-${wallet.metadata.name}`}
                     onClick={wallet.login}
                     style={{
                       display: "flex",
@@ -911,9 +967,12 @@ function App() {
       </div>
 
       {wallet && (
-        <div style={{ display: "flex", gap: "2rem", marginTop: "2rem" }}>
-          {/* Left Column: Logs */}
-          <div style={{ flex: '0 0 50%' }}>
+        <div style={{ display: "flex", gap: "2rem", marginTop: "2rem" }} data-testid="wallet-info">
+          {/* Left Column: Logs.
+              `minWidth: 0` lets the flex item shrink below its content's
+              intrinsic width, otherwise long bech32 addresses + hex blobs
+              blow the column out and the whole row overflows the page. */}
+          <div style={{ flex: "1 1 0", minWidth: 0 }}>
             <div className="info-box">
               <div
                 style={{
@@ -933,7 +992,10 @@ function App() {
                 <h2>Wallet Info</h2>
               </div>
               <div>
-                <p><strong>Address:</strong> {wallet.walletAddress}</p>
+                <p style={{ overflowWrap: "anywhere" }}>
+                  <strong>Address:</strong>{" "}
+                  <span data-testid="wallet-address">{wallet.walletAddress}</span>
+                </p>
                 <p>
                   <strong>Address Validity:</strong>{" "}
                   {isAddressValid === true
@@ -943,7 +1005,7 @@ function App() {
                     : "⏳ Unknown"}
                 </p>
                 <p><strong>Metadata:</strong></p>
-                <pre>
+                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                   {JSON.stringify(wallet.metadata || {}, null, 2)}
                 </pre>
               </div>
@@ -985,13 +1047,22 @@ function App() {
           </div>
 
           {/* Right Column: Actions */}
-          <div style={{ flex: '0 0 50%' }}>
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ flex: "1 1 0", minWidth: 0 }}>
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
               <h2>Actions</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '1rem', alignItems: 'center' }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "auto minmax(0, 1fr) auto",
+                  gap: "1rem",
+                  alignItems: "center",
+                  minWidth: 0,
+                }}
+              >
                 <label style={{ color: 'white' }}>Sign Message:</label>
                 <input
                   type="text"
+                  data-testid="message-input"
                   value={messageToSign}
                   onChange={(e) => setMessageToSign(e.target.value)}
                   placeholder="message to sign"
@@ -1000,10 +1071,13 @@ function App() {
                     borderRadius: "4px",
                     border: "1px solid #ccc",
                     width: "100%",
+                    boxSizing: "border-box",
+                    minWidth: 0,
                   }}
                 />
                 <button
                   type="button"
+                  data-testid="sign-message"
                   onClick={handleSignMessage}
                   disabled={!messageToSign}
                   style={{ width: "80px" }}
@@ -1022,6 +1096,8 @@ function App() {
                     borderRadius: "4px",
                     border: "1px solid #ccc",
                     width: "100%",
+                    boxSizing: "border-box",
+                    minWidth: 0,
                   }}
                 />
                 <button
@@ -1065,32 +1141,49 @@ function App() {
             </div>
 
             {actionResult && (
-              <div className="info-box result-box" style={{ marginTop: "1rem" }}>
+              <div className="info-box result-box" style={{ marginTop: "1rem", minWidth: 0 }} data-testid="action-result">
                 <h3>Result</h3>
-                <pre>{actionResult}</pre>
+                <pre
+                  data-testid="signature-result"
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    overflowWrap: "anywhere",
+                    maxHeight: "16rem",
+                    overflowY: "auto",
+                    margin: 0,
+                  }}
+                >
+                  {actionResult}
+                </pre>
               </div>
             )}
 
             {signatureToVerify && (
-              <div className="card info-box" style={{ marginTop: "1rem" }}>
-                <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem' }}>
-                  <h3>Verify Signature</h3>
-                  <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label>User Address:</label>
-                    <input type="text" value={editableUserAddress} onChange={(e) => setEditableUserAddress(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
+              <div className="card info-box" style={{ marginTop: "1rem", minWidth: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <h3 style={{ margin: 0 }}>Verify Signature</h3>
+                  {/* Row 1: the three fields side by side (each shrinks via
+                      flex:1 + minWidth:0 so long values don't overflow). */}
+                  <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', minWidth: 0 }}>
+                    <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: '1 1 0', minWidth: 0 }}>
+                      <label>User Address:</label>
+                      <input type="text" value={editableUserAddress} onChange={(e) => setEditableUserAddress(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minWidth: 0 }} />
+                    </div>
+                    <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: '1 1 0', minWidth: 0 }}>
+                      <label>Message:</label>
+                      <input type="text" value={editableMessage} onChange={(e) => setEditableMessage(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minWidth: 0 }} />
+                    </div>
+                    <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: '1 1 0', minWidth: 0 }}>
+                      <label>Signature:</label>
+                      <input type="text" value={editableSignature} onChange={(e) => setEditableSignature(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minWidth: 0 }} />
+                    </div>
                   </div>
-                  <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label>Message:</label>
-                    <input type="text" value={editableMessage} onChange={(e) => setEditableMessage(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
-                  </div>
-                  <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label>Signature:</label>
-                    <input type="text" value={editableSignature} onChange={(e) => setEditableSignature(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
-                  </div>
+                  {/* Row 2: the action button. */}
                   <button
                     type="button"
+                    data-testid="verify-signature"
                     onClick={handleVerifySignature}
-                    style={{ marginTop: '0.5rem' }}
+                    style={{ alignSelf: 'flex-start' }}
                   >
                     Verify Signature
                   </button>
@@ -1099,14 +1192,20 @@ function App() {
             )}
 
             {verificationArgs && (
-              <div className="info-box result-box" style={{ marginTop: "1rem" }}>
+              <div className="info-box result-box" style={{ marginTop: "1rem", minWidth: 0 }}>
                 <h3>Signature Verification Arguments</h3>
-                <pre>{JSON.stringify(verificationArgs, null, 2)}</pre>
+                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", margin: 0 }}>
+                  {JSON.stringify(verificationArgs, null, 2)}
+                </pre>
               </div>
             )}
 
             {signatureVerification !== null && (
-              <div className="info-box result-box" style={{ marginTop: "1rem" }}>
+              <div
+                className="info-box result-box"
+                style={{ marginTop: "1rem" }}
+                data-testid={signatureVerification ? "verification-ok" : "verification-failed"}
+              >
                 <h3>Signature Verification</h3>
                 <p>{signatureVerification ? '✅ Signature is valid' : '❌ Signature is invalid'}</p>
               </div>
