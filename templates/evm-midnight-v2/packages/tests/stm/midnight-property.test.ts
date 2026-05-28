@@ -38,10 +38,20 @@ export async function midnightPropertyTest(db: Client) {
   );
 
   await assert(
-    "Midnight property: build wallet and sync funds",
+    "Midnight property: build wallet via @effectstream/wallets MidnightLocal (facade mode) and sync funds",
     async () => {
-      const { buildWalletFacade, syncAndWaitForFunds } = await import(
-        "../../frontend/client/src/increment.ts"
+      // Build the wallet through the unified @effectstream/wallets entry point.
+      // Supplying `networkUrls` switches MidnightLocal from signing-only to the
+      // full WalletFacade (shielded + dust + unshielded sub-wallets connected
+      // to the live indexer + node + proof server). The facade ends up at
+      // `api.walletFacade`; the raw `WalletResult` (secret keys, keystore,
+      // addresses) ends up at `api.walletResult` for advanced flows like the
+      // manual balance/sign/finalize loop below.
+      const { MidnightLocalConnector } = await import(
+        "@effectstream/wallets/midnight-local"
+      );
+      const { syncAndWaitForFunds } = await import(
+        "@effectstream/midnight-contracts"
       );
       const { CompiledContract } = await import("@midnight-ntwrk/compact-js");
       const { findDeployedContract } = await import(
@@ -62,22 +72,31 @@ export async function midnightPropertyTest(db: Client) {
       const { setNetworkId } = await import(
         "@midnight-ntwrk/midnight-js-network-id"
       );
-      const { NetworkId } = await import(
-        "@midnight-ntwrk/wallet-sdk-abstractions"
-      );
 
       setNetworkId(MIDNIGHT_NETWORK_ID as any);
-      const networkId = MIDNIGHT_NETWORK_ID as NetworkId.NetworkId;
 
-      console.log("  Building wallet...");
-      const walletResult = await buildWalletFacade(
+      console.log("  Building wallet via MidnightLocalConnector...");
+      const provider = await MidnightLocalConnector.instance().connectFromSeed({
+        seed: GENESIS_SEED,
+        networkId: MIDNIGHT_NETWORK_ID,
         networkUrls,
-        GENESIS_SEED,
-        networkId,
-      );
+      });
+      const api = provider.getConnection().api as any;
+      const walletResult = api.walletResult as Awaited<
+        ReturnType<
+          typeof import("@effectstream/midnight-contracts")["buildWalletFacade"]
+        >
+      >;
+      if (walletResult == null) {
+        throw new Error(
+          "MidnightLocalConnector did not return walletResult — facade mode wiring is broken.",
+        );
+      }
       console.log("  Wallet built. Syncing funds...");
+      // Engine's syncAndWaitForFunds takes the bare WalletFacade; pull it off
+      // walletResult.wallet (which is the same object exposed as api.walletFacade).
       const { shieldedBalance, dustBalance } = await syncAndWaitForFunds(
-        walletResult,
+        walletResult.wallet,
         { timeoutMs: 300_000 },
       );
       console.log(
