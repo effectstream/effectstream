@@ -11,9 +11,9 @@
     "start:mainnet": "bun run batcher.mainnet.ts"
   },
   "dependencies": {
-    "@effectstream/batcher-sdk": "0.100.17",
-    "@effectstream/midnight-contracts": "0.100.17",
-    "@effectstream/utils": "0.100.17",
+    "@effectstream/batcher-sdk": "0.100.18",
+    "@effectstream/midnight-contracts": "0.100.18",
+    "@effectstream/utils": "0.100.18",
     "effection": "^3.5.0"
   }
 }
