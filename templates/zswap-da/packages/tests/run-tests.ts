@@ -21,6 +21,7 @@ if (!process.env["E2E_MAX_TIMEOUT"]) {
 
 async function main(): Promise<void> {
   let db: Client | null = null;
+  let caughtError = false;
   try {
     await startInfrastructure(LAUNCHER_PATH);
     await waitForOrchestrator();
@@ -71,12 +72,13 @@ async function main(): Promise<void> {
 
     printSummary();
   } catch (e) {
+    caughtError = true;
     printSummary();
     console.error(e);
   } finally {
     if (db) await db.end();
     await stopInfrastructure();
-    if (anyError()) process.exit(1);
+    if (caughtError || anyError()) process.exit(1);
     process.exit(0);
   }
 }
