@@ -1,8 +1,22 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { walletLogin, sendTransaction, WalletMode } from "@effectstream/wallets";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  allInjectedWallets,
+  sendTransaction,
+  walletLogin,
+  WalletMode,
+} from "@effectstream/wallets";
 import type { Wallet } from "@effectstream/wallets";
 import { paimaConfig } from "./config.ts";
 import { getGateStatus, setGateStatus, getCommands, type Command } from "./api.ts";
+
+type InjectedEntry = {
+  metadata: { name: string; displayName: string; icon?: string };
+};
+
+const SUPPORTED_MODES: WalletMode[] = [WalletMode.EvmInjected, WalletMode.Cardano];
+
+const modeLabel = (mode: WalletMode) =>
+  mode === WalletMode.Cardano ? "cardano" : "evm";
 
 export function App() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -10,6 +24,8 @@ export function App() {
   const [commands, setCommands] = useState<Command[]>([]);
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
+  const [injectedWallets, setInjectedWallets] =
+    useState<Record<WalletMode, InjectedEntry[]> | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -25,13 +41,41 @@ export function App() {
     return () => clearInterval(id);
   }, [refresh]);
 
-  const connectWallet = async () => {
+  useEffect(() => {
+    // Some injected providers register asynchronously.
+    const id = setTimeout(async () => {
+      try {
+        const all = (await allInjectedWallets()) as unknown as Record<
+          WalletMode,
+          InjectedEntry[]
+        >;
+        setInjectedWallets(all);
+      } catch (e) {
+        console.error("Failed to enumerate injected wallets:", e);
+      }
+    }, 200);
+    return () => clearTimeout(id);
+  }, []);
+
+  const availableWallets = useMemo(() => {
+    if (!injectedWallets) return [];
+    const list: { mode: WalletMode; entry: InjectedEntry }[] = [];
+    for (const mode of SUPPORTED_MODES) {
+      const entries = injectedWallets[mode];
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) list.push({ mode, entry });
+    }
+    return list;
+  }, [injectedWallets]);
+
+  const connectWallet = async (mode: WalletMode, name: string) => {
     try {
       const result = await walletLogin({
-        mode: WalletMode.EvmInjected,
+        mode,
+        preference: { name },
         preferBatchedMode: true,
         checkChainId: false,
-      });
+      } as any);
       setWallet(result.result);
       setStatus(`Connected: ${result.result.walletAddress.slice(0, 10)}...`);
     } catch (e: any) {
@@ -69,8 +113,51 @@ export function App() {
       <section style={{ marginBottom: 24 }}>
         {wallet ? (
           <span style={{ color: "#6f6" }}>{status}</span>
+        ) : injectedWallets === null ? (
+          <span style={{ color: "#888" }}>Detecting wallets…</span>
+        ) : availableWallets.length === 0 ? (
+          <span style={{ color: "#888" }}>
+            No EVM or Cardano browser wallet detected.
+          </span>
         ) : (
-          <button onClick={connectWallet} style={btnStyle}>Connect Wallet</button>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {availableWallets.map(({ mode, entry }) => (
+              <button
+                key={`${mode}:${entry.metadata.name}`}
+                onClick={() => connectWallet(mode, entry.metadata.name)}
+                style={walletBtnStyle}
+                title={`${entry.metadata.displayName} (${modeLabel(mode)})`}
+              >
+                {entry.metadata.icon ? (
+                  <img
+                    src={entry.metadata.icon}
+                    alt=""
+                    style={{ width: 20, height: 20, borderRadius: 4 }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 4,
+                      background: "#4a5568",
+                      color: "#fff",
+                      fontSize: 12,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {entry.metadata.displayName.charAt(0)}
+                  </span>
+                )}
+                <span>{entry.metadata.displayName}</span>
+                <span style={{ color: "#aaa", fontSize: 12 }}>
+                  {modeLabel(mode)}
+                </span>
+              </button>
+            ))}
+          </div>
         )}
       </section>
 
@@ -161,6 +248,19 @@ const btnStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 600,
+};
+
+const walletBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  background: "#1a1d27",
+  color: "#e1e4ea",
+  border: "1px solid #2a2d37",
+  borderRadius: 6,
+  padding: "8px 12px",
+  cursor: "pointer",
+  fontSize: 14,
 };
 
 const inputStyle: React.CSSProperties = {
