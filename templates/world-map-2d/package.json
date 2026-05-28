@@ -5,7 +5,7 @@
   ],
   "scripts": {
     "build:evm": "bun run --filter @world-map-2d/contracts-evm build:mod",
-    "dev": "bun run --filter @world-map-2d/node dev",
+    "dev": "NODE_ENV=development bunx orchestrator start",
     "check": "bun run --filter @world-map-2d/node check",
     "test": "bun run packages/tests/run-tests.ts",
     "build:pgtypes": "bun run --filter @world-map-2d/database pgtyped:update"
@@ -13,5 +13,8 @@
   "dependencies": {
     "@electric-sql/pglite": "^0.3.10",
     "@effectstream/evm-contracts": "0.100.18"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
   }
 }

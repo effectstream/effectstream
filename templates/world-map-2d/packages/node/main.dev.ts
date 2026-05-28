@@ -1,30 +1,27 @@
 import { init, start } from "@effectstream/runtime";
 import { main, suspend } from "effection";
-import { localhostConfig } from "@world-map-2d/data-types/localhostConfig";
 import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
-import { migrationTable } from "@world-map-2d/database";
+import { config } from "./config.dev.ts";
+import { grammar } from "./grammar.ts";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
-import { grammar } from "@world-map-2d/data-types/grammar";
+import { migrationTable } from "@world-map-2d/database";
 
 main(function* () {
   yield* init();
-  console.log("Starting EffectStream Node - World Map 2D");
-
-  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(config, function* () {
     yield* start({
       appName: "world-map-2d",
-      appVersion: "0.1.0",
-      syncInfo: toSyncProtocolWithNetwork(localhostConfig),
+      appVersion: "1.0.0",
+      syncInfo: toSyncProtocolWithNetwork(config),
       gameStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,
     });
   });
-
   yield* suspend();
 });

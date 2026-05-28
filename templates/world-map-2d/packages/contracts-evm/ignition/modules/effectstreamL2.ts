@@ -1,8 +1,8 @@
 import { buildModule } from "@nomicfoundation/ignition-core";
 
-export default buildModule("PaimaL2ContractModule", (m) => {
+export default buildModule("EffectstreamL2Module", (m) => {
   const owner = m.getParameter("owner");
   const fee = m.getParameter("fee");
-  const contract = m.contract("MyPaimaL2Contract", [owner, fee]);
+  const contract = m.contract("MyEffectstreamL2", [owner, fee]);
   return { contract };
 });

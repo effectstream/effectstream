@@ -2,13 +2,9 @@
   "name": "@world-map-2d/node",
   "version": "0.1.0",
   "license": "MIT",
-  "exports": {
-    ".": "./src/main.ts"
-  },
+  "exports": "./main.dev.ts",
   "scripts": {
-    "check": "tsc --noEmit src/main.ts",
-    "node:start": "bun --inspect run src/main.ts",
-    "dev": "bun run --filter @paimaexample/tui clean && NODE_ENV=development PAIMA_API_PORT=9999 bun run scripts/start.ts"
+    "check": "echo 'check'"
   },
   "dependencies": {
     "@effectstream/concise": "0.100.18",

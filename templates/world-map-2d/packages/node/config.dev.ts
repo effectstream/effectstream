@@ -1,14 +1,14 @@
 import { contractAddressesEvmMain } from "@world-map-2d/contracts-evm";
-import { PrimitiveTypeEVMPaimaL2 } from "@effectstream/sm/builtin";
+import { PrimitiveTypeEVMEffectstreamL2 } from "@effectstream/sm/builtin";
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@effectstream/config";
 import { hardhat } from "viem/chains";
-import { grammar } from "@world-map-2d/data-types/grammar";
+import { grammar } from "./grammar.ts";
 
-export const localhostConfig = new ConfigBuilder()
+export const config = new ConfigBuilder()
   .setNamespace(
     (builder) => builder.setSecurityNamespace("world-map-2d-node"),
   )
@@ -58,11 +58,11 @@ export const localhostConfig = new ConfigBuilder()
         (network, deployments, syncProtocol) =>
           ({
             name: "WorldMap2D_PaimaL2",
-            type: PrimitiveTypeEVMPaimaL2,
+            type: PrimitiveTypeEVMEffectstreamL2,
             startBlockHeight: 0,
             contractAddress:
               contractAddressesEvmMain()
-                .chain31337["PaimaL2ContractModule#MyPaimaL2Contract"],
+                .chain31337["EffectstreamL2Module#MyEffectstreamL2"],
             paimaL2Grammar: grammar,
           }),
       )

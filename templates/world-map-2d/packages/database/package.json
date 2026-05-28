@@ -4,8 +4,7 @@
   "license": "MIT",
   "exports": "./src/mod.ts",
   "scripts": {
-    "_pgtyped:my-sql": "bunx @paimaexample/db/db-wait && bunx @paimaexample/db/apply-migrations && bun run sql-to-ts.ts && pgtyped -c ./pgtypedconfig.json",
-    "pgtyped:update": "concurrently --raw --kill-others \"bunx @paimaexample/db/db-up\" \"bun run _pgtyped:my-sql\""
+    "pgtyped:update": "bun run ./node_modules/@effectstream/db/scripts/pgtyped-update.ts"
   },
   "dependencies": {
     "@effectstream/config": "0.100.18",
