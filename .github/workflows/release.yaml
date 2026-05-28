@@ -39,7 +39,7 @@ jobs:
       # No --allow-uncommitted: the tree is clean at the script's git-check, since
       # it writes the root version only after that check (.npmrc is gitignored).
       - name: Publish
-        run: bun run publish-bun.effectstream.ts --publish --release-version "${{ github.event.release.tag_name }}"
+        run: bun run .github/publish-bun.effectstream.ts --publish --release-version "${{ github.event.release.tag_name }}"
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

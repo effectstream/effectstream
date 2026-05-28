@@ -19,8 +19,9 @@ cd e2e && bun run runner.ts
 bun test packages/path/to/file.test.ts
 
 # Publish packages (dry-run by default, add --publish for real)
-bun run publish-bun.effectstream.ts
-bun run publish-bun.effectstream.ts --publish --allow-uncommitted
+# Lives in .github/; also runs automatically on a GitHub Release via .github/workflows/release.yaml
+bun run .github/publish-bun.effectstream.ts
+bun run .github/publish-bun.effectstream.ts --publish --allow-uncommitted
 
 # Unpublish/deprecate bad versions (dry-run by default)
 bun run unpublish-bun.effectstream.ts

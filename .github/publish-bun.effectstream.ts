@@ -5,7 +5,9 @@ import { resolve, join, relative } from "path";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { Glob } from "bun";
 
-const ROOT = import.meta.dir;
+// This script lives in `.github/`; the monorepo root is one level up. Everything
+// below (package discovery, root package.json, relative dirs) is resolved against ROOT.
+const ROOT = resolve(import.meta.dir, "..");
 
 const FLAGS_HELP = `
 Flags:
