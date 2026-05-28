@@ -17,8 +17,7 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
-import { ContractState } from "@midnight-ntwrk/compact-runtime";
-import type { StateValue } from "@effectstream/config";
+import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
 import { decodeZswapInputEvent } from "./zswap-decoder.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<

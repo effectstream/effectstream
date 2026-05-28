@@ -12,7 +12,7 @@
   },
   "overrides": {
     "@effect/platform": "0.96.1",
-    "@midnight-ntwrk/ledger-v8": "8.1.0"
+    "@midnight-ntwrk/ledger-v8": "8.0.3"
   },
   "devDependencies": {
     "@effectstream/db": "workspace:*",

@@ -67,8 +67,30 @@ export default {
     },
 
     {
-      // Serves the output produced by frontend-build (server:start, no rebuild)
-      // so the heavy vite build only ever runs once — in the isolated step above.
+      // Mirrors the freshly-deployed address into dist, overwriting the
+      // placeholder that frontend-build copied. Avoids a rebuild after deploy.
+      name: "publish-contract-address",
+      description: "Copy freshly-deployed contract address into frontend dist",
+      cwd: root,
+      args: [
+        "-e",
+        [
+          "import { copyFile, mkdir } from 'node:fs/promises';",
+          "import { dirname } from 'node:path';",
+          "const src = 'packages/contracts-midnight/contract-round-value.undeployed.json';",
+          "const dst = 'packages/frontend/client/dist/contract_address/contract-round-value.undeployed.json';",
+          "await mkdir(dirname(dst), { recursive: true });",
+          "await copyFile(src, dst);",
+          "console.log('Published', src, '→', dst);",
+        ].join("\n"),
+      ],
+      waitToExit: true,
+      type: "system-dependency",
+      dependsOn: [MidnightNames.CONTRACT_DEPLOY, "frontend-build"],
+    },
+
+    {
+      // Serves the dist produced by frontend-build (no rebuild here).
       name: "frontend-server",
       description: "Serve frontend",
       cwd: path.join(root, "packages/frontend"),
@@ -78,7 +100,7 @@ export default {
       critical: true,
       link: "http://localhost:10599",
       stopProcessAtPort: [10599],
-      dependsOn: ["frontend-build"],
+      dependsOn: ["frontend-build", "publish-contract-address"],
     },
 
   ],

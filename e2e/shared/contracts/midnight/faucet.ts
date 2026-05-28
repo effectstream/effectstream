@@ -7,6 +7,7 @@ import { ShieldedWallet } from "@midnight-ntwrk/wallet-sdk-shielded";
 import { DustWallet } from "@midnight-ntwrk/wallet-sdk-dust-wallet";
 import {
   createKeystore,
+  InMemoryTransactionHistoryStorage,
   PublicKey,
   type UnshieldedKeystore,
   UnshieldedWallet,
@@ -19,12 +20,7 @@ import {
   UnprovenTransaction,
   ZswapSecretKeys,
 } from "@midnight-ntwrk/ledger-v8";
-// `InMemoryTransactionHistoryStorage` moved from wallet-sdk-unshielded-wallet
-// to wallet-sdk-abstractions in the 3.x release.
-import {
-  NetworkId,
-  InMemoryTransactionHistoryStorage,
-} from "@midnight-ntwrk/wallet-sdk-abstractions";
+import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { makeServerProvingService } from "@midnight-ntwrk/wallet-sdk-capabilities/proving";
 import { MidnightBech32m, UnshieldedAddress } from "@midnight-ntwrk/wallet-sdk-address-format";
 import { getEnv, exit } from "@effectstream/utils/runtime";

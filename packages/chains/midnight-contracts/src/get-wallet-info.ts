@@ -31,15 +31,11 @@ import {
   UnshieldedWallet,
   createKeystore,
   PublicKey,
+  InMemoryTransactionHistoryStorage,
   type UnshieldedKeystore,
 } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
 import { type ShieldedWalletState } from "@midnight-ntwrk/wallet-sdk-shielded";
-// `InMemoryTransactionHistoryStorage` moved from wallet-sdk-unshielded-wallet
-// to wallet-sdk-abstractions in the 3.x release (see the 3.0.0 README example).
-import {
-  NetworkId,
-  InMemoryTransactionHistoryStorage,
-} from "@midnight-ntwrk/wallet-sdk-abstractions";
+import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 import * as path from "node:path";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
