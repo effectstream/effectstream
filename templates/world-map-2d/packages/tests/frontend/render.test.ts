@@ -59,6 +59,11 @@ export async function frontendRenderTest(): Promise<void> {
     );
 
     await assert(
+      "Frontend ships the interactive 10×10 world grid",
+      async () => (await page.$('[data-testid="world-grid"]')) !== null,
+    );
+
+    await assert(
       "Frontend has no fatal JS errors on load",
       async () => jsErrors.length === 0,
     );

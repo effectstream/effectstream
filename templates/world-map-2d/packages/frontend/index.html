@@ -11,10 +11,9 @@
 <body>
   <div class="container">
     <h2>World Map 2D</h2>
-    <p>An EffectStream-powered open-world grid. Connect a wallet, join the world, and move.</p>
 
-    <section>
-      <h3>1. Connect Wallet</h3>
+    <section id="wallet-section">
+      <h3>Connect Wallet</h3>
       <p id="wallet-address" data-testid="wallet-address">Not connected</p>
       <button
         id="connect-browser"
@@ -28,26 +27,119 @@
       >Connect Local Wallet (dev)</button>
     </section>
 
-    <section>
-      <h3>2. Join &amp; move</h3>
-      <button data-testid="join-world-btn" onclick="window.uiJoinWorld()">Join world</button>
-      <span> — submit a move at coordinates: </span>
-      <input id="move-x" data-testid="move-x" type="number" min="0" max="9" value="3" style="width:48px" />
-      <input id="move-y" data-testid="move-y" type="number" min="0" max="9" value="4" style="width:48px" />
-      <button data-testid="submit-move-btn" onclick="window.uiSubmitMove()">Submit move</button>
-      <button data-testid="submit-increment-btn" onclick="window.uiSubmitIncrement()">Increment cell</button>
-    </section>
+    <section id="login"></section>
 
-    <section>
-      <h3>3. Stats</h3>
-      <button data-testid="refresh-stats-btn" onclick="window.uiRefresh()">Refresh</button>
-      <pre id="stats-output" data-testid="stats-output"></pre>
-    </section>
+    <table id="openworld" data-testid="world-grid" style="border: solid black 1px; margin-top: 1rem;">
+    </table>
   </div>
 
   <script type="module" src="./min.js"></script>
 
   <script>
+    function inrange(user, x_i, y_i) {
+      const distance = Math.pow(x_i - user.x, 2) + Math.pow(y_i - user.y, 2);
+      return distance <= Math.sqrt(2);
+    }
+
+    async function render() {
+      const userStats = await window.worldMap2D.fetchUserStats();
+      const worldStats = await window.worldMap2D.fetchWorldStats();
+      const loginDiv = document.getElementById("login");
+      const table = document.getElementById("openworld");
+
+      // Reset table + login each render so the user can play multiple actions.
+      loginDiv.innerHTML = "";
+      table.innerHTML = "";
+
+      // First-time player — render Join World CTA.
+      if (!userStats) {
+        const login = document.createElement("button");
+        login.dataset.testid = "join-world-btn";
+        login.style = "width:120px; margin: 4px;";
+        login.innerHTML = "Join World";
+        login.onclick = () => {
+          window.worldMap2D.joinWorld().then(() => {
+            loginDiv.innerHTML = "<span>Joining…</span>";
+            setTimeout(render, 4000);
+          });
+        };
+        loginDiv.appendChild(login);
+        return;
+      }
+
+      // Grid dimensions from the world cells.
+      let max_Y = Number.NEGATIVE_INFINITY, min_Y = Number.POSITIVE_INFINITY;
+      let min_X = Number.POSITIVE_INFINITY, max_X = Number.NEGATIVE_INFINITY;
+      (worldStats ?? []).forEach((cell) => {
+        if (cell.x < min_X) min_X = cell.x;
+        if (cell.y < min_Y) min_Y = cell.y;
+        if (cell.x > max_X) max_X = cell.x;
+        if (cell.y > max_Y) max_Y = cell.y;
+      });
+      if ((worldStats ?? []).length === 0) {
+        loginDiv.innerHTML = "<span>Loading world…</span>";
+        return;
+      }
+
+      const buttons = [];
+
+      // Draw the table — Y is rows, X is columns.
+      for (let y_i = min_Y; y_i <= max_Y; y_i += 1) {
+        const row = table.insertRow();
+        for (let x_i = min_X; x_i <= max_X; x_i += 1) {
+          const cell = row.insertCell();
+          const stat = worldStats.find((s) => s.x === x_i && s.y === y_i);
+          let style = "text-align:center;height:80px;width:80px;overflow:hidden;border: solid black 1px;";
+
+          // Current player cell — paint green.
+          if (Number(userStats.x) === x_i && Number(userStats.y) === y_i) {
+            style += "background:#2ecc71; color:#2c3e50;";
+          } else {
+            const palette = ["#2c3e50", "#34495e", "#222f3e", "#576574"];
+            const c = palette[(x_i + y_i) % palette.length];
+            style += `background:${c}; color:#ecf0f1;`;
+          }
+          cell.dataset.testid = `cell-${x_i}-${y_i}`;
+          cell.innerHTML = `<div style="font-size:12px">(${stat.x}, ${stat.y})</div><div># ${stat.counter}</div>`;
+          cell.setAttribute("style", style);
+
+          // Adjacent cells get move + increment CTAs.
+          if (inrange({ x: Number(userStats.x), y: Number(userStats.y) }, x_i, y_i)) {
+            if (!(Number(userStats.x) === x_i && Number(userStats.y) === y_i)) {
+              const move = document.createElement("button");
+              buttons.push(move);
+              move.style = "width:50px; margin: 4px;";
+              move.innerHTML = "move";
+              move.dataset.testid = `move-${x_i}-${y_i}`;
+              move.onclick = () => {
+                window.worldMap2D.submitMove(x_i, y_i).then(() => {
+                  buttons.forEach((b) => (b.disabled = true));
+                  cell.style.background = "#27ae60";
+                  cell.style.color = "#2c3e50";
+                  setTimeout(render, 4000);
+                });
+              };
+              cell.appendChild(move);
+            }
+
+            const inc = document.createElement("button");
+            buttons.push(inc);
+            inc.style = "width:50px; margin: 4px;";
+            inc.innerHTML = "+1";
+            inc.dataset.testid = `increment-${x_i}-${y_i}`;
+            inc.onclick = () => {
+              window.worldMap2D.submitIncrement(x_i, y_i).then(() => {
+                stat.counter += 1;
+                cell.innerHTML = cell.innerHTML.replace(/# \d+/, `# ${stat.counter}`);
+                setTimeout(render, 4000);
+              });
+            };
+            cell.appendChild(inc);
+          }
+        }
+      }
+    }
+
     function setAddress(addr) {
       document.getElementById("wallet-address").innerText = addr ?? "Not connected";
     }
@@ -56,6 +148,7 @@
       try {
         await window.worldMap2D.connectBrowserWallet();
         setAddress(window.worldMap2D.getAddress());
+        await render();
       } catch (err) {
         console.error("connect-browser failed:", err);
         setAddress(`Browser wallet error: ${err.message}`);
@@ -66,42 +159,11 @@
       try {
         await window.worldMap2D.connectLocalWallet();
         setAddress(window.worldMap2D.getAddress());
+        await render();
       } catch (err) {
         console.error("connect-local failed:", err);
         setAddress(`Local wallet error: ${err.message}`);
       }
-    };
-
-    window.uiJoinWorld = async () => {
-      try { await window.worldMap2D.joinWorld(); }
-      catch (err) { console.error(err); }
-      await window.uiRefresh();
-    };
-
-    window.uiSubmitMove = async () => {
-      const x = Number(document.getElementById("move-x").value);
-      const y = Number(document.getElementById("move-y").value);
-      try { await window.worldMap2D.submitMove(x, y); }
-      catch (err) { console.error(err); }
-      await window.uiRefresh();
-    };
-
-    window.uiSubmitIncrement = async () => {
-      const x = Number(document.getElementById("move-x").value);
-      const y = Number(document.getElementById("move-y").value);
-      try { await window.worldMap2D.submitIncrement(x, y); }
-      catch (err) { console.error(err); }
-      await window.uiRefresh();
-    };
-
-    window.uiRefresh = async () => {
-      const user = await window.worldMap2D.fetchUserStats();
-      const world = await window.worldMap2D.fetchWorldStats();
-      document.getElementById("stats-output").innerText = JSON.stringify(
-        { user, world: (world ?? []).slice(0, 10) },
-        null,
-        2,
-      );
     };
   </script>
 </body>

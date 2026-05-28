@@ -196,6 +196,19 @@ Add `effectstream.default` and the new scripts (`dev`, `start:mainnet`, `test`, 
 
 Replace Oak / http-server / Express with Fastify + `@fastify/static` — see `references/frontend.md` for the canonical static server.
 
+> ### Preserve user-facing UX during migration — don't redesign
+>
+> The migration's job at the frontend layer is **mechanical** (swap the wallet/transaction surface from the old SDK to `@effectstream/wallets`, swap the static server, retarget the bundler) — **not** to redesign the app. A template's interactive UI (chess board, dice game lobby, world grid, etc.) IS the template — losing the gameplay surface during migration changes the template's identity and is almost certainly a regression even when tests pass.
+>
+> **Rules:**
+> 1. **Read the original `index.html` / React tree before touching it.** Identify every interactive element (grid cells, game pieces, lobby cards, etc.) and the on-click handlers that drove them. Preserve all of them.
+> 2. **The wallet UI is *additive*.** Add a `Connect Browser Wallet` / `Connect Local Wallet` selector at the top (per template invariant), but don't strip the existing gameplay UI to make room. The existing UI stays; the wallet selector is the new neighbor.
+> 3. **The only file-level rewrites you should make are at the API/SDK boundary.** Replace `import endpoints, { WalletMode } from './paimaMiddleware.js'` with direct `@effectstream/wallets` imports and a thin `window.<template>` namespace; keep every DOM operation, every game-state render call, every adjacency check, every CTA the user could click.
+> 4. **Verify visually after migration.** Before declaring Phase C "passing", load the dev server (`bun run dev`, then visit `http://localhost:10599`) and confirm the gameplay surface still renders — grid cells visible, move buttons in the right places, color coding, auto-refresh, etc. A Playwright `[data-testid="world-grid"]`-style assertion catches gross loss of the gameplay surface; a manual visual check catches subtle regressions (cells unstyled, buttons missing on adjacent cells, etc.).
+> 5. **If you genuinely need to rewrite the UI** (e.g. moving from raw DOM to React, or migrating off a deprecated game engine), do it in a **separate commit/PR after the migration is green** so the migration diff stays mechanical and reviewable.
+>
+> Failing this is the silent-quality killer of these migrations: the test suite goes green because Phase A/B still pass and Phase C only checks "the page mounts", while the actual interactive experience is gone. Add per-template-specific `data-testid` selectors for the load-bearing gameplay elements (grid, game pieces, lobby list) so Phase C catches their absence.
+
 ### Step 11: Remove `@ts-rest`
 
 Chess uses `@ts-rest/core`. Replace with plain Fastify routes in `packages/node/api.ts` (see `grammar-stm.md` §4).
@@ -239,7 +252,9 @@ Verify each step before moving to the next:
 - [ ] Custom primitives migrated into `packages/node/`
 - [ ] `packages/batcher/` with adapter factories + env-specific entry points
 - [ ] `packages/tests/` with phases A, B, C
-- [ ] `bun run dev` works
+- [ ] **Frontend UX preserved** — original game grid / pieces / lobby UI is rendered, not replaced with placeholder inputs (see Step 10 banner). Add a `data-testid` on the load-bearing gameplay element (`world-grid`, `chess-board`, `lobby-list`, …) and assert it in Phase C `render.test.ts`.
+- [ ] **Wallet UI is additive** — both `Connect Browser Wallet` (`WalletMode.EvmInjected`) and `Connect Local Wallet` (`WalletMode.EvmViem` for EVM, `CardanoLocal` / `MidnightLocal` per chain) are exposed in the frontend; the original gameplay UI is untouched (model: `templates/world-map-2d/packages/frontend/index.html`).
+- [ ] `bun run dev` works AND the gameplay surface is visibly rendered when you open the dev URL
 - [ ] `bun run test` passes
 
 ---

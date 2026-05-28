@@ -70,6 +70,13 @@ export async function frontendInteractionsTest(): Promise<void> {
       });
     }
 
+    // Only the two wallet-connect CTAs are accessible without a connected
+    // wallet — the grid's move/+1 buttons render after the first successful
+    // login + render() pass, which we can't drive in a Chromium with no real
+    // wallet extension. Per skill rule "REQUIRED for every CTA": exercise
+    // every CTA reachable on the no-wallet landing screen. The Join World
+    // button only appears once a wallet IS connected + the user has no row
+    // yet — also outside the no-wallet landing screen and skipped here.
     await clickDoesNotThrow(
       "Connect Browser Wallet",
       '[data-testid="connect-browser-wallet"]',
@@ -77,10 +84,6 @@ export async function frontendInteractionsTest(): Promise<void> {
     await clickDoesNotThrow(
       "Connect Local Wallet",
       '[data-testid="connect-local-wallet"]',
-    );
-    await clickDoesNotThrow(
-      "Refresh stats",
-      '[data-testid="refresh-stats-btn"]',
     );
   } finally {
     await browser.close();
