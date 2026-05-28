@@ -4,7 +4,6 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "install": "npm install",
     "build": "node esbuild.js",
     "serve": "npx http-server . -p 8080",
     "dev": "npm install && node esbuild.js && npx http-server . -p 8080"
@@ -13,7 +12,7 @@
   "license": "ISC",
   "description": "World Map 2D frontend",
   "dependencies": {
-    "@paimaexample/wallets": "0.3.117",
+    "@effectstream/wallets": "0.100.18",
     "viem": "^2.37.5"
   },
   "devDependencies": {

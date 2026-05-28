@@ -1,8 +1,8 @@
-import { PaimaSTM } from "@paimaexample/sm";
+import { PaimaSTM } from "@effectstream/sm";
 import { grammar } from "@world-map-2d/data-types/grammar";
-import type { BaseStfInput } from "@paimaexample/sm";
-import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
-import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
+import type { BaseStfInput } from "@effectstream/sm";
+import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import {
   joinWorld,
   submitMove,

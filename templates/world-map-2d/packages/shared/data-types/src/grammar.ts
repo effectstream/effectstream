@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import type { GrammarDefinition } from "@paimaexample/concise";
+import type { GrammarDefinition } from "@effectstream/concise";
 
 export const grammar = {
   joinWorld: [],

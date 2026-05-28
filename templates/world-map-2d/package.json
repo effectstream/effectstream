@@ -12,6 +12,6 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.10",
-    "@paimaexample/evm-contracts": "0.3.108"
+    "@effectstream/evm-contracts": "0.100.18"
   }
 }

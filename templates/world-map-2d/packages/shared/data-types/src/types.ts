@@ -1,4 +1,4 @@
-import type { WalletAddress } from "@paimaexample/utils";
+import type { WalletAddress } from "@effectstream/utils";
 
 export interface RoundExecutorData {
   match_state: string;

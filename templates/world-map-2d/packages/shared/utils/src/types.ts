@@ -1,6 +1,6 @@
 import type { IGetUserStatsResult, IGetWorldStatsResult } from '@game/db';
-import type { IGetBlockHeightsResult } from '@paima/db';
-import type { WalletAddress } from '@paima/sdk/utils';
+import type { IGetBlockHeightsResult } from '@effectstream/db';
+import type { WalletAddress } from '@effectstream/sdk/utils';
 
 export interface RoundExecutorData {
   match_state: string;

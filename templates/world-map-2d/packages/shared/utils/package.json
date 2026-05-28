@@ -5,6 +5,6 @@
     ".": "./src/mod.ts"
   },
   "dependencies": {
-    "@paimaexample/utils": "0.3.108"
+    "@effectstream/utils": "0.100.18"
   }
 }
