@@ -5,11 +5,25 @@
  * Usage:
  *   bun run templates/run-template-tests.ts                      # all enabled
  *   bun run templates/run-template-tests.ts preorder shinkai-v2   # specific ones
+ *
+ * Env:
+ *   LINK_LOCAL=1   After `bun install`, run each template's ./link.sh so the
+ *                  tests resolve @effectstream/* to the local monorepo build
+ *                  instead of the published packages. Every selected template
+ *                  MUST have a link.sh or the run aborts before any tests run.
+ *                  Also runs `bun install` at the monorepo root up front, since
+ *                  the linked orchestrator resolves some deps from the root
+ *                  workspace's node_modules.
  */
 import { exit } from "process";
+import fs from "fs";
 import path from "path";
 
 const __dirname = import.meta.dirname!;
+
+const LINK_LOCAL = ["1", "true", "yes"].includes(
+  (process.env.LINK_LOCAL ?? "").toLowerCase(),
+);
 
 const ENABLED = [
   "cardano-delegation",
@@ -64,6 +78,25 @@ async function runTemplate(name: string): Promise<Result> {
       };
     }
 
+    if (LINK_LOCAL) {
+      console.log(`\n> ./link.sh\n`);
+      const link = Bun.spawn(["bash", "./link.sh"], {
+        cwd: dir,
+        stdout: "inherit",
+        stderr: "inherit",
+        env: { ...process.env },
+      });
+      const linkExit = await link.exited;
+      if (linkExit !== 0) {
+        return {
+          name,
+          success: false,
+          duration: Date.now() - start,
+          error: `link.sh failed (exit code ${linkExit})`,
+        };
+      }
+    }
+
     const proc = Bun.spawn(["bun", "run", "test"], {
       cwd: dir,
       stdout: "inherit",
@@ -96,6 +129,36 @@ async function main() {
   if (selected.length === 0) {
     console.error("No matching templates. Enabled:", ENABLED.join(", "));
     exit(1);
+  }
+
+  if (LINK_LOCAL) {
+    const missing = selected.filter(
+      (name) => !fs.existsSync(path.join(__dirname, name, "link.sh")),
+    );
+    if (missing.length > 0) {
+      console.error(
+        `LINK_LOCAL is set but these template(s) have no link.sh: ${missing.join(", ")}`,
+      );
+      exit(1);
+    }
+
+    // link.sh symlinks @effectstream/* to monorepo source. The linked
+    // orchestrator resolves some deps (e.g. @effectstream/db/start-pglite) via
+    // import.meta.resolve, which walks the monorepo's own node_modules — so the
+    // root workspace must be installed first or that resolution fails.
+    const root = path.join(__dirname, "..");
+    console.log("LINK_LOCAL=1: running `bun install` at monorepo root\n");
+    const rootInstall = Bun.spawn(["bun", "install"], {
+      cwd: root,
+      stdout: "inherit",
+      stderr: "inherit",
+      env: { ...process.env },
+    });
+    if ((await rootInstall.exited) !== 0) {
+      console.error("Monorepo root `bun install` failed");
+      exit(1);
+    }
+    console.log("\nLINK_LOCAL=1: linking local monorepo packages after install\n");
   }
 
   console.log(`Running tests for ${selected.length} template(s): ${selected.join(", ")}\n`);
