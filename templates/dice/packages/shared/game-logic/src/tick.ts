@@ -1,4 +1,4 @@
-import type { Prando } from '@paimaexample/crypto';
+import type { Prando } from '@effectstream/crypto';
 import {
   type ApplyPointsTickEvent,
   type MatchEndTickEvent,

@@ -1,10 +1,10 @@
 import { contractAddressesEvmMain } from "@dice/evm-contracts";
-import { PrimitiveTypeEVMPaimaL2, PrimitiveTypeEVMERC721 } from "@paimaexample/sm/builtin";
+import { PrimitiveTypeEVMPaimaL2, PrimitiveTypeEVMERC721 } from "@effectstream/sm/builtin";
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@paimaexample/config";
+} from "@effectstream/config";
 import { hardhat } from "viem/chains";
 import { grammar } from "@dice/data-types/grammar";
 

@@ -6,7 +6,6 @@
   "description": "Dice Web using Paima Engine",
   "license": "MIT",
   "scripts": {
-    "install": "npm install",
     "build": "node esbuild.js",
     "serve": "npx http-server ./public -p 8080",
     "dev": "npm install && node esbuild.js && npx http-server ./public -p 8080"
@@ -16,7 +15,7 @@
     "@mui/icons-material": "5.15.5",
     "@mui/lab": "^5.0.0-alpha.161",
     "@mui/material": "^5.15.5",
-    "@paimaexample/wallets": "0.3.124",
+    "@effectstream/wallets": "0.100.18",
     "clsx": "1.2.1",
     "date-fns": "2.29.3",
     "prando": "^6.0.1",

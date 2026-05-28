@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
-import type { GrammarDefinition } from "@paimaexample/concise";
-import { builtinGrammars } from "@paimaexample/sm/grammar";
+import type { GrammarDefinition } from "@effectstream/concise";
+import { builtinGrammars } from "@effectstream/sm/grammar";
 
 // Helper type for lobby ID validation (12 characters)
 const LobbyID = Type.String({ minLength: 12, maxLength: 12 });

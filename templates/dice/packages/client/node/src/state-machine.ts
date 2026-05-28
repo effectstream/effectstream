@@ -1,8 +1,8 @@
-import { PaimaSTM } from "@paimaexample/sm";
+import { PaimaSTM } from "@effectstream/sm";
 import { grammar } from "@dice/data-types/grammar";
-import type { BaseStfInput } from "@paimaexample/sm";
-import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
-import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
+import type { BaseStfInput } from "@effectstream/sm";
+import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import {
   getLobbyById,
   getRound,
@@ -49,7 +49,7 @@ stm.addStateTransition("createdLobby", function* (data) {
 
   const result = yield* World.promise<SQLUpdate[]>(
     createdLobby(
-      // @ts-ignore - version mismatch between @paimaexample/utils versions
+      // @ts-ignore - version mismatch between @effectstream/utils versions
       user!,
       blockHeight,
       {
@@ -78,7 +78,7 @@ stm.addStateTransition("joinedLobby", function* (data) {
 
   const results = yield* World.promise<SQLUpdate[]>(
     joinedLobby(
-      // @ts-ignore - version mismatch between @paimaexample/utils versions
+      // @ts-ignore - version mismatch between @effectstream/utils versions
       user!,
       blockHeight,
       {
@@ -106,7 +106,7 @@ stm.addStateTransition("closedLobby", function* (data) {
 
   const results = yield* World.promise<SQLUpdate[]>(
     closedLobby(
-      // @ts-ignore - version mismatch between @paimaexample/utils versions
+      // @ts-ignore - version mismatch between @effectstream/utils versions
       user!,
       {
         input: "closedLobby",
@@ -156,7 +156,7 @@ stm.addStateTransition("submittedMoves", function* (data) {
 
   const results = yield* World.promise<SQLUpdate[]>(
     submittedMoves(
-      // @ts-ignore - version mismatch between @paimaexample/utils versions
+      // @ts-ignore - version mismatch between @effectstream/utils versions
       user!,
       blockHeight,
       {
@@ -197,7 +197,7 @@ stm.addStateTransition("practiceMoves", function* (data) {
 
   const results = yield* World.promise<SQLUpdate[]>(
     practiceMoves(
-      // @ts-ignore - version mismatch between @paimaexample/utils versions
+      // @ts-ignore - version mismatch between @effectstream/utils versions
       user!,
       blockHeight,
       {

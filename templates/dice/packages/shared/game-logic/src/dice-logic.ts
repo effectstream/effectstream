@@ -5,7 +5,7 @@ import {
   type ConciseResult,
   type MatchResult,
 } from '@dice/data-types/types';
-import type { Prando } from '@paimaexample/crypto';
+import type { Prando } from '@effectstream/crypto';
 
 // Helper type for lobby with state properties
 type LobbyStateProps = 'current_match' | 'current_round' | 'current_turn' | 'current_proper_round';

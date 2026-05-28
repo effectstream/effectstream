@@ -1,10 +1,10 @@
-import { init, start } from "@paimaexample/runtime";
+import { init, start } from "@effectstream/runtime";
 import { main, suspend } from "effection";
 import { localhostConfig } from "@dice/data-types/localhostConfig";
 import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
-} from "@paimaexample/config";
+} from "@effectstream/config";
 import { migrationTable } from "@dice/db";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";

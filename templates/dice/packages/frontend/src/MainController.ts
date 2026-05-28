@@ -1,7 +1,7 @@
 import { MatchState, TickEvent, LobbyState } from "@dice/utils";
 import * as Paima from "@dice/middleware";
 import { IGetLobbyByIdResult, IGetPaginatedUserLobbiesResult } from "@dice/db";
-import { WalletMode } from "@paimaexample/wallets";
+import { WalletMode } from "@effectstream/wallets";
 
 // The MainController is a React component that will be used to control the state of the application
 // It will be used to check if the user has metamask installed and if they are connected to the correct network

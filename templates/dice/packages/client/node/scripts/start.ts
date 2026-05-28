@@ -1,12 +1,12 @@
-import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
-import { ComponentNames } from "@paimaexample/log";
+import { OrchestratorConfig, start } from "@effectstream/orchestrator";
+import { ComponentNames } from "@effectstream/log";
 import { Value } from "@sinclair/typebox/value";
-import { launchEvm } from "@paimaexample/orchestrator/start-evm";
+import { launchEvm } from "@effectstream/orchestrator/start-evm";
 
 const customProcesses = [
   {
     name: "explorer",
-    args: ["run", "@paimaexample/explorer"],
+    args: ["run", "@effectstream/explorer"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10590",
@@ -39,7 +39,7 @@ const customProcesses = [
 const evmProcesses = launchEvm("@dice/evm-contracts");
 
 const config = Value.Parse(OrchestratorConfig, {
-  packageName: "@paimaexample",
+  packageName: "@effectstream",
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,

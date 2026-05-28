@@ -11,7 +11,7 @@ import ConnectingModal from "./ConnectingModal";
 import { PaimaNotice } from "./components/PaimaNotice";
 import { OasysNotice } from "./components/PaimaNotice";
 import { Box } from "@mui/material";
-import { WalletMode } from "@paimaexample/wallets";
+import { WalletMode } from "@effectstream/wallets";
 
 type GlobalState = {
   connectedWallet?: WalletAddress;

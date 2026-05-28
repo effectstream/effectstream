@@ -1,6 +1,6 @@
-import type { RoundExecutor } from '@paima/sdk/executors';
-import { roundExecutor } from '@paima/sdk/executors';
-import type Prando from '@paima/sdk/prando';
+import type { RoundExecutor } from '@effectstream/sdk/executors';
+import { roundExecutor } from '@effectstream/sdk/executors';
+import type Prando from '@effectstream/sdk/prando';
 import type { MatchState, MatchEnvironment, TickEvent } from '@dice/utils';
 import { processTick } from './tick';
 import type { IGetLobbyByIdResult, IGetRoundMovesResult } from '@dice/db';

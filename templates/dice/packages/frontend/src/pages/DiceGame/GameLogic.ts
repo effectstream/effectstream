@@ -1,6 +1,6 @@
 import { LobbyState } from "@dice/utils";
 import * as Paima from "@dice/middleware";
-import { OldResult } from '@paimaexample/wallets';
+import { OldResult } from '@effectstream/wallets';
 
 export class DiceService {
   // Get Lobby State
