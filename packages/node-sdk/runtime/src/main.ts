@@ -31,6 +31,7 @@ import {
 import { initTelemetry } from "./telemetry.ts";
 import { type PendingEvent, processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
+import { recordAppliedBlock } from "./api/apply-status.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
 import type { EffectstreamBlockHash } from "@effectstream/utils";
@@ -164,6 +165,8 @@ export function* start(config: StartConfig): Operation<void> {
         (dbClient as any).release(); // Client,
       }
     }
+
+    recordAppliedBlock(value); // apply-stage liveness for /debug/metrics
 
     // Used to emit & log the block range for each protocol.
     const contentBlocksForProtocol = getRangesForSyncProtocols(value);

@@ -1,5 +1,6 @@
 import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
+import { appliedBlockStatus } from "./apply-status.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
 import { run, until } from "effection";
@@ -458,6 +459,7 @@ export const startHttpServer = function* (
         },
       },
     }, () => {
+      const appliedTs = appliedBlockStatus.timestamp;
       return {
         timestamp: Date.now(),
         uptimeSeconds: process.uptime(),
@@ -467,6 +469,15 @@ export const startHttpServer = function* (
           buf: p.bufferedData.size(),
           ownBlockNumber: p.lastPage?.ownBlockNumber ?? null,
         })),
+        // Apply-stage lag: how old the last-applied block is. Unlike `buf` (fetch
+        // backlog) this stays high when the node is write/apply-bound.
+        applied: {
+          blockNumber: appliedBlockStatus.blockNumber,
+          timestamp: appliedTs,
+          lagSeconds: appliedTs != null
+            ? Math.round((Date.now() - appliedTs) / 100) / 10
+            : null,
+        },
       };
     });
 
