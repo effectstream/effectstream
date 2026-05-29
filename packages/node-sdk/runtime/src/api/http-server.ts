@@ -450,6 +450,26 @@ export const startHttpServer = function* (
   });
 
   if (ENV.ENABLE_DEV_AND_DEBUG_ENDPOINTS) {
+    server.get("/debug/metrics", {
+      schema: {
+        tags: ["developer"],
+        response: {
+          200: Type.Object({}, { additionalProperties: true }),
+        },
+      },
+    }, () => {
+      return {
+        timestamp: Date.now(),
+        uptimeSeconds: process.uptime(),
+        memory: process.memoryUsage(),
+        protocols: syncProtocols.map((p) => ({
+          name: p.name,
+          buf: p.bufferedData.size(),
+          ownBlockNumber: p.lastPage?.ownBlockNumber ?? null,
+        })),
+      };
+    });
+
     server.get("/debug/sync-protocols", {
       schema: {
         tags: ["developer"],
