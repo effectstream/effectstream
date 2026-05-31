@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { classify } from "./ci-changes.ts";
+import { classify, diffArgs } from "./ci-changes.ts";
 
 // A fixed enabled set so these assertions don't shift as templates are
 // enabled/disabled in run-template-tests.ts.
@@ -73,6 +73,34 @@ describe("classify — templates", () => {
       ENABLED,
     );
     expect(r.templates).toEqual(["preorder", "world-map-2d"]);
+  });
+});
+
+describe("diffArgs — diff range selection", () => {
+  const opts = { base: "B", head: "H", headRef: "feat/x", defaultBranch: "v-next" };
+
+  test("pull_request uses three-dot base...head (only what the PR adds)", () => {
+    expect(diffArgs({ ...opts, eventName: "pull_request" })).toEqual([
+      "diff",
+      "--name-only",
+      "B...H",
+    ]);
+  });
+
+  test("push to the default branch uses two-arg before..after", () => {
+    expect(
+      diffArgs({ ...opts, eventName: "push", headRef: "v-next" }),
+    ).toEqual(["diff", "--name-only", "B", "H"]);
+  });
+
+  test("push to a feature branch diffs the merge-base via FETCH_HEAD, not before", () => {
+    // FETCH_HEAD is the freshly-fetched default-branch tip; ...H selects only the
+    // branch's own delta, so a merge of the default branch in is excluded.
+    expect(diffArgs({ ...opts, eventName: "push" })).toEqual([
+      "diff",
+      "--name-only",
+      "FETCH_HEAD...H",
+    ]);
   });
 });
 

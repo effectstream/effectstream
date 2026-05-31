@@ -11,4 +11,10 @@ export enum ConfigNetworkType {
   BITCOIN = "bitcoin",
   CELESTIA = "celestia",
   NEAR = "near",
+  /**
+   * Synthetic, fully in-memory chain used for deterministic tests.
+   * Blocks are computed arithmetically (no RPC). Excluded from publishing.
+   * See packages/node-sdk/sync/src/sync-protocols/test/.
+   */
+  TEST = "test",
 }

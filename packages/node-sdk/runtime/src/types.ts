@@ -1,4 +1,5 @@
 import type { Operation } from "effection";
+import type { AllSyncProtocols } from "@effectstream/sync";
 import type { SyncProtocolWithNetwork } from "@effectstream/config";
 import type { AppEvents, BaseStfInput, BaseStfOutput, Primitive } from "@effectstream/sm";
 import type { FastifyInstance } from "fastify";
@@ -72,5 +73,11 @@ export type StartConfig = {
   dev?: {
     /** Reset public-schema tables on each sync reset. For local testing only. */
     resetPublicData?: boolean;
+    /**
+     * Test-only hook invoked once the sync protocols are instantiated (after
+     * `genSyncProtocols`, before the merge starts). Lets tests observe live
+     * state such as `bufferedData.size()`. No effect in production.
+     */
+    onStarted?: (ctx: { syncProtocols: AllSyncProtocols[] }) => void;
   };
 };
