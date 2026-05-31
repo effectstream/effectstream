@@ -7,9 +7,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e:
+  # Decide which downstream jobs run, based on what changed.
+  #   core      → packages/** or e2e/** (plus the e2e build-infra files)
+  #   templates → space-separated list of ENABLED templates whose dir changed
+  changes:
     runs-on: ubuntu-22.04
-    if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
+    timeout-minutes: 5
+    outputs:
+      core: ${{ steps.classify.outputs.core }}
+      templates: ${{ steps.classify.outputs.templates }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Classify changes
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: bun .github/ci-changes.ts
+
+  # Existing Dockerized e2e suite — now gated on core changes.
+  e2e:
+    needs: changes
+    if: ${{ needs.changes.outputs.core == 'true' && (github.event_name == 'push' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -20,3 +48,47 @@ jobs:
 
       - name: Run e2e tests
         run: docker run --rm --name e2e_${{ github.run_number }} testing_image:${{ github.sha }}
+
+  # Per-template tests — runs the changed ENABLED templates serially in one job.
+  # Uses the SAME image as e2e; only the command differs. Tests resolve
+  # @effectstream/* from published npm (no LINK_LOCAL).
+  template-tests:
+    needs: changes
+    if: ${{ needs.changes.outputs.templates != '' && (github.event_name == 'push' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build testing image
+        run: docker build -t testing_image:${{ github.sha }} -f .github/Dockerfile .
+
+      - name: Run template tests
+        run: |
+          docker run --rm --name templates_${{ github.run_number }} testing_image:${{ github.sha }} \
+            bash -lc "bun run templates/run-template-tests.ts ${{ needs.changes.outputs.templates }} --skip-disabled"
+
+  # Aggregate gate: a single stable check to mark required in branch protection.
+  # Passes when e2e/template-tests succeed or are skipped; fails if either fails
+  # or is cancelled (or if the changes job itself failed).
+  ci-ok:
+    needs: [changes, e2e, template-tests]
+    if: ${{ always() }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify required jobs
+        run: |
+          echo "changes=${{ needs.changes.result }}"
+          echo "e2e=${{ needs.e2e.result }}"
+          echo "template-tests=${{ needs.template-tests.result }}"
+          if [ "${{ needs.changes.result }}" = "failure" ] || \
+             [ "${{ needs.e2e.result }}" = "failure" ] || \
+             [ "${{ needs.e2e.result }}" = "cancelled" ] || \
+             [ "${{ needs.template-tests.result }}" = "failure" ] || \
+             [ "${{ needs.template-tests.result }}" = "cancelled" ]; then
+            echo "::error::A required job failed or was cancelled."
+            exit 1
+          fi
+          echo "All required jobs passed or were skipped."

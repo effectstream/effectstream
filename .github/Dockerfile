@@ -116,6 +116,11 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
+# `bun install` doesn't fetch browsers; the wallets-ui suite drives Chromium via
+# Playwright. Run from the package dir so bunx uses the pinned playwright (a
+# floating version could fetch a mismatched browser revision).
+RUN cd /app/e2e/wallets-ui && bunx playwright install --with-deps chromium
+
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
 ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
