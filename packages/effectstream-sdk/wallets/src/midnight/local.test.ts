@@ -84,7 +84,7 @@ describe("MidnightLocalProvider", () => {
     }));
     const getInitialSpy = mock(async (_shielded: unknown) => fakeShielded);
 
-    mock.module("@effectstream/midnight-contracts", () => ({
+    mock.module("@effectstream/midnight-contracts/wallet-info", () => ({
       buildWalletFacade: buildSpy,
       getInitialShieldedState: getInitialSpy,
     }));
