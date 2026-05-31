@@ -24,6 +24,7 @@
     "effection": "^3.5.0",
     "viem": "2.37.3",
     "@hex-battle/database": "workspace:*",
-    "@hex-battle/contracts-evm": "workspace:*"
+    "@hex-battle/contracts-evm": "workspace:*",
+    "@hex-battle/engine": "workspace:*"
   }
 }

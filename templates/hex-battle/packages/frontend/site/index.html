@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>HexBattle</title>
+    <link rel="stylesheet" href="/assets/style.css">
+</head>
+
+<body style="">
+    <div id="wrap" class="container-zoom" data-testid="hex-battle-game">
+        <canvas id="myCanvas" width="1920" height="1040" data-testid="game-canvas"></canvas>
+        <div id="dark-background" class="hide"></div>
+
+        <!-- GAME OPTIONS -->
+        <div id="game_options" class="options_popup center hide">
+
+            <div class="center">
+                <div class="popup" style="">
+                    <div class="item" style="font-weight: bold;">Game Options</div>
+
+                    <button class="item button_neutral" onclick="(help_show()||true) && game_options_hide();">Game
+                        Help</button>
+                    <button id="surrender" class="item button_neutral"
+                        onclick="game_options_surrender()">Surrender</button>
+
+                    <button id="surrender" class="item button_neutral"
+                        onclick="window.location.replace('/')">Exit</button>
+                    <button class="item button_cancel" onclick="game_options_hide()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW GAME OPTIONS -->
+        <div id="new_game_options" class="options_popup center hide">
+
+            <div class="center">
+                <div class="popup" style="
+        ">
+                    <div class="item" style="font-weight: bold;">Create New Game</div>
+                    <div class="item" style="font-size: 18px;">Number of players</div>
+                    <input class="item" id="number_of_players" style="font-size: 22px; text-align: center;"
+                        type="number" value="2" min="2" max="5" />
+
+                    <div class="item" style="font-size: 18px;">Initial Units</div>
+                    <input class="item" id="units" style="font-size: 22px; text-align: center;" type="number" value="1"
+                        min="0" max="5" />
+
+                    <div class="item" style="font-size: 18px;">Initial Gold</div>
+                    <input class="item" id="gold" style="font-size: 22px; text-align: center;" type="number" value="0"
+                        min="0" max="100" />
+
+                    <!-- Dropdown selection: Large / Medium / Small -->
+                    <div class="item" style="font-size: 18px;">Map Size</div>
+                    <select class="item" id="map_size" style="font-size: 22px; text-align: center;">
+                        <option value="large">Large</option>
+                        <option value="medium">Medium</option>
+                        <option value="small">Small</option>
+                    </select>
+                    <br>
+
+                    <button class="item button_ok" onclick="new_game_options_create()">Create Game</button>
+                    <button class="item button_cancel" onclick="new_game_options_hide()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- JOIN LOBBY -->
+        <div id="join_lobby_options" class="options_popup center hide">
+            <div class="center">
+                <div class="popup" style="">
+                    <div class="item" style="font-weight: bold;">Join Lobby</div>
+                    <div id="list_of_lobbies"
+                        style="min-height: 200px; max-height: 200px; overflow-y: scroll; margin-top: 20px; margin-bottom: 20px;">
+                    </div>
+                    <button class="item button_cancel" onclick="join_lobby_hide()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- REJOIN LOBBY -->
+        <div id="rejoin_lobby_options" class="options_popup center hide">
+            <div class="center">
+                <div class="popup" style="">
+                    <div class="item" style="font-weight: bold;">Rejoin Lobby</div>
+                    <div id="list_of_rejoin_lobbies"
+                        style="min-height: 200px; max-height: 200px; overflow-y: scroll; margin-top: 20px; margin-bottom: 20px;">
+                    </div>
+                    <button class="item button_cancel" onclick="rejoin_lobby_hide()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRACTICE OPTIONS -->
+        <div id="practice_options" class="options_popup center hide">
+
+            <div class="center">
+                <div class="popup" style="">
+                    <div class="item" style="font-weight: bold;">Create Practice Game</div>
+
+                    <div class="item" style="font-size: 18px;">Number of AI Players</div>
+                    <input class="item" id="p_number_of_players" style="font-size: 22px; text-align: center;"
+                        type="number" value="3" min="1" max="4" />
+
+                    <div class="item" style="font-size: 18px;">Initial Units</div>
+                    <input class="item" id="p_units" style="font-size: 22px; text-align: center;" type="number"
+                        value="1" min="0" max="5" />
+
+                    <div class="item" style="font-size: 18px;">Initial Gold</div>
+                    <input class="item" id="p_gold" style="font-size: 22px; text-align: center;" type="number" value="0"
+                        min="0" max="100"> 
+                    <!-- Dropdown selection: Large / Medium / Small -->
+                    <div class="item" style="font-size: 18px;">Map Size</div>
+                    <select class="item" id="p_map_size" style="font-size: 22px; text-align: center;">
+                        <option value="large">Large</option>
+                        <option value="medium">Medium</option>
+                        <option value="small">Small</option>
+                    </select>
+                    <br>
+
+                    <button class="item button_ok" onclick="practive_options_create()">Create Practice Game</button>
+                    <button class="item button_cancel" onclick="practice_options_hide()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LEADERBOARD -->
+        <div id="leaderboard" class="options_popup center hide" style="height: 900px; width: 1200px;">
+
+            <div class="center">
+                <div class="popup" style="width: 1100px;">
+                    <div class="item" style="font-weight: bold;">Leaderboard</div>
+                    <div id="leaderboard_list" class="item"
+                        style="font-weight: bold; display: flex; flex-direction: column; justify-content: space-between; text-align: center; height: 700px; overflow-y: scroll;">
+                    </div>
+                    <button class="item button_cancel" onclick="leaderboard_hide()">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- WALLET SELECTION  -->
+        <div id="wallet_selection" class="options_popup center hide" data-testid="wallet-selection">
+
+            <div class="center">
+                <div class="popup" style="">
+                    <div class="item" style="font-weight: bold;">Wallet Selection</div>
+
+                    <!-- Hex Battle is an EVM template: expose an injected (browser)
+                         wallet and a local-JS (viem) wallet for dev + headless e2e. -->
+                    <div class="item" style="font-size: 18px;">Select your wallet</div>
+                    <select class="item" id="wallet_dropdown" data-testid="wallet-dropdown" style="font-size: 30px; text-align: center;">
+                        <option value="metamask">Browser Wallet (MetaMask)</option>
+                        <option value="local">Local Wallet (dev)</option>
+                    </select>
+                    <br>
+
+                    <button class="item button_ok" data-testid="connect-browser-wallet" onclick="document.getElementById('wallet_dropdown').value='metamask'; select_wallet()">Connect Browser Wallet</button>
+                    <button class="item button_ok" data-testid="connect-local-wallet" onclick="document.getElementById('wallet_dropdown').value='local'; select_wallet()">Connect Local Wallet (dev)</button>
+                    <button class="item button_cancel" onclick="wallet_selection_hide()">Later</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- HELP SELECTION  -->
+        <div id="help_selection" class="options_popup center hide" style="width: 1200px; height: 800px;">
+
+            <div class="center">
+                <div class="popup" style="width: 1100px; font-size: 24px; ">
+                    <div class="item" style="font-weight: bold;">HELP</div>
+                    <div style="display: flex; flex-direction: column; ">
+
+
+                        <div class="help-row">
+                            <div style="min-width: 100px;">
+                                Unit
+                            </div>
+                            <div class="help-row2">
+                                Name [Power]
+                            </div>
+                            <div class="help-row3">
+                                Defeats
+                            </div>
+                        </div>
+
+
+                        <div class="help-row">
+                            <div style="min-width: 100px;">
+                                <img src="assets/m_1.png" class="help-image">
+                            </div>
+                            <div class="help-row2">
+                                Monster [Power 1] <br>
+                            </div>
+                            <div class="help-row3">
+                                <img src="assets/f_1.png" class="help-image">
+                            </div>
+                        </div>
+
+                        <div class="help-row">
+                            <div style="min-width: 100px;">
+                                <img src="assets/m_2.png" class="help-image">
+                            </div>
+                            <div class="help-row2">
+                                Strong Monster [Power 2] <br>
+                            </div>
+                            <div class="help-row3">
+                                <img src="assets/f_1.png" class="help-image">
+                                <img src="assets/m_1.png" class="help-image">
+                                <img src="assets/b_1.png" class="help-image">
+                            </div>
+                        </div>
+
+
+                        <div class="help-row">
+                            <div style="min-width: 100px;">
+                                <img src="assets/m_3.png" class="help-image">
+                            </div>
+                            <div class="help-row2">
+                                Master Monster [Power 3] <br>
+                            </div>
+                            <div class="help-row3">
+                                <img src="assets/f_1.png" class="help-image">
+                                <img src="assets/m_1.png" class="help-image">
+                                <img src="assets/b_1.png" class="help-image">
+                                <img src="assets/m_2.png" class="help-image">
+                                <img src="assets/t1_1.png" class="help-image">
+                            </div>
+                        </div>
+
+
+                        <div class="help-row">
+                            <div style="min-width: 100px;">
+                                <img src="assets/m_4.png" class="help-image">
+                            </div>
+                            <div class="help-row2">
+                                Suprime Monster [Power 4] <br>
+                            </div>
+                            <div class="help-row3">
+                                <img src="assets/f_1.png" class="help-image">
+                                <img src="assets/m_1.png" class="help-image">
+                                <img src="assets/b_1.png" class="help-image">
+                                <img src="assets/m_2.png" class="help-image">
+                                <img src="assets/t1_1.png" class="help-image">
+                                <img src="assets/t2_1.png" class="help-image">
+                                <img src="assets/m_4.png" class="help-image">
+
+                            </div>
+                        </div>
+
+
+                        <div class="help-row">
+                            <div style="min-width: 100px;">
+                                <img src="assets/f_1.png" class="help-image">
+                            </div>
+                            <div class="help-row2">
+                                Building [Power 0] <br>Produces +4 Gold per Turn
+                            </div>
+                            <div class="help-row3">
+                            </div>
+                        </div>
+
+                        <div class="help-row">
+                            <div style="min-width: 100px;">
+                                <img src="assets/b_1.png" class="help-image">
+                            </div>
+                            <div class="help-row2">
+                                Base [Power 1] <br>If destroyed player loses.
+                            </div>
+                            <div class="help-row3">
+                            </div>
+                        </div>
+
+                        <div class="help-row">
+                            <div style="min-width: 100px;">
+                                <img src="assets/t1_1.png" class="help-image">
+                            </div>
+                            <div class="help-row2">
+                                Tower [Power 2] <br> Protects nearby tiles.
+                            </div>
+                            <div class="help-row3">
+                            </div>
+                        </div>
+
+                        <div class=
+                        "help-row">
+                            <div style="min-width: 100px;">
+                                <img src="assets/t2_1.png" class="help-image">
+                            </div>
+                            <div class="help-row2">
+                                Mighty Tower [Power 3] <br> Protects nearby tiles.
+                            </div>
+                            <div class="help-row3">
+                            </div>
+                        </div>
+
+                    </div>
+
+
+
+                    <button class="item button_cancel" onclick="help_hide()">Close</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+<script src="./assets/popup.js"></script>
+<script src="./bundle.js"></script>
+
+</html>

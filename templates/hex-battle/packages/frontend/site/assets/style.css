@@ -1,0 +1,218 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.container-zoom {
+    margin: auto;
+}
+
+canvas {
+    background: white
+}
+
+#wrap,
+#wrap canvas {
+    width: 1920px;
+    height: 1040px;
+}
+
+#wrap {
+    position: relative
+}
+
+#wrap>* {
+    position: absolute
+}
+
+.options_popup {
+    width: 650px;
+    min-height: 600px;
+    background-color: rgb(255, 255, 255);
+    border-radius: 1px;
+    box-shadow: 0 19px 38px rgba(0, 0, 0, 0.30), 0 15px 12px rgba(0, 0, 0, 0.22);
+    z-index: 2;
+}
+
+.center {
+    font-family: 'Electrolize';
+    font-size: 30px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.button_neutral {
+    background-color: #ecf0f1;
+    color: black;
+    border-radius: 2px;
+    font-size: 26px;
+
+    &:hover {
+        background-color: #bdc3c7;
+        cursor: pointer;
+    }
+}
+
+.button_ok {
+    background-color: #2ecc71;
+    color: white;
+    border-radius: 2px;
+    font-size: 26px;
+
+    &:hover {
+        background-color: #27ae60;
+        cursor: pointer;
+    }
+}
+
+.button_cancel {
+    background-color: #e74c3c;
+    color: white;
+    border-radius: 2px;
+    font-size: 26px;
+
+    &:hover {
+        background-color: #c0392b;
+        cursor: pointer;
+    }
+}
+
+.hide {
+    display: none;
+}
+
+.item {
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+#dark-background {
+    backdrop-filter: blur(4px);
+    background-color: rgba(0, 0, 0, 0.5);
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.leaderboard-row { 
+    font-size: 24px;
+    margin-top: 4px;
+}
+
+.popup {
+    width: 599px; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between;
+}
+
+.help-row {
+    display: flex; 
+    flex-direction: row;
+    margin-top: 16px;
+}
+
+.help-row1 {
+    min-width: 200px;
+}
+
+.help-row2 {
+    min-width: 350px; 
+    max-width: 350px; 
+    margin-right: 10px;
+}
+
+.help-row3 {
+    display: flex; 
+    flex-direction: row; 
+    flex-wrap: wrap;
+}
+
+.help-image {
+    height: 56px;
+}
+
+
+.leaderboard-head {
+    display:flex; 
+    flex-direction: row; 
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+}
+
+.leaderboard-item {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #34495e;
+    border-radius: 100px;
+    color: white;
+}
+
+.leaderboard-rank {
+    flex: 0 0 100px; 
+    width:100px;
+}
+
+.leaderboard-name {
+    width:400px; 
+    text-align:left; 
+    margin-left:30px;
+}
+
+/*** TODO Firefox scaling not working properly
+templateA = (w,h,z) => `@media only screen and (min-width: ${w}px) and (min-height: ${h}px) { .container-zoom { zoom: ${z}; } }`;
+templateB = (w,h,z) => `@media only screen and (min-width: ${w}px) and (min-height: ${h}px) { .container-zoom { zoom: ${z}; -moz-transform:  scale(${z},${z}); -moz-transform-origin: left center; } }`;
+for (z = 0.05; z <= 2.01; z += 0.05) { console.log( templateA ( 1920*z | 0 , 1040*z | 0 , (z * 100 | 0) / 100 )); } 
+***/
+
+@media only screen and (min-width: 96px) and (min-height: 52px) { .container-zoom { zoom: 0.05; } }
+@media only screen and (min-width: 192px) and (min-height: 104px) { .container-zoom { zoom: 0.1; } }
+@media only screen and (min-width: 288px) and (min-height: 156px) { .container-zoom { zoom: 0.15; } }
+@media only screen and (min-width: 384px) and (min-height: 208px) { .container-zoom { zoom: 0.2; } }
+@media only screen and (min-width: 480px) and (min-height: 260px) { .container-zoom { zoom: 0.25; } }
+@media only screen and (min-width: 576px) and (min-height: 312px) { .container-zoom { zoom: 0.3; } }
+@media only screen and (min-width: 672px) and (min-height: 364px) { .container-zoom { zoom: 0.35; } }
+@media only screen and (min-width: 767px) and (min-height: 415px) { .container-zoom { zoom: 0.4; } }
+@media only screen and (min-width: 863px) and (min-height: 467px) { .container-zoom { zoom: 0.44; } }
+@media only screen and (min-width: 959px) and (min-height: 519px) { .container-zoom { zoom: 0.49; } }
+@media only screen and (min-width: 1055px) and (min-height: 571px) { .container-zoom { zoom: 0.54; } }
+@media only screen and (min-width: 1152px) and (min-height: 624px) { .container-zoom { zoom: 0.6; } }
+@media only screen and (min-width: 1248px) and (min-height: 676px) { .container-zoom { zoom: 0.65; } }
+@media only screen and (min-width: 1344px) and (min-height: 728px) { .container-zoom { zoom: 0.7; } }
+@media only screen and (min-width: 1440px) and (min-height: 780px) { .container-zoom { zoom: 0.75; } }
+@media only screen and (min-width: 1536px) and (min-height: 832px) { .container-zoom { zoom: 0.8; } }
+@media only screen and (min-width: 1632px) and (min-height: 884px) { .container-zoom { zoom: 0.85; } }
+@media only screen and (min-width: 1728px) and (min-height: 936px) { .container-zoom { zoom: 0.9; } }
+@media only screen and (min-width: 1824px) and (min-height: 988px) { .container-zoom { zoom: 0.95; } }
+@media only screen and (min-width: 1920px) and (min-height: 1040px) { .container-zoom { zoom: 1; } }
+@media only screen and (min-width: 2016px) and (min-height: 1092px) { .container-zoom { zoom: 1.05; } }
+@media only screen and (min-width: 2112px) and (min-height: 1144px) { .container-zoom { zoom: 1.1; } }
+@media only screen and (min-width: 2208px) and (min-height: 1196px) { .container-zoom { zoom: 1.15; } }
+@media only screen and (min-width: 2304px) and (min-height: 1248px) { .container-zoom { zoom: 1.2; } }
+@media only screen and (min-width: 2400px) and (min-height: 1300px) { .container-zoom { zoom: 1.25; } }
+@media only screen and (min-width: 2496px) and (min-height: 1352px) { .container-zoom { zoom: 1.3; } }
+@media only screen and (min-width: 2592px) and (min-height: 1404px) { .container-zoom { zoom: 1.35; } }
+@media only screen and (min-width: 2688px) and (min-height: 1456px) { .container-zoom { zoom: 1.4; } }
+@media only screen and (min-width: 2784px) and (min-height: 1508px) { .container-zoom { zoom: 1.45; } }
+@media only screen and (min-width: 2880px) and (min-height: 1560px) { .container-zoom { zoom: 1.5; } }
+@media only screen and (min-width: 2976px) and (min-height: 1612px) { .container-zoom { zoom: 1.55; } }
+@media only screen and (min-width: 3072px) and (min-height: 1664px) { .container-zoom { zoom: 1.6; } }
+@media only screen and (min-width: 3168px) and (min-height: 1716px) { .container-zoom { zoom: 1.65; } }
+@media only screen and (min-width: 3264px) and (min-height: 1768px) { .container-zoom { zoom: 1.7; } }
+@media only screen and (min-width: 3360px) and (min-height: 1820px) { .container-zoom { zoom: 1.75; } }
+@media only screen and (min-width: 3456px) and (min-height: 1872px) { .container-zoom { zoom: 1.8; } }
+@media only screen and (min-width: 3552px) and (min-height: 1924px) { .container-zoom { zoom: 1.85; } }
+@media only screen and (min-width: 3648px) and (min-height: 1976px) { .container-zoom { zoom: 1.9; } }
+@media only screen and (min-width: 3744px) and (min-height: 2028px) { .container-zoom { zoom: 1.95; } }
+@media only screen and (min-width: 3840px) and (min-height: 2080px) { .container-zoom { zoom: 2; } }

@@ -5,7 +5,9 @@ import path from "node:path";
 const server = Fastify({ logger: false });
 
 server.register(fastifyStatic, {
-  root: path.join(import.meta.dirname!, "dist"),
+  // Serves the real Hex Battle game: site/index.html, site/assets/* (sprites,
+  // fonts, popup.js, style.css) and the esbuild output site/bundle.js.
+  root: path.join(import.meta.dirname!, "site"),
 });
 
 server.setNotFoundHandler((_req, reply) => {

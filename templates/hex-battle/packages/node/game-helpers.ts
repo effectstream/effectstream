@@ -3,9 +3,11 @@
 // `map`, `units`, and the `move` mini-language — into plain functions that the
 // STM transitions call after Typebox has validated the scalar fields.
 //
-// They also wrap the folded-in hex engine (./engine) so the STM can build a
-// fresh game, apply a move, and decide win/draw without the engine's
-// client-side AI or executor abstraction.
+// They also wrap the shared hex engine (@hex-battle/engine) so the STM can build
+// a fresh game, apply a move, and decide win/draw. The engine is the same
+// workspace package the frontend consumes; the node only touches its
+// deterministic surface (Game, CreateGame, Moves, Player, …) — never the
+// client-only AIPlayer.
 
 import {
   Tile,
@@ -16,7 +18,7 @@ import {
   Moves,
   type UnitType,
   type BuildingType,
-} from "./engine/index.ts";
+} from "@hex-battle/engine";
 
 export type LobbyState = "open" | "active" | "finished" | "closed";
 

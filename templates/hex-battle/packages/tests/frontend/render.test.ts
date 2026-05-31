@@ -24,6 +24,12 @@ function findChrome(): string | undefined {
   return undefined;
 }
 
+// Phase C — render. Hex Battle is a canvas game: the lobby menu, hex board,
+// units and buildings are all drawn onto #myCanvas (we do NOT pixel-drive it,
+// per the migration plan). What we CAN assert from the DOM is that the real
+// game's load-bearing surface mounts: the game container + canvas, the wallet
+// selection modal with BOTH connect buttons (browser + local-JS), and that the
+// bundle (game + @effectstream/wallets + engine) boots without fatal errors.
 export async function frontendRenderTest(): Promise<void> {
   const executablePath = findChrome();
   if (!executablePath) {
@@ -43,35 +49,45 @@ export async function frontendRenderTest(): Promise<void> {
       waitUntil: "load",
       timeout: 15_000,
     });
-    await page.waitForSelector(".container", { timeout: 10_000 });
+
+    // The real game's container + canvas mount.
+    await page.waitForSelector('[data-testid="hex-battle-game"]', {
+      timeout: 10_000,
+    });
 
     await assert(
-      "Frontend mounts: .container is present",
-      async () => (await page.$(".container")) !== null,
+      "Frontend mounts: the Hex Battle game container is present",
+      async () => (await page.$('[data-testid="hex-battle-game"]')) !== null,
     );
 
     await assert(
-      "Frontend exposes both wallet buttons (browser + local)",
+      "Frontend renders the gameplay canvas (#myCanvas)",
+      async () =>
+        (await page.$('[data-testid="game-canvas"]')) !== null &&
+        (await page.$("#myCanvas")) !== null,
+    );
+
+    // Both wallet connect buttons exist (they live inside the wallet-selection
+    // modal the game reveals on demand; presence in the DOM is what matters).
+    await assert(
+      "Frontend exposes both wallet buttons (browser + local-JS)",
       async () =>
         (await page.$('[data-testid="connect-browser-wallet"]')) !== null &&
         (await page.$('[data-testid="connect-local-wallet"]')) !== null,
     );
 
+    // The additive integration namespace (used by headless e2e) is wired up.
     await assert(
-      "Frontend ships the hex gameplay surface (main menu + create + open lobbies + hex board)",
+      "Frontend exposes the hexBattle integration namespace",
       async () =>
-        (await page.$('[data-testid="main-menu"]')) !== null &&
-        (await page.$('[data-testid="create-lobby"]')) !== null &&
-        (await page.$('[data-testid="open-lobbies"]')) !== null &&
-        (await page.$('[data-testid="hex-board"]')) !== null,
-    );
-
-    await assert(
-      "Frontend ships the move / surrender controls",
-      async () =>
-        (await page.$('[data-testid="move-input"]')) !== null &&
-        (await page.$('[data-testid="submit-move-btn"]')) !== null &&
-        (await page.$('[data-testid="surrender-btn"]')) !== null,
+        await page.evaluate(() => {
+          const ns = (window as any).hexBattle;
+          return Boolean(
+            ns &&
+              typeof ns.connectLocalWallet === "function" &&
+              typeof ns.createLobby === "function",
+          );
+        }),
     );
 
     await assert(

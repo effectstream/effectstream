@@ -23,6 +23,13 @@ function findChrome(): string | undefined {
   return undefined;
 }
 
+// Phase C — interactions. The wallet connect buttons live in the game's
+// wallet-selection modal (#wallet_selection), which the canvas game reveals via
+// popup.js's `wallet_selection_show()`. We reveal it directly (the canvas-drawn
+// menu button that normally opens it can't be DOM-clicked), then assert each
+// connect CTA fires without throwing a fatal pageerror. `console.error` from a
+// catch block (e.g. the browser-wallet button when window.ethereum is absent in
+// headless Chromium) is expected and ignored.
 export async function frontendInteractionsTest(): Promise<void> {
   const executablePath = findChrome();
   if (!executablePath) {
@@ -46,11 +53,20 @@ export async function frontendInteractionsTest(): Promise<void> {
       waitUntil: "load",
       timeout: 15_000,
     });
-    await page.waitForSelector(".container", { timeout: 10_000 });
+    await page.waitForSelector('[data-testid="hex-battle-game"]', {
+      timeout: 10_000,
+    });
 
-    // Each primary CTA reachable on the landing screen must not produce a NEW
-    // fatal pageerror when clicked. `console.error` from catch blocks (e.g. the
-    // browser-wallet button when window.ethereum is absent) is expected.
+    // Reveal the wallet-selection modal so its buttons become clickable.
+    await page.evaluate(() => {
+      const sel = document.getElementById("wallet_selection");
+      sel?.classList.remove("hide");
+    });
+    await page.waitForSelector('[data-testid="connect-browser-wallet"]', {
+      state: "visible",
+      timeout: 5_000,
+    });
+
     async function clickDoesNotThrow(name: string, selector: string) {
       await assert(`CTA ${name} does not throw on click`, async () => {
         const beforePageErrors = jsErrors.filter((e) =>
@@ -69,17 +85,19 @@ export async function frontendInteractionsTest(): Promise<void> {
       "Connect Browser Wallet",
       '[data-testid="connect-browser-wallet"]',
     );
+
+    // Re-reveal the modal (it hides itself after a selection) for the local one.
+    await page.evaluate(() => {
+      const sel = document.getElementById("wallet_selection");
+      sel?.classList.remove("hide");
+    });
+    await page.waitForSelector('[data-testid="connect-local-wallet"]', {
+      state: "visible",
+      timeout: 5_000,
+    });
     await clickDoesNotThrow(
       "Connect Local Wallet",
       '[data-testid="connect-local-wallet"]',
-    );
-    await clickDoesNotThrow(
-      "Refresh Open Lobbies",
-      '[data-testid="refresh-lobbies-btn"]',
-    );
-    await clickDoesNotThrow(
-      "Refresh Record",
-      '[data-testid="refresh-stats-btn"]',
     );
   } finally {
     await browser.close();
