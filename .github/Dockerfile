@@ -116,6 +116,15 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
+# Install the Chromium browser the wallets-ui e2e suite drives via Playwright.
+# `bunx` from the package dir resolves the locally-installed playwright, so the
+# downloaded browser revision matches the `playwright` import in run-tests.ts
+# (a floating `playwright@latest` could fetch a mismatched revision). bun install
+# does not download browsers, so without this the suite fails with
+# "Executable doesn't exist at .../ms-playwright/chromium_headless_shell-*".
+# `--with-deps` pulls the OS libraries chrome-headless-shell needs on trixie.
+RUN cd /app/e2e/wallets-ui && bunx playwright install --with-deps chromium
+
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
 ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
