@@ -1,0 +1,118 @@
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  background: #14161c;
+  color: #e6e8ee;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+h2 {
+  letter-spacing: 0.04em;
+}
+
+button {
+  cursor: pointer;
+  background: #2b6cb0;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+  margin: 0.15rem;
+  font-size: 0.9rem;
+}
+
+button:hover {
+  background: #2c5282;
+}
+
+input {
+  background: #20232c;
+  color: #e6e8ee;
+  border: 1px solid #3a3f4b;
+  border-radius: 4px;
+  padding: 0.2rem 0.3rem;
+}
+
+label {
+  margin-right: 0.6rem;
+}
+
+section {
+  background: #1b1e26;
+  border: 1px solid #2a2e38;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+}
+
+#lobby-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+#lobby-list li {
+  padding: 0.25rem 0;
+}
+
+.hint {
+  color: #8a90a0;
+  font-size: 0.8rem;
+}
+
+/* Hex board surface */
+.hex-board {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+  margin-top: 0.5rem;
+  background: #0f1117;
+  border: 1px solid #2a2e38;
+  border-radius: 8px;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.hex-tile {
+  position: absolute;
+  width: 48px;
+  height: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: #cfd3dd;
+  background: #2a2e38;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+
+.hex-tile:hover {
+  filter: brightness(1.3);
+}
+
+.hex-tile .coord {
+  font-size: 0.6rem;
+  opacity: 0.6;
+}
+
+.hex-tile .glyph {
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+/* Player ownership colors */
+.hex-tile.owner-A { background: #b03b5a; }
+.hex-tile.owner-B { background: #2f7d4f; }
+.hex-tile.owner-C { background: #3b5ab0; }
+.hex-tile.owner-D { background: #b08a3b; }
+.hex-tile.owner-E { background: #7d3bb0; }
