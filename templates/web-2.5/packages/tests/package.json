@@ -1,0 +1,13 @@
+{
+  "name": "@web-2.5/tests",
+  "version": "1.0.0",
+  "exports": "./run-tests.ts",
+  "dependencies": {
+    "@web-2.5/contracts-evm": "workspace:*",
+    "@effectstream/concise": "0.100.18",
+    "@effectstream/utils": "0.100.18",
+    "pg": "^8.14.0",
+    "viem": "^2.21.0",
+    "playwright-core": "^1.48.0"
+  }
+}

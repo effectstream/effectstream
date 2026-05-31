@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>web-2.5</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="container">
+    <h2>web-2.5</h2>
+    <p class="subtitle">
+      Demonstrates both a <strong>direct</strong> wallet submission (changeName)
+      and a <strong>batched / gasless</strong> submission via the batcher
+      (gainExperience — the web2.5 path).
+    </p>
+
+    <section id="wallet-section">
+      <h3>Connect Wallet</h3>
+      <p id="wallet-address" data-testid="wallet-address">Not connected</p>
+      <button
+        id="connect-browser"
+        data-testid="connect-browser-wallet"
+        onclick="window.uiConnectBrowser()"
+      >Connect Browser Wallet</button>
+      <button
+        id="connect-local"
+        data-testid="connect-local-wallet"
+        onclick="window.uiConnectLocal()"
+      >Connect Local Wallet (dev)</button>
+    </section>
+
+    <section id="actions" data-testid="actions">
+      <h3>Actions</h3>
+
+      <div class="action-row">
+        <label>Name</label>
+        <input id="name-input" data-testid="name-input" type="text" maxlength="50" placeholder="Your name" />
+        <button id="change-name-btn" data-testid="change-name-btn" onclick="window.uiChangeName()">
+          changeName (direct)
+        </button>
+      </div>
+
+      <div class="action-row">
+        <label>XP</label>
+        <input id="xp-input" data-testid="xp-input" type="number" min="1" max="999" value="10" />
+        <button id="gain-xp-btn" data-testid="gain-xp-btn" onclick="window.uiGainXp()">
+          gainExperience (batched)
+        </button>
+      </div>
+
+      <p id="status" data-testid="status"></p>
+    </section>
+
+    <section id="profile" data-testid="profile">
+      <h3>Your Record</h3>
+      <p id="user-record" data-testid="user-record">No record yet.</p>
+    </section>
+
+    <section id="leaderboard">
+      <h3>Leaderboard</h3>
+      <table id="users-table" data-testid="users-table">
+        <thead>
+          <tr><th>Wallet</th><th>Name</th><th>Experience</th></tr>
+        </thead>
+        <tbody id="users-body"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script type="module" src="./min.js"></script>
+
+  <script>
+    function setStatus(msg) {
+      document.getElementById("status").innerText = msg ?? "";
+    }
+
+    function setAddress(addr) {
+      document.getElementById("wallet-address").innerText = addr ?? "Not connected";
+    }
+
+    async function render() {
+      const user = await window.web25.fetchUser();
+      const record = document.getElementById("user-record");
+      if (user) {
+        record.innerText = `name: ${user.name ?? "(unset)"} | experience: ${user.experience}`;
+      } else {
+        record.innerText = "No record yet.";
+      }
+
+      const users = await window.web25.fetchUsers();
+      const body = document.getElementById("users-body");
+      body.innerHTML = "";
+      (users ?? []).forEach((u) => {
+        const tr = document.createElement("tr");
+        tr.dataset.testid = `user-row-${u.wallet}`;
+        tr.innerHTML =
+          `<td>${u.wallet.slice(0, 10)}…</td><td>${u.name ?? ""}</td><td>${u.experience}</td>`;
+        body.appendChild(tr);
+      });
+    }
+
+    window.uiConnectBrowser = async () => {
+      try {
+        await window.web25.connectBrowserWallet();
+        setAddress(window.web25.getAddress());
+        await render();
+      } catch (err) {
+        console.error("connect-browser failed:", err);
+        setAddress(`Browser wallet error: ${err.message}`);
+      }
+    };
+
+    window.uiConnectLocal = async () => {
+      try {
+        await window.web25.connectLocalWallet();
+        setAddress(window.web25.getAddress());
+        await render();
+      } catch (err) {
+        console.error("connect-local failed:", err);
+        setAddress(`Local wallet error: ${err.message}`);
+      }
+    };
+
+    window.uiChangeName = async () => {
+      const name = document.getElementById("name-input").value.trim();
+      if (!name) { setStatus("Enter a name first"); return; }
+      setStatus("Submitting changeName (direct)…");
+      try {
+        await window.web25.changeName(name);
+        setStatus("changeName submitted");
+        setTimeout(render, 4000);
+      } catch (err) {
+        console.error("changeName failed:", err);
+        setStatus(`changeName error: ${err.message}`);
+      }
+    };
+
+    window.uiGainXp = async () => {
+      const xp = Number(document.getElementById("xp-input").value);
+      setStatus("Submitting gainExperience (batched)…");
+      try {
+        await window.web25.gainExperience(xp);
+        setStatus("gainExperience batched + processed");
+        setTimeout(render, 4000);
+      } catch (err) {
+        console.error("gainExperience failed:", err);
+        setStatus(`gainExperience error: ${err.message}`);
+      }
+    };
+  </script>
+</body>
+
+</html>
