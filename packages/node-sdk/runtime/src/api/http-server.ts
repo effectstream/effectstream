@@ -26,6 +26,7 @@ import type {
   EvmFetcher,
   MidnightFetcher,
   NtpFetcher,
+  TestFetcher,
   UtxoRpcFetcher,
 } from "@effectstream/sync";
 import fastifySwagger, {
@@ -286,6 +287,24 @@ export const startHttpServer = function* (
               const cfg = ntpFetcher.config.network;
               if (!cfg?.startTime || !cfg?.blockTimeMS) {
                 return reply.status(500).send({ error: "NTP config missing" });
+              }
+              for (let n = from; n <= to; n++) {
+                const timestamp = BigInt(cfg.startTime) +
+                  BigInt(cfg.blockTimeMS) * BigInt(n);
+                blocks.push({
+                  blockNumber: n,
+                  timestamp,
+                  hash: `0x${timestamp.toString(16)}`,
+                });
+              }
+            }
+            break;
+          case ConfigNetworkType.TEST:
+            {
+              const testFetcher = fetcher as TestFetcher;
+              const cfg = testFetcher.config.network;
+              if (!cfg?.startTime || !cfg?.blockTimeMS) {
+                return reply.status(500).send({ error: "TEST config missing" });
               }
               for (let n = from; n <= to; n++) {
                 const timestamp = BigInt(cfg.startTime) +
