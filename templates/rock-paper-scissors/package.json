@@ -1,29 +1,22 @@
 {
   "private": true,
   "workspaces": [
-    "packages/client/*",
-    "packages/shared/*",
-    "packages/shared/**/*",
-    "packages/frontend"
+    "packages/*"
   ],
   "scripts": {
-    "build:evm": "bun run --filter @rock-paper-scissors/evm-contracts build:mod",
-    "dev": "bun run --filter @rock-paper-scissors/node dev",
-    "check": "bun run --filter @rock-paper-scissors/node check"
+    "build:evm": "bun run --filter @rock-paper-scissors/contracts-evm build:mod",
+    "dev": "NODE_ENV=development bunx orchestrator start",
+    "check": "bun run --filter @rock-paper-scissors/node check",
+    "test": "bun run packages/tests/run-tests.ts",
+    "build:pgtypes": "bun run --filter @rock-paper-scissors/database pgtyped:update"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.10",
     "@effectstream/evm-contracts": "0.100.18",
-    "@midnight-ntwrk/ledger": "4.0.0",
-    "@midnight-ntwrk/compact-runtime": "0.9.0",
-    "@midnight-ntwrk/wallet": "5.0.0",
-    "@midnight-ntwrk/wallet-api": "5.0.0",
-    "@midnight-ntwrk/zswap": "4.0.0",
-    "@midnight-ntwrk/midnight-js-utils": "2.0.2",
-    "@midnight-ntwrk/midnight-js-types": "2.0.2",
-    "@midnight-ntwrk/midnight-js-network-id": "2.0.2",
-    "@midnight-ntwrk/midnight-js-contracts": "2.0.2",
-    "tslib": "^2.8.1",
-    "wait-on": "^9.0.3"
+    "@effectstream/orchestrator": "0.100.18",
+    "wait-on": "8.0.3"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
   }
 }
