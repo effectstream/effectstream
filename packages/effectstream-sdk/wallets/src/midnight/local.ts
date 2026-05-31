@@ -194,13 +194,9 @@ export class MidnightLocalConnector {
     args: MidnightLocalConnectArgs,
     networkUrls: MidnightLocalNetworkUrls,
   ): Promise<MidnightLocalProvider> => {
-    // Import the narrow `/wallet-info` subpath rather than the package barrel.
-    // The barrel (`@effectstream/midnight-contracts`) re-exports `deploy.ts`,
-    // which imports `node:fs/promises` — a specifier the browser polyfill
-    // (`node-stdlib-browser`) can't resolve, breaking any frontend bundle that
-    // includes `@effectstream/wallets`. `buildWalletFacade` and
-    // `getInitialShieldedState` (the only members we use) live in
-    // `get-wallet-info.ts`, which is node-only-fs-free.
+    // Use the `/wallet-info` subpath, not the package barrel: the barrel
+    // re-exports `deploy.ts` (`node:fs/promises`), which breaks browser bundles
+    // of `@effectstream/wallets`.
     const contractsMod = await import(
       "@effectstream/midnight-contracts/wallet-info"
     ).catch(() => {
