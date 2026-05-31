@@ -49,16 +49,14 @@ COPY . .
 
 RUN bun install
 # RUN /app/patch.sh || true
-RUN bun run --filter @dice/evm-contracts build:mod
+RUN bun run --filter @dice/contracts-evm build:mod
 
-RUN bun run --filter @dice/frontend install
-RUN bun run --filter @dice/frontend build
+RUN cd packages/frontend && node esbuild.js
 
-# Frontend / Explorer / Hardhat 1&2 / API / Batcher
-EXPOSE 8080
+# Frontend / Hardhat / API
+EXPOSE 10599
 EXPOSE 8545
 EXPOSE 9999
-EXPOSE 10590
 
 ENV RUN_IN_DOCKER=true
 ENV EFFECTSTREAM_STDOUT=true
