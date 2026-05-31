@@ -23,11 +23,19 @@ import { getEnv } from "@effectstream/utils/runtime";
  *   Bitcoin, Celestia          → syncProtocol.startBlockHeight
  */
 function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<string, unknown> {
-  if (protocol.networkType === ConfigNetworkType.NTP) {
-    const ntpNetwork = protocol.network as { startTime: number; blockTimeMS: number };
+  // NTP and the synthetic TEST chain both derive blocks arithmetically from
+  // network.startTime + network.blockTimeMS, so those are the immutable fields.
+  if (
+    protocol.networkType === ConfigNetworkType.NTP ||
+    protocol.networkType === ConfigNetworkType.TEST
+  ) {
+    const arithmeticNetwork = protocol.network as {
+      startTime: number;
+      blockTimeMS: number;
+    };
     return {
-      startTime: ntpNetwork.startTime,
-      blockTimeMS: ntpNetwork.blockTimeMS,
+      startTime: arithmeticNetwork.startTime,
+      blockTimeMS: arithmeticNetwork.blockTimeMS,
     };
   }
 

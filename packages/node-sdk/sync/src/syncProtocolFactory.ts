@@ -31,6 +31,8 @@ import { CelestiaFetcher } from "./sync-protocols/celestia/fetcher.ts";
 import { CelestiaSyncState } from "./sync-protocols/celestia/state.ts";
 import { NearFetcher } from "./sync-protocols/near/fetcher.ts";
 import { NearSyncState } from "./sync-protocols/near/state.ts";
+import { TestFetcher } from "./sync-protocols/test/fetcher.ts";
+import { TestSyncState } from "./sync-protocols/test/state.ts";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -144,6 +146,17 @@ export function* genSyncProtocols(
     ) {
       const fetcher = new NearFetcher(entry);
       const state = yield* NearSyncState.restoreState(
+        dbConn,
+        entry,
+        fetcher,
+      );
+      result.push(state);
+    } else if (
+      entry.networkType === ConfigNetworkType.TEST
+    ) {
+      // Synthetic test chain (TEST_MAIN clock or TEST_PARALLEL source).
+      const fetcher = new TestFetcher(entry);
+      const state = yield* TestSyncState.restoreState(
         dbConn,
         entry,
         fetcher,
