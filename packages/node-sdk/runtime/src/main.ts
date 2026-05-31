@@ -62,6 +62,9 @@ export function* start(config: StartConfig): Operation<void> {
   const syncProtocols = yield* startup(dbConn as any, // Client,
     syncInfo, config);
 
+  // Test-only: surface live sync protocols (e.g. for buffer-size assertions).
+  config.dev?.onStarted?.({ syncProtocols });
+
   log.remote(
     ComponentNames.EFFECTSTREAM_RUNTIME,
     [],
