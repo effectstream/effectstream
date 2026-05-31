@@ -121,6 +121,18 @@ RUN /app/patch.sh
 # floating version could fetch a mismatched browser revision).
 RUN cd /app/e2e/wallets-ui && bunx playwright install --with-deps chromium
 
+# Make the Chromium installed above discoverable to the template Phase C frontend
+# tests. Those tests launch Chromium via playwright-core through findChrome(),
+# which probes CHROME_PATH first; without this it fell through to a non-existent
+# /usr/bin/google-chrome and the template-tests job threw at chromium.launch().
+# Pointing CHROME_PATH at the Playwright browser keeps it version-matched to the
+# playwright-core the templates launch it with.
+RUN CHROME_BIN="$(find /root/.cache/ms-playwright -type f -name chrome -path '*chrome-linux*' | head -1)" \
+ && test -n "$CHROME_BIN" \
+ && ln -sf "$CHROME_BIN" /usr/local/bin/chromium-test \
+ && /usr/local/bin/chromium-test --version
+ENV CHROME_PATH=/usr/local/bin/chromium-test
+
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
 ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
