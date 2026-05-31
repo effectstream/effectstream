@@ -1,0 +1,20 @@
+{
+  "name": "@nft-lvlup/frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.js",
+    "serve": "bun run server.ts"
+  },
+  "dependencies": {
+    "@effectstream/wallets": "0.100.18",
+    "@fastify/static": "^7.0.4",
+    "fastify": "^4.28.1",
+    "viem": "^2.37.5"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.9",
+    "esbuild-plugins-node-modules-polyfill": "^1.7.1"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@nft-lvlup/tests",
+  "version": "1.0.0",
+  "exports": "./run-tests.ts",
+  "dependencies": {
+    "@nft-lvlup/contracts-evm": "workspace:*",
+    "pg": "^8.14.0",
+    "viem": "^2.21.0",
+    "playwright-core": "^1.48.0"
+  }
+}
