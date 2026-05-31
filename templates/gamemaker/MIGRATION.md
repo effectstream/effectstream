@@ -32,4 +32,14 @@ Group C: port from `@paima/*` (paima-engine-v1) at
 6. Frontend wallet UI shows both browser + local-js EVM options
 
 ## Status
-WIP — branch created, semantic port not started. Tracked in `/home/eddie/.claude/plans/rosy-sparking-parnas.md`.
+Ported. Group C: backend is identical to the completed `templates/generic`
+(same single `gainedExperience` action, `users` table, STM, `/user_state` API),
+reproduced verbatim and rescoped `@generic/*` → `@gamemaker/*` with
+namespace/appName `gamemaker`. Grammar verified against the v1 source
+(`gainedExperience = xp|*address|experience`, `experience` = NumberParser(1,5),
+`calculateProgress = prev + xp*10`) — no schema/grammar difference from generic.
+
+Frontend: kept the generic vanilla-JS Fastify dual-wallet web shim as
+`packages/frontend` (this is what Phase C tests). The original GameMaker Studio 2
+client is preserved verbatim under `gamemaker-client/` (built/run separately via
+its own `build.sh`; not part of the @effectstream build).
