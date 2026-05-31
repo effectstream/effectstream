@@ -32,6 +32,7 @@ const ENABLED = [
   "preorder",
   "projected-nft-preorder",
   "shinkai-v2",
+  "trading-cards",
   "zk-cardano",
   "zswap-da",
   "batcher-validations",
