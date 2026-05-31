@@ -16,6 +16,7 @@ const suites = [
   { name: "near", script: "./near/run-tests.ts" },
   { name: "features", script: "./features/run-tests.ts" },
   { name: "wallets", script: "./wallets-ui/run-tests.ts" },
+  { name: "sync-repro", script: "./sync-repro/run-tests.ts" },
 ];
 
 const __dirname = import.meta.dirname ?? ".";
