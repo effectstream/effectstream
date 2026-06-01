@@ -567,7 +567,7 @@ isBatchReadyFn: async (inputs) => {
 
 4. **Test under load**: Simulate traffic patterns to validate criteria performance
 
-5. **Per-chain optimization**: Different chains have different cost profiles—configure accordingly
+5. **Per-chain optimization**: Different chains have different cost profiles-configure accordingly
 
 ---
 
@@ -584,7 +584,7 @@ const config: BatcherConfig = {
 };
 ```
 
-**Note:** Even with `enableEventSystem: false`, you can still register listeners—they just won't be called.
+**Note:** Even with `enableEventSystem: false`, you can still register listeners-they just won't be called.
 
 ### Adding Event Listeners
 
@@ -878,7 +878,7 @@ batcher.addStateTransition("batch:process:start", ({ target, inputCount }) => {
 
 #### 2. Error Handling in Listeners
 
-Event listeners should **not throw errors**—they run in background fibers and failures don't affect the main batcher:
+Event listeners should **not throw errors**-they run in background fibers and failures don't affect the main batcher:
 
 ```typescript
 batcher.addStateTransition("batch:submit", async ({ txHash }) => {
@@ -886,7 +886,7 @@ batcher.addStateTransition("batch:submit", async ({ txHash }) => {
     await database.recordTransaction(txHash);
   } catch (error) {
     console.error("Failed to record transaction:", error);
-    // Don't throw—just log and continue
+    // Don't throw-just log and continue
   }
 });
 ```
@@ -949,7 +949,7 @@ batcher.addStateTransition("error", ({ phase, target, error }) => {
 
 ## Storage System
 
-Storage is the **single source of truth** for all pending inputs. There are no in-memory queues—everything is persisted immediately, making the batcher crash-safe.
+Storage is the **single source of truth** for all pending inputs. There are no in-memory queues-everything is persisted immediately, making the batcher crash-safe.
 
 ### The `BatcherStorage` Interface
 
@@ -1002,7 +1002,7 @@ The default storage backend uses JSONL (JSON Lines) files for simplicity and hum
 
 **Usage:**
 ```typescript
-import { FileStorage } from "@effectstream/batcher";
+import { FileStorage } from "@effectstream/batcher-sdk";
 
 const storage = new FileStorage("./batcher-data");
 const batcher = createNewBatcher(config, storage);
@@ -1042,7 +1042,7 @@ Implement `BatcherStorage` to use any backend:
 
 ```typescript
 import { Pool } from "pg";
-import type { BatcherStorage, DefaultBatcherInput } from "@effectstream/batcher";
+import type { BatcherStorage, DefaultBatcherInput } from "@effectstream/batcher-sdk";
 
 export class PostgreSQLStorage<T extends DefaultBatcherInput>
   implements BatcherStorage<T> {
@@ -1156,7 +1156,7 @@ const batcher = createNewBatcher(config, storage);
 
 ```typescript
 import Redis from "ioredis";
-import type { BatcherStorage, DefaultBatcherInput } from "@effectstream/batcher";
+import type { BatcherStorage, DefaultBatcherInput } from "@effectstream/batcher-sdk";
 
 export class RedisStorage<T extends DefaultBatcherInput>
   implements BatcherStorage<T> {
@@ -1185,7 +1185,7 @@ export class RedisStorage<T extends DefaultBatcherInput>
   async removeProcessedInputs(processedInputs: T[]): Promise<void> {
     if (processedInputs.length === 0) return;
     
-    // Remove by value (inefficient for large lists—consider using sorted sets instead)
+    // Remove by value (inefficient for large lists-consider using sorted sets instead)
     const pipeline = this.redis.pipeline();
     for (const input of processedInputs) {
       pipeline.lrem(this.queueKey, 1, JSON.stringify(input));
@@ -1309,18 +1309,8 @@ Without structured concurrency, you'd need manual bookkeeping to track and stop 
 
 ### Installation
 
-Effection is available on both NPM and Deno:
-
-**NPM/Yarn:**
 ```bash
-npm install effection
-# or
-yarn add effection
-```
-
-**Deno:**
-```typescript
-import { main, suspend } from "https://jsr.io/@effection/effection/doc";
+bun add effection
 ```
 
 ---
@@ -1337,7 +1327,7 @@ The batcher provides a `runBatcher()` operation that:
 
 ```typescript
 import { main, suspend } from "effection";
-import { Batcher } from "@effectstream/batcher";
+import { Batcher } from "@effectstream/batcher-sdk";
 
 const batcher = new Batcher(config, storage);
 
@@ -1364,7 +1354,7 @@ Here's a production-ready example from the E2E tests:
 
 ```typescript
 import { main, suspend } from "effection";
-import { Batcher } from "@effectstream/batcher";
+import { Batcher } from "@effectstream/batcher-sdk";
 import { config, storage } from "./config.ts";
 
 const batcher = new Batcher(config, storage);
@@ -1678,7 +1668,7 @@ main(function* () {
   } catch (error) {
     console.error("Fatal error:", error);
     yield* batcher.gracefulShutdownOp();
-    Deno.exit(1);  // or process.exit(1) in Node
+    process.exit(1);
   }
 });
 ```
@@ -1755,7 +1745,7 @@ This guide covered five advanced topics:
 
 1. **HTTP API**: REST endpoints for input submission (`/send-input`), monitoring (`/status`, `/queue-stats`), and developer operations (`/force-batch`, `/clear-inputs`)
 
-2. **Batching Criteria**: Five strategies for controlling batch submission timing—time, size, value, hybrid, and custom—each with distinct use cases
+2. **Batching Criteria**: Five strategies for controlling batch submission timing-time, size, value, hybrid, and custom-each with distinct use cases
 
 3. **Event System**: Lifecycle hooks for observability, emitting events like `startup`, `batch:submit`, `batch:receipt`, and `error` for monitoring and integration
 

@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import wasm from "vite-plugin-wasm";
-import topLevelAwait from "vite-plugin-top-level-await";
 
 export default defineConfig({
   root: "./client",
@@ -11,6 +10,12 @@ export default defineConfig({
     alias: {
       buffer: "buffer",
     },
+  },
+
+  define: {
+    global: "globalThis",
+    "process.env.NODE_ENV": JSON.stringify("development"),
+    "process.env": "{}",
   },
 
   build: {
@@ -30,5 +35,5 @@ export default defineConfig({
     },
   },
 
-  plugins: [wasm(), topLevelAwait(), react()],
+  plugins: [wasm(), react()],
 });

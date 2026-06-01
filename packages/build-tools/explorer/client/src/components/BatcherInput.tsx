@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
-import { BATCHER_ENDPOINT, GRAMMAR_ENDPOINT } from "../config.ts";
+import {
+  BATCHER_ENDPOINT,
+  GRAMMAR_ENDPOINT,
+  getCachedSecurityNamespace,
+} from "../config.ts";
 import { createMessageForBatcher } from "@effectstream/concise";
 
 const AddressType = {
@@ -37,9 +41,8 @@ async function createSignedInput(
   const userAddress = account.address;
   const addressType = AddressType.EVM;
 
-  // TODO This should be provided by @paima/* package.
   const message = createMessageForBatcher(
-    null,
+    getCachedSecurityNamespace(),
     timestamp,
     userAddress,
     addressType,

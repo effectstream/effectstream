@@ -2,66 +2,179 @@
 slug: nft-launchpad
 title: "Building a Cross-Chain NFT Launchpad"
 authors: [effectstream]
-tags: [nfts, launchpad, presale, smart-contracts]
+tags: [nfts, launchpad, presale, smart-contracts, cardano, evm]
 ---
 
-`WRITE: NFT launches are complex — creators need smart contracts for the sale, a UI for buyers, multi-chain payment support, proof of participation, and marketplace integration. We built a full launchpad platform that handles all of this, with EffectStream powering the backend state management.`
+NFT launches are complicated. Creators need smart contracts for the sale, a UI for buyers, multi-chain payment support, proof of participation, and fulfillment tracking. We built a full launchpad platform that handles all of this, with EffectStream powering the backend state management and cross-chain payment processing.
 
 <!-- truncate -->
 
-## The Pre-Order Smart Contract
+![Launchpad UI, Cardano view with ADA prices, packages, and cart checkout](/img/blog/preorder-2.png)
 
-The foundation is a smart contract that handles the NFT pre-order lifecycle: deposits, campaign management, and refund mechanics.
+## The pre-order smart contract
 
-`ADD: Link to contract code`
+The foundation is a smart contract that manages the NFT pre-order lifecycle. When a campaign launches, the contract accepts deposits from participants. Each deposit is recorded with the contributor's wallet address, amount, and selected items. The contract enforces campaign rules: deposit limits, time windows, and refund conditions. If a campaign doesn't reach its goal, contributors can reclaim their funds. If it succeeds, the creator fulfills orders and distributes NFTs.
 
-`WRITE: How the contract works — what happens when a user deposits? How does a creator start and end a campaign? What are the refund conditions?`
+The contract uses Aiken for Cardano-side validation and Solidity for EVM. Transaction metadata is validated on-chain to ensure payment integrity, and merkle trees efficiently prove participation for later NFT claims.
 
-## The Launchpad Backend
+The EVM contract exposes two payment paths - native (ETH) and ERC-20 - and emits a `BuyItems` event that the EffectStream state machine indexes:
 
-The backend is powered by EffectStream, with each presale running as its own deployment.
+```solidity
+contract PaimaLaunchpad is OwnableUpgradeable, UUPSUpgradeable {
+    event BuyItems(
+        address indexed receiver,
+        address indexed buyer,
+        address indexed paymentToken,
+        uint256 amount,
+        address referrer,
+        uint256[] itemsIds,
+        uint256[] itemsQuantities
+    );
 
-- [Backend code](https://github.com/PaimaStudios/paima-preorder)
-- [Portal integration](https://github.com/PaimaStudios/paima-portal/pull/7)
+    function buyItemsNative(
+        address receiver,
+        address payable referrer,
+        uint256[] calldata itemsIds,
+        uint256[] calldata itemsQuantities
+    ) external payable { /* ... */ }
 
-`WRITE: Why separate deployments? If all campaigns shared one EffectStream instance, you'd need to resync one very long chain of events for every new campaign — especially painful if campaigns monitor multiple chains for payments. Separate deployments keep sync times fast and independent.`
+    function buyItemsErc20(
+        address paymentToken,
+        uint256 paymentAmount,
+        address receiver,
+        address referrer,
+        uint256[] calldata itemsIds,
+        uint256[] calldata itemsQuantities
+    ) external { /* ... */ }
+}
+```
 
-`WRITE: How EffectStream's NTP-based sync (instead of block-based) makes this architecture more efficient — the "main clock" is an NTP server (very cheap) rather than a blockchain, so you're not wasting RPC calls fetching blocks you don't care about.`
+A factory contract (`PaimaLaunchpadFactory`) lets each campaign deploy its own launchpad instance with its own accepted-token list and referrer-reward configuration.
 
-`DECISION: Should we try to launch this service publicly?`
+- [Preorder template](https://github.com/effectstream/effectstream/tree/v-next/templates/preorder) - full multi-chain stack, runs locally with one command
+- [EVM contract source (`PaimaLaunchpad.sol`)](https://github.com/effectstream/effectstream/blob/v-next/templates/preorder/packages/contracts-evm/src/contracts/PaimaLaunchpad.sol)
+- [Cardano contract integration](https://github.com/effectstream/effectstream/tree/v-next/templates/preorder/packages/contracts-cardano)
+- (Original repository: https://github.com/PaimaStudios/paima-preorder - preserved for reference)
 
-`ADD: GIF showing core flows — create campaign, contribute, view status`
+## Why separate deployments
 
-## The Launchpad UI
+The backend is powered by EffectStream, with each presale campaign running as its own deployment. This isn't just organizational; it's a performance decision.
 
-A full user interface for managing campaigns — creators can set up sales, track progress, and manage payouts. Buyers can browse campaigns, contribute funds, and track their participation.
+If all campaigns shared one EffectStream instance, you'd need to resync one very long chain of events for every new campaign. That's especially painful when campaigns monitor multiple chains for payments, since each chain adds sync overhead. Separate deployments keep sync times fast and campaigns independent of each other.
+
+EffectStream's NTP-based sync (instead of block-based) makes this practical. The "main clock" is an NTP server, which is very cheap to poll, rather than a blockchain. The system only fetches blockchain data when relevant events occur, so a lightweight campaign deployment costs almost nothing when idle.
+
+## The launchpad UI
+
+The launchpad UI supports both EVM and Cardano wallets. Creators set up sales with configurable parameters (countdown timers, reward tiers, package bundles, item catalogs). Buyers browse campaigns, add items to a cart, and contribute funds from whichever chain they prefer.
 
 - [Launchpad portal components](https://github.com/PaimaStudios/paima-portal/tree/main/src/components/launchpad)
+- [Portal repository](https://github.com/PaimaStudios/paima-portal)
 
-`ADD VIDEO HERE: Walk-through of all dApp functionality — create a campaign, contribute as a buyer, see the dashboard`
+<iframe src="https://drive.google.com/file/d/1MiTyu_Et36zyE1qP7vWYG-2DEaUFyI-s/preview" width="100%" height="480" allow="autoplay"></iframe>
 
-`ADD: Screenshots or Figma link showing the UI design`
+## Cross-chain payments
 
-## Cross-Chain Payments and Proof of Ownership
+The launchpad accepts payments natively on each chain: Cardano users pay in ADA, EVM users pay in ETH or ERC-20 tokens. We originally planned to use bridge-based payments (Milkomeda for Cardano↔EVM), but pivoted to native chain primitives when the bridge infrastructure proved unreliable. Turned out to be simpler and more reliable anyway, with no dependency on third-party bridge availability.
 
-The launchpad supports participation from both Cardano and EVM wallets. Users can contribute from whichever chain they prefer.
+All payments are tracked in the backend database with full transaction details:
 
-We also built proof-of-ownership endpoints so participants can verify their contribution to a sale:
+![Database: cardano_payments table showing tx hashes, amounts, and block heights](/img/blog/preorder-3.png)
 
-- [Ownership verification API](https://github.com/PaimaStudios/paima-preorder/blob/main/backend/api/src/controllers/userData.ts)
+![Database: launchpad_user_items table mapping wallets to purchased items](/img/blog/preorder-4.png)
 
-`WRITE: Explain the cross-chain evolution — we originally planned to use bridge payments (Milkomeda for Cardano↔EVM), but Milkomeda became non-viable and alternatives like Squid were still experimental. We pivoted to native chain primitives — accepting payments directly on each chain. This turned out to be simpler, more reliable, and didn't depend on third-party bridge infrastructure.`
+The state machine handles two distinct payment paths - EVM events and Cardano UTXO outputs - under a unified schema:
 
-We use Aiken smart contracts for transaction metadata validation and merkle trees to efficiently prove participation.
+```typescript
+import { Stm } from "@effectstream/sm";
+import { grammar } from "./grammar.ts";
+import { World } from "@effectstream/coroutine";
 
-`BUILD: UI for proving sale participation (~1 day of work)`
+const stm = new Stm<typeof grammar, {}>(grammar);
 
-## Conclusion
+// EVM purchase event (from the BuyItems event above)
+stm.addStateTransition("buy-items", function* (data) {
+  const { receiver, paymentToken, amount, itemsIds, itemsQuantities }
+    = data.parsedInput;
 
-The end-to-end cross-chain flow: a user participates in a sale from their Cardano wallet, receives an NFT, transfers it to EVM, and lists it on OpenSea — all managed by a single platform.
+  // Validate items, supply limits, payment amount...
+  const validationResult = yield* validateItems(/* ... */);
 
-`WRITE: Summarize what the launchpad enables — creators get a turnkey platform for multi-chain NFT sales, buyers get a familiar experience regardless of which chain they use.`
+  yield* World.resolve(insertParticipation, {
+    launchpad: launchpadData.address,
+    wallet: receiver,
+    payment_token: paymentToken,
+    payment_amount: amount,
+    item_ids: itemsIds.join(","),
+    item_quantities: itemsQuantities.join(","),
+    chain: "evm",
+    participation_valid: validationResult !== null,
+  });
+});
 
-`INVESTIGATE: What exactly was the marketplace integration? Which marketplace, what was the integration flow?`
+// Cardano payment - read UTXO outputs + transaction metadata (label 42)
+stm.addStateTransition("cardano-payment", function* (data) {
+  const { txId, outputs, metadata } = data.parsedInput;
+  // Metadata format: { "42": [{ k: "p", v: "preorder" },
+  //                          { k: "w", v: walletBech32 },
+  //                          { k: "i", v: [[itemId, qty], ...] }] }
+  const metaItems = parseMetadataItems(metadata);
 
-`ADD VIDEO HERE showing the full flow`
+  for (const output of JSON.parse(outputs)) {
+    const matchingLaunchpad = launchpadsData.find(
+      (l) => l.cardanoPaymentAddressHex === output.address,
+    );
+    if (!matchingLaunchpad) continue;
+
+    yield* World.resolve(insertCardanoPayment, {
+      tx_hash: txId,
+      amount: output.coin,
+      payment_address: matchingLaunchpad.cardanoPaymentAddress,
+      block_height: data.blockHeight,
+    });
+    // ... item validation and participation upsert
+  }
+});
+```
+
+The two handlers write to the same `participations` and `launchpad_user_items` tables, so a downstream consumer (the portal UI, an off-chain fulfillment service) sees a uniform view regardless of which chain the buyer paid on.
+
+## Running the template locally
+
+The Preorder template ships as a one-command stack: PGLite, Hardhat, YACI DevKit, Dolos, the sync node, and the frontend all come up together under the EffectStream orchestrator.
+
+```bash
+git clone https://github.com/effectstream/effectstream.git
+cd effectstream/templates/preorder
+bun install
+bun run dev
+```
+
+The orchestrator starts each component on a dedicated port:
+
+| Component         | Tool             | Port                              |
+|-------------------|------------------|-----------------------------------|
+| Database          | PGLite           | 5432                              |
+| EVM Chain         | Hardhat          | 8545                              |
+| Cardano Node      | YACI DevKit      | 10000 (admin), 3001 (node)        |
+| Cardano Indexer   | Dolos            | 50051 (gRPC), 3000 (Blockfrost)   |
+| Sync Node API     | EffectStream     | 9999                              |
+| Frontend          | Vite + Fastify   | 10599                             |
+
+Open http://localhost:10599 and the full launchpad is live against the local devnets - you can mint test ERC-20s and ADA, buy items with each, and watch the participations land in PostgreSQL in real time.
+
+The same `start.dev.ts` config also drives the E2E test suite (`bun run test`), which covers infrastructure boot, native ETH purchase, ERC-20 purchase, validation (supply limits, underpayment), Cardano ADA payment, the REST API, and the frontend build.
+
+## Offline by design
+
+The launchpad isn't deployed as a single shared site, and that's a deliberate decision. Each presale campaign is its own EffectStream deployment: separate database, separate sync node, separate frontend. Three reasons:
+
+1. **Sync cost** - if every campaign shared one deployment, each new launch would pay the sync cost of every chain ever monitored. Independent deployments keep sync times bounded per campaign.
+2. **Operator independence** - a creator can take their campaign down without affecting anyone else's; an operator can hard-fork the template to add custom validation, accept exotic payment tokens, or wire in their own KYC.
+3. **Devnet-first development** - the YACI DevKit + Hardhat stack runs entirely on the developer's machine. You can iterate on contract logic, test edge cases (underpayment, supply exhaustion, refund flows), and validate the full multi-chain pipeline before touching mainnet. The same template config and tests carry over to testnet and mainnet deployments unchanged.
+
+The trade-off is that there's no single hosted demo to click through. Instead, anyone can clone the template and have a full multi-chain launchpad running on their machine in under five minutes - and that local stack is the same stack a real campaign would deploy to production.
+
+## What this gets you
+
+Creators get a turnkey platform for multi-chain NFT sales: deploy a campaign, configure tiers and pricing, accept payments from both Cardano and EVM wallets through a single interface. Buyers get a familiar e-commerce experience no matter which chain they're on.

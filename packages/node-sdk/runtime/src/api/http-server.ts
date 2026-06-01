@@ -25,6 +25,7 @@ import type {
   EvmFetcher,
   MidnightFetcher,
   NtpFetcher,
+  TestFetcher,
   UtxoRpcFetcher,
 } from "@effectstream/sync";
 import fastifySwagger, {
@@ -46,7 +47,7 @@ import {
   type TypePaginationQuerySchema,
 } from "./pagination.ts";
 import { PrimitiveRegistry } from "@effectstream/sm";
-import { ConfigNetworkType } from "@effectstream/config";
+import { ConfigNetworkType, getWriteNamespace, usePaimaStaticConfig } from "@effectstream/config";
 
 function tableListContains(
   list: Array<{ table_name: string | null }>,
@@ -297,6 +298,24 @@ export const startHttpServer = function* (
               }
             }
             break;
+          case ConfigNetworkType.TEST:
+            {
+              const testFetcher = fetcher as TestFetcher;
+              const cfg = testFetcher.config.network;
+              if (!cfg?.startTime || !cfg?.blockTimeMS) {
+                return reply.status(500).send({ error: "TEST config missing" });
+              }
+              for (let n = from; n <= to; n++) {
+                const timestamp = BigInt(cfg.startTime) +
+                  BigInt(cfg.blockTimeMS) * BigInt(n);
+                blocks.push({
+                  blockNumber: n,
+                  timestamp,
+                  hash: `0x${timestamp.toString(16)}`,
+                });
+              }
+            }
+            break;
           case ConfigNetworkType.CARDANO: {
             const cardanoFetcher = fetcher as UtxoRpcFetcher;
             const res = cardanoFetcher.client.fetchBlocks(from, to);
@@ -470,26 +489,36 @@ export const startHttpServer = function* (
       return cleanedProtocols;
     });
 
+    const staticConfigForRoute = yield* usePaimaStaticConfig();
+    const securityNamespaceForRoute = getWriteNamespace(
+      staticConfigForRoute.securityNamespace,
+    );
+
     server.get("/config", {
       schema: {
         tags: ["developer"],
         response: {
-          200: Type.Array(Type.Object({
-            networkType: Type.String(),
-            syncProtocolType: Type.String(),
-            syncProtocol: Type.Object({}, { additionalProperties: true }),
-            network: Type.Object({}, { additionalProperties: true }),
-            primitives: Type.Array(
-              Type.Object({}, { additionalProperties: true }),
-            ),
-          }, { additionalProperties: true })),
+          200: Type.Object({
+            securityNamespace: Type.Union([Type.String(), Type.Null()]),
+            syncProtocols: Type.Array(Type.Object({
+              networkType: Type.String(),
+              syncProtocolType: Type.String(),
+              syncProtocol: Type.Object({}, { additionalProperties: true }),
+              network: Type.Object({}, { additionalProperties: true }),
+              primitives: Type.Array(
+                Type.Object({}, { additionalProperties: true }),
+              ),
+            }, { additionalProperties: true })),
+          }),
         },
       },
     }, () => {
       const config = syncProtocols.map((syncProtocol) => syncProtocol.config)
         .flat();
-      const cleanedConfig = clearBigInts(config);
-      return cleanedConfig;
+      return {
+        securityNamespace: securityNamespaceForRoute,
+        syncProtocols: clearBigInts(config),
+      };
     });
   }
 

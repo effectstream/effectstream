@@ -19,6 +19,7 @@ import { mnemonicToSeed } from "./mnemonicToSeed.ts";
 import type { NetworkUrls, DeployConfig, WalletResult } from "./types.ts";
 import { buildWalletAndWaitForFunds, extractInitialOwnerFromWallet } from "./build-wallet.ts";
 import { configureMidnightNodeProviders } from "./providers.ts";
+import { deployMidnightContractPhased } from "./deploy-phased.ts";
 import { midnightNetworkConfig } from "./midnight-env.ts";
 
 function checkEnvVariables(): void {
@@ -209,45 +210,71 @@ export async function deployMidnightContract(
 
     log.info("Deploying contract...");
 
+    // Apply defaults so callers only pass what their contract needs. Only
+    // contractName and contractClass are truly required; everything else has a
+    // sensible default.
+    const resolvedConfig: DeployConfig = {
+      ...config,
+      contractFileName: config.contractFileName ?? `${config.contractName}.json`,
+      witnesses: config.witnesses ?? {},
+      privateStateId: config.privateStateId ?? "privateState",
+      initialPrivateState: config.initialPrivateState ?? {},
+    };
+
     // First, create the compiled contract
     const MyCompiledContract = CompiledContract.make(
-      config.contractName,
-      config.contractClass,
+      resolvedConfig.contractName,
+      resolvedConfig.contractClass,
     ).pipe(
-      CompiledContract.withWitnesses(config.witnesses as never),
+      CompiledContract.withWitnesses(resolvedConfig.witnesses as never),
       CompiledContract.withCompiledFileAssets(managedDir),
     );
 
-    const deployOptions: {
-      compiledContract: CompiledContract.CompiledContract<
-        Contract<undefined, Witnesses<undefined>>,
-        undefined,
-        never
-      >;
-      privateStateId: PrivateStateId;
-      initialPrivateState: Contract.PrivateState<any>;
-      signingKey?: SigningKey;
-      args: Contract.InitializeParameters<any>;
-    } = {
-      compiledContract: MyCompiledContract as any,
-      privateStateId: config.privateStateId as PrivateStateId,
-      initialPrivateState:
-        config.initialPrivateState as Contract.PrivateState<any>,
-      args: (deployArgs && deployArgs.length > 0
-        ? deployArgs
-        : []) as Contract.InitializeParameters<any>,
-      signingKey: undefined,
-    };
+    let contractAddress: string;
+    if (resolvedConfig.phasedVerifierKeys) {
+      // Opt-in path for contracts with too many circuits to deploy in a single
+      // transaction: deploy with no verifier keys, then insert each circuit's
+      // key one transaction at a time.
+      log.info("Phased verifier-key deployment enabled.");
+      contractAddress = await deployMidnightContractPhased(
+        providers,
+        MyCompiledContract,
+        resolvedConfig,
+        deployArgs,
+        walletResult,
+        zkConfigPath,
+      );
+      log.info("Contract deployed (phased).");
+    } else {
+      const deployOptions: {
+        compiledContract: CompiledContract.CompiledContract<
+          Contract<undefined, Witnesses<undefined>>,
+          undefined,
+          never
+        >;
+        privateStateId: PrivateStateId;
+        initialPrivateState: Contract.PrivateState<any>;
+        signingKey?: SigningKey;
+        args: Contract.InitializeParameters<any>;
+      } = {
+        compiledContract: MyCompiledContract as any,
+        privateStateId: resolvedConfig.privateStateId as PrivateStateId,
+        initialPrivateState:
+          resolvedConfig.initialPrivateState as Contract.PrivateState<any>,
+        args: (deployArgs && deployArgs.length > 0
+          ? deployArgs
+          : []) as Contract.InitializeParameters<any>,
+        signingKey: undefined,
+      };
 
-    const deployedContract = await deployContract(providers, deployOptions);
-    log.info("Contract deployed.");
-
-    const contractAddress =
-      deployedContract.deployTxData.public.contractAddress;
+      const deployedContract = await deployContract(providers, deployOptions);
+      log.info("Contract deployed.");
+      contractAddress = deployedContract.deployTxData.public.contractAddress;
+    }
     log.info(`Contract address: ${contractAddress}`);
 
     const baseContractFileName =
-      config.contractFileName ?? `${config.contractName}.json`;
+      resolvedConfig.contractFileName ?? `${config.contractName}.json`;
     const {
       dir: contractFileDir,
       name: contractFileBaseName,

@@ -64,15 +64,7 @@ const config = {
   // to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: "en",
-    locales: ["en", "ja"],
-    localeConfigs: {
-      en: {
-        label: "English",
-      },
-      ja: {
-        label: "Japanese",
-      },
-    },
+    locales: ["en"],
   },
   themes: [
     // ... Your other themes.
@@ -105,7 +97,7 @@ const config = {
           rehypePlugins: [katex],
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          editUrl: "https://github.com/PaimaStudios/paima-engine-docs/tree/main",
+          editUrl: "https://github.com/effectstream/effectstream/tree/main/docs/site/",
         },
         // pages: {
         //   path: 'docs/home',
@@ -151,6 +143,28 @@ const config = {
         },
       };
     },
+    function fixWebpackBarCompat() {
+      return {
+        name: "fix-webpackbar-compat",
+        configureWebpack(config) {
+          for (const plugin of config.plugins || []) {
+            if (plugin.constructor.name === 'WebpackBarPlugin' && plugin.options) {
+              for (const key of Object.keys(plugin.options)) {
+                if (!['activeModules', 'dependencies', 'dependenciesCount', 'entries', 'handler', 'modules', 'modulesCount', 'percentBy', 'profile'].includes(key)) {
+                  Object.defineProperty(plugin.options, key, {
+                    value: plugin.options[key],
+                    enumerable: false,
+                    writable: true,
+                    configurable: true,
+                  });
+                }
+              }
+            }
+          }
+          return {};
+        },
+      };
+    },
     [
       '@docusaurus/plugin-client-redirects',
       {
@@ -165,30 +179,10 @@ const config = {
         },
       }
     ],
-    [
-      // we use this plugin instead of using iframes so that the content is all statically searchable
-      "docusaurus-plugin-remote-content",
-      {
-          // run `yarn update:prc` to update the files
-          name: "prc", // used by CLI, must be path safe
-          sourceBaseUrl: "https://raw.githubusercontent.com/PaimaStudios/PRC/main/PRCS/",
-          outDir: "docs/home/20000-PRCs", // the base directory to output to.
-          documents: (async () => getMarkdownFiles())(), // the file names to download
-          modifyContent(filename, content) {
-            // replace (../ so that relative URLS turn into absolute URLs
-            let modifiedContent = content;
-            const fileWithoutExtension = filename.replace(/.md$/, '');
-            modifiedContent = modifiedContent.replace(/title: (.*)(?=\r?\n)/g, `title: ${fileWithoutExtension}：$1`);
-            modifiedContent = modifiedContent.replace(/\(\.\.\//g, "(https://raw.githubusercontent.com/PaimaStudios/PRC/main/");
-            return {
-              filename,
-              content: modifiedContent,
-            };
-          },
-          // otherwise this updates too often and you run into the github api limit
-          noRuntimeDownloads: true
-      },
-    ]
+    // PRC specs are now maintained as static MD files under
+    // docs/home/400-paima-standards/. The previous docusaurus-plugin-remote-content
+    // entry was removed when those pages were rewritten to include EffectStream
+    // integration appendices.
   ],
   stylesheets: [
     {
@@ -224,6 +218,11 @@ const config = {
         }
       },
       image: 'img/no-image.png',
+      blog: {
+        sidebar: {
+          groupByYear: false,
+        },
+      },
       navbar: {
         title: "",
         logo: {
@@ -234,11 +233,12 @@ const config = {
         },
         items: [
           { to: "/", label: "Docs", position: "left" },
+          { to: "/scaffold-with-ai", label: "Scaffold with AI", position: "left" },
           { to: "/blog", label: "Blog", position: "left" },
-          {
-            type: "localeDropdown",
-            position: "right",
-          },
+          // {
+          //   type: "localeDropdown",
+          //   position: "right",
+          // },
           // {
           //   href: "https://github.com/facebook/docusaurus",
           //   label: "GitHub",

@@ -10,6 +10,9 @@ EffectStream is chain-agnostic. It can connect to, monitor, and write to multipl
 *   [**Polkadot**](./206-polkadot.md): Polkadot relay chain and Substrate-based parachains.
 *   [**Mina**](./207-mina.md): The lightweight ZK blockchain.
 *   [**Algorand**](./208-algorand.md): Pure Proof-of-Stake blockchain.
+*   [**Celestia**](./209-celestia.md): Modular Data Availability (DA) layer for blob storage.
+*   [**NEAR**](./210-near.md): NEAR Protocol - sharded PoS chain with NEP token standards and DIP-4 cross-chain intents.
+*   [**Contracts**](./211-contracts.md): First-party Solidity and Aiken contracts shipped with EffectStream.
 
 Each chain integration can contain up to 4 parts:
 1.  **Read (Sync Service)**: Configuring the node to listen for specific events or state changes.
@@ -30,6 +33,8 @@ Each chain integration can contain up to 4 parts:
 | [**Polkadot**](./206-polkadot.md) | ⚠️ | ⚠️ | ⚠️ | ✅ |
 | [**Mina**](./207-mina.md) | ⚠️ | ⚠️ | ⚠️ | ✅ |
 | [**Algorand**](./208-algorand.md) | ⚠️ | ⚠️ | ⚠️ | ✅ |
+| [**Celestia**](./209-celestia.md) | ✅ | ✅ | ✅ | ⚠️ |
+| [**NEAR**](./210-near.md) | ✅ | ✅ | ✅ | ⚠️ |
 
 > ✅ **Available** | ⚠️ **Partial or not built-in**
 

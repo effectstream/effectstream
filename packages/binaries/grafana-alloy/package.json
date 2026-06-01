@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/grafana-alloy",
-  "version": "0.100.12",
+  "version": "0.100.18",
   "description": "Grafana Alloy binary wrapper for EffectStream",
   "main": "install.js",
   "bin": {
@@ -15,10 +15,10 @@
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PaimaStudios/paima-engine",
+    "url": "https://github.com/effectstream/effectstream",
     "directory": "packages/binaries/grafana-alloy"
   },
   "bugs": {
-    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+    "url": "https://github.com/effectstream/effectstream/issues"
   }
 }

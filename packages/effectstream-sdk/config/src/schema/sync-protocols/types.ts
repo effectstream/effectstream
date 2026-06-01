@@ -17,6 +17,10 @@ export enum ConfigSyncProtocolType {
   BITCOIN_RPC_PARALLEL = "bitcoin-rpc-parallel",
   CELESTIA_PARALLEL = "celestia-rpc-parallel",
   NEAR_RPC_PARALLEL = "near-rpc-parallel",
+  /** Synthetic test chain acting as the main clock (see ConfigNetworkType.TEST). */
+  TEST_MAIN = "test-main",
+  /** Synthetic test chain acting as a parallel data source that emits configured events. */
+  TEST_PARALLEL = "test-parallel",
 }
 
 export const SyncProtocolToNetwork = {
@@ -30,6 +34,8 @@ export const SyncProtocolToNetwork = {
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: ConfigNetworkType.BITCOIN,
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: ConfigNetworkType.CELESTIA,
   [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]: ConfigNetworkType.NEAR,
+  [ConfigSyncProtocolType.TEST_MAIN]: ConfigNetworkType.TEST,
+  [ConfigSyncProtocolType.TEST_PARALLEL]: ConfigNetworkType.TEST,
 } satisfies Record<ConfigSyncProtocolType, ConfigNetworkType>;
 
 export type NetworkTypeFromSyncProtocol<T extends ConfigSyncProtocolType> =
@@ -45,6 +51,8 @@ type BasePrimitive = {
   type: `${string}:${string}`;
   startBlockHeight: number;
   scheduledPrefix?: string;
+  /** When true, fetcher returns block info for ALL blocks in range, not just those with primitives. Default: false */
+  getAllBlockHeaders?: boolean;
 };
 
 type EVMPrimitive = BasePrimitive & {
@@ -127,6 +135,9 @@ type NearPrimitive = BasePrimitive & {
 
 type NtpMainPrimitive = BasePrimitive & {};
 
+type TestMainPrimitive = BasePrimitive & {};
+type TestParallelPrimitive = BasePrimitive & {};
+
 export type BitcoinPrimitiveDirection = "inputs" | "outputs" | "both";
 
 type BitcoinPrimitive = BasePrimitive & {
@@ -160,6 +171,8 @@ export type ProtocolPrimitiveMap = {
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitive;
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: CelestiaPrimitive;
   [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]: NearPrimitive;
+  [ConfigSyncProtocolType.TEST_MAIN]: TestMainPrimitive;
+  [ConfigSyncProtocolType.TEST_PARALLEL]: TestParallelPrimitive;
 };
 
 /**

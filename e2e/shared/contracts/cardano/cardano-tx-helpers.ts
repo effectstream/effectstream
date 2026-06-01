@@ -31,6 +31,7 @@ import {
   PROTOCOL_PARAMETERS_DEFAULT,
 } from "@lucid-evolution/utils";
 import type { SpendingValidator, SlotConfig } from "@lucid-evolution/core-types";
+import path from "path";
 
 const DOLOS_BLOCKFROST_URL = "http://localhost:3000";
 const YACI_ADMIN_URL = "http://localhost:10000";
@@ -258,8 +259,7 @@ async function ensureYaciSlotConfig(force = false): Promise<void> {
 }
 
 function loadHololockerValidator(): SpendingValidator {
-  const homedir = require("os").homedir();
-  const plutusJsonPath = `${homedir}/projected-nft-whirlpool/cardano/plutus.json`;
+  const plutusJsonPath = path.resolve(import.meta.dirname!, "./hololocker-demo/plutus.json");
   const plutusJson = JSON.parse(require("fs").readFileSync(plutusJsonPath, "utf-8"));
   const spendValidator = plutusJson.validators.find((v: any) => v.title === "hololocker.spend");
   if (!spendValidator) throw new Error("hololocker.spend validator not found in plutus.json");
@@ -359,6 +359,7 @@ export async function unlockNftFromScript(
   // The node converts TTL slot to POSIX time using systemStart (Shelley genesis),
   // not startTime (devnet launch). These differ by one epoch (600s).
   const upperPosix = cachedSystemStartMs + validityUpperSlot * 1000;
+  // Must match the hololocker-demo's minimum_lock_time (5 ms)
   const forHowLong = BigInt(upperPosix) + 5n;
   console.log(`[Hololocker] Unlock: forHowLong=${forHowLong} (slot=${validityUpperSlot})`);
 

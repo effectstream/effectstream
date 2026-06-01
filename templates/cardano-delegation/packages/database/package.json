@@ -1,0 +1,19 @@
+{
+  "name": "@cardano-delegation/database",
+  "version": "1.0.0",
+  "exports": "./mod.ts",
+  "scripts": {
+    "pgtyped:update": "bun run ./node_modules/@effectstream/db/scripts/pgtyped-update.ts"
+  },
+  "dependencies": {
+    "@effectstream/config": "0.100.13",
+    "@effectstream/runtime": "0.100.13",
+    "@effectstream/db": "0.100.13",
+    "@pgtyped/runtime": "2.4.2",
+    "pg": "^8.14.0",
+    "effection": "3.5.0"
+  },
+  "devDependencies": {
+    "@paima/pgtyped-cli": "^2.4.5"
+  }
+}

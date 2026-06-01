@@ -1,61 +1,77 @@
 ---
-slug: avail-data-availability
-title: "Data Availability with Avail: Building High-Throughput Applications"
+slug: celestia-data-availability
+title: "Data Availability with Celestia: High-Throughput On-Chain Applications"
 authors: [effectstream]
-tags: [avail, data-availability, cross-chain, scalability]
+tags: [celestia, data-availability, cross-chain, scalability]
 ---
 
-`WRITE: On-chain apps that handle lots of data (games with frequent moves, social feeds, IoT data) hit a wall: putting everything on the settlement layer is slow and expensive. Data Availability (DA) layers like Avail let you post data cheaply while keeping settlement on Cardano or EVM. EffectStream now supports Avail as a first-class data source.`
+On-chain apps that handle lots of data (games with frequent moves, social feeds, IoT streams) hit a wall: putting everything on the settlement layer is slow and expensive. Data Availability (DA) layers solve this by providing cheap, high-throughput data posting while settlement stays on Cardano or EVM. EffectStream now supports Celestia as a first-class data availability layer.
 
 <!-- truncate -->
 
-## Reading Avail Blockchain State
+![Celestia DA application overview](/img/blog/da-main.png)
 
-We added an Avail funnel to EffectStream that runs in parallel with other chain funnels. Avail blocks arrive independently from the settlement chain, so the funnel ingests them concurrently — no blocking, no waiting for one chain to catch up to another.
+## Why a data availability layer?
 
-- [Parallel funnel implementation](https://github.com/PaimaStudios/paima-engine/blob/09d86b504b11c104a1178881d0a3d0b2f9d8c459/packages/engine/paima-funnel/src/funnels/avail/parallelFunnel.ts)
-- [Documentation](https://docs.paimastudios.com/home/state-machine/react-to-events/funnel-types/parallel-avail-funnel)
+Every EffectStream application needs to post user actions somewhere persistent and verifiable. For low-frequency applications, the settlement chain (Cardano, EVM) works fine. But when your application generates hundreds or thousands of actions per minute (game moves, chat messages, sensor readings), posting each one as a settlement-layer transaction gets expensive fast.
 
-`WRITE: Why a parallel funnel matters — in a multi-chain app, you don't want your settlement chain to bottleneck your data layer. Explain how the parallel architecture keeps both chains processing at their native speed.`
+A DA layer like [Celestia](https://celestia.org/) provides an alternative: post high-throughput data cheaply to the DA layer, while settlement (asset transfers, contract state changes) stays on the main chain. EffectStream's state machine processes events from both layers without the developer having to think about it.
 
-## Avail Wallet and Batcher Support
+## Celestia integration architecture
 
-Users can now submit data via Avail natively. We added Avail wallet support to the batcher system, which aggregates user transactions and posts them to the Avail DA layer.
+The Celestia integration adds a new data path to EffectStream's batcher system. The batcher aggregates individual user submissions into batches and posts them to Celestia for data availability, while settlement transactions go to the configured settlement chain.
 
-- [Implementation PR](https://github.com/PaimaStudios/paima-engine/pull/391)
+The integration lives in the [`bun-zswap-da` template](https://github.com/effectstream/effectstream/tree/v-next/bun-zswap-da), which includes:
 
-`WRITE: What the batcher does for Avail — aggregates individual user submissions into batches, posts them to Avail for data availability, while settlement happens on the main chain. This gives you Avail's throughput with your settlement chain's security.`
+- **Batcher** that aggregates and posts batches to Celestia
+- **Database** tracking submitted batches, token states, and offer lifecycle
+- **Frontend** demo UI for interacting with the DA-backed application
+- **E2E tests** verifying the full pipeline from user action to Celestia submission to state machine processing
 
-## Hybrid dApps — Choosing Your Data Layer
+## How it works
 
-With Avail support, developers can build hybrid applications where different data goes to different layers:
+The batch processor submits data to Celestia and tracks each submission:
 
-- **High-throughput data** (game moves, chat messages, sensor readings) → Avail DA layer
-- **Settlement data** (asset transfers, contract state changes) → Cardano or EVM
+![Celestia batch processor logs showing successful submissions](/img/blog/celestia-1.png)
 
-EffectStream's state machine reacts to events from all configured chains seamlessly. The developer decides where each type of data lives, and the framework handles the rest.
+The backend database tracks the complete state (tokens, offers, batch references):
 
-`WRITE: Architecture explanation or diagram — how a developer configures which data goes where. What does the config look like? How does the state machine receive events from both layers?`
+![Database tables tracking tokens and offers posted via Celestia DA](/img/blog/celestia-2.png)
 
-## When to Use a Data Availability Layer
+![Celestia integration: batch submission tracking with block heights](/img/blog/celestia-3.png)
 
-`WRITE: Decision guide for developers — when does a DA layer make sense?`
+![Celestia integration: offer lifecycle and settlement state](/img/blog/celestia-4.png)
 
-Topics to cover:
-- **Avail Turbo** and high-throughput scenarios — when your app generates more data than the settlement layer can handle
-- **Lessons from Tarochi** — we built Tarochi with EVM as the DA layer, and ran into sync time issues. What we learned about choosing the right DA layer.
-- **Cardano limitations** — no event standard like Ethereum, heavy indexing requirements. How DA layers can complement Cardano's strengths.
+![Celestia integration: complete DA pipeline monitoring](/img/blog/celestia-5.png)
 
-`IMPLEMENT: Add this as a docs page and reference from this blog post`
+<iframe src="https://drive.google.com/file/d/1vqybh83YG5hR7eeDNlQVNpxSWQrWXqtG/preview" width="100%" height="480" allow="autoplay"></iframe>
 
-## Conclusion
+## Parallel funnel architecture
 
-To bring it all together, we built a game template that combines Cardano and Avail state into a single application — settlement on Cardano, high-frequency data on Avail.
+EffectStream uses a "funnel" abstraction to read data from multiple blockchains through a unified interface. The Celestia funnel runs in parallel with other chain funnels: Celestia blocks arrive independently from the settlement chain, so the funnel ingests them concurrently. No blocking, no waiting for one chain to catch up to another.
 
-- [Template code](https://github.com/PaimaStudios/paima-game-templates/pull/82)
+This matters for multi-chain apps. In a game that settles on Cardano but posts moves to Celestia, you don't want Cardano's block time to bottleneck your data layer. Both chains process at their native speed, and the state machine receives events from each as they arrive.
 
-`ACTION: Merge this PR or verify it's up to date`
+## When to use a DA layer
 
-`WRITE: Summarize — EffectStream makes DA layers a first-class option. Developers choose where their data lives without changing their application architecture. The same state machine processes events from both layers.`
+A DA layer makes sense when:
 
-`ADD VIDEO HERE showing the Cardano + Avail template in action`
+- **High throughput**: your app generates more data than the settlement layer can handle economically
+- **Low-value actions**: individual actions don't need settlement-layer security (a game move isn't a financial transaction)
+- **Real-time requirements**: you need sub-second data posting, not the settlement chain's block time
+
+We learned this the hard way building Tarochi (an earlier EffectStream game): using EVM as the DA layer caused sync time issues as the chain of events grew. Moving high-frequency data to a purpose-built DA layer keeps the settlement chain lean, handling only the transactions that actually need its security.
+
+## Hybrid dApp pattern
+
+With Celestia support, developers can build hybrid applications:
+
+| Data type | Layer | Why |
+|-----------|-------|-----|
+| Game moves, chat messages, state updates | Celestia DA | Cheap, fast, high-throughput |
+| Asset transfers, minting, contract calls | Settlement chain (Cardano/EVM) | Full security guarantees |
+
+The developer configures which data goes where, and the framework handles routing, batching, and event delivery.
+
+- [Celestia integration code (`bun-zswap-da` template)](https://github.com/effectstream/effectstream/tree/v-next/bun-zswap-da)
+- [Celestia documentation](https://celestia.org/developer-portal/)

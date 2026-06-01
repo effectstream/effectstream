@@ -1,0 +1,10 @@
+node_modules/
+.env
+packages/batcher/batcher-data/
+packages/contracts-evm/ignition/deployments/
+packages/contracts-evm/mod.ts
+packages/contracts-evm/build/
+packages/contracts-evm/remappings.txt
+packages/frontend/client/dist/
+.orchestrator-logs/
+*.log

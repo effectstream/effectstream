@@ -14,7 +14,7 @@ export default {
       args: ["run", "e2e/cardano/node.ts"],
       waitToExit: false,
       type: "system-dependency",
-      env: { PGLITE: "true", MQTT_BROKER: "false" },
+      env: { PGLITE: "true" },
       dependsOn: [
         DbNames.PGLITE_WAIT,
         CardanoNames.CARDANO_SUBMIT_TX,

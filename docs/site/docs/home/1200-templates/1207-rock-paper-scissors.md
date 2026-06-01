@@ -1,3 +1,7 @@
+---
+draft: true
+---
+
 # Rock Paper Scissors Wars (Turn-Based Multiplayer)
 
 * **Path**: `/templates/rock-paper-scissors`
@@ -28,21 +32,10 @@ This template serves as a foundation for:
 
 ```sh
 # Install dependencies
-npm install
-deno install --allow-scripts
-./patch.sh
+bun i
 
-# Build EVM contracts
-deno task build:evm
-
-# Build frontend
-cd packages/frontend
-npm install
-node esbuild.js
-cd ../..
-
-# Start the EffectStream Node
-deno task dev
+# Start the EffectStream Node (compiles contracts, builds the frontend, and starts the full local stack)
+bun run dev
 ```
 
 The game will be available at:
@@ -99,7 +92,7 @@ The container exposes:
 
 ## The Components in Action
 
-When you run `deno task dev`, the [Process Orchestrator](../100-components/106-processes.md) sets up:
+When you run `bun run dev`, the [Process Orchestrator](../100-components/106-processes.md) sets up:
 *   **Hardhat EVM Node**: Local blockchain on port 8545
 *   **Development Services**: Database, log collector, TUI, and Explorer
 *   **EffectStream Node**: Backend service on port 9999
@@ -110,8 +103,8 @@ When you run `deno task dev`, the [Process Orchestrator](../100-components/106-p
 The template uses a `EffectStream L2 Contract` deployed on the local EVM chain at `0x5FbDB2315678afecb367f032d93F642f64180aa3`. Players submit formatted input strings, and EffectStream processes them to update game state.
 
 ```solidity
-// The EffectStreamL2Contract acts as an input mailbox
-contract EffectStreamL2 {
+// The EffectstreamL2Contract acts as an input mailbox
+contract EffectstreamL2 {
     event EffectStreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
 
     function submitInput(bytes calldata input) external payable {
@@ -483,11 +476,10 @@ CREATE TABLE final_match_state (
 The template uses **pgtyped** to generate TypeScript types from SQL queries. To regenerate types after modifying SQL files:
 
 ```sh
-cd packages/client/database
-deno task pgtyped:update
+bun run --cwd packages/client/database pgtyped:update
 ```
 
-**Important**: Always run `deno task pgtyped:update` after converting functions from synchronous to async, as the type definitions need to be regenerated.
+**Important**: Always run `bun run --cwd packages/client/database pgtyped:update` after converting functions from synchronous to async, as the type definitions need to be regenerated.
 
 ## API Endpoints
 
@@ -679,13 +671,12 @@ node esbuild.js  # Regenerate bundle
 ### Database Query Types Out of Sync
 After modifying SQL files or converting functions to async:
 ```sh
-cd packages/client/database
-deno task pgtyped:update
+bun run --cwd packages/client/database pgtyped:update
 ```
 
 ### Lobby Not Creating
 Check that:
 1. MetaMask is connected to Localhost 8545
 2. You have test ETH in your account
-3. The EffectStream node is running (`deno task dev`)
+3. The EffectStream node is running (`bun run dev`)
 4. Check browser console for errors

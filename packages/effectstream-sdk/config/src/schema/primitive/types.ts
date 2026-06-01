@@ -32,6 +32,10 @@ type MidnightTPrimitivePayload = Record<string, any>;
 
 type NtpPrimitivePayload = never;
 
+type TestMainPrimitivePayload = never;
+/** Arbitrary JSON payload declared per-event on a TEST_PARALLEL chain. */
+type TestParallelPrimitivePayload = Record<string, unknown>;
+
 type CardanoCarpPrimitivePayload = {
   TODO_MISSING_FIELDS: string;
 };
@@ -85,4 +89,6 @@ interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: MidnightTPrimitivePayload;
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitivePayload;
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: CelestiaPrimitivePayload;
+  [ConfigSyncProtocolType.TEST_MAIN]: TestMainPrimitivePayload;
+  [ConfigSyncProtocolType.TEST_PARALLEL]: TestParallelPrimitivePayload;
 }

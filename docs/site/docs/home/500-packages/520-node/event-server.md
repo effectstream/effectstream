@@ -1,0 +1,71 @@
+---
+title: "@effectstream/event-server"
+description: "Event server for EffectStream"
+sidebar_label: "event-server"
+---
+
+<!-- Generated from packages/node-sdk/events/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
+
+> Package: **[`@effectstream/event-server`](https://www.npmjs.com/package/@effectstream/event-server)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/events)
+
+A localhost-only MQTT broker built on Aedes - the server side of
+EffectStream's event system. The runtime publishes block, transaction,
+primitive, and app events to this broker; frontends and workers
+subscribe via `@effectstream/event-client`.
+
+- Localhost-only MQTT broker (Aedes) for Effectstream events.
+- Publishes from non-loopback connections are rejected at the broker.
+- Paired with `@effectstream/event-client` on the consuming side.
+- Runs two brokers in production: one for engine events, one for batcher events.
+
+## Install
+
+```bash
+bun add @effectstream/event-server
+# or
+npm install @effectstream/event-server
+```
+
+## Standalone usage
+
+`EventBroker` is a thin wrapper around Aedes that enforces "only
+localhost can publish". Drop it into any local-only pub/sub workflow
+without depending on the rest of EffectStream.
+
+```typescript
+import { EventBroker } from "@effectstream/event-server";
+
+// Ports are read from MQTT_ENGINE_BROKER_PORT / MQTT_ENGINE_BROKER_WS_PORT
+// (or the _BATCHER_ equivalents when constructed with "Batcher").
+const broker = new EventBroker("effectstream-engine");
+await broker.start(); // listens on the configured TCP + WS ports
+```
+
+Once running, you can connect to it from `@effectstream/event-client`
+(or any MQTT client at `mqtt://127.0.0.1:<configured-port>`) to publish
+and subscribe to events.
+
+> **Security:** Publishes from non-loopback connections are rejected at
+> the Aedes level. Subscriptions are unrestricted; gate them at the
+> network layer if you don't want public consumers.
+
+## Inside EffectStream
+
+The runtime instantiates two `EventBroker`s (engine and batcher) so
+state-machine and batcher events flow on separate topic namespaces. Apps
+publish through `EventManager.Instance.sendMessage(...)` in
+`@effectstream/event-client`, which writes against the local broker
+exposed here.
+
+## Key exports
+
+- `EventBroker` - broker class. Constructor takes `"effectstream-engine" | "Batcher"`. Methods: `start()` (async; binds the configured TCP + WS ports), `createServer()` (fire-and-forget wrapper around `start()`), `stop()`. Clients publish and subscribe via the MQTT protocol, not direct class methods.
+
+## Examples
+
+Runnable: [`test/examples.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/events/test/examples.test.ts).
+
+## Links
+
+- Docs: https://effectstream.github.io/docs/packages/node/event-server
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/events

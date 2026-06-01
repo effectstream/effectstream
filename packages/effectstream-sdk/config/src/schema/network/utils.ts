@@ -50,6 +50,9 @@ export function caip2PrefixFor(
     case ConfigNetworkType.NTP:
       // TODO What to return here
       return `ntp:${config.name}`;
+    case ConfigNetworkType.TEST:
+      // Synthetic test chain — namespace by its configured name.
+      return `test:${config.name}`;
     case ConfigNetworkType.EVM:
       // https://github.com/ChainAgnostic/namespaces/tree/main/eip155
       return `eip155:${config.chainId}`;

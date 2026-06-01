@@ -1,0 +1,29 @@
+{
+  "name": "@cardano-delegation/frontend",
+  "version": "1.0.0",
+  "exports": {
+    ".": "./server/main.ts"
+  },
+  "scripts": {
+    "dev": "npx vite --port 10598 --mode dev",
+    "build": "npx vite build --mode dev",
+    "server:start": "bun --watch run ./server/main.ts",
+    "serve": "bun run server:start"
+  },
+  "dependencies": {
+    "@fastify/static": "^8.0.0",
+    "@lucid-evolution/lucid": "^0.4.29",
+    "@lucid-evolution/provider": "^0.1.91",
+    "@lucid-evolution/utils": "^0.1.66",
+    "@playwright/test": "^1.59.1",
+    "@types/react": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "canvas-confetti": "^1.9.4",
+    "fastify": "^5.0.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "vite": "7.1.3",
+    "vite-plugin-node-stdlib-browser": "*",
+    "vite-plugin-wasm": "^3.4.1"
+  }
+}

@@ -104,12 +104,15 @@ export function* getLastBlockHeight(
   dbConn: Client,
 ): Operation<number> {
   yield* acquireDBMutex("get-last-block-height");
-  const v = versionInfo.is_empty
-    ? 0
-    : (yield* until(getLatestProcessedBlockHeight.run(undefined, dbConn)))[0]
-      .block_height;
-  releaseDBMutex("get-last-block-height");
-  return v;
+  try {
+    if (versionInfo.is_empty) return 0;
+    const rows = yield* until(
+      getLatestProcessedBlockHeight.run(undefined, dbConn),
+    );
+    return rows[0]?.block_height ?? 0;
+  } finally {
+    releaseDBMutex("get-last-block-height");
+  }
 }
 
 export function* getVersionInfo(dbConn: Client): Operation<VersionInfo> {

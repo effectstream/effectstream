@@ -30,6 +30,7 @@ async function startInfrastructure(): Promise<void> {
 
 async function stopInfrastructure(): Promise<void> {
   console.log("\nStopping infrastructure...");
+  process.on("SIGTERM", () => {});
   try {
     await fetch(`http://localhost:${ORCHESTRATOR_PORT}/shutdown`, { method: "POST" });
   } catch { /* already down */ }

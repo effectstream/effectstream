@@ -5,6 +5,7 @@ import { type Chain, numberToHex } from "viem";
 import { utf8ToHex } from "web3-utils";
 import type { EthersEvmProvider } from "./evm/ethers.ts";
 import type { EvmInjectedProvider } from "./evm/injected.ts";
+import type { ViemEvmProvider } from "./evm/viem.ts";
 import type { AbiItem } from "web3-utils";
 import { type TransactionReceipt, Web3 } from "web3";
 import { createMessageForBatcher } from "@effectstream/concise";
@@ -15,7 +16,14 @@ import { BuiltinEvents, EventManager } from "@effectstream/event-client";
  * communication. It sets up the location of the Effectstream L2 Contact.
  */
 export class EffectstreamConfig {
-  public appName: string;
+  /**
+   * Security namespace string the user wallet signs into every batched message.
+   * Must match the server's `setSecurityNamespace(...)` (or, when the server uses
+   * a transition object, one of its `read.prefixes`) for the primitive's
+   * re-verification to admit the input. `undefined` / `""` means no namespace
+   * (legacy null-prefixed signing).
+   */
+  public securityNamespace: string | null;
   public effectstreamL2SyncProtocolName: string;
   public effectstreamL2ContractAddress: EvmAddress;
   public effectstreamL2Abi: AbiItem[];
@@ -26,7 +34,7 @@ export class EffectstreamConfig {
   public preferBatchedMode: boolean = false;
 
   constructor(
-    appName: string | undefined,
+    securityNamespace: string | undefined,
     effectstreamL2SyncProtocolName: string,
     effectstreamL2ContractAddress: EvmAddress,
     effectstreamL2Chain: Chain,
@@ -34,7 +42,9 @@ export class EffectstreamConfig {
     batcherURL: string | undefined,
     preferBatchedMode: boolean = false,
   ) {
-    this.appName = appName ?? "";
+    this.securityNamespace = securityNamespace && securityNamespace.length > 0
+      ? securityNamespace
+      : null;
 
     this.effectstreamL2SyncProtocolName = effectstreamL2SyncProtocolName;
     this.effectstreamL2ContractAddress = effectstreamL2ContractAddress;
@@ -180,7 +190,8 @@ export async function sendSelfSequencedTransaction(
 
   const evmProvider = wallet.provider as
     | EthersEvmProvider
-    | EvmInjectedProvider;
+    | EvmInjectedProvider
+    | ViemEvmProvider;
 
   const hexData = utf8ToHex(JSON.stringify(conciseData));
   const effectstreamL2Contract = await effectstreamConfig.getEffectstreamL2Contract();
@@ -338,7 +349,7 @@ export async function sendBatcherTransaction(
   const timestamp = Date.now().toString();
   const signature = await wallet.provider.signMessage(
     createMessageForBatcher(
-      effectstreamConfig.appName,
+      effectstreamConfig.securityNamespace,
       timestamp,
       wallet.provider.getAddress().address,
       wallet.provider.getAddress().type,

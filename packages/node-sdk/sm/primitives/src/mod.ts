@@ -1,6 +1,7 @@
 import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeMidnightNullifier,
+  PrimitiveTypeMidnightUnshieldedSpend,
   PrimitiveTypeEVMEffectstreamL2,
   PrimitiveTypeEVMERC721,
   PrimitiveTypeEVMERC20,
@@ -25,6 +26,7 @@ import {
 
 import { MidnightGenericPrimitive } from "./midnight-generic/midnight-genetic.ts";
 import { MidnightNullifierPrimitive } from "./midnight-nullifier/midnight-nullifier.ts";
+import { MidnightUnshieldedSpendPrimitive } from "./midnight-unshielded-spend/midnight-unshielded-spend.ts";
 import { EffectstreamL2Primitive } from "./evm-effectstream-l2/effectstream-l2-primitive.ts";
 import { Erc721Primitive } from "./evm-erc721/erc721-primitive.ts";
 import { Erc20Primitive } from "./evm-erc20/erc20-primitive.ts";
@@ -49,6 +51,7 @@ import { CardanoProjectedNftPrimitive } from "./cardano-projected-nft/projected-
 const builtInPrimitivesMap = {
   [PrimitiveTypeMidnightGeneric]: MidnightGenericPrimitive,
   [PrimitiveTypeMidnightNullifier]: MidnightNullifierPrimitive,
+  [PrimitiveTypeMidnightUnshieldedSpend]: MidnightUnshieldedSpendPrimitive,
   [PrimitiveTypeEVMEffectstreamL2]: EffectstreamL2Primitive,
   [PrimitiveTypeEVMERC721]: Erc721Primitive,
   [PrimitiveTypeEVMERC20]: Erc20Primitive,
@@ -78,6 +81,7 @@ export {
   // Built-in Primitives
   MidnightGenericPrimitive,
   MidnightNullifierPrimitive,
+  MidnightUnshieldedSpendPrimitive,
   EffectstreamL2Primitive,
   Erc721Primitive,
   Erc20Primitive,

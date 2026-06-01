@@ -1,0 +1,53 @@
+---
+title: "@effectstream/grafana-alloy"
+description: "Grafana Alloy binary wrapper for EffectStream"
+sidebar_label: "grafana-alloy"
+---
+
+<!-- Generated from packages/binaries/grafana-alloy/README.md by docs/site/scripts/sync-package-readmes.ts. Do not edit directly. -->
+
+> Package: **[`@effectstream/grafana-alloy`](https://www.npmjs.com/package/@effectstream/grafana-alloy)** · [Source](https://github.com/effectstream/effectstream/tree/main/packages/binaries/grafana-alloy)
+
+NPM wrapper around [Grafana Alloy](https://grafana.com/oss/alloy/) - the
+OpenTelemetry-compatible collector EffectStream nodes ship traces, logs,
+and metrics to during local development. Installs a pinned binary into
+`node_modules/.bin/grafana-alloy`.
+
+- Pinned Grafana Alloy binary, the OTel collector Effectstream nodes ship to in local dev.
+- One-command start via `bunx grafana-alloy run config.alloy`.
+- Pairs with `@effectstream/grafana-loki` for logs.
+- Drop-in: point your own collector at the same OTLP endpoint in production.
+
+## Install
+
+```bash
+bun add @effectstream/grafana-alloy
+# or
+npm install @effectstream/grafana-alloy
+```
+
+## Standalone usage
+
+```bash
+# Start Alloy with a config file
+bunx grafana-alloy run config.alloy
+
+# Or invoke through this package
+bun run --bun @effectstream/grafana-alloy/start
+```
+
+The package downloads the pinned tarball for your OS/arch on install.
+
+## Inside EffectStream
+
+`@effectstream/log` emits OTLP. In local dev the orchestrator's
+observability step boots `grafana-alloy` plus `grafana-loki` so traces
+and logs from every component show up in one place. Point your own
+collector at the same OTLP endpoint to ship to Tempo / Honeycomb / etc.
+in production.
+
+## Links
+
+- Docs: https://effectstream.github.io/docs/packages/binaries/grafana-alloy
+- Source: https://github.com/effectstream/effectstream/tree/main/packages/binaries/grafana-alloy
+- Upstream Grafana Alloy: https://grafana.com/oss/alloy/

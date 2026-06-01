@@ -2,7 +2,7 @@
 
 > This section is intended for developers who require advanced knowledge about the engine or plan to contribute to `EffectStream`
 
-EffectStream is distributed for `deno` through `NPM` and `JSR` packages
+EffectStream is distributed through `NPM` packages.
 
 ## NPM Packages:
 
@@ -24,15 +24,11 @@ EffectStream is distributed for `deno` through `NPM` and `JSR` packages
 *  @effectstream/npm-midnight-proof-server  
     A wrapper for the Midnight proof server binary.
 
-## JSR Packages:
-*  @effectstream/batcher  
+*  @effectstream/batcher-sdk  
     HTTP service to collect and submit user inputs, replacing the need for manually sending input to the blockchain EffectStream L2 contract.
 
 *  @effectstream/chain-types  
     Common chain types and hashing helpers shared across modules.
-
-*  @effectstream/collector  
-    Lightweight OpenTelemetry collector gateway (Fastify) to receive and forward metrics/logs. Intended for development only.
 
 *  @effectstream/concise  
     Client SDK for submitting moves and interacting with the batcher; includes helpers and delegate wallet utilities.
@@ -72,9 +68,6 @@ EffectStream is distributed for `deno` through `NPM` and `JSR` packages
 
 *  @effectstream/sync  
     Chain synchronization protocols and factory; Processing of different chains as EVM, Cardano, Midnight and Avail to feed the main sync engine.
-
-*  @effectstream/tui  
-    Terminal UI for monitoring logs and services.
 
 *  @effectstream/utils  
     Shared utilities (config helpers, address/encoding, concurrency, decorators, constants, captcha, viem wrappers).

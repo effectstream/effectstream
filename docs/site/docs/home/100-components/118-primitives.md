@@ -12,7 +12,7 @@ This creates a deterministic and reliable pipeline from raw blockchain events to
 
 ## Built-in Primitives
 
-EffectStream provides a suite of pre-built primitives for the most common blockchain standards, such as ERC20, ERC721, and the `EffectStreamL2Contract`. Using these is the quickest and easiest way to integrate standard on-chain assets and actions into your application.
+EffectStream provides a suite of pre-built primitives for the most common blockchain standards, such as ERC20, ERC721, and the `EffectstreamL2Contract`. Using these is the quickest and easiest way to integrate standard on-chain assets and actions into your application.
 
 ### How to Use
 You configure built-in primitives within your `localhostConfig.ts` file using the `.buildPrimitives()` step of the `ConfigBuilder`. You simply need to provide the primitive's type, the contract address to monitor, and the `stateMachinePrefix` that will trigger the corresponding State Transition Function (STF).
@@ -44,12 +44,17 @@ A key advantage of built-in primitives is that many come with automatic database
 
 | Primitive Type | Chain | Description |
 | :--- | :--- | :--- |
-| **`PrimitiveTypeEVMEffectStreamL2`** | EVM | Listens for inputs submitted to a standard `EffectStreamL2Contract`. |
+| **`PrimitiveTypeEVMEffectstreamL2`** | EVM | Listens for inputs submitted to a standard `EffectstreamL2Contract`. |
 | **`PrimitiveTypeEVMERC20`** | EVM | Tracks `Transfer` events for an ERC20 token and maintains balance tables. |
 | **`PrimitiveTypeEVMERC721`** | EVM | Tracks `Transfer` events for an ERC721 NFT and maintains ownership tables. |
 | **`PrimitiveTypeEVMERC1155`**| EVM | Tracks `TransferSingle` and `TransferBatch` events for an ERC1155 token. |
 | **`PrimitiveTypeMidnightGeneric`**| Midnight | Monitors the public `ledger` state of a Midnight ZK contract for changes. |
 | **`PrimitiveTypeAvailGeneric`** | Avail | Listens for generic data blobs submitted to a specific application ID on the Avail DA layer. |
+| **`PrimitiveTypeCardanoDelayedAsset`** | Cardano | Tracks creation and spending of native asset UTxOs with a real-time view of unspent holdings. |
+| **`PrimitiveTypeCardanoMintBurn`** | Cardano | Captures native token mint and burn events with transaction metadata and participant addresses. |
+| **`PrimitiveTypeCardanoPoolDelegation`** | Cardano | Tracks stake pool delegation changes with current delegation state per staking credential. |
+| **`PrimitiveTypeCardanoProjectedNFT`** | Cardano | Tracks NFT lock-unlock-claim lifecycle at a Plutus script (hololocker) with time-lock metadata. |
+| **`PrimitiveTypeCardanoTransfer`** | Cardano | Captures ADA and native asset transfers with full output details and input credentials. |
 | **`PrimitiveTypeBitcoinAddress`** | Bitcoin | Watches a specific Bitcoin address for UTXO inputs and outputs. |
 | **`PrimitiveTypeCelestiaGeneric`** | Celestia | Listens for data blobs in a specific Celestia namespace. |
 | **`PrimitiveTypeNEARNEP141`** | NEAR | Tracks NEP-141 fungible token `ft_transfer` events and maintains balance tables. |
@@ -61,7 +66,7 @@ A key advantage of built-in primitives is that many come with automatic database
 
 ## Custom Primitives
 
-For dApps that interact with unique, non-standard smart contracts or require custom data processing logic, you can create a **custom primitive**. The `multi-chain-token-swap` template uses a custom primitive (`MCTErc1155Primitive`) to listen for its specific `TransferToMidnight` event.
+For dApps that interact with unique, non-standard smart contracts or require custom data processing logic, you can create a **custom primitive**. The `multi-chain-token-transfer` template uses a custom primitive (`MCTErc1155Primitive`) to listen for its specific `TransferToMidnight` event.
 
 ### How it Works
 

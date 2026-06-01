@@ -1,7 +1,9 @@
 # Dolos runtime data
 packages/contracts-cardano/data/
-packages/contracts-cardano/temp/
+packages/contracts-cardano/temp/*
+!packages/contracts-cardano/temp/*-genesis*.json
 packages/contracts-cardano/yaci-cli.history
+packages/contracts-cardano/logs/
 
 # Orchestrator logs
 .orchestrator-logs/

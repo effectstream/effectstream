@@ -20,6 +20,7 @@ import {
   ETH_TO_ADA_RATE,
   type LaunchpadData,
 } from "./launchpad-config.ts";
+import { AppEvents } from "@preorder/shared/app-events";
 
 const stm = new Stm<typeof grammar, {}>(grammar);
 
@@ -147,6 +148,22 @@ stm.addStateTransition(
         });
       }
     }
+
+    // Emit a custom app event after all DB writes for this input have queued.
+    // The runtime collects this into a per-block buffer and flushes to MQTT
+    // only after the block-level COMMIT — so subscribers receiving this event
+    // can immediately query the API and see the new participation row.
+    // If this transition throws below, the event is dropped along with the
+    // DB writes (per-input rollback semantics).
+    data.emit(AppEvents.PreorderPlaced, {
+      buyer: receiver,
+      launchpad: launchpadData.address,
+      itemIds: itemsIds,
+      quantities: itemsQuantities,
+      paymentToken,
+      paymentAmount,
+      participationValid,
+    });
 
     console.log(
       `[STM:buy-items] Processed purchase: receiver=${receiver} items=${itemsIds} valid=${participationValid}`,
@@ -402,6 +419,19 @@ stm.addStateTransition(
             });
           }
         }
+
+        // Emit so subscribers (frontend) update regardless of payment chain.
+        // Same delivery semantics as the EVM `buy-items` path: post-COMMIT,
+        // dropped on rollback.
+        data.emit(AppEvents.PreorderPlaced, {
+          buyer: wallet,
+          launchpad: matchingLaunchpad.address,
+          itemIds: metaItems.map(([id]) => id),
+          quantities: metaItems.map(([, qty]) => qty),
+          paymentToken: ZERO_ADDRESS,
+          paymentAmount: coin,
+          participationValid,
+        });
 
         console.log(
           `[STM:cardano-payment] Processed: tx=${txId} wallet=${wallet} items=${JSON.stringify(metaItems)} valid=${participationValid}`,

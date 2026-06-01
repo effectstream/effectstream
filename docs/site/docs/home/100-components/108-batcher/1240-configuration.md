@@ -2,7 +2,7 @@
 
 ## Overview
 
-Configuring the Batcher involves creating a unified configuration object that defines global settings, blockchain adapters, and batching behavior. This guide walks through the complete configuration process—from instantiating adapters to launching the batcher service.
+Configuring the Batcher involves creating a unified configuration object that defines global settings, blockchain adapters, and batching behavior. This guide walks through the complete configuration process-from instantiating adapters to launching the batcher service.
 
 Understanding the configuration system helps you:
 - Wire multiple blockchain adapters to a single batcher
@@ -51,7 +51,7 @@ batcher
 await batcher.init();
 ```
 
-This approach offers maximum flexibility—adapters can be added progressively before initialization.
+This approach offers maximum flexibility-adapters can be added progressively before initialization.
 
 ### 2. Unified Configuration (Alternative)
 
@@ -114,10 +114,10 @@ The dynamic configuration approach follows these steps:
 
 ### Step 1: Create Base Configuration
 
-Create the base configuration object with global settings. **Adapters are not included here**—they'll be added dynamically in Step 3:
+Create the base configuration object with global settings. **Adapters are not included here**-they'll be added dynamically in Step 3:
 
 ```typescript
-import { type BatcherConfig } from "@effectstream/batcher";
+import { type BatcherConfig } from "@effectstream/batcher-sdk";
 
 const baseConfig: BatcherConfig = {
   // Polling frequency (how often to check if batching criteria are met)
@@ -159,9 +159,9 @@ Set `pollingIntervalMs` to match your shortest batching time window. For example
 Instantiate each blockchain adapter you want to use:
 
 ```typescript
-import { EffectStreamL2DefaultAdapter } from "@effectstream/batcher";
+import { EffectstreamL2DefaultAdapter } from "@effectstream/batcher-sdk";
 
-const evmAdapter = new EffectStreamL2DefaultAdapter(
+const evmAdapter = new EffectstreamL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
   0n,
@@ -178,7 +178,7 @@ For comprehensive information about adapters, their responsibilities, and exampl
 Now create the batcher instance and use the **builder pattern** to wire adapters:
 
 ```typescript
-import { createNewBatcher, FileStorage } from "@effectstream/batcher";
+import { createNewBatcher, FileStorage } from "@effectstream/batcher-sdk";
 
 // Create storage
 const storage = new FileStorage("./batcher-data");
@@ -344,21 +344,21 @@ Here's a complete example using the dynamic approach:
 import {
   createNewBatcher,
   FileStorage,
-  EffectStreamL2DefaultAdapter,
+  EffectstreamL2DefaultAdapter,
   MidnightAdapter
-} from "@effectstream/batcher";
+} from "@effectstream/batcher-sdk";
 
 // 1. Instantiate adapters
-const evmAdapter = new EffectStreamL2DefaultAdapter(
+const evmAdapter = new EffectstreamL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
-  Deno.env.get("EVM_PRIVATE_KEY")!,
+  process.env["EVM_PRIVATE_KEY"]!,
   0n,
   "mainEvmRPC"
 );
 
 const midnightAdapter = new MidnightAdapter(
   "0xabc...",
-  Deno.env.get("MIDNIGHT_WALLET_SEED")!,
+  process.env["MIDNIGHT_WALLET_SEED"]!,
   {
     indexer: "http://localhost:8088/api/v1/graphql",
     indexerWS: "ws://localhost:8088/api/v1/graphql/ws",
@@ -418,11 +418,11 @@ import {
   createNewBatcher,
   FileStorage,
   type BatcherConfig,
-  EffectStreamL2DefaultAdapter
-} from "@effectstream/batcher";
+  EffectstreamL2DefaultAdapter
+} from "@effectstream/batcher-sdk";
 
 // Instantiate adapters first
-const evmAdapter = new EffectStreamL2DefaultAdapter(/* ... */);
+const evmAdapter = new EffectstreamL2DefaultAdapter(/* ... */);
 const midnightAdapter = new MidnightAdapter(/* ... */);
 
 // Create unified configuration
@@ -492,7 +492,7 @@ For detailed information about confirmation levels, their behavior in the pipeli
 Choose a storage backend for persisting pending inputs:
 
 ```typescript
-import { FileStorage } from "@effectstream/batcher";
+import { FileStorage } from "@effectstream/batcher-sdk";
 
 const storage = new FileStorage("./batcher-data");
 ```
@@ -513,7 +513,7 @@ The batcher supports graceful shutdown with customizable hooks that execute at s
 ### Shutdown Configuration
 
 ```typescript
-import { createNewBatcher } from "@effectstream/batcher";
+import { createNewBatcher } from "@effectstream/batcher-sdk";
 
 const batcher = createNewBatcher({
   pollingIntervalMs: 1000,

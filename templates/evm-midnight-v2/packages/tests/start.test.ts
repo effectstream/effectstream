@@ -1,13 +1,16 @@
+import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
 import { launchEvm, EvmNames } from "@effectstream/orchestrator/launch-evm";
 import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 
+const root = path.resolve(import.meta.dirname!, "../..");
+
 export default {
   processes: [
     ...launchPglite(),
-    ...launchEvm("@evm-midnight/contracts-evm", { resolveFrom: import.meta.dirname! }),
-    ...launchMidnight("@evm-midnight/contracts-midnight", { resolveFrom: import.meta.dirname! }, {
+    ...launchEvm("@evm-midnight/contracts-evm", { cwd: path.join(root, "packages/contracts-evm") }),
+    ...launchMidnight("@evm-midnight/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
       env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
     }),
 

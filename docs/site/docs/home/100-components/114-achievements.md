@@ -1,7 +1,5 @@
 # Achievements
 
-> NOTE THIS IS A PREVIEW DOCUMENTATION. NYI.
-
 EffectStream includes a built-in implementation of the **Paima Request for Comments #1 (PRC-1)**, an open standard for exposing in-game achievements. By following this standard, your dApp can broadcast player accomplishments in a consistent, interoperable format.
 
 This allows third-party tools, community-run leaderboards, and other dApps to easily integrate with your game, creating a richer, more engaging ecosystem for your players.

@@ -1,17 +1,49 @@
 {
   "name": "@effectstream/wallets",
-  "version": "0.100.12",
+  "version": "0.100.18",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PaimaStudios/paima-engine",
+    "url": "https://github.com/effectstream/effectstream",
     "directory": "packages/effectstream-sdk/wallets"
   },
   "bugs": {
-    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+    "url": "https://github.com/effectstream/effectstream/issues"
   },
-  "exports": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./evm-viem": "./src/evm/viem.ts",
+    "./cardano-local": "./src/cardano/local.ts",
+    "./midnight-local": "./src/midnight/local.ts"
+  },
+  "peerDependencies": {
+    "@effectstream/midnight-contracts": "workspace:*",
+    "@lucid-evolution/lucid": "^0.4.29",
+    "@lucid-evolution/provider": "^0.1.90",
+    "@lucid-evolution/utils": "^0.1.66",
+    "@midnight-ntwrk/ledger-v8": "^8.0.3",
+    "@midnight-ntwrk/wallet-sdk-hd": "^3.0.1",
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "^2.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@effectstream/midnight-contracts": { "optional": true },
+    "@lucid-evolution/lucid": { "optional": true },
+    "@lucid-evolution/provider": { "optional": true },
+    "@lucid-evolution/utils": { "optional": true },
+    "@midnight-ntwrk/ledger-v8": { "optional": true },
+    "@midnight-ntwrk/wallet-sdk-hd": { "optional": true },
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": { "optional": true }
+  },
+  "devDependencies": {
+    "@effectstream/midnight-contracts": "workspace:*",
+    "@lucid-evolution/lucid": "^0.4.30",
+    "@lucid-evolution/provider": "^0.1.91",
+    "@lucid-evolution/utils": "^0.1.66",
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "@midnight-ntwrk/wallet-sdk-hd": "3.0.1",
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "2.1.0"
+  },
   "dependencies": {
     "@effectstream/concise": "workspace:*",
     "@effectstream/crypto": "workspace:*",

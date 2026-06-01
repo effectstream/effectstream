@@ -82,6 +82,8 @@ const TTL_DURATION_MS = 60 * 60 * 1000;
 const SPECKS_PER_DUST = 1_000_000_000_000_000n; // 1 DUST = 10^15 Specks
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
+const DUST_REGISTRATION_PRECHECK_TIMEOUT_MS = 60_000;
+
 function formatDust(specks: bigint): string {
   const abs = specks < 0n ? -specks : specks;
   const sign = specks < 0n ? "-" : "";
@@ -352,15 +354,26 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         if (dustBalance === 0n) {
           this.log.log(`Wallet ${label}: no dust yet, trying unshielded→dust registration...`);
           try {
-            await registerNightForDust(walletResult);
+            await registerNightForDust(walletResult, {
+              precheckSyncTimeoutMs: DUST_REGISTRATION_PRECHECK_TIMEOUT_MS,
+            });
             const dust = await waitForDustFunds(walletResult.wallet, {
               timeoutMs: this.walletFundingTimeoutMs,
               waitNonZero: true,
             });
             this.lastFundingBalancesPerWallet[index]!.dustBalance = dust;
             this.hasFundsPerWallet[index] = dust > 0n;
-          } catch (_err) {
-            this.log.warn(`Wallet ${label}: dust registration failed (wallet must be pre-funded with dust)`);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes("Timeout waiting for unshielded+dust sync")) {
+              this.log.warn(
+                `Wallet ${label}: 0 dust and unshielded sync is stopped (dust-only mode). ` +
+                  `Pre-fund this wallet with dust before starting the batcher. ` +
+                  `Wallet will register 0 worker slots and will not process batches.`,
+              );
+            } else {
+              this.log.warn(`Wallet ${label}: dust registration failed: ${msg}`);
+            }
           }
         }
       }
@@ -605,13 +618,24 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       if (dustBalance === 0n) {
         this.log.log(`Wallet ${label}: no dust yet, trying unshielded→dust registration...`);
         try {
-          await registerNightForDust(walletResult);
+          await registerNightForDust(walletResult, {
+            precheckSyncTimeoutMs: DUST_REGISTRATION_PRECHECK_TIMEOUT_MS,
+          });
           dustBalance = await waitForDustFunds(
             walletResult.wallet,
             { timeoutMs: this.walletFundingTimeoutMs, waitNonZero: true }
           );
-        } catch (_err) {
-          this.log.warn(`Wallet ${label}: dust registration failed (wallet must be pre-funded with dust)`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("Timeout waiting for unshielded+dust sync")) {
+            this.log.warn(
+              `Wallet ${label}: 0 dust and unshielded sync is stopped (dust-only mode). ` +
+                `Pre-fund this wallet with dust before starting the batcher. ` +
+                `Wallet will register 0 worker slots and will not process batches.`,
+            );
+          } else {
+            this.log.warn(`Wallet ${label}: dust registration failed: ${msg}`);
+          }
         }
       }
 

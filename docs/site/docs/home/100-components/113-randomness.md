@@ -1,6 +1,6 @@
 # Randomness
 
-Randomness is essential for creating engaging and unpredictable games—from dice rolls and loot drops to critical hit chances. However, in a deterministic system like EffectStream, standard functions like `Math.random()` are strictly forbidden.
+Randomness is essential for creating engaging and unpredictable games-from dice rolls and loot drops to critical hit chances. However, in a deterministic system like EffectStream, standard functions like `Math.random()` are strictly forbidden.
 
 ### The Challenge: Deterministic Randomness
 

@@ -64,6 +64,10 @@ async function buildContracts(): Promise<void> {
   const contractsFile = "./build/contracts.ts";
   let contractsContent = getBaseContractsContent();
 
+  // Ensure the output dir exists so writeFile (which does not create parents)
+  // succeeds regardless of caller — the builder owns its own ./build directory.
+  await fs.mkdir("./build", { recursive: true });
+
   // Find all .sol files in the contracts directory
   const solFiles = await findFiles("./src/contracts", ".sol");
 
@@ -93,7 +97,20 @@ async function buildTypeScriptArtifacts(): Promise<void> {
   const forgeArtifactsDir = "./build/artifacts/forge";
 
   if (!(await exists(forgeArtifactsDir))) {
-    console.log("No forge artifacts found, skipping TypeScript generation.");
+    if (await exists("./foundry.toml")) {
+      // The package is configured for Forge (has a foundry.toml) but produced no
+      // artifacts — a real misconfiguration. Fail loudly rather than silently
+      // emitting an empty mod.ts: the TypeScript bindings (e.g. `erc721dev`) are
+      // derived from the Forge output, so a missing build:forge would otherwise
+      // break downstream imports far from the cause.
+      throw new Error(
+        `No forge artifacts found at "${forgeArtifactsDir}" despite a foundry.toml being present. Run \`build:forge\` (forge build) before generating the mod — the TypeScript bindings are derived from the Forge output.`,
+      );
+    }
+    // No foundry.toml: this package does not use Forge bindings (it relies on the
+    // root mod.ts / Hardhat artifacts). Emit an empty stub so the root mod.ts
+    // re-export (`export * from "./build/mod.ts"`) resolves, then continue.
+    await fs.writeFile("./build/mod.ts", "export {};\n");
     return;
   }
 
@@ -226,5 +243,9 @@ async function main(): Promise<void> {
   await buildModFile();
 }
 
-// Run the main function
-main().catch(console.error);
+// Run the main function. Surface failures as a non-zero exit so the
+// orchestrator step fails instead of silently "succeeding".
+main().catch((err) => {
+  console.error(err);
+  process.exitCode = 1;
+});

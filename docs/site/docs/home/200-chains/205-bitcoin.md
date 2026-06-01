@@ -64,7 +64,7 @@ To submit transactions to Bitcoin (e.g., for settlement or payments), you use th
 This adapter manages UTXO selection, transaction building (PSBT), and signing using `bitcoinjs-lib`.
 
 ```ts
-import { BitcoinAdapter } from "@effectstream/batcher";
+import { BitcoinAdapter } from "@effectstream/batcher-sdk";
 
 const bitcoinAdapter = new BitcoinAdapter({
   rpcUrl: "http://127.0.0.1:18443",
@@ -88,16 +88,15 @@ processesToLaunch: [
 
 It is also common to include a process to mine blocks automatically in the background to ensure transaction processing during development.
 
-> NOTE: To use this launcher you need to implement some `deno task` in your project. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
+> NOTE: To use this launcher you need to implement some scripts in your project's `package.json`. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
 
 ```json
 {
   "name": "@e2e/bitcoin-contracts",
-  ...
-  "tasks": {
-    "chain:start": "deno run -A @effectstream/bitcoin-core",
+  "scripts": {
+    "chain:start": "bun ./node_modules/.bin/bitcoin-core",
     "chain:wait": "wait-on tcp:18443",
-    "generate:blocks": "deno run -A ./generate-blocks.ts",
-    "wait-for-block": "deno run -A wait-for-block.ts"
+    "generate:blocks": "bun ./generate-blocks.ts",
+    "wait-for-block": "bun ./wait-for-block.ts"
   }
 }
