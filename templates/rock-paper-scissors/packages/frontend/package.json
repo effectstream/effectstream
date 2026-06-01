@@ -1,19 +1,16 @@
 {
   "name": "@rock-paper-scissors/frontend",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
   "type": "module",
   "scripts": {
-    "install": "npm install",
     "build": "node esbuild.js",
-    "serve": "bunx http-server@14.1.1 ./public -p 8080"
+    "serve": "bun run server.ts"
   },
-  "author": "",
-  "license": "ISC",
-  "description": "Rock Paper Scissors frontend",
   "dependencies": {
-    "@paimaexample/wallets": "0.3.124",
-    "phaser": "^3.70.0",
+    "@effectstream/wallets": "0.100.18",
+    "@fastify/static": "^7.0.4",
+    "fastify": "^4.28.1",
     "viem": "^2.37.5"
   },
   "devDependencies": {

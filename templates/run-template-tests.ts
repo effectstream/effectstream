@@ -49,7 +49,7 @@ export const ENABLED = [
   // "minimal",         // TODO: migrate to effectstream-bun
   // "multi-chain-token-transfer", // TODO: migrate to effectstream-bun
   // "night-bitcoin",   // TODO: migrate to effectstream-bun
-  // "rock-paper-scissors", // TODO: migrate to effectstream-bun
+  "rock-paper-scissors",
   "world-map-2d",
 ];
 

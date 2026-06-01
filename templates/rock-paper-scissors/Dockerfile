@@ -49,10 +49,9 @@ COPY . .
 
 RUN bun install
 RUN /app/patch.sh
-RUN bun run --filter @rock-paper-scissors/evm-contracts build:mod
+RUN bun run --filter @rock-paper-scissors/contracts-evm build:mod
 
-RUN bun run --filter @rock-paper-scissors/frontend install
-RUN bun run --filter @rock-paper-scissors/frontend build
+RUN cd packages/frontend && bun install && node esbuild.js
 
 # Frontend / Explorer / Hardhat 1&2 / API / Batcher
 EXPOSE 8080
