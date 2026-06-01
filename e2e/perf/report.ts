@@ -43,6 +43,12 @@ function buildPayload(totalExpected: number, phases: PhaseResult[]) {
   return {
     totalExpected,
     generatedAt: new Date().toISOString(),
+    config: {
+      eventsPerTx: parseInt(process.env["EVENTS_PER_TX"] || "100", 10),
+      blockTimeMs: 1000,
+      pacingTps: parseInt(process.env["PERF_PHASE_A_TPS"] || "0", 10),
+      speedup: parseInt(process.env["PERF_TIME_SPEEDUP"] || "1", 10),
+    },
     phases: phases.map((ph): PhasePayload => {
       const ss = ph.samples;
       return {
@@ -74,46 +80,108 @@ function buildPayload(totalExpected: number, phases: PhaseResult[]) {
   };
 }
 
-// Browser-side render script. Plain ES5-ish string concatenation only — no
-// backticks or ${...}, so it can be inlined into the HTML template literal.
+// Browser-side render script. Plain ES5-ish string concatenation only.
+
 const BROWSER_JS = `
-const C = ['#2563eb','#dc2626','#16a34a','#d97706','#7c3aed','#0891b2'];
+const C = ['#60a5fa','#fb7185','#34d399','#fbbf24','#a78bfa','#22d3ee'];
 function mkChart(id, title, labels, datasets, log){
+  const hasY1 = datasets.some(function(d){ return d.yAxisID === 'y1'; });
+  const scales = {
+    x:{
+      title:{display:true,text:'seconds since phase start',color:'#9ca3af'},
+      ticks:{maxTicksLimit:12,color:'#9ca3af'},
+      grid:{color:'#1f293d'}
+    },
+    y:{
+      beginAtZero:true,
+      ticks:{color:'#9ca3af'},
+      grid:{color:'#1f293d'},
+      title:{display:true,text:hasY1 ? 'NTP Block / Applied' : '',color:'#9ca3af'}
+    }
+  };
+  if (log) {
+    scales.y.type = 'logarithmic';
+  }
+  if (hasY1) {
+    scales.y1 = {
+      beginAtZero:true,
+      position:'right',
+      title:{display:true,text:'EVM Block',color:'#9ca3af'},
+      ticks:{color:'#9ca3af'},
+      grid:{drawOnChartArea:false}
+    };
+  }
   new Chart(document.getElementById(id), {
     type:'line',
-    data:{ labels: labels, datasets: datasets.map(function(d,i){ return {
-      label:d.label, data:d.data, borderColor:C[i%C.length], backgroundColor:C[i%C.length],
-      borderWidth:1.5, pointRadius:0, tension:0.15, spanGaps:true }; }) },
-    options:{ responsive:true, animation:false, interaction:{mode:'index',intersect:false},
-      plugins:{ title:{display:true,text:title}, legend:{display:datasets.length>1} },
-      scales:{ x:{ title:{display:true,text:'seconds since phase start'}, ticks:{maxTicksLimit:12} },
-        y: log ? {type:'logarithmic'} : {beginAtZero:true} } }
+    data:{
+      labels: labels,
+      datasets: datasets.map(function(d,i){
+        const isEvm = d.yAxisID === 'y1';
+        const color = isEvm ? '#a78bfa' : C[i%C.length];
+        return {
+          label:d.label,
+          data:d.data,
+          borderColor:color,
+          backgroundColor:color + '1a',
+          borderWidth:2,
+          pointRadius:0,
+          pointHoverRadius:4,
+          tension:0.25,
+          spanGaps:true,
+          fill: d.fill || false,
+          yAxisID: d.yAxisID || 'y'
+        };
+      })
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      animation:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        title:{display:true,text:title,color:'#f3f4f6',font:{size:14,weight:'bold'}},
+        legend:{display:datasets.length>1,labels:{color:'#e5e7eb'}}
+      },
+      scales: scales
+    }
   });
 }
-document.getElementById('meta').textContent =
-  'Expected entries (Phase A target): ' + DATA.totalExpected.toLocaleString() + '  -  generated ' + DATA.generatedAt;
+
+const cfg = DATA.config || { eventsPerTx: '100', blockTimeMs: '1000', pacingTps: '0', speedup: '1' };
+document.getElementById('meta').textContent = 'Generated at ' + new Date(DATA.generatedAt).toLocaleString();
+document.getElementById('cfg-entries').textContent = DATA.totalExpected.toLocaleString();
+document.getElementById('cfg-evt-tx').textContent = cfg.eventsPerTx;
+document.getElementById('cfg-block-time').textContent = cfg.blockTimeMs + ' ms';
+document.getElementById('cfg-pacing').textContent = cfg.pacingTps > 0 ? cfg.pacingTps + ' tps' : 'Burst';
+document.getElementById('cfg-speedup').textContent = cfg.speedup + 'x';
 const root = document.getElementById('root');
 DATA.phases.forEach(function(ph, pi){
   const sec = document.createElement('section');
   const sm = ph.summary;
-  let h = '<h2>' + ph.name + '</h2><table class="sum">';
-  h += '<tr><td>duration</td><td>' + (ph.durationMs/1000).toFixed(1) + 's</td>'
-     + '<td>entries</td><td>' + ph.entriesProcessed.toLocaleString() + '</td>'
-     + '<td>entries/sec</td><td>' + ph.entriesPerSec.toFixed(0) + '</td></tr>';
-  h += '<tr><td>peak lag</td><td>' + sm.peakLagSeconds + 's (buf ' + sm.peakMainBuf + ')</td>'
-     + '<td>peak RSS</td><td>' + sm.peakRssMB + ' MB</td>'
-     + '<td>final RSS</td><td>' + sm.finalRssMB + ' MB</td></tr>';
+  let h = '<div class="phase-header"><h2>' + ph.name + '</h2></div>';
+  h += '<div class="kpi-grid">';
+  h += '<div class="kpi-card"><div class="kpi-label">Duration</div><div class="kpi-val">' + (ph.durationMs/1000).toFixed(1) + 's</div></div>';
+  h += '<div class="kpi-card"><div class="kpi-label">Entries Processed</div><div class="kpi-val">' + ph.entriesProcessed.toLocaleString() + '</div></div>';
+  h += '<div class="kpi-card"><div class="kpi-label">Avg Throughput</div><div class="kpi-val text-emerald">' + ph.entriesPerSec.toFixed(0) + '/s</div></div>';
+  
+  const peakE = sm.peakEntriesPerSec != null ? sm.peakEntriesPerSec.toLocaleString() + '/s' : '-';
+  h += '<div class="kpi-card"><div class="kpi-label">Peak Throughput</div><div class="kpi-val text-emerald-bright">' + peakE + '</div></div>';
+  
+  h += '<div class="kpi-card"><div class="kpi-label">Peak Apply Lag</div><div class="kpi-val text-coral">' + (sm.peakAppliedLagSeconds || 0).toFixed(1) + 's</div><div class="kpi-sub">fetch: ' + (sm.peakLagSeconds || 0).toFixed(1) + 's</div></div>';
+  h += '<div class="kpi-card"><div class="kpi-label">Peak Backlog</div><div class="kpi-val text-amber">' + (sm.peakApplyBacklog || 0) + ' blks</div><div class="kpi-sub">buf: ' + (sm.peakMainBuf || 0) + '</div></div>';
+  h += '<div class="kpi-card"><div class="kpi-label">Peak Memory (RSS)</div><div class="kpi-val text-violet">' + sm.peakRssMB + ' MB</div><div class="kpi-sub">final: ' + sm.finalRssMB + ' MB</div></div>';
+  h += '</div>';
   sec.innerHTML = h;
   const s = ph.series;
   const charts = [
-    {id:'lag'+pi, title:'Sync lag (s): apply (real) vs fetch (buf)', ds:[{label:'apply lag', data:s.appliedLag},{label:'fetch lag (buf)', data:s.lagSeconds}]},
-    {id:'buf'+pi, title:'Backlog: apply (blocks) vs fetch (buffered pages)', ds:[{label:'apply backlog', data:s.applyBacklog},{label:'mainNtp buf', data:s.mainBuf},{label:'evm buf', data:s.evmBuf}]},
-    {id:'mem'+pi, title:'Memory (MB)', ds:[{label:'rss', data:s.rssMB},{label:'heapUsed', data:s.heapMB}]},
-    {id:'blk'+pi, title:'Block progress: fetch tip vs applied', ds:[{label:'mainNtp tip', data:s.mainOwnBlock},{label:'applied', data:s.appliedBlock},{label:'evm tip', data:s.evmOwnBlock}]}
+      {id:'lag'+pi, title:'Sync Lag (s): Apply (real) vs Fetch (buf)', ds:[{label:'apply lag', data:s.appliedLag},{label:'fetch lag (buf)', data:s.lagSeconds}]},
+    {id:'buf'+pi, title:'Backlog: Apply (blocks) vs Fetch (buffered pages)', ds:[{label:'apply backlog', data:s.applyBacklog},{label:'mainNtp buf', data:s.mainBuf},{label:'evm buf', data:s.evmBuf}]},
+    {id:'mem'+pi, title:'Memory (MB)', ds:[{label:'rss', data:s.rssMB, fill:true},{label:'heapUsed', data:s.heapMB, fill:true}]},
+    {id:'blk'+pi, title:'Block Progress: Fetch Tip vs Applied', ds:[{label:'mainNtp tip', data:s.mainOwnBlock},{label:'applied', data:s.appliedBlock},{label:'evm tip', data:s.evmOwnBlock, yAxisID:'y1'}]}
   ];
   if (s.entries.some(function(v){ return v != null; }))
-    charts.push({id:'ent'+pi, title:'Entries processed (cumulative)', ds:[{label:'entries', data:s.entries}]});
-  charts.push({id:'api'+pi, title:'API latency (ms, log scale)', log:true,
+    charts.push({id:'ent'+pi, title:'Entries Processed (cumulative)', ds:[{label:'entries', data:s.entries, fill:true}]});
+  charts.push({id:'api'+pi, title:'API Latency (ms, log scale)', log:true,
     ds:Object.keys(s.api).map(function(k){ return {label:k, data:s.api[k]}; })});
   const grid = document.createElement('div'); grid.className = 'grid';
   charts.forEach(function(c){
@@ -125,6 +193,7 @@ DATA.phases.forEach(function(ph, pi){
   if (!s.t.length){
     const p = document.createElement('p'); p.textContent = '(no samples captured for this phase)';
     sec.appendChild(p); return;
+    p.style.color = '#9ca3af';
   }
   charts.forEach(function(c){ mkChart(c.id, c.title, s.t, c.ds, !!c.log); });
 });
@@ -138,24 +207,80 @@ function renderHtml(payload: ReturnType<typeof buildPayload>): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Effectstream perf report</title>
+<title>Effectstream Perf Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-  body{font-family:system-ui,-apple-system,sans-serif;margin:24px;color:#111;background:#fafafa}
-  h1{margin:0 0 4px;font-size:22px}
-  #meta{color:#666;font-size:13px;margin-bottom:16px}
-  section{margin:24px 0;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:8px}
-  h2{margin:0 0 8px;font-size:18px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px;margin-top:12px}
-  .card{border:1px solid #eee;border-radius:6px;padding:8px}
-  table.sum{border-collapse:collapse;font-size:13px;margin-top:4px}
-  table.sum td{padding:2px 12px 2px 0}
-  table.sum td:nth-child(odd){color:#666}
+body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;margin:0;padding:40px;color:#f3f4f6;background:#0b0f19}
+  .header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1f293d;padding-bottom:24px;margin-bottom:32px;flex-wrap:wrap;gap:20px}
+  .brand{display:flex;align-items:center;gap:16px}
+  .logo{font-size:32px;background:#1e293b;border:1px solid #3b82f6;border-radius:10px;padding:8px 12px;line-height:1}
+  h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-0.02em}
+  #meta{color:#9ca3af;font-size:13px;margin:4px 0 0}
+  .config-grid{display:flex;gap:12px;flex-wrap:wrap}
+  .config-card{background:#151b2c;border:1px solid #222b44;border-radius:8px;padding:10px 16px;display:flex;flex-direction:column;min-width:110px}
+  .config-card .label{font-size:10px;text-transform:uppercase;color:#9ca3af;margin-bottom:2px}
+  .config-card .val{font-size:14px;font-weight:700;color:#60a5fa}
+  
+  section{margin:32px 0;padding:24px;background:#0f1626;border:1px solid #1e293b;border-radius:12px}
+  .phase-header{border-bottom:1px solid #1f293d;padding-bottom:12px;margin-bottom:20px}
+  h2{margin:0;font-size:18px;font-weight:600;color:#f3f4f6}
+  
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:28px}
+  .kpi-card{background:#151b2c;border:1px solid #222b44;border-radius:8px;padding:16px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden}
+  .kpi-card::after{content:'';position:absolute;top:0;left:0;width:4px;height:100%}
+  .kpi-card:nth-child(1)::after{background:#3b82f6}
+  .kpi-card:nth-child(2)::after{background:#60a5fa}
+  .kpi-card:nth-child(3)::after{background:#10b981}
+  .kpi-card:nth-child(4)::after{background:#34d399}
+  .kpi-card:nth-child(5)::after{background:#f43f5e}
+  .kpi-card:nth-child(6)::after{background:#fbbf24}
+  .kpi-card:nth-child(7)::after{background:#8b5cf6}
+  
+  .kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;margin-bottom:4px}
+  .kpi-val{font-size:18px;font-weight:700;color:#f3f4f6}
+  .kpi-sub{font-size:10px;color:#6b7280;margin-top:4px}
+  .text-emerald{color:#10b981!important}
+  .text-emerald-bright{color:#34d399!important}
+  .text-coral{color:#fb7185!important}
+  .text-amber{color:#fbbf24!important}
+  .text-violet{color:#c084fc!important}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(480px,1fr));gap:20px;margin-top:12px}
+  .card{border:1px solid #222b44;border-radius:8px;padding:16px;background:#151b2c;height:300px}
 </style>
 </head>
 <body>
-<h1>Effectstream perf report</h1>
-<div id="meta"></div>
+<header class="header">
+  <div class="brand">
+    <div class="logo">⚡</div>
+    <div>
+      <h1>Effectstream Perf Dashboard</h1>
+      <p id="meta"></p>
+    </div>
+  </div>
+  <div class="config-grid">
+    <div class="config-card">
+      <span class="label">Expected Entries</span>
+      <span class="val" id="cfg-entries">-</span>
+    </div>
+    <div class="config-card">
+      <span class="label">Events / Tx</span>
+      <span class="val" id="cfg-evt-tx">-</span>
+    </div>
+    <div class="config-card">
+      <span class="label">Block Time</span>
+      <span class="val" id="cfg-block-time">-</span>
+    </div>
+    <div class="config-card">
+      <span class="label">Pacing Rate</span>
+      <span class="val" id="cfg-pacing">-</span>
+    </div>
+    <div class="config-card">
+      <span class="label">Speedup Factor</span>
+      <span class="val" id="cfg-speedup">-</span>
+    </div>
+  </div>
+</header>
 <div id="root"></div>
 <script>
 const DATA = ${json};

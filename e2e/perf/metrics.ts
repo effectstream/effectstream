@@ -205,6 +205,25 @@ export class Sampler {
         n: arr.length,
       };
     }
+
+    const entriesDiffs: number[] = [];
+    const blocksDiffs: number[] = [];
+    for (let i = 1; i < this.samples.length; i++) {
+      const prev = this.samples[i - 1];
+      const curr = this.samples[i];
+      const dt = (curr.t - prev.t) / 1000;
+      if (dt > 0) {
+        if (curr.entries != null && prev.entries != null) {
+          entriesDiffs.push((curr.entries - prev.entries) / dt);
+        }
+        if (curr.evmOwnBlock != null && prev.evmOwnBlock != null) {
+          blocksDiffs.push((curr.evmOwnBlock - prev.evmOwnBlock) / dt);
+        }
+      }
+    }
+    const peakEntriesPerSec = entriesDiffs.length ? Math.max(...entriesDiffs) : 0;
+    const peakBlocksPerSec = blocksDiffs.length ? Math.max(...blocksDiffs) : 0;
+
     return {
       samples: this.samples.length,
       peakRssMB: Math.round(Math.max(0, ...rssMB)),
@@ -215,6 +234,8 @@ export class Sampler {
         ? Math.round(Math.max(...appliedLags) * 10) / 10
         : 0,
       peakApplyBacklog: backlogs.length ? Math.max(...backlogs) : 0,
+      peakEntriesPerSec: Math.round(peakEntriesPerSec),
+      peakBlocksPerSec: Math.round(peakBlocksPerSec * 10) / 10,
       apiLatencyMs: latencySummary,
     };
   }
@@ -240,9 +261,11 @@ export function printReport(
     console.log(`\n--- Phase: ${ph.name} ---`);
     console.log(`  duration:        ${(ph.durationMs / 1000).toFixed(1)}s`);
     console.log(`  entries:         ${ph.entriesProcessed.toLocaleString()}`);
-    console.log(`  entries/sec:     ${ph.entriesPerSec.toFixed(0)}`);
+    console.log(`  entries/sec:     ${ph.entriesPerSec.toFixed(0)} (peak: ${ph.sampler.peakEntriesPerSec.toLocaleString()}/s)`);
     if (ph.blocksPerSec != null) {
-      console.log(`  blocks/sec:      ${ph.blocksPerSec.toFixed(1)}`);
+      console.log(`  blocks/sec:      ${ph.blocksPerSec.toFixed(1)} (peak: ${ph.sampler.peakBlocksPerSec.toFixed(1)}/s)`);
+    } else {
+      console.log(`  peak blocks/sec: ${ph.sampler.peakBlocksPerSec.toFixed(1)}/s`);
     }
     console.log(`  peak lag:        ${ph.sampler.peakLagSeconds}s (peak buf ${ph.sampler.peakMainBuf})  [fetch-side]`);
     console.log(`  peak APPLY lag:  ${ph.sampler.peakAppliedLagSeconds}s (peak backlog ${ph.sampler.peakApplyBacklog} blocks)  [apply-side, the real one]`);
