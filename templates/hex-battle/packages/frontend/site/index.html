@@ -304,6 +304,8 @@
     </div>
 </body>
 <script src="./assets/popup.js"></script>
-<script src="./bundle.js"></script>
+<!-- bundle.js is an ESM build (esbuild format:"esm"); must load as a module
+     or it throws "Cannot use 'import.meta' outside a module" and never boots. -->
+<script type="module" src="./bundle.js"></script>
 
 </html>
