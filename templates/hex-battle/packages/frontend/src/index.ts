@@ -132,7 +132,7 @@ const SKIP_STARTUP = false;
           .then((x: any) => {
             if (x.success) {
               window.location.replace(
-                `/?lobby=${lobby}&wallet=${options.wallet}`
+                `/?lobby=${lobby}&wallet=${options.wallet}&account=${mw.localAccountIndex()}`
               );
             }
           });

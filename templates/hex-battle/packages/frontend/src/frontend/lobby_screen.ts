@@ -325,7 +325,7 @@ export class LobbyScreen extends BackgroundScreen {
         (window as any).rejoin_lobby_show(games.data, (id: string) => {
           this.stop();
           // go to pregame_screen
-          window.location.replace(`/?lobby=${id}&wallet=${this.walletName}`);
+          window.location.replace(`/?lobby=${id}&wallet=${this.walletName}&account=${mw.localAccountIndex()}`);
         });
       })
       .finally(() => {
@@ -357,7 +357,7 @@ export class LobbyScreen extends BackgroundScreen {
                   this.stop();
                   // go to pregame_screen
                   window.location.replace(
-                    `/?lobby=${id}&wallet=${this.walletName}`
+                    `/?lobby=${id}&wallet=${this.walletName}&account=${mw.localAccountIndex()}`
                   );
                 }
               })
@@ -416,7 +416,7 @@ export class LobbyScreen extends BackgroundScreen {
               const lobby = (response.data as any).lobby_id;
               // go to prescreen
               window.location.replace(
-                `/?lobby=${lobby}&wallet=${this.walletName}`
+                `/?lobby=${lobby}&wallet=${this.walletName}&account=${mw.localAccountIndex()}`
               );
             }
           })

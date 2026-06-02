@@ -58,26 +58,42 @@ const HARDHAT_KEYS = [
 // Local wallet account is chosen by the `?account=<index>` URL param (default #0)
 // — NOT `?wallet=`, which the game itself owns for the wallet *mode* and rewrites
 // on every lobby redirect (window.location.replace('/?lobby=…&wallet=local')).
-// Because that redirect drops all other query params, we latch the choice into
-// sessionStorage (per-tab) on first read so it survives the redirects.
+//
+// Two things keep the account stable through those redirects:
+//  1. We LATCH `?account` into sessionStorage (per-tab) eagerly at module load —
+//     below — before any game code runs or any redirect can strip it. We only
+//     write when `?account` is present, so a later reload at `?lobby=…&wallet=local`
+//     (no `?account`) keeps the previously-latched value.
+//  2. The game's redirect URLs carry `&account=` (see localAccountIndex() callers
+//     in index.ts / lobby_screen.ts), so the account also stays visible in the URL.
 //
 // Play a 2-player match locally with two tabs:
 //   http://localhost:10599            → account #0 (create the lobby)
 //   http://localhost:10599/?account=1 → account #1 (join it) → match starts
-function localAccountIndex(): number {
+const inAccountRange = (n: number) =>
+  Number.isInteger(n) && n >= 0 && n < HARDHAT_KEYS.length;
+
+// Eager latch — runs once when the bundle loads.
+if (typeof window !== 'undefined') {
+  const raw = new URLSearchParams(window.location.search).get('account');
+  if (raw != null && inAccountRange(Number(raw))) {
+    try {
+      window.sessionStorage.setItem('hexAccount', String(Number(raw)));
+    } catch {/* sessionStorage unavailable */}
+  }
+}
+
+// Read-only: sessionStorage (latched above) → `?account` → default #0.
+export function localAccountIndex(): number {
   if (typeof window === 'undefined') return 0;
-  const inRange = (n: number) =>
-    Number.isInteger(n) && n >= 0 && n < HARDHAT_KEYS.length;
   try {
     const stored = window.sessionStorage?.getItem('hexAccount');
-    if (stored != null && inRange(Number(stored))) return Number(stored);
+    if (stored != null && inAccountRange(Number(stored))) return Number(stored);
   } catch {/* sessionStorage unavailable */}
-  const idx = Number(new URLSearchParams(window.location.search).get('account') ?? '0');
-  const n = inRange(idx) ? idx : 0;
-  try {
-    window.sessionStorage?.setItem('hexAccount', String(n));
-  } catch {/* ignore */}
-  return n;
+  const idx = Number(
+    new URLSearchParams(window.location.search).get('account') ?? '0',
+  );
+  return inAccountRange(idx) ? idx : 0;
 }
 function localPrivateKey(): string {
   return HARDHAT_KEYS[localAccountIndex()];
