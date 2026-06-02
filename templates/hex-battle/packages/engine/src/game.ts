@@ -562,5 +562,22 @@ export class Game {
       .filter(t => t.unit)
       .map(t => t.unit as Unit)
       .forEach(u => (u.canMove = true));
+
+    // Drive AI turns — but ONLY in the browser. The on-chain node replays moves
+    // deterministically and must never spawn AI moves or use timers, so this is
+    // guarded on `window` (absent under Bun/node). Duck-typed (has randomMove)
+    // so the shared engine doesn't import the client-only AIPlayer. This restores
+    // the original offline-practice auto-play that was dropped when the engine's
+    // AI hooks were stripped for the node port.
+    if (
+      typeof window !== 'undefined' &&
+      !this.winner &&
+      typeof (player as {randomMove?: unknown}).randomMove === 'function'
+    ) {
+      setTimeout(
+        () => (player as {randomMove: (g: Game) => void}).randomMove(this),
+        800
+      );
+    }
   }
 }
