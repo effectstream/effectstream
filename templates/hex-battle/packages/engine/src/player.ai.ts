@@ -81,7 +81,12 @@ export class AIPlayer extends Player {
               move.unit
             );
           }
-          const score = playerCopy.minMaxScore(gameCopy);
+          // Game.import() rehydrates every player as a base `Player`, so the
+          // `playerCopy as AIPlayer` cast above is a lie at runtime and
+          // playerCopy.minMaxScore is undefined. minMaxScore scores purely from
+          // gameCopy.getCurrentPlayer() (still this AI's turn after applying the
+          // move), so call it on the real AIPlayer `this` instead.
+          const score = this.minMaxScore(gameCopy);
           if (score > best.score) {
             return {move, score};
           }

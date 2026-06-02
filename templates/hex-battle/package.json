@@ -9,6 +9,7 @@
     "check": "bun run --filter @hex-battle/node check",
     "test": "bun run packages/tests/run-tests.ts",
     "test:launch": "bun run packages/tests/frontend/launch.test.ts",
+    "test:practice": "bun run packages/frontend/practice-ai.test.ts",
     "build:pgtypes": "bun run --filter @hex-battle/database pgtyped:update"
   },
   "dependencies": {
