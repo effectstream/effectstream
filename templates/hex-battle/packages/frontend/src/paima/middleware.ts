@@ -14,6 +14,7 @@
 //
 // The grammar-key + arg order is mapped 1:1 against packages/node/grammar.ts.
 import {
+  allInjectedWallets,
   EffectstreamConfig,
   sendTransaction,
   walletLogin,
@@ -91,7 +92,11 @@ function fail(errorMessage: string, errorCode = 1): Failed {
 async function loginWithInfo(loginInfo: LoginInfo) {
   const result = await walletLogin(loginInfo);
   if (!result.success) {
-    return fail('Wallet login failed');
+    // Surface the real reason (rejected, no wallet, wrong chain, …) instead of
+    // a generic string.
+    return fail(
+      (result as {errorMessage?: string}).errorMessage ?? 'Wallet login failed',
+    );
   }
   wallet = result.result;
   walletAddress = wallet.walletAddress ?? currentAddress();
@@ -118,15 +123,44 @@ async function userWalletLogin(loginInfo: LoginInfo, _setDefault?: boolean) {
       preferBatchedMode: false,
     } as LoginInfo);
   }
+  // EvmInjected (browser): discover + connect a real installed wallet.
+  if (loginInfo.mode === WalletMode.EvmInjected) {
+    return connectInjectedEvm();
+  }
   return loginWithInfo(loginInfo);
+}
+
+// Discover installed injected EVM wallets and connect the first one. The lean
+// @effectstream/wallets connector needs a `preference` (which wallet) and
+// `preferBatchedMode`; the previous call passed neither, so the connector had no
+// wallet to connect — that produced "Wallet login failed".
+async function connectInjectedEvm() {
+  let available;
+  try {
+    available = await allInjectedWallets({
+      signatureSupport: true,
+      transactionSupport: true,
+    });
+  } catch (err) {
+    return fail(`Wallet discovery failed: ${String(err)}`);
+  }
+  const evm = available?.[WalletMode.EvmInjected] ?? [];
+  if (evm.length === 0) {
+    return fail(
+      'No browser wallet detected — install MetaMask, or use "Connect Local Wallet".',
+    );
+  }
+  return loginWithInfo({
+    mode: WalletMode.EvmInjected,
+    preference: {name: evm[0].name},
+    preferBatchedMode: false,
+    chain: hardhat,
+  } as LoginInfo);
 }
 
 // Convenience helpers the test harness / index.html buttons can call directly.
 async function connectBrowserWallet() {
-  return loginWithInfo({
-    mode: WalletMode.EvmInjected,
-    chain: effectstreamConfig.effectstreamL2Chain,
-  } as LoginInfo);
+  return connectInjectedEvm();
 }
 
 async function connectLocalWallet() {
