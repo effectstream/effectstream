@@ -55,17 +55,32 @@ const HARDHAT_KEYS = [
   '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a', // #2 0x3C44…93BC
   '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6', // #3 0x90F7…b906
 ];
-// Local wallet account is chosen by the `?wallet=<index>` URL param (default #0).
-// This is what lets you actually play a 2-player match locally: open one tab on
-// http://localhost:10599 (account #0) to create a lobby, and a second tab on
-// http://localhost:10599/?wallet=1 (account #1) to join — two distinct players.
+// Local wallet account is chosen by the `?account=<index>` URL param (default #0)
+// — NOT `?wallet=`, which the game itself owns for the wallet *mode* and rewrites
+// on every lobby redirect (window.location.replace('/?lobby=…&wallet=local')).
+// Because that redirect drops all other query params, we latch the choice into
+// sessionStorage (per-tab) on first read so it survives the redirects.
+//
+// Play a 2-player match locally with two tabs:
+//   http://localhost:10599            → account #0 (create the lobby)
+//   http://localhost:10599/?account=1 → account #1 (join it) → match starts
+function localAccountIndex(): number {
+  if (typeof window === 'undefined') return 0;
+  const inRange = (n: number) =>
+    Number.isInteger(n) && n >= 0 && n < HARDHAT_KEYS.length;
+  try {
+    const stored = window.sessionStorage?.getItem('hexAccount');
+    if (stored != null && inRange(Number(stored))) return Number(stored);
+  } catch {/* sessionStorage unavailable */}
+  const idx = Number(new URLSearchParams(window.location.search).get('account') ?? '0');
+  const n = inRange(idx) ? idx : 0;
+  try {
+    window.sessionStorage?.setItem('hexAccount', String(n));
+  } catch {/* ignore */}
+  return n;
+}
 function localPrivateKey(): string {
-  if (typeof window === 'undefined') return HARDHAT_KEYS[0];
-  const raw = new URLSearchParams(window.location.search).get('wallet');
-  const idx = Number(raw ?? '0');
-  return HARDHAT_KEYS[
-    Number.isInteger(idx) && idx >= 0 && idx < HARDHAT_KEYS.length ? idx : 0
-  ];
+  return HARDHAT_KEYS[localAccountIndex()];
 }
 
 // `mw.ENV.*` surface the original middleware exposed. The game reads
