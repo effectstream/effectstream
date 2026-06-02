@@ -48,9 +48,25 @@ export const effectstreamConfig = new EffectstreamConfig(
 
 const API_BASE = 'http://localhost:9999';
 const HARDHAT_RPC = 'http://localhost:8545';
-// Hardhat well-known account #0 — local-dev only; never use on real chains.
-const LOCAL_PRIVATE_KEY =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+// Hardhat well-known accounts (#0-#3) — local-dev only; never use on real chains.
+const HARDHAT_KEYS = [
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', // #0 0xf39F…2266
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d', // #1 0x7099…79C8
+  '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a', // #2 0x3C44…93BC
+  '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6', // #3 0x90F7…b906
+];
+// Local wallet account is chosen by the `?wallet=<index>` URL param (default #0).
+// This is what lets you actually play a 2-player match locally: open one tab on
+// http://localhost:10599 (account #0) to create a lobby, and a second tab on
+// http://localhost:10599/?wallet=1 (account #1) to join — two distinct players.
+function localPrivateKey(): string {
+  if (typeof window === 'undefined') return HARDHAT_KEYS[0];
+  const raw = new URLSearchParams(window.location.search).get('wallet');
+  const idx = Number(raw ?? '0');
+  return HARDHAT_KEYS[
+    Number.isInteger(idx) && idx >= 0 && idx < HARDHAT_KEYS.length ? idx : 0
+  ];
+}
 
 // `mw.ENV.*` surface the original middleware exposed. The game reads
 // BATCHER_URI (to pick batched vs self-sequenced login) and BLOCK_TIME (turn
@@ -117,7 +133,7 @@ async function userWalletLogin(loginInfo: LoginInfo, _setDefault?: boolean) {
   if (loginInfo.mode === WalletMode.EvmViem) {
     return loginWithInfo({
       mode: WalletMode.EvmViem,
-      privateKey: LOCAL_PRIVATE_KEY,
+      privateKey: localPrivateKey(),
       rpcUrl: HARDHAT_RPC,
       chain: hardhat,
       preferBatchedMode: false,
@@ -166,7 +182,7 @@ async function connectBrowserWallet() {
 async function connectLocalWallet() {
   return loginWithInfo({
     mode: WalletMode.EvmViem,
-    privateKey: LOCAL_PRIVATE_KEY,
+    privateKey: localPrivateKey(),
     rpcUrl: HARDHAT_RPC,
     chain: hardhat,
     preferBatchedMode: false,
