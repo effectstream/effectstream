@@ -22,7 +22,6 @@ import { startMerge, startSync } from "@effectstream/sync";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import {
   createChannel,
-  each,
   type Operation,
   sleep,
   spawn,
@@ -95,6 +94,14 @@ export function* start(config: StartConfig): Operation<void> {
 
   const finalizedBlockStream = createChannel<ChainBlock>();
 
+  // Subscribe BEFORE spawning the merge: effection channels drop sends with no
+  // active subscriber, so a fast restart (in-memory state, no RPC wait) could
+  // emit blocks before we subscribe and silently stall at the pre-restart height.
+  const finalizedBlocks = yield* finalizedBlockStream;
+  // NOTE: this subscriber's queue is unbounded. During deep catch-up the merge
+  // can outpace the per-block processing below and grow it without bound — the
+  // downstream side of the Fix C backpressure issue (see sync/CLAUDE.md).
+
   yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
 
   const heartbeatIntervalMs = 60_000;
@@ -137,7 +144,9 @@ export function* start(config: StartConfig): Operation<void> {
     yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
   }
 
-  for (const value of yield* each(finalizedBlockStream)) {
+  let nextBlock = yield* finalizedBlocks.next();
+  for (; !nextBlock.done; nextBlock = yield* finalizedBlocks.next()) {
+    const value = nextBlock.value;
     // We request a dbClient for a non-shared dbConn object.
     // For PGLite, this is not enough, as the can only be one connection at a time.
     // So we request a DBMutex as well.
@@ -218,7 +227,6 @@ export function* start(config: StartConfig): Operation<void> {
           }...${lagSuffix} | ${JSON.stringify(contentBlocksForProtocol)}`,
         ),
     );
-    yield* each.next();
   }
 }
 
