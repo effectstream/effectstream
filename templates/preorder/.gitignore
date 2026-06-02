@@ -20,6 +20,10 @@ packages/contracts-cardano/temp/*
 !packages/contracts-cardano/temp/alonzo-genesis2.json
 packages/contracts-cardano/yaci-cli.history
 
+# Aiken build cache + redundant blueprint (canonical plutus.json lives at contracts-cardano/plutus.json)
+packages/contracts-cardano/aiken/build/
+packages/contracts-cardano/aiken/plutus.json
+
 # Vite
 .vite/
 

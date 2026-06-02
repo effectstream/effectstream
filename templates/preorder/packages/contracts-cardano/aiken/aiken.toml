@@ -1,0 +1,15 @@
+name = "preorder/launchpad-receipt"
+version = "0.0.0"
+compiler = "v1.1.19"
+plutus = "v3"
+license = "MIT"
+
+[repository]
+user = "preorder"
+project = "launchpad-receipt"
+platform = "github"
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "v2.2.0"
+source = "github"

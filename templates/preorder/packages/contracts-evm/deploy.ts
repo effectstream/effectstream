@@ -1,6 +1,6 @@
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import * as config from "./hardhat.config.ts";
-import { MockERC20Module, LaunchpadFactoryModule } from "./ignition/modules/deploy.ts";
+import { MockERC20Module, LaunchpadFactoryModule, EffectstreamL2Module } from "./ignition/modules/deploy.ts";
 import type { buildModule } from "@nomicfoundation/ignition-core";
 import { createPublicClient, createWalletClient, http, decodeEventLog } from "viem";
 import { hardhat } from "viem/chains";
@@ -20,6 +20,7 @@ type Deployment = {
 const myDeployments: Deployment[] = [
   { module: MockERC20Module, network: "evmMainHttp" },
   { module: LaunchpadFactoryModule, network: "evmMainHttp" },
+  { module: EffectstreamL2Module, network: "evmMainHttp" },
 ] as const;
 
 export async function deploy(): Promise<void> {
@@ -38,11 +39,14 @@ export async function deploy(): Promise<void> {
 
   const factoryResult = results["LaunchpadFactoryModule"];
   const mockErc20Result = results["MockERC20Module"];
+  const effectStreamL2Result = results["EffectstreamL2Module"];
 
   const factoryAddress = factoryResult.factory.address as `0x${string}`;
   const mockErc20Address = mockErc20Result.mockErc20.address as `0x${string}`;
+  const effectStreamL2Address = effectStreamL2Result.l2.address as `0x${string}`;
   console.log(`Factory: ${factoryAddress}`);
   console.log(`MockERC20: ${mockErc20Address}`);
+  console.log(`EffectstreamL2: ${effectStreamL2Address}`);
 
   const publicClient = createPublicClient({ chain: hardhat, transport: http("http://localhost:8545") });
   const walletClient = createWalletClient({
@@ -105,6 +109,10 @@ export async function deploy(): Promise<void> {
       launchpadProxy: proxyAddress,
       factory: factoryAddress,
       mockErc20: mockErc20Address,
+      effectStreamL2: effectStreamL2Address,
+      // account #0 — owner of the launchpad + L2 contracts; the STM authorizes admin
+      // commands by checking the L2 input signer against this address.
+      admin: walletClient.account.address,
     }, null, 2),
   );
 

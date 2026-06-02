@@ -15,10 +15,14 @@ type RewardItem = {
 
 interface Props {
   launchpadAddress: string;
+  receiver?: string;
+  referrer?: string;
   cardanoPaymentAddress?: string;
   cart: Record<number, number>;
   totalCost: bigint;
   selectedToken: string;
+  paymentTokenAddress?: string;
+  decimals?: number;
   items: ItemInfo[];
   rewards: RewardItem[];
   formatPrice: (raw: string | number | bigint) => string;
@@ -33,10 +37,14 @@ interface Props {
 
 export function OrderFooter({
   launchpadAddress,
+  receiver,
+  referrer,
   cardanoPaymentAddress,
   cart,
   totalCost,
   selectedToken,
+  paymentTokenAddress,
+  decimals,
   items,
   rewards,
   formatPrice,
@@ -140,10 +148,14 @@ export function OrderFooter({
             <div style={{ marginTop: 10 }}>
               <WalletPanel
                 launchpadAddress={launchpadAddress}
+                receiver={receiver}
+                referrer={referrer}
                 cardanoPaymentAddress={cardanoPaymentAddress}
                 cart={cart}
                 totalCostWei={totalCost}
                 selectedToken={selectedToken}
+                paymentTokenAddress={paymentTokenAddress}
+                decimals={decimals}
                 items={items}
                 onPurchaseComplete={onPurchaseComplete}
                 onClearCart={onClearCart}

@@ -169,3 +169,125 @@ export class BuyItemsPrimitive extends Primitive<
     return undefined;
   };
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// ReferrerReward — the launchpad pays the referrer on-chain; we capture each payout.
+// ──────────────────────────────────────────────────────────────────────────
+
+const referrerRewardAbi = [
+  {
+    type: "event" as const,
+    name: "ReferrerReward" as const,
+    inputs: [
+      { name: "referrer", type: "address", indexed: true, internalType: "address" },
+      { name: "buyer", type: "address", indexed: true, internalType: "address" },
+      { name: "paymentToken", type: "address", indexed: true, internalType: "address" },
+      { name: "amount", type: "uint256", indexed: false, internalType: "uint256" },
+    ],
+    anonymous: false,
+  },
+] as const;
+
+export const referrerRewardGrammar = [
+  ["referrer", Type.String()],
+  ["buyer", Type.String()],
+  ["paymentToken", Type.String()],
+  ["amount", Type.String()],
+] as const;
+
+export class ReferrerRewardPrimitive extends Primitive<
+  ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+  typeof referrerRewardGrammar
+> {
+  readonly internalTypeName = "EVM:REFERRER-REWARD";
+  readonly abi: ReturnType<typeof getEvmEvent> = getEvmEvent(
+    referrerRewardAbi,
+    "ReferrerReward(address,address,address,uint256)",
+  );
+  override grammar = referrerRewardGrammar;
+  readonly contractAddress: EvmAddress;
+
+  constructor(config: {
+    instanceName: string;
+    startBlockHeight: number;
+    contractAddress: EvmAddress;
+    stateMachinePrefix: string | undefined;
+  }) {
+    super(config);
+    this.contractAddress = Value.Decode(TypeboxHelpers.Evm.Address, config.contractAddress);
+  }
+
+  override *getPayload(
+    _: EffectstreamBlockNumber,
+    primitiveTransactionData: FlattenSyncProtocolIOFor<
+      ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    >,
+  ): StateUpdateStream<{
+    isBatched: boolean;
+    data: {
+      fromAddressAndType: AddressAndType;
+      stateMachinePayload:
+        | StaticDecode<CommandTuple<string, typeof referrerRewardGrammar>>
+        | null;
+      accountingPayload: JsonObject;
+    }[];
+  }> {
+    const payload = primitiveTransactionData.output.payload;
+    const referrer = String(payload.referrer).toLowerCase();
+    const buyer = String(payload.buyer).toLowerCase();
+    const paymentToken = String(payload.paymentToken).toLowerCase();
+    const amount = String(payload.amount);
+
+    const accountingPayload: ParamToData<typeof referrerRewardGrammar> = {
+      referrer,
+      buyer,
+      paymentToken,
+      amount,
+    };
+
+    const stateMachinePayload:
+      | StaticDecode<CommandTuple<string, typeof this.grammar>>
+      | null = this.stateMachinePrefix
+        ? generateRawStmInput(this.grammar, this.stateMachinePrefix, accountingPayload)
+        : null;
+
+    return {
+      isBatched: false,
+      data: [
+        {
+          fromAddressAndType: {
+            type: AddressType.EVM,
+            address: Value.Decode(TypeboxHelpers.Evm.Address, buyer),
+          },
+          accountingPayload,
+          stateMachinePayload,
+        },
+      ],
+    };
+  }
+
+  override getConfig(): ProtocolPrimitiveMap[
+    ConfigSyncProtocolType.EVM_RPC_PARALLEL
+  ] {
+    return {
+      name: this.instanceName,
+      type: this.internalTypeName,
+      startBlockHeight: this.startBlockHeight,
+      contractAddress: this.contractAddress as EvmAddress,
+      abi: this.abi,
+      scheduledPrefix: this.stateMachinePrefix,
+    } as const;
+  }
+
+  override getIntermediatePrefix(): string[] {
+    return [];
+  }
+
+  override getViewPrefix(): string[] {
+    return [];
+  }
+
+  override getDynamicTables = (_name: string): string | undefined => {
+    return undefined;
+  };
+}
