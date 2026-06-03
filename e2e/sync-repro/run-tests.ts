@@ -7,12 +7,8 @@
  * database survives — the production restart condition).
  *
  * Runs in the default PGLite mode; the Postgres-only consistency tests skip
- * unless invoked with `PGLITE=false` (which needs `postgresql@18` installed).
+ * unless invoked with `PGLITE=false` (which needs `postgresql` installed).
  *
- * The resume-reproduction case (consistency.test.ts) is declared `test.failing`:
- * it reproduces the block-accurate-resume gap (Fix D, see
- * packages/node-sdk/sync/CLAUDE.md) and so counts as an expected failure today,
- * flipping the suite red once Fix D lands.
  */
 import { join } from "node:path";
 
