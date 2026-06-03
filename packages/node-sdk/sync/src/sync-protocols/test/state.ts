@@ -60,6 +60,7 @@ export class TestSyncState extends SyncState<
       })),
       blockNumber: Number(data.raw.blockNumber),
       timestamp: this.toRootPage(data),
+      resumePages: [],
       primitives: data.primitives.map((p) => ({
         ...p,
         source: this.config.syncProtocol.name,
@@ -112,6 +113,16 @@ export class TestSyncState extends SyncState<
     }));
     rootOutput.primitives.push(...primitives);
     rootOutput.blockInfo.push(...blockInfo);
+  }
+
+  @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    const block = Number(data.raw.blockNumber);
+    return {
+      own: block,
+      ownBlockNumber: block as BlockNumber,
+      root: this.toRootPage(data),
+    };
   }
 
   @bound

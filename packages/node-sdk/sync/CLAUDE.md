@@ -35,7 +35,7 @@ config (syncProtocols.main + syncProtocols.parallel)
 │  PER-CHAIN FETCH LOOPS              one spawn per protocol             │
 │  startSync(state):  stateToInput → readData → updateState             │
 │    → push Output to bufferedData (Deque)  + wake newData/newPageCondVar│
-│    → upsertPage(page_number = chunk_end) into sync_protocol_pagination │
+│    → lastPage kept IN-MEMORY only (no DB write; runtime owns resume)   │
 │    → producerChannel.send(...)  ← NOTE: nothing consumes this today    │
 └────────────────────────────────────────┬─────────────────────────────┘
                                           ▼
@@ -47,8 +47,9 @@ config (syncProtocols.main + syncProtocols.parallel)
 └────────────────────────────────────────┬─────────────────────────────┘
                                           ▼
    runtime/src/main.ts:  for (block of each(finalizedBlockStream))
-     acquire DB mutex → processFinalizedBlock (STF) → COMMIT
-     → removePages(< merged block) → fire-and-forget MQTT events → each.next()
+     acquire DB mutex → processFinalizedBlock (STF)
+     → upsertPage(block.resumePages) + removePages(< committed) [in txn] → COMMIT
+     → fire-and-forget MQTT events → each.next()
 ```
 
 ## The three per-chain abstractions (`src/sync-protocols/<chain>/`)
@@ -112,12 +113,34 @@ iteration it walks protocols in order:
    a parallel chain's timestamp so older blocks merge into more-recent root slots.
 4. **Mutate-after-commit.** `OutputAndCleanup` keeps data in the Deque until the block is
    safely produced; the consumer commits to Postgres *before* emitting events.
-5. **Durable, resumable page queue.** `effectstream.sync_protocol_pagination` is keyed
-   `(protocol_name, page_number)`. Fetch appends a row per chunk (`upsertPage`,
-   `page_number = chunk_end`); on commit the consumer deletes consumed chunks
-   (`removePages(page_number < merged_block)`, `runtime/process-blocks.ts:328`); on boot
-   `restoreState` resumes from `getPage` = `ORDER BY page_number ASC LIMIT 1` (oldest
-   remaining chunk).
+5. **Durable, block-accurate resume queue.** *(Single source of truth for how restart/resume
+   works — code comments point here; see also Finding #2 for the bug this fixes.)*
+
+   `effectstream.sync_protocol_pagination` is keyed `(protocol_name, page_number)` and the
+   **runtime is the sole writer** of the resume position (Fix D). End to end:
+   - **Fetch loop** (`base/state.ts:updateState`) keeps `lastPage` in memory only — it does
+     **not** persist (it runs ahead of commits, so its chunk-end page is not a safe resume
+     point).
+   - **Merge** (`orchestration/merge.ts`) tags every `ChainBlock` with `resumePages`: one
+     marker per protocol = `outputToLastPage(lastConsumed)`, the `LastPage`
+     (`{ own, ownBlockNumber, root }`) of the **highest datum merged into the block**. Each
+     protocol implements `outputToLastPage` (`base/state.ts` + per-chain `state.ts`) because
+     `own` is a structured page for object-paged chains and can't be rebuilt from the block
+     number. Pending data above the committed timestamp is **not** marked, so it is always
+     re-fetched, never skipped.
+   - **Commit** (`runtime/process-blocks.ts`, STEP 7) writes each marker **inside the block's
+     transaction**: `upsertPage(page_number = ownBlockNumber)` then
+     `removePages(page_number < ownBlockNumber)` — leaving exactly one row per protocol = the
+     committed watermark, atomic with the block.
+   - **Boot** (`restoreState`) reads `getPage` = `ORDER BY page_number ASC LIMIT 1` and
+     resumes from `nextInterval(own).from` = the next uncommitted block.
+
+   **Re-scan on restart is bounded by `stepSize`, not a chain's whole quiet tail.** Every
+   fetched chunk's boundary page (`data.to`) is buffered and consumed even when empty, so the
+   marker advances to within one `stepSize` of the committed frontier — and reaches the
+   fetched tip exactly at full catch-up. So a long-quiet chain re-fetches at most ~`stepSize`
+   blocks after a restart, regardless of how long ago its last data was. Trade-off:
+   `getSyncAndLastPage` now reports `synced_page == fetched_page`.
 
 ---
 
@@ -146,24 +169,20 @@ Consequences during catch-up:
 
 → Fix: **(C) backpressure** — cap `bufferedData` and pause the fetch loop until the merge drains.
 
-### 2. Silent data gap on restart (correctness)
+### 2. Silent data gap on restart (correctness) — ✅ FIXED (D)
 
-The page queue is **chunk-granular** but commits are **single-block-granular**:
-- fetch persists `upsertPage(page_number = chunk_end)` (`base/state.ts:132`; `own = ownBlockNumber = Number(data.to)`),
-- commit deletes `removePages(page_number < merged_block_N)` (`process-blocks.ts:328`),
-- restart resumes from `getPage` = oldest remaining chunk, at `nextInterval(own).from = chunk_end + 1`.
+**The bug (historical).** The page queue was **chunk-granular** but commits are
+**single-block-granular**: the fetch loop persisted `upsertPage(page_number = chunk_end)`,
+commit deleted `removePages(page_number < merged_block_N)`, and restart resumed from
+`getPage` = oldest remaining chunk at `nextInterval(own).from = chunk_end + 1`. During
+catch-up chunks are full `stepSize`, so the committed watermark `N` sat **inside** the
+oldest retained chunk `[start, end]` (`end ≥ N ⇒ not deleted`); resume jumped to `end + 1`,
+**silently skipping `(N, end]`** → missing primitives → divergent app state, with no error.
 
-During catch-up chunks are full `stepSize`, so at restart the committed watermark `N` sits
-**inside** the oldest retained chunk `[start, end]` (`start ≤ N < end ⇒ end ≥ N ⇒ not deleted`).
-Resume jumps to `end + 1`, **silently skipping source blocks `(N, end]`** (up to
-`stepSize - 1`). The in-memory Deque held them; they're gone on restart; the effectstream
-height continues seamlessly with **missing primitives → divergent app state**. There is
-**no error** and **no restart/resume test** (the only tests in `test/examples.test.ts` are
-export smoke-checks). The existing `getSyncAndLastPage` `synced_page` (`MIN(page_number)`)
-is itself chunk-granular and does not reflect the true committed block.
-
-→ Fix: **(D) block-accurate resume** — persist the committed per-protocol watermark and
-resume from `watermark + 1`, reconciling stale fetched-ahead page rows.
+**The fix (D) — block-accurate resume, runtime is the sole writer.** The runtime persists a
+block-accurate marker per protocol on commit instead of the fetch loop persisting chunk-end
+pages. Full mechanism in **design idea #5** above. Regression test: the
+`consistency.test.ts` "mid-chunk restart" case (Postgres-only).
 
 ### 3. Serial replay is the catch-up bottleneck
 
@@ -182,6 +201,6 @@ block-hash chain.
 > survives a restart. See `docs/ADDING-A-SYNC-PROTOCOL.md` for how to add a chain
 > (with `test` as the worked example).
 >
-> Deterministic reproductions of #1/#2/#3 and their fixes land in **follow-up
-> PRs**, each test alongside its fix: #1 → fetch backpressure; #2 →
-> block-accurate resume; #3 → opt-in empty-block commit batching during catch-up.
+> Deterministic reproductions of #1/#2/#3 and their fixes land alongside each fix:
+> **#2 → block-accurate resume is DONE** (`consistency.test.ts`). Still in follow-up
+> PRs: #1 → fetch backpressure; #3 → opt-in empty-block commit batching during catch-up.

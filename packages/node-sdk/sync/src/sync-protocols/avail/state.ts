@@ -100,6 +100,15 @@ export class AvailSyncState extends SyncState<
   }
 
   @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    return {
+      own: { height: data.raw.number, hash: data.raw.hash },
+      ownBlockNumber: data.raw.number,
+      root: this.toRootPage(data),
+    };
+  }
+
+  @bound
   override getNamespace(): string[] {
     return [this.config.network.name, this.config.syncProtocol.name];
   }

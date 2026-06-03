@@ -1,4 +1,4 @@
-import { type Operation, until } from "effection";
+import { type Operation } from "effection";
 import Deque from "denque";
 import {
   type BlockNumber,
@@ -11,7 +11,6 @@ import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { BaseDataFetcher, DataFetched } from "./fetcher.ts";
 import type { PageRelation } from "./page.ts";
 import type { PoolClient } from "pg";
-import { acquireDBMutex, releaseDBMutex, upsertPage } from "@effectstream/db";
 
 export type LastPage<Page, RootPage> = {
   own: Page;
@@ -106,6 +105,12 @@ export abstract class SyncState<
    */
   abstract mergeDatum(ourOutput: Output, rootOutput: RootOutput): void;
 
+  /**
+   * Build the resume marker for a single output: the {@link LastPage} to resume
+   * fetching *after* it. See CLAUDE.md design idea #5 (restart/resume).
+   */
+  abstract outputToLastPage(data: Output): LastPage<Page, RootPage>;
+
   @bound
   *updateState(
     _input: Input,
@@ -129,13 +134,8 @@ export abstract class SyncState<
           ),
       );
 
-      yield* acquireDBMutex(`update-state-${this.name}`);
-      yield* until(upsertPage.run({
-        protocol_name: this.name,
-        page_number: data.lastPage.ownBlockNumber,
-        page: JSON.stringify(data.lastPage),
-      }, this.dbConn as any)); // Client,
-      releaseDBMutex(`update-state-${this.name}`);
+      // lastPage is in-memory only; the runtime is the sole writer of the
+      // persisted resume marker (see CLAUDE.md design idea #5).
       this.lastPage = data.lastPage;
       this.newPageCondVar.wake();
     }

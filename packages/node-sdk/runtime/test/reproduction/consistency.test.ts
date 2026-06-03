@@ -7,12 +7,10 @@
  *   A. Determinism baseline — two from-scratch syncs to the same height produce
  *      identical databases. Expected to PASS (proves reproducibility).
  *
- *   B. Resume reproduction — a sync that stops mid-chunk and resumes to N must
- *      match a clean sync to N. Expected to FAIL today: it reproduces the
- *      block-accurate-resume gap (Fix D, see packages/node-sdk/sync/CLAUDE.md),
- *      where a restart silently skips source blocks in (committed, chunk_end].
- *      Declared `test.failing`, so it counts as an expected failure now and
- *      flips the suite red (prompting "make me a real `test`") once Fix D lands.
+ *   B. Resume guarantee — a sync that stops mid-chunk and resumes to N must
+ *      match a clean sync to N. Regression test for block-accurate resume
+ *      (see @effectstream/sync CLAUDE.md, design idea #5): a restart must
+ *      re-fetch (committed, chunk_end] instead of silently skipping it.
  *
  * Each node runs in its own subprocess (see harness.ts / node-runner.ts): a
  * restart is a genuine new OS process whose in-memory Deque is gone while the
@@ -38,7 +36,6 @@ import {
 // Postgres-only: run only when PGLITE=false and Postgres is present.
 const canRun = process.env.PGLITE === "false" && postgresAvailable();
 const it = canRun ? test : test.skip;
-const itFailing = canRun ? test.failing : test.skip;
 
 /** "<n> tables, <m> rows". */
 function summarize(snap: ConsistencySnapshot): string {
@@ -115,7 +112,7 @@ it("two from-scratch syncs to the same height produce identical databases", asyn
   expect(diffs).toEqual([]);
 }, 120_000);
 
-itFailing(
+it(
   "a mid-chunk restart resumes to the same database as a clean sync",
   async () => {
     // One event inside the gap the restart will skip: it must fall in
@@ -154,24 +151,24 @@ itFailing(
     let resumeSnap: ConsistencySnapshot;
     try {
       // Phase 1: the parallel fetcher (no backpressure) races to its own tip
-      // (50) and persists page_number=50, but the main clock only drives commits
-      // to height 10 — so parallel blocks 11..50 (incl. the event at 20) sit
-      // unmerged in the in-memory Deque, never committed. waitPages guarantees
-      // the page-50 row is durable before the process exits.
+      // (50) into the in-memory Deque, but the main clock only drives commits to
+      // height 10 — so parallel blocks 11..50 (incl. the event at 20) are fetched
+      // but never committed, and the in-memory Deque is lost when the process
+      // exits. The runtime persists a block-accurate resume marker at the last
+      // COMMITTED parallel block (≤ 10), not the fetched-ahead tip.
       await resumed.runToHeight({
         events,
         parallelStepSize,
         tips: { mainClock: 10, parallelP: 50 },
         target: 10,
         apiPort: 19151,
-        waitPages: { parallelP: 50 },
       });
 
       // Phase 2 (restart): a new process boots against the same database. Its
-      // Deque is empty; restoreState reads the oldest retained page (50) and
-      // resumes parallel from 51, silently skipping (10,50]. The main clock now
-      // advances to 30, so the parallel blocks it needs (11..30, including the
-      // event at 20) are never re-fetched — those slots go empty.
+      // Deque is empty; restoreState reads the persisted resume marker (the last
+      // committed parallel block ≤ 10) and resumes parallel from there. The main
+      // clock now advances to 30, so the parallel blocks it needs (11..30,
+      // including the event at 20) are re-fetched and committed.
       await resumed.runToHeight({
         events,
         parallelStepSize,
@@ -184,9 +181,6 @@ itFailing(
       await resumed.teardown();
     }
 
-    // FAILS today: resumeSnap is missing the block-20 event
-    // (primitive_accounting) and block 20 differs in effectstream_blocks.
-    // Passes once Fix D lands.
     const { diffs } = compareConsistencySnapshots(refSnap, resumeSnap);
     logComparison(
       "[consistency B]",

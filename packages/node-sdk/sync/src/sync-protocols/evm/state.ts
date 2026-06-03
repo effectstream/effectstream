@@ -91,6 +91,16 @@ export class EvmSyncState extends SyncState<
   }
 
   @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    const block = Number(data.raw.number);
+    return {
+      own: block,
+      ownBlockNumber: block,
+      root: this.toRootPage(data),
+    };
+  }
+
+  @bound
   override getNamespace(): string[] {
     return [this.config.network.name, this.config.syncProtocol.name];
   }
