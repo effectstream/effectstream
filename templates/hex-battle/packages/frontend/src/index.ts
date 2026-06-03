@@ -7,7 +7,8 @@ import {RulesScreen} from './frontend/game/rules_screen';
 import {StartupScreen} from './frontend/startup_screen';
 import * as mw from './paima/middleware';
 import {RandomGame} from './random-game';
-import {nameToLogin} from './frontend/name_to_login';
+import {mountConnectWidget} from './wallet/connect_widget';
+import * as walletStore from './wallet/wallet_store';
 
 const TUTORIAL = false;
 const PRACTICE = false;
@@ -16,22 +17,27 @@ const SKIP_STARTUP = false;
 (async () => {
   console.log('Welcome to HexBattle!');
 
+  // The single global wallet connector (top-right button + modal). It holds the
+  // connected wallet in ./wallet/wallet_store — the single source of truth the
+  // game reads via mw.getUserWallet().
+  mountConnectWidget();
+  // Reconnect this tab's wallet (per-tab sessionStorage) BEFORE any screen reads
+  // identity. Empty on a fresh tab; restores the same wallet across the game's
+  // redirects/reloads so the player keeps their identity.
+  await walletStore.restoreFromSession();
+
   // --- Headless-e2e / integration namespace (additive — does not alter the
   // game). Mirrors the world-map-2d `window.<template>` pattern so a headless
-  // Chromium can connect the local-JS wallet (EvmViem) and drive a write tx
-  // without pixel-driving the canvas. The real game still drives everything
-  // through `mw` exactly as before. -------------------------------------------
+  // Chromium can connect a wallet and drive a write tx without pixel-driving the
+  // canvas. The real game drives everything through `mw` + the connect widget. --
   const hexBattle = {
-    connectBrowserWallet: async () => {
-      const r = await mw.default.userWalletLogin(nameToLogin('metamask', false));
-      hexBattle._reflectAddress();
-      return r;
-    },
-    connectLocalWallet: async () => {
-      const r = await mw.default.userWalletLogin(nameToLogin('local', false));
-      hexBattle._reflectAddress();
-      return r;
-    },
+    // Real installed wallet (MetaMask, …); headless Chromium has none, so this
+    // rejects there — the e2e drives connectLocalWallet instead.
+    connectBrowserWallet: () => walletStore.connectInjected(),
+    // Deterministic dev wallet (Hardhat #0) for headless e2e ONLY — keeps the
+    // fixed-address assertion stable. Real users get a random browser wallet
+    // via the connect widget, never this.
+    connectLocalWallet: () => walletStore.connectDeterministicDevWallet(),
     createLobby: (
       numOfPlayers = 2,
       units = 'A',
@@ -53,21 +59,9 @@ const SKIP_STARTUP = false;
       mw.default.submitMoves(id, round, move),
     surrender: (id: string) => mw.default.surrender(id),
     getOpenLobbies: () => mw.default.getOpenLobbies(),
-    getAddress: () => {
-      const w = mw.default.getUserWallet(null, () => ({success: false} as any));
-      return w.success ? (w as any).result : null;
-    },
-    _reflectAddress() {
-      const addr = hexBattle.getAddress();
-      let el = document.querySelector('[data-testid="wallet-address"]');
-      if (!el) {
-        el = document.createElement('div');
-        el.setAttribute('data-testid', 'wallet-address');
-        (el as HTMLElement).style.display = 'none';
-        document.body.appendChild(el);
-      }
-      el.textContent = addr ?? '';
-    },
+    // Full lowercase address of the connected wallet (the widget keeps the
+    // visible chip in sync separately). null when not connected.
+    getAddress: () => walletStore.getAddress(),
   };
   (window as any).hexBattle = hexBattle;
 
@@ -116,40 +110,22 @@ const SKIP_STARTUP = false;
   // eslint-disable-next-line node/no-unsupported-features/node-builtins
   const url = new URL(window.location.href);
   const lobby = url.searchParams.get('lobby');
-  const wallet = url.searchParams.get('wallet');
 
-  if (lobby && wallet) {
-    const pregame_screen = new PreGameScreen(lobby, wallet);
-    pregame_screen.start();
+  // Identity is the connected wallet (restored above), NOT the URL — a shared
+  // lobby link only needs ?lobby. PreGameScreen prompts a connect when you join.
+  if (lobby) {
+    new PreGameScreen(lobby).start();
     return;
   }
 
-  if (lobby && !wallet) {
-    (window as any).wallet_selection_show((options: {wallet: string}) => {
-      if (options.wallet) {
-        mw.default
-          .userWalletLogin(nameToLogin(options.wallet, false))
-          .then((x: any) => {
-            if (x.success) {
-              window.location.replace(
-                `/?lobby=${lobby}&wallet=${options.wallet}&account=${mw.localAccountIndex()}`
-              );
-            }
-          });
-      }
-    });
+  if (SKIP_STARTUP) {
     const gameLobby = new LobbyScreen();
     gameLobby.start();
   } else {
-    if (SKIP_STARTUP) {
+    const startupScreen = new StartupScreen(() => {
       const gameLobby = new LobbyScreen();
       gameLobby.start();
-    } else {
-      const startupScreen = new StartupScreen(() => {
-        const gameLobby = new LobbyScreen();
-        gameLobby.start();
-      });
-      startupScreen.start();
-    }
+    });
+    startupScreen.start();
   }
 })();

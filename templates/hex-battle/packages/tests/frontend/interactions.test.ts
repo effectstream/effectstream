@@ -23,13 +23,12 @@ function findChrome(): string | undefined {
   return undefined;
 }
 
-// Phase C — interactions. The wallet connect buttons live in the game's
-// wallet-selection modal (#wallet_selection), which the canvas game reveals via
-// popup.js's `wallet_selection_show()`. We reveal it directly (the canvas-drawn
-// menu button that normally opens it can't be DOM-clicked), then assert each
-// connect CTA fires without throwing a fatal pageerror. `console.error` from a
-// catch block (e.g. the browser-wallet button when window.ethereum is absent in
-// headless Chromium) is expected and ignored.
+// Phase C — interactions. The wallet connector is one global "Connect Wallet"
+// button (injected by the bundle, top-right) that opens a modal offering a real
+// installed wallet or a random "browser wallet". We click the button to open
+// the modal, then click "Create browser wallet" (the path that works without a
+// browser extension), asserting neither fires a fatal pageerror. `console.error`
+// from discovery (no window.ethereum in headless Chromium) is expected/ignored.
 export async function frontendInteractionsTest(): Promise<void> {
   const executablePath = findChrome();
   if (!executablePath) {
@@ -57,16 +56,6 @@ export async function frontendInteractionsTest(): Promise<void> {
       timeout: 10_000,
     });
 
-    // Reveal the wallet-selection modal so its buttons become clickable.
-    await page.evaluate(() => {
-      const sel = document.getElementById("wallet_selection");
-      sel?.classList.remove("hide");
-    });
-    await page.waitForSelector('[data-testid="connect-browser-wallet"]', {
-      state: "visible",
-      timeout: 5_000,
-    });
-
     async function clickDoesNotThrow(name: string, selector: string) {
       await assert(`CTA ${name} does not throw on click`, async () => {
         const beforePageErrors = jsErrors.filter((e) =>
@@ -81,23 +70,25 @@ export async function frontendInteractionsTest(): Promise<void> {
       });
     }
 
+    // The global Connect Wallet button is injected by the bundle on boot.
+    await page.waitForSelector('[data-testid="connect-wallet"]', {
+      state: "visible",
+      timeout: 10_000,
+    });
     await clickDoesNotThrow(
-      "Connect Browser Wallet",
-      '[data-testid="connect-browser-wallet"]',
+      "Connect Wallet (opens modal)",
+      '[data-testid="connect-wallet"]',
     );
 
-    // Re-reveal the modal (it hides itself after a selection) for the local one.
-    await page.evaluate(() => {
-      const sel = document.getElementById("wallet_selection");
-      sel?.classList.remove("hide");
-    });
-    await page.waitForSelector('[data-testid="connect-local-wallet"]', {
+    // The modal offers a random "browser wallet" — the path that works without a
+    // browser extension. Clicking it generates + funds + connects a wallet.
+    await page.waitForSelector('[data-testid="create-browser-wallet"]', {
       state: "visible",
       timeout: 5_000,
     });
     await clickDoesNotThrow(
-      "Connect Local Wallet",
-      '[data-testid="connect-local-wallet"]',
+      "Create browser wallet",
+      '[data-testid="create-browser-wallet"]',
     );
   } finally {
     await browser.close();

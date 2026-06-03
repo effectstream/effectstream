@@ -1,29 +1,16 @@
-import {
-  Tile,
-  GameMap,
-  Player,
-  UnitType,
-  BuildingType,
-  Moves,
-  Hex,
-  QRSCoord,
-  CreateGame,
-} from '@hex-battle/engine';
+import {Game, Hex} from '@hex-battle/engine';
 import * as mw from '../paima/middleware';
 import {BackgroundScreen} from './background_screen';
 import {GameScreen} from './game/game_screen';
 import {LoadScreen} from './load_screen';
-// Prando is the SAME deterministic RNG the sync node seeds its STM
-// `randomGenerator` with (@effectstream/crypto). Reconstructing the game from
-// the stored `seed` with this exact RNG guarantees the client replays the
-// identical board the on-chain engine produced.
-import {Prando} from '@effectstream/crypto';
-import {nameToLogin} from './name_to_login';
+import * as walletStore from '../wallet/wallet_store';
+import {ensureConnected} from '../wallet/connect_widget';
 
 interface LobbyData {
   lobby: Lobby;
   players: PlayerData[];
   rounds: Round[];
+  gameState: unknown;
 }
 
 interface Lobby {
@@ -67,12 +54,12 @@ export class PreGameScreen extends BackgroundScreen {
   lobby: Lobby | null = null;
   players: PlayerData[] = [];
   rounds: Round[] = [];
-  map: QRSCoord[] = [];
+  // The server's authoritative exported game state. The client reconstructs the
+  // game from THIS (Game.import) — never by re-deriving the board from the seed,
+  // which diverges (RNG mismatch) and silently desyncs client vs server.
+  gameState: unknown = null;
 
-  constructor(
-    private lobbyId: string,
-    private walletName: string | null
-  ) {
+  constructor(private lobbyId: string) {
     super('full');
   }
 
@@ -154,75 +141,21 @@ export class PreGameScreen extends BackgroundScreen {
     this.DrawUI();
     this.stop();
 
-    const initalGold = this.lobby!.gold;
-    const tiles: Tile[] = this.map
-      .map((coord: {q: number; r: number; s: number}) => {
-        if (
-          coord.q !== parseInt(String(coord.q), 10) ||
-          coord.r !== parseInt(String(coord.r), 10) ||
-          coord.s !== parseInt(String(coord.s), 10)
-        ) {
-          console.log('WTF Invalid tile', coord);
-          return null;
-        }
-
-        return new Tile(coord.q, coord.r, coord.s);
-      })
-      .filter((x: Tile | null) => !!x) as Tile[];
-    const map = new GameMap(tiles);
-    map.updateLimits();
-    const players = this.players.map(
-      (p, i) => new Player(Player.PlayerIndexes[i], initalGold, p.player_wallet)
-    );
-
-    const localWallet = mw.default.getUserWallet(null, () => {
-      throw Error('No wallet');
-    });
-
-    if (!localWallet.success) throw new Error('Local wallet not found');
-
-    let seed = this.lobby!.seed;
-    if (!seed) {
-      console.log('CRITIAL ERROR SEED NOT FOUND.');
-      seed = this.lobby!.lobby_id;
+    if (!this.gameState) {
+      console.error('No authoritative game state to import — cannot start game');
+      return;
     }
 
-    const game = CreateGame.newGame(
-      this.lobbyId,
-      localWallet.result,
-      map,
-      players,
-      this.lobby!.units.split('') as UnitType[],
-      this.lobby!.buildings.split('') as BuildingType[],
-      this.lobby!.init_tiles,
-      this.lobby!.started_block_height,
-      new Prando(seed)
-    );
+    // Reconstruct the EXACT state the on-chain engine produced by importing the
+    // server's exported game_state. (Rebuilding from `seed` + replaying rounds
+    // diverges: the STM's RNG isn't reproducible from the stored seed, so the
+    // board — base/unit placement — comes out different and every move is then
+    // rejected as illegal against the server's real board.)
+    const game = Game.import(JSON.stringify(this.gameState));
 
-    this.rounds.forEach((round: Round) => {
-      const move = Moves.deserializePaima(game, round);
-      game.initMoves(move.player);
-      for (const action of move.actions) {
-        switch (action.type) {
-          case 'move':
-            game.moves[move.turn].applyMoveUnit(game, action);
-            break;
-          case 'new_unit':
-            game.moves[move.turn].applyPlaceUnit(game, action);
-            break;
-          case 'new_building':
-            game.moves[move.turn].applyPlaceBuilding(game, action);
-            break;
-          case 'surrender':
-            game.moves[move.turn].applySurrender(game, action);
-            break;
-          default:
-            throw new Error('Invalid action type');
-        }
-      }
-      game.endTurn();
-      game.startBlockheight = round.block_height;
-    });
+    // localWallet is the *viewing* tab's identity (the server exports it as "");
+    // set it so input is gated to this tab's player. Empty → spectate.
+    game.localWallet = walletStore.getAddress() ?? '';
 
     new LoadScreen(game).start().then(_ => {
       const gameScreen = new GameScreen(game, true);
@@ -241,16 +174,16 @@ export class PreGameScreen extends BackgroundScreen {
       this.players = lobbyData.players;
       this.lobby = lobbyData.lobby;
       this.rounds = lobbyData.rounds;
+      this.gameState = lobbyData.gameState;
 
       const isGameOver =
         this.lobby?.lobby_state === 'finished' ||
         this.lobby?.lobby_state === 'closed';
-      if (this.lobby?.lobby_state === 'active' || isGameOver) {
-        const map = await mw.default.getLobbyMap(this.lobbyId);
-        if (map.success) {
-          this.map = JSON.parse((map.data as any).lobby.map);
-          this.moveToGame(isGameOver);
-        }
+      if (
+        (this.lobby?.lobby_state === 'active' || isGameOver) &&
+        this.gameState
+      ) {
+        this.moveToGame(isGameOver);
       }
     }
   }
@@ -271,22 +204,13 @@ export class PreGameScreen extends BackgroundScreen {
   }
 
   getMousePos(event: any) {
-    const x = window.getComputedStyle(
-      document.getElementsByClassName('container-zoom')[0]
-    );
-    const zoom = parseFloat(x.getPropertyValue('zoom'));
+    // Scaling-agnostic cursor → canvas mapping (see game_draw.ts getMousePos).
     const rect = this.canvas.getBoundingClientRect();
-    // console.log({
-    //   screen: 'pregame - loading',
-    //   zoom,
-    //   clientX: event.clientX,
-    //   rectLeft: rect.left,
-    //   clientY: event.clientY,
-    //   rectTop: rect.top,
-    // });
+    const scaleX = this.canvas.width / (rect.width || 1);
+    const scaleY = this.canvas.height / (rect.height || 1);
     return {
-      x: event.clientX / (zoom || 1) - rect.left,
-      y: event.clientY / (zoom || 1) - rect.top,
+      x: (event.clientX - rect.left) * scaleX,
+      y: (event.clientY - rect.top) * scaleY,
     };
   }
 
@@ -333,18 +257,9 @@ export class PreGameScreen extends BackgroundScreen {
     // eslint-disable-next-line node/no-unsupported-features/node-builtins
     const url = new URL(window.location.href);
     const lobbyURL = url.searchParams.get('lobby') || '';
-    const walletName = url.searchParams.get('wallet') || '';
     if (!lobbyURL) {
       // this should never happen
       window.location.replace('/');
-    }
-
-    if (walletName) {
-      const batcherEnabled = !!mw.ENV.BATCHER_URI;
-      const status = await mw.default.userWalletLogin(
-        nameToLogin(walletName, batcherEnabled)
-      );
-      console.log({status});
     }
 
     this.canvas.addEventListener('mousemove', this.mouse_hover_event);
@@ -353,19 +268,23 @@ export class PreGameScreen extends BackgroundScreen {
 
     await this.fetchLobby();
 
-    if (walletName) {
-      const localWallet = mw.default.getUserWallet(null, () => {
-        throw Error('No wallet');
-      });
-      if (!localWallet.success) {
-        throw new Error('getUserWallet failed');
+    // A shared lobby link lands here with no identity in the URL. If the lobby
+    // is open and has room, make sure a wallet is connected (prompt the global
+    // widget if not) and auto-join if this wallet isn't already a player.
+    const joinable =
+      !!this.lobby &&
+      this.lobby.lobby_state === 'open' &&
+      this.players.length < this.lobby.num_of_players;
+    if (joinable) {
+      try {
+        await ensureConnected();
+      } catch {
+        // user dismissed the connect prompt — stay in the waiting room (spectate)
       }
-      const me = this.players.find(p => p.player_wallet === localWallet.result);
-      if (
-        !me &&
-        this.lobby &&
-        this.players.length < this.lobby.num_of_players
-      ) {
+      const me = this.players.find(
+        p => p.player_wallet === walletStore.getAddress()
+      );
+      if (walletStore.isConnected() && !me) {
         this.join();
       }
     }

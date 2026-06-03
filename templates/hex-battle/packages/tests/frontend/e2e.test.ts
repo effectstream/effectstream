@@ -9,14 +9,11 @@
 // world-map-2d's `window.<template>` pattern) to connect + submit. See
 // references/migration.md § "Preserve user-facing UX" / "Wallet UI" banners.
 //
-// NOTE (engine gap): @effectstream/wallets' EvmViem provider does not yet
-// implement `sendTransaction` (only signing primitives + a viem walletClient).
-// So the createLobby write driven from the frontend may reject with
-// "evmProvider.sendTransaction is not a function". We assert connect + render +
-// namespace exposure unconditionally, and treat the createLobby step as a
-// best-effort end-to-end probe (logged, not hard-failed) until the EvmViem
-// provider rounds out its IProvider surface. The Phase B STM tests cover the
-// write path via viem.walletClient.writeContract directly.
+// `connectLocalWallet` maps to a DETERMINISTIC dev wallet (Hardhat #0 via
+// WalletMode.EvmViem) so the address assertion below is stable — real users get
+// a random faucet-funded "browser wallet" via the connect widget, never this.
+// EvmViem now implements `sendTransaction`, so the createLobby write should
+// resolve end-to-end; we still log (not hard-fail) it as a best-effort probe.
 
 import { assert } from "../helpers.ts";
 import { chromium } from "playwright-core";
@@ -92,21 +89,27 @@ export async function frontendE2ETest(): Promise<void> {
       await (window as any).hexBattle.connectLocalWallet();
     });
 
-    // 2. The connected address (Hardhat account #0) is reflected in the DOM.
+    // 2. The connected address (Hardhat account #0) is exposed by the namespace.
+    //    (The visible chip shows a friendly name + short address; the namespace
+    //    returns the full lowercase address, which is what we assert on.)
     await page.waitForFunction(
       (expected) => {
-        const el = document.querySelector('[data-testid="wallet-address"]');
-        return el && el.textContent?.toLowerCase().includes(expected);
+        const addr = (window as { hexBattle?: { getAddress?: () => string | null } })
+          .hexBattle?.getAddress?.();
+        return typeof addr === "string" && addr.toLowerCase() === expected;
       },
       EXPECTED_ADDRESS,
       { timeout: 15_000 },
     );
     await assert(
-      "Local-JS wallet connects in headless Chromium and shows the address",
+      "Local-JS wallet connects in headless Chromium and exposes the address",
       async () => {
-        const text = await page.locator('[data-testid="wallet-address"]')
-          .innerText();
-        return text.toLowerCase().includes(EXPECTED_ADDRESS);
+        const addr = await page.evaluate(() =>
+          (window as { hexBattle?: { getAddress?: () => string | null } })
+            .hexBattle?.getAddress?.() ?? null
+        );
+        return typeof addr === "string" &&
+          addr.toLowerCase() === EXPECTED_ADDRESS;
       },
     );
 

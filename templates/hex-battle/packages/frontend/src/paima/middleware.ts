@@ -13,16 +13,12 @@
 //   wallet   → walletLogin({ mode, ... })  — EvmInjected (browser) + EvmViem (local-js)
 //
 // The grammar-key + arg order is mapped 1:1 against packages/node/grammar.ts.
-import {
-  allInjectedWallets,
-  EffectstreamConfig,
-  sendTransaction,
-  walletLogin,
-  WalletMode,
-  type LoginInfo,
-  type Wallet,
-} from '@effectstream/wallets';
+import {EffectstreamConfig, sendTransaction} from '@effectstream/wallets';
 import {hardhat as hardhatChain} from 'viem/chains';
+// The connected wallet (real or random browser wallet) lives in the store —
+// the single source of truth. The game's write endpoints read it per call;
+// connect/disconnect is driven by ../wallet/connect_widget. No identity in the URL.
+import * as walletStore from '../wallet/wallet_store';
 
 // The template's viem and @effectstream/wallets' pinned viem can resolve to two
 // structurally-identical-but-nominally-distinct `Chain` types; widen once here so
@@ -48,56 +44,6 @@ export const effectstreamConfig = new EffectstreamConfig(
 
 const API_BASE = 'http://localhost:9999';
 const HARDHAT_RPC = 'http://localhost:8545';
-// Hardhat well-known accounts (#0-#3) — local-dev only; never use on real chains.
-const HARDHAT_KEYS = [
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', // #0 0xf39F…2266
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d', // #1 0x7099…79C8
-  '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a', // #2 0x3C44…93BC
-  '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6', // #3 0x90F7…b906
-];
-// Local wallet account is chosen by the `?account=<index>` URL param (default #0)
-// — NOT `?wallet=`, which the game itself owns for the wallet *mode* and rewrites
-// on every lobby redirect (window.location.replace('/?lobby=…&wallet=local')).
-//
-// Two things keep the account stable through those redirects:
-//  1. We LATCH `?account` into sessionStorage (per-tab) eagerly at module load —
-//     below — before any game code runs or any redirect can strip it. We only
-//     write when `?account` is present, so a later reload at `?lobby=…&wallet=local`
-//     (no `?account`) keeps the previously-latched value.
-//  2. The game's redirect URLs carry `&account=` (see localAccountIndex() callers
-//     in index.ts / lobby_screen.ts), so the account also stays visible in the URL.
-//
-// Play a 2-player match locally with two tabs:
-//   http://localhost:10599            → account #0 (create the lobby)
-//   http://localhost:10599/?account=1 → account #1 (join it) → match starts
-const inAccountRange = (n: number) =>
-  Number.isInteger(n) && n >= 0 && n < HARDHAT_KEYS.length;
-
-// Eager latch — runs once when the bundle loads.
-if (typeof window !== 'undefined') {
-  const raw = new URLSearchParams(window.location.search).get('account');
-  if (raw != null && inAccountRange(Number(raw))) {
-    try {
-      window.sessionStorage.setItem('hexAccount', String(Number(raw)));
-    } catch {/* sessionStorage unavailable */}
-  }
-}
-
-// Read-only: sessionStorage (latched above) → `?account` → default #0.
-export function localAccountIndex(): number {
-  if (typeof window === 'undefined') return 0;
-  try {
-    const stored = window.sessionStorage?.getItem('hexAccount');
-    if (stored != null && inAccountRange(Number(stored))) return Number(stored);
-  } catch {/* sessionStorage unavailable */}
-  const idx = Number(
-    new URLSearchParams(window.location.search).get('account') ?? '0',
-  );
-  return inAccountRange(idx) ? idx : 0;
-}
-function localPrivateKey(): string {
-  return HARDHAT_KEYS[localAccountIndex()];
-}
 
 // `mw.ENV.*` surface the original middleware exposed. The game reads
 // BATCHER_URI (to pick batched vs self-sequenced login) and BLOCK_TIME (turn
@@ -109,16 +55,14 @@ export const ENV = {
 };
 
 // ---------------------------------------------------------------------------
-// Wallet state (replaces document.Paima / getDefaultActiveAddress)
+// Wallet state — sourced from ../wallet/wallet_store (single source of truth).
+// The store holds the connected wallet (real or random browser wallet); the
+// write endpoints below read it per call. Replaces document.Paima and the old
+// HARDHAT_KEYS / ?account dev hacks.
 // ---------------------------------------------------------------------------
 
-let wallet: Wallet | null = null;
-let walletAddress: string | null = null;
-
 function currentAddress(): string {
-  if (walletAddress) return walletAddress;
-  const a = wallet?.provider.getAddress?.()?.address;
-  return a ?? '';
+  return walletStore.getAddress() ?? '';
 }
 
 // Result helpers mirroring @paima/sdk/mw-core's Result<T> / FailedResult shapes
@@ -133,102 +77,14 @@ function fail(errorMessage: string, errorCode = 1): Failed {
 }
 
 // ---------------------------------------------------------------------------
-// Wallet login (EvmInjected for browsers, EvmViem for local-js / headless e2e)
+// Wallet status (connect/disconnect is driven by ../wallet/connect_widget; the
+// game reads the connected address from the store).
 // ---------------------------------------------------------------------------
-
-async function loginWithInfo(loginInfo: LoginInfo) {
-  const result = await walletLogin(loginInfo);
-  if (!result.success) {
-    // Surface the real reason (rejected, no wallet, wrong chain, …) instead of
-    // a generic string.
-    return fail(
-      (result as {errorMessage?: string}).errorMessage ?? 'Wallet login failed',
-    );
-  }
-  wallet = result.result;
-  walletAddress = wallet.walletAddress ?? currentAddress();
-  // The game reads `x.result.walletAddress`.
-  return {
-    success: true as const,
-    result: {walletAddress: walletAddress},
-  };
-}
-
-// userWalletLogin keeps the same call shape the game uses
-//   mw.default.userWalletLogin(nameToLogin(name, batcherEnabled))
-// nameToLogin (see ../frontend/name_to_login.ts) now returns a
-// @effectstream/wallets LoginInfo. EvmViem carries its own privateKey/rpcUrl.
-async function userWalletLogin(loginInfo: LoginInfo, _setDefault?: boolean) {
-  // EvmViem needs the local key + RPC; nameToLogin only sets the mode, so fill
-  // the local-js connection details here.
-  if (loginInfo.mode === WalletMode.EvmViem) {
-    return loginWithInfo({
-      mode: WalletMode.EvmViem,
-      privateKey: localPrivateKey(),
-      rpcUrl: HARDHAT_RPC,
-      chain: hardhat,
-      preferBatchedMode: false,
-    } as LoginInfo);
-  }
-  // EvmInjected (browser): discover + connect a real installed wallet.
-  if (loginInfo.mode === WalletMode.EvmInjected) {
-    return connectInjectedEvm();
-  }
-  return loginWithInfo(loginInfo);
-}
-
-// Discover installed injected EVM wallets and connect the first one. The lean
-// @effectstream/wallets connector needs a `preference` (which wallet) and
-// `preferBatchedMode`; the previous call passed neither, so the connector had no
-// wallet to connect — that produced "Wallet login failed".
-async function connectInjectedEvm() {
-  let available;
-  try {
-    available = await allInjectedWallets({
-      signatureSupport: true,
-      transactionSupport: true,
-    });
-  } catch (err) {
-    return fail(`Wallet discovery failed: ${String(err)}`);
-  }
-  const evm = available?.[WalletMode.EvmInjected] ?? [];
-  if (evm.length === 0) {
-    return fail(
-      'No browser wallet detected — install MetaMask, or use "Connect Local Wallet".',
-    );
-  }
-  return loginWithInfo({
-    mode: WalletMode.EvmInjected,
-    preference: {name: evm[0].name},
-    preferBatchedMode: false,
-    chain: hardhat,
-  } as LoginInfo);
-}
-
-// Convenience helpers the test harness / index.html buttons can call directly.
-async function connectBrowserWallet() {
-  return connectInjectedEvm();
-}
-
-async function connectLocalWallet() {
-  return loginWithInfo({
-    mode: WalletMode.EvmViem,
-    privateKey: localPrivateKey(),
-    rpcUrl: HARDHAT_RPC,
-    chain: hardhat,
-    preferBatchedMode: false,
-  } as LoginInfo);
-}
 
 async function checkWalletStatus() {
   return {success: true, message: '', result: currentAddress()};
 }
 
-// Re-exported (the game's middleware.d.ts re-exported these); kept as no-ops /
-// thin shims so import sites resolve.
-export function userWalletLoginWithoutChecks(loginInfo: LoginInfo) {
-  return loginWithInfo(loginInfo);
-}
 export function updateBackendUri(uri: string) {
   ENV.BACKEND_URI = uri;
 }
@@ -271,10 +127,11 @@ async function createLobby(
   initTiles: number,
   map: string[]
 ): Promise<DataResult<{lobby_id: string; lobbyStatus: string}> | Failed> {
-  if (!wallet) return fail('Connect a wallet first', 1008);
+  const w = walletStore.getWallet();
+  if (!w) return fail('Connect a wallet first', 1008);
   try {
     await sendTransaction(
-      wallet,
+      w,
       [
         'createLobby',
         numOfPlayers,
@@ -293,7 +150,13 @@ async function createLobby(
     return fail(`createLobby failed: ${String(err)}`);
   }
   // The server assigns the lobby id; look up the wallet's latest open lobby.
-  const latest = await getLatestCreatedLobby(currentAddress());
+  // The sync node indexes the createLobby a block or two AFTER the receipt, so
+  // poll briefly instead of giving up on the first miss.
+  let latest = await getLatestCreatedLobby(currentAddress());
+  for (let i = 0; i < 20 && (!latest.success || !latest.data); i++) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    latest = await getLatestCreatedLobby(currentAddress());
+  }
   if (!latest.success || !latest.data) {
     return fail('createLobby submitted but lobby not found yet');
   }
@@ -310,10 +173,11 @@ async function createLobby(
 async function joinLobby(
   lobbyId: string
 ): Promise<DataResult<unknown> | Failed> {
-  if (!wallet) return fail('Connect a wallet first', 1008);
+  const w = walletStore.getWallet();
+  if (!w) return fail('Connect a wallet first', 1008);
   try {
     await sendTransaction(
-      wallet,
+      w,
       ['joinLobby', lobbyId],
       effectstreamConfig,
       'wait-receipt'
@@ -327,10 +191,11 @@ async function joinLobby(
 async function surrender(
   lobbyId: string
 ): Promise<DataResult<{lobbyId: string; lobbyStatus: string}> | Failed> {
-  if (!wallet) return fail('Connect a wallet first', 1008);
+  const w = walletStore.getWallet();
+  if (!w) return fail('Connect a wallet first', 1008);
   try {
     await sendTransaction(
-      wallet,
+      w,
       ['surrender', lobbyId],
       effectstreamConfig,
       'wait-receipt'
@@ -348,10 +213,11 @@ async function submitMoves(
   roundNumber: number,
   move: string[]
 ): Promise<DataResult<{message: string}> | Failed> {
-  if (!wallet) return fail('Connect a wallet first', 1008);
+  const w = walletStore.getWallet();
+  if (!w) return fail('Connect a wallet first', 1008);
   try {
     await sendTransaction(
-      wallet,
+      w,
       ['submitMoves', lobbyID, roundNumber, move.join(',')],
       effectstreamConfig,
       'wait-receipt'
@@ -549,12 +415,8 @@ const endpoints = {
   getLeaderBoard,
   getUserWallet,
   getLatestProcessedBlockHeight,
-  // wallet
-  userWalletLogin,
-  userWalletLoginWithoutChecks,
+  // wallet (connect/disconnect lives in ../wallet/connect_widget + wallet_store)
   checkWalletStatus,
-  connectBrowserWallet,
-  connectLocalWallet,
   // misc
   exportLogs,
   pushLog,

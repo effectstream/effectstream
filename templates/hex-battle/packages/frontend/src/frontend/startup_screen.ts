@@ -13,7 +13,6 @@ export class StartupScreen extends ScreenUI {
   private alpha = 0;
   private imageCache = new ImageCache(null as any);
   readonly paimaLogo = '/assets/paima.png';
-  readonly algorandLogo = '/assets/algorand.png';
 
   ready = false;
   constructor(public finishCallback: () => void) {
@@ -27,7 +26,6 @@ export class StartupScreen extends ScreenUI {
   async start(): Promise<void> {
     this.setIsLoading(true);
     this.imageCache.preloadImage(this.paimaLogo);
-    this.imageCache.preloadImage(this.algorandLogo);
     this.drawTimer = setInterval(() => this.DrawUI(), 33);
     return;
   }
@@ -73,31 +71,8 @@ export class StartupScreen extends ScreenUI {
     this.ctx.fillStyle = '#19B17B';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.DrawLogo();
-    this.DrawLogo2();
     // this.DrawLoading();
     this.selfStop();
-  }
-
-  DrawLogo2() {
-    if (ImageCache.images.has(this.algorandLogo)) {
-      this.ctx.globalAlpha = this.alpha;
-      this.ctx.drawImage(
-        ImageCache.images.get(this.algorandLogo),
-        this.canvas.width / 2 - this.logoSize[2] / 2,
-        this.canvas.height - this.logoSize[3] - 10,
-        this.logoSize[2],
-        this.logoSize[3]
-      );
-      this.ctx.font = '16px Electrolize';
-      this.ctx.fillStyle = '#fff';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(
-        'Powered by',
-        this.canvas.width / 2,
-        this.canvas.height - this.logoSize[3] - 20
-      );
-      this.ctx.globalAlpha = 1;
-    }
   }
 
   DrawLogo() {

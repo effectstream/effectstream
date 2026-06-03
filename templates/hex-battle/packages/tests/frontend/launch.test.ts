@@ -142,10 +142,13 @@ export async function frontendLaunchTest(): Promise<void> {
           (await page.$("#myCanvas")) !== null,
       );
       await assert(
-        "both wallet connect buttons present (browser + local-JS)",
-        async () =>
-          (await page.$('[data-testid="connect-browser-wallet"]')) !== null &&
-          (await page.$('[data-testid="connect-local-wallet"]')) !== null,
+        "the global Connect Wallet button mounts",
+        async () => {
+          await page.waitForSelector('[data-testid="connect-wallet"]', {
+            timeout: 5_000,
+          });
+          return true;
+        },
       );
       await assert(
         "the hexBattle integration namespace is wired",

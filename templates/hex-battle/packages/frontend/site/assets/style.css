@@ -32,13 +32,32 @@ canvas {
     position: absolute
 }
 
+/* ── Frosted-glass overlay theme ──────────────────────────────────────────
+   Translucent dark panels with heavy backdrop blur, thin glowing borders and
+   a cyan accent — consistent with the in-game look + the Connect Wallet widget.
+   Accent cyan ≈ rgb(56, 208, 230). */
+
 .options_popup {
     width: 650px;
     min-height: 600px;
-    background-color: rgb(255, 255, 255);
-    border-radius: 1px;
-    box-shadow: 0 19px 38px rgba(0, 0, 0, 0.30), 0 15px 12px rgba(0, 0, 0, 0.22);
+    background: linear-gradient(160deg, rgba(40, 56, 74, 0.55), rgba(16, 24, 34, 0.62));
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(120, 210, 235, 0.22);
+    border-radius: 18px;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 24px 70px rgba(0, 0, 0, 0.55),
+        0 0 44px rgba(56, 208, 230, 0.12);
+    color: #e8f4f8;
+    box-sizing: border-box;
     z-index: 2;
+    animation: popup-in 170ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popup-in {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
 .center {
@@ -50,40 +69,123 @@ canvas {
     transform: translate(-50%, -50%);
 }
 
+.popup {
+    width: 599px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Modal title — the first .item in every popup. */
+.popup > .item:first-child {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-align: center;
+    color: #eafcff;
+    text-shadow: 0 0 14px rgba(56, 208, 230, 0.45);
+    padding-bottom: 14px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(56, 208, 230, 0.35);
+}
+
+/* Secondary labels read a touch muted on the glass. */
+.popup .item { color: #cfe7f0; }
+
+/* Inputs & selects — glassy, dark, cyan focus ring. */
+.options_popup input,
+.options_popup select {
+    background: rgba(10, 16, 24, 0.55);
+    border: 1px solid rgba(120, 210, 235, 0.25);
+    border-radius: 10px;
+    color: #eafcff;
+    padding: 11px 14px;
+    font-family: 'Electrolize';
+    color-scheme: dark;
+    outline: none;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.options_popup input:focus,
+.options_popup select:focus {
+    border-color: rgba(56, 208, 230, 0.7);
+    box-shadow: 0 0 0 3px rgba(56, 208, 230, 0.18);
+}
+
+.options_popup select option {
+    background: #11212e;
+    color: #eafcff;
+}
+
+/* Buttons — shared glass base + per-variant accent. */
+.button_ok,
+.button_cancel,
 .button_neutral {
-    background-color: #ecf0f1;
-    color: black;
-    border-radius: 2px;
-    font-size: 26px;
-
-    &:hover {
-        background-color: #bdc3c7;
-        cursor: pointer;
-    }
+    font-family: 'Electrolize';
+    font-size: 23px;
+    width: 100%;
+    padding: 13px 18px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    /* center the label both axes so labels never sit at the bottom even when a
+       fixed height is set inline (e.g. the Join button). */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.1;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    transition: transform 120ms ease, box-shadow 170ms ease, background 170ms ease, border-color 170ms ease;
 }
 
+.button_ok:hover,
+.button_cancel:hover,
+.button_neutral:hover { cursor: pointer; transform: translateY(-1px); }
+
+.button_ok:active,
+.button_cancel:active,
+.button_neutral:active { transform: translateY(0) scale(0.99); }
+
+/* Primary — cyan glow. */
 .button_ok {
-    background-color: #2ecc71;
-    color: white;
-    border-radius: 2px;
-    font-size: 26px;
-
-    &:hover {
-        background-color: #27ae60;
-        cursor: pointer;
-    }
+    background: linear-gradient(180deg, rgba(56, 208, 230, 0.32), rgba(34, 176, 204, 0.20));
+    border-color: rgba(120, 224, 240, 0.5);
+    color: #eafdff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 18px rgba(56, 208, 230, 0.22);
 }
 
-.button_cancel {
-    background-color: #e74c3c;
-    color: white;
-    border-radius: 2px;
-    font-size: 26px;
+.button_ok:hover {
+    background: linear-gradient(180deg, rgba(72, 220, 242, 0.5), rgba(40, 190, 218, 0.34));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 28px rgba(56, 208, 230, 0.5);
+}
 
-    &:hover {
-        background-color: #c0392b;
-        cursor: pointer;
-    }
+/* Cancel — red-tinted glass. */
+.button_cancel {
+    background: linear-gradient(180deg, rgba(231, 76, 60, 0.28), rgba(192, 57, 43, 0.18));
+    border-color: rgba(231, 120, 110, 0.45);
+    color: #ffeae7;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.button_cancel:hover {
+    background: linear-gradient(180deg, rgba(231, 76, 60, 0.45), rgba(192, 57, 43, 0.30));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 24px rgba(231, 76, 60, 0.4);
+}
+
+/* Neutral — plain glass. */
+.button_neutral {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(180, 210, 225, 0.25);
+    color: #e8f4f8;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+.button_neutral:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(120, 210, 235, 0.45);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 18px rgba(120, 210, 235, 0.18);
 }
 
 .hide {
@@ -96,29 +198,36 @@ canvas {
 }
 
 #dark-background {
-    backdrop-filter: blur(4px);
-    background-color: rgba(0, 0, 0, 0.5);
+    -webkit-backdrop-filter: blur(9px) saturate(120%);
+    backdrop-filter: blur(9px) saturate(120%);
+    background: radial-gradient(circle at 50% 38%, rgba(12, 20, 30, 0.45), rgba(4, 8, 12, 0.74));
     width: 100%;
     height: 100%;
     z-index: 1;
+    animation: fade-in 170ms ease-out;
 }
 
-.leaderboard-row { 
+@keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Cyan-tinted scrollbars inside the glass panels. */
+.options_popup ::-webkit-scrollbar { width: 10px; height: 10px; }
+.options_popup ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+.options_popup ::-webkit-scrollbar-thumb { background: rgba(56, 208, 230, 0.35); border-radius: 10px; }
+.options_popup ::-webkit-scrollbar-thumb:hover { background: rgba(56, 208, 230, 0.55); }
+
+.leaderboard-row {
     font-size: 24px;
     margin-top: 4px;
 }
 
-.popup {
-    width: 599px; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: space-between;
-}
-
 .help-row {
-    display: flex; 
+    display: flex;
     flex-direction: row;
     margin-top: 16px;
+    align-items: center;
 }
 
 .help-row1 {
@@ -126,15 +235,16 @@ canvas {
 }
 
 .help-row2 {
-    min-width: 350px; 
-    max-width: 350px; 
+    min-width: 350px;
+    max-width: 350px;
     margin-right: 10px;
 }
 
 .help-row3 {
-    display: flex; 
-    flex-direction: row; 
+    display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
+    gap: 4px;
 }
 
 .help-image {
@@ -143,31 +253,33 @@ canvas {
 
 
 .leaderboard-head {
-    display:flex; 
-    flex-direction: row; 
-    border-bottom: 1px solid #ccc;
+    display: flex;
+    flex-direction: row;
+    border-bottom: 1px solid rgba(56, 208, 230, 0.30);
     margin-bottom: 10px;
     padding-bottom: 6px;
+    color: #9fd9e6;
 }
 
 .leaderboard-item {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: #34495e;
+    background: linear-gradient(180deg, rgba(56, 208, 230, 0.20), rgba(34, 176, 204, 0.12));
+    border: 1px solid rgba(120, 210, 235, 0.30);
     border-radius: 100px;
-    color: white;
+    color: #eafdff;
 }
 
 .leaderboard-rank {
-    flex: 0 0 100px; 
-    width:100px;
+    flex: 0 0 100px;
+    width: 100px;
 }
 
 .leaderboard-name {
-    width:400px; 
-    text-align:left; 
-    margin-left:30px;
+    width: 400px;
+    text-align: left;
+    margin-left: 30px;
 }
 
 /*** TODO Firefox scaling not working properly

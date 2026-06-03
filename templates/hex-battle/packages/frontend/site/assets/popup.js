@@ -146,7 +146,7 @@ function join_lobby_show(lobbies, callback) {
 
   if (lobbies.length === 0) {
     list_of_lobbies.innerHTML =
-      'Sorry no lobbies are open.<br>Create a new game.';
+      '<div style="text-align:center; opacity:0.7; font-size:20px; margin-top:40px;">No open lobbies.<br>Create a new game to start one.</div>';
   } else {
     list_of_lobbies.innerHTML = lobbies
       .map(l => {
@@ -154,26 +154,14 @@ function join_lobby_show(lobbies, callback) {
         const shortWallet = `${wallet.substring(0, 6)}...${wallet.substring(
           wallet.length - 4
         )}`;
-        // Time Limit: ${l.timelimit}<br>
-        // Round Limit: ${l.roundlimit}<br>
-        const item = `
-        <div style="font-size:18px; margin-right:20px; margin-top:10px; margin-bottom:10px;">
-          <span style="font-weight:bold"> Lobby ${l.lobby_id}</span><br>
-          Players: ${l.num_of_players}<br>
-          Units: ${l.units.length}<br>
-          Buildings: ${l.buildings.length - 1}<br>
-          Gold: ${l.gold}<br>
-          Creator: ${shortWallet}<br>
-        </div>`;
-
-        const button = `
-        <button 
-          style="width:100px; height:40px; margin-left:auto" class="item button_ok" 
-          onclick="join_lobby_join('${l.lobby_id}')">Join</button>`;
-
         return `
-        <div style="display: flex; flex-direction: row;">
-          ${item} ${button}
+        <div style="display:flex; flex-direction:row; align-items:center; gap:16px; padding:14px 16px; margin-bottom:12px; background:rgba(255,255,255,0.05); border:1px solid rgba(120,210,235,0.18); border-radius:12px;">
+          <div style="flex:1; min-width:0; font-size:20px; line-height:1.5;">
+            <div style="font-weight:bold; font-size:22px; color:#eafcff; margin-bottom:6px; word-break:break-all;">Lobby ${l.lobby_id}</div>
+            <div style="color:#cfe7f0;">Players ${l.num_of_players} &middot; Units ${l.units.length} &middot; Buildings ${l.buildings.length - 1} &middot; Gold ${l.gold}</div>
+            <div style="color:#9fd9e6; font-family:monospace; font-size:16px; margin-top:4px;">Creator ${shortWallet}</div>
+          </div>
+          <button style="width:130px; flex:0 0 auto;" class="button_ok" onclick="join_lobby_join('${l.lobby_id}')">Join</button>
         </div>`;
       })
       .join('');
@@ -198,21 +186,18 @@ function rejoin_lobby_show(lobbies, callback) {
   list_of_lobbies.innerHTML = '';
   if (lobbies.length === 0) {
     list_of_lobbies.innerHTML =
-      'You have no active games.<br>Join or Create a new game.';
+      '<div style="text-align:center; opacity:0.7; font-size:20px; margin-top:40px;">You have no active games.<br>Join or create a new game.</div>';
   } else {
-    // <br>State ${l.lobby_state}
-    // <br>Round #${l.current_round}</div>
     list_of_lobbies.innerHTML = lobbies
       .map(
         l => `
-          <div style="display: flex; flex-direction: row; margin-top: 10px;  margin-top:10px; margin-bottom:10px;>
-          <div style="margin-right:20px;">
-              Players ${l.activePlayers}/${l.num_of_players}</br>
-              Lobby Id: ${l.lobby_id}</br>
-          <button style="margin-left:auto; height: 40px;" class="item button_ok" onclick="rejoin_lobby_join('${l.lobby_id}')">
-              Rejoin
-          </button>
-          </div>`
+        <div style="display:flex; flex-direction:row; align-items:center; gap:16px; padding:14px 16px; margin-bottom:12px; background:rgba(255,255,255,0.05); border:1px solid rgba(120,210,235,0.18); border-radius:12px;">
+          <div style="flex:1; min-width:0; font-size:20px; line-height:1.5;">
+            <div style="font-weight:bold; font-size:22px; color:#eafcff; margin-bottom:6px; word-break:break-all;">Lobby ${l.lobby_id}</div>
+            <div style="color:#cfe7f0;">Players ${l.activePlayers}/${l.num_of_players}</div>
+          </div>
+          <button style="width:130px; flex:0 0 auto;" class="button_ok" onclick="rejoin_lobby_join('${l.lobby_id}')">Rejoin</button>
+        </div>`
       )
       .join('');
   }

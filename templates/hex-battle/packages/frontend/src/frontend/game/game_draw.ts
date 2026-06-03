@@ -223,37 +223,20 @@ export abstract class GameDraw extends ScreenUI {
   }
 
   protected getMousePos(event: MouseEvent, withOffset = true) {
-    const x = window.getComputedStyle(
-      document.getElementsByClassName('container-zoom')[0]
-    );
-    const zoom = parseFloat(x.getPropertyValue('zoom'));
+    // Map cursor → intrinsic canvas coords from the canvas's ACTUAL rendered
+    // rect. This is scaling-agnostic (CSS `zoom`, `transform: scale`, responsive
+    // sizing) and browser-agnostic — unlike the old `clientX / zoom - rect.left`,
+    // which is only correct at zoom === 1 and drifts as the UI shrinks below
+    // 1920px (the sub-1440px click-misalignment bug).
     const rect = this.canvas.getBoundingClientRect();
-
-    // this.ctx.font = this.font18VT323;
-    // this.ctx.fillStyle = 'black';
-    // this.ctx.textAlign = 'left';
-    // this.ctx.fillText(
-    //   JSON.stringify({
-    //     screen: 'game_screen.ts',
-    //     zoom,
-    //     clientX: event.clientX,
-    //     rectLeft: rect.left,
-    //     clientY: event.clientY,
-    //     rectTop: rect.top,
-    //   }),
-    //   this.size,
-    //   this.canvas.height / 2
-    // );
-
-    console.log();
+    const scaleX = this.canvas.width / (rect.width || 1);
+    const scaleY = this.canvas.height / (rect.height || 1);
     return {
       x:
-        event.clientX / (zoom || 1) -
-        rect.left -
+        (event.clientX - rect.left) * scaleX -
         (withOffset ? this.offset_x : 0),
       y:
-        event.clientY / (zoom || 1) -
-        rect.top -
+        (event.clientY - rect.top) * scaleY -
         (withOffset ? this.offset_y : 0),
     };
   }

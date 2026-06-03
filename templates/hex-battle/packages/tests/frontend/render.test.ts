@@ -67,13 +67,17 @@ export async function frontendRenderTest(): Promise<void> {
         (await page.$("#myCanvas")) !== null,
     );
 
-    // Both wallet connect buttons exist (they live inside the wallet-selection
-    // modal the game reveals on demand; presence in the DOM is what matters).
+    // The single global "Connect Wallet" button is injected by the bundle on
+    // boot (mountConnectWidget). It opens a modal offering a real installed
+    // wallet or a random "browser wallet".
     await assert(
-      "Frontend exposes both wallet buttons (browser + local-JS)",
-      async () =>
-        (await page.$('[data-testid="connect-browser-wallet"]')) !== null &&
-        (await page.$('[data-testid="connect-local-wallet"]')) !== null,
+      "Frontend exposes the global Connect Wallet button",
+      async () => {
+        await page.waitForSelector('[data-testid="connect-wallet"]', {
+          timeout: 5_000,
+        });
+        return true;
+      },
     );
 
     // The additive integration namespace (used by headless e2e) is wired up.

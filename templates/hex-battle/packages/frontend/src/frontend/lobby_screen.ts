@@ -8,12 +8,13 @@ import {VERSION} from '../version';
 import {RulesScreen} from './game/rules_screen';
 import {DrawHex} from './hex.draw';
 import {Colors} from './colors';
-import {nameToLogin} from './name_to_login';
+import * as walletStore from '../wallet/wallet_store';
+import {ensureConnected} from '../wallet/connect_widget';
 
 export class LobbyScreen extends BackgroundScreen {
   drawTimer: any = null;
-  walletName: string | null = null;
   walletAddress: string | null = null;
+  private unsubscribe: (() => void) | null = null;
   private events: {
     coord: {x: number; y: number; width: number; height: number};
     cmd: string;
@@ -26,33 +27,34 @@ export class LobbyScreen extends BackgroundScreen {
   }
 
   async start() {
+    // Reflect the connected wallet (restored on boot) and keep it in sync — the
+    // chip/name regenerate whenever the user connects/disconnects via the widget.
+    this.walletAddress = walletStore.getAddress();
+    this.unsubscribe = walletStore.subscribe(() => {
+      this.walletAddress = walletStore.getAddress();
+      this.playerName = '';
+      this.playerShort = '';
+    });
     this.setEventListeners();
     this.startDraw();
   }
 
   async stop() {
     clearInterval(this.drawTimer);
+    this.unsubscribe?.();
+    this.unsubscribe = null;
     this.canvas.removeEventListener('mousemove', this.mouse_hover_event);
     this.canvas.removeEventListener('click', this.mouse_click_event);
   }
 
   getMousePos(event: any) {
-    const x = window.getComputedStyle(
-      document.getElementsByClassName('container-zoom')[0]
-    );
-    const zoom = parseFloat(x.getPropertyValue('zoom'));
+    // Scaling-agnostic cursor → canvas mapping (see game_draw.ts getMousePos).
     const rect = this.canvas.getBoundingClientRect();
-    // console.log({
-    //   screen: 'lobby',
-    //   zoom,
-    //   clientX: event.clientX,
-    //   rectLeft: rect.left,
-    //   clientY: event.clientY,
-    //   rectTop: rect.top,
-    // });
+    const scaleX = this.canvas.width / (rect.width || 1);
+    const scaleY = this.canvas.height / (rect.height || 1);
     return {
-      x: event.clientX / (zoom || 1) - rect.left,
-      y: event.clientY / (zoom || 1) - rect.top,
+      x: (event.clientX - rect.left) * scaleX,
+      y: (event.clientY - rect.top) * scaleY,
     };
   }
 
@@ -278,40 +280,23 @@ export class LobbyScreen extends BackgroundScreen {
   }
 
   getMyWallet(callback: () => void) {
-    try {
-      const response = mw.default.getUserWallet(null, () => {
-        throw new Error('User wallet not found');
-      });
-      if (!response.success) {
-        throw new Error('Could not connect wallet.');
-      }
-      this.walletAddress = response.result;
+    // Already connected? proceed. Otherwise open the global connect widget and
+    // continue once a wallet (real or random browser wallet) is connected.
+    if (walletStore.isConnected()) {
+      this.walletAddress = walletStore.getAddress();
       return callback();
-    } catch (e) {
-      (window as any).wallet_selection_show((options: {wallet: string}) => {
-        if (options.wallet) {
-          const batcherEnabled = !!mw.ENV.BATCHER_URI;
-          mw.default
-            .userWalletLogin(nameToLogin(options.wallet, batcherEnabled))
-            .then((x: any) => {
-              if (x.success) {
-                this.walletName = options.wallet;
-                this.walletAddress = x.result.walletAddress;
-                this.setToastMessage('Wallet Connected!');
-                return callback();
-              } else {
-                this.setToastMessage('Could not connect wallet.');
-              }
-            })
-            .catch(e => {
-              console.log(e);
-              this.setToastMessage('Could not connect wallet.');
-            });
-        }
-      });
-
-      return null;
     }
+    ensureConnected()
+      .then(() => {
+        this.walletAddress = walletStore.getAddress();
+        this.setToastMessage('Wallet Connected!');
+        callback();
+      })
+      .catch(e => {
+        console.log(e);
+        this.setToastMessage('Could not connect wallet.');
+      });
+    return null;
   }
 
   cmd_rejoin = () => {
@@ -324,8 +309,8 @@ export class LobbyScreen extends BackgroundScreen {
         // games.data = [{ lobby_id, lobby_state, current_round, num_of_players, lobby_creator }]
         (window as any).rejoin_lobby_show(games.data, (id: string) => {
           this.stop();
-          // go to pregame_screen
-          window.location.replace(`/?lobby=${id}&wallet=${this.walletName}&account=${mw.localAccountIndex()}`);
+          // go to pregame_screen — identity comes from the connected wallet, not the URL
+          window.location.replace(`/?lobby=${id}`);
         });
       })
       .finally(() => {
@@ -355,10 +340,8 @@ export class LobbyScreen extends BackgroundScreen {
               .then(res => {
                 if (res.success) {
                   this.stop();
-                  // go to pregame_screen
-                  window.location.replace(
-                    `/?lobby=${id}&wallet=${this.walletName}&account=${mw.localAccountIndex()}`
-                  );
+                  // go to pregame_screen — identity is the connected wallet
+                  window.location.replace(`/?lobby=${id}`);
                 }
               })
               .finally(() => {
@@ -414,10 +397,8 @@ export class LobbyScreen extends BackgroundScreen {
             if (response.success) {
               this.stop();
               const lobby = (response.data as any).lobby_id;
-              // go to prescreen
-              window.location.replace(
-                `/?lobby=${lobby}&wallet=${this.walletName}&account=${mw.localAccountIndex()}`
-              );
+              // go to prescreen — identity is the connected wallet
+              window.location.replace(`/?lobby=${lobby}`);
             }
           })
           .finally(() => {

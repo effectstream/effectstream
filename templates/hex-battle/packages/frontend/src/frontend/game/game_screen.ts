@@ -524,7 +524,8 @@ export class GameScreen extends GameDraw {
     this.ctx.fillText(
       `Turn ${this.game.turn}`,
       this.canvas.width - 8 * this.size,
-      this.size
+      // Pushed down so the on-page wallet chip (fixed, top-right) doesn't cover it.
+      this.size * 2
     );
     this.ctx.closePath();
 
@@ -538,7 +539,7 @@ export class GameScreen extends GameDraw {
       this.ctx.fillText(
         `${remaining}[s]`,
         this.canvas.width - 6 * this.size,
-        this.size * 2
+        this.size * 3
       );
       this.ctx.closePath();
     }
