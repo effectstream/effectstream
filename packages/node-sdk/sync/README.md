@@ -46,6 +46,46 @@ const protocols = await genSyncProtocols(config);
 // protocols.parallelEvmRPC_fast.runOne()  // poll one block
 ```
 
+## Backpressure (`maxBufferedPages`)
+
+During deep catch-up a chain's fetch loop races to its tip far faster than the
+merge can drain (the merge applies one block per DB transaction). Without a bound
+the in-memory buffer (`SyncState.bufferedData`) grows toward the **entire backlog**
+— hundreds of thousands of block objects — which is an OOM risk (sync issue #1).
+
+**The cap.** Every chain's `stateToInput` calls `bufferAtCap(state, syncProtocol)`
+first (`sync-protocols/common/page-helpers.ts`): when
+`bufferedData.size() >= maxBufferedPages` it returns `undefined`, so the chain stops
+fetching — exactly as if it had caught up to the tip — and the polling loop sleeps
+`pollingInterval` and retries. The merge keeps draining the buffer; once it drops
+below the cap the next poll resumes. Peak in-memory buffering is therefore bounded
+to **≈ `maxBufferedPages + stepSize`** per chain (one in-flight chunk can overshoot
+the cap), instead of the whole backlog.
+
+**Config.** `maxBufferedPages` is an optional field on every sync-protocol config
+(declared once on the shared `PollingSyncProtocol` schema). When unset it defaults to
+**`4 × stepSize`** (the `MAX_BUFFER_MULTIPLE` constant in `page-helpers.ts`), always
+clamped to **`≥ stepSize + 1`** so a chain can always fetch at least one chunk to feed
+the merge. ~4 chunks of look-ahead never starves the merge while keeping memory
+bounded; raise it to trade memory for more fetch look-ahead. The cap only bites during
+catch-up — in steady state the buffer sits near zero and the cap is never reached.
+
+**Deadlock-safety.** Pausing a full chain cannot deadlock: a chain's page only
+advances via a fetch (`updateState`), and the merge drains a chain's buffered data
+*before* it waits on that chain's page — so the paused (full) chain is never the one
+the merge is blocked on without a path to resume.
+
+**Scope.** The guard runs in **every** chain's `stateToInput`, so all sync chains are
+covered: EVM, NTP, Bitcoin, Avail, Celestia, NEAR, Midnight, Cardano (UTXO-RPC), and
+the synthetic `test` chain. Two notes:
+- **Cardano (UTXO-RPC)** has no `stepSize` (it streams one block per pass), so the cap
+  falls back to a default chunk size of 1000 (⇒ default cap 4000); set `maxBufferedPages`
+  explicitly to tune it.
+- The cap bounds `SyncState.bufferedData` (the merge-facing Deque — the issue #1
+  buffer). The UTXO-RPC fetcher additionally keeps its own internal FollowTip stream
+  buffer; pausing `stateToInput` stops draining it into `bufferedData`, but bounding
+  that lower-level stream is a separate, fetcher-specific concern.
+
 ## Key exports
 
 - `genSyncProtocols(dbConn, syncInfo)` - Effection generator that instantiates a runtime fetcher + state pair for every protocol in `syncInfo` (from `config.syncProtocols`). Called from the runtime's process-blocks loop.

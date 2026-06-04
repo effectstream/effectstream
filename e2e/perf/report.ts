@@ -317,7 +317,7 @@ DATA.phases.forEach(function(ph, pi){
   ];
   const bp = document.createElement('div');
   let bph = '<h3 class="sub-h">Backpressure — live run (issue #1)</h3>';
-  bph += '<p class="sub-cap">Live perf node buffers/memory. Usually modest here (the perf node can\'t cleanly balloon the buffer — see e2e/perf/README.md); the authoritative curve is the in-process section above.</p>';
+  bph += '<p class="sub-cap">Live perf node buffers/memory. Usually modest here (the perf node can&#39;t cleanly balloon the buffer — see e2e/perf/README.md); the authoritative curve is the in-process section above.</p>';
   bph += '<div class="kpi-grid">';
   bph += '<div class="kpi-card"><div class="kpi-label">Peak Buffer</div><div class="kpi-val text-amber">' + (sm.peakTotalBuf||0).toLocaleString() + ' pages</div><div class="kpi-sub">mainNtp: ' + (sm.peakMainBuf||0).toLocaleString() + ' / parallel: ' + (sm.peakEvmBuf||0).toLocaleString() + '</div></div>';
   bph += '<div class="kpi-card"><div class="kpi-label">Residual Buffer</div><div class="kpi-val">' + (sm.finalMainBuf||0).toLocaleString() + ' pages</div><div class="kpi-sub">mainNtp at end of phase</div></div>';
@@ -335,8 +335,7 @@ DATA.phases.forEach(function(ph, pi){
   root.appendChild(sec);
   if (!s.t.length){
     const p = document.createElement('p'); p.textContent = '(no samples captured for this phase)';
-    sec.appendChild(p); return;
-    p.style.color = '#9ca3af';
+    p.style.color = '#9ca3af'; sec.appendChild(p); return;
   }
   charts.concat(bpCharts).forEach(function(c){ mkChart(c.id, c.title, s.t, c.ds, !!c.log, c.yTitle, c.y1Title); });
 });

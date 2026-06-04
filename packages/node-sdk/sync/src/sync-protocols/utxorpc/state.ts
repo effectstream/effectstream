@@ -1,4 +1,5 @@
 import { applyDelay } from "../common/utils.ts";
+import { bufferAtCap } from "../common/page-helpers.ts";
 import type { Operation } from "effection";
 import { call } from "effection";
 import { getPage } from "@effectstream/db";
@@ -71,6 +72,7 @@ export class UtxoRpcSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     // Get the value of the latest block height.
     const tipHeight = yield* call(() => this.fetcher.lastHeight());
     if (!tipHeight) {

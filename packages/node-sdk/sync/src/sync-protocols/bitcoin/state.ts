@@ -16,7 +16,7 @@ import {
   type Output,
   type Page,
 } from "./types.ts";
-import { genInputRange } from "../common/page-helpers.ts";
+import { bufferAtCap, genInputRange } from "../common/page-helpers.ts";
 import type {
   ConfigNetworkType,
   SyncProtocolWithNetwork,
@@ -75,6 +75,7 @@ export class BitcoinSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     return yield* genInputRange(
       this as BitcoinSyncState,
       this.config.syncProtocol.startBlockHeight as Page,

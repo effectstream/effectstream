@@ -75,13 +75,17 @@ high event volume, and measures how the node behaves under load. Modeled on
     deep catch-up (apply lag) and any memory growth.
   - **The authoritative buffer-growth curve comes from the in-process measurement,
     not the live run.** The deterministic test
-    `packages/node-sdk/runtime/test/reproduction/buffering.test.ts` reproduces both
-    the unbounded buffer (1a) and head-of-line blocking (1b) and writes
-    `buffering-{1a,1b}-<stamp>.json` into `e2e/perf/results/`. **This report
-    auto-loads the latest such artifacts** and renders them in a dedicated
-    **Backpressure — in-process measurement** section at the top. Run that test
-    first (`bun test packages/node-sdk/runtime/test/reproduction/buffering.test.ts`)
-    to populate it.
+    `packages/node-sdk/runtime/test/reproduction/buffering.test.ts` exercises the
+    fetch backpressure cap for both the buffer (1a) and head-of-line blocking (1b)
+    and writes `buffering-{1a,1b}-<stamp>.json` into `e2e/perf/results/`. With the
+    Option B′ cap in place it now asserts the buffer stays **bounded** at the cap
+    (~3–4k) instead of the pre-fix ~49–50k balloon (see
+    `ISSUE-1-BACKPRESSURE-BASELINE.md`); for 1b, production still stalls at the slow
+    chain's tip but the sibling buffer is capped. **This report auto-loads the
+    latest such artifacts** and renders them in a dedicated **Backpressure —
+    in-process measurement** section at the top. Run that test first
+    (`bun test packages/node-sdk/runtime/test/reproduction/buffering.test.ts`) to
+    populate it.
 
 ## Running
 

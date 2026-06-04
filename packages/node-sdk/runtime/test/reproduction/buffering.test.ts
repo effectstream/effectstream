@@ -1,21 +1,19 @@
 /**
- * Deterministic MEASUREMENT of sync issue #1 (NOT a fix).
+ * Verifies the issue #1 BACKPRESSURE FIX (Option B′) over the synthetic `test`
+ * chain through the real runtime (`start()` + in-process PGLite).
  *
- * Two failure modes, both reproduced over the synthetic `test` chain through the
- * real runtime (`start()` + in-process PGLite):
+ *  1a — unbounded buffering: with a cap, the fetch loop pauses when the buffer is
+ *       full, so it stays bounded (~cap + stepSize) instead of racing to the whole
+ *       backlog — while the node keeps applying blocks (liveness).
+ *  1b — head-of-line blocking: a stalled slow chain STILL halts block production
+ *       (the merge gate is correct), but the fast chain's buffer is now bounded by
+ *       the cap instead of ballooning behind the head-of-line block.
  *
- *  1a — unbounded buffering: the per-chain fetch loop races to its tip with no
- *       backpressure while the merge drains one block per DB txn. The in-memory
- *       `bufferedData` Deque balloons toward the whole backlog (OOM risk).
- *  1b — head-of-line blocking: the merge gates each slot on the *slowest* parallel
- *       chain's page advancing; a stalled chain halts ALL block production while
- *       the other chains' Deques keep ballooning.
- *
- * These tests assert the problem EXISTS (buffer grows unbounded relative to
- * stepSize). A future backpressure fix would intentionally invert them. Each test
- * also writes a small JSON time-series artifact to e2e/perf/results/ whose field
- * names match e2e/perf/metrics.ts `Sample`, so the perf HTML report's Backpressure
- * section can render the same signals.
+ * Before the fix these buffers reached ~49k–50k (see
+ * e2e/perf/results/ISSUE-1-BACKPRESSURE-BASELINE.md); these tests assert they now
+ * stay at the cap. Each test also writes a JSON time-series artifact to
+ * e2e/perf/results/ whose field names match e2e/perf/metrics.ts `Sample`, so the
+ * perf HTML report's Backpressure section can render the same signals.
  */
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
@@ -39,14 +37,16 @@ import {
 const START_TIME = 1_700_000_000_000;
 const BLOCK_TIME_MS = 1000;
 const STEP_SIZE = 1000;
-// Big enough to prove unboundedness, small enough to stay a few-second unit test
-// (~50k tiny objects per Deque ≈ tens of MB). A single fetch chunk already adds
-// stepSize+1; a hypothetical backpressure fix would cap at ~1-2× stepSize.
+// A deep backlog the arithmetic fetcher would race through if uncapped (baseline
+// hit ~49k–50k). The slow chain (1b) is pinned low so the merge stalls at its tip.
 const BIG_TIP = 50_000;
 const SLOW_TIP = 50;
-// Robust lower bound: 5× stepSize is ~10× below the deterministic ceiling, so CI
-// timing jitter can't trip it, yet it's impossible to satisfy with backpressure.
-const UNBOUNDED_THRESHOLD = 5 * STEP_SIZE;
+// Explicit small cap so the bound is deterministic and far below the backlog.
+// The fetch pauses at >= CAP; one in-flight chunk can overshoot by ~stepSize, so
+// the buffer settles in [~CAP, CAP + stepSize]. We assert it lands in that band.
+const CAP = 3000;
+const CAP_FLOOR = CAP - STEP_SIZE; // proves backpressure actually engaged
+const BUFFER_BOUND = CAP + STEP_SIZE + 200; // upper bound incl. one overshoot chunk
 
 // e2e/perf/results lives at the repo root: reproduction → test → runtime →
 // node-sdk → packages → <root>/e2e/perf/results.
@@ -97,7 +97,7 @@ afterEach(async () => {
   await h?.teardown();
 });
 
-// ── 1a — unbounded buffering ───────────────────────────────────────────────────
+// ── 1a — unbounded buffering, now bounded by the cap ────────────────────────────
 
 const MAIN_1A = "mainClock1a";
 const PAR_1A = "parallelP1a";
@@ -131,6 +131,7 @@ function buildConfig1a() {
             startBlockHeight: 1,
             pollingInterval: 30,
             stepSize: STEP_SIZE,
+            maxBufferedPages: CAP,
           }),
         )
         .addParallel(
@@ -143,6 +144,7 @@ function buildConfig1a() {
             stepSize: STEP_SIZE,
             delayMs: 0,
             events: [],
+            maxBufferedPages: CAP,
           }),
         )
     )
@@ -155,9 +157,9 @@ function buildConfig1a() {
     .build();
 }
 
-test("1a: fetch with no backpressure balloons the buffer toward the whole backlog", async () => {
-  // A deep backlog the fetcher can race through arithmetically: tip far ahead of
-  // where the one-block-per-txn merge can drain to.
+test("1a: backpressure caps the buffer while the node keeps applying blocks", async () => {
+  // Tips far ahead of where the one-block-per-txn merge can drain to: without a
+  // cap the fetcher would race to ~50k; with the cap it must plateau near CAP.
   TestChainControl.setTip(MAIN_1A, BIG_TIP);
   TestChainControl.setTip(PAR_1A, BIG_TIP);
 
@@ -165,11 +167,10 @@ test("1a: fetch with no backpressure balloons the buffer toward the whole backlo
   const samples: BufSample[] = [];
   let peakMain = 0;
   let peakEvm = 0;
+  let lastApplied = 0;
   try {
     const startMs = Date.now();
     const deadline = startMs + 6000;
-    // Sample DURING catch-up — do NOT wait for stable first (that would drain the
-    // buffer back to ~0 before we look).
     while (Date.now() < deadline) {
       const wall = Date.now();
       const mainBuf = bufferSize(node, MAIN_1A);
@@ -187,30 +188,35 @@ test("1a: fetch with no backpressure balloons the buffer toward the whole backlo
       });
       peakMain = Math.max(peakMain, mainBuf);
       peakEvm = Math.max(peakEvm, evmBuf);
-      // Stop once the buffer has clearly ballooned AND the node is alive (applying
-      // blocks) so the captured curve is meaningful.
-      if (Math.max(peakMain, peakEvm) > UNBOUNDED_THRESHOLD && appliedBlock >= 50) {
-        break;
-      }
+      lastApplied = appliedBlock ?? lastApplied;
+      // Backpressure engaged (buffer hit the cap) AND the node is still applying
+      // blocks → we've captured the bounded steady state; stop early.
+      if (peakMain >= CAP && lastApplied >= 20) break;
       await sleep(50);
     }
   } finally {
     writeArtifact("buffering-1a", samples, {
-      mode: "1a-unbounded-buffering",
+      mode: "1a-bounded-by-cap",
       stepSize: STEP_SIZE,
       bigTip: BIG_TIP,
-      threshold: UNBOUNDED_THRESHOLD,
+      cap: CAP,
+      bufferBound: BUFFER_BOUND,
       peakMainBuf: peakMain,
       peakEvmBuf: peakEvm,
+      lastApplied,
     });
     await node.stop();
   }
 
-  // The buffer raced far past anything a single fetch chunk explains: no backpressure.
-  expect(Math.max(peakMain, peakEvm)).toBeGreaterThan(UNBOUNDED_THRESHOLD);
+  // Backpressure engaged: the buffer reached the cap (not starved)...
+  expect(peakMain).toBeGreaterThanOrEqual(CAP_FLOOR);
+  // ...but stayed bounded — nowhere near the uncapped ~49k backlog.
+  expect(Math.max(peakMain, peakEvm)).toBeLessThanOrEqual(BUFFER_BOUND);
+  // ...and the node kept producing/applying blocks (no deadlock).
+  expect(lastApplied).toBeGreaterThanOrEqual(20);
 }, 60_000);
 
-// ── 1b — head-of-line blocking ──────────────────────────────────────────────────
+// ── 1b — head-of-line blocking, sibling buffer now bounded ──────────────────────
 
 const MAIN_1B = "mainClock1b";
 const FAST_1B = "fastP1b";
@@ -251,6 +257,7 @@ function buildConfig1b() {
             startBlockHeight: 1,
             pollingInterval: 30,
             stepSize: STEP_SIZE,
+            maxBufferedPages: CAP,
           }),
         )
         .addParallel(
@@ -263,6 +270,7 @@ function buildConfig1b() {
             stepSize: STEP_SIZE,
             delayMs: 0,
             events: [],
+            maxBufferedPages: CAP,
           }),
         )
         .addParallel(
@@ -275,6 +283,7 @@ function buildConfig1b() {
             stepSize: STEP_SIZE,
             delayMs: 0,
             events: [],
+            maxBufferedPages: CAP,
           }),
         )
     )
@@ -292,10 +301,9 @@ function buildConfig1b() {
     .build();
 }
 
-test("1b: a stalled chain halts block production while the fast chain's buffer balloons", async () => {
-  // slowP is pinned at a low tip: once its page freezes, the merge can never
-  // advance past that slot, so block production stalls there forever — yet fastP
-  // (and the main clock) keep fetching toward their high tips with no backpressure.
+test("1b: a stalled chain still halts production, but the fast chain's buffer stays capped", async () => {
+  // slowP pinned at a low tip → the merge stalls there forever (correct). fastP and
+  // the main clock keep fetching toward their high tips, but the cap now bounds them.
   TestChainControl.setTip(MAIN_1B, BIG_TIP);
   TestChainControl.setTip(FAST_1B, BIG_TIP);
   TestChainControl.setTip(SLOW_1B, SLOW_TIP);
@@ -331,20 +339,22 @@ test("1b: a stalled chain halts block production while the fast chain's buffer b
         lastHeight = appliedBlock;
         lastChange = wall;
       }
-      // Production has stalled (height flat ≥1s) AND the fast chain has ballooned.
-      if (wall - lastChange >= 1000 && peakFast > UNBOUNDED_THRESHOLD) {
-        stalledHeight = appliedBlock;
+      // Production has stalled (height flat ≥1.5s) AND the fast chain has hit its
+      // cap → the head-of-line block holds while the sibling buffer is bounded.
+      if (wall - lastChange >= 1500 && peakFast >= CAP_FLOOR) {
+        stalledHeight = appliedBlock ?? -1;
         break;
       }
       await sleep(50);
     }
   } finally {
     writeArtifact("buffering-1b", samples, {
-      mode: "1b-head-of-line-blocking",
+      mode: "1b-hol-sibling-bounded",
       stepSize: STEP_SIZE,
       bigTip: BIG_TIP,
       slowTip: SLOW_TIP,
-      threshold: UNBOUNDED_THRESHOLD,
+      cap: CAP,
+      bufferBound: BUFFER_BOUND,
       stalledHeight,
       peakMainBuf: peakMain,
       peakFastBuf: peakFast,
@@ -352,9 +362,12 @@ test("1b: a stalled chain halts block production while the fast chain's buffer b
     await node.stop();
   }
 
-  // Block production stalled at ~the slow chain's tip (plateau ≈ SLOW_TIP)...
+  // Block production still stalls at ~the slow chain's tip (the merge gate is correct)...
   expect(stalledHeight).toBeGreaterThanOrEqual(0);
   expect(stalledHeight).toBeLessThanOrEqual(SLOW_TIP + 10);
-  // ...while the fast chain's buffer ballooned unbounded behind the head-of-line block.
-  expect(peakFast).toBeGreaterThan(UNBOUNDED_THRESHOLD);
+  // ...the fast chain's buffer engaged the cap...
+  expect(peakFast).toBeGreaterThanOrEqual(CAP_FLOOR);
+  // ...but stayed bounded behind the head-of-line block (was ~50k uncapped).
+  expect(peakFast).toBeLessThanOrEqual(BUFFER_BOUND);
+  expect(peakMain).toBeLessThanOrEqual(BUFFER_BOUND);
 }, 60_000);

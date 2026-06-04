@@ -5,6 +5,30 @@ import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { PaginatedSyncProtocols } from "../types.ts";
 import type { PageTypeOf } from "../base/state.ts";
 
+// Fetch backpressure (issue #1). See README "Backpressure (`maxBufferedPages`)".
+const MAX_BUFFER_MULTIPLE = 4;
+// Fallback chunk size for chains that fetch without an explicit stepSize
+// (e.g. utxorpc streams one block per pass).
+const DEFAULT_STEP_SIZE = 1000;
+
+/**
+ * Whether a chain should pause fetching because its in-memory buffer is at/over
+ * the cap. Each chain's `stateToInput` calls this first and returns `undefined`
+ * when true, so the fetch loop sleeps + retries while the merge drains.
+ * See README "Backpressure (`maxBufferedPages`)".
+ */
+export function bufferAtCap(
+  state: { bufferedData: { size(): number } },
+  syncProtocol: { maxBufferedPages?: number; stepSize?: number },
+): boolean {
+  const step = syncProtocol.stepSize ?? DEFAULT_STEP_SIZE;
+  const cap = Math.max(
+    syncProtocol.maxBufferedPages ?? MAX_BUFFER_MULTIPLE * step,
+    step + 1,
+  );
+  return state.bufferedData.size() >= cap;
+}
+
 type ConfigSubset<Page> = {
   name: string;
   /**

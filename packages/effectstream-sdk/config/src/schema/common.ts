@@ -13,7 +13,9 @@ export const PollingSyncProtocol = new ConfigSchema({
   required: Type.Object({
     pollingInterval: TypeboxHelpers.IntervalMs(),
   }),
-  optional: Type.Object({}),
+  optional: Type.Object({
+    maxBufferedPages: Type.Optional(Type.Number()),
+  }),
 });
 
 export const StartStopBlockheight = new ConfigSchema({

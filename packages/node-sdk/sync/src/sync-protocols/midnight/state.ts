@@ -10,6 +10,7 @@ import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/c
 import { getPage } from "@effectstream/db";
 import { MidnightClient } from "./MidnightClient.ts";
 import { applyDelay } from "../common/utils.ts";
+import { bufferAtCap } from "../common/page-helpers.ts";
 
 type LatestBlock = {
   block: {
@@ -72,6 +73,7 @@ export class MidnightSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     const latestBlockResult = yield* call(() => this.client.fetchLatestBlock());
     const latestHeight = latestBlockResult.block.height;
 
