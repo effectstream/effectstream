@@ -1,0 +1,49 @@
+---
+slug: safe-solver
+title: Safe Solver
+date: 2026-04-01
+description: Many small actions per round leaning on Arbitrum finality for a responsive puzzle feel.
+leaderboardUrl: https://api-safesolver.midnight.fun/metrics/leaderboard?limit=10&offset=0
+achievementsUrl: https://api-safesolver.midnight.fun/metrics
+repoUrl: https://github.com/effectstream/safe-solver
+---
+
+import GameEmbed from '@site/src/components/GameEmbed';
+
+{/* truncate */}
+
+<GameEmbed slug="safe-solver" title="Safe Solver" src="https://safesolver.midnight.fun/?game_frame=true" />
+
+<MultiChainNote />
+
+Press your luck to find the loot without triggering an alarm to multiply your score. Many small onchain actions per round leaning on Arbitrum finality for a responsive feel.
+
+## Technical challenges
+
+### Arbitrum finality
+
+The same finality argument as BlockKart, but applied to a different shape
+of game. A puzzle that takes fifty inputs to solve is fifty chances to
+feel sluggish if settlement is slow.
+
+### Many simple actions
+
+Each move in Safe Solver is tiny. We talk through how we keep these moves
+cheap individually, how we batch where it makes sense, and how the
+contract validates a sequence without making the client wait between
+clicks.
+
+## Source & Compact code
+
+<GameRepo />
+
+Safe Solver batches dozens of small moves into a single proof. The Compact circuit below takes the input sequence, replays it, and asserts the final puzzle state - so the client doesn't need an on-chain round-trip per click.
+
+<CompactCode summary="Batched-moves circuit">
+
+```compact
+// TODO: paste the Compact circuit for safe-solver here.
+// This block starts collapsed; the reader expands it on demand.
+```
+
+</CompactCode>

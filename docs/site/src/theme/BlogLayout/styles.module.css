@@ -1,0 +1,23 @@
+.shell {
+  min-height: calc(100vh - var(--ifm-navbar-height));
+  background-color: var(--cyano-bg);
+  color: var(--cyano-paper);
+}
+
+.main {
+  flex: 1 1 0%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.tocCol {
+  flex: 0 0 280px;
+  max-width: 280px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  .tocCol {
+    display: none;
+  }
+}

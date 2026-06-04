@@ -92,21 +92,28 @@ function rewriteLinks(markdown: string, relDir: string): string {
     const cleaned = target.split("#")[0];
     const hash = target.slice(cleaned.length);
     const resolved = relative(REPO_ROOT, resolve(REPO_ROOT, relDir, cleaned));
-    // Files vs directories — heuristic: ends with extension -> blob; else tree
+    // Files vs directories - heuristic: ends with extension -> blob; else tree
     const isFile = /\.[a-z0-9]+$/i.test(cleaned);
     const base = isFile ? GH_BLOB : GH_TREE;
     return `](${base}/${resolved}${hash})`;
   });
 }
 
+// Normalize "smart" punctuation that creeps into READMEs. Em dashes are
+// downgraded to plain hyphens for consistent ASCII output. Extend here if
+// other characters need similar treatment (en dashes, smart quotes, etc.).
+function normalizePunctuation(markdown: string): string {
+  return markdown.replace(/—/g, "-");
+}
+
 function generateDocPage(info: PkgInfo): string {
   const readme = readFileSync(info.readmePath, "utf-8");
   const description = info.pkg.description || "";
 
-  // Strip a leading H1 from the README — we render the package name in the
+  // Strip a leading H1 from the README - we render the package name in the
   // frontmatter title, and Docusaurus would otherwise duplicate it.
   const body = readme.replace(/^#\s+[^\n]+\n+/, "");
-  const rewritten = rewriteLinks(body, info.relDir);
+  const rewritten = normalizePunctuation(rewriteLinks(body, info.relDir));
 
   const sourceUrl = `${GH_TREE}/${info.relDir}`;
   const npmUrl = `https://www.npmjs.com/package/${info.name}`;

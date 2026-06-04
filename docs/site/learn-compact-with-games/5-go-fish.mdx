@@ -1,0 +1,66 @@
+---
+slug: go-fish
+title: Go Fish
+date: 2026-05-01
+description: Mental poker and MPC-style card shuffling, with a private key fed directly into circuits.
+leaderboardUrl: https://api-gofish.midnight.fun/metrics/leaderboard?limit=10&offset=0
+achievementsUrl: https://api-gofish.midnight.fun/metrics
+repoUrl: https://github.com/effectstream/go-fish
+---
+
+import GameEmbed from '@site/src/components/GameEmbed';
+
+{/* truncate */}
+
+<GameEmbed slug="go-fish" title="Go Fish" src="https://gofish.midnight.fun/?game_frame=true" />
+
+<MultiChainNote />
+
+The classic social card game where you trawl for matching cards in your opponent’s deck. Mental poker and MPC-style card shuffling for a simple card game.
+
+## Technical challenges
+
+### Arbitrum finality
+
+Card games tolerate more latency than racing, but each turn still has a
+hard moment of truth (a draw, a reveal). Fast finality keeps those
+moments from feeling like waiting on the network.
+
+### Card shuffling
+
+Neither player can be trusted to shuffle alone. We walk through how the
+deck is produced collaboratively so neither side knows the order until
+cards are revealed.
+
+### Mental poker
+
+Mental poker is the broader name for the protocol family that makes the
+above work. This section is the conceptual core of the post - what it
+guarantees, what it doesn't, and where the implementation lives.
+
+### Two-player today, MPC to scale
+
+Two players is the setting where mental poker is most ergonomic. We sketch
+where MPC takes over once you want more players at the table, and what
+that costs.
+
+### Private key as a circuit input
+
+A player's secret material gets passed straight into the circuit as a
+private input, never to the network. This section is short but worth
+spelling out - it's the pattern most readers will reuse.
+
+## Source & Compact code
+
+<GameRepo />
+
+The shuffle is the interesting part. The circuit below takes the player's secret key as a private input, masks the deck, and proves the dealt cards came from that masked deck - the network never sees the key itself.
+
+<CompactCode summary="Mental-poker shuffle">
+
+```compact
+// TODO: paste the Compact circuit for go-fish here.
+// This block starts collapsed; the reader expands it on demand.
+```
+
+</CompactCode>

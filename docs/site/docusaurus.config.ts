@@ -179,6 +179,24 @@ const config = {
         },
       }
     ],
+    [
+      '@docusaurus/plugin-content-blog',
+      {
+        id: 'games-blog',
+        routeBasePath: '/learn-compact-with-games',
+        path: './learn-compact-with-games',
+        blogTitle: 'Learn Compact with Games',
+        blogDescription: 'Learn tricks to build consumer applications, one game at a time',
+        blogSidebarCount: 'ALL',
+        blogSidebarTitle: 'Games',
+        postsPerPage: 'ALL',
+        showReadingTime: false,
+        onInlineAuthors: 'ignore',
+        onUntruncatedBlogPosts: 'warn',
+        remarkPlugins: [require('./src/plugins/remark-discord-cta.js')],
+        feedOptions: { type: ['rss', 'atom'], xslt: true },
+      },
+    ],
     // PRC specs are now maintained as static MD files under
     // docs/home/400-paima-standards/. The previous docusaurus-plugin-remote-content
     // entry was removed when those pages were rewritten to include EffectStream
@@ -234,6 +252,7 @@ const config = {
         items: [
           { to: "/", label: "Docs", position: "left" },
           { to: "/scaffold-with-ai", label: "Scaffold with AI", position: "left" },
+          { to: "/learn-compact-with-games", label: "Learn Compact with Games", position: "left" },
           { to: "/blog", label: "Blog", position: "left" },
           // {
           //   type: "localeDropdown",

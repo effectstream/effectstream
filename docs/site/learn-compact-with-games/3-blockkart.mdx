@@ -1,0 +1,56 @@
+---
+slug: blockkart
+title: BlockKart
+date: 2026-03-01
+description: Arbitrum finality plus an effect stream to keep the racing loop snappy, with a global leaderboard.
+leaderboardUrl: https://api-blockkart.paimastudios.com/metrics/leaderboard?limit=10&offset=0
+achievementsUrl: https://api-blockkart.paimastudios.com/metrics
+repoUrl: https://github.com/effectstream/blockkart
+---
+
+import GameEmbed from '@site/src/components/GameEmbed';
+
+{/* truncate */}
+
+<GameEmbed slug="blockkart" title="BlockKart" src="https://blockkart.paimastudios.com/?game_frame=true" />
+
+<MultiChainNote />
+
+A fast-paced racing simulator where you compete for the top spot. Combining Midnight with Arbitrum finality to build a snappy racing loop with an onchain leaderboard.
+
+## Technical challenges
+
+### Arbitrum for faster finality
+
+We settle on Arbitrum to shorten the gap between input and confirmed
+result. We compare what the racing loop felt like before and after the
+switch.
+
+### Effect stream usage
+
+The contract emits a stream of effects the client consumes as they land.
+This section walks through how the client renders optimistically, how it
+reconciles when the stream catches up, and what happens when they
+disagree.
+
+### A simple leaderboard
+
+Once finality is fast enough, the leaderboard mostly takes care of
+itself - every finished race writes a result and the board reads from
+that. We cover the schema and the few edge cases that still need care
+(disconnects, ties, replays).
+
+## Source & Compact code
+
+<GameRepo />
+
+Each race result is settled in a single Compact circuit that checks lap times, signature ordering, and the final position. It's deliberately small - most of the gameplay lives off-chain while only the result needs to be proven.
+
+<CompactCode summary="Race result circuit">
+
+```compact
+// TODO: paste the Compact circuit for blockkart here.
+// This block starts collapsed; the reader expands it on demand.
+```
+
+</CompactCode>

@@ -1,0 +1,68 @@
+---
+slug: dust-to-dust
+title: Dust to Dust
+date: 2026-02-01
+description: Time-based quests, tradeable characters, and witness functions powering a Phaser-driven world.
+leaderboardUrl: https://api-dust2dust.midnight.fun/metrics/leaderboard?limit=10&offset=0
+achievementsUrl: https://api-dust2dust.midnight.fun/metrics
+repoUrl: https://github.com/effectstream/dust-to-dust
+---
+
+import GameEmbed from '@site/src/components/GameEmbed';
+
+{/* truncate */}
+
+<GameEmbed
+  slug="dust-to-dust"
+  title="Dust to Dust"
+  src="https://dust2dust.midnight.fun/?game_frame=true"
+  virtualWidth={1440}
+  virtualHeight={960}
+/>
+
+<MultiChainNote />
+
+Time-based quests with tradeable characters. Build your deck of characters to battle through dungeons.
+
+## Technical challenges
+
+### Time-based quests
+
+Quests open and close on real elapsed time, not just on player action. We
+walk through how we anchor "now" in a way both the game and the contract
+agree on, and how we keep the UI honest when the player's clock disagrees
+with the chain.
+
+### Tradeable characters via the offer file system
+
+Trades happen between two players who don't trust each other. We use an
+offer file flow so each side can publish, inspect, and accept proposals
+without ever putting an asset at risk mid-trade.
+
+### Witness functions
+
+Witness functions let the contract consume private inputs the player
+already has, without leaking them. This section is the longest one in the
+post - it's the first time in the series we use the primitive that defines
+much of what comes next.
+
+### Building on Phaser
+
+Phaser handles rendering, input, and the tilemap. We cover how we wire its
+scene system into the contract calls without making either side care too
+much about the other.
+
+## Source & Compact code
+
+<GameRepo />
+
+Tradeable characters need an off-chain owner that the circuit can verify without revealing the character. The witness function below loads a character from a private offer file and proves ownership against the public quest registry.
+
+<CompactCode summary="Character witness">
+
+```compact
+// TODO: paste the Compact circuit for dust-to-dust here.
+// This block starts collapsed; the reader expands it on demand.
+```
+
+</CompactCode>

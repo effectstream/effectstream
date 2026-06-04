@@ -1,0 +1,52 @@
+---
+slug: werewolf
+title: Werewolf
+date: 2026-06-01
+description: N-player social deduction with a host-facilitated flow tuned for performance at scale.
+leaderboardUrl: https://api-werewolf.midnight.fun/metrics/leaderboard?limit=10&offset=0
+achievementsUrl: https://api-werewolf.midnight.fun/metrics
+repoUrl: https://github.com/effectstream/werewolf
+---
+
+import GameEmbed from '@site/src/components/GameEmbed';
+
+{/* truncate */}
+
+<GameEmbed slug="werewolf" title="Werewolf" src="https://werewolf.midnight.fun/?game_frame=true" />
+
+<MultiChainNote />
+
+A game of betrayal, vote out the werewolf at the round table before they eliminate the group. N-player social deduction with a host-facilitated flow tuned for performance at scale.
+
+On-chain voting and secret role assignment.
+
+## Technical challenges
+
+### Arbitrum finality
+
+Same building block as the previous entries: rounds advance fast enough
+that a table of seven players doesn't sit watching a spinner.
+
+### N-player game with a host-facilitated flow
+
+A fully peer-to-peer mental-poker-style protocol gets expensive once you
+have more than a couple of players. We use a host to drive the round -
+collecting commitments, ordering reveals, advancing phases - without
+giving the host the ability to lie about results. This is the section
+that ties the whole series together: every primitive from the earlier
+games shows up here in some form.
+
+## Source & Compact code
+
+<GameRepo />
+
+Werewolf needs a host to facilitate without trusting the host. The circuit below verifies that the host's published round summary matches the commitments players made earlier, so the host can drive the loop but cannot lie about the outcome.
+
+<CompactCode summary="Host-summary verification">
+
+```compact
+// TODO: paste the Compact circuit for werewolf here.
+// This block starts collapsed; the reader expands it on demand.
+```
+
+</CompactCode>
