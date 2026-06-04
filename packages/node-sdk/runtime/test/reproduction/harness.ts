@@ -21,7 +21,7 @@
 import net from "node:net";
 import pg from "pg";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { appendFileSync, mkdtempSync, rmSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type PgliteHandle, startPglite } from "@effectstream/db/start-pglite";
@@ -42,7 +42,10 @@ export {
 type Cluster = { port: number; dataDir: string };
 
 let clusterPromise: Promise<Cluster> | undefined;
+let clusterBin: string | undefined;
 let dbCounter = 0;
+let activeHarnessCount = 0;
+let clusterStopped = false;
 
 /** Resolve the postgresql@18 bin dir (Homebrew default, or REPRO_PG_BINDIR). */
 function pgBinDir(): string {
@@ -84,18 +87,62 @@ function freePort(): Promise<number> {
 }
 
 /**
+ * Kill orphaned `repro-pg-*` clusters left behind by test processes that
+ * exited without hitting their `exit` handler (SIGKILL, IDE stop, etc.).
+ *
+ * PostgreSQL writes the postmaster PID into `<dataDir>/postmaster.pid`.  We
+ * also write our own owner PID into `<dataDir>/repro-owner.pid` so we can
+ * distinguish our clusters from unrelated `repro-pg-*` dirs.  A directory is
+ * considered orphaned when the owner process is dead; we then `pg_ctl stop`
+ * and `rm -rf` it.
+ */
+function cleanupOrphanedClusters(bin: string, env: Record<string, string | undefined>): void {
+  const tmp = tmpdir();
+  let entries: string[];
+  try { entries = readdirSync(tmp); } catch { return; }
+
+  for (const name of entries) {
+    if (!name.startsWith("repro-pg-")) continue;
+    const dataDir = join(tmp, name);
+
+    const ownerFile = join(dataDir, "repro-owner.pid");
+    let ownerPid: number | undefined;
+    try { ownerPid = parseInt(readFileSync(ownerFile, "utf8").trim(), 10); } catch { /* no owner file */ }
+
+    if (ownerPid == null || Number.isNaN(ownerPid)) continue;
+
+    try { process.kill(ownerPid, 0); } catch {
+      // Owner is dead — orphaned cluster.
+      spawnSync(join(bin, "pg_ctl"), ["-D", dataDir, "stop", "-m", "immediate"], {
+        env, stdio: "ignore",
+      });
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  }
+}
+
+/**
  * Boot a fresh cluster the first time it's needed and reuse it for the rest of
  * the process. initdb with C locale + trust auth (mirrors e2e_postgres.sh; the
  * C locale dodges the macOS "postmaster became multithreaded during startup"
  * fatal). Stopped synchronously on process exit.
+ *
+ * Before booting, any orphaned clusters from prior crashed runs are cleaned up
+ * so they don't accumulate and exhaust system resources.
  */
 function ensureCluster(): Promise<Cluster> {
   if (clusterPromise) return clusterPromise;
   clusterPromise = (async () => {
     const bin = pgBinDir();
+    clusterBin = bin;
+    const env = { ...process.env, LC_ALL: "C" };
+
+    cleanupOrphanedClusters(bin, env);
+
     const dataDir = mkdtempSync(join(tmpdir(), "repro-pg-"));
     const port = await freePort();
-    const env = { ...process.env, LC_ALL: "C" };
+
+    writeFileSync(join(dataDir, "repro-owner.pid"), String(process.pid));
 
     execFileSync(join(bin, "initdb"), [
       "-D", dataDir,
@@ -113,17 +160,34 @@ function ensureCluster(): Promise<Cluster> {
       "start",
     ], { env, stdio: "ignore" });
 
+    clusterStopped = false;
+
     const stop = () => {
       spawnSync(join(bin, "pg_ctl"), ["-D", dataDir, "stop", "-m", "immediate"], {
         env,
         stdio: "ignore",
       });
       rmSync(dataDir, { recursive: true, force: true });
+      clusterStopped = true;
     };
     process.once("exit", stop);
     return { port, dataDir };
   })();
   return clusterPromise;
+}
+
+/** Stop the shared cluster if it's running (called when last harness tears down). */
+async function stopCluster(): Promise<void> {
+  if (!clusterPromise || clusterStopped) return;
+  const cluster = await clusterPromise;
+  if (clusterStopped || !clusterBin) return;
+  const env = { ...process.env, LC_ALL: "C" };
+  spawnSync(join(clusterBin, "pg_ctl"), ["-D", cluster.dataDir, "stop", "-m", "immediate"], {
+    env,
+    stdio: "ignore",
+  });
+  rmSync(cluster.dataDir, { recursive: true, force: true });
+  clusterStopped = true;
 }
 
 // ── Harness ──────────────────────────────────────────────────────────────────
@@ -226,6 +290,7 @@ export async function setupHarness(
 async function setupPostgresHarness(): Promise<Harness> {
   const cluster = await ensureCluster();
   const dbName = `repro_${process.pid}_${dbCounter++}`;
+  activeHarnessCount++;
 
   // CREATE DATABASE on the maintenance db, then point everything at it.
   const admin = new pg.Pool({
@@ -278,9 +343,14 @@ async function setupPostgresHarness(): Promise<Harness> {
       );
       await admin.query(`DROP DATABASE IF EXISTS "${dbName}"`);
     } catch {
-      // Best-effort: the cluster is torn down wholesale on process exit.
+      // Best-effort: the cluster is torn down wholesale below.
     } finally {
       await admin.end().catch(() => {});
+    }
+
+    activeHarnessCount--;
+    if (activeHarnessCount <= 0) {
+      await stopCluster();
     }
   };
 
