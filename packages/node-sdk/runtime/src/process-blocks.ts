@@ -1,6 +1,6 @@
 import type { ChainBlock } from "@effectstream/sync";
-import { call, type Operation, until } from "effection";
-import type { Pool } from "pg";
+import { call, type Operation, sleep, until } from "effection";
+import type { Pool, PoolClient } from "pg";
 import { type BaseStfInput, type EmitFn, primitiveTransitionFunction } from "@effectstream/sm";
 import { PreparedQuery } from "@pgtyped/runtime";
 import type {
@@ -9,12 +9,16 @@ import type {
   SyncStateUpdateStream,
 } from "@effectstream/coroutine";
 import {
+  acquireDBMutex,
   blockHeightDone,
   deleteEmptyBlocks,
   deleteScheduled,
   getFutureGameInputByBlockHeight,
   getFutureGameInputByMaxTimestamp,
   insertGameInputResult,
+  isTransientPgError,
+  poolErrors,
+  releaseDBMutex,
   removePages,
   saveLastBlock,
 } from "@effectstream/db";
@@ -336,8 +340,29 @@ export function* processFinalizedBlock(
 
     /* STEP 8: Commit the transaction. */
     yield* until(dbConn.query("COMMIT"));
+    // A successful COMMIT proves the DB is reachable end-to-end — reset the
+    // pool failure clock so the write path also feeds the health tracker
+    // (it otherwise only sees floating pool errors and the read-side API).
+    poolErrors.markHealthy();
   } catch (err) {
-    yield* until(dbConn.query("ROLLBACK"));
+    // Best-effort rollback. If the socket is dead the ROLLBACK throws too;
+    // swallow that so it doesn't mask the original error — the caller's retry
+    // loop keys off the original (transient) error, not a rollback failure.
+    try {
+      yield* until(dbConn.query("ROLLBACK"));
+    } catch (rollbackErr) {
+      log.remote(
+        ComponentNames.EFFECTSTREAM_SYNC,
+        "block-processing",
+        SeverityNumber.WARN,
+        (log) =>
+          log(
+            `ROLLBACK failed for block ${value.blockNumber} (connection likely dead): ${
+              String(rollbackErr)
+            }`,
+          ),
+      );
+    }
     log.remote(
       ComponentNames.EFFECTSTREAM_SYNC,
       "block-processing",
@@ -345,12 +370,89 @@ export function* processFinalizedBlock(
       (log) =>
         log(`Error processing block ${value.blockNumber}: ${String(err)}`),
     );
-    // We cannot recover from this error.
+    // Re-throw: `processFinalizedBlockWithRetry` decides whether this is a
+    // retryable transient pg failure or a fatal bug.
     throw err;
   }
 
-  return { 
-    blockHash: hasOperations ? blockHash : "0x0" as PaimaBlockHash, 
-    events: blockEvents 
+  return {
+    blockHash: hasOperations ? blockHash : "0x0" as PaimaBlockHash,
+    events: blockEvents
   };
+}
+
+/** Caps the exponential backoff between block-retry attempts. */
+const MAX_RETRY_BACKOFF_MS = 5_000;
+
+/**
+ * Run {@link processFinalizedBlock} against a freshly checked-out pool client,
+ * retrying the whole block on transient pg failures (Neon cold-starts,
+ * idle-socket evictions, TLS blips).
+ *
+ * The previous socket is dead after such a failure, so each attempt
+ * re-acquires a client and reprocesses the block from `BEGIN` — safe because
+ * the failed tx never committed and the caller only advances the block stream
+ * after this returns.
+ *
+ * `poolErrors` governs escalation: it logs WARN→ERROR as the outage persists
+ * and calls `process.exit(1)` once it crosses the fatal threshold, letting the
+ * orchestrator restart us. A non-transient error (a real SQL/logic bug) is
+ * re-thrown and crashes, as before.
+ *
+ * Owns the per-block DB mutex (for PGLite) and client lifecycle so the caller
+ * doesn't have to.
+ */
+export function* processFinalizedBlockWithRetry(
+  value: ChainBlock,
+  config: StartConfig,
+  pool: Pool,
+  previousBlockHash: EffectstreamBlockHash | null,
+): Operation<ProcessFinalizedBlockResult> {
+  const lockName = `processing-blocks:${value.blockNumber}`;
+  let attempt = 0;
+  while (true) {
+    let dbClient: PoolClient | undefined;
+    let transientErr: unknown;
+    try {
+      yield* acquireDBMutex(lockName);
+      dbClient = yield* until(pool.connect());
+      return yield* processFinalizedBlock(
+        value,
+        config,
+        dbClient as unknown as Pool, // a checked-out client, used as the tx conn
+        previousBlockHash,
+      );
+    } catch (err) {
+      if (!isTransientPgError(err)) throw err;
+      transientErr = err;
+    } finally {
+      releaseDBMutex(lockName);
+      if (dbClient) {
+        // Passing the error destroys the client instead of recycling it, so
+        // the pool never hands the dead socket back out. On success
+        // `transientErr` is undefined and the client returns to the pool.
+        try {
+          dbClient.release(transientErr as Error | undefined);
+        } catch {
+          /* already released/destroyed */
+        }
+      }
+    }
+
+    attempt++;
+    poolErrors.log(transientErr, ["sync-write"]);
+    const backoffMs = Math.min(500 * 2 ** (attempt - 1), MAX_RETRY_BACKOFF_MS);
+    log.local(
+      ComponentNames.EFFECTSTREAM_SYNC,
+      "block-processing",
+      SeverityNumber.WARN,
+      (l) =>
+        l(
+          `transient db error on block ${value.blockNumber}; retry #${attempt} in ${backoffMs}ms: ${
+            String(transientErr)
+          }`,
+        ),
+    );
+    yield* sleep(backoffMs);
+  }
 }
