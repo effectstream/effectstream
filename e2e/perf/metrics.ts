@@ -189,6 +189,8 @@ export class Sampler {
     const rssMB = this.samples.map((s) => s.rss / MB);
     const lags = this.samples.map((s) => s.lagSeconds);
     const bufs = this.samples.map((s) => s.mainBuf);
+    const evmBufs = this.samples.map((s) => s.evmBuf);
+    const totalBufs = this.samples.map((s) => s.mainBuf + s.evmBuf);
     const appliedLags = this.samples
       .map((s) => s.appliedLagSeconds)
       .filter((v): v is number => v != null);
@@ -230,6 +232,9 @@ export class Sampler {
       finalRssMB: Math.round(rssMB[rssMB.length - 1] ?? 0),
       peakLagSeconds: Math.round(Math.max(0, ...lags) * 10) / 10,
       peakMainBuf: Math.max(0, ...bufs),
+      peakEvmBuf: Math.max(0, ...evmBufs),
+      peakTotalBuf: Math.max(0, ...totalBufs),
+      finalMainBuf: bufs[bufs.length - 1] ?? 0,
       peakAppliedLagSeconds: appliedLags.length
         ? Math.round(Math.max(...appliedLags) * 10) / 10
         : 0,

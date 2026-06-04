@@ -56,6 +56,32 @@ high event volume, and measures how the node behaves under load. Modeled on
   burst drops ~a quarter of its txs as "nonce too high". Interval mining queues
   the whole burst in the mempool and mines it in batches, so **every** tx lands.
   Set `PERF_MINE_INTERVAL_MS=0` to keep the default auto-mine instead.
+- **Backpressure pressure mode (issue #1) — DEFAULT ON:** the fetch loop has no
+  backpressure, so during deep catch-up a chain's in-memory buffer races toward
+  the whole backlog while the merge drains one block per DB txn (OOM risk). On a
+  **fresh DB** the harness seeds the NTP `startTime` `PERF_BACKPRESSURE_LAG_S`
+  seconds in the **past** (default `600`), so the node boots already behind and
+  spends Phase A catching up. This surfaces in the **apply lag / apply backlog**
+  charts (how far behind the apply stage is). Set `PERF_BACKPRESSURE_LAG_S=0` to
+  opt out and restore the original start-at-now behaviour.
+  - **This changes the default run into a deep-catch-up run** (it replays the
+    seeded empty backlog before reaching live EVM data). Larger ⇒ deeper catch-up.
+  - **Caveat — the live perf node does *not* balloon the buffer-page count.** Two
+    reasons: (1) the NTP fetcher self-throttles (it makes a real `getTime()` call
+    per fetch chunk, so `mainNtp.buf` fills at ≈ drain rate), and (2) the seeded
+    historical blocks are *empty*, so they drain faster than the node finishes
+    starting up — the transient spike is gone before the Phase-A sampler begins.
+    So the live-run buffer chart usually stays flat; what it *does* show is the
+    deep catch-up (apply lag) and any memory growth.
+  - **The authoritative buffer-growth curve comes from the in-process measurement,
+    not the live run.** The deterministic test
+    `packages/node-sdk/runtime/test/reproduction/buffering.test.ts` reproduces both
+    the unbounded buffer (1a) and head-of-line blocking (1b) and writes
+    `buffering-{1a,1b}-<stamp>.json` into `e2e/perf/results/`. **This report
+    auto-loads the latest such artifacts** and renders them in a dedicated
+    **Backpressure — in-process measurement** section at the top. Run that test
+    first (`bun test packages/node-sdk/runtime/test/reproduction/buffering.test.ts`)
+    to populate it.
 
 ## Running
 
@@ -79,7 +105,7 @@ Point the suite at a **running** Postgres on 5432. Any instance works — e.g.
 ```bash
 PGLITE=false ALLOW_NO_PG_IVM=true \
 DB_HOST=localhost DB_PORT=5432 DB_USER=postgres DB_PW=postgres DB_NAME=perf \
-TOTAL=1000000 EVENTS_PER_TX=200 \
+TOTAL=100000 EVENTS_PER_TX=200 \
   bun run e2e/perf/run-tests.ts
 ```
 
@@ -174,6 +200,7 @@ TOTAL=1000000 EVENTS_PER_TX=200 PERF_PHASE_A_TPS=10 PERF_SKIP_PHASE_B=1 \
 | `PERF_NTP_BLOCK_TIME_MS` | `1000` | NTP main seconds-per-block (lag multiplier) |
 | `PERF_POLLING_INTERVAL_MS` | `500` | sync protocol polling interval |
 | `PERF_STEP_SIZE` | `1000` | EVM parallel fetch step size (blocks/range) |
+| `PERF_BACKPRESSURE_LAG_S` | `600` | backpressure pressure mode (issue #1): on a fresh DB, seed the NTP start this many seconds in the past so the node boots behind and Phase A is a deep catch-up (apply-lag signal). `0` = off (start at "now"). Larger ⇒ deeper catch-up. The buffer-growth curve itself comes from the in-process test artifacts; see below. |
 | `PGLITE` | `true` | `false` → use external Postgres via `DB_*` |
 | `PERF_DB_RESET` | `1` | on external PG, drop+recreate `DB_NAME` before the run; `0` to keep it |
 | `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PW` / `DB_NAME` | localhost / 5432 / postgres ×3 | external Postgres connection |
@@ -206,7 +233,11 @@ your default browser (set `PERF_NO_OPEN=1` to skip).
   vs fetch/buf lag** overlaid — watch the gap between them), backlog (**apply
   backlog in blocks** vs `mainNtp`/`evm` buffered pages), memory (rss + heapUsed),
   block progress (fetch **tip vs applied** block — the gap is the apply lag),
-  cumulative entries, and API latency over time (log scale).
+  cumulative entries, and API latency over time (log scale). The report also has a
+  **Backpressure — in-process measurement (issue #1)** section at the top
+  (auto-loaded from the in-process test artifacts — the authoritative buffer-growth
+  and head-of-line curves), plus a per-phase **Backpressure — live run** sub-block
+  (the live node's buffers/memory, usually modest — see the caveat above).
   This is the view for spotting **degradation**: apply lag that rises and doesn't
   recover, memory that trends up (leak), throughput that tails off.
   Charts use Chart.js from a CDN, so rendering the HTML needs internet.

@@ -21,6 +21,13 @@ const POLLING_INTERVAL = parseInt(
 );
 const STEP_SIZE = parseInt(process.env["PERF_STEP_SIZE"] || "1000", 10);
 
+// Backpressure (issue #1) pressure mode — default on, `0` to opt out.
+// See e2e/perf/README.md ("Backpressure pressure mode").
+export const BACKPRESSURE_LAG_S = parseInt(
+  process.env["PERF_BACKPRESSURE_LAG_S"] || "600",
+  10,
+);
+
 // Resume from the persisted NTP start time if the DB already has pages, so a
 // restart doesn't re-simulate the whole timeline. Fresh DB → start at "now".
 let launchStartTime: number | undefined;
@@ -52,7 +59,9 @@ export const config = new ConfigBuilder()
       .addNetwork({
         name: "ntp",
         type: ConfigNetworkType.NTP,
-        startTime: launchStartTime ?? new Date().getTime(),
+        // Fresh DB: seed a stale start (backpressure mode); resume: persisted start.
+        startTime: launchStartTime ??
+          (new Date().getTime() - BACKPRESSURE_LAG_S * 1000),
         blockTimeMS: NTP_BLOCK_TIME_MS,
       })
       .addViemNetwork({

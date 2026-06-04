@@ -30,6 +30,7 @@ type PhasePayload = {
     heapMB: number[];
     mainBuf: number[];
     evmBuf: number[];
+    totalBuf: number[];
     mainOwnBlock: (number | null)[];
     evmOwnBlock: (number | null)[];
     appliedBlock: (number | null)[];
@@ -38,16 +39,87 @@ type PhasePayload = {
   };
 };
 
-function buildPayload(totalExpected: number, phases: PhaseResult[]) {
+/** Buffer-growth measurement loaded from the in-process test's JSON artifacts (see e2e/perf/README.md). */
+type BackpressureArtifact = {
+  name: string;
+  label: string;
+  meta: Record<string, unknown>;
+  series: {
+    t: number[];
+    mainBuf: number[];
+    evmBuf: number[];
+    totalBuf: number[];
+    appliedBlock: (number | null)[];
+    rssMB: number[];
+  };
+  peakMainBuf: number;
+  peakEvmBuf: number;
+  peakRssMB: number;
+};
+
+/** Pick up the most recent buffering-1a / buffering-1b artifact from `outDir`. */
+function loadBufferingArtifacts(outDir: string): BackpressureArtifact[] {
+  const out: BackpressureArtifact[] = [];
+  const sources: [string, string][] = [
+    ["buffering-1a-", "Unbounded buffering (1a)"],
+    ["buffering-1b-", "Head-of-line blocking (1b)"],
+  ];
+  let files: string[] = [];
+  try {
+    files = fs.readdirSync(outDir);
+  } catch {
+    return out;
+  }
+  for (const [prefix, label] of sources) {
+    const matches = files
+      .filter((f) => f.startsWith(prefix) && f.endsWith(".json"))
+      .sort();
+    if (!matches.length) continue;
+    try {
+      const raw = JSON.parse(
+        fs.readFileSync(path.join(outDir, matches[matches.length - 1]), "utf8"),
+      );
+      const samples: any[] = raw.samples ?? [];
+      const mainBuf = samples.map((s) => s.mainBuf ?? 0);
+      const evmBuf = samples.map((s) => s.evmBuf ?? 0);
+      const rssMB = samples.map((s) => Math.round((s.rss ?? 0) / MB));
+      out.push({
+        name: matches[matches.length - 1],
+        label,
+        meta: raw.meta ?? {},
+        series: {
+          t: samples.map((s) => Math.round((s.t / 1000) * 10) / 10),
+          mainBuf,
+          evmBuf,
+          totalBuf: samples.map((_, i) => mainBuf[i] + evmBuf[i]),
+          appliedBlock: samples.map((s) => s.appliedBlock ?? null),
+          rssMB,
+        },
+        peakMainBuf: Math.max(0, ...mainBuf),
+        peakEvmBuf: Math.max(0, ...evmBuf),
+        peakRssMB: Math.max(0, ...rssMB),
+      });
+    } catch { /* skip a corrupt artifact */ }
+  }
+  return out;
+}
+
+function buildPayload(
+  totalExpected: number,
+  phases: PhaseResult[],
+  backpressure: BackpressureArtifact[],
+) {
   const round1 = (n: number) => Math.round(n * 10) / 10;
   return {
     totalExpected,
     generatedAt: new Date().toISOString(),
+    backpressure,
     config: {
       eventsPerTx: parseInt(process.env["EVENTS_PER_TX"] || "100", 10),
       blockTimeMs: 1000,
       pacingTps: parseInt(process.env["PERF_PHASE_A_TPS"] || "0", 10),
       speedup: parseInt(process.env["PERF_TIME_SPEEDUP"] || "1", 10),
+      backpressureLagS: parseInt(process.env["PERF_BACKPRESSURE_LAG_S"] || "600", 10),
     },
     phases: phases.map((ph): PhasePayload => {
       const ss = ph.samples;
@@ -67,6 +139,7 @@ function buildPayload(totalExpected: number, phases: PhaseResult[]) {
           heapMB: ss.map((s) => Math.round(s.heapUsed / MB)),
           mainBuf: ss.map((s) => s.mainBuf),
           evmBuf: ss.map((s) => s.evmBuf),
+          totalBuf: ss.map((s) => s.mainBuf + s.evmBuf),
           mainOwnBlock: ss.map((s) => s.mainOwnBlock),
           evmOwnBlock: ss.map((s) => s.evmOwnBlock),
           appliedBlock: ss.map((s) => s.appliedBlock),
@@ -84,7 +157,7 @@ function buildPayload(totalExpected: number, phases: PhaseResult[]) {
 
 const BROWSER_JS = `
 const C = ['#60a5fa','#fb7185','#34d399','#fbbf24','#a78bfa','#22d3ee'];
-function mkChart(id, title, labels, datasets, log){
+function mkChart(id, title, labels, datasets, log, yTitle, y1Title){
   const hasY1 = datasets.some(function(d){ return d.yAxisID === 'y1'; });
   const scales = {
     x:{
@@ -96,7 +169,7 @@ function mkChart(id, title, labels, datasets, log){
       beginAtZero:true,
       ticks:{color:'#9ca3af'},
       grid:{color:'#1f293d'},
-      title:{display:true,text:hasY1 ? 'NTP Block / Applied' : '',color:'#9ca3af'}
+      title:{display:true,text:(yTitle != null ? yTitle : (hasY1 ? 'NTP Block / Applied' : '')),color:'#9ca3af'}
     }
   };
   if (log) {
@@ -106,7 +179,7 @@ function mkChart(id, title, labels, datasets, log){
     scales.y1 = {
       beginAtZero:true,
       position:'right',
-      title:{display:true,text:'EVM Block',color:'#9ca3af'},
+      title:{display:true,text:(y1Title != null ? y1Title : 'EVM Block'),color:'#9ca3af'},
       ticks:{color:'#9ca3af'},
       grid:{drawOnChartArea:false}
     };
@@ -147,14 +220,56 @@ function mkChart(id, title, labels, datasets, log){
   });
 }
 
-const cfg = DATA.config || { eventsPerTx: '100', blockTimeMs: '1000', pacingTps: '0', speedup: '1' };
+const cfg = DATA.config || { eventsPerTx: '100', blockTimeMs: '1000', pacingTps: '0', speedup: '1', backpressureLagS: 0 };
 document.getElementById('meta').textContent = 'Generated at ' + new Date(DATA.generatedAt).toLocaleString();
 document.getElementById('cfg-entries').textContent = DATA.totalExpected.toLocaleString();
 document.getElementById('cfg-evt-tx').textContent = cfg.eventsPerTx;
 document.getElementById('cfg-block-time').textContent = cfg.blockTimeMs + ' ms';
 document.getElementById('cfg-pacing').textContent = cfg.pacingTps > 0 ? cfg.pacingTps + ' tps' : 'Burst';
 document.getElementById('cfg-speedup').textContent = cfg.speedup + 'x';
+document.getElementById('cfg-backpressure').textContent = cfg.backpressureLagS > 0 ? cfg.backpressureLagS + 's behind' : 'off';
 const root = document.getElementById('root');
+
+// Backpressure (issue #1) — in-process measurement, rendered from buffering-1a/1b
+// artifacts. See e2e/perf/README.md.
+const bpArtifacts = DATA.backpressure || [];
+if (bpArtifacts.length) {
+  const bsec = document.createElement('section');
+  bsec.innerHTML = '<div class="phase-header"><h2>Backpressure — in-process measurement (issue #1)</h2></div>'
+    + '<p class="sub-cap">Deterministic reproduction (buffering.test.ts). <b>1a</b>: a chain&#39;s buffer balloons unbounded. <b>1b</b>: a stalled chain halts production while another chain&#39;s buffer balloons. See e2e/perf/README.md. (RSS = whole test process.)</p>';
+  bpArtifacts.forEach(function(a, ai){
+    const sub = document.createElement('div');
+    const lastApplied = a.series.appliedBlock.length ? a.series.appliedBlock[a.series.appliedBlock.length-1] : null;
+    let sh = '<h3 class="sub-h">' + a.label + '</h3>';
+    sh += '<div class="kpi-grid">';
+    sh += '<div class="kpi-card"><div class="kpi-label">Peak Buffer</div><div class="kpi-val text-amber">' + Math.max(a.peakMainBuf, a.peakEvmBuf).toLocaleString() + ' pages</div><div class="kpi-sub">main: ' + a.peakMainBuf.toLocaleString() + ' / parallel: ' + a.peakEvmBuf.toLocaleString() + '</div></div>';
+    sh += '<div class="kpi-card"><div class="kpi-label">Final Applied Block</div><div class="kpi-val">' + (lastApplied != null ? lastApplied.toLocaleString() : '-') + '</div><div class="kpi-sub">' + (a.meta.mode || '') + '</div></div>';
+    sh += '<div class="kpi-card"><div class="kpi-label">Peak RSS (process)</div><div class="kpi-val text-violet">' + a.peakRssMB + ' MB</div></div>';
+    sh += '</div>';
+    sub.innerHTML = sh;
+    const grid = document.createElement('div'); grid.className = 'grid';
+    const charts = [
+      {id:'ipbuf'+ai, title:'Buffer Growth (buffered pages) — the OOM curve',
+       ds:[{label:'main buf', data:a.series.mainBuf},{label:'parallel buf', data:a.series.evmBuf}],
+       yTitle:'Buffered pages'},
+      {id:'ipprog'+ai, title:'Buffer vs Applied block — backlog vs production',
+       ds:[{label:'total buf', data:a.series.totalBuf},{label:'applied block', data:a.series.appliedBlock, yAxisID:'y1'}],
+       yTitle:'Buffered pages', y1Title:'Applied block'}
+    ];
+    charts.forEach(function(c){
+      const card = document.createElement('div'); card.className = 'card';
+      const cv = document.createElement('canvas'); cv.id = c.id;
+      card.appendChild(cv); grid.appendChild(card);
+    });
+    sub.appendChild(grid); bsec.appendChild(sub);
+    a.__charts = charts;
+  });
+  root.appendChild(bsec);
+  bpArtifacts.forEach(function(a){
+    a.__charts.forEach(function(c){ mkChart(c.id, c.title, a.series.t, c.ds, false, c.yTitle, c.y1Title); });
+  });
+}
+
 DATA.phases.forEach(function(ph, pi){
   const sec = document.createElement('section');
   const sm = ph.summary;
@@ -189,13 +304,41 @@ DATA.phases.forEach(function(ph, pi){
     const cv = document.createElement('canvas'); cv.id = c.id;
     card.appendChild(cv); grid.appendChild(card);
   });
-  sec.appendChild(grid); root.appendChild(sec);
+  sec.appendChild(grid);
+
+  // Backpressure (issue #1) live-run sub-block. See e2e/perf/README.md.
+  const bpCharts = [
+    {id:'bpbuf'+pi, title:'Buffer Growth (buffered pages) — the OOM curve',
+     ds:[{label:'mainNtp buf', data:s.mainBuf},{label:'parallel buf', data:s.evmBuf}],
+     yTitle:'Buffered pages'},
+    {id:'bpmem'+pi, title:'Memory vs Buffer — does RSS track the backlog?',
+     ds:[{label:'rss (MB)', data:s.rssMB},{label:'total buf', data:s.totalBuf, yAxisID:'y1'}],
+     yTitle:'RSS (MB)', y1Title:'Buffered pages'}
+  ];
+  const bp = document.createElement('div');
+  let bph = '<h3 class="sub-h">Backpressure — live run (issue #1)</h3>';
+  bph += '<p class="sub-cap">Live perf node buffers/memory. Usually modest here (the perf node can\'t cleanly balloon the buffer — see e2e/perf/README.md); the authoritative curve is the in-process section above.</p>';
+  bph += '<div class="kpi-grid">';
+  bph += '<div class="kpi-card"><div class="kpi-label">Peak Buffer</div><div class="kpi-val text-amber">' + (sm.peakTotalBuf||0).toLocaleString() + ' pages</div><div class="kpi-sub">mainNtp: ' + (sm.peakMainBuf||0).toLocaleString() + ' / parallel: ' + (sm.peakEvmBuf||0).toLocaleString() + '</div></div>';
+  bph += '<div class="kpi-card"><div class="kpi-label">Residual Buffer</div><div class="kpi-val">' + (sm.finalMainBuf||0).toLocaleString() + ' pages</div><div class="kpi-sub">mainNtp at end of phase</div></div>';
+  bph += '<div class="kpi-card"><div class="kpi-label">Peak Memory (RSS)</div><div class="kpi-val text-violet">' + sm.peakRssMB + ' MB</div><div class="kpi-sub">final: ' + sm.finalRssMB + ' MB</div></div>';
+  bph += '</div>';
+  bp.innerHTML = bph;
+  const bpGrid = document.createElement('div'); bpGrid.className = 'grid';
+  bpCharts.forEach(function(c){
+    const card = document.createElement('div'); card.className = 'card';
+    const cv = document.createElement('canvas'); cv.id = c.id;
+    card.appendChild(cv); bpGrid.appendChild(card);
+  });
+  bp.appendChild(bpGrid); sec.appendChild(bp);
+
+  root.appendChild(sec);
   if (!s.t.length){
     const p = document.createElement('p'); p.textContent = '(no samples captured for this phase)';
     sec.appendChild(p); return;
     p.style.color = '#9ca3af';
   }
-  charts.forEach(function(c){ mkChart(c.id, c.title, s.t, c.ds, !!c.log); });
+  charts.concat(bpCharts).forEach(function(c){ mkChart(c.id, c.title, s.t, c.ds, !!c.log, c.yTitle, c.y1Title); });
 });
 `;
 
@@ -247,6 +390,8 @@ body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;margin:0
   .text-violet{color:#c084fc!important}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(480px,1fr));gap:20px;margin-top:12px}
   .card{border:1px solid #222b44;border-radius:8px;padding:16px;background:#151b2c;height:300px}
+  .sub-h{margin:28px 0 4px;font-size:14px;font-weight:700;color:#fbbf24;border-top:1px solid #1f293d;padding-top:20px}
+  .sub-cap{margin:0 0 12px;font-size:12px;color:#9ca3af;max-width:920px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -279,6 +424,10 @@ body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;margin:0
       <span class="label">Speedup Factor</span>
       <span class="val" id="cfg-speedup">-</span>
     </div>
+    <div class="config-card">
+      <span class="label">Backpressure</span>
+      <span class="val" id="cfg-backpressure">-</span>
+    </div>
   </div>
 </header>
 <div id="root"></div>
@@ -299,7 +448,11 @@ export function writeReport(
   const outDir = path.resolve(import.meta.dirname!, "results");
   fs.mkdirSync(outDir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const payload = buildPayload(totalExpected, phases);
+  const payload = buildPayload(
+    totalExpected,
+    phases,
+    loadBufferingArtifacts(outDir),
+  );
   const jsonPath = path.join(outDir, `perf-${stamp}.json`);
   const htmlPath = path.join(outDir, `perf-${stamp}.html`);
   fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2));
