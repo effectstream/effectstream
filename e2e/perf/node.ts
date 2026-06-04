@@ -210,6 +210,9 @@ main(function* () {
       migrations: migrationTable,
       grammar,
       userDefinedPrimitives,
+      dev: {
+        applyDelayMs: parseInt(process.env["PERF_APPLY_DELAY_MS"] || "0", 10),
+      },
       snapshotConfig: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS != null
         ? {
             intervalSeconds: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS,

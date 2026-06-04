@@ -73,6 +73,13 @@ high event volume, and measures how the node behaves under load. Modeled on
     starting up — the transient spike is gone before the Phase-A sampler begins.
     So the live-run buffer chart usually stays flat; what it *does* show is the
     deep catch-up (apply lag) and any memory growth.
+  - **To make the live node demonstrate the cap, set `PERF_APPLY_DELAY_MS>0`.** It
+    slows drain below fetch, so every chain's `buf` climbs to its `cap` and
+    plateaus there (instead of unbounded), and `/debug/metrics` reports the cap
+    engaging — `cap`, `bufHighWater`, `pausedNow`, `pauses`, `pausedMs` per
+    protocol. `pauses > 0` is the direct "backpressure fired" signal; a bounded
+    `buf`/RSS under sustained delay is the fix working. (Without the fix the same
+    delay would let `buf`/RSS climb without bound.)
   - **The authoritative buffer-growth curve comes from the in-process measurement,
     not the live run.** The deterministic test
     `packages/node-sdk/runtime/test/reproduction/buffering.test.ts` exercises the
@@ -205,6 +212,7 @@ TOTAL=1000000 EVENTS_PER_TX=200 PERF_PHASE_A_TPS=10 PERF_SKIP_PHASE_B=1 \
 | `PERF_POLLING_INTERVAL_MS` | `500` | sync protocol polling interval |
 | `PERF_STEP_SIZE` | `1000` | EVM parallel fetch step size (blocks/range) |
 | `PERF_BACKPRESSURE_LAG_S` | `600` | backpressure pressure mode (issue #1): on a fresh DB, seed the NTP start this many seconds in the past so the node boots behind and Phase A is a deep catch-up (apply-lag signal). `0` = off (start at "now"). Larger ⇒ deeper catch-up. The buffer-growth curve itself comes from the in-process test artifacts; see below. |
+| `PERF_APPLY_DELAY_MS` | `0` | diagnostic drain throttle: sleep this many ms after each applied block, slowing drain below fetch so the per-chain buffers fill to their cap and the **backpressure fix becomes observable in the live node** (`buf` climbs to `cap` and plateaus; `pauses` on `/debug/metrics` climb). `0` = off. See below. |
 | `PGLITE` | `true` | `false` → use external Postgres via `DB_*` |
 | `PERF_DB_RESET` | `1` | on external PG, drop+recreate `DB_NAME` before the run; `0` to keep it |
 | `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PW` / `DB_NAME` | localhost / 5432 / postgres ×3 | external Postgres connection |

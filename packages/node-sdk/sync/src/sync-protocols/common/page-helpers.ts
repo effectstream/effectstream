@@ -11,22 +11,35 @@ const MAX_BUFFER_MULTIPLE = 4;
 // (e.g. utxorpc streams one block per pass).
 const DEFAULT_STEP_SIZE = 1000;
 
-/**
- * Whether a chain should pause fetching because its in-memory buffer is at/over
- * the cap. Each chain's `stateToInput` calls this first and returns `undefined`
- * when true, so the fetch loop sleeps + retries while the merge drains.
- * See README "Backpressure (`maxBufferedPages`)".
- */
-export function bufferAtCap(
-  state: { bufferedData: { size(): number } },
+/** Resolved fetch-backpressure cap for a chain. See README "Backpressure". */
+export function bufferCapFor(
   syncProtocol: { maxBufferedPages?: number; stepSize?: number },
-): boolean {
+): number {
   const step = syncProtocol.stepSize ?? DEFAULT_STEP_SIZE;
-  const cap = Math.max(
+  return Math.max(
     syncProtocol.maxBufferedPages ?? MAX_BUFFER_MULTIPLE * step,
     step + 1,
   );
-  return state.bufferedData.size() >= cap;
+}
+
+/**
+ * Whether a chain should pause fetching because its in-memory buffer is at/over
+ * the cap. Each chain's `stateToInput` calls this first and returns `undefined`
+ * when true, so the fetch loop sleeps + retries while the merge drains. Also
+ * records backpressure metrics on `state` (for `/debug/metrics`).
+ * See README "Backpressure (`maxBufferedPages`)".
+ */
+export function bufferAtCap(
+  state: {
+    bufferedData: { size(): number };
+    recordBackpressure(atCap: boolean, cap: number): void;
+  },
+  syncProtocol: { maxBufferedPages?: number; stepSize?: number },
+): boolean {
+  const cap = bufferCapFor(syncProtocol);
+  const atCap = state.bufferedData.size() >= cap;
+  state.recordBackpressure(atCap, cap);
+  return atCap;
 }
 
 type ConfigSubset<Page> = {

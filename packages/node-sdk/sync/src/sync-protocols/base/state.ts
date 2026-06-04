@@ -75,6 +75,20 @@ export abstract class SyncState<
   /** Timestamp of the most recent error, or 0 if no error has occurred. */
   public lastErrorTimestamp: number = 0;
 
+  // ── Backpressure observability (issue #1; see common/page-helpers.ts + README) ──
+  /** Resolved fetch cap (`maxBufferedPages`); set on each backpressure check, 0 until the first. */
+  public bufferCap: number = 0;
+  /** Peak `bufferedData.size()` seen since boot — catches spikes the periodic sampler misses. */
+  public bufferHighWater: number = 0;
+  /** Whether fetching is currently paused because the buffer is at/over the cap. */
+  public pausedNow: boolean = false;
+  /** How many times the cap engaged (rising edges) — the "backpressure fired" counter. */
+  public backpressurePauses: number = 0;
+  /** Total time fetching has been paused by the cap, in ms. */
+  public backpressurePausedMs: number = 0;
+  /** Start of the current pause, for accumulating `backpressurePausedMs`. */
+  private pauseStartMs: number = 0;
+
   constructor(
     public readonly name: string,
     lastPage: undefined | LastPage<Page, RootPage>,
@@ -106,6 +120,19 @@ export abstract class SyncState<
    */
   abstract mergeDatum(ourOutput: Output, rootOutput: RootOutput): void;
 
+  recordBackpressure(atCap: boolean, cap: number): void {
+    this.bufferCap = cap;
+    const now = Date.now();
+    if (atCap && !this.pausedNow) {
+      this.pausedNow = true;
+      this.pauseStartMs = now;
+      this.backpressurePauses += 1;
+    } else if (!atCap && this.pausedNow) {
+      this.pausedNow = false;
+      this.backpressurePausedMs += now - this.pauseStartMs;
+    }
+  }
+
   @bound
   *updateState(
     _input: Input,
@@ -115,6 +142,8 @@ export abstract class SyncState<
       for (const datum of data.output) {
         this.bufferedData.push(datum);
       }
+      // Peak right after a push — the local max before the merge drains it.
+      this.bufferHighWater = Math.max(this.bufferHighWater, this.bufferedData.size());
       this.newDataCondVar.wake();
     }
 

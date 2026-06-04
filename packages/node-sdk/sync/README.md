@@ -86,6 +86,15 @@ the synthetic `test` chain. Two notes:
   buffer; pausing `stateToInput` stops draining it into `bufferedData`, but bounding
   that lower-level stream is a separate, fetcher-specific concern.
 
+**Observability.** Each `SyncState` tracks, and the runtime's `/debug/metrics`
+endpoint reports per protocol: `cap` (resolved `maxBufferedPages`), `buf` (current
+size), `bufHighWater` (peak since boot — catches spikes between samples), `pausedNow`,
+`pauses` (rising-edge count — **the "backpressure engaged" signal**), and `pausedMs`
+(total time paused). `pauses > 0` means the cap actively bounded memory; `0` means it
+was never needed in that run. Steady-state these sit at `0`; during a real deep
+catch-up (or under the perf harness's `PERF_APPLY_DELAY_MS` drain throttle) they climb
+as `buf` pins to `cap`.
+
 ## Key exports
 
 - `genSyncProtocols(dbConn, syncInfo)` - Effection generator that instantiates a runtime fetcher + state pair for every protocol in `syncInfo` (from `config.syncProtocols`). Called from the runtime's process-blocks loop.

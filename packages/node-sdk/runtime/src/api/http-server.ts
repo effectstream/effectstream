@@ -487,6 +487,12 @@ export const startHttpServer = function* (
           name: p.name,
           buf: p.bufferedData.size(),
           ownBlockNumber: p.lastPage?.ownBlockNumber ?? null,
+          // Backpressure observability
+          cap: p.bufferCap,
+          bufHighWater: p.bufferHighWater,
+          pausedNow: p.pausedNow,
+          pauses: p.backpressurePauses,
+          pausedMs: p.backpressurePausedMs,
         })),
         // Apply-stage lag: how old the last-applied block is. Unlike `buf` (fetch
         // backlog) this stays high when the node is write/apply-bound.

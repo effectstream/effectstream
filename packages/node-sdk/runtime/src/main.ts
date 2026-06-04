@@ -221,6 +221,7 @@ export function* start(config: StartConfig): Operation<void> {
           }...${lagSuffix} | ${JSON.stringify(contentBlocksForProtocol)}`,
         ),
     );
+    if (config.dev?.applyDelayMs) yield* sleep(config.dev.applyDelayMs);
     yield* each.next();
   }
 }

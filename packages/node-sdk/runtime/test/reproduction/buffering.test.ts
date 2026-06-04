@@ -72,6 +72,12 @@ function ownBlock(node: RunningNode, name: string): number | null {
     ?.ownBlockNumber ?? null;
 }
 
+/** Backpressure "fired" counter (rising edges) exposed on SyncState / /debug/metrics. */
+function pauses(node: RunningNode, name: string): number {
+  return node.syncProtocols().find((p) => p.name === name)
+    ?.backpressurePauses ?? 0;
+}
+
 /** Side-effect-only artifact write; never throws into the test. */
 function writeArtifact(
   name: string,
@@ -168,6 +174,7 @@ test("1a: backpressure caps the buffer while the node keeps applying blocks", as
   let peakMain = 0;
   let peakEvm = 0;
   let lastApplied = 0;
+  let mainPauses = 0;
   try {
     const startMs = Date.now();
     const deadline = startMs + 6000;
@@ -195,6 +202,7 @@ test("1a: backpressure caps the buffer while the node keeps applying blocks", as
       await sleep(50);
     }
   } finally {
+    mainPauses = pauses(node, MAIN_1A);
     writeArtifact("buffering-1a", samples, {
       mode: "1a-bounded-by-cap",
       stepSize: STEP_SIZE,
@@ -204,6 +212,7 @@ test("1a: backpressure caps the buffer while the node keeps applying blocks", as
       peakMainBuf: peakMain,
       peakEvmBuf: peakEvm,
       lastApplied,
+      pauses: mainPauses,
     });
     await node.stop();
   }
@@ -212,8 +221,10 @@ test("1a: backpressure caps the buffer while the node keeps applying blocks", as
   expect(peakMain).toBeGreaterThanOrEqual(CAP_FLOOR);
   // ...but stayed bounded — nowhere near the uncapped ~49k backlog.
   expect(Math.max(peakMain, peakEvm)).toBeLessThanOrEqual(BUFFER_BOUND);
-  // ...and the node kept producing/applying blocks (no deadlock).
+  // ...the node kept producing/applying blocks (no deadlock)...
   expect(lastApplied).toBeGreaterThanOrEqual(20);
+  // ...and the cap actually fired (the observability metric populated).
+  expect(mainPauses).toBeGreaterThan(0);
 }, 60_000);
 
 // ── 1b — head-of-line blocking, sibling buffer now bounded ──────────────────────
@@ -313,6 +324,7 @@ test("1b: a stalled chain still halts production, but the fast chain's buffer st
   let peakMain = 0;
   let peakFast = 0;
   let stalledHeight = -1;
+  let fastPauses = 0;
   try {
     const startMs = Date.now();
     const deadline = startMs + 15_000;
@@ -348,6 +360,7 @@ test("1b: a stalled chain still halts production, but the fast chain's buffer st
       await sleep(50);
     }
   } finally {
+    fastPauses = pauses(node, FAST_1B);
     writeArtifact("buffering-1b", samples, {
       mode: "1b-hol-sibling-bounded",
       stepSize: STEP_SIZE,
@@ -358,6 +371,7 @@ test("1b: a stalled chain still halts production, but the fast chain's buffer st
       stalledHeight,
       peakMainBuf: peakMain,
       peakFastBuf: peakFast,
+      fastPauses,
     });
     await node.stop();
   }
@@ -367,7 +381,9 @@ test("1b: a stalled chain still halts production, but the fast chain's buffer st
   expect(stalledHeight).toBeLessThanOrEqual(SLOW_TIP + 10);
   // ...the fast chain's buffer engaged the cap...
   expect(peakFast).toBeGreaterThanOrEqual(CAP_FLOOR);
-  // ...but stayed bounded behind the head-of-line block (was ~50k uncapped).
+  // ...but stayed bounded behind the head-of-line block (was ~50k uncapped)...
   expect(peakFast).toBeLessThanOrEqual(BUFFER_BOUND);
   expect(peakMain).toBeLessThanOrEqual(BUFFER_BOUND);
+  // ...and the cap actually fired on the fast chain (observability metric populated).
+  expect(fastPauses).toBeGreaterThan(0);
 }, 60_000);
