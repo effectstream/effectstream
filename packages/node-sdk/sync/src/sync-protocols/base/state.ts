@@ -75,7 +75,7 @@ export abstract class SyncState<
   /** Timestamp of the most recent error, or 0 if no error has occurred. */
   public lastErrorTimestamp: number = 0;
 
-  // ── Backpressure observability (issue #1; see common/page-helpers.ts + README) ──
+  // ── Backpressure observability (see common/page-helpers.ts + README) ──
   /** Resolved fetch cap (`maxBufferedPages`); set on each backpressure check, 0 until the first. */
   public bufferCap: number = 0;
   /** Peak `bufferedData.size()` seen since boot — catches spikes the periodic sampler misses. */

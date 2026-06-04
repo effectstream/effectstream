@@ -5,7 +5,7 @@ import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { PaginatedSyncProtocols } from "../types.ts";
 import type { PageTypeOf } from "../base/state.ts";
 
-// Fetch backpressure (issue #1). See README "Backpressure (`maxBufferedPages`)".
+// Fetch backpressure. See README "Backpressure (`maxBufferedPages`)".
 const MAX_BUFFER_MULTIPLE = 4;
 // Fallback chunk size for chains that fetch without an explicit stepSize
 // (e.g. utxorpc streams one block per pass).

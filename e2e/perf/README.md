@@ -56,7 +56,7 @@ high event volume, and measures how the node behaves under load. Modeled on
   burst drops ~a quarter of its txs as "nonce too high". Interval mining queues
   the whole burst in the mempool and mines it in batches, so **every** tx lands.
   Set `PERF_MINE_INTERVAL_MS=0` to keep the default auto-mine instead.
-- **Backpressure pressure mode (issue #1) — DEFAULT ON:** the fetch loop has no
+- **Backpressure pressure mode — DEFAULT ON:** without the fetch-backpressure cap the fetch loop has no
   backpressure, so during deep catch-up a chain's in-memory buffer races toward
   the whole backlog while the merge drains one block per DB txn (OOM risk). On a
   **fresh DB** the harness seeds the NTP `startTime` `PERF_BACKPRESSURE_LAG_S`
@@ -87,7 +87,7 @@ high event volume, and measures how the node behaves under load. Modeled on
     and writes `buffering-{1a,1b}-<stamp>.json` into `e2e/perf/results/`. With the
     Option B′ cap in place it now asserts the buffer stays **bounded** at the cap
     (~3–4k) instead of the pre-fix ~49–50k balloon (see
-    `ISSUE-1-BACKPRESSURE-BASELINE.md`); for 1b, production still stalls at the slow
+    `BACKPRESSURE-BASELINE.md`); for 1b, production still stalls at the slow
     chain's tip but the sibling buffer is capped. **This report auto-loads the
     latest such artifacts** and renders them in a dedicated **Backpressure —
     in-process measurement** section at the top. Run that test first
@@ -211,7 +211,7 @@ TOTAL=1000000 EVENTS_PER_TX=200 PERF_PHASE_A_TPS=10 PERF_SKIP_PHASE_B=1 \
 | `PERF_NTP_BLOCK_TIME_MS` | `1000` | NTP main seconds-per-block (lag multiplier) |
 | `PERF_POLLING_INTERVAL_MS` | `500` | sync protocol polling interval |
 | `PERF_STEP_SIZE` | `1000` | EVM parallel fetch step size (blocks/range) |
-| `PERF_BACKPRESSURE_LAG_S` | `600` | backpressure pressure mode (issue #1): on a fresh DB, seed the NTP start this many seconds in the past so the node boots behind and Phase A is a deep catch-up (apply-lag signal). `0` = off (start at "now"). Larger ⇒ deeper catch-up. The buffer-growth curve itself comes from the in-process test artifacts; see below. |
+| `PERF_BACKPRESSURE_LAG_S` | `600` | backpressure pressure mode: on a fresh DB, seed the NTP start this many seconds in the past so the node boots behind and Phase A is a deep catch-up (apply-lag signal). `0` = off (start at "now"). Larger ⇒ deeper catch-up. The buffer-growth curve itself comes from the in-process test artifacts; see below. |
 | `PERF_APPLY_DELAY_MS` | `0` | diagnostic drain throttle: sleep this many ms after each applied block, slowing drain below fetch so the per-chain buffers fill to their cap and the **backpressure fix becomes observable in the live node** (`buf` climbs to `cap` and plateaus; `pauses` on `/debug/metrics` climb). `0` = off. See below. |
 | `PGLITE` | `true` | `false` → use external Postgres via `DB_*` |
 | `PERF_DB_RESET` | `1` | on external PG, drop+recreate `DB_NAME` before the run; `0` to keep it |
@@ -246,7 +246,7 @@ your default browser (set `PERF_NO_OPEN=1` to skip).
   backlog in blocks** vs `mainNtp`/`evm` buffered pages), memory (rss + heapUsed),
   block progress (fetch **tip vs applied** block — the gap is the apply lag),
   cumulative entries, and API latency over time (log scale). The report also has a
-  **Backpressure — in-process measurement (issue #1)** section at the top
+  **Backpressure — in-process measurement** section at the top
   (auto-loaded from the in-process test artifacts — the authoritative buffer-growth
   and head-of-line curves), plus a per-phase **Backpressure — live run** sub-block
   (the live node's buffers/memory, usually modest — see the caveat above).

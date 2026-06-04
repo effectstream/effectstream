@@ -51,7 +51,7 @@ const protocols = await genSyncProtocols(config);
 During deep catch-up a chain's fetch loop races to its tip far faster than the
 merge can drain (the merge applies one block per DB transaction). Without a bound
 the in-memory buffer (`SyncState.bufferedData`) grows toward the **entire backlog**
-— hundreds of thousands of block objects — which is an OOM risk (sync issue #1).
+— hundreds of thousands of block objects — which is an OOM risk.
 
 **The cap.** Every chain's `stateToInput` calls `bufferAtCap(state, syncProtocol)`
 first (`sync-protocols/common/page-helpers.ts`): when
@@ -81,8 +81,8 @@ the synthetic `test` chain. Two notes:
 - **Cardano (UTXO-RPC)** has no `stepSize` (it streams one block per pass), so the cap
   falls back to a default chunk size of 1000 (⇒ default cap 4000); set `maxBufferedPages`
   explicitly to tune it.
-- The cap bounds `SyncState.bufferedData` (the merge-facing Deque — the issue #1
-  buffer). The UTXO-RPC fetcher additionally keeps its own internal FollowTip stream
+- The cap bounds `SyncState.bufferedData` (the merge-facing Deque the backpressure
+  feature protects). The UTXO-RPC fetcher additionally keeps its own internal FollowTip stream
   buffer; pausing `stateToInput` stops draining it into `bufferedData`, but bounding
   that lower-level stream is a separate, fetcher-specific concern.
 

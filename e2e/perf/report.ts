@@ -230,12 +230,12 @@ document.getElementById('cfg-speedup').textContent = cfg.speedup + 'x';
 document.getElementById('cfg-backpressure').textContent = cfg.backpressureLagS > 0 ? cfg.backpressureLagS + 's behind' : 'off';
 const root = document.getElementById('root');
 
-// Backpressure (issue #1) — in-process measurement, rendered from buffering-1a/1b
+// Backpressure — in-process measurement, rendered from buffering-1a/1b
 // artifacts. See e2e/perf/README.md.
 const bpArtifacts = DATA.backpressure || [];
 if (bpArtifacts.length) {
   const bsec = document.createElement('section');
-  bsec.innerHTML = '<div class="phase-header"><h2>Backpressure — in-process measurement (issue #1)</h2></div>'
+  bsec.innerHTML = '<div class="phase-header"><h2>Backpressure — in-process measurement</h2></div>'
     + '<p class="sub-cap">Deterministic reproduction (buffering.test.ts). <b>1a</b>: a chain&#39;s buffer balloons unbounded. <b>1b</b>: a stalled chain halts production while another chain&#39;s buffer balloons. See e2e/perf/README.md. (RSS = whole test process.)</p>';
   bpArtifacts.forEach(function(a, ai){
     const sub = document.createElement('div');
@@ -306,7 +306,7 @@ DATA.phases.forEach(function(ph, pi){
   });
   sec.appendChild(grid);
 
-  // Backpressure (issue #1) live-run sub-block. See e2e/perf/README.md.
+  // Backpressure live-run sub-block. See e2e/perf/README.md.
   const bpCharts = [
     {id:'bpbuf'+pi, title:'Buffer Growth (buffered pages) — the OOM curve',
      ds:[{label:'mainNtp buf', data:s.mainBuf},{label:'parallel buf', data:s.evmBuf}],
@@ -316,7 +316,7 @@ DATA.phases.forEach(function(ph, pi){
      yTitle:'RSS (MB)', y1Title:'Buffered pages'}
   ];
   const bp = document.createElement('div');
-  let bph = '<h3 class="sub-h">Backpressure — live run (issue #1)</h3>';
+  let bph = '<h3 class="sub-h">Backpressure — live run</h3>';
   bph += '<p class="sub-cap">Live perf node buffers/memory. Usually modest here (the perf node can&#39;t cleanly balloon the buffer — see e2e/perf/README.md); the authoritative curve is the in-process section above.</p>';
   bph += '<div class="kpi-grid">';
   bph += '<div class="kpi-card"><div class="kpi-label">Peak Buffer</div><div class="kpi-val text-amber">' + (sm.peakTotalBuf||0).toLocaleString() + ' pages</div><div class="kpi-sub">mainNtp: ' + (sm.peakMainBuf||0).toLocaleString() + ' / parallel: ' + (sm.peakEvmBuf||0).toLocaleString() + '</div></div>';

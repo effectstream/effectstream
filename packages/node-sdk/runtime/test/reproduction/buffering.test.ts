@@ -1,5 +1,5 @@
 /**
- * Verifies the issue #1 BACKPRESSURE FIX (Option B′) over the synthetic `test`
+ * Verifies the fetch-backpressure feature (Option B′) over the synthetic `test`
  * chain through the real runtime (`start()` + in-process PGLite).
  *
  *  1a — unbounded buffering: with a cap, the fetch loop pauses when the buffer is
@@ -10,7 +10,7 @@
  *       the cap instead of ballooning behind the head-of-line block.
  *
  * Before the fix these buffers reached ~49k–50k (see
- * e2e/perf/results/ISSUE-1-BACKPRESSURE-BASELINE.md); these tests assert they now
+ * e2e/perf/results/BACKPRESSURE-BASELINE.md); these tests assert they now
  * stay at the cap. Each test also writes a JSON time-series artifact to
  * e2e/perf/results/ whose field names match e2e/perf/metrics.ts `Sample`, so the
  * perf HTML report's Backpressure section can render the same signals.

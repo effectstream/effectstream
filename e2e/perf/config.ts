@@ -21,7 +21,7 @@ const POLLING_INTERVAL = parseInt(
 );
 const STEP_SIZE = parseInt(process.env["PERF_STEP_SIZE"] || "1000", 10);
 
-// Backpressure (issue #1) pressure mode — default on, `0` to opt out.
+// Backpressure pressure mode — default on, `0` to opt out.
 // See e2e/perf/README.md ("Backpressure pressure mode").
 export const BACKPRESSURE_LAG_S = parseInt(
   process.env["PERF_BACKPRESSURE_LAG_S"] || "600",
