@@ -21,9 +21,9 @@
 import net from "node:net";
 import pg from "pg";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { appendFileSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { platform, tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { type PgliteHandle, startPglite } from "@effectstream/db/start-pglite";
 import type { EventSpec } from "./scenario.ts";
 
@@ -47,31 +47,51 @@ let dbCounter = 0;
 let activeHarnessCount = 0;
 let clusterStopped = false;
 
-/** Resolve the postgresql@18 bin dir (Homebrew default, or REPRO_PG_BINDIR). */
-function pgBinDir(): string {
+/** Resolve a Postgres bin dir. Tries, in order: env var, Homebrew, pg_config, PATH, Linux conventions. */
+function resolvePgBinDir(): string | undefined {
   const override = process.env.REPRO_PG_BINDIR;
   if (override) return override;
-  try {
-    const prefix = execFileSync("brew", ["--prefix", "postgresql@18"], {
-      encoding: "utf8",
-    }).trim();
-    return join(prefix, "bin");
-  } catch {
-    throw new Error(
-      "postgresql@18 not found. Install it (`brew install postgresql@18`) " +
-        "or set REPRO_PG_BINDIR to a Postgres bin dir that bundles pg_ivm.",
-    );
+
+  // macOS + Homebrew
+  if (platform() === "darwin") {
+    try {
+      const prefix = execFileSync("brew", ["--prefix", "postgresql@18"], {
+        encoding: "utf8",
+      }).trim();
+      return join(prefix, "bin");
+    } catch { /* not installed via Homebrew */ }
   }
+
+  // pg_config — standard on most systems with PostgreSQL dev packages
+  try {
+    const dir = execFileSync("pg_config", ["--bindir"], { encoding: "utf8" }).trim();
+    if (dir) return dir;
+  } catch { /* not available */ }
+
+  // PATH probe — initdb directly accessible
+  try {
+    const which = platform() === "win32" ? "where" : "which";
+    const p = execFileSync(which, ["initdb"], { encoding: "utf8" }).trim();
+    if (p) return resolve(p, "..");
+  } catch { /* not on PATH */ }
+
+  // Linux convention (Debian/Ubuntu layout)
+  if (platform() === "linux") {
+    for (const ver of [18, 17, 16]) {
+      const dir = `/usr/lib/postgresql/${ver}/bin`;
+      try {
+        readdirSync(dir);
+        return dir;
+      } catch { /* not installed */ }
+    }
+  }
+
+  return undefined;
 }
 
-/** True if the Postgres backend can boot (postgresql@18 resolvable). */
+/** True if a Postgres binary is available on this system. */
 export function postgresAvailable(): boolean {
-  try {
-    pgBinDir();
-    return true;
-  } catch {
-    return false;
-  }
+  return resolvePgBinDir() !== undefined;
 }
 
 /** Grab a free TCP port by binding to :0 and reading the assigned port. */
@@ -133,7 +153,7 @@ function cleanupOrphanedClusters(bin: string, env: Record<string, string | undef
 function ensureCluster(): Promise<Cluster> {
   if (clusterPromise) return clusterPromise;
   clusterPromise = (async () => {
-    const bin = pgBinDir();
+    const bin = resolvePgBinDir()!;
     clusterBin = bin;
     const env = { ...process.env, LC_ALL: "C" };
 
