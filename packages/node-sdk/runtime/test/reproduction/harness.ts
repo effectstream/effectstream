@@ -24,18 +24,38 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { appendFileSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { platform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type PgliteHandle, startPglite } from "@effectstream/db/start-pglite";
+import { fileURLToPath } from "node:url";
 import type { EventSpec } from "./scenario.ts";
+import { TestChainControl } from "@effectstream/sync";
+import { toSyncProtocolWithNetwork } from "@effectstream/config";
+
+export type RunNodeOpts = {
+  config: any;
+  apiPort: number;
+};
+
+export type RunningNode = {
+  child: any;
+  apiPort: number;
+  bufferSizes: Record<string, number>;
+  pauses: Record<string, number>;
+  ownBlocks: Record<string, number | null>;
+  stop: () => Promise<void>;
+  syncProtocols: () => any[];
+};
 
 // Re-export the bits the test files assert with, so they import from one place.
+// `sleep` is imported (not just re-exported) so the helpers below can use it too.
 export { TEST_PRIMITIVE_TYPE } from "./scenario.ts";
 export type { EventSpec } from "./scenario.ts";
-export {
+import {
   countEventRows,
   latestFinalizedHeight,
   maxPage,
   pageRows,
+  sleep,
 } from "./poll.ts";
+export { countEventRows, latestFinalizedHeight, maxPage, pageRows, sleep };
 
 // ── Throwaway PostgreSQL cluster (one per test process) ──────────────────────
 
@@ -104,6 +124,54 @@ function freePort(): Promise<number> {
       srv.close(() => resolve(port));
     });
   });
+}
+
+/** The standalone PGLite gateway script (`--port` mode). */
+const PGLITE_GATEWAY = fileURLToPath(import.meta.resolve("@effectstream/db/start-pglite"));
+
+/** Resolve once a child process has exited (immediately if it already has). */
+function waitChildExit(child: ReturnType<typeof spawn>): Promise<void> {
+  return new Promise((resolve) => {
+    if (child.exitCode != null || child.signalCode != null) return resolve();
+    child.once("exit", () => resolve());
+  });
+}
+
+/**
+ * Poll `fn` every `intervalMs` until it resolves truthy or `timeoutMs` elapses.
+ * A throwing/false `fn` counts as "not ready yet". Returns whether it succeeded.
+ */
+async function pollUntil(
+  fn: () => Promise<boolean>,
+  timeoutMs: number,
+  intervalMs = 50,
+): Promise<boolean> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      if (await fn()) return true;
+    } catch {
+      // not ready yet
+    }
+    await sleep(intervalMs);
+  }
+  return false;
+}
+
+/** True once a TCP connection to `port` succeeds; never rejects. */
+function tcpConnects(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const sock = net.connect(port, "127.0.0.1");
+    sock.once("connect", () => { sock.destroy(); resolve(true); });
+    sock.once("error", () => { sock.destroy(); resolve(false); });
+  });
+}
+
+/** Wait until something accepts a connection on `port` (the gateway is up). */
+async function waitPortOpen(port: number, timeoutMs = 15_000): Promise<void> {
+  if (!(await pollUntil(() => tcpConnects(port), timeoutMs))) {
+    throw new Error(`PGLite gateway never came up on port ${port}`);
+  }
 }
 
 /**
@@ -221,6 +289,7 @@ export type Harness = {
    * database keeps everything it committed. Rejects if the child fails.
    */
   runToHeight: (opts: RunToHeightOpts) => Promise<void>;
+  runNode: (opts: RunNodeOpts) => Promise<RunningNode>;
   teardown: () => Promise<void>;
 };
 
@@ -289,6 +358,96 @@ function makeRunToHeight(
         }
       });
     });
+  };
+}
+
+/** `runNode` closure shared by both backends; spawns a subprocess and queries metrics. */
+function makeRunNode(
+  dbEnv: Record<string, string>,
+): (opts: RunNodeOpts) => Promise<RunningNode> {
+  return async (opts: RunNodeOpts): Promise<RunningNode> => {
+    const tips: Record<string, number> = {};
+    for (const sp of toSyncProtocolWithNetwork(opts.config)) {
+      const tip = TestChainControl.getTip(sp.syncProtocol.name);
+      if (tip !== undefined) {
+        tips[sp.syncProtocol.name] = tip;
+      }
+    }
+
+    const spec = {
+      securityNamespace: opts.config.securityNamespace ?? "sync-repro",
+      events: [],
+      tips,
+      target: 999999,
+      apiPort: opts.apiPort,
+      config: opts.config,
+    };
+
+    const child = spawn("bun", [RUNNER, JSON.stringify(spec)], {
+      env: { ...process.env, ...dbEnv, ENABLE_DEV_AND_DEBUG_ENDPOINTS: "true" },
+      stdio: process.env.REPRO_DEBUG
+        ? ["ignore", "inherit", "inherit"]
+        : ["ignore", "ignore", "pipe"],
+    });
+
+    let alive = true;
+
+    const node: RunningNode = {
+      child,
+      apiPort: opts.apiPort,
+      bufferSizes: {},
+      pauses: {},
+      ownBlocks: {},
+      syncProtocols() {
+        return Object.entries(this.bufferSizes).map(([name, buf]) => ({
+          name,
+          bufferedData: {
+            size: () => buf,
+          },
+          backpressurePauses: this.pauses[name] ?? 0,
+          lastPage: this.ownBlocks[name] != null ? { ownBlockNumber: this.ownBlocks[name] } : null,
+        }));
+      },
+      stop: async () => {
+        alive = false;
+        await poll.catch(() => {});
+        child.kill("SIGKILL");
+        await waitChildExit(child);
+      },
+    };
+
+    // Background loop scraping the node's debug metrics until stop() flips `alive`.
+    const poll = (async () => {
+      while (alive) {
+        try {
+          const res = await fetch(`http://127.0.0.1:${opts.apiPort}/debug/metrics`);
+          if (res.ok) {
+            const data = await res.json() as any;
+            if (data && Array.isArray(data.protocols)) {
+              for (const p of data.protocols) {
+                node.bufferSizes[p.name] = p.buf;
+                node.pauses[p.name] = p.pauses;
+                node.ownBlocks[p.name] = p.ownBlockNumber;
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+        await sleep(25);
+      }
+    })();
+
+    const up = await pollUntil(
+      () => fetch(`http://127.0.0.1:${opts.apiPort}/health`).then((r) => r.ok),
+      10_000,
+    );
+    if (!up) {
+      await node.stop();
+      throw new Error(`node subprocess failed to boot on port ${opts.apiPort}`);
+    }
+
+    return node;
   };
 }
 
@@ -374,28 +533,46 @@ async function setupPostgresHarness(): Promise<Harness> {
     }
   };
 
-  return { pool, runToHeight: makeRunToHeight(dbEnv), teardown };
+  return { pool, runToHeight: makeRunToHeight(dbEnv), runNode: makeRunNode(dbEnv), teardown };
 }
 
 /**
- * PGLite backend — in-memory WASM Postgres behind a `startPglite` gateway. The
- * single WASM backend tolerates no overlapping queries, so the subprocess routes
- * its polls through the global DB mutex (node-runner.ts / poll.ts) and both
- * pools cap at one connection. `startPglite` reads its config from ENV.
+ * PGLite backend — in-memory WASM Postgres behind a `startPglite` gateway.
+ *
+ * The gateway runs in its OWN subprocess rather than in this test process.
+ * PGLite is an Emscripten WASM build that loads the `pg_ivm` extension via
+ * dlopen into a shared function table; two instances alive in one process
+ * collide ("call_indirect signature mismatch"). bun runs every test file — and
+ * every harness within a file (e.g. buffering's 1a + 1b) — in one process, so an
+ * in-process gateway means multiple instances coexisting. One gateway = one
+ * subprocess = exactly one PGLite instance per process, which sidesteps it.
+ *
+ * The single WASM backend still tolerates no overlapping queries, so the node
+ * subprocess routes its polls through the global DB mutex (node-runner.ts /
+ * poll.ts), both pools cap at one connection, and the gateway serializes all
+ * clients (start-pglite.ts). The gateway reads its config from ENV.
  */
 async function setupPgliteHarness(): Promise<Harness> {
   const port = await freePort();
   const dbName = "postgres";
 
-  // startPglite reads these from ENV at construction; a fresh `memory://`
-  // instance is isolated per harness. PGLITE=true mutex-guards parent asserts.
-  process.env.PGLITE_DATA_DIR = "memory://";
-  process.env.DB_USER = "postgres";
-  process.env.DB_NAME = dbName;
+  // PGLITE=true makes parent assertions (poll.ts `q`) take the DB mutex. The
+  // parent never loads PGLite itself — the gateway subprocess does.
   process.env.PGLITE = "true";
 
-  const handle: PgliteHandle = await startPglite(port);
-  handle.server.unref(); // don't let a leaked gateway keep the process alive
+  // A fresh `memory://` instance, isolated per harness, in its own process.
+  const gatewayEnv = {
+    ...process.env,
+    PGLITE: "true",
+    PGLITE_DATA_DIR: "memory://",
+    DB_USER: "postgres",
+    DB_NAME: dbName,
+  };
+  const gateway = spawn("bun", [PGLITE_GATEWAY, "--port", String(port)], {
+    env: gatewayEnv,
+    stdio: process.env.REPRO_DEBUG ? "inherit" : ["ignore", "ignore", "ignore"],
+  });
+  await waitPortOpen(port);
 
   const dbEnv = {
     PGLITE: "true",
@@ -419,8 +596,18 @@ async function setupPgliteHarness(): Promise<Harness> {
 
   const teardown = async (): Promise<void> => {
     await pool.end().catch(() => {});
-    await handle.close().catch(() => {});
+    gateway.kill("SIGKILL");
+    await waitChildExit(gateway);
   };
 
-  return { pool, runToHeight: makeRunToHeight(dbEnv), teardown };
+  return { pool, runToHeight: makeRunToHeight(dbEnv), runNode: makeRunNode(dbEnv), teardown };
 }
+
+/** Sample a protocol's in-memory buffered-data size now. */
+export function bufferSize(
+  node: RunningNode,
+  protocolName: string,
+): number {
+  return node.bufferSizes[protocolName] ?? 0;
+}
+

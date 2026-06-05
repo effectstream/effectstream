@@ -77,7 +77,7 @@ async function main() {
     max: isPglite ? 1 : 10,
   });
 
-  const cfg = buildConfig({
+  const cfg = (spec as any).config ?? buildConfig({
     securityNamespace: spec.securityNamespace,
     events: spec.events,
     parallelStepSize: spec.parallelStepSize,
