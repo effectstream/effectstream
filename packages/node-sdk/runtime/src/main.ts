@@ -28,7 +28,10 @@ import {
   until,
 } from "effection";
 import { initTelemetry } from "./telemetry.ts";
-import { type PendingEvent, processFinalizedBlock } from "./process-blocks.ts";
+import {
+  type PendingEvent,
+  processFinalizedBlockWithRetry,
+} from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import { recordAppliedBlock } from "./api/apply-status.ts";
 import type { StartConfig } from "./types.ts";
@@ -148,34 +151,19 @@ export function* start(config: StartConfig): Operation<void> {
   let nextBlock = yield* finalizedBlocks.next();
   for (; !nextBlock.done; nextBlock = yield* finalizedBlocks.next()) {
     const value = nextBlock.value;
-    // We request a dbClient for a non-shared dbConn object.
-    // For PGLite, this is not enough, as the can only be one connection at a time.
-    // So we request a DBMutex as well.
-    let dbClient: Client | undefined;
-    // Custom app events emitted by STFs during this block. Collected by
-    // processFinalizedBlock and flushed below ONLY after it returns — i.e.
-    // strictly after the block's COMMIT. See plan invariant I1.
-    let blockAppEvents: PendingEvent[] = [];
-    try {
-      yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
-      dbClient = yield* until((dbConn as any).connect()); // Client,
-
-      const result = yield* processFinalizedBlock(
-        value,
-        config,
-        dbClient as any, // Client,
-        blockHash,
-      );
-      const resultHash = result.blockHash;
-      blockAppEvents = result.events;
-      if (resultHash !== "0x0") {
-        blockHash = resultHash;
-      }
-    } finally {
-      releaseDBMutex(`processing-blocks:${value.blockNumber}`);
-      if (dbClient) {
-        (dbClient as any).release(); // Client,
-      }
+    // processFinalizedBlockWithRetry owns connection checkout, the per-block
+    // DB mutex (PGLite), and transient-pg retry/backoff. App events it
+    // collects are flushed below ONLY after it returns — i.e. strictly after
+    // the block's COMMIT.
+    const result = yield* processFinalizedBlockWithRetry(
+      value,
+      config,
+      dbConn as any, // Pool,
+      blockHash,
+    );
+    const blockAppEvents: PendingEvent[] = result.events;
+    if (result.blockHash !== "0x0") {
+      blockHash = result.blockHash;
     }
 
     recordAppliedBlock(value); // apply-stage liveness for /debug/metrics

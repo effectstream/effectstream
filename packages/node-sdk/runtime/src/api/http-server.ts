@@ -14,6 +14,7 @@ import {
   getTableSchema,
   type IGetAllAddressesResult,
   type IGetAllTableNamesResult,
+  poolErrors,
   releaseDBMutex,
   runPreparedQuery,
   waitUntilFree,
@@ -365,19 +366,29 @@ export const startHttpServer = function* (
     yield* until(apiRouter(server, dbConn));
   }
 
+  const HealthDbSchema = Type.Object({
+    consecutive: Type.Number(),
+    firstFailureAt: Type.Number(),
+    sustainedDurationMs: Type.Number(),
+    sustained: Type.Boolean(),
+  });
+  const HealthResponseSchema = Type.Object({
+    status: Type.String(),
+    db: HealthDbSchema,
+  });
   server.get("/health", {
     schema: {
       tags: ["status"],
       response: {
-        200: Type.Object({
-          status: Type.String(),
-        }),
+        200: HealthResponseSchema,
+        503: HealthResponseSchema,
       },
     },
-  }, () => {
-    return {
-      status: "ok",
-    };
+  }, (_req, reply) => {
+    const db = poolErrors.state();
+    return reply
+      .status(db.sustained ? 503 : 200)
+      .send({ status: db.sustained ? "db-unreachable" : "ok", db });
   });
 
   server.get("/addresses", {

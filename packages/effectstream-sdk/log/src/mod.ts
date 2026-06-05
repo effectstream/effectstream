@@ -11,6 +11,7 @@ export {
 } from "./const.ts";
 export { attachTransport } from "./tslog.ts";
 export { DefaultLogLevels } from "./tslog.ts";
+export { installUnhandledRejectionLogger } from "./process-handlers.ts";
 
 // re-exporting this
 // so that we don't need to re-import opentelemetry in every component
