@@ -139,4 +139,15 @@ export async function adminMintTest(db: Client) {
     }
     return false;
   });
+
+  // The Cardano buyer is recorded by payment-key-hash; confirm /api/nfts returns their NFTs by
+  // that pkh (the lookup the buyer "My Purchases" view uses for Cardano).
+  await assert("admin-mint: /api/nfts returns Cardano buyer NFTs (by pkh)", async () => {
+    const r = await db.query("SELECT wallet FROM minted_nfts WHERE chain = 'cardano' LIMIT 1");
+    const pkh = r.rows[0]?.wallet;
+    if (!pkh) return false;
+    const res = await fetch(`${API}/api/nfts/${SLUG}?wallet=${pkh}`);
+    const body = await res.json();
+    return res.ok && Array.isArray(body.nfts) && body.nfts.some((n: any) => n.chain === "cardano");
+  });
 }
