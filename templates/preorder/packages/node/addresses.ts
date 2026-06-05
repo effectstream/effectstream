@@ -10,6 +10,7 @@ export interface ExtraAddresses {
   factory: string;
   mockErc20: string;
   effectStreamL2: string;
+  itemNft: string;
   admin: string;
 }
 
@@ -20,6 +21,7 @@ let extra: ExtraAddresses = {
   factory: ZERO,
   mockErc20: ZERO,
   effectStreamL2: ZERO,
+  itemNft: ZERO,
   admin: ZERO,
 };
 
@@ -37,6 +39,7 @@ try {
 export const EXTRA_ADDRESSES = extra;
 export const LAUNCHPAD_ADDRESS = extra.launchpadProxy.toLowerCase();
 export const EFFECTSTREAM_L2_ADDRESS = extra.effectStreamL2;
+export const ITEM_NFT_ADDRESS = extra.itemNft;
 export const MOCK_ERC20_ADDRESS = extra.mockErc20.toLowerCase();
 /** Lower-cased admin address; the STM authorizes admin commands by comparing the L2 input signer to this. */
 export const ADMIN_ADDRESS = extra.admin.toLowerCase();

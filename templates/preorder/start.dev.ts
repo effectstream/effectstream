@@ -56,6 +56,19 @@ export default {
     },
 
     {
+      // Holds funds + signs the post-sale NFT mints. The sync node's nft-dispatch
+      // worker POSTs mint jobs to it; it calls PreorderItemNft.mint(buyer) on-chain.
+      name: "batcher",
+      description: "NFT mint batcher",
+      args: ["run", "packages/batcher/batcher.dev.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:3334",
+      stopProcessAtPort: [3334],
+      dependsOn: [EvmNames.GENERATE_MOD],
+    },
+
+    {
       name: "frontend-build",
       description: "Build frontend",
       cwd: path.join(root, "packages/frontend"),

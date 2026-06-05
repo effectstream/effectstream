@@ -26,6 +26,10 @@ export const adminGrammar = {
   "set-coin": [
     ["coinJson", Type.String()],
   ],
+  // Post-sale: enqueue NFT mints for every item each buyer owns. Campaign must be ended.
+  "mint-nfts": [
+    ["campaignId", Type.String()],
+  ],
 } as const satisfies GrammarDefinition;
 
 /**

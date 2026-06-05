@@ -340,11 +340,26 @@ export const apiRouter: StartConfigApiRouter = async function (
         getReferralRewardsByCampaign.run({ campaign_id: campaign.campaign_id }, dbConn),
         "/api/admin/status/referrals",
       );
+      const nftMintsRes = await dbConn.query(
+        `SELECT chain, wallet, item_id, quantity, status, tx_hash, error
+         FROM nft_mints WHERE campaign_id = $1 ORDER BY wallet, item_id`,
+        [campaign.campaign_id],
+      );
+      const nftMints = nftMintsRes.rows;
+      const nftMintSummary = nftMints.reduce(
+        (acc: Record<string, number>, m: { status: string }) => {
+          acc[m.status] = (acc[m.status] ?? 0) + 1;
+          return acc;
+        },
+        {},
+      );
       const valid = payments.filter((p) => p.status === "valid").length;
       const invalid = payments.filter((p) => p.status === "invalid").length;
       reply.send({
         coins,
         referralRewards,
+        nftMints,
+        nftMintSummary,
         campaign: {
           campaignId: campaign.campaign_id,
           slug: campaign.slug,
@@ -363,6 +378,33 @@ export const apiRouter: StartConfigApiRouter = async function (
       });
     },
   );
+
+  // Minted NFTs owned by a wallet (populated after the admin finalises the sale).
+  server.get<{
+    Params: { slug: string };
+    Querystring: { wallet?: string };
+  }>("/api/nfts/:slug", async (request, reply) => {
+    const [campaign] = await runPreparedQuery(
+      getCampaignBySlug.run({ slug: request.params.slug }, dbConn),
+      "/api/nfts/campaign",
+    );
+    if (!campaign) {
+      reply.code(404).send({ error: "Launchpad not found" });
+      return;
+    }
+    const wallet = request.query.wallet?.toLowerCase();
+    if (!wallet) {
+      reply.code(400).send({ error: "wallet query param required" });
+      return;
+    }
+    const result = await dbConn.query(
+      `SELECT chain, item_id, token_id, policy_id, tx_hash
+       FROM minted_nfts WHERE campaign_id = $1 AND wallet = $2
+       ORDER BY item_id, token_id`,
+      [campaign.campaign_id, wallet],
+    );
+    reply.send({ nfts: result.rows });
+  });
 
   // Marketplace integration — item metadata.
   server.get<{ Params: { slug: string } }>(

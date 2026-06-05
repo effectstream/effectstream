@@ -12,6 +12,8 @@ import {
   PROTOCOL_PARAMETERS_DEFAULT,
   mintingPolicyToId,
   paymentCredentialOf,
+  scriptFromNative,
+  credentialToAddress,
   toUnit,
 } from "@lucid-evolution/utils";
 import fs from "node:fs";
@@ -280,4 +282,52 @@ export async function buyItemsCardano(
   console.log(`[Lucid] Purchase TX submitted: ${txHash} (policy=${policyId}, buyer=${buyerPkh})`);
   await lucid.awaitTx(txHash);
   return { txHash, policyId, buyerPkh };
+}
+
+// ── Post-sale item NFT minting (native policy) ─────────────────────────────
+// Cardano item NFTs are minted by a native "sig" policy keyed to the server wallet and
+// delivered to the buyer. The batcher's Cardano mint adapter uses this for the post-sale
+// distribution (the receipt plutus policy above is a per-purchase proof, a separate concern).
+
+function toHexStr(text: string): string {
+  return Buffer.from(text, "utf-8").toString("hex");
+}
+
+let cachedItemPolicy: { policyId: string; mintingPolicy: ReturnType<typeof scriptFromNative> } | null = null;
+
+// Deliverable address from a recipient: pass a bech32 address through, or derive an enterprise
+// address from a 28-byte payment-key-hash (how #753 records Cardano buyers — metadata `w` = pkh).
+function recipientToAddress(recipient: string): string {
+  if (recipient.startsWith("addr")) return recipient;
+  return credentialToAddress("Custom", { type: "Key", hash: recipient });
+}
+
+export async function mintItemNftToAddress(
+  lucid: LucidEvolution,
+  assetName: string,
+  recipient: string,
+  lovelace: bigint = 2_000_000n,
+): Promise<{ txHash: string; policyId: string; assetNameHex: string; unit: string }> {
+  const ownerAddr = await lucid.wallet().address();
+  if (!cachedItemPolicy) {
+    const cred = paymentCredentialOf(ownerAddr);
+    const nativeScript = scriptFromNative({ type: "sig", keyHash: cred.hash });
+    cachedItemPolicy = { policyId: mintingPolicyToId(nativeScript), mintingPolicy: nativeScript };
+  }
+  const { policyId, mintingPolicy } = cachedItemPolicy;
+  const assetNameHex = toHexStr(assetName);
+  const unit = toUnit(policyId, assetNameHex);
+  const toAddress = recipientToAddress(recipient);
+
+  const tx = lucid
+    .newTx()
+    .mintAssets({ [unit]: 1n })
+    .attach.MintingPolicy(mintingPolicy)
+    .pay.ToAddress(toAddress, { lovelace, [unit]: 1n });
+
+  const signed = await (await tx.complete()).sign.withWallet().complete();
+  const txHash = await signed.submit();
+  console.log(`[Lucid] Item NFT mint+deliver: ${txHash} (asset=${assetName} -> ${toAddress})`);
+  await lucid.awaitTx(txHash);
+  return { txHash, policyId, assetNameHex, unit };
 }

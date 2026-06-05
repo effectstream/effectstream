@@ -161,3 +161,14 @@ INSERT INTO referral_rewards (
 
 /* @name getReferralRewardsByCampaign */
 SELECT * FROM referral_rewards WHERE campaign_id = :campaign_id! ORDER BY id DESC;
+
+/* @name getMintableItems */
+SELECT ui.wallet, ui.item_id, ui.quantity, u.chain
+FROM launchpad_user_items ui
+JOIN launchpad_users u ON u.launchpad = ui.launchpad AND u.wallet = ui.wallet
+WHERE ui.launchpad = :launchpad!;
+
+/* @name insertNftMint */
+INSERT INTO nft_mints (campaign_id, chain, wallet, item_id, quantity, status, created_block)
+VALUES (:campaign_id!, :chain!, :wallet!, :item_id!, :quantity!, 'pending', :created_block!)
+ON CONFLICT (campaign_id, chain, wallet, item_id) DO NOTHING;
