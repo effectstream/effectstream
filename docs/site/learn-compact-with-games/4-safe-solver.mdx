@@ -16,34 +16,29 @@ import GameEmbed from '@site/src/components/GameEmbed';
 
 <MultiChainNote />
 
-Press your luck to find the loot without triggering an alarm to multiply your score. Many small onchain actions per round leaning on Arbitrum finality for a responsive feel.
+Press your luck cracking safes for loot - bank your score before an alarm wipes the round.
 
-## Technical challenges
+## Under the hood
 
-### Arbitrum finality
+**The game.** Safe Solver is a single-player, turn-based press-your-luck puzzle: open safes one at a time, each resolved by seeded RNG, and cash out before you trip an alarm. The client is rendered in **Three.js** (native WebGL canvas).
 
-The same finality argument as BlockKart, but applied to a different shape
-of game. A puzzle that takes fifty inputs to solve is fifty chances to
-feel sluggish if settlement is slow.
+**Chains.** Same split as BlockKart - **Arbitrum** for the game inputs (a `PaimaL2Contract` with `fee = 0`) and **Midnight** as a minimal anchor. The EVM choice is swappable; EffectStream handles the sync either way.
 
-### Many simple actions
+**Running on EffectStream.** The state machine's grammar is `initLevel` / `checkSafe` / `submitScore`: each `checkSafe` turn is resolved server-side with seeded RNG, and `submitScore` banks the run. Because a round is *many* small actions, keeping per-turn state on the EVM/backend side - not on Midnight - is what keeps it responsive.
 
-Each move in Safe Solver is tiny. We talk through how we keep these moves
-cheap individually, how we batch where it makes sense, and how the
-contract validates a sequence without making the client wait between
-clicks.
+**Leaderboard & achievements.** Banked scores are ranked on the `/metrics/leaderboard` endpoint, and Safe Solver awards achievements shown in the Honors panel.
 
-## Source & Compact code
+## The Compact contract
 
 <GameRepo />
 
 **Source:** [`packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact`](https://github.com/effectstream/safe-solver/blob/main/packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact)
 
-Safe Solver is a click-heavy puzzle. Like BlockKart, all of the per-click game state runs off-chain on Arbitrum, and Midnight's Compact contract is a write-once notarization layer. The contract below is byte-for-byte identical to BlockKart's - same architectural pattern emerging from a different game's constraints.
+Safe Solver uses the exact same minimal Midnight anchor as BlockKart - byte for byte. It's worth seeing the same architectural choice arrive from a different game's constraints.
 
 ### Same anchor pattern, different reason
 
-BlockKart needed off-chain speed for racing. Safe Solver needs off-chain speed for *volume* - dozens of small actions per round would be prohibitively expensive to verify on Midnight directly. Pushing the per-click state machine onto Arbitrum and using Compact only as an anchor is the same design choice for a different reason. When your contract starts looking like this short, ask whether you actually need the rest of Compact's expressiveness or whether the chain is just your notary.
+BlockKart needed off-chain speed for racing; Safe Solver needs it for *volume* - dozens of small actions per round would be prohibitively expensive to prove on Midnight directly. Pushing the per-click state machine onto the EVM side and using Compact only as an anchor is the same design choice for a different reason. When your contract gets this short, ask whether you actually need the rest of Compact's expressiveness or whether the chain is just your notary.
 
 <CompactCode summary="Full contract (11 lines)">
 

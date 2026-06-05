@@ -22,43 +22,25 @@ import GameEmbed from '@site/src/components/GameEmbed';
 
 <MultiChainNote />
 
-Time-based quests with tradeable characters. Build your deck of characters to battle through dungeons.
+Battle through dungeons with a deck of tradeable characters in a time-gated roguelike.
 
-## Technical challenges
+## Under the hood
 
-### Time-based quests
+**The game.** Dust to Dust is a single-player roguelike deckbuilder: register, send characters on timed quests, then fight boss battles with the abilities you've collected and upgraded. The client is built on **Phaser 3**, with a combat scene driven by the contract's resolved state.
 
-Quests open and close on real elapsed time, not just on player action. We
-walk through how we anchor "now" in a way both the game and the contract
-agree on, and how we keep the UI honest when the player's clock disagrees
-with the chain.
+**Chains.** Like Kachina, Dust to Dust is **Midnight-only**. Quests, abilities, RNG, and progression all live in one Compact contract - no second chain to settle to. The EffectStream foundation keeps that an open choice rather than a hard-coded one.
 
-### Tradeable characters via the offer file system
+**Running on EffectStream.** An EffectStream state machine mirrors the contract ledger (players, abilities, active quests and battles) into Postgres, surfaced to the client through `/game/*` REST endpoints. Quest and battle transactions are proved client-side in a WebAssembly worker and submitted through the **batcher**, so moves are **gasless** for players.
 
-Trades happen between two players who don't trust each other. We use an
-offer file flow so each side can publish, inspect, and accept proposals
-without ever putting an asset at risk mid-trade.
+**Leaderboard & achievements.** Players are ranked by quest points on the `/metrics/leaderboard` endpoint. Dust to Dust also ships **100+ achievements** - spirit-collection, quest milestones, battle feats, smithing - tracked off-chain by the state machine and shown in the Honors panel.
 
-### Witness functions
-
-Witness functions let the contract consume private inputs the player
-already has, without leaking them. This section is the longest one in the
-post - it's the first time in the series we use the primitive that defines
-much of what comes next.
-
-### Building on Phaser
-
-Phaser handles rendering, input, and the tilemap. We cover how we wire its
-scene system into the contract calls without making either side care too
-much about the other.
-
-## Source & Compact code
+## The Compact contract
 
 <GameRepo />
 
 **Source:** [`backend/packages/midnight/contract-game2/src/game2.compact`](https://github.com/effectstream/dust-to-dust/blob/main/backend/packages/midnight/contract-game2/src/game2.compact)
 
-Dust to Dust is a roguelike deckbuilder. Two things stand out in the Compact contract: quests are anchored to real wall-clock time (no client-side speed-running), and the gameplay math is written in **circuit-friendly algebra** instead of branches - booleans are multiplied as `Uint<1>` so the proof stays small. Per-player RNG rounds it out with deterministic `persistentHash` evolution.
+The Compact contract is the loot vault and rules engine. Two things make it a good teacher: quests are anchored to real wall-clock time (no client-side speed-running), and the gameplay math is written as circuit-friendly algebra instead of branches, because Compact circuits don't have loops. The contract is actually generated from a `template.compact` so the combat paths can be unrolled.
 
 ### Time-anchored quests via `blockTimeGte` / `blockTimeLte`
 
@@ -101,7 +83,7 @@ export circuit start_new_quest(
 
 ### Algebra over branches (smaller, faster circuits)
 
-Every branch in a ZK circuit costs constraints. Dust to Dust writes its gameplay math as pure arithmetic instead: predicates get cast to `Uint<1>` (`0` or `1`) and multiplied into the expression, so a false-branch zeroes its contribution out without an `if`. The score computation below is the canonical example - an entire decision tree (AOE? is it an attack? does the effect even exist?) collapses into one chained multiplication. The same trick shows up across the file wherever a value depends on a condition; the resulting circuit is smaller and proves faster than the branchy version would.
+Compact circuits have no loops and every branch costs constraints, so Dust to Dust writes its gameplay math as pure arithmetic: predicates are cast to `Uint<1>` (`0` or `1`) and multiplied into the expression, so a false condition zeroes its contribution out without an `if`. The score computation below collapses an entire decision tree into one chained multiplication. (This is also why the contract is code-generated from a template - the per-enemy combat paths get unrolled into flat algebra.)
 
 <CompactCode summary="`ability_score` + `effect_score`">
 
@@ -116,7 +98,6 @@ export pure circuit ability_score(ability: Ability): Uint<32> {
     ) * (2 + (ability.generate_color.is_some as Uint<1>))) as Uint<32>;
 }
 
-// Ranks how "good" an effect is. Higher is better.
 pure circuit effect_score(effect: Maybe<Effect>): Uint<32> {
     const aoe = (1 + (effect.value.is_aoe as Uint<1>));
 
@@ -138,7 +119,7 @@ pure circuit effect_score(effect: Maybe<Effect>): Uint<32> {
 
 ### Deterministic per-player RNG via `persistentHash`
 
-Each player keeps a single `rng: Bytes<32>` cell in their `Player` ledger entry. Every time a circuit needs randomness, `get_player_rng` reads the current value, advances it via `persistentHash<Bytes<32>>(old_rng)`, and writes the new value back. `persistentHash` is the persistent (SHA-256-based) hash from the standard library - deterministic enough to be replayed and audited, but only the player can predict the next value without watching their own state.
+Each player keeps a single `rng: Bytes<32>` cell in their `Player` ledger entry. Every time a circuit needs randomness, `get_player_rng` reads the current value, advances it via `persistentHash<Bytes<32>>(old_rng)`, and writes the new value back. `persistentHash` is the persistent (SHA-256-based) hash from the standard library - deterministic enough to replay and audit, but only the player can predict the next value.
 
 <CompactCode summary="`get_player_rng` + initial seed">
 
@@ -159,56 +140,6 @@ circuit get_player_rng(): Bytes<32> {
     players.insert(player_id, Player { old_player.gold, new_rng });
     return old_player.rng;
 }
-```
-
-</CompactCode>
-
-### Deterministic per-player RNG via `persistentHash`
-
-Each player keeps a single `rng: Bytes<32>` cell in their `Player` ledger entry. Every time a circuit needs randomness, `get_player_rng` reads the current value, advances it via `persistentHash<Bytes<32>>(old_rng)`, and writes the new value back. `persistentHash` is the persistent (SHA-256-based) hash from the standard library - deterministic enough to be replayed and audited, but only the player can predict the next value without watching their own state.
-
-<CompactCode summary="`get_player_rng` + initial seed">
-
-```compact
-// Player ledger entry holds a per-player RNG byte string
-// (declared on the Player struct: `rng: Bytes<32>`)
-
-// On registration, seed the RNG from a public hash of (player_id, players.size())
-export circuit register_new_player(): [] {
-    const player_id = derive_player_pub_key(disclose(player_secret_key()));
-    const initial_rng = persistentHash<Field>(player_id + players.size());
-    players.insert(player_id, Player { 0, initial_rng });
-    // [insert starting abilities, etc.]
-}
-
-// Every read advances the RNG via persistentHash and writes back.
-circuit get_player_rng(): Bytes<32> {
-    const player_id = derive_player_pub_key(disclose(player_secret_key()));
-    const old_player = players.lookup(player_id);
-    const new_rng = persistentHash<Bytes<32>>(old_player.rng);
-    players.insert(player_id, Player { old_player.gold, new_rng });
-    return old_player.rng;
-}
-```
-
-</CompactCode>
-
-### Witness-derived player identity (same pattern, different game)
-
-Dust to Dust uses the same `transientCommit` pattern as Kachina: identity is derived from a private witness, and every read/write of a player's state asserts the caller can produce the matching commitment. This shows up in every single player-action circuit - it's the foundation of Dust to Dust's privacy model.
-
-<CompactCode summary="`derive_player_pub_key`">
-
-```compact
-witness player_secret_key(): Bytes<32>;
-
-export pure circuit derive_player_pub_key(sk: Bytes<32>): Field {
-    return transientCommit<Bytes<32>>(sk, 1024);
-}
-
-// Repeated in every action circuit - register_new_player, sell_ability,
-// upgrade_ability, start_new_quest, finalize_quest, start_new_battle, ...
-const player_id = derive_player_pub_key(disclose(player_secret_key()));
 ```
 
 </CompactCode>

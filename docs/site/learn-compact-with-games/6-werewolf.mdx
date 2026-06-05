@@ -16,37 +16,29 @@ import GameEmbed from '@site/src/components/GameEmbed';
 
 <MultiChainNote />
 
-A game of betrayal, vote out the werewolf at the round table before they eliminate the group. N-player social deduction with a host-facilitated flow tuned for performance at scale.
+Social deduction at a round table: vote out the werewolves before they pick off the village - with nobody able to see who voted for whom.
 
-On-chain voting and secret role assignment.
+## Under the hood
 
-## Technical challenges
+**The game.** Werewolf is N-player social deduction with day/night phases, secret roles, and elimination votes. The client renders a 3D round table with player avatars in **Three.js**.
 
-### Arbitrum finality
+**Chains.** Werewolf splits across two chains: **Arbitrum** hosts the lobby (`createGame` / `joinGame` on a `PaimaL2Contract`), while the **secret voting** runs on **Midnight**. The EVM side is swappable; Midnight is where the privacy guarantees come from.
 
-Same building block as the previous entries: rounds advance fast enough
-that a table of seven players doesn't sit watching a spinner.
+**Running on EffectStream.** The EffectStream state machine tracks the EVM lobby and the on-chain round state, and computes the leaderboard. Votes are proved client-side in a WebAssembly worker and submitted through the **batcher**. A **trusted-but-verifiable host node** drives the round loop - it provides role witnesses and resolves each phase by decrypting votes - but every step is committed on-chain, so it can't lie: the whole game is auditable at the end.
 
-### N-player game with a host-facilitated flow
+**Leaderboard.** Players earn points tracked into the leaderboard endpoint (the Standings panel). No achievements.
 
-A fully peer-to-peer mental-poker-style protocol gets expensive once you
-have more than a couple of players. We use a host to drive the round -
-collecting commitments, ordering reveals, advancing phases - without
-giving the host the ability to lie about results. This is the section
-that ties the whole series together: every primitive from the earlier
-games shows up here in some form.
-
-## Source & Compact code
+## The Compact contract
 
 <GameRepo />
 
 **Source:** [`packages/shared/contracts/midnight/contract-werewolf/src/Werewolf.compact`](https://github.com/effectstream/werewolf-game/blob/main/packages/shared/contracts/midnight/contract-werewolf/src/Werewolf.compact)
 
-Werewolf is N-player social deduction driven by a trusted host node. The Compact contract is engineered so the host can drive the round loop but cannot lie about outcomes. The headline feature is **secret voting**: every player's vote is encrypted in their witness and only the host can decrypt it, but the contract still enforces who's allowed to vote (via a Merkle proof against the alive set) and that no one votes twice (via a per-round nullifier). After the game, anyone can audit the fairness of role assignments by recomputing commitments from a revealed master secret.
+The headline is **secret voting**: each vote enters the contract already encrypted, only the host can decrypt it, yet the contract still enforces who may vote (a Merkle proof against the alive set) and that nobody votes twice (a per-round nullifier). Roles are committed up front and revealed only at the end, so the trusted host stays honest by construction.
 
 ### Admin secret commitment
 
-The host's authority is a hash commitment, not a wallet pubkey. At game creation the admin's secret is committed as `adminSecretCommitment`; every admin-only circuit pulls the secret back through the `wit_getAdminSecret` witness and asserts the recomputed commitment matches. Same pattern as Go Fish's owner check, but scoped per game via the witness signature `(gameId)`.
+The host's authority is a hash commitment, not a wallet pubkey. At game creation the admin's secret is committed as `adminSecretCommitment`; every admin-only circuit pulls the secret back through the `wit_getAdminSecret` witness and asserts the recomputed commitment matches. Same idea as Go Fish's owner check, scoped per game via the witness signature `(gameId)`.
 
 <CompactCode summary="`adminPunishPlayer` (admin gate)">
 
@@ -83,14 +75,14 @@ export circuit adminPunishPlayer(
 
 ### Secret voting (encrypted vote + alive proof + nullifier)
 
-Every day-phase vote enters the contract as an **already-encrypted ciphertext** built off-chain in the player's witness (`wit_getActionData`). The contract never learns what was voted for - only the host's key decrypts it. But the contract still gets to enforce two things: (1) the voter is in the current alive set, proven by a Merkle path against `aliveTreeRoot` without revealing *which* player they are, and (2) they haven't already voted this round, enforced by inserting a per-round nullifier into a public `Set`. The encrypted vote then lands in `roundVotes` keyed by the nullifier so the host can fetch and decrypt it later. Result: a verifiable secret ballot.
+Every day-phase vote enters the contract as an **already-encrypted ciphertext** built off-chain in the player's witness (`wit_getActionData`). The contract never learns what was voted - only the host's key decrypts it later. But the contract still enforces two things: (1) the voter is in the current alive set, proven by a Merkle path against `aliveTreeRoot` without revealing *which* player they are, and (2) they haven't already voted this round, via a per-round nullifier inserted into a public `Set`. The ciphertext lands in `roundVotes` keyed by the nullifier. The result is a verifiable secret ballot.
 
 <CompactCode summary="`voteDay`">
 
 ```compact
-// Witness implemented by the player off-chain. The ActionData wraps an
-// encrypted vote (only the host's key decrypts it), a Merkle path proving
-// the player is in the alive set, and the leaf secret used to nullify.
+// Witness implemented by the player off-chain. ActionData wraps an encrypted
+// vote (only the host's key decrypts it), a Merkle path proving the player is
+// in the alive set, and the leaf secret used to nullify.
 export witness wit_getActionData(gameId: Uint<32>, round: Uint<32>): ActionData;
 
 export ledger voteNullifiers: Set<Bytes<32>>;
@@ -113,7 +105,7 @@ export circuit voteDay(_gameId: Uint<32>): Bytes<32> {
         "Invalid Merkle Proof",
     );
 
-    // (2) One vote per voter per round - nullifier blocks the second one
+    // (2) One vote per voter per round - nullifier blocks the second
     const nullifier = Crypto_computeNullifierDay(gameId, state.round, leafSecret);
     const publicNullifier = disclose(nullifier);
     assert(!voteNullifiers.member(publicNullifier), "Double voting detected");
@@ -123,86 +115,6 @@ export circuit voteDay(_gameId: Uint<32>): Bytes<32> {
     roundVotes.insert(
         VoteKey { gameId, phase: Phase.Day, round: state.round, nullifier: publicNullifier },
         encryptedVote,
-    );
-    return publicNullifier;
-}
-```
-
-</CompactCode>
-
-### Post-game fairness via master secret reveal
-
-Role assignments are committed to public state at game creation but stay encrypted until the game ends. When the host reveals the master secret, anyone can recompute the salt for each `playerIdx` and verify the stored `roleCommitment` matches the claimed role. The host can't retroactively re-assign roles - the commitments were locked in at `createGame` time.
-
-<CompactCode summary="`verifyFairness`">
-
-```compact
-export circuit verifyFairness(
-    _gameId: Uint<32>,
-    _masterSecret: Bytes<32>,
-    _playerIdx: Uint<32>,
-    _assignedRole: Uint<8>,
-): Boolean {
-    const gameId = disclose(_gameId);
-    const masterSecret = disclose(_masterSecret);
-    const playerIdx = disclose(_playerIdx);
-    const assignedRole = disclose(_assignedRole);
-
-    const state = games.lookup(gameId);
-
-    // Step 1: the revealed master secret must hash to the public commitment
-    const calculatedCommit = Crypto_hash(masterSecret);
-    if (calculatedCommit != state.masterSecretCommitment) return false;
-
-    // Step 2: re-derive this player's salt from the master secret
-    const saltSeed = std_persistentHash<[Bytes<32>, Bytes<32>, Uint<32>]>(
-        [masterSecret, pad(32, "salt"), playerIdx],
-    );
-
-    // Step 3: re-derive the role commitment and compare to the stored one
-    const pk = PlayerKey { gameId: gameId, playerIdx: playerIdx };
-    if (!players.member(pk)) return false;
-    const roleCommitment = players.lookup(pk).roleCommitment;
-    const derivedCommit = Crypto_commitRole(assignedRole, saltSeed);
-    return derivedCommit == roleCommitment;
-}
-```
-
-</CompactCode>
-
-### Alive-tree Merkle proof + per-round nullifier
-
-Players prove they're alive without revealing which player they are: the action provides a Merkle path against the current `aliveTreeRoot`. A second derived value (the nullifier) is inserted into `voteNullifiers` to block double-votes within the round - the contract never sees the player's identity, only that this leaf is in the alive set and hasn't acted yet.
-
-<CompactCode summary="`nightAction`">
-
-```compact
-export circuit nightAction(_gameId: Uint<32>): Bytes<32> {
-    const gameId = disclose(_gameId);
-    const state = games.lookup(gameId);
-    assert(state.phase == Phase.Night, "Not Night phase");
-
-    const actionData = wit_getActionData(gameId, state.round);
-    const encryptedAction = disclose(actionData.encryptedAction);
-    const merklePath = actionData.merklePath;
-    const leafSecret = actionData.leafSecret;
-
-    // Prove the actor is in the alive set, anonymously
-    const leaf = Crypto_hash(leafSecret);
-    assert(
-        Crypto_verifyMerkleProof(state.aliveTreeRoot, leaf, merklePath),
-        "Invalid Merkle Proof or Player Dead",
-    );
-
-    // Per-round nullifier prevents double-action without leaking identity
-    const nullifier = Crypto_computeNullifierNight(gameId, state.round, leafSecret);
-    const publicNullifier = disclose(nullifier);
-    assert(!voteNullifiers.member(publicNullifier), "Action already submitted");
-    voteNullifiers.insert(publicNullifier);
-
-    roundVotes.insert(
-        VoteKey { gameId, phase: Phase.Night, round: state.round, nullifier: publicNullifier },
-        encryptedAction,
     );
     return publicNullifier;
 }

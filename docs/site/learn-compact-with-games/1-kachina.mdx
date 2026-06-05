@@ -22,65 +22,25 @@ import GameEmbed from '@site/src/components/GameEmbed';
 
 <MultiChainNote />
 
-Build a team of fighters in a tactical, head-to-head battleground.
+Build a team of gladiators and fight 3v3, head-to-head, in a tactical browser battleground.
 
-Browser-native gameplay with sponsored transactions, commit-reveal moves, and a shared lobby.
+## Under the hood
 
-## Technical challenges
+**The game.** Kachina is a turn-based PvP arena: you draft three heroes, equip them, pick a stance each round, and trade blows until one side falls. The client is built on **Phaser 3**, with a thin TypeScript API layer bridging the game scenes and the on-chain contract.
 
-### Playing in the browser via WebAssembly
+**Chains.** Kachina runs entirely on **Midnight** - there's no second chain. The lobby, matchmaking, every move, and the win/loss result all live in one Compact contract. Because it's built on EffectStream, swapping or adding a settlement chain later is a config change, not a rewrite.
 
-Midnight proving typically happens on the desktop or servers using a [Proof Server](https://docs.midnight.network/relnotes/proof-server).
-While operating a proof server on your computer gives you the best performance, web3 users are often hesitant to install software on their local machines for security reasons.
-Typically, this is intead solves by having dApps run proof servers on behalf of their users (the dApp author swallows the computation cost). For DeFi, which every operation pays fees to cover dApp operational costs, this makes sense. However, for games where there are many small transactions (each with low financial value yet potentially high compute cost such as submitting a move to a game), it is usually not financially viable for the dApp author to cover the compute costs.
-Therefore, for games, it's cruical that we allow for users to generate proofs client-side *directly in their browser* (no need to download anything).
+**Running on EffectStream.** An EffectStream state machine subscribes to the Midnight indexer, reads the contract's public ledger each block, and mirrors it into Postgres so the frontend can poll game state over REST. Player moves never touch a wallet pop-up for gas: the move is handed to a **batcher** that generates the ZK proof, balances the transaction with dust, and submits it - so **players pay zero fees**. Proving happens client-side in a WebAssembly Web Worker, so nobody installs a proof server.
 
-To achieve this, we compile the circuits using [WebAssembly](https://webassembly.org/). Notably, in this game, we achieve this using the [@paima/midnight-wasm-prover](https://www.npmjs.com/package/@paima/midnight-wasm-prover) package.
+**Leaderboard.** Wins are tallied from finalized matches into a ranked leaderboard exposed at a `/metrics/leaderboard` endpoint (the Standings panel on the right). Kachina has no achievements - the ladder is the whole progression story.
 
-#### How do we connect Wasm into the dApp
-
-
-
-This ensures
-- Fastest proving speeds
-- Largest
-
-The Compact runtime runs directly in the browser through WebAssembly. This
-section walks through what we ship to the client, how we keep the bundle
-small, and the constraints that pushed us toward a WASM-first build.
-
-### Transaction sponsorship
-
-Asking a new player to fund a wallet before their first move kills
-onboarding. We cover the gas for player actions on the server side so the
-game feels free at the point of use, while moves still settle on-chain.
-
-### Commit-reveal moves
-
-Players commit to a move first and reveal it later, so opponents can't react
-to information they shouldn't see yet. We treat this as a stepping stone:
-later games in the series replace it with stronger privacy primitives.
-
-### Lobby system and global state
-
-A lobby has to coordinate multiple players without each one sliding out of
-sync. We model the lobby as global state and discuss how matches are opened,
-joined, and finalized.
-
-### Game engine and codebase
-
-Notes on the engine choice and a pointer to the public source for readers
-who want to dig in.
-
-### Matchmaking
-
-## Source & Compact code
+## The Compact contract
 
 <GameRepo />
 
 **Source:** [`backend/packages/midnight/contract-pvp/src/pvp.compact`](https://github.com/effectstream/kachina-colosseum/blob/main/backend/packages/midnight/contract-pvp/src/pvp.compact)
 
-Kachina is a 3v3 tactical PvP. The Compact contract is the referee: every move is anchored to a witness-derived player secret, gated on block time, and locked behind a commit-reveal hash so neither player can react to the opponent's hidden moves. If a player goes quiet, the other can claim the win after a turn timeout.
+The Compact contract is the referee. It runs the match as a state machine, anchors every action to a witness-derived player secret, gates moves on block time, and - crucially - locks moves behind a commit-reveal hash so neither player can react to what the other hasn't shown yet.
 
 ### Commit-reveal via `transientHash`
 
@@ -150,7 +110,7 @@ assert(blockTimeGte(disclose(now - BLOCK_TIME)),
 assert(blockTimeLte(disclose((now + TIMESTAMP_MAX_AGE) as Uint<64>)),
        "Timestamp is too old");
 
-// claim_timeout_win - the active player ends the match if the opponent times out:
+// claim_timeout_win - end the match if the opponent times out:
 export circuit claim_timeout_win(): [] {
     const match_id = disclose(current_match_id());
     const last_move_at_timestamp = last_move_at.lookup(match_id) as Uint<64>;

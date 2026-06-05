@@ -16,41 +16,29 @@ import GameEmbed from '@site/src/components/GameEmbed';
 
 <MultiChainNote />
 
-A fast-paced racing simulator where you compete for the top spot. Combining Midnight with Arbitrum finality to build a snappy racing loop with an onchain leaderboard.
+A fast-paced racing simulator where you tune a kart, race for the top spot, and climb an on-chain leaderboard.
 
-## Technical challenges
+## Under the hood
 
-### Arbitrum for faster finality
+**The game.** BlockKart is a single-player score-attack racer: you submit a car build plus item loadout, and a deterministic race runs against three AI bots. The client renders the race in **Three.js** (native WebGL canvas) with a CRT-style post-processing pass.
 
-We settle on Arbitrum to shorten the gap between input and confirmed
-result. We compare what the racing loop felt like before and after the
-switch.
+**Chains.** BlockKart pairs **Arbitrum** with **Midnight**. Game inputs go to an Arbitrum `PaimaL2Contract` (deployed with `fee = 0`); the deterministic race simulation runs in the EffectStream node; and Midnight holds a tiny anchor contract. Arbitrum is the chosen EVM today, but the EVM layer is standard `PaimaL2Contract` - point it at any EVM chain and the rest is unchanged.
 
-### Effect stream usage
+**Running on EffectStream.** The EffectStream state machine ingests the EVM `PaimaGameInteraction` events: a `play` input records the race entry and schedules an `executeRace` ~10 blocks later, which replays the seeded simulation, records the result, and awards achievements. The batcher has both an EVM adapter and a Midnight adapter; the Midnight side writes the anchor.
 
-The contract emits a stream of effects the client consumes as they land.
-This section walks through how the client renders optimistically, how it
-reconciles when the stream catches up, and what happens when they
-disagree.
+**Leaderboard & achievements.** Results land in Postgres and are ranked by wins on the `/metrics/leaderboard` endpoint. BlockKart defines win, loss, and per-surface (dirt/ice/asphalt) achievements, shown in the Honors panel.
 
-### A simple leaderboard
-
-Once finality is fast enough, the leaderboard mostly takes care of
-itself - every finished race writes a result and the board reads from
-that. We cover the schema and the few edge cases that still need care
-(disconnects, ties, replays).
-
-## Source & Compact code
+## The Compact contract
 
 <GameRepo />
 
 **Source:** [`packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact`](https://github.com/effectstream/block-kart-legends/blob/main/packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact)
 
-BlockKart is a racing game settled almost entirely on Arbitrum for snappy finality. The Midnight contract is intentionally tiny - it stores one opaque payload string and exposes one circuit to write it. This is the teaching moment: not every Compact contract should model the whole game.
+Here's the teaching moment: the Midnight contract is intentionally tiny. All of the racing logic lives on Arbitrum and in the EffectStream node; Midnight is just an immutable anchor. Not every Compact contract should model the whole game.
 
 ### The "anchor only" pattern
 
-The entire contract is 11 lines: a single `ledger payload: Opaque<"string">` plus a `storeValue` circuit that `disclose`s and writes it. There are no enums, no maps, no witnesses, no commit-reveal. All of BlockKart's race state (lap times, collisions, leaderboard math) lives in the Arbitrum contract; Midnight here is the immutable notarization step. Use this pattern when you need tamper-evident anchoring but not zero-knowledge - the cheaper the on-chain piece, the cheaper every state update.
+The entire contract is 11 lines: a single `ledger payload: Opaque<"string">` plus a `storeValue` circuit that `disclose`s and writes it. No enums, no maps, no witnesses, no commit-reveal. The EffectStream node calls `storeValue` to notarize game-event data on Midnight, while the heavy lifting stays on the EVM side. Reach for this pattern when you need tamper-evident anchoring but not zero-knowledge - the cheaper the on-chain piece, the cheaper every update.
 
 <CompactCode summary="Full contract (11 lines)">
 

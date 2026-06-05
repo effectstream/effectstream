@@ -16,53 +16,31 @@ import GameEmbed from '@site/src/components/GameEmbed';
 
 <MultiChainNote />
 
-The classic social card game where you trawl for matching cards in your opponent’s deck. Mental poker and MPC-style card shuffling for a simple card game.
+The classic card game, played honestly between two strangers - no trusted dealer, thanks to mental poker.
 
-## Technical challenges
+## Under the hood
 
-### Arbitrum finality
+**The game.** Go Fish is a 2-player card game: ask your opponent for ranks, draw from the pond, and collect books of four. The client is built in **Three.js** with Balatro-style post-processing.
 
-Card games tolerate more latency than racing, but each turn still has a
-hard moment of truth (a draw, a reveal). Fast finality keeps those
-moments from feeling like waiting on the network.
+**Chains.** Go Fish splits responsibilities across two chains: **Arbitrum** hosts the lobby and matchmaking (a `PaimaL2Contract` emits `createdLobby` / `joinedLobby`), while the actual card cryptography - shuffling, dealing, revealing - runs on **Midnight**. Arbitrum is swappable for any EVM chain; the Midnight side is where the interesting part lives.
 
-### Card shuffling
+**Running on EffectStream.** The EffectStream state machine watches the EVM lobby events and auto-starts the match when the second player joins, then tracks the Midnight gameplay. Card moves are proved client-side in a WebAssembly worker and submitted through the **batcher** in gasless mode, so players don't need a funded wallet to play. A 300-second turn timeout (enforced on-chain) keeps a stalled opponent from freezing the game.
 
-Neither player can be trusted to shuffle alone. We walk through how the
-deck is produced collaboratively so neither side knows the order until
-cards are revealed.
+**Leaderboard.** Players are ranked by games won and win-rate on the leaderboard endpoint (the Standings panel). No achievements - the ladder is the progression surface. The contract is also multi-tenant: one deployment hosts many concurrent games, every piece of state keyed by `gameId`.
 
-### Mental poker
-
-Mental poker is the broader name for the protocol family that makes the
-above work. This section is the conceptual core of the post - what it
-guarantees, what it doesn't, and where the implementation lives.
-
-### Two-player today, MPC to scale
-
-Two players is the setting where mental poker is most ergonomic. We sketch
-where MPC takes over once you want more players at the table, and what
-that costs.
-
-### Private key as a circuit input
-
-A player's secret material gets passed straight into the circuit as a
-private input, never to the network. This section is short but worth
-spelling out - it's the pattern most readers will reuse.
-
-## Source & Compact code
+## The Compact contract
 
 <GameRepo />
 
 **Source:** [`packages/shared/contracts/midnight/go-fish-contract/src/Deck.compact`](https://github.com/effectstream/go-fish/blob/main/packages/shared/contracts/midnight/go-fish-contract/src/Deck.compact)
 
-Go Fish's headline feature is a complete **mental poker** implementation in Compact - the cryptographic protocol for shuffling and dealing a deck without anyone, including the contract, learning the card order. This primitive isn't Go Fish-specific: any card game (poker, hearts, bridge, war, ...) can be built on top of it. Cards are represented as elliptic curve points on the Jubjub curve; players collaboratively mask the deck with their secret scalars, and reveal cards later by peeling the same scalars back off. The full module lives in [`Deck.compact`](https://github.com/effectstream/go-fish/blob/main/packages/shared/contracts/midnight/go-fish-contract/src/Deck.compact); the rest of `GoFish.compact` is game-specific bookkeeping (turn order, score, registration) wrapped around it.
+Go Fish's headline is a complete **mental poker** implementation in Compact - the protocol for shuffling and dealing a deck without anyone, including the contract, learning the card order. It isn't Go Fish-specific: any card game can be built on top of it. Cards are points on the Jubjub curve; players collaboratively mask the deck with secret scalars and reveal cards by peeling those scalars back off.
 
 ### Cards as elliptic curve points
 
-Every card is a point on the embedded Jubjub curve. A static deck of 21 points (one per card value) is initialized once at deploy time and shared by every game; each per-game shuffle starts from a copy of it. Storing cards as curve points (rather than scalars or bytes) is what makes the rest of the protocol possible: `std_ecMul(point, scalar)` lets each player homomorphically mask the deck with their secret without anyone needing to decrypt anything in between.
+Every card is a point on the embedded Jubjub curve. A static deck of 21 points (one per card value) is initialized once at deploy time and shared by every game; each per-game shuffle starts from a copy. Storing cards as curve points is what makes the rest of the protocol possible: `std_ecMul(point, scalar)` lets each player homomorphically mask the deck with their secret without anyone decrypting anything in between.
 
-<CompactCode summary="`init_static_deck` + per-game deck initialization">
+<CompactCode summary="`init_static_deck` + per-game deck">
 
 ```compact
 module Deck {
@@ -96,7 +74,7 @@ export circuit init_static_deck(): [] {
 
 ### Joint shuffle with cheating detection
 
-Each player calls `shuffle_deck`. The circuit reads every card, masks it with the player's secret scalar via `std_ecMul`, then asks an off-chain witness (`get_sorted_deck_witness`) to return the masked cards in shuffled order. To catch a cheating witness that swapped a card out, the circuit computes a coordinate-based **grand product** over both the original and the sorted lists with a random challenge `gamma` (derived in-circuit from the cards themselves); the products must match. If the witness substituted any card, the product breaks and the shuffle reverts. After the second player shuffles, the deck is fully masked - no single party can decrypt it.
+Each player calls `shuffle_deck`. The circuit masks every card with the player's secret scalar via `std_ecMul`, then asks an off-chain witness (`get_sorted_deck_witness`) to return the masked cards in shuffled order. To catch a witness that swapped a card out, the circuit computes a coordinate-based **grand product** over both the original and the sorted lists with an in-circuit challenge `gamma`; the products must match. If any card was substituted, the product breaks and the shuffle reverts. After the second player shuffles, the deck is fully masked - no single party can decrypt it.
 
 <CompactCode summary="`shuffle_deck`">
 
@@ -139,7 +117,7 @@ export circuit shuffle_deck(gameId: Bytes<32>, playerIndex: Uint<64>): [] {
 
 ### Card reveal via partial decryption
 
-When a player needs to learn a card, every other player who masked the deck applies the **inverse** of their secret scalar with `std_ecMul(point, invScalar)`. After all the masks except the asking player's have been peeled off, the result is a `JubjubPoint` that lives in the static value-to-point map - the asking player looks up its card value and that card belongs to them, while everyone else still only sees a masked point. The contract verifies the inverse scalar against a stored hash so a player can't submit a wrong inverse to mess up the reveal.
+To learn a card, every other player who masked the deck applies the **inverse** of their secret scalar with `std_ecMul(point, invScalar)`. Once all masks except the asking player's are peeled off, the result is a `JubjubPoint` back in the static value-to-point map - the asker reads its card value while everyone else still sees only a masked point. The contract verifies the inverse scalar against a stored hash so a player can't submit a wrong inverse to corrupt the reveal.
 
 <CompactCode summary="`partial_decryption`">
 
@@ -172,73 +150,6 @@ export circuit partial_decryption(
 
     // Peel this player's mask off the point
     return std_ecMul(disclose(point), disclose(invScalar));
-}
-```
-
-</CompactCode>
-
-### Multi-game state via `Map<Bytes<32>, T>`
-
-Every piece of game state is wrapped in a `Map` keyed by `gameId: Bytes<32>`. One contract deployment hosts every concurrent Go Fish game. Lookups use `.lookup(gameId)`; membership checks use `.member(gameId)`. This is the same `Map<K, V>` ADT from the Compact standard library - the game just commits hard to the pattern.
-
-<CompactCode summary="Per-game ledger declarations">
-
-```compact
-// Game registry - tracks which games exist
-export ledger gameExists: Map<Bytes<32>, Boolean>;
-
-// All game state wrapped in Map<gameId, ...>
-export ledger currentTurn: Map<Bytes<32>, Uint<64>>;  // 1 or 2
-export ledger phase:       Map<Bytes<32>, GamePhase>;
-export ledger scoreP1:     Map<Bytes<32>, Uint<8>>;
-export ledger scoreP2:     Map<Bytes<32>, Uint<8>>;
-
-// Nested Set inside the per-game Map - rank values 0..6 inserted on book.
-export ledger booksP1: Map<Bytes<32>, Set<Uint<8>>>;
-export ledger booksP2: Map<Bytes<32>, Set<Uint<8>>>;
-
-// V4.1: value is the SECRET HASH, not a wallet pubkey. Auth proves the
-// caller knows the secret that hashes to this value.
-export ledger playerPubKey1: Map<Bytes<32>, Bytes<32>>;
-export ledger playerPubKey2: Map<Bytes<32>, Bytes<32>>;
-
-// V3: Drawn card stored as an EC point (JubjubPoint) for mental-poker
-// verification.
-export ledger lastDrawnCard: Map<Bytes<32>, JubjubPoint>;
-```
-
-</CompactCode>
-
-### Per-player auth: hashed secrets, not pubkeys
-
-Players register a hash of their secret (`secretHash`) into `playerPubKey1` / `playerPubKey2` for that `gameId`. Every later action calls `assertPlayerHash`, which compares the caller's freshly-derived hash to the stored one. Same protection as the admin pattern, scoped per player per game.
-
-<CompactCode summary="`assertPlayerHash`">
-
-```compact
-// V4.1: Verify the caller is the registered player for `playerId` by
-// comparing the caller's freshly-derived secret hash against the stored one.
-// Without the registered secret you cannot produce the matching hash.
-export circuit assertPlayerHash(
-    gameId: Bytes<32>,
-    playerId: Uint<64>,
-    secretHash: Bytes<32>,
-): [] {
-    const gid = disclose(gameId);
-    const pid = disclose(playerId);
-    const h = disclose(secretHash);
-
-    if (pid == 1 as Uint<64>) {
-        assert(playerPubKey1.member(gid), "Player 1 not registered");
-        const expected = playerPubKey1.lookup(gid) as Bytes<32>;
-        assert(h == expected, "Caller is not player 1");
-    } else if (pid == 2 as Uint<64>) {
-        assert(playerPubKey2.member(gid), "Player 2 not registered");
-        const expected = playerPubKey2.lookup(gid) as Bytes<32>;
-        assert(h == expected, "Caller is not player 2");
-    } else {
-        assert(false, "Invalid player index");
-    }
 }
 ```
 
