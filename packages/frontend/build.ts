@@ -22,6 +22,10 @@ function collectExternals(pkgPath: string) {
       }
     }
   }
+  // Peer deps are never bundled — treat all of them as external.
+  for (const name of Object.keys(pkg.peerDependencies ?? {})) {
+    externalDeps.add(name);
+  }
 }
 
 collectExternals(resolve(import.meta.dir, "package.json"));
