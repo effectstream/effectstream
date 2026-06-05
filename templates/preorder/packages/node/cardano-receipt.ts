@@ -17,3 +17,19 @@ try {
 }
 
 export const RECEIPT_POLICY_ID = policyId;
+
+// The applied PlutusV3 receipt script (CBOR hex), exposed to the frontend via /api/config so
+// the browser can build the receipt-minting purchase tx (same script => same policy id).
+let appliedScript = "";
+try {
+  appliedScript = fs
+    .readFileSync(
+      path.resolve(import.meta.dirname!, "../contracts-cardano/temp/receipt-applied-script.txt"),
+      "utf-8",
+    )
+    .trim();
+} catch {
+  console.warn("[cardano-receipt] receipt-applied-script.txt not found yet");
+}
+
+export const RECEIPT_SCRIPT = appliedScript;
