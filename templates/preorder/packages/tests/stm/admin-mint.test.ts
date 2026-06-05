@@ -7,6 +7,7 @@ import type { Client } from "pg";
 import { createPublicClient, createWalletClient, http, parseAbi, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
+import { createFreshLucid, buyItemsCardano } from "@preorder/contracts-cardano/helpers";
 
 const L2_ABI = parseAbi(["function effectstreamSubmitGameInput(bytes data) payable"]);
 const NFT_ABI = parseAbi(["function ownerOf(uint256 tokenId) view returns (address)"]);
@@ -41,6 +42,32 @@ export async function adminMintTest(db: Client) {
     await pub.waitForTransactionReceipt({ hash });
     await mineBlock();
   };
+
+  // Multi-item Cardano buyer to exercise the SERIAL multi-mint path (the case that looked
+  // stuck in manual testing): buy 3 items so admin-mint enqueues 3 Cardano jobs for one buyer.
+  let cardanoBuyerPkh = "";
+  try {
+    const { lucid } = await createFreshLucid();
+    const lp = await (await fetch(`${API}/api/launchpad/${SLUG}`)).json();
+    const ids = [1, 2, 3];
+    const cost = ids.reduce(
+      (s: bigint, id: number) => s + BigInt(lp.items.find((i: any) => i.id === id).amounts.ada),
+      0n,
+    );
+    const { buyerPkh } = await buyItemsCardano(lucid, ids.map((id) => [id, 1] as [number, number]), cost);
+    cardanoBuyerPkh = buyerPkh.toLowerCase();
+  } catch (e) {
+    console.log("[admin-mint] multi-item cardano purchase setup failed:", e);
+  }
+  if (cardanoBuyerPkh) {
+    await assertSQL(
+      "admin-mint: multi-item Cardano purchase ingested",
+      db,
+      `SELECT item_id FROM launchpad_user_items WHERE wallet = '${cardanoBuyerPkh}'`,
+      (rows) => rows.length >= 3,
+      (rows) => rows.length >= 3,
+    );
+  }
 
   // ── Negative: non-admin cannot enqueue mints ──────────────────────────
   await submit(nonAdminW, ["mint-nfts", SLUG]);
@@ -121,22 +148,27 @@ export async function adminMintTest(db: Client) {
     return res.ok && (body.nftMintSummary?.minted ?? 0) > 0;
   });
 
-  // ── Cardano (Phase B): the worker routes cardano jobs to the batcher's Cardano adapter,
-  //    which mints a native-policy NFT and delivers it to the buyer. Slower than EVM (the
-  //    first mint funds a fresh server wallet via the faucet), so poll with a long deadline.
-  await assert("admin-mint: Cardano NFTs minted via batcher", async () => {
+  // ── Cardano: the worker routes cardano jobs to the batcher's Cardano adapter, which mints a
+  //    native-policy NFT and delivers it to the buyer. Mints are SERIAL and the first funds a
+  //    fresh server wallet via the faucet, so allow a long deadline. Assert ALL cardano jobs
+  //    settle to 'minted' (catches a partial stall — a job stuck pending/submitted, or failed).
+  await assert("admin-mint: all Cardano NFTs minted via batcher", async () => {
     const start = Date.now();
-    while (Date.now() - start < 240_000) {
-      const r = await db.query("SELECT COUNT(*)::int AS c FROM minted_nfts WHERE chain = 'cardano'");
-      if (Number(r.rows[0].c) > 0) return true;
-      const f = await db.query("SELECT COUNT(*)::int AS c FROM nft_mints WHERE chain = 'cardano' AND status = 'failed'");
-      if (Number(f.rows[0].c) > 0) {
-        const e = await db.query("SELECT error FROM nft_mints WHERE chain = 'cardano' AND status = 'failed' LIMIT 1");
-        console.error("[admin-mint] cardano mint failed:", e.rows[0]?.error);
+    while (Date.now() - start < 300_000) {
+      const r = await db.query("SELECT status, COUNT(*)::int AS c FROM nft_mints WHERE chain = 'cardano' GROUP BY status");
+      const by: Record<string, number> = {};
+      for (const row of r.rows) by[row.status] = Number(row.c);
+      if ((by.failed ?? 0) > 0) {
+        const e = await db.query("SELECT wallet, item_id, error FROM nft_mints WHERE chain = 'cardano' AND status = 'failed' LIMIT 1");
+        console.error("[admin-mint] cardano mint failed:", JSON.stringify(e.rows[0]));
         return false;
       }
+      const total = Object.values(by).reduce((a, b) => a + b, 0);
+      if (total > 0 && (by.minted ?? 0) === total) return true; // every cardano job settled to minted
       await delay(3000);
     }
+    const pend = await db.query("SELECT status, COUNT(*)::int AS c FROM nft_mints WHERE chain = 'cardano' GROUP BY status");
+    console.error("[admin-mint] cardano jobs did not all settle:", JSON.stringify(pend.rows));
     return false;
   });
 

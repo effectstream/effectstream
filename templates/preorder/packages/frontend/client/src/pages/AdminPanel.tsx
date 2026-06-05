@@ -167,6 +167,23 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
     }, 1500);
   }, []);
 
+  // Minting (esp. Cardano) is serial + slow, so keep refreshing the status until no jobs remain
+  // pending/submitted (or a generous cap). Without this the table stops polling after ~12s and
+  // looks "stuck" while mints are still completing.
+  const pollMintsUntilSettled = useCallback(() => {
+    let n = 0;
+    const iv = setInterval(async () => {
+      try {
+        const s = await (await fetch(`${apiUrl}/api/admin/status/${CAMPAIGN_ID}`)).json();
+        setStatus(s);
+        const sum = (s.nftMintSummary || {}) as Record<string, number>;
+        const inflight = (sum.pending || 0) + (sum.submitted || 0);
+        if (inflight === 0 && ((sum.minted || 0) + (sum.failed || 0)) > 0) clearInterval(iv);
+      } catch { /* keep polling */ }
+      if (++n >= 150) clearInterval(iv); // ~5 min cap
+    }, 2000);
+  }, [apiUrl]);
+
   // Surface a Sign Transaction modal (admin signs with the local dev key) before submitting.
   const requestConfirm = useCallback((summary: string, run: () => Promise<void>) => {
     getAdminBalance()
@@ -245,7 +262,7 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
     try {
       const { txHash } = await mintNfts(l2, campaignId);
       addLog("success", `mint-nfts submitted: ${campaignId}`, txHash);
-      refreshSoon();
+      pollMintsUntilSettled();
     } catch (e: any) {
       addLog("error", "mint-nfts failed", e.message);
     } finally {
