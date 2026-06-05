@@ -1,327 +1,426 @@
 /**
- * Deterministic, in-process harness for reproducing sync-service issues.
+ * Deterministic harness for reproducing sync-service issues. Two backends behind
+ * one {@link setupHarness} API:
  *
- * - Runs a real PGLite server in-process (state survives a simulated restart
- *   because the server stays alive while the node task is halted/restarted).
- * - Boots the real runtime (`start()`) over a synthetic `test` chain whose tip
- *   is controlled via {@link TestChainControl}, so scenarios are deterministic
- *   (fixed tips → a well-defined "stable" state we can poll for).
+ * - **PGLite** (default) — in-memory WASM Postgres behind a `startPglite`
+ *   gateway, the production PGLite wire path (`PGLITE=true`). Dependency-free.
+ * - **Postgres** (opt-in via `PGLITE=false`) — a throwaway Homebrew
+ *   `postgresql@18` cluster per test process (it bundles `pg_ivm`), each
+ *   {@link setupHarness} getting a fresh database. Higher fidelity; needs
+ *   `postgresql@18` on PATH (override the bin dir with `REPRO_PG_BINDIR`, probe
+ *   with {@link postgresAvailable}).
  *
- * Lives in the runtime package because it imports `start()` (the sync package
- * must not depend on runtime). See ./buffering.test.ts and ./resume.test.ts,
- * and RESULTS.md for measurements.
+ * Each node runs in its own subprocess ({@link ./node-runner.ts}) booting the
+ * real runtime over a synthetic `test` chain, so a "restart" is a genuine new OS
+ * process: the in-memory Deque is gone while the database keeps every committed
+ * row. (Booting `start()` twice in one process stalls the sync loops under
+ * `bun test`, so we never do it.)
+ *
+ * Lives in the runtime package because the subprocess imports `start()`.
  */
+import net from "node:net";
 import pg from "pg";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { appendFileSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { platform, tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { type PgliteHandle, startPglite } from "@effectstream/db/start-pglite";
-import { run, type Task } from "effection";
-import {
-  ConfigBuilder,
-  toSyncProtocolWithNetwork,
-  withEffectstreamStaticConfig,
-} from "@effectstream/config";
-import { init, start } from "../../src/main.ts";
-import type { StartConfigGameStateTransitions } from "../../src/types.ts";
-import { type AllSyncProtocols, TestChainControl } from "@effectstream/sync";
-import { Primitive } from "@effectstream/sm";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import type { EventSpec } from "./scenario.ts";
 
-// ── A minimal user-defined primitive ─────────────────────────────────────────
-// Writes one row to effectstream.primitive_accounting per event (no STF needed:
-// stateMachinePayload is null). Tests assert on that table.
-export const TEST_PRIMITIVE_TYPE = "TEST:EVENT";
+// Re-export the bits the test files assert with, so they import from one place.
+export { TEST_PRIMITIVE_TYPE } from "./scenario.ts";
+export type { EventSpec } from "./scenario.ts";
+export {
+  countEventRows,
+  latestFinalizedHeight,
+  maxPage,
+  pageRows,
+} from "./poll.ts";
 
-export class TestEventPrimitive extends Primitive<any, any> {
-  readonly internalTypeName = TEST_PRIMITIVE_TYPE as any;
-  override grammar = [] as any;
-  constructor(config: any) {
-    super(config);
+// ── Throwaway PostgreSQL cluster (one per test process) ──────────────────────
+
+type Cluster = { port: number; dataDir: string };
+
+let clusterPromise: Promise<Cluster> | undefined;
+let clusterBin: string | undefined;
+let dbCounter = 0;
+let activeHarnessCount = 0;
+let clusterStopped = false;
+
+/** Resolve a Postgres bin dir. Tries, in order: env var, Homebrew, pg_config, PATH, Linux conventions. */
+function resolvePgBinDir(): string | undefined {
+  const override = process.env.REPRO_PG_BINDIR;
+  if (override) return override;
+
+  // macOS + Homebrew
+  if (platform() === "darwin") {
+    try {
+      const prefix = execFileSync("brew", ["--prefix", "postgresql@18"], {
+        encoding: "utf8",
+      }).trim();
+      return join(prefix, "bin");
+    } catch { /* not installed via Homebrew */ }
   }
-  // deno-lint-ignore require-yield
-  override *getPayload(_height: any, primitiveTransactionData: any): any {
-    const payload = primitiveTransactionData.output.payload;
-    return {
-      isBatched: false,
-      data: [
-        {
-          fromAddressAndType: { type: "none", address: "0x0" },
-          accountingPayload: payload,
-          stateMachinePayload: null,
-        },
-      ],
-    };
+
+  // pg_config — standard on most systems with PostgreSQL dev packages
+  try {
+    const dir = execFileSync("pg_config", ["--bindir"], { encoding: "utf8" }).trim();
+    if (dir) return dir;
+  } catch { /* not available */ }
+
+  // PATH probe — initdb directly accessible
+  try {
+    const which = platform() === "win32" ? "where" : "which";
+    const p = execFileSync(which, ["initdb"], { encoding: "utf8" }).trim();
+    if (p) return resolve(p, "..");
+  } catch { /* not on PATH */ }
+
+  // Linux convention (Debian/Ubuntu layout)
+  if (platform() === "linux") {
+    for (const ver of [18, 17, 16]) {
+      const dir = `/usr/lib/postgresql/${ver}/bin`;
+      try {
+        readdirSync(dir);
+        return dir;
+      } catch { /* not installed */ }
+    }
   }
-  override getConfig(): any {
-    return {
-      name: this.instanceName,
-      type: this.internalTypeName,
-      startBlockHeight: this.startBlockHeight,
-      scheduledPrefix: this.stateMachinePrefix,
-    };
+
+  return undefined;
+}
+
+/** True if a Postgres binary is available on this system. */
+export function postgresAvailable(): boolean {
+  return resolvePgBinDir() !== undefined;
+}
+
+/** Grab a free TCP port by binding to :0 and reading the assigned port. */
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.once("error", reject);
+    srv.listen(0, "127.0.0.1", () => {
+      const port = (srv.address() as net.AddressInfo).port;
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
+/**
+ * Kill orphaned `repro-pg-*` clusters left behind by test processes that
+ * exited without hitting their `exit` handler (SIGKILL, IDE stop, etc.).
+ *
+ * PostgreSQL writes the postmaster PID into `<dataDir>/postmaster.pid`.  We
+ * also write our own owner PID into `<dataDir>/repro-owner.pid` so we can
+ * distinguish our clusters from unrelated `repro-pg-*` dirs.  A directory is
+ * considered orphaned when the owner process is dead; we then `pg_ctl stop`
+ * and `rm -rf` it.
+ */
+function cleanupOrphanedClusters(bin: string, env: Record<string, string | undefined>): void {
+  const tmp = tmpdir();
+  let entries: string[];
+  try { entries = readdirSync(tmp); } catch { return; }
+
+  for (const name of entries) {
+    if (!name.startsWith("repro-pg-")) continue;
+    const dataDir = join(tmp, name);
+
+    const ownerFile = join(dataDir, "repro-owner.pid");
+    let ownerPid: number | undefined;
+    try { ownerPid = parseInt(readFileSync(ownerFile, "utf8").trim(), 10); } catch { /* no owner file */ }
+
+    if (ownerPid == null || Number.isNaN(ownerPid)) continue;
+
+    try { process.kill(ownerPid, 0); } catch {
+      // Owner is dead — orphaned cluster.
+      spawnSync(join(bin, "pg_ctl"), ["-D", dataDir, "stop", "-m", "immediate"], {
+        env, stdio: "ignore",
+      });
+      rmSync(dataDir, { recursive: true, force: true });
+    }
   }
 }
 
-const noopStf: StartConfigGameStateTransitions = function* () {};
+/**
+ * Boot a fresh cluster the first time it's needed and reuse it for the rest of
+ * the process. initdb with C locale + trust auth (mirrors e2e_postgres.sh; the
+ * C locale dodges the macOS "postmaster became multithreaded during startup"
+ * fatal). Stopped synchronously on process exit.
+ *
+ * Before booting, any orphaned clusters from prior crashed runs are cleaned up
+ * so they don't accumulate and exhaust system resources.
+ */
+function ensureCluster(): Promise<Cluster> {
+  if (clusterPromise) return clusterPromise;
+  clusterPromise = (async () => {
+    const bin = resolvePgBinDir()!;
+    clusterBin = bin;
+    const env = { ...process.env, LC_ALL: "C" };
 
-// ── Env / DB lifecycle ───────────────────────────────────────────────────────
+    cleanupOrphanedClusters(bin, env);
 
-let portCounter = 5544;
+    const dataDir = mkdtempSync(join(tmpdir(), "repro-pg-"));
+    const port = await freePort();
+
+    writeFileSync(join(dataDir, "repro-owner.pid"), String(process.pid));
+
+    execFileSync(join(bin, "initdb"), [
+      "-D", dataDir,
+      "-U", "postgres",
+      "--auth=trust",
+      "--locale=C",
+      "--encoding=UTF8",
+      "--no-instructions",
+    ], { env, stdio: "ignore" });
+    appendFileSync(join(dataDir, "postgresql.conf"), `\nport = ${port}\n`);
+    execFileSync(join(bin, "pg_ctl"), [
+      "-D", dataDir,
+      "-l", join(dataDir, "server.log"),
+      "-w",
+      "start",
+    ], { env, stdio: "ignore" });
+
+    clusterStopped = false;
+
+    const stop = () => {
+      spawnSync(join(bin, "pg_ctl"), ["-D", dataDir, "stop", "-m", "immediate"], {
+        env,
+        stdio: "ignore",
+      });
+      rmSync(dataDir, { recursive: true, force: true });
+      clusterStopped = true;
+    };
+    process.once("exit", stop);
+    return { port, dataDir };
+  })();
+  return clusterPromise;
+}
+
+/** Stop the shared cluster if it's running (called when last harness tears down). */
+async function stopCluster(): Promise<void> {
+  if (!clusterPromise || clusterStopped) return;
+  const cluster = await clusterPromise;
+  if (clusterStopped || !clusterBin) return;
+  const env = { ...process.env, LC_ALL: "C" };
+  spawnSync(join(clusterBin, "pg_ctl"), ["-D", cluster.dataDir, "stop", "-m", "immediate"], {
+    env,
+    stdio: "ignore",
+  });
+  rmSync(cluster.dataDir, { recursive: true, force: true });
+  clusterStopped = true;
+}
+
+// ── Harness ──────────────────────────────────────────────────────────────────
 
 export type Harness = {
-  pglite: PgliteHandle;
+  /** Query pool against this harness's database (for assertions). */
   pool: pg.Pool;
-  dataDir: string;
-  runNode: (opts: RunNodeOpts) => Promise<RunningNode>;
   /**
-   * Simulate a full process restart: close the PGLite server (severing the
-   * stopped node's lingering pool, which otherwise holds PGLite's single
-   * connection) and reopen it on the SAME data dir (state persists on disk).
+   * Boot one node in a subprocess, sync it to `target` height (+ optional page
+   * watermarks), then let it exit. Resolves once the child exits cleanly; the
+   * database keeps everything it committed. Rejects if the child fails.
    */
-  simulateRestart: () => Promise<void>;
+  runToHeight: (opts: RunToHeightOpts) => Promise<void>;
   teardown: () => Promise<void>;
 };
 
-export type RunNodeOpts = {
-  config: ReturnType<ConfigBuilder["build"]> | any;
+export type RunToHeightOpts = {
+  events: EventSpec[];
+  parallelStepSize?: number;
+  /** Manual chain tips, e.g. { mainClock: 100, parallelP: 200 }. */
+  tips: Record<string, number>;
+  /** Finalized height the node must reach before exiting. */
+  target: number;
   /** Unique per boot so the (test-only) HTTP server never collides. */
   apiPort: number;
+  /** Optional per-protocol page watermarks to also wait for before exiting. */
+  waitPages?: Record<string, number>;
+  securityNamespace?: string;
 };
 
-export type RunningNode = {
-  task: Task<unknown>;
-  /** Live sync protocols (captured via the dev.onStarted hook). */
-  syncProtocols: () => AllSyncProtocols[];
-  /** Boot error, if start() threw. */
-  bootError: () => unknown;
-  stop: () => Promise<void>;
-};
+const RUNNER = join(import.meta.dir, "node-runner.ts");
+
+export type Backend = "pglite" | "postgres";
+
+/** Backend keyed off the engine's `PGLITE` flag: `PGLITE=false` → real Postgres. */
+function defaultBackend(): Backend {
+  return process.env.PGLITE === "false" ? "postgres" : "pglite";
+}
+
+/** `runToHeight` closure shared by both backends; only needs the child's dbEnv. */
+function makeRunToHeight(
+  dbEnv: Record<string, string>,
+): (opts: RunToHeightOpts) => Promise<void> {
+  return (opts: RunToHeightOpts): Promise<void> => {
+    const spec = {
+      securityNamespace: opts.securityNamespace ?? "sync-repro",
+      events: opts.events,
+      parallelStepSize: opts.parallelStepSize,
+      tips: opts.tips,
+      target: opts.target,
+      apiPort: opts.apiPort,
+      waitPages: opts.waitPages,
+    };
+    return new Promise<void>((resolve, reject) => {
+      const child = spawn("bun", [RUNNER, JSON.stringify(spec)], {
+        env: { ...process.env, ...dbEnv },
+        stdio: process.env.REPRO_DEBUG
+          ? ["ignore", "inherit", "inherit"]
+          : ["ignore", "ignore", "pipe"],
+      });
+      // Keep only a tail of stderr so the MQTT-publish flood doesn't pile up;
+      // surface it only if the child fails.
+      const tail: string[] = [];
+      child.stderr?.on("data", (b: Buffer) => {
+        for (const line of b.toString().split("\n")) {
+          if (line && !line.includes("publish")) tail.push(line);
+        }
+        if (tail.length > 40) tail.splice(0, tail.length - 40);
+      });
+      child.on("error", reject);
+      child.on("exit", (code) => {
+        if (code === 0) resolve();
+        else {
+          reject(
+            new Error(
+              `node subprocess exited ${code}\n${tail.join("\n")}`,
+            ),
+          );
+        }
+      });
+    });
+  };
+}
 
 /**
- * Start a PGLite server + connect a query pool. Sets the lazily-read ENV the
- * runtime uses (DB_*, PGLITE). Keep one Harness per test; reuse across the
- * simulated restart so the page queue persists.
+ * Fresh harness on the chosen backend (default {@link defaultBackend}, override
+ * with `{ backend }`). One Harness per node lineage: its database outlives a
+ * restart, so committed state persists exactly as in production.
  */
-export async function setupHarness(): Promise<Harness> {
-  const dbPort = portCounter++;
-  const dataDir = mkdtempSync(join(tmpdir(), "sync-repro-"));
+export async function setupHarness(
+  opts: { backend?: Backend } = {},
+): Promise<Harness> {
+  const backend = opts.backend ?? defaultBackend();
+  return backend === "postgres"
+    ? setupPostgresHarness()
+    : setupPgliteHarness();
+}
 
-  process.env.PGLITE = "true";
-  process.env.PGLITE_DATA_DIR = dataDir;
-  process.env.DB_HOST = "localhost";
-  process.env.DB_PORT = String(dbPort);
-  process.env.DB_NAME = "postgres";
-  process.env.DB_USER = "postgres";
-  // No MQTT broker in tests: it binds fixed ports (8883/9883) that aren't freed
-  // by halt(), so it would collide on restart. Event publishes are
-  // fire-and-forget and swallowed when no broker is present.
-  process.env.MQTT_BROKER = "false";
+/** Real Postgres backend — a fresh database on the shared throwaway cluster. */
+async function setupPostgresHarness(): Promise<Harness> {
+  const cluster = await ensureCluster();
+  const dbName = `repro_${process.pid}_${dbCounter++}`;
+  activeHarnessCount++;
 
-  const makePool = (port: number) =>
-    new pg.Pool({
-      host: "localhost",
-      port,
+  // CREATE DATABASE on the maintenance db, then point everything at it.
+  const admin = new pg.Pool({
+    host: "127.0.0.1",
+    port: cluster.port,
+    user: "postgres",
+    database: "postgres",
+    max: 1,
+  });
+  await admin.query(`CREATE DATABASE "${dbName}"`);
+  await admin.end();
+
+  // Parent assertions go through poll.ts's `q`; PGLITE=false → plain queries.
+  process.env.PGLITE = "false";
+
+  const dbEnv = {
+    PGLITE: "false",
+    ALLOW_NO_PG_IVM: "true",
+    DB_HOST: "127.0.0.1",
+    DB_PORT: String(cluster.port),
+    DB_NAME: dbName,
+    DB_USER: "postgres",
+    DB_PW: "",
+    MQTT_BROKER: "false",
+  };
+
+  const pool = new pg.Pool({
+    host: "127.0.0.1",
+    port: cluster.port,
+    user: "postgres",
+    database: dbName,
+    max: 10,
+  });
+
+  const teardown = async (): Promise<void> => {
+    await pool.end().catch(() => {});
+    const admin = new pg.Pool({
+      host: "127.0.0.1",
+      port: cluster.port,
       user: "postgres",
       database: "postgres",
       max: 1,
     });
+    try {
+      // Drop lingering backends so DROP DATABASE isn't blocked by open conns.
+      await admin.query(
+        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+          WHERE datname = $1 AND pid <> pg_backend_pid()`,
+        [dbName],
+      );
+      await admin.query(`DROP DATABASE IF EXISTS "${dbName}"`);
+    } catch {
+      // Best-effort: the cluster is torn down wholesale below.
+    } finally {
+      await admin.end().catch(() => {});
+    }
 
-  let pglite = await startPglite(dbPort);
-  let pool = makePool(dbPort);
-
-  const runNode = async (opts: RunNodeOpts): Promise<RunningNode> => {
-    // Re-assert THIS harness's DB env before booting. Tests may create multiple
-    // harnesses (each calls setupHarness, which mutates the shared process.env);
-    // without this the node would connect to whichever harness ran setup last.
-    process.env.PGLITE = "true";
-    process.env.PGLITE_DATA_DIR = dataDir;
-    process.env.DB_HOST = "localhost";
-    process.env.DB_PORT = String(dbPort);
-    process.env.DB_NAME = "postgres";
-    process.env.DB_USER = "postgres";
-    process.env.MQTT_BROKER = "false";
-    process.env.EFFECTSTREAM_API_PORT = String(opts.apiPort);
-    // The PrimitiveRegistry is a process-global singleton. A real restart gets
-    // a fresh process; here we clear it in place so primitives re-register
-    // cleanly (otherwise "Primitive ... already exists").
-    const reg = (globalThis as { EFFECTSTREAM_REGISTRY?: Record<string, unknown> })
-      .EFFECTSTREAM_REGISTRY;
-    if (reg) for (const k of Object.keys(reg)) delete reg[k];
-    let captured: AllSyncProtocols[] = [];
-    let bootErr: unknown = undefined;
-    const cfg = opts.config;
-    const task = run(function* () {
-      yield* init();
-      yield* withEffectstreamStaticConfig(cfg, function* () {
-        yield* start({
-          appName: "sync-repro",
-          appVersion: "1.0.0",
-          syncInfo: toSyncProtocolWithNetwork(cfg),
-          gameStateTransitions: noopStf,
-          userDefinedPrimitives: { [TEST_PRIMITIVE_TYPE]: TestEventPrimitive },
-          dev: {
-            resetPublicData: false,
-            onStarted: ({ syncProtocols }) => {
-              captured = syncProtocols;
-            },
-          },
-        });
-      });
-    });
-    // start() runs forever; surface boot failures instead of an unhandled
-    // reject. `halted` is the expected rejection from stop()/task.halt().
-    Promise.resolve(task).catch((e) => {
-      if (String(e).includes("halted")) return;
-      bootErr = e;
-    });
-    return {
-      task,
-      syncProtocols: () => captured,
-      bootError: () => bootErr,
-      stop: async () => {
-        await task.halt();
-      },
-    };
+    activeHarnessCount--;
+    if (activeHarnessCount <= 0) {
+      await stopCluster();
+    }
   };
 
-  const harness: Harness = {
-    pglite,
-    pool,
-    dataDir,
-    runNode,
-    simulateRestart: async () => {
-      // Keep the PGLite server alive (closing/reopening it is WASM-fragile and
-      // loses state). State persists in the live instance; the node task is
-      // halted/rebooted by the test. The stopped node's pool lingers but the
-      // gateway multiplexes sockets over the one PGLite db.
-    },
-    teardown: async () => {
-      TestChainControl.clear();
-      await pool.end().catch(() => {});
-      await pglite.close().catch(() => {});
-      rmSync(dataDir, { recursive: true, force: true });
-    },
-  };
-  return harness;
-}
-
-// ── Polling helpers ──────────────────────────────────────────────────────────
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/** Latest finalized effectstream block height (incl. empty blocks). */
-export async function latestFinalizedHeight(pool: pg.Pool): Promise<number> {
-  try {
-    const res = await pool.query(
-      `SELECT MAX(block_height)::int AS h FROM effectstream.effectstream_blocks
-       WHERE effectstream_block_hash IS NOT NULL`,
-    );
-    return res.rows[0]?.h ?? 0;
-  } catch (e) {
-    // The system migrations may not have created the table yet during boot.
-    if ((e as { code?: string })?.code === "42P01") return 0;
-    throw e;
-  }
-}
-
-/** Wait until finalized height reaches `target` (or timeout). */
-export async function waitForHeight(
-  node: RunningNode,
-  pool: pg.Pool,
-  target: number,
-  timeoutMs = 30_000,
-): Promise<number> {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
-    const err = node.bootError();
-    if (err) throw new Error(`node boot failed: ${String(err)}`);
-    const h = await latestFinalizedHeight(pool);
-    if (h >= target) return h;
-    await sleep(50);
-  }
-  throw new Error(
-    `waitForHeight(${target}) timed out at ${await latestFinalizedHeight(pool)}`,
-  );
+  return { pool, runToHeight: makeRunToHeight(dbEnv), teardown };
 }
 
 /**
- * Wait until the finalized height stops advancing for `quietMs` (the system
- * has reached its deterministic stable state given fixed tips).
+ * PGLite backend — in-memory WASM Postgres behind a `startPglite` gateway. The
+ * single WASM backend tolerates no overlapping queries, so the subprocess routes
+ * its polls through the global DB mutex (node-runner.ts / poll.ts) and both
+ * pools cap at one connection. `startPglite` reads its config from ENV.
  */
-export async function waitUntilStable(
-  node: RunningNode,
-  pool: pg.Pool,
-  { quietMs = 800, timeoutMs = 30_000 } = {},
-): Promise<number> {
-  const startedAt = Date.now();
-  let last = -1;
-  let lastChange = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
-    const err = node.bootError();
-    if (err) throw new Error(`node boot failed: ${String(err)}`);
-    const h = await latestFinalizedHeight(pool);
-    if (h !== last) {
-      last = h;
-      lastChange = Date.now();
-    } else if (Date.now() - lastChange >= quietMs) {
-      return h;
-    }
-    await sleep(50);
-  }
-  return last;
-}
+async function setupPgliteHarness(): Promise<Harness> {
+  const port = await freePort();
+  const dbName = "postgres";
 
-/** Count primitive_accounting rows whose payload carries the given marker. */
-export async function countEventRows(
-  pool: pg.Pool,
-  marker: string,
-): Promise<number> {
-  const res = await pool.query(
-    `SELECT COUNT(*)::int AS c FROM effectstream.primitive_accounting
-     WHERE payload->>'marker' = $1`,
-    [marker],
-  );
-  return res.rows[0]?.c ?? 0;
-}
+  // startPglite reads these from ENV at construction; a fresh `memory://`
+  // instance is isolated per harness. PGLITE=true mutex-guards parent asserts.
+  process.env.PGLITE_DATA_DIR = "memory://";
+  process.env.DB_USER = "postgres";
+  process.env.DB_NAME = dbName;
+  process.env.PGLITE = "true";
 
-/** Page-queue rows for a protocol (the durable per-chunk queue). */
-export async function pageRows(
-  pool: pg.Pool,
-  protocolName: string,
-): Promise<{ page_number: number }[]> {
-  const res = await pool.query(
-    `SELECT page_number FROM effectstream.sync_protocol_pagination
-     WHERE protocol_name = $1 ORDER BY page_number ASC`,
-    [protocolName],
-  );
-  return res.rows;
-}
+  const handle: PgliteHandle = await startPglite(port);
+  handle.server.unref(); // don't let a leaked gateway keep the process alive
 
-/** Hex of the most-recent non-empty (non-"0x0") effectstream block hash. */
-export async function lastNonEmptyBlockHash(
-  pool: pg.Pool,
-): Promise<string | null> {
-  try {
-    const res = await pool.query(
-      `SELECT encode(effectstream_block_hash, 'hex') AS h
-       FROM effectstream.effectstream_blocks
-       WHERE effectstream_block_hash IS NOT NULL
-         AND effectstream_block_hash != '\\x307830'::bytea
-       ORDER BY block_height DESC LIMIT 1`,
-    );
-    return res.rows[0]?.h ?? null;
-  } catch {
-    return null;
-  }
-}
+  const dbEnv = {
+    PGLITE: "true",
+    DB_HOST: "127.0.0.1",
+    DB_PORT: String(port),
+    DB_NAME: dbName,
+    DB_USER: "postgres",
+    DB_PW: "",
+    PGLITE_DATA_DIR: "memory://",
+    MQTT_BROKER: "false",
+  };
 
-/** Sample a protocol's in-memory buffered-data size now. */
-export function bufferSize(
-  node: RunningNode,
-  protocolName: string,
-): number {
-  const sp = node.syncProtocols().find((p) => p.name === protocolName);
-  return sp ? sp.bufferedData.size() : 0;
-}
+  // One connection: the gateway is a single WASM backend.
+  const pool = new pg.Pool({
+    host: "127.0.0.1",
+    port,
+    user: "postgres",
+    database: dbName,
+    max: 1,
+  });
 
-export { sleep };
+  const teardown = async (): Promise<void> => {
+    await pool.end().catch(() => {});
+    await handle.close().catch(() => {});
+  };
+
+  return { pool, runToHeight: makeRunToHeight(dbEnv), teardown };
+}

@@ -5,6 +5,7 @@ import type {
   TimestampMs,
 } from "@effectstream/utils";
 import type { PageRelation } from "../base/page.ts";
+import type { LastPage } from "../base/state.ts";
 import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
@@ -18,6 +19,14 @@ export type ChainBlock = {
     protocol_name: string;
     block_number: BlockNumber;
     blockHash: BlockHash;
+  }[];
+  /**
+   * Per-protocol block-accurate resume markers the runtime persists on commit.
+   * See `@effectstream/sync` CLAUDE.md, design idea #5 (restart/resume).
+   */
+  resumePages: {
+    protocol_name: string;
+    lastPage: LastPage<unknown, unknown>;
   }[];
   primitives: (
     & FlattenSyncProtocolIOFor<

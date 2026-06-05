@@ -17,11 +17,12 @@ import {
   insertGameInputResult,
   removePages,
   saveLastBlock,
+  upsertPage,
 } from "@effectstream/db";
 import { Buffer } from "node:buffer";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { StartConfig } from "./types.ts";
-import type { BlockNumber, EffectstreamBlockHash } from "@effectstream/utils";
+import type { EffectstreamBlockHash } from "@effectstream/utils";
 import { generateEffectstreamBlockHash, Prando } from "@effectstream/crypto";
 import { applyUserMigrations } from "./version-migrations.ts";
 import type { EventPathAndDef } from "@effectstream/event-client";
@@ -308,28 +309,24 @@ export function* processFinalizedBlock(
       }, dbConn)
     );
 
-    /* STEP 7: Update page state for all sync protocols consumed
-    *          This is to mark what blocks where consumed by this specific
-    *          block, to avoid re-processing the same blocks more than once
-    *          if the sync protocol is restarted.
+    /* STEP 7: Persist the block-accurate resume marker per protocol, inside this
+    *          block's transaction (the runtime is the sole writer of the resume
+    *          position). Upsert at page_number = ownBlockNumber, then prune
+    *          everything below → one row per protocol = the committed watermark.
+    *          Full mechanism: @effectstream/sync CLAUDE.md, design idea #5.
     */
-
-    // Get latest block for each sync protocol.
-    const latestBlocks: Record<string, BlockNumber> = {};
-    for (const blockInfo of value.blockInfo) {
-      if (
-        !latestBlocks[blockInfo.protocol_name] ||
-        latestBlocks[blockInfo.protocol_name] < blockInfo.block_number
-      ) {
-        latestBlocks[blockInfo.protocol_name] = blockInfo.block_number;
-      }
-    }
-
-    for (const [protocolName, blockNumber] of Object.entries(latestBlocks)) {
+    for (const { protocol_name, lastPage } of value.resumePages) {
+      yield* until(
+        upsertPage.run({
+          protocol_name,
+          page_number: lastPage.ownBlockNumber,
+          page: JSON.stringify(lastPage),
+        }, dbConn),
+      );
       yield* until(
         removePages.run({
-          protocol_name: protocolName,
-          page_number: blockNumber,
+          protocol_name,
+          page_number: lastPage.ownBlockNumber,
         }, dbConn),
       );
     }

@@ -124,6 +124,11 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
     }
     const output = iState.bufferedData.peekAt(0)!;
     const newRoot = iState.toRootOutput(output.output);
+    // Resume marker: the single datum this root block is built from (CLAUDE.md #5).
+    newRoot.resumePages.push({
+      protocol_name: state.name,
+      lastPage: iState.outputToLastPage(output.output),
+    });
     return {
       updateCache: () => {
         output.cleanup();
@@ -167,6 +172,17 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
     rootInfo.comparePage,
     iState.mergeDatum,
   );
+
+  // Resume marker: the last (highest) datum merged this iteration, still in the
+  // Deque at `cleanups.length - 1` (cleanup runs after send). Nothing consumed →
+  // no marker. See CLAUDE.md #5.
+  if (cleanups.length > 0) {
+    const lastConsumed = iState.bufferedData.peekAt(cleanups.length - 1)!;
+    rootInfo.value.resumePages.push({
+      protocol_name: state.name,
+      lastPage: iState.outputToLastPage(lastConsumed.output),
+    });
+  }
 
   return {
     updateCache: () => {

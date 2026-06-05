@@ -48,6 +48,7 @@ export class NtpSyncState extends SyncState<
       })),
       blockNumber: Number(data.raw.blockNumber),
       timestamp: this.toRootPage(data),
+      resumePages: [],
       primitives: [],
     };
   }
@@ -85,6 +86,16 @@ export class NtpSyncState extends SyncState<
     rootOutput: RootOutput,
   ): void {
     throw new Error("Only parallel chains merge into root");
+  }
+
+  @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    const block = Number(data.raw.blockNumber);
+    return {
+      own: block,
+      ownBlockNumber: block,
+      root: this.toRootPage(data),
+    };
   }
 
   @bound
