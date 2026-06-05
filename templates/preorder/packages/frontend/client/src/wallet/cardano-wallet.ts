@@ -44,12 +44,25 @@ export async function createCardanoDevWallet(): Promise<CardanoDevWallet> {
     presetProtocolParameters: PROTOCOL_PARAMETERS_DEFAULT,
   });
 
-  const seed = generateSeedPhrase();
+  // Persist the dev seed so reconnecting restores the SAME address (like the fixed-key EVM
+  // dev wallet). Without this, each connect generates a fresh wallet and prior purchases /
+  // minted NFTs are no longer associated with the connected address.
+  const SEED_KEY = "preorder:cardano-dev-seed";
+  const store = typeof localStorage !== "undefined" ? localStorage : null;
+  let seed = store?.getItem(SEED_KEY) ?? null;
+  if (!seed) {
+    seed = generateSeedPhrase();
+    store?.setItem(SEED_KEY, seed);
+  }
   lucid.selectWallet.fromSeed(seed);
   const address = await lucid.wallet().address();
 
-  await topup(address, 10_000);
-  await waitForUtxos(lucid, address);
+  // Fund only if the (possibly reused) wallet has no UTxOs yet — topup is otherwise additive.
+  const existing = await lucid.utxosAt(address);
+  if (existing.length === 0) {
+    await topup(address, 10_000);
+    await waitForUtxos(lucid, address);
+  }
 
   return { lucid, address };
 }
