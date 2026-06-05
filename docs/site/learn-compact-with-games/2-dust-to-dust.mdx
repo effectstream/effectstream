@@ -56,13 +56,159 @@ much about the other.
 
 <GameRepo />
 
-Tradeable characters need an off-chain owner that the circuit can verify without revealing the character. The witness function below loads a character from a private offer file and proves ownership against the public quest registry.
+**Source:** [`backend/packages/midnight/contract-game2/src/game2.compact`](https://github.com/effectstream/dust-to-dust/blob/main/backend/packages/midnight/contract-game2/src/game2.compact)
 
-<CompactCode summary="Character witness">
+Dust to Dust is a roguelike deckbuilder. Two things stand out in the Compact contract: quests are anchored to real wall-clock time (no client-side speed-running), and the gameplay math is written in **circuit-friendly algebra** instead of branches - booleans are multiplied as `Uint<1>` so the proof stays small. Per-player RNG rounds it out with deterministic `persistentHash` evolution.
+
+### Time-anchored quests via `blockTimeGte` / `blockTimeLte`
+
+A quest is started with a claimed `start_time` that must lie inside a tight 120-second window around chain time. Combined with a level-gating assert against `player_boss_progress`, this stops clients from speed-running the curve - the quest's duration is enforced by the chain, not the client's clock.
+
+<CompactCode summary="`start_new_quest`">
 
 ```compact
-// TODO: paste the Compact circuit for dust-to-dust here.
-// This block starts collapsed; the reader expands it on demand.
+export circuit start_new_quest(
+    loadout: PlayerLoadout,
+    level: Level,
+    start_time: Uint<64>,
+): Field {
+    verify_loadout(disclose(loadout));
+
+    // Anchor "now" to chain time, not the client's clock
+    assert(blockTimeGte(disclose(start_time)),
+           "start_time is in the future");
+    assert(blockTimeLte((disclose(start_time) + 120) as Uint<64>),
+           "start_time is too far in the past");
+
+    // Higher levels require proof of the previous boss completion
+    if (disclose(level.difficulty) > 1) {
+        const player_id = derive_player_pub_key(disclose(player_secret_key()));
+        const prevLevel = disclose(level.difficulty) - 1;
+        assert(
+            player_boss_progress.lookup(player_id).member(disclose(level.biome)) &&
+            player_boss_progress.lookup(player_id).lookup(disclose(level.biome)).member(prevLevel) &&
+            player_boss_progress.lookup(player_id).lookup(disclose(level.biome)).lookup(prevLevel),
+            "Must complete previous level boss to access this level",
+        );
+    }
+
+    // [build and insert QuestConfig omitted for brevity]
+    return derive_quest_id(quest);
+}
+```
+
+</CompactCode>
+
+### Algebra over branches (smaller, faster circuits)
+
+Every branch in a ZK circuit costs constraints. Dust to Dust writes its gameplay math as pure arithmetic instead: predicates get cast to `Uint<1>` (`0` or `1`) and multiplied into the expression, so a false-branch zeroes its contribution out without an `if`. The score computation below is the canonical example - an entire decision tree (AOE? is it an attack? does the effect even exist?) collapses into one chained multiplication. The same trick shows up across the file wherever a value depends on a condition; the resulting circuit is smaller and proves faster than the branchy version would.
+
+<CompactCode summary="`ability_score` + `effect_score`">
+
+```compact
+// Ranks how "good" an ability is. Pure circuit - no branches, just math.
+export pure circuit ability_score(ability: Ability): Uint<32> {
+    return ((
+        3 * effect_score(ability.effect)
+        + effect_score(ability.on_energy[0])
+        + effect_score(ability.on_energy[1])
+        + effect_score(ability.on_energy[2])
+    ) * (2 + (ability.generate_color.is_some as Uint<1>))) as Uint<32>;
+}
+
+// Ranks how "good" an effect is. Higher is better.
+pure circuit effect_score(effect: Maybe<Effect>): Uint<32> {
+    const aoe = (1 + (effect.value.is_aoe as Uint<1>));
+
+    // Attacks score double a non-attack of equal amount.
+    const attack_compensate = (1 + ((
+        effect.value.effect_type == EFFECT_TYPE.attack_phys ||
+        effect.value.effect_type == EFFECT_TYPE.attack_ice  ||
+        effect.value.effect_type == EFFECT_TYPE.attack_fire
+    ) as Uint<1>));
+
+    // `effect.is_some as Uint<1>` zeros the whole product out when the
+    // optional is empty - no `if (effect.is_some) { ... } else { 0 }` branch.
+    return ((effect.is_some as Uint<1>)
+            * (effect.value.amount * aoe * attack_compensate)) as Uint<32>;
+}
+```
+
+</CompactCode>
+
+### Deterministic per-player RNG via `persistentHash`
+
+Each player keeps a single `rng: Bytes<32>` cell in their `Player` ledger entry. Every time a circuit needs randomness, `get_player_rng` reads the current value, advances it via `persistentHash<Bytes<32>>(old_rng)`, and writes the new value back. `persistentHash` is the persistent (SHA-256-based) hash from the standard library - deterministic enough to be replayed and audited, but only the player can predict the next value without watching their own state.
+
+<CompactCode summary="`get_player_rng` + initial seed">
+
+```compact
+// On registration, seed the RNG from a public hash of (player_id, players.size())
+export circuit register_new_player(): [] {
+    const player_id = derive_player_pub_key(disclose(player_secret_key()));
+    const initial_rng = persistentHash<Field>(player_id + players.size());
+    players.insert(player_id, Player { 0, initial_rng });
+    // [insert starting abilities, etc.]
+}
+
+// Every read advances the RNG via persistentHash and writes back.
+circuit get_player_rng(): Bytes<32> {
+    const player_id = derive_player_pub_key(disclose(player_secret_key()));
+    const old_player = players.lookup(player_id);
+    const new_rng = persistentHash<Bytes<32>>(old_player.rng);
+    players.insert(player_id, Player { old_player.gold, new_rng });
+    return old_player.rng;
+}
+```
+
+</CompactCode>
+
+### Deterministic per-player RNG via `persistentHash`
+
+Each player keeps a single `rng: Bytes<32>` cell in their `Player` ledger entry. Every time a circuit needs randomness, `get_player_rng` reads the current value, advances it via `persistentHash<Bytes<32>>(old_rng)`, and writes the new value back. `persistentHash` is the persistent (SHA-256-based) hash from the standard library - deterministic enough to be replayed and audited, but only the player can predict the next value without watching their own state.
+
+<CompactCode summary="`get_player_rng` + initial seed">
+
+```compact
+// Player ledger entry holds a per-player RNG byte string
+// (declared on the Player struct: `rng: Bytes<32>`)
+
+// On registration, seed the RNG from a public hash of (player_id, players.size())
+export circuit register_new_player(): [] {
+    const player_id = derive_player_pub_key(disclose(player_secret_key()));
+    const initial_rng = persistentHash<Field>(player_id + players.size());
+    players.insert(player_id, Player { 0, initial_rng });
+    // [insert starting abilities, etc.]
+}
+
+// Every read advances the RNG via persistentHash and writes back.
+circuit get_player_rng(): Bytes<32> {
+    const player_id = derive_player_pub_key(disclose(player_secret_key()));
+    const old_player = players.lookup(player_id);
+    const new_rng = persistentHash<Bytes<32>>(old_player.rng);
+    players.insert(player_id, Player { old_player.gold, new_rng });
+    return old_player.rng;
+}
+```
+
+</CompactCode>
+
+### Witness-derived player identity (same pattern, different game)
+
+Dust to Dust uses the same `transientCommit` pattern as Kachina: identity is derived from a private witness, and every read/write of a player's state asserts the caller can produce the matching commitment. This shows up in every single player-action circuit - it's the foundation of Dust to Dust's privacy model.
+
+<CompactCode summary="`derive_player_pub_key`">
+
+```compact
+witness player_secret_key(): Bytes<32>;
+
+export pure circuit derive_player_pub_key(sk: Bytes<32>): Field {
+    return transientCommit<Bytes<32>>(sk, 1024);
+}
+
+// Repeated in every action circuit - register_new_player, sell_ability,
+// upgrade_ability, start_new_quest, finalize_quest, start_new_battle, ...
+const player_id = derive_player_pub_key(disclose(player_secret_key()));
 ```
 
 </CompactCode>

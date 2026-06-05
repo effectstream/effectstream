@@ -312,7 +312,7 @@ const config = {
       },
       prism: {
         darkTheme: themes.dracula,
-        additionalLanguages: ['solidity', 'bash'],
+        additionalLanguages: ['solidity', 'bash', 'compact'],
         magicComments: [
           {
             className: 'theme-code-block-highlighted-line',

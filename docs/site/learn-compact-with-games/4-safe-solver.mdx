@@ -37,13 +37,29 @@ clicks.
 
 <GameRepo />
 
-Safe Solver batches dozens of small moves into a single proof. The Compact circuit below takes the input sequence, replays it, and asserts the final puzzle state - so the client doesn't need an on-chain round-trip per click.
+**Source:** [`packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact`](https://github.com/effectstream/safe-solver/blob/main/packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact)
 
-<CompactCode summary="Batched-moves circuit">
+Safe Solver is a click-heavy puzzle. Like BlockKart, all of the per-click game state runs off-chain on Arbitrum, and Midnight's Compact contract is a write-once notarization layer. The contract below is byte-for-byte identical to BlockKart's - same architectural pattern emerging from a different game's constraints.
+
+### Same anchor pattern, different reason
+
+BlockKart needed off-chain speed for racing. Safe Solver needs off-chain speed for *volume* - dozens of small actions per round would be prohibitively expensive to verify on Midnight directly. Pushing the per-click state machine onto Arbitrum and using Compact only as an anchor is the same design choice for a different reason. When your contract starts looking like this short, ask whether you actually need the rest of Compact's expressiveness or whether the chain is just your notary.
+
+<CompactCode summary="Full contract (11 lines)">
 
 ```compact
-// TODO: paste the Compact circuit for safe-solver here.
-// This block starts collapsed; the reader expands it on demand.
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+
+constructor() {
+}
+
+export ledger payload: Opaque<"string">;
+
+export circuit storeValue(_payload: Opaque<"string">): [] {
+    payload = disclose(_payload);
+}
 ```
 
 </CompactCode>

@@ -54,13 +54,192 @@ spelling out - it's the pattern most readers will reuse.
 
 <GameRepo />
 
-The shuffle is the interesting part. The circuit below takes the player's secret key as a private input, masks the deck, and proves the dealt cards came from that masked deck - the network never sees the key itself.
+**Source:** [`packages/shared/contracts/midnight/go-fish-contract/src/Deck.compact`](https://github.com/effectstream/go-fish/blob/main/packages/shared/contracts/midnight/go-fish-contract/src/Deck.compact)
 
-<CompactCode summary="Mental-poker shuffle">
+Go Fish's headline feature is a complete **mental poker** implementation in Compact - the cryptographic protocol for shuffling and dealing a deck without anyone, including the contract, learning the card order. This primitive isn't Go Fish-specific: any card game (poker, hearts, bridge, war, ...) can be built on top of it. Cards are represented as elliptic curve points on the Jubjub curve; players collaboratively mask the deck with their secret scalars, and reveal cards later by peeling the same scalars back off. The full module lives in [`Deck.compact`](https://github.com/effectstream/go-fish/blob/main/packages/shared/contracts/midnight/go-fish-contract/src/Deck.compact); the rest of `GoFish.compact` is game-specific bookkeeping (turn order, score, registration) wrapped around it.
+
+### Cards as elliptic curve points
+
+Every card is a point on the embedded Jubjub curve. A static deck of 21 points (one per card value) is initialized once at deploy time and shared by every game; each per-game shuffle starts from a copy of it. Storing cards as curve points (rather than scalars or bytes) is what makes the rest of the protocol possible: `std_ecMul(point, scalar)` lets each player homomorphically mask the deck with their secret without anyone needing to decrypt anything in between.
+
+<CompactCode summary="`init_static_deck` + per-game deck initialization">
 
 ```compact
-// TODO: paste the Compact circuit for go-fish here.
-// This block starts collapsed; the reader expands it on demand.
+module Deck {
+import CompactStandardLibrary;
+import CompactStandardLibrary prefix std_;
+import './HashTransient' prefix h_;
+
+// Static mapping shared by every game: value <-> JubjubPoint
+export ledger deckCurveToCard:        Map<JubjubPoint, Field>;
+export ledger reverseDeckCurveToCard: Map<Uint<32>, JubjubPoint>;
+export ledger staticDeckInitialized:  Boolean;
+
+// Per-game deck state: gid -> {cardIndex -> JubjubPoint}
+export ledger gameDeck:         Map<Bytes<32>, Map<Uint<32>, JubjubPoint>>;
+export ledger gameDeckSize:     Map<Bytes<32>, Uint<64>>;
+export ledger gameTopCardIndex: Map<Bytes<32>, Uint<32>>;
+
+// One-time: seed the static deck with 21 curve points
+export circuit init_static_deck(): [] {
+    if (staticDeckInitialized) { return []; }
+    for (const i of 0..21) {
+        const cardPoint: JubjubPoint = getPointFromValue(i);
+        deckCurveToCard.insert(cardPoint, (i) as Field);
+        reverseDeckCurveToCard.insert((i) as Uint<32>, cardPoint);
+    }
+    staticDeckInitialized = true;
+}
+```
+
+</CompactCode>
+
+### Joint shuffle with cheating detection
+
+Each player calls `shuffle_deck`. The circuit reads every card, masks it with the player's secret scalar via `std_ecMul`, then asks an off-chain witness (`get_sorted_deck_witness`) to return the masked cards in shuffled order. To catch a cheating witness that swapped a card out, the circuit computes a coordinate-based **grand product** over both the original and the sorted lists with a random challenge `gamma` (derived in-circuit from the cards themselves); the products must match. If the witness substituted any card, the product breaks and the shuffle reverts. After the second player shuffles, the deck is fully masked - no single party can decrypt it.
+
+<CompactCode summary="`shuffle_deck`">
+
+```compact
+export circuit shuffle_deck(gameId: Bytes<32>, playerIndex: Uint<64>): [] {
+    const gid = disclose(gameId);
+    const secret = player_secret_key(gid, playerIndex);
+
+    const INDICES_21: Vector<21, Uint<64>> = [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    ];
+
+    // Apply the player's secret as a scalar to every card point
+    const cards = map((idx) => {
+        const point = gameDeck.lookup(gid).lookup(disclose(idx) as Uint<32>) as JubjubPoint;
+        return std_ecMul(disclose(point), disclose(secret));
+    }, INDICES_21);
+
+    // Witness returns the masked deck in shuffled order
+    const sorted_cards = get_sorted_deck_witness(cards);
+
+    // Grand-product cheating check over X-coordinates
+    const xsum = fold((acc, c) => acc + jubjubPointX(c), 0 as Field, cards);
+    const gamma: Field = h_hashField(xsum) as Field;
+
+    const prod_original = fold((acc, c) => acc * (jubjubPointX(c) + gamma), 1 as Field, cards);
+    const prod_sorted   = fold((acc, c) => acc * (jubjubPointX(c) + gamma), 1 as Field, sorted_cards);
+    assert(prod_original == prod_sorted,
+           "Witness failed: Cheating detected (cards modified)");
+
+    // Write the shuffled, masked deck back
+    for (const i of 0..21) {
+        gameDeck.lookup(gid).insert((i) as Uint<32>, disclose(sorted_cards[i]));
+    }
+}
+```
+
+</CompactCode>
+
+### Card reveal via partial decryption
+
+When a player needs to learn a card, every other player who masked the deck applies the **inverse** of their secret scalar with `std_ecMul(point, invScalar)`. After all the masks except the asking player's have been peeled off, the result is a `JubjubPoint` that lives in the static value-to-point map - the asking player looks up its card value and that card belongs to them, while everyone else still only sees a masked point. The contract verifies the inverse scalar against a stored hash so a player can't submit a wrong inverse to mess up the reveal.
+
+<CompactCode summary="`partial_decryption`">
+
+```compact
+// player_secret_key & getFieldInverse are private witnesses; only their
+// hashes go on-chain.
+witness getFieldInverse(x: Field): Field;
+witness player_secret_key(gameId: Bytes<32>, player: Field): Field;
+
+export circuit partial_decryption(
+    gameId: Bytes<32>,
+    point: JubjubPoint,
+    playerId: Uint<64>,
+): JubjubPoint {
+    const gid = disclose(gameId);
+    const secret = player_secret_key(gid, disclose(playerId));
+    const secret_hash = h_hashField(secret);
+
+    // Verify this secret was used to mask this game's deck
+    assert(
+        gamePlayersKeysHashes.lookup(gid).member(disclose(secret_hash)),
+        "Player secret key unknown in this game",
+    );
+
+    // Recompute the multiplicative inverse and verify against the stored hash
+    const invScalar = getFieldInverse(disclose(secret));
+    const invScalar_hash = h_hashField(invScalar);
+    const expected = gamePlayersKeysInverses.lookup(gid).lookup(disclose(secret_hash)) as Bytes<32>;
+    assert(invScalar_hash == expected, "Witness failed: Invalid Field inverse");
+
+    // Peel this player's mask off the point
+    return std_ecMul(disclose(point), disclose(invScalar));
+}
+```
+
+</CompactCode>
+
+### Multi-game state via `Map<Bytes<32>, T>`
+
+Every piece of game state is wrapped in a `Map` keyed by `gameId: Bytes<32>`. One contract deployment hosts every concurrent Go Fish game. Lookups use `.lookup(gameId)`; membership checks use `.member(gameId)`. This is the same `Map<K, V>` ADT from the Compact standard library - the game just commits hard to the pattern.
+
+<CompactCode summary="Per-game ledger declarations">
+
+```compact
+// Game registry - tracks which games exist
+export ledger gameExists: Map<Bytes<32>, Boolean>;
+
+// All game state wrapped in Map<gameId, ...>
+export ledger currentTurn: Map<Bytes<32>, Uint<64>>;  // 1 or 2
+export ledger phase:       Map<Bytes<32>, GamePhase>;
+export ledger scoreP1:     Map<Bytes<32>, Uint<8>>;
+export ledger scoreP2:     Map<Bytes<32>, Uint<8>>;
+
+// Nested Set inside the per-game Map - rank values 0..6 inserted on book.
+export ledger booksP1: Map<Bytes<32>, Set<Uint<8>>>;
+export ledger booksP2: Map<Bytes<32>, Set<Uint<8>>>;
+
+// V4.1: value is the SECRET HASH, not a wallet pubkey. Auth proves the
+// caller knows the secret that hashes to this value.
+export ledger playerPubKey1: Map<Bytes<32>, Bytes<32>>;
+export ledger playerPubKey2: Map<Bytes<32>, Bytes<32>>;
+
+// V3: Drawn card stored as an EC point (JubjubPoint) for mental-poker
+// verification.
+export ledger lastDrawnCard: Map<Bytes<32>, JubjubPoint>;
+```
+
+</CompactCode>
+
+### Per-player auth: hashed secrets, not pubkeys
+
+Players register a hash of their secret (`secretHash`) into `playerPubKey1` / `playerPubKey2` for that `gameId`. Every later action calls `assertPlayerHash`, which compares the caller's freshly-derived hash to the stored one. Same protection as the admin pattern, scoped per player per game.
+
+<CompactCode summary="`assertPlayerHash`">
+
+```compact
+// V4.1: Verify the caller is the registered player for `playerId` by
+// comparing the caller's freshly-derived secret hash against the stored one.
+// Without the registered secret you cannot produce the matching hash.
+export circuit assertPlayerHash(
+    gameId: Bytes<32>,
+    playerId: Uint<64>,
+    secretHash: Bytes<32>,
+): [] {
+    const gid = disclose(gameId);
+    const pid = disclose(playerId);
+    const h = disclose(secretHash);
+
+    if (pid == 1 as Uint<64>) {
+        assert(playerPubKey1.member(gid), "Player 1 not registered");
+        const expected = playerPubKey1.lookup(gid) as Bytes<32>;
+        assert(h == expected, "Caller is not player 1");
+    } else if (pid == 2 as Uint<64>) {
+        assert(playerPubKey2.member(gid), "Player 2 not registered");
+        const expected = playerPubKey2.lookup(gid) as Bytes<32>;
+        assert(h == expected, "Caller is not player 2");
+    } else {
+        assert(false, "Invalid player index");
+    }
+}
 ```
 
 </CompactCode>

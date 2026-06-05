@@ -5,7 +5,7 @@ date: 2026-03-01
 description: Arbitrum finality plus an effect stream to keep the racing loop snappy, with a global leaderboard.
 leaderboardUrl: https://api-blockkart.paimastudios.com/metrics/leaderboard?limit=10&offset=0
 achievementsUrl: https://api-blockkart.paimastudios.com/metrics
-repoUrl: https://github.com/effectstream/blockkart
+repoUrl: https://github.com/effectstream/block-kart-legends
 ---
 
 import GameEmbed from '@site/src/components/GameEmbed';
@@ -44,13 +44,29 @@ that. We cover the schema and the few edge cases that still need care
 
 <GameRepo />
 
-Each race result is settled in a single Compact circuit that checks lap times, signature ordering, and the final position. It's deliberately small - most of the gameplay lives off-chain while only the result needs to be proven.
+**Source:** [`packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact`](https://github.com/effectstream/block-kart-legends/blob/main/packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact)
 
-<CompactCode summary="Race result circuit">
+BlockKart is a racing game settled almost entirely on Arbitrum for snappy finality. The Midnight contract is intentionally tiny - it stores one opaque payload string and exposes one circuit to write it. This is the teaching moment: not every Compact contract should model the whole game.
+
+### The "anchor only" pattern
+
+The entire contract is 11 lines: a single `ledger payload: Opaque<"string">` plus a `storeValue` circuit that `disclose`s and writes it. There are no enums, no maps, no witnesses, no commit-reveal. All of BlockKart's race state (lap times, collisions, leaderboard math) lives in the Arbitrum contract; Midnight here is the immutable notarization step. Use this pattern when you need tamper-evident anchoring but not zero-knowledge - the cheaper the on-chain piece, the cheaper every state update.
+
+<CompactCode summary="Full contract (11 lines)">
 
 ```compact
-// TODO: paste the Compact circuit for blockkart here.
-// This block starts collapsed; the reader expands it on demand.
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+
+constructor() {
+}
+
+export ledger payload: Opaque<"string">;
+
+export circuit storeValue(_payload: Opaque<"string">): [] {
+    payload = disclose(_payload);
+}
 ```
 
 </CompactCode>
