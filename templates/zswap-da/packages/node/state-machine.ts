@@ -49,8 +49,6 @@ import {
 //      cannot be restored without a full resync. Only safe when
 //      archive-triggering events come from finalized blocks; the
 //      confirmation depth lives in the sync layer.
-//
-// See docs/soundness-review.md for the full analysis.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { grammar } from "./grammar.ts";
