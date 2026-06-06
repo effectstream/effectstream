@@ -33,9 +33,24 @@ export const CELESTIA_MAX_GAS_PRICE = _maxGasPrice ? parseFloat(_maxGasPrice) : 
 export const CELESTIA_TX_PRIORITY = _txPriority ? parseInt(_txPriority) : undefined;
 
 // Offer lifetime before the TTL-cleanup scheduled input archives it.
-// Defaults to 7 days.
+//
+// Shielded offers carry a Merkle-tree root in each `Input`/`Transient` and
+// the Midnight node only retains recent roots (reference implementation:
+// 1 hour). Once the referenced root ages out, the input fails with
+// `UnknownMerkleRoot` at apply time — silently, with no event the indexer
+// can observe. So we cap the default TTL to 1 hour to keep the active set
+// in line with on-chain fillability.
+//
+// Caveats:
+//   - The exact root-history window depends on the deployed ledger; tune
+//     this for your network if the node configures something other than
+//     the reference 3600s.
+//   - Unshielded-only offers don't have this constraint and could live
+//     longer; if you need that, split the TTL by offer kind.
+//   - Makers should publish offers immediately after proving — the fill
+//     window starts at the referenced root, not at publication.
 export const OFFER_TTL_SECONDS = parseInt(
-  getEnv("OFFER_TTL_SECONDS") ?? String(7 * 24 * 60 * 60),
+  getEnv("OFFER_TTL_SECONDS") ?? String(60 * 60),
 );
 
 export const midnightContract = (() => {
