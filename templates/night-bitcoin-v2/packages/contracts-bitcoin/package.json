@@ -1,0 +1,31 @@
+{
+  "name": "@night-bitcoin/contracts-bitcoin",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./mod.ts",
+    "./transfer-funds": "./transfer-funds.ts",
+    "./create-wallets": "./create-wallets.ts",
+    "./faucet-btc": "./faucet-btc.ts",
+    "./wait-for-block": "./wait-for-block.ts"
+  },
+  "scripts": {
+    "chain:start": "bun ./node_modules/.bin/bitcoin-core",
+    "chain:wait": "wait-on tcp:18443",
+    "generate:blocks": "bun run generate-blocks.ts",
+    "wait-for-block": "bun run wait-for-block.ts",
+    "create-wallets": "bun run create-wallets.ts",
+    "faucet-btc": "bun run faucet-btc.ts",
+    "transfer-funds": "bun run transfer-funds.ts"
+  },
+  "dependencies": {
+    "@effectstream/bitcoin-core": "0.100.17",
+    "bip32": "^5.0.0",
+    "bitcoinjs-lib": "^6.1.5",
+    "ecpair": "^2.1.0",
+    "tiny-secp256k1": "^2.2.1"
+  },
+  "devDependencies": {
+    "wait-on": "8.0.3"
+  }
+}

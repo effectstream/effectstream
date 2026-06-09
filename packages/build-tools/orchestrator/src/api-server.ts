@@ -31,7 +31,15 @@ export type ApiServerOptions = {
   /** Called when the /shutdown endpoint is hit. */
   onShutdown: () => Promise<void>;
   /** Callback hooks for task events (used by both local and remote starts). */
-  runCallbacks?: Pick<RunOptions, "onTaskStart" | "onTaskRunning" | "onTaskDone" | "onTaskFailed" | "onShutdown">;
+  runCallbacks?: Pick<
+    RunOptions,
+    | "onTaskStart"
+    | "onTaskRunning"
+    | "onTaskDone"
+    | "onTaskFailed"
+    | "onWaitingForExit"
+    | "onShutdown"
+  >;
 };
 
 /**

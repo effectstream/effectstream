@@ -15,6 +15,7 @@ echo ""
 
 # First, run bun install to get non-effectstream deps
 cd "$SCRIPT_DIR"
+rm -rf "$SCRIPT_DIR/node_modules/@effectstream"
 bun install 2>/dev/null || bun install --no-save 2>/dev/null || true
 
 NM="$SCRIPT_DIR/node_modules"
@@ -33,6 +34,17 @@ link_pkg() {
   rm -rf "$NM/@$scope/$short_name"
   ln -sf "$local_path" "$NM/@$scope/$short_name"
   echo "  LINK @$scope/$short_name -> $(echo "$local_path" | sed "s|$MONOREPO_ROOT/||")"
+
+  if [ "$scope" = "effectstream" ]; then
+    for bun_dir in "$NM/.bun/@effectstream+${short_name}@"*/; do
+      [ -d "$bun_dir" ] || continue
+      cached="$bun_dir/node_modules/@effectstream/$short_name"
+      mkdir -p "$(dirname "$cached")"
+      rm -rf "$cached"
+      ln -sf "$local_path" "$cached"
+      echo "  RELINK .bun/@effectstream/$short_name"
+    done
+  fi
 }
 
 # Workspace packages (Bun doesn't always create node_modules symlinks for these)
@@ -68,24 +80,79 @@ link_pkg "effectstream" "sm"                       "$P/node-sdk/sm"
 link_pkg "effectstream" "utils"                    "$P/effectstream-sdk/utils"
 link_pkg "effectstream" "wallets"                  "$P/effectstream-sdk/wallets"
 
-# When @effectstream/midnight-contracts is linked to monorepo source, its
-# node_modules/@midnight-ntwrk/* symlinks point to the monorepo root's .bun/ copies.
-# The template has its own copies in its .bun/ cache. Two WASM copies = instanceof failure.
-# Fix: redirect ALL @midnight-ntwrk symlinks to the template's .bun/ copies.
-echo ""
-echo "Fixing @midnight-ntwrk WASM resolution for linked packages..."
-LINKED_MC="$P/chains/midnight-contracts/node_modules/@midnight-ntwrk"
-if [ -d "$LINKED_MC" ]; then
-  for pkg_path in "$LINKED_MC"/*/; do
-    pkg=$(basename "$pkg_path")
-    src=$(find "$NM/.bun" -maxdepth 1 -type d -name "@midnight-ntwrk+${pkg}@*" | sort -V | tail -1)
-    if [ -n "$src" ] && [ -d "$src/node_modules/@midnight-ntwrk/$pkg" ]; then
-      rm -rf "$LINKED_MC/$pkg"
-      ln -sf "$src/node_modules/@midnight-ntwrk/$pkg" "$LINKED_MC/$pkg"
-      echo "  RELINK @midnight-ntwrk/$pkg"
-    fi
+# Single @midnight-ntwrk WASM tree from monorepo root (see ../../package.json overrides).
+MIDNIGHT_WASM_PKGS="compact-runtime compact-js onchain-runtime-v3 onchain-runtime-v2 ledger-v8 zswap"
+
+link_midnight_wasm_from_monorepo() {
+  local dest_nm="$1"
+  local pkg bun_pkg pkg_path v3_path
+  mkdir -p "$dest_nm/@midnight-ntwrk"
+  for pkg in $MIDNIGHT_WASM_PKGS; do
+    for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnight-ntwrk+${pkg}"@*; do
+      pkg_path="$bun_pkg/node_modules/@midnight-ntwrk/$pkg"
+      [ -e "$pkg_path" ] || continue
+      rm -rf "$dest_nm/@midnight-ntwrk/$pkg"
+      ln -sf "$pkg_path" "$dest_nm/@midnight-ntwrk/$pkg"
+    done
   done
-fi
+  for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnight-ntwrk+onchain-runtime-v3"@*; do
+    pkg_path="$bun_pkg/node_modules/@midnight-ntwrk/onchain-runtime-v3"
+    [ -e "$pkg_path" ] || continue
+    rm -rf "$dest_nm/@midnight-ntwrk/onchain-runtime"
+    ln -sf "$pkg_path" "$dest_nm/@midnight-ntwrk/onchain-runtime"
+    break
+  done
+}
+
+drop_template_wasm_bun_copies() {
+  local bun_dir="$NM/.bun"
+  [ -d "$bun_dir" ] || return 0
+  for prefix in \
+    "@midnight-ntwrk+compact-runtime@" \
+    "@midnight-ntwrk+compact-js@" \
+    "@midnight-ntwrk+onchain-runtime-v3@" \
+    "@midnight-ntwrk+onchain-runtime-v2@" \
+    "@midnight-ntwrk+onchain-runtime@" \
+    "@midnight-ntwrk+ledger-v8@" \
+    "@midnight-ntwrk+zswap@"; do
+    for entry in "$bun_dir"/${prefix}*; do
+      [ -e "$entry" ] || continue
+      rm -rf "$entry"
+    done
+  done
+}
+
+echo ""
+echo "Verifying + hoisting transitive deps for linked @effectstream packages..."
+# Linked monorepo packages may have deps that the npm-published @effectstream/*
+# versions in this template's package.json don't pull in. `--install` hoists
+# those into the template root with `bun install --no-save`.
+bun run "$MONOREPO_ROOT/packages/build-tools/verify-linked-deps.ts" \
+  --template "$SCRIPT_DIR" \
+  --link-sh "$SCRIPT_DIR/link.sh" \
+  --install
+
+echo ""
+link_all_midnight_wasm_trees() {
+  local midnight_dir
+  while IFS= read -r midnight_dir; do
+    link_midnight_wasm_from_monorepo "$(dirname "$midnight_dir")"
+  done < <(
+    find "$SCRIPT_DIR" "$P/chains/midnight-contracts" \
+      -path '*/node_modules/@midnight-ntwrk' -type d 2>/dev/null
+  )
+}
+
+echo "Linking @midnight-ntwrk WASM packages to monorepo root..."
+link_all_midnight_wasm_trees
+drop_template_wasm_bun_copies
+echo "Re-linking WASM after dropping template .bun copies..."
+link_all_midnight_wasm_trees
+
+echo "Refreshing monorepo + @effectstream/midnight-contracts deps (fix stale symlinks)..."
+(cd "$MONOREPO_ROOT" && bun install)
+rm -rf "$P/chains/midnight-contracts/node_modules/@midnight-ntwrk"
+(cd "$P/chains/midnight-contracts" && bun install)
 
 echo ""
 echo "Done. You can now run: bun run dev"

@@ -1,0 +1,34 @@
+await import("@midnight-ntwrk/onchain-runtime");
+
+import { init, start } from "@effectstream/runtime";
+import { main, suspend } from "effection";
+
+import { config } from "./config.dev.ts";
+import {
+  toSyncProtocolWithNetwork,
+  withEffectstreamStaticConfig,
+} from "@effectstream/config";
+import { migrationTable } from "@night-bitcoin/database";
+import { gameStateTransitions } from "./state-machine.ts";
+import { apiRouter } from "./api.ts";
+import { grammar } from "./grammar.ts";
+
+main(function* () {
+  yield* init();
+  console.log("Starting EffectStream Node (Local)");
+
+  yield* withEffectstreamStaticConfig(config, function* () {
+    yield* start({
+      appName: "night-bitcoin",
+      appVersion: "0.4.0",
+      syncInfo: toSyncProtocolWithNetwork(config),
+      gameStateTransitions,
+      migrations: migrationTable,
+      apiRouter,
+      grammar,
+      userDefinedPrimitives: {},
+    });
+  });
+
+  yield* suspend();
+});

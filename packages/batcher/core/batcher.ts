@@ -400,8 +400,15 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     return this;
   }
 
-  async init(): Promise<void> {
+  /**
+   * Initialize the batcher. Pass `startPolling: false` if you'll drive polling
+   * yourself via `runPollingLoop()` — otherwise both polling systems run
+   * concurrently and can submit duplicate transactions.
+   */
+  async init(opts: { startPolling?: boolean } = {}): Promise<void> {
     if (this.isInitialized) return;
+
+    const startPolling = opts.startPolling !== false;
 
     validatePreInit(this.adapters, this.defaultTarget);
 
@@ -422,12 +429,14 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       }
     }
 
-    this.pollingIntervalID = setInterval(
-      async () => {
-        await this.pollBatcher();
-      },
-      this.config.pollingIntervalMs,
-    );
+    if (startPolling) {
+      this.pollingIntervalID = setInterval(
+        async () => {
+          await this.pollBatcher();
+        },
+        this.config.pollingIntervalMs,
+      );
+    }
 
     // Start HTTP server if enabled
     if (this.enableHttpServer) {
@@ -1169,17 +1178,31 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         );
         continue;
       }
+
+      const supportsConcurrent =
+        typeof adapter.hasAvailableCapacity === "function";
+
+      // Atomic check-and-reserve: prevents two concurrent polls from both
+      // picking up the same inputs and submitting duplicate transactions.
+      // Concurrent-capable adapters manage their own reservation in buildBatchData.
+      if (!supportsConcurrent) {
+        if (this.shutdownState.processingAdapters.has(target)) {
+          continue;
+        }
+        this.shutdownState.processingAdapters.add(target);
+      }
+
       const targetInputs = await this.storage.getInputsByTarget(
         target,
         this.defaultTarget,
       );
 
       if (targetInputs.length === 0) {
+        if (!supportsConcurrent) {
+          this.shutdownState.processingAdapters.delete(target);
+        }
         continue;
       }
-
-      const supportsConcurrent =
-        typeof adapter.hasAvailableCapacity === "function";
 
       if (supportsConcurrent) {
         // Fire-and-forget: the adapter manages wallet/input reservations.
@@ -1211,8 +1234,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
           });
         concurrentPromises.push(promise);
       } else {
-        // Sequential path (original)
-        this.shutdownState.processingAdapters.add(target);
+        // Sequential path. processingAdapters was already added above.
         try {
           await this.emitStateTransition("batch:process:start", {
             target,
@@ -1351,7 +1373,11 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
           }
         });
       } else {
-        // ---- Sequential path (original behavior) ----
+        // ---- Sequential path ----
+        // Atomic check-and-reserve to avoid racing other polls on the same target.
+        if (this.shutdownState.processingAdapters.has(target)) {
+          continue;
+        }
         this.shutdownState.processingAdapters.add(target);
 
         try {

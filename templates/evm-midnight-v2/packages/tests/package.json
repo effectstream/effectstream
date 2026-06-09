@@ -16,7 +16,6 @@
     "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "4.0.4",
     "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.4",
     "@midnight-ntwrk/midnight-js-network-id": "4.0.4",
-    "@midnight-ntwrk/wallet-sdk-abstractions": "2.0.0",
     "@midnight-ntwrk/ledger-v8": "8.0.3",
     "@midnight-ntwrk/midnight-js-node-zk-config-provider": "4.0.4",
     "@midnight-ntwrk/midnight-js-types": "4.0.4",

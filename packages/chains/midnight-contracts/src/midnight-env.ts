@@ -1,5 +1,4 @@
 import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import { mnemonicToSeed } from "@scure/bip39";
 import { Buffer } from "node:buffer";
 import { getEnv } from "@effectstream/utils/runtime";
 
@@ -69,6 +68,7 @@ let walletSeed: string;
 if (env("MIDNIGHT_WALLET_SEED")) {
   walletSeed = env("MIDNIGHT_WALLET_SEED");
 } else if (env("MIDNIGHT_WALLET_MNEMONIC")) {
+  const { mnemonicToSeed } = await import("@scure/bip39");
   walletSeed = Buffer.from(await mnemonicToSeed(env("MIDNIGHT_WALLET_MNEMONIC"))).toString('hex');
 } else {
   walletSeed = selectedNetworkConfig.genesisWalletSeed;

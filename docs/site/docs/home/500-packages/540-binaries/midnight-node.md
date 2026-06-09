@@ -48,7 +48,7 @@ The orchestrator's Midnight step starts this binary, plus
 Midnight:
 
 - [`templates/evm-midnight-v2/`](https://github.com/effectstream/effectstream/tree/main/templates/evm-midnight-v2)
-- [`templates/night-bitcoin/`](https://github.com/effectstream/effectstream/tree/main/templates/night-bitcoin)
+- [`templates/night-bitcoin/`](https://github.com/effectstream/effectstream/tree/main/templates/night-bitcoin-v2)
 - [`templates/zswap-da/`](https://github.com/effectstream/effectstream/tree/main/templates/zswap-da)
 - [`templates/zk-cardano/`](https://github.com/effectstream/effectstream/tree/main/templates/zk-cardano)
 

@@ -29,7 +29,7 @@
     "@electric-sql/pglite": "^0.3.14",
     "@pgtyped/runtime": "2.4.2",
     "@pgtyped/parser": "2.4.2",
-    "pg": "8.17.2",
+    "pg": "8.21.0",
     "pg-tx": "^1.0.1",
     "effection": "^3.5.0",
     "pg-gateway": "^0.3.0-beta.4"

@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
 import { launchEvm, EvmNames } from "@effectstream/orchestrator/launch-evm";
@@ -5,7 +6,7 @@ import { launchEvm, EvmNames } from "@effectstream/orchestrator/launch-evm";
 export default {
   processes: [
     ...launchPglite(),
-    ...launchEvm("@chess-v2/contracts-evm", { resolveFrom: import.meta.dirname! }),
+    ...launchEvm("@chess-v2/contracts-evm", { cwd: path.join(import.meta.dirname!, "../contracts-evm") }),
 
     {
       name: "sync",
