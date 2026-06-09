@@ -265,7 +265,7 @@ export async function frontendRenderTest() {
 }
 ```
 
-Use `playwright-core` (not `@playwright/test`) to avoid bundling browsers — `findChrome()` (or `CHROME_PATH`) discovers Chrome on the host.
+Use `playwright-core` (not `@playwright/test`) to avoid bundling browsers — `findChrome()` (or `CHROME_PATH`) discovers Chrome on the host. **In `findChrome`, probe candidate paths with `existsSync(path)`, NOT `Bun.file(path)`** — `Bun.file` returns a truthy lazy handle even for a missing file, so the probe "finds" e.g. `/usr/bin/google-chrome` that isn't there and then throws at `chromium.launch`. (In CI/Docker, install Playwright's Chromium and point `CHROME_PATH` at the resolved `chrome-linux*/chrome` binary.)
 
 This catches the `node-fetch` / `stream/web` / `vite-plugin-top-level-await` class of bug that `vite build` succeeds on but blows up at mount time.
 

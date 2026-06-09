@@ -239,6 +239,13 @@ const definitions: Record<string, ConfigDefinition> = {
     defaultValue: undefined,
     description: "Enable PGLite Debug/Verbose mode. Example: '1'",
   },
+  ALLOW_NO_PG_IVM: {
+    key: "ALLOW_NO_PG_IVM",
+    type: "boolean",
+    defaultValue: false,
+    description:
+      "Permits the engine to start when the pg_ivm extension is not installed, falling back to plain SQL views over the trigger-maintained intermediate tables. Intended for dev/test and low-volume apps only — the fallback degrades sharply on high-cardinality data. Production deployments should install pg_ivm. ('true' or 'false')",
+  },
   OTEL_COLLECTOR_PORT: {
     key: "OTEL_COLLECTOR_PORT",
     type: "number",
@@ -404,6 +411,9 @@ export class ENV {
   }
   static get DEBUG_PGLITE(): number {
     return ENV.getConfig(definitions.DEBUG_PGLITE);
+  }
+  static get ALLOW_NO_PG_IVM(): boolean {
+    return ENV.getConfig(definitions.ALLOW_NO_PG_IVM);
   }
   static get OTEL_COLLECTOR_PORT(): number {
     return ENV.getConfig(definitions.OTEL_COLLECTOR_PORT);

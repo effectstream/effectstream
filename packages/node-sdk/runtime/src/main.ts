@@ -6,11 +6,13 @@ import {
 import {
   acquireDBMutex,
   createDynamicTables,
+  detectCapabilities,
   getConnection,
   getLastNonEmptyBlockHash,
   releaseDBMutex,
   resetPublicTables,
   runSnapshotLoop,
+  selectViewStrategy,
 } from "@effectstream/db";
 import { EventBroker } from "@effectstream/event-server";
 import { ENV } from "@effectstream/utils/node-env";
@@ -61,6 +63,9 @@ export function* start(config: StartConfig): Operation<void> {
 
   const syncProtocols = yield* startup(dbConn as any, // Client,
     syncInfo, config);
+
+  // Test-only: surface live sync protocols (e.g. for buffer-size assertions).
+  config.dev?.onStarted?.({ syncProtocols });
 
   log.remote(
     ComponentNames.EFFECTSTREAM_RUNTIME,
@@ -317,11 +322,15 @@ function* startup(
   const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
     syncInfo);
 
+  const capabilities = yield* until(detectCapabilities(dbConn as any));
+  const viewStrategy = selectViewStrategy(capabilities);
+
   yield* createDynamicTables(
     versionInfo,
     lastBlockHeight,
     dbConn as any, // Client,
     syncProtocols,
+    viewStrategy,
   );
 
   releaseDBMutex(`startup-node`);

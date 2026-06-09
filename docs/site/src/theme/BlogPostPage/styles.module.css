@@ -1,0 +1,5 @@
+.rail {
+  position: sticky;
+  top: calc(var(--ifm-navbar-height) + 1rem);
+  height: calc(100vh - var(--ifm-navbar-height) - 2rem);
+}

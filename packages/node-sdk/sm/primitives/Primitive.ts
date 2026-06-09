@@ -9,6 +9,7 @@ import type {
   ProtocolPrimitiveMap,
 } from "@effectstream/config";
 import type { AnyPrimitiveType } from "./src/builtin.ts";
+import type { MaterializedViewStrategy } from "@effectstream/db";
 
 /**
  * Abstract Class for Effectstream Primitives
@@ -44,7 +45,15 @@ export abstract class Primitive<
   abstract grammar: TGrammar;
 
   // Dynamic/ivm Table Global definitions
-  dynamicTables: undefined | ((name: string) => string) = undefined;
+  //
+  // The `strategy` argument lets the engine pick between an incrementally
+  // maintained `pg_ivm` view (when the extension is available) and a plain
+  // SQL view fallback (when it isn't). All other DDL — intermediate table,
+  // trigger function, trigger — is identical across strategies.
+  dynamicTables:
+    | undefined
+    | ((name: string, strategy: MaterializedViewStrategy) => string) =
+      undefined;
   getIntermediatePrefix(): string[] {
     return [];
   }
@@ -56,8 +65,11 @@ export abstract class Primitive<
   abstract getConfig(): ProtocolPrimitiveMap[SyncProtocol];
 
   // Arrow function to bind 'this', as this function is passed as a reference
-  public getDynamicTables = (name: string): string | undefined => {
-    return this.dynamicTables?.(name);
+  public getDynamicTables = (
+    name: string,
+    strategy: MaterializedViewStrategy,
+  ): string | undefined => {
+    return this.dynamicTables?.(name, strategy);
   };
 
   // This returns the payload in the state machine format.

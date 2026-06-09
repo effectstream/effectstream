@@ -6,6 +6,13 @@
  *   bun run templates/run-template-tests.ts                      # all enabled
  *   bun run templates/run-template-tests.ts preorder shinkai-v2   # specific ones
  *
+ * Flags:
+ *   --skip-disabled  If explicit template args are given but none are ENABLED,
+ *                    exit 0 (skip) instead of 1. Used by CI so a push touching
+ *                    only a disabled/unknown template passes. The ENABLED array
+ *                    is `export`ed so CI (.github/ci-changes.ts) can filter
+ *                    changed templates against it without running this file.
+ *
  * Env:
  *   LINK_LOCAL=1   After `bun install`, run each template's ./link.sh so the
  *                  tests resolve @effectstream/* to the local monorepo build
@@ -25,7 +32,7 @@ const LINK_LOCAL = ["1", "true", "yes"].includes(
   (process.env.LINK_LOCAL ?? "").toLowerCase(),
 );
 
-const ENABLED = [
+export const ENABLED = [
   "cardano-delegation",
   "evm-cardano",
   "evm-midnight-v2",
@@ -36,6 +43,7 @@ const ENABLED = [
   "zswap-da",
   "batcher-validations",
   "night-bitcoin-v2",
+  "hex-battle",
   // "chess-v2",        // TODO: migrate to effectstream-bun
   // "chess",           // TODO: migrate to effectstream-bun
   // "dice",            // TODO: migrate to effectstream-bun
@@ -43,7 +51,7 @@ const ENABLED = [
   // "minimal",         // TODO: migrate to effectstream-bun
   // "multi-chain-token-transfer", // TODO: migrate to effectstream-bun
   // "rock-paper-scissors", // TODO: migrate to effectstream-bun
-  // "world-map-2d",    // TODO: migrate to effectstream-bun
+  "world-map-2d",
 ];
 
 interface Result {
@@ -121,12 +129,23 @@ async function runTemplate(name: string): Promise<Result> {
 }
 
 async function main() {
-  const args = process.argv.slice(2);
+  // --skip-disabled: when explicit template args are given but none are ENABLED,
+  // exit 0 (skip) instead of 1. Used by CI so that a push touching only a
+  // disabled/unknown template passes instead of failing. Without the flag the
+  // strict exit(1) is kept so manual runs still surface typos.
+  const skipDisabled = process.argv.includes("--skip-disabled");
+  const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
   const selected = args.length > 0
     ? ENABLED.filter((name) => args.includes(name))
     : ENABLED;
 
   if (selected.length === 0) {
+    if (skipDisabled && args.length > 0) {
+      console.log(
+        `No enabled templates among [${args.join(", ")}] — skipping. Enabled: ${ENABLED.join(", ")}`,
+      );
+      exit(0);
+    }
     console.error("No matching templates. Enabled:", ENABLED.join(", "));
     exit(1);
   }
@@ -188,4 +207,4 @@ async function main() {
   }
 }
 
-main();
+if (import.meta.main) main();

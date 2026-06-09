@@ -40,7 +40,7 @@ export async function buyItemsNativeTest(db: Client) {
         [1n, 2n],
         [1n, 1n],
       ],
-      value: 7000000000000000n, // 0.007 ETH (item 1: 0.002 + item 2: 0.005)
+      value: 8500000000000000n, // item 1 (P5 → 2.5e15) + item 2 (P12 → 6e15) = 8.5e15 wei
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     return receipt.status === "success";

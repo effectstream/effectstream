@@ -196,6 +196,47 @@ Add `effectstream.default` and the new scripts (`dev`, `start:mainnet`, `test`, 
 
 Replace Oak / http-server / Express with Fastify + `@fastify/static` — see `references/frontend.md` for the canonical static server.
 
+> ### Preserve user-facing UX during migration — don't redesign
+>
+> The migration's job at the frontend layer is **mechanical** (swap the wallet/transaction surface from the old SDK to `@effectstream/wallets`, swap the static server, retarget the bundler) — **not** to redesign the app. A template's interactive UI (chess board, dice game lobby, world grid, etc.) IS the template — losing the gameplay surface during migration changes the template's identity and is almost certainly a regression even when tests pass.
+>
+> **Rules:**
+> 1. **Read the original `index.html` / React tree before touching it.** Identify every interactive element (grid cells, game pieces, lobby cards, etc.) and the on-click handlers that drove them. Preserve all of them.
+> 2. **The wallet UI is *additive*.** Add a `Connect Browser Wallet` / `Connect Local Wallet` selector at the top (per template invariant), but don't strip the existing gameplay UI to make room. The existing UI stays; the wallet selector is the new neighbor.
+> 3. **The only file-level rewrites you should make are at the API/SDK boundary.** Replace `import endpoints, { WalletMode } from './paimaMiddleware.js'` with direct `@effectstream/wallets` imports and a thin `window.<template>` namespace; keep every DOM operation, every game-state render call, every adjacency check, every CTA the user could click.
+> 4. **Verify visually after migration.** Before declaring Phase C "passing", load the dev server (`bun run dev`, then visit `http://localhost:10599`) and confirm the gameplay surface still renders — grid cells visible, move buttons in the right places, color coding, auto-refresh, etc. A Playwright `[data-testid="world-grid"]`-style assertion catches gross loss of the gameplay surface; a manual visual check catches subtle regressions (cells unstyled, buttons missing on adjacent cells, etc.).
+> 5. **If you genuinely need to rewrite the UI** (e.g. moving from raw DOM to React, or migrating off a deprecated game engine), do it in a **separate commit/PR after the migration is green** so the migration diff stays mechanical and reviewable.
+>
+> Failing this is the silent-quality killer of these migrations: the test suite goes green because Phase A/B still pass and Phase C only checks "the page mounts", while the actual interactive experience is gone. Add per-template-specific `data-testid` selectors for the load-bearing gameplay elements (grid, game pieces, lobby list) so Phase C catches their absence.
+
+> ### Wallet UI: always expose both an injected and a local-JS wallet per chain
+>
+> Every migrated frontend that ships **any** wallet interaction must expose BOTH:
+>
+> 1. **An injected wallet** for production users — `WalletMode.EvmInjected` (MetaMask, Brave, Coinbase, …), `WalletMode.Cardano` (CIP-30: Nami, Eternl, …), `WalletMode.Midnight` (Lace).
+> 2. **A local-JS wallet** for dev + headless e2e — `WalletMode.EvmViem`, `WalletMode.CardanoLocal`, `WalletMode.MidnightLocal`. These are pure-JS implementations in `@effectstream/wallets` — no browser extension required.
+>
+> **Prefer `WalletMode.EvmViem` over `WalletMode.EvmEthers`.** EvmViem takes a private key + RPC URL directly and builds the viem WalletClient in-process; EvmEthers requires a pre-built `ActiveConnection<EthersApi>` that the frontend must provide externally, which is a frontend-side implementation burden that doesn't add capability. For Cardano + Midnight, the `…Local` variants are the only local-JS choice.
+>
+> Two reasons this is non-negotiable:
+> 1. **Headless e2e becomes possible.** A Playwright-driven Chromium can't install MetaMask, so the injected path is unreachable headless. The local-JS path runs entirely in-process — the headless browser can connect, sign, and submit, letting Phase C drive the full user flow (connect → grid render → submit move → API reflects move) instead of stopping at "the page mounts". `templates/world-map-2d/packages/tests/frontend/e2e.test.ts` is the reference.
+> 2. **Dev ergonomics.** The local-JS wallet is the one a dev can click through repeatedly during development without funding accounts in a real extension. The injected option stays for users on real wallets.
+>
+> Reference UI: `templates/world-map-2d/packages/frontend/index.html` (vanilla JS, dual buttons) and `templates/evm-midnight-v2/packages/frontend/client/src/components/WalletModal.tsx` (MUI). The pattern is two clearly-labelled buttons (`Connect Browser Wallet` / `Connect Local Wallet (dev)`), each calling `walletLogin({ mode, … })` with the appropriate `LoginInfo`. Tag both with `data-testid` (`connect-browser-wallet` / `connect-local-wallet`) so the Phase C interaction tests can exercise both branches.
+>
+> **EvmViem `sendTransaction` works end-to-end** (a previously-documented engine gap is now closed). The EvmViem provider self-sequences writes through its viem `walletClient`, so a headless Playwright e2e can drive the *full* flow — connect → render → **submit a write** → API reflects it. Do NOT leave a `// TODO when EvmViem implements sendTransaction` stub or skip the write assertion; assert the write lands. (Caveat: a freshly-generated EvmViem private key has 0 gas on Hardhat — fund it from a known pre-funded Hardhat account before the first write. A hardcoded Hardhat key works too; the funding step is only needed if you generate keys.)
+
+> ### Wallet connect gotchas (these bit *every* migrated template; the local-JS e2e MASKS them)
+>
+> - **`EvmInjected` requires a `preference`.** `walletLogin({ mode: WalletMode.EvmInjected, preferBatchedMode })` with no `preference` has no wallet to connect → returns `{ success: false }` ("Wallet login failed") for real users. Discover first with `allInjectedWallets({ signatureSupport, transactionSupport })`, then pass `preference: { name }`. The discovery entries are `ConnectionOption[]`, so read **`opt.metadata.name`** — NOT a top-level `opt.name` (that returns `undefined` and silently fails to connect). Always propagate `result.errorMessage` so the failure is legible.
+> - **Local-JS e2e masks the browser path.** Phase C connects via `EvmViem`, which never exercises the `EvmInjected` discovery/preference path — so a broken browser-connect ships green. Add a Phase C interaction test that at least clicks the injected-connect CTA (it can't fully connect headless, but it catches the missing-`preference` / wrong-shape class of bug).
+> - **Write-then-read is racy.** After a self-sequenced write (createLobby/join/…), the sync node indexes the new row a block or two AFTER the tx receipt resolves. A read that fires once immediately ("submitted but not found yet") will miss it — **poll** the indexed read for a few seconds.
+> - **Dev wallet identity must be per-tab.** For local multi-player testing (two tabs = two players), persist the dev wallet in `sessionStorage` (per-tab). `localStorage` is shared across tabs → both tabs become the same player; URL params (`?account=`) get dropped/rewritten by redirects. Per-tab `sessionStorage` (or, cleanest, a freshly-generated funded key per tab) gives each tab a distinct identity.
+
+> ### Game templates: rebuild client state from the server's exported state — never from a seed
+>
+> If the template reconstructs interactive game state in the browser (board, units, whose-turn), build it from the server's **exported game state** (`Game.import(gameState)` — the node API already serves it), NOT by re-running world-generation from a stored `seed` + replaying moves. The STM's per-block `randomGenerator` is **not reproducible** from a stored seed on the client, so a seed-based rebuild yields a *different* board than the server has. Then every player move is computed against the wrong state and silently rejected by the STM's move handler — the tx still returns `{ success: true }`, but no state changes; only engine-scheduled timeout ("zombie") skips advance the game, so moves appear to "do nothing" and a refresh shows the prior state. Importing the authoritative state keeps client == server; core engine ops (move/place/combat) are deterministic (no RNG), so incremental opponent-move replay then stays in sync. Reference fix: hex-battle `packages/frontend/src/frontend/pregame_screen.ts` `moveToGame`.
+
 ### Step 11: Remove `@ts-rest`
 
 Chess uses `@ts-rest/core`. Replace with plain Fastify routes in `packages/node/api.ts` (see `grammar-stm.md` §4).
@@ -239,7 +280,10 @@ Verify each step before moving to the next:
 - [ ] Custom primitives migrated into `packages/node/`
 - [ ] `packages/batcher/` with adapter factories + env-specific entry points
 - [ ] `packages/tests/` with phases A, B, C
-- [ ] `bun run dev` works
+- [ ] **Frontend UX preserved** — original game grid / pieces / lobby UI is rendered, not replaced with placeholder inputs (see Step 10 banner). Add a `data-testid` on the load-bearing gameplay element (`world-grid`, `chess-board`, `lobby-list`, …) and assert it in Phase C `render.test.ts`.
+- [ ] **Wallet UI is additive** — both `Connect Browser Wallet` (`WalletMode.EvmInjected`) and `Connect Local Wallet` (`WalletMode.EvmViem` for EVM — **not** `EvmEthers`; `CardanoLocal` / `MidnightLocal` per chain) are exposed in the frontend; the original gameplay UI is untouched (model: `templates/world-map-2d/packages/frontend/index.html`).
+- [ ] **Headless e2e drives the local-JS wallet** — Phase C ships an `e2e.test.ts` that connects via `EvmViem` (or `CardanoLocal` / `MidnightLocal`) inside Playwright Chromium and asserts the gameplay surface renders correctly with the wallet's state (model: `templates/world-map-2d/packages/tests/frontend/e2e.test.ts`). This is the only Phase C tier that exercises the wallet path end-to-end.
+- [ ] `bun run dev` works AND the gameplay surface is visibly rendered when you open the dev URL
 - [ ] `bun run test` passes
 
 ---

@@ -12,7 +12,7 @@
     "cardano-submit-tx": "bun ./submit-tx.ts"
   },
   "dependencies": {
-    "@txpipe/dolos": "1.1.0",
+    "@txpipe/dolos": "1.2.0",
     "@lucid-evolution/lucid": "^0.4.29",
     "@lucid-evolution/provider": "^0.1.91",
     "@lucid-evolution/utils": "^0.1.66",

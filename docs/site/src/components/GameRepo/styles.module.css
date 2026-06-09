@@ -1,0 +1,32 @@
+.link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1.5rem;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid var(--cyano-paper-trace);
+  border-radius: 2px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  color: var(--cyano-paper);
+  text-decoration: none;
+  background: rgba(244, 249, 251, 0.03);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.link:hover {
+  border-color: var(--cyano-amber);
+  color: var(--cyano-amber);
+  text-decoration: none;
+}
+
+.glyph {
+  color: var(--cyano-amber);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.arrow {
+  color: var(--cyano-amber);
+}

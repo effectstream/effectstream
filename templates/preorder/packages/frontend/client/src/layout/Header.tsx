@@ -36,7 +36,7 @@ type PendingConnect = {
   action: () => void;
 };
 
-export function Header() {
+export function Header({ walletType }: { walletType?: "evm" | "cardano" } = {}) {
   const w = useWallet();
   const isEvm = w.mode.startsWith("evm");
   const address = isEvm ? w.evmAddress : w.cardanoAddress;
@@ -88,7 +88,8 @@ export function Header() {
 
           {w.mode === "none" ? (
             <div ref={menuRef} style={{ display: "flex", gap: 8, position: "relative" }}>
-              {/* Connect EVM */}
+              {/* Connect EVM — hidden when the referral link pins type=cardano */}
+              {walletType !== "cardano" && (
               <div style={{ position: "relative" }}>
                 <button data-testid="connect-evm-btn" onClick={() => setOpenMenu(openMenu === "evm" ? null : "evm")}
                   style={{ ...pillBtnStyle, background: "#1f3a5f", color: "#58a6ff", border: "1px solid #264a78" }}>
@@ -126,8 +127,10 @@ export function Header() {
                   </div>
                 )}
               </div>
+              )}
 
-              {/* Connect Cardano */}
+              {/* Connect Cardano — hidden when the referral link pins type=evm */}
+              {walletType !== "evm" && (
               <div style={{ position: "relative" }}>
                 <button data-testid="connect-cardano-btn" onClick={() => setOpenMenu(openMenu === "cardano" ? null : "cardano")}
                   style={{ ...pillBtnStyle, background: "#5f1f2a", color: "#f97583", border: "1px solid #78263a" }}>
@@ -165,6 +168,7 @@ export function Header() {
                   </div>
                 )}
               </div>
+              )}
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

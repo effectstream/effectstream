@@ -1,5 +1,5 @@
 import type { cardano } from '@utxorpc/spec';
-import type { UtxorpcAddressPattern, UtxorpcAnyChainTxPattern, UtxorpcAssetPattern, UtxorpcTxOutputPattern, UtxorpcTxPredicate } from "@effectstream/config";
+import type { UtxorpcAddressPattern, UtxorpcAnyChainTxPattern, UtxorpcAssetPattern, UtxorpcCertificatePattern, UtxorpcTxOutputPattern, UtxorpcTxPredicate } from "@effectstream/config";
 import { hexStringToUint8Array } from "@effectstream/utils";
 import { Cardano } from '@cardano-sdk/core';
 import { HexBlob } from '@cardano-sdk/util';
@@ -111,14 +111,24 @@ function convertAssetPattern(pattern: UtxorpcAssetPattern): Record<string, Uint8
   return result;
 }
 
+function convertCertificatePattern(pattern: boolean | UtxorpcCertificatePattern): Record<string, unknown> {
+  if (typeof pattern === "boolean") return {};
+  if (pattern.stake_delegation) {
+    const value: Record<string, unknown> = {};
+    if (pattern.stake_delegation.pool_keyhash) {
+      value.poolKeyhash = hexStringToUint8Array(pattern.stake_delegation.pool_keyhash);
+    }
+    return { certificateType: { case: "stakeDelegation", value } };
+  }
+  if (pattern.any_pool_keyhash) {
+    return { certificateType: { case: "anyPoolKeyhash", value: hexStringToUint8Array(pattern.any_pool_keyhash) } };
+  }
+  return {};
+}
+
 /**
  * Convert a config-layer UtxorpcTxPredicate (snake_case) to the SDK's TxPredicate (camelCase).
- *
- * NOTE: `has_certificate` is in the UTxORPC spec but Dolos does NOT implement server-side
- * filtering for it. Predicates using has_certificate will be sent to the server but silently
- * ignored — client-side filtering in matchesPredicate() still catches them.
  */
-// TODO(dolos): when Dolos implements has_certificate filtering, this conversion will just work
 export function configPredicateToSdkPredicate(config: UtxorpcTxPredicate): TxPredicate {
   const result: TxPredicate = {};
 
@@ -128,7 +138,7 @@ export function configPredicateToSdkPredicate(config: UtxorpcTxPredicate): TxPre
     if (c.has_address) match.hasAddress = convertAddressPattern(c.has_address);
     if (c.moves_asset) match.movesAsset = convertAssetPattern(c.moves_asset);
     if (c.mints_asset) match.mintsAsset = convertAssetPattern(c.mints_asset);
-    if (c.has_certificate) match.hasCertificate = {};
+    if (c.has_certificate) match.hasCertificate = convertCertificatePattern(c.has_certificate);
     result.match = match as TxPredicate["match"];
   }
 
@@ -148,13 +158,10 @@ export function predicateKey(predicate: UtxorpcTxPredicate): string {
 }
 
 /**
- * Returns true if this predicate can be effectively filtered server-side by Dolos.
- * Currently Dolos Watch ignores `has_certificate`, so predicates relying solely on it
- * are not effective and should fall back to match-all.
+ * Returns true if this predicate can be effectively filtered server-side.
  */
-// TODO(dolos): remove this when Dolos implements has_certificate filtering
 export function isEffectiveServerPredicate(predicate: UtxorpcTxPredicate): boolean {
   if (!predicate.match?.cardano) return false;
   const c = predicate.match.cardano;
-  return !!(c.has_address || c.moves_asset || c.mints_asset);
+  return !!(c.has_address || c.moves_asset || c.mints_asset || c.has_certificate);
 }

@@ -1,6 +1,7 @@
 import { PrimitiveTypeNEARNEP141 } from "../builtin.ts";
+import type { MaterializedViewStrategy } from "@effectstream/db";
 
-export function nep141Ivm(name: string) {
+export function nep141Ivm(name: string, strategy: MaterializedViewStrategy) {
   const lowerName = name.toLowerCase();
   const validSQLName = lowerName.replace(/[^a-zA-Z0-9_]/g, "");
   if (validSQLName !== lowerName) {
@@ -8,6 +9,9 @@ export function nep141Ivm(name: string) {
   }
 
   const balanceTable = `primitives.nep141_balance_intermediate_${validSQLName}`;
+  const viewName = `primitives.nep141_balance_view_${validSQLName}`;
+  const selectSql =
+    `SELECT primitive_name, account_id, balance FROM ${balanceTable} WHERE balance > 0`;
 
   return `
     CREATE TABLE IF NOT EXISTS ${balanceTable} (
@@ -55,14 +59,7 @@ export function nep141Ivm(name: string) {
         FOR EACH ROW
         EXECUTE FUNCTION update_nep141_balance_${validSQLName}();
 
-    SELECT pgivm.create_immv('primitives.nep141_balance_view_${validSQLName}',
-        'SELECT
-            primitive_name,
-            account_id,
-            balance
-        FROM ${balanceTable}
-        WHERE balance > 0;
-    ');
+    ${strategy.createView(viewName, selectSql)}
     `;
 }
 

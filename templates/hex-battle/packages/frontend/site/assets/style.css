@@ -1,0 +1,330 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.container-zoom {
+    margin: auto;
+}
+
+canvas {
+    background: white
+}
+
+#wrap,
+#wrap canvas {
+    width: 1920px;
+    height: 1040px;
+}
+
+#wrap {
+    position: relative
+}
+
+#wrap>* {
+    position: absolute
+}
+
+/* ── Frosted-glass overlay theme ──────────────────────────────────────────
+   Translucent dark panels with heavy backdrop blur, thin glowing borders and
+   a cyan accent — consistent with the in-game look + the Connect Wallet widget.
+   Accent cyan ≈ rgb(56, 208, 230). */
+
+.options_popup {
+    width: 650px;
+    min-height: 600px;
+    background: linear-gradient(160deg, rgba(40, 56, 74, 0.55), rgba(16, 24, 34, 0.62));
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(120, 210, 235, 0.22);
+    border-radius: 18px;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 24px 70px rgba(0, 0, 0, 0.55),
+        0 0 44px rgba(56, 208, 230, 0.12);
+    color: #e8f4f8;
+    box-sizing: border-box;
+    z-index: 2;
+    animation: popup-in 170ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popup-in {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.center {
+    font-family: 'Electrolize';
+    font-size: 30px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.popup {
+    width: 599px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Modal title — the first .item in every popup. */
+.popup > .item:first-child {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-align: center;
+    color: #eafcff;
+    text-shadow: 0 0 14px rgba(56, 208, 230, 0.45);
+    padding-bottom: 14px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(56, 208, 230, 0.35);
+}
+
+/* Secondary labels read a touch muted on the glass. */
+.popup .item { color: #cfe7f0; }
+
+/* Inputs & selects — glassy, dark, cyan focus ring. */
+.options_popup input,
+.options_popup select {
+    background: rgba(10, 16, 24, 0.55);
+    border: 1px solid rgba(120, 210, 235, 0.25);
+    border-radius: 10px;
+    color: #eafcff;
+    padding: 11px 14px;
+    font-family: 'Electrolize';
+    color-scheme: dark;
+    outline: none;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.options_popup input:focus,
+.options_popup select:focus {
+    border-color: rgba(56, 208, 230, 0.7);
+    box-shadow: 0 0 0 3px rgba(56, 208, 230, 0.18);
+}
+
+.options_popup select option {
+    background: #11212e;
+    color: #eafcff;
+}
+
+/* Buttons — shared glass base + per-variant accent. */
+.button_ok,
+.button_cancel,
+.button_neutral {
+    font-family: 'Electrolize';
+    font-size: 23px;
+    width: 100%;
+    padding: 13px 18px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    /* center the label both axes so labels never sit at the bottom even when a
+       fixed height is set inline (e.g. the Join button). */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.1;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    transition: transform 120ms ease, box-shadow 170ms ease, background 170ms ease, border-color 170ms ease;
+}
+
+.button_ok:hover,
+.button_cancel:hover,
+.button_neutral:hover { cursor: pointer; transform: translateY(-1px); }
+
+.button_ok:active,
+.button_cancel:active,
+.button_neutral:active { transform: translateY(0) scale(0.99); }
+
+/* Primary — cyan glow. */
+.button_ok {
+    background: linear-gradient(180deg, rgba(56, 208, 230, 0.32), rgba(34, 176, 204, 0.20));
+    border-color: rgba(120, 224, 240, 0.5);
+    color: #eafdff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 18px rgba(56, 208, 230, 0.22);
+}
+
+.button_ok:hover {
+    background: linear-gradient(180deg, rgba(72, 220, 242, 0.5), rgba(40, 190, 218, 0.34));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 28px rgba(56, 208, 230, 0.5);
+}
+
+/* Cancel — red-tinted glass. */
+.button_cancel {
+    background: linear-gradient(180deg, rgba(231, 76, 60, 0.28), rgba(192, 57, 43, 0.18));
+    border-color: rgba(231, 120, 110, 0.45);
+    color: #ffeae7;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.button_cancel:hover {
+    background: linear-gradient(180deg, rgba(231, 76, 60, 0.45), rgba(192, 57, 43, 0.30));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 24px rgba(231, 76, 60, 0.4);
+}
+
+/* Neutral — plain glass. */
+.button_neutral {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(180, 210, 225, 0.25);
+    color: #e8f4f8;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+.button_neutral:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(120, 210, 235, 0.45);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 18px rgba(120, 210, 235, 0.18);
+}
+
+.hide {
+    display: none;
+}
+
+.item {
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+#dark-background {
+    -webkit-backdrop-filter: blur(9px) saturate(120%);
+    backdrop-filter: blur(9px) saturate(120%);
+    background: radial-gradient(circle at 50% 38%, rgba(12, 20, 30, 0.45), rgba(4, 8, 12, 0.74));
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    animation: fade-in 170ms ease-out;
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Cyan-tinted scrollbars inside the glass panels. */
+.options_popup ::-webkit-scrollbar { width: 10px; height: 10px; }
+.options_popup ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+.options_popup ::-webkit-scrollbar-thumb { background: rgba(56, 208, 230, 0.35); border-radius: 10px; }
+.options_popup ::-webkit-scrollbar-thumb:hover { background: rgba(56, 208, 230, 0.55); }
+
+.leaderboard-row {
+    font-size: 24px;
+    margin-top: 4px;
+}
+
+.help-row {
+    display: flex;
+    flex-direction: row;
+    margin-top: 16px;
+    align-items: center;
+}
+
+.help-row1 {
+    min-width: 200px;
+}
+
+.help-row2 {
+    min-width: 350px;
+    max-width: 350px;
+    margin-right: 10px;
+}
+
+.help-row3 {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.help-image {
+    height: 56px;
+}
+
+
+.leaderboard-head {
+    display: flex;
+    flex-direction: row;
+    border-bottom: 1px solid rgba(56, 208, 230, 0.30);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    color: #9fd9e6;
+}
+
+.leaderboard-item {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(180deg, rgba(56, 208, 230, 0.20), rgba(34, 176, 204, 0.12));
+    border: 1px solid rgba(120, 210, 235, 0.30);
+    border-radius: 100px;
+    color: #eafdff;
+}
+
+.leaderboard-rank {
+    flex: 0 0 100px;
+    width: 100px;
+}
+
+.leaderboard-name {
+    width: 400px;
+    text-align: left;
+    margin-left: 30px;
+}
+
+/*** TODO Firefox scaling not working properly
+templateA = (w,h,z) => `@media only screen and (min-width: ${w}px) and (min-height: ${h}px) { .container-zoom { zoom: ${z}; } }`;
+templateB = (w,h,z) => `@media only screen and (min-width: ${w}px) and (min-height: ${h}px) { .container-zoom { zoom: ${z}; -moz-transform:  scale(${z},${z}); -moz-transform-origin: left center; } }`;
+for (z = 0.05; z <= 2.01; z += 0.05) { console.log( templateA ( 1920*z | 0 , 1040*z | 0 , (z * 100 | 0) / 100 )); } 
+***/
+
+@media only screen and (min-width: 96px) and (min-height: 52px) { .container-zoom { zoom: 0.05; } }
+@media only screen and (min-width: 192px) and (min-height: 104px) { .container-zoom { zoom: 0.1; } }
+@media only screen and (min-width: 288px) and (min-height: 156px) { .container-zoom { zoom: 0.15; } }
+@media only screen and (min-width: 384px) and (min-height: 208px) { .container-zoom { zoom: 0.2; } }
+@media only screen and (min-width: 480px) and (min-height: 260px) { .container-zoom { zoom: 0.25; } }
+@media only screen and (min-width: 576px) and (min-height: 312px) { .container-zoom { zoom: 0.3; } }
+@media only screen and (min-width: 672px) and (min-height: 364px) { .container-zoom { zoom: 0.35; } }
+@media only screen and (min-width: 767px) and (min-height: 415px) { .container-zoom { zoom: 0.4; } }
+@media only screen and (min-width: 863px) and (min-height: 467px) { .container-zoom { zoom: 0.44; } }
+@media only screen and (min-width: 959px) and (min-height: 519px) { .container-zoom { zoom: 0.49; } }
+@media only screen and (min-width: 1055px) and (min-height: 571px) { .container-zoom { zoom: 0.54; } }
+@media only screen and (min-width: 1152px) and (min-height: 624px) { .container-zoom { zoom: 0.6; } }
+@media only screen and (min-width: 1248px) and (min-height: 676px) { .container-zoom { zoom: 0.65; } }
+@media only screen and (min-width: 1344px) and (min-height: 728px) { .container-zoom { zoom: 0.7; } }
+@media only screen and (min-width: 1440px) and (min-height: 780px) { .container-zoom { zoom: 0.75; } }
+@media only screen and (min-width: 1536px) and (min-height: 832px) { .container-zoom { zoom: 0.8; } }
+@media only screen and (min-width: 1632px) and (min-height: 884px) { .container-zoom { zoom: 0.85; } }
+@media only screen and (min-width: 1728px) and (min-height: 936px) { .container-zoom { zoom: 0.9; } }
+@media only screen and (min-width: 1824px) and (min-height: 988px) { .container-zoom { zoom: 0.95; } }
+@media only screen and (min-width: 1920px) and (min-height: 1040px) { .container-zoom { zoom: 1; } }
+@media only screen and (min-width: 2016px) and (min-height: 1092px) { .container-zoom { zoom: 1.05; } }
+@media only screen and (min-width: 2112px) and (min-height: 1144px) { .container-zoom { zoom: 1.1; } }
+@media only screen and (min-width: 2208px) and (min-height: 1196px) { .container-zoom { zoom: 1.15; } }
+@media only screen and (min-width: 2304px) and (min-height: 1248px) { .container-zoom { zoom: 1.2; } }
+@media only screen and (min-width: 2400px) and (min-height: 1300px) { .container-zoom { zoom: 1.25; } }
+@media only screen and (min-width: 2496px) and (min-height: 1352px) { .container-zoom { zoom: 1.3; } }
+@media only screen and (min-width: 2592px) and (min-height: 1404px) { .container-zoom { zoom: 1.35; } }
+@media only screen and (min-width: 2688px) and (min-height: 1456px) { .container-zoom { zoom: 1.4; } }
+@media only screen and (min-width: 2784px) and (min-height: 1508px) { .container-zoom { zoom: 1.45; } }
+@media only screen and (min-width: 2880px) and (min-height: 1560px) { .container-zoom { zoom: 1.5; } }
+@media only screen and (min-width: 2976px) and (min-height: 1612px) { .container-zoom { zoom: 1.55; } }
+@media only screen and (min-width: 3072px) and (min-height: 1664px) { .container-zoom { zoom: 1.6; } }
+@media only screen and (min-width: 3168px) and (min-height: 1716px) { .container-zoom { zoom: 1.65; } }
+@media only screen and (min-width: 3264px) and (min-height: 1768px) { .container-zoom { zoom: 1.7; } }
+@media only screen and (min-width: 3360px) and (min-height: 1820px) { .container-zoom { zoom: 1.75; } }
+@media only screen and (min-width: 3456px) and (min-height: 1872px) { .container-zoom { zoom: 1.8; } }
+@media only screen and (min-width: 3552px) and (min-height: 1924px) { .container-zoom { zoom: 1.85; } }
+@media only screen and (min-width: 3648px) and (min-height: 1976px) { .container-zoom { zoom: 1.9; } }
+@media only screen and (min-width: 3744px) and (min-height: 2028px) { .container-zoom { zoom: 1.95; } }
+@media only screen and (min-width: 3840px) and (min-height: 2080px) { .container-zoom { zoom: 2; } }

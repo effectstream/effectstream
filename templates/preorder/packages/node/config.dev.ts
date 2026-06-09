@@ -3,10 +3,15 @@ import {
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@effectstream/config";
-import { PrimitiveTypeCardanoTransfer } from "@effectstream/sm/builtin";
+import {
+  PrimitiveTypeEVMEffectstreamL2,
+  PrimitiveTypeUtxorpcGeneric,
+} from "@effectstream/sm/builtin";
 import { getConnection } from "@effectstream/db";
 import { hardhat } from "viem/chains";
-import { setLaunchpadAddress } from "./launchpad-config.ts";
+import { EXTRA_ADDRESSES } from "./addresses.ts";
+import { adminGrammar } from "./grammar.ts";
+import { RECEIPT_POLICY_ID } from "./cardano-receipt.ts";
 
 const { extend: _, ...hardhatClean } = hardhat;
 
@@ -42,18 +47,10 @@ if (typeof process !== "undefined") {
   }
 }
 
-let launchpadProxyAddress = "0x0000000000000000000000000000000000000000";
-try {
-  const fs = await import("node:fs");
-  const path = await import("node:path");
-  const extraPath = path.resolve(import.meta.dirname!, "../contracts-evm/build/extra-addresses.json");
-  const extra = JSON.parse(fs.readFileSync(extraPath, "utf-8"));
-  launchpadProxyAddress = extra.launchpadProxy;
-  console.log("Loaded launchpad proxy address:", launchpadProxyAddress);
-  setLaunchpadAddress("test-launchpad-1", launchpadProxyAddress);
-} catch {
-  console.log("extra-addresses.json not found, using zero address for launchpad proxy");
-}
+const launchpadProxyAddress = EXTRA_ADDRESSES.launchpadProxy;
+const effectStreamL2Address = EXTRA_ADDRESSES.effectStreamL2;
+console.log("Launchpad proxy:", launchpadProxyAddress);
+console.log("EffectstreamL2:", effectStreamL2Address);
 
 export const config = new ConfigBuilder()
   .setNamespace(
@@ -130,13 +127,40 @@ export const config = new ConfigBuilder()
         }),
       )
       .addPrimitive(
+        (syncProtocols) => syncProtocols.parallelEvmRpc,
+        () => ({
+          // Captures the launchpad's on-chain ReferrerReward payouts.
+          name: "LaunchpadReferrerReward",
+          type: "EVM:REFERRER-REWARD",
+          startBlockHeight: 0,
+          contractAddress: launchpadProxyAddress,
+          stateMachinePrefix: "referrer-reward",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.parallelEvmRpc,
+        () => ({
+          // Deterministic admin/config inbox. Submitted commands route by grammar prefix
+          // (create-campaign / set-product / end-campaign) into the state machine.
+          name: "EffectstreamL2Admin",
+          type: PrimitiveTypeEVMEffectstreamL2,
+          startBlockHeight: 0,
+          contractAddress: effectStreamL2Address,
+          effectstreamL2Grammar: adminGrammar,
+        }),
+      )
+      .addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
         () => ({
-          name: "CardanoTransfer",
-          type: PrimitiveTypeCardanoTransfer,
+          // Generic UTxORPC primitive matching purchase-receipt mints of our Aiken policy.
+          // The STM deserializes the raw tx (see decode-utxorpc-tx.ts).
+          name: "CardanoReceipt",
+          type: PrimitiveTypeUtxorpcGeneric,
           startBlockHeight: 1,
           stateMachinePrefix: "cardano-payment",
-          predicate: {},
+          predicate: RECEIPT_POLICY_ID
+            ? { match: { cardano: { mints_asset: { policy_id: RECEIPT_POLICY_ID } } } }
+            : {},
         }),
       )
   )

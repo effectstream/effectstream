@@ -1,0 +1,190 @@
+/**
+ * Cyanotype / architectural-blueprint theme — scoped to .lcwg-section
+ * Applied via the BlogLayout and BlogListPage swizzles only on
+ * /learn-compact-with-games routes. Does not affect docs or main blog.
+ */
+
+.lcwg-section {
+  --cyano-bg-deep: #031622;
+  --cyano-bg: #072839;
+  --cyano-bg-2: #0d3a55;
+  --cyano-bg-3: #185172;
+  --cyano-paper: #f4f9fb;
+  --cyano-paper-soft: rgba(244, 249, 251, 0.72);
+  --cyano-paper-faint: rgba(244, 249, 251, 0.42);
+  --cyano-paper-trace: rgba(244, 249, 251, 0.18);
+  --cyano-paper-whisper: rgba(244, 249, 251, 0.06);
+  --cyano-amber: #ffd687;
+  --cyano-amber-dim: #c8901f;
+  --cyano-coral: #ff8b78;
+
+  --ifm-font-family-base: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', ui-monospace, 'Menlo', 'SFMono-Regular', monospace;
+  --ifm-heading-font-family: 'JetBrains Mono', ui-monospace, monospace;
+  --ifm-heading-font-weight: 500;
+
+  --ifm-color-primary: #ffd687;
+  --ifm-color-primary-dark: #ffc55c;
+  --ifm-color-primary-darker: #f5b53e;
+  --ifm-color-primary-darkest: #c8901f;
+  --ifm-color-primary-light: #ffe0a0;
+  --ifm-color-primary-lighter: #ffe6b0;
+  --ifm-color-primary-lightest: #fff0d0;
+
+  --ifm-background-color: var(--cyano-bg);
+  --ifm-background-surface-color: var(--cyano-bg-2);
+
+  --ifm-color-emphasis-0: var(--cyano-bg);
+  --ifm-color-emphasis-100: rgba(244, 249, 251, 0.045);
+  --ifm-color-emphasis-200: rgba(244, 249, 251, 0.10);
+  --ifm-color-emphasis-300: var(--cyano-paper-trace);
+  --ifm-color-emphasis-400: rgba(244, 249, 251, 0.30);
+  --ifm-color-emphasis-500: var(--cyano-paper-faint);
+  --ifm-color-emphasis-600: rgba(244, 249, 251, 0.60);
+  --ifm-color-emphasis-700: var(--cyano-paper-soft);
+  --ifm-color-emphasis-800: rgba(244, 249, 251, 0.88);
+  --ifm-color-emphasis-900: var(--cyano-paper);
+  --ifm-color-emphasis-1000: var(--cyano-paper);
+
+  --ifm-link-color: var(--cyano-amber);
+  --ifm-link-hover-color: var(--cyano-paper);
+
+  --ifm-heading-color: var(--cyano-paper);
+  --ifm-font-color-base: var(--cyano-paper);
+  --ifm-font-color-secondary: var(--cyano-paper-soft);
+
+  --ifm-code-background: rgba(244, 249, 251, 0.06);
+  --ifm-code-color: var(--cyano-amber);
+  --ifm-pre-background: rgba(7, 40, 57, 0.55);
+  --ifm-pre-color: var(--cyano-paper);
+
+  --ifm-blockquote-color: var(--cyano-paper-soft);
+  --ifm-blockquote-border-color: var(--cyano-amber);
+
+  --ifm-hr-border-color: var(--cyano-paper-trace);
+  --ifm-toc-border-color: var(--cyano-paper-trace);
+  --ifm-table-border-color: var(--cyano-paper-trace);
+  --ifm-table-stripe-background: rgba(244, 249, 251, 0.03);
+
+  --docusaurus-highlighted-code-line-bg: rgba(255, 214, 135, 0.12);
+
+  color: var(--cyano-paper);
+  font-family: var(--ifm-font-family-base);
+}
+
+/* Subtle blueprint grid behind games-section content.
+   position: fixed positions to the viewport regardless of ancestor,
+   so the grid spans the page; z-index keeps it behind content. */
+.lcwg-section::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(244, 249, 251, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(244, 249, 251, 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.lcwg-section > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Headings — uppercase, monospace, paper-toned.
+   Override the global h1 gradient + h2 cyan from custom.css. */
+.lcwg-section h1,
+.lcwg-section h2,
+.lcwg-section h3,
+.lcwg-section h4,
+.lcwg-section h5,
+.lcwg-section h6 {
+  color: var(--cyano-paper);
+  letter-spacing: 0.01em;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  width: auto;
+}
+.lcwg-section h1 { letter-spacing: -0.01em; }
+.lcwg-section h2,
+.lcwg-section h3 { font-weight: 500; }
+
+/* Blueprint section rule. */
+.lcwg-section .markdown h2 {
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--cyano-paper-trace);
+}
+.lcwg-section .markdown h2::before {
+  content: '◇ ';
+  color: var(--cyano-amber);
+  font-weight: 400;
+}
+
+/* Inline code - amber on faint paper.
+   Scoped with :not(pre) so syntax-highlighted code blocks (which wrap
+   <code> inside <pre>) are left alone for Prism to style. */
+.lcwg-section :not(pre) > code {
+  border: 1px solid var(--cyano-paper-trace);
+  border-radius: 2px;
+  padding: 0.05em 0.35em;
+  color: var(--cyano-amber);
+  background-color: rgba(244, 249, 251, 0.06);
+}
+
+/* Blueprint-style hairline cards/surfaces. */
+.lcwg-section .card,
+.lcwg-section .menu {
+  border-color: var(--cyano-paper-trace) !important;
+}
+
+/* Buttons / links keep amber accent. */
+.lcwg-section .button--primary {
+  background-color: var(--cyano-amber);
+  border-color: var(--cyano-amber);
+  color: var(--cyano-bg);
+}
+.lcwg-section .button--primary:hover {
+  background-color: var(--cyano-paper);
+  border-color: var(--cyano-paper);
+  color: var(--cyano-bg);
+}
+
+/* Pagination buttons (next/prev post). */
+.lcwg-section .pagination-nav__link {
+  border-color: var(--cyano-paper-trace);
+  background-color: rgba(244, 249, 251, 0.03);
+}
+.lcwg-section .pagination-nav__link:hover {
+  border-color: var(--cyano-amber);
+}
+.lcwg-section .pagination-nav__sublabel {
+  color: var(--cyano-paper-faint);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.lcwg-section .pagination-nav__label {
+  color: var(--cyano-paper);
+}
+
+/* Blog list separator between posts. */
+.lcwg-section article + article,
+.lcwg-section .theme-blog-post-paginator {
+  border-top: 1px dashed var(--cyano-paper-trace);
+  padding-top: 2rem;
+  margin-top: 2rem;
+}
+
+/* Body text inside games posts. */
+.lcwg-section p,
+.lcwg-section li {
+  color: var(--cyano-paper);
+}
+.lcwg-section a {
+  color: var(--cyano-amber);
+}
+.lcwg-section a:hover {
+  color: var(--cyano-paper);
+}

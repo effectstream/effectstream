@@ -1,0 +1,5 @@
+node_modules
+dist
+# esbuild output written into the served site/ dir
+site/bundle.js
+site/bundle.js.map
