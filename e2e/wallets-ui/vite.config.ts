@@ -22,6 +22,22 @@ const utilsPath = join(projectRoot, "../../packages/effectstream-sdk/utils/");
 const midnightContractEip20Path = join(projectRoot, "../shared/contracts/midnight/contract-eip-20/src/managed/contract/");
 const midnightContractCounterBasicPath = join(projectRoot, "../shared/contracts/midnight/contract-counter/src/managed/contract/");
 
+// The client statically imports the gitignored `src/managed/` output of the
+// Midnight contracts. Fail fast with instructions instead of letting rollup
+// die later with a cryptic "Could not resolve ./managed/contract/index.js".
+for (const [name, managedPath] of [
+  ["contract-counter", midnightContractCounterBasicPath],
+  ["contract-eip-20", midnightContractEip20Path],
+] as const) {
+  if (!existsSync(managedPath)) {
+    throw new Error(
+      `Missing generated Midnight contract artifacts for ${name}.\n` +
+        `Compile them first (requires the \`compact\` CLI):\n\n` +
+        `  cd e2e/shared/contracts/midnight/${name} && bun run compact\n`,
+    );
+  }
+}
+
 // Browser-safe config — the real @e2e/data-types/config-localhost reads
 // the filesystem at module load which crashes in the browser.
 const browserConfigPath = join(projectRoot, "config-browser.ts");
