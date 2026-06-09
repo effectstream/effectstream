@@ -8,6 +8,8 @@ The interesting thing about this implementation isn't the canvas itself — it's
 
 This post walks through what each piece does, why the contract is one line of meaningful Solidity, and how the node turns chain events into the canvas grid the user sees.
 
+<!-- truncate -->
+
 ## The five moving pieces
 
 Concretely, the running system is:
@@ -23,9 +25,9 @@ Two environments share the same code:
 | Env | EVM | Database | Entry point |
 | --- | --- | --- | --- |
 | `dev` | Hardhat anvil | PGLite (in-process) | [packages/node/main.dev.ts](https://github.com/effectstream/farcaster-app/tree/main/packages/node/main.dev.ts) |
-| `mainnet` | Base | Managed Postgres | [packages/node/main.mainnet.ts](phttps://github.com/effectstream/farcaster-app/tree/main/packages/node/main.mainnet.ts) |
+| `mainnet` | Base | Managed Postgres | [packages/node/main.mainnet.ts](https://github.com/effectstream/farcaster-app/tree/main/packages/node/main.mainnet.ts) |
 
-A top-level orchestrator ([start.dev.ts](start.dev.ts), [start.mainnet.ts](start.mainnet.ts)) boots the right combination of services for each env. Locally that means PGLite + anvil + node + batcher + Vite in one process group; in production only the node, the batcher, and the static frontend server need to run — Postgres and the chain are managed elsewhere.
+A top-level orchestrator (`start.dev.ts`, `start.mainnet.ts`) boots the right combination of services for each env. Locally that means PGLite + anvil + node + batcher + Vite in one process group; in production only the node, the batcher, and the static frontend server need to run — Postgres and the chain are managed elsewhere.
 
 ## One input path, two transports
 
