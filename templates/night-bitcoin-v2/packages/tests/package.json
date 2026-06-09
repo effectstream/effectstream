@@ -1,0 +1,12 @@
+{
+  "name": "@night-bitcoin/tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@effectstream/orchestrator": "0.100.17",
+    "pg": "^8.14.0",
+    "playwright-core": "^1.52.0",
+    "viem": "2.37.3"
+  }
+}

@@ -39,11 +39,22 @@ export const UtxorpcTxOutputPattern = Type.Object({
 });
 export type UtxorpcTxOutputPattern = Static<typeof UtxorpcTxOutputPattern>;
 
+export const UtxorpcStakeDelegationPattern = Type.Object({
+  pool_keyhash: Type.Optional(Type.String()),
+});
+export type UtxorpcStakeDelegationPattern = Static<typeof UtxorpcStakeDelegationPattern>;
+
+export const UtxorpcCertificatePattern = Type.Object({
+  stake_delegation: Type.Optional(UtxorpcStakeDelegationPattern),
+  any_pool_keyhash: Type.Optional(Type.String()),
+});
+export type UtxorpcCertificatePattern = Static<typeof UtxorpcCertificatePattern>;
+
 export const UtxorpcTxPattern = Type.Object({
   has_address: Type.Optional(UtxorpcAddressPattern),
   moves_asset: Type.Optional(UtxorpcAssetPattern),
   mints_asset: Type.Optional(UtxorpcAssetPattern),
-  has_certificate: Type.Optional(Type.Boolean()),
+  has_certificate: Type.Optional(Type.Union([Type.Boolean(), UtxorpcCertificatePattern])),
 });
 export type UtxorpcTxPattern = Static<typeof UtxorpcTxPattern>;
 

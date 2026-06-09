@@ -64,6 +64,13 @@ export {
   getPrimitiveIntermediatePrefix,
   getPrimitivePrefix,
 } from "./dynamic-tables.ts";
+export { detectCapabilities, selectViewStrategy } from "./capabilities.ts";
+export type { DatabaseCapabilities } from "./capabilities.ts";
+export {
+  pgIvmStrategy,
+  plainViewStrategy,
+} from "./MaterializedViewStrategy.ts";
+export type { MaterializedViewStrategy } from "./MaterializedViewStrategy.ts";
 // export { startPGlite } from "./start-pglite.ts";
 
 export { getMigrationsForBlockHeight } from "./migrations.ts";

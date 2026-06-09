@@ -1,0 +1,137 @@
+.shell {
+  min-height: calc(100vh - var(--ifm-navbar-height));
+  background-color: var(--cyano-bg);
+  color: var(--cyano-paper);
+}
+
+.heroBanner {
+  padding: 4rem 0 3rem;
+  text-align: left;
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgba(255, 214, 135, 0.08), transparent 60%),
+    linear-gradient(180deg, var(--cyano-bg-2), var(--cyano-bg) 80%);
+  color: var(--cyano-paper);
+  border-bottom: 1px solid var(--cyano-paper-trace);
+}
+
+.heroInner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-family: var(--ifm-font-family-monospace);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cyano-paper);
+}
+
+.heroSubtitle {
+  margin: 0;
+  font-family: 'Architects Daughter', cursive;
+  font-size: 1.4rem;
+  color: var(--cyano-paper-soft);
+}
+
+@media screen and (max-width: 996px) {
+  .heroBanner {
+    padding: 2rem 1rem;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  padding: 3rem 0 4rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--cyano-paper-trace);
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(244, 249, 251, 0.03);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.card:hover {
+  text-decoration: none;
+  color: inherit;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(7, 40, 57, 0.55);
+  border-color: var(--cyano-amber);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.85rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cyano-paper-soft);
+  border-bottom: 1px dashed var(--cyano-paper-trace);
+  background: rgba(244, 249, 251, 0.02);
+}
+
+.cardCode {
+  color: var(--cyano-amber);
+}
+
+.cardStatus {
+  color: var(--cyano-amber);
+  font-size: 0.65rem;
+}
+
+.cardImage {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--cyano-bg-2);
+  filter: saturate(0.85) contrast(1.05);
+}
+
+.cardBody {
+  padding: 0.9rem 1.1rem 1.1rem;
+}
+
+.cardFig {
+  display: flex;
+  gap: 0.45rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cyano-paper-faint);
+  margin-bottom: 0.4rem;
+}
+
+.cardFigDot {
+  color: var(--cyano-amber);
+}
+
+.cardTitle {
+  margin: 0 0 0.4rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 1.4rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--cyano-paper);
+}
+
+.cardDescription {
+  margin: 0;
+  color: var(--cyano-paper-soft);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}

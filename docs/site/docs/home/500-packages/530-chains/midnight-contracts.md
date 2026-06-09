@@ -49,7 +49,7 @@ Returns `{ contractAddress, contractInfo, zkConfigPath }`. Results are cached pe
 
 ### Deploy a contract
 
-Only `contractName` and `contractClass` are required — everything else has a sensible default, so a minimal deploy is just:
+Only `contractName` and `contractClass` are required - everything else has a sensible default, so a minimal deploy is just:
 
 ```typescript
 import {
@@ -109,9 +109,9 @@ const address = await deployMidnightContract({
 
 Phased mode writes progress to a resume-state file (`deployment-state.json` by default) and removes it on success, so an interrupted run can be re-run to continue from the last inserted circuit instead of redeploying. Tunables:
 
-- `phasedVerifierKeys?: boolean` — enable phased deployment (default `false`).
-- `vkInsertRetries?: number` — per-circuit retry count for key insertion (default `3`).
-- `phasedStateFile?: string` — resume-state file path (default `deployment-state.json` in the CWD).
+- `phasedVerifierKeys?: boolean` - enable phased deployment (default `false`).
+- `vkInsertRetries?: number` - per-circuit retry count for key insertion (default `3`).
+- `phasedStateFile?: string` - resume-state file path (default `deployment-state.json` in the CWD).
 
 The circuit list is enumerated automatically from the contract's compiled `keys/` directory, so no per-contract configuration is required.
 

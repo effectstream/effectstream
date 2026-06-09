@@ -17,4 +17,20 @@ export const LaunchpadFactoryModule = buildModule("LaunchpadFactoryModule", (m) 
   return { factory };
 });
 
+// Deterministic admin/config inbox. Owner = account #0 (the deployer/admin); fee 0 in dev.
+export const EffectstreamL2Module = buildModule("EffectstreamL2Module", (m) => {
+  const owner = m.getAccount(0);
+  const l2 = m.contract("EffectstreamL2Contract", [owner, 0n]);
+  return { l2 };
+});
+
+// ERC-721 minted to buyers when the admin finalises a campaign (post-sale distribution).
+export const PreorderItemNftModule = buildModule("PreorderItemNftModule", (m) => {
+  const owner = m.getAccount(0);
+  const name = m.getParameter("name", "Preorder Item");
+  const symbol = m.getParameter("symbol", "PITEM");
+  const nft = m.contract("PreorderItemNft", [name, symbol, owner]);
+  return { nft };
+});
+
 export default LaunchpadFactoryModule;

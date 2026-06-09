@@ -41,7 +41,6 @@ export default {
       stopProcessAtPort: [3334],
       dependsOn: [EvmNames.GENERATE_MOD, ...midnightDeps],
     },
-
     {
       name: "frontend-build",
       description: "Build frontend",
@@ -63,7 +62,7 @@ export default {
       critical: true,
       link: "http://localhost:10599",
       stopProcessAtPort: [10599],
-      dependsOn: ["frontend-build"],
+      dependsOn: ["frontend-build", "publish-contract-address"],
     },
 
   ],

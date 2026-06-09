@@ -15,6 +15,22 @@ a runtime `ReferenceError` / `null is not an object` during module load.
 That's the entire value proposition. No wallet flow is automated — see
 the manual matrix below.
 
+## Prerequisite: compile the Midnight contracts
+
+The client statically imports the generated (`gitignore`d) `src/managed/`
+output of the two Midnight contracts, so on a fresh checkout compile them
+once before building (requires the `compact` CLI):
+
+```bash
+cd e2e/shared/contracts/midnight/contract-counter && bun run compact
+cd ../contract-eip-20 && bun run compact
+```
+
+The deployed-contract address file (`contract-counter.undeployed.json`,
+written by `midnight-contract:deploy` against a live local node) is
+optional: without it the build still succeeds and only the Midnight
+counter flow fails at runtime when fetching the address.
+
 ## Automated: build + start smoke
 
 `run-tests.ts` is wired into the `wallets` suite in `e2e/runner.ts`.

@@ -1,0 +1,145 @@
+---
+slug: dust-to-dust
+title: Dust to Dust
+date: 2026-02-01
+description: Time-based quests, tradeable characters, and witness functions powering a Phaser-driven world.
+leaderboardUrl: https://api-dust2dust.midnight.fun/metrics/leaderboard?limit=10&offset=0
+achievementsUrl: https://api-dust2dust.midnight.fun/metrics
+repoUrl: https://github.com/effectstream/dust-to-dust
+---
+
+import GameEmbed from '@site/src/components/GameEmbed';
+
+{/* truncate */}
+
+<GameEmbed
+  slug="dust-to-dust"
+  title="Dust to Dust"
+  src="https://dust2dust.midnight.fun/?game_frame=true"
+  virtualWidth={1440}
+  virtualHeight={960}
+/>
+
+<MultiChainNote />
+
+Battle through dungeons with a deck of tradeable characters in a time-gated roguelike.
+
+## Under the hood
+
+**The game.** Dust to Dust is a single-player roguelike deckbuilder: register, send characters on timed quests, then fight boss battles with the abilities you've collected and upgraded. The client is built on **Phaser 3**, with a combat scene driven by the contract's resolved state.
+
+**Chains.** Like Kachina, Dust to Dust is **Midnight-only**. Quests, abilities, RNG, and progression all live in one Compact contract - no second chain to settle to. The EffectStream foundation keeps that an open choice rather than a hard-coded one.
+
+**Running on EffectStream.** An EffectStream state machine mirrors the contract ledger (players, abilities, active quests and battles) into Postgres, surfaced to the client through `/game/*` REST endpoints. Quest and battle transactions are proved client-side in a WebAssembly worker and submitted through the **batcher**, so moves are **gasless** for players.
+
+**Leaderboard & achievements.** Players are ranked by quest points on the `/metrics/leaderboard` endpoint. Dust to Dust also ships **100+ achievements** - spirit-collection, quest milestones, battle feats, smithing - tracked off-chain by the state machine and shown in the Honors panel.
+
+## The Compact contract
+
+<GameRepo />
+
+**Source:** [`backend/packages/midnight/contract-game2/src/game2.compact`](https://github.com/effectstream/dust-to-dust/blob/main/backend/packages/midnight/contract-game2/src/game2.compact)
+
+The Compact contract is the loot vault and rules engine. Two things make it a good teacher: quests are anchored to real wall-clock time (no client-side speed-running), and the gameplay math is written as circuit-friendly algebra instead of branches, because Compact circuits don't have loops. The contract is actually generated from a `template.compact` so the combat paths can be unrolled.
+
+### Time-anchored quests via `blockTimeGte` / `blockTimeLte`
+
+A quest is started with a claimed `start_time` that must lie inside a tight 120-second window around chain time. Combined with a level-gating assert against `player_boss_progress`, this stops clients from speed-running the curve - the quest's duration is enforced by the chain, not the client's clock.
+
+<CompactCode summary="`start_new_quest`">
+
+```compact
+export circuit start_new_quest(
+    loadout: PlayerLoadout,
+    level: Level,
+    start_time: Uint<64>,
+): Field {
+    verify_loadout(disclose(loadout));
+
+    // Anchor "now" to chain time, not the client's clock
+    assert(blockTimeGte(disclose(start_time)),
+           "start_time is in the future");
+    assert(blockTimeLte((disclose(start_time) + 120) as Uint<64>),
+           "start_time is too far in the past");
+
+    // Higher levels require proof of the previous boss completion
+    if (disclose(level.difficulty) > 1) {
+        const player_id = derive_player_pub_key(disclose(player_secret_key()));
+        const prevLevel = disclose(level.difficulty) - 1;
+        assert(
+            player_boss_progress.lookup(player_id).member(disclose(level.biome)) &&
+            player_boss_progress.lookup(player_id).lookup(disclose(level.biome)).member(prevLevel) &&
+            player_boss_progress.lookup(player_id).lookup(disclose(level.biome)).lookup(prevLevel),
+            "Must complete previous level boss to access this level",
+        );
+    }
+
+    // [build and insert QuestConfig omitted for brevity]
+    return derive_quest_id(quest);
+}
+```
+
+</CompactCode>
+
+### Algebra over branches (smaller, faster circuits)
+
+Compact circuits have no loops and every branch costs constraints, so Dust to Dust writes its gameplay math as pure arithmetic: predicates are cast to `Uint<1>` (`0` or `1`) and multiplied into the expression, so a false condition zeroes its contribution out without an `if`. The score computation below collapses an entire decision tree into one chained multiplication. (This is also why the contract is code-generated from a template - the per-enemy combat paths get unrolled into flat algebra.)
+
+<CompactCode summary="`ability_score` + `effect_score`">
+
+```compact
+// Ranks how "good" an ability is. Pure circuit - no branches, just math.
+export pure circuit ability_score(ability: Ability): Uint<32> {
+    return ((
+        3 * effect_score(ability.effect)
+        + effect_score(ability.on_energy[0])
+        + effect_score(ability.on_energy[1])
+        + effect_score(ability.on_energy[2])
+    ) * (2 + (ability.generate_color.is_some as Uint<1>))) as Uint<32>;
+}
+
+pure circuit effect_score(effect: Maybe<Effect>): Uint<32> {
+    const aoe = (1 + (effect.value.is_aoe as Uint<1>));
+
+    // Attacks score double a non-attack of equal amount.
+    const attack_compensate = (1 + ((
+        effect.value.effect_type == EFFECT_TYPE.attack_phys ||
+        effect.value.effect_type == EFFECT_TYPE.attack_ice  ||
+        effect.value.effect_type == EFFECT_TYPE.attack_fire
+    ) as Uint<1>));
+
+    // `effect.is_some as Uint<1>` zeros the whole product out when the
+    // optional is empty - no `if (effect.is_some) { ... } else { 0 }` branch.
+    return ((effect.is_some as Uint<1>)
+            * (effect.value.amount * aoe * attack_compensate)) as Uint<32>;
+}
+```
+
+</CompactCode>
+
+### Deterministic per-player RNG via `persistentHash`
+
+Each player keeps a single `rng: Bytes<32>` cell in their `Player` ledger entry. Every time a circuit needs randomness, `get_player_rng` reads the current value, advances it via `persistentHash<Bytes<32>>(old_rng)`, and writes the new value back. `persistentHash` is the persistent (SHA-256-based) hash from the standard library - deterministic enough to replay and audit, but only the player can predict the next value.
+
+<CompactCode summary="`get_player_rng` + initial seed">
+
+```compact
+// On registration, seed the RNG from a public hash of (player_id, players.size())
+export circuit register_new_player(): [] {
+    const player_id = derive_player_pub_key(disclose(player_secret_key()));
+    const initial_rng = persistentHash<Field>(player_id + players.size());
+    players.insert(player_id, Player { 0, initial_rng });
+    // [insert starting abilities, etc.]
+}
+
+// Every read advances the RNG via persistentHash and writes back.
+circuit get_player_rng(): Bytes<32> {
+    const player_id = derive_player_pub_key(disclose(player_secret_key()));
+    const old_player = players.lookup(player_id);
+    const new_rng = persistentHash<Bytes<32>>(old_player.rng);
+    players.insert(player_id, Player { old_player.gold, new_rng });
+    return old_player.rng;
+}
+```
+
+</CompactCode>

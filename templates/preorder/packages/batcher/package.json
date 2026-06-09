@@ -1,0 +1,15 @@
+{
+  "name": "@preorder/batcher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "batcher:start": "bun run batcher.dev.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.100.14",
+    "@preorder/contracts-cardano": "workspace:*",
+    "effection": "^3.5.0",
+    "viem": "^2.37.0"
+  }
+}

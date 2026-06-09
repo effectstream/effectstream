@@ -8,6 +8,8 @@ The interesting thing about this implementation isn't the canvas itself — it's
 
 This post walks through what each piece does, why the contract is one line of meaningful Solidity, and how the node turns chain events into the canvas grid the user sees.
 
+<!-- truncate -->
+
 ## The five moving pieces
 
 Concretely, the running system is:
@@ -23,9 +25,9 @@ Two environments share the same code:
 | Env | EVM | Database | Entry point |
 | --- | --- | --- | --- |
 | `dev` | Hardhat anvil | PGLite (in-process) | [packages/node/main.dev.ts](https://github.com/effectstream/farcaster-app/tree/main/packages/node/main.dev.ts) |
-| `mainnet` | Base | Managed Postgres | [packages/node/main.mainnet.ts](phttps://github.com/effectstream/farcaster-app/tree/main/packages/node/main.mainnet.ts) |
+| `mainnet` | Base | Managed Postgres | [packages/node/main.mainnet.ts](https://github.com/effectstream/farcaster-app/tree/main/packages/node/main.mainnet.ts) |
 
-A top-level orchestrator ([start.dev.ts](start.dev.ts), [start.mainnet.ts](start.mainnet.ts)) boots the right combination of services for each env. Locally that means PGLite + anvil + node + batcher + Vite in one process group; in production only the node, the batcher, and the static frontend server need to run — Postgres and the chain are managed elsewhere.
+A top-level orchestrator (`start.dev.ts`, `start.mainnet.ts`) boots the right combination of services for each env. Locally that means PGLite + anvil + node + batcher + Vite in one process group; in production only the node, the batcher, and the static frontend server need to run — Postgres and the chain are managed elsewhere.
 
 ## One input path, two transports
 
@@ -157,7 +159,7 @@ The Farcaster-specific surface area is small and lives in [packages/frontend/cli
 
 - `await sdk.actions.ready()`, called once from `App.tsx` on first mount. Without this the Warpcast splash screen never dismisses and the user sees an infinite loader. This is the single most common Mini App bug; we keep it on a `useEffect` at the top of the router so it always fires.
 - `sdk.wallet.ethProvider`, which exposes a [EIP-1193 provider](https://eips.ethereum.org/EIPS/eip-1193) backed by whatever wallet the user has set up in Warpcast. We pass it into `@effectstream/wallets`' `walletLogin(config, WalletMode.EvmInjected)`, which from that point on looks like any other injected-wallet flow. The user never has to "connect" anything explicitly.
-- `sdk.actions.composeCast({ text, embeds: [`${appUrl}/canvas/${id}`] })`, called from the Share button after a fork. The cast renders our `<meta name="fc:miniapp">` embed inside Warpcast, so anyone scrolling past sees the canvas as a launch tile rather than a generic link card.
+- ``sdk.actions.composeCast({ text, embeds: [`${appUrl}/canvas/${id}`] })``, called from the Share button after a fork. The cast renders our `<meta name="fc:miniapp">` embed inside Warpcast, so anyone scrolling past sees the canvas as a launch tile rather than a generic link card.
 
 The `fc:miniapp` embed metadata in [packages/frontend/client/index.html](https://github.com/effectstream/farcaster-app/tree/main/packages/frontend/client/index.html) is what makes the cast renderable as a Mini App tile in the first place. The manifest itself is published two ways: a static fallback at [packages/frontend/client/public/.well-known/farcaster.json](https://github.com/effectstream/farcaster-app/tree/main/packages/frontend/client/public/.well-known/farcaster.json) and, in production, a signed hosted manifest URL registered with Warpcast (the recommended path so the `accountAssociation` block can be re-signed without redeploys).
 

@@ -26,7 +26,7 @@
     "@effectstream/utils": "workspace:*",
     "@fastify/cors": "^11.0.1",
     "@metamask/json-rpc-engine": "^10.0.3",
-    "pg": "8.17.2",
+    "pg": "8.21.0",
     "effection": "^3.5.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.54.0",

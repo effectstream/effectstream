@@ -26,6 +26,8 @@ export async function validationTest(db: Client) {
     return;
   }
   const launchpadAddress = addresses.launchpadProxy;
+  // Campaign routing key: buys must target the campaign's configured receiver (the admin).
+  const launchpadReceiver = addresses.admin;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
   const wallet = account.address.toLowerCase();
@@ -38,12 +40,12 @@ export async function validationTest(db: Client) {
       abi: LAUNCHPAD_ABI,
       functionName: "buyItemsNative",
       args: [
-        account.address,
+        launchpadReceiver,
         ZERO_ADDRESS,
         [4n],
         [5n], // buy all 5
       ],
-      value: 100000000000000000n, // 5 * 0.02 ETH (item 4: Mithril Chainmail)
+      value: 125000000000000000n, // 5 × item 4 (P50 → 2.5e16) = 1.25e17 wei
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     return receipt.status === "success";
@@ -74,7 +76,7 @@ export async function validationTest(db: Client) {
       abi: LAUNCHPAD_ABI,
       functionName: "buyItemsNative",
       args: [
-        account3.address,
+        launchpadReceiver,
         ZERO_ADDRESS,
         [3n], // Enchanted Shield: 0.01 ETH
         [1n],

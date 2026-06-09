@@ -1,6 +1,10 @@
 import { PrimitiveTypeCardanoProjectedNFT } from "../builtin.ts";
+import type { MaterializedViewStrategy } from "@effectstream/db";
 
-export function projectedNftIvm(name: string) {
+export function projectedNftIvm(
+  name: string,
+  strategy: MaterializedViewStrategy,
+) {
   const lowerName = name.toLowerCase();
   const validSQLName = lowerName.replace(/[^a-zA-Z0-9_]/g, "");
   if (validSQLName !== lowerName) {
@@ -8,6 +12,9 @@ export function projectedNftIvm(name: string) {
   }
 
   const intermediateTable = `primitives.cardano_projected_nft_intermediate_${validSQLName}`;
+  const viewName = `primitives.cardano_projected_nft_view_${validSQLName}`;
+  const selectSql =
+    `SELECT primitive_name, owner_address, current_tx_id, current_output_index, previous_tx_id, previous_output_index, policy_id, asset_name, status, for_how_long FROM ${intermediateTable}`;
 
   return `
     CREATE TABLE IF NOT EXISTS ${intermediateTable} (
@@ -87,20 +94,7 @@ export function projectedNftIvm(name: string) {
         FOR EACH ROW
         EXECUTE FUNCTION update_projected_nft_${validSQLName}();
 
-    SELECT pgivm.create_immv('primitives.cardano_projected_nft_view_${validSQLName}',
-        'SELECT
-            primitive_name,
-            owner_address,
-            current_tx_id,
-            current_output_index,
-            previous_tx_id,
-            previous_output_index,
-            policy_id,
-            asset_name,
-            status,
-            for_how_long
-        FROM ${intermediateTable};
-    ');
+    ${strategy.createView(viewName, selectSql)}
     `;
 }
 

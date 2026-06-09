@@ -1,0 +1,106 @@
+.details {
+  margin: 1rem 0 1.75rem;
+  border: 1px solid var(--cyano-paper-trace);
+  border-radius: 2px;
+  background: rgba(244, 249, 251, 0.03);
+  overflow: hidden;
+}
+
+.summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  padding: 0.55rem 0.95rem;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--cyano-paper);
+  background: rgba(244, 249, 251, 0.04);
+  border-bottom: 1px dashed var(--cyano-paper-trace);
+  transition: background-color 0.15s ease;
+  user-select: none;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary:hover {
+  background-color: rgba(244, 249, 251, 0.07);
+}
+
+.chevron {
+  display: inline-block;
+  color: var(--cyano-amber);
+  font-size: 0.85rem;
+  transition: transform 0.12s ease;
+  transform: rotate(0deg);
+}
+
+.details[open] > .summary .chevron {
+  transform: rotate(90deg);
+}
+
+.tag {
+  font-size: 0.68rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--cyano-amber);
+  border: 1px solid var(--cyano-paper-trace);
+  padding: 0.05rem 0.4rem;
+  border-radius: 2px;
+}
+
+.title {
+  color: var(--cyano-paper);
+  font-weight: 500;
+  flex: 1 1 auto;
+}
+
+.toggle {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--cyano-amber);
+  border-radius: 2px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cyano-amber);
+}
+
+.toggle::after {
+  content: 'Show code';
+}
+
+.details[open] > .summary .toggle::after {
+  content: 'Hide code';
+}
+
+.summary:hover .toggle {
+  background-color: var(--cyano-amber);
+  color: var(--cyano-bg);
+}
+
+.body {
+  padding: 0.5rem 0.95rem 0.95rem;
+}
+
+/* Trim Docusaurus's default margins on the wrapped code block so the box looks tight. */
+.body > div[class*='codeBlockContainer'],
+.body > div[class*='theme-code-block'] {
+  margin: 0;
+}
+
+.body > p:first-child {
+  margin-top: 0;
+}
+
+.body > :last-child {
+  margin-bottom: 0;
+}

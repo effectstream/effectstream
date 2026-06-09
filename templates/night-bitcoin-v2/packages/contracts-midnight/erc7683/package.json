@@ -1,0 +1,18 @@
+{
+  "name": "@night-bitcoin/midnight-contract-erc7683",
+  "exports": {
+    ".": "./src/_index.ts",
+    "./witnesses": "./src/witnesses.ts",
+    "./contract": "./src/managed/contract/index.js"
+  },
+  "scripts": {
+    "compact": "compact compile +0.30.0 src/erc7683.compact src/managed",
+    "clean": "rm -rf src/managed",
+    "convert:js": "bun run convert-js.ts src/managed/contract/index.js src/managed/contract/index.ts",
+    "contract:compile": "bun run compact"
+  },
+  "dependencies": {
+    "@night-bitcoin/midnight-contract-erc7683": "workspace:*",
+    "vitest": "^3.2.4"
+  }
+}

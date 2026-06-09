@@ -17,6 +17,7 @@ import {
   logTaskRunning,
   logTaskDone,
   logTaskFailed,
+  logWaitingForExit,
   logInfo,
   logWarn,
   logError,
@@ -148,6 +149,7 @@ export async function runStartCommand(opts: StartOptions): Promise<void> {
     onTaskRunning: logTaskRunning,
     onTaskDone: logTaskDone,
     onTaskFailed: logTaskFailed,
+    onWaitingForExit: logWaitingForExit,
     onShutdown: undefined as ((reason: string) => void) | undefined,
   };
 
