@@ -144,6 +144,17 @@ WHERE rollup_input_future_timestamp.future_ms_timestamp <= :max_timestamp! AND
      effectstream.rollup_input_result.id IS NULL
 ORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC;
 
+/* @name getEarliestScheduledBlockHeight */
+SELECT MIN(future_block_height) AS min_block_height
+FROM effectstream.rollup_input_future_block;
+
+/* @name getEarliestScheduledTimestamp */
+SELECT MIN(rollup_input_future_timestamp.future_ms_timestamp) AS min_timestamp
+FROM effectstream.rollup_input_future_timestamp
+LEFT OUTER JOIN effectstream.rollup_input_result
+  ON (effectstream.rollup_input_result.id = effectstream.rollup_input_future_timestamp.id)
+WHERE effectstream.rollup_input_result.id IS NULL;
+
 /* @name getGameInputResultByBlockHeight */
 SELECT
   rollup_inputs.id,

@@ -307,6 +307,13 @@ const definitions: Record<string, ConfigDefinition> = {
     description:
       "Snapshot retention: keep one snapshot per day for this many days. Snapshots older than this are deleted. Default: 7.",
   },
+  EFFECTSTREAM_COALESCE_EMPTY_BLOCKS: {
+    key: "EFFECTSTREAM_COALESCE_EMPTY_BLOCKS",
+    type: "boolean",
+    defaultValue: false,
+    description:
+      "Fold consecutive empty catch-up blocks into one DB transaction when behind the chain tip. Default: false.",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -440,6 +447,9 @@ export class ENV {
   }
   static get EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS(): number {
     return ENV.getConfig(definitions.EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS);
+  }
+  static get EFFECTSTREAM_COALESCE_EMPTY_BLOCKS(): boolean {
+    return ENV.getConfig(definitions.EFFECTSTREAM_COALESCE_EMPTY_BLOCKS);
   }
 
   public static getConfig<T>(config: ConfigDefinition): T {

@@ -305,6 +305,8 @@ export type RunToHeightOpts = {
   /** Optional per-protocol page watermarks to also wait for before exiting. */
   waitPages?: Record<string, number>;
   securityNamespace?: string;
+  /** Enable/disable empty-block coalescing. */
+  coalesce?: boolean;
 };
 
 const RUNNER = join(import.meta.dir, "node-runner.ts");
@@ -329,6 +331,7 @@ function makeRunToHeight(
       target: opts.target,
       apiPort: opts.apiPort,
       waitPages: opts.waitPages,
+      coalesce: opts.coalesce,
     };
     return new Promise<void>((resolve, reject) => {
       const child = spawn("bun", [RUNNER, JSON.stringify(spec)], {
