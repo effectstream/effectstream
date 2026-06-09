@@ -7,17 +7,34 @@ import { CurrencyToggle } from "../components/CurrencyToggle.tsx";
 import { FreeRewardsTimeline } from "../components/FreeRewardsTimeline.tsx";
 import { CuratedPackageCard } from "../components/CuratedPackageCard.tsx";
 import { OrderFooter } from "../components/OrderFooter.tsx";
+import { AddressChip } from "../components/AddressChip.tsx";
 import { useWallet } from "../wallet/WalletContext.tsx";
 import { useLog } from "../logs/LogContext.tsx";
-import { ETH_TO_ADA_RATE, ZERO_ADDRESS, MOCK_USDC_ADDRESS } from "../config.ts";
+import { ZERO_ADDRESS, MOCK_USDC_ADDRESS } from "../config.ts";
 import { EventManager } from "@effectstream/event-client";
 import { AppEvents } from "@preorder/shared/app-events";
+
+type Coin = {
+  token: string; // 'eth' | 'usdc' | 'ada'
+  symbol: string;
+  chain: string;
+  paymentToken: string; // on-chain token address
+  type: string;
+  x: string;
+  n: number;
+  decimals: number;
+};
 
 type Item = {
   id: number;
   name: string;
   description: string;
   image?: string;
+  kind?: string;
+  price?: string; // unitless integer
+  // Smallest-unit amount keyed by coin id (eth/usdc/ada). `prices`/`freeAt` are the same map
+  // exposed under the legacy keys (set per kind by the API).
+  amounts?: Record<string, string>;
   prices?: Record<string, string>;
   freeAt?: Record<string, string>;
   supply?: number;
@@ -35,7 +52,9 @@ type LaunchpadDetail = {
   name: string;
   description: string;
   address: string;
+  receiver?: string;
   cardanoPaymentAddress?: string;
+  coins?: Coin[];
   items: Item[];
   curatedPackages?: CuratedPackage[];
   referralDiscountBps?: number;
@@ -44,35 +63,35 @@ type LaunchpadDetail = {
 
 const SIDEBAR_WIDTH = 360;
 
+// Currency selector keyed by coin id; the on-chain token + decimals come from the API `coins`.
 const CURRENCIES = [
-  { address: ZERO_ADDRESS, symbol: "ETH" },
-  { address: MOCK_USDC_ADDRESS, symbol: "USDC" },
+  { address: "eth", symbol: "ETH" },
+  { address: "usdc", symbol: "USDC" },
+];
+const CARDANO_CURRENCIES = [{ address: "ada", symbol: "ADA" }];
+// No wallet connected → preview prices in any supported coin.
+const ALL_CURRENCIES = [
+  { address: "eth", symbol: "ETH" },
+  { address: "usdc", symbol: "USDC" },
+  { address: "ada", symbol: "ADA" },
 ];
 
 export function LaunchpadDetail({
   slug,
   apiUrl,
+  referrer,
+  walletType,
 }: {
   slug: string;
   apiUrl: string;
+  referrer?: string;
+  walletType?: "evm" | "cardano";
 }) {
   const w = useWallet();
   const isCardano = w.mode.startsWith("cardano");
   const isEvm = w.mode.startsWith("evm");
 
-  const [activeCurrency, setActiveCurrency] = useState(ZERO_ADDRESS);
-  const activeToken = isCardano ? ZERO_ADDRESS : activeCurrency;
-
-  const isErc20 = isEvm && activeToken !== ZERO_ADDRESS;
-  const currencySymbol = isCardano ? "ADA" : isErc20 ? "USDC" : "ETH";
-  const rate = isCardano ? ETH_TO_ADA_RATE : 1;
-
-  const formatPrice = (raw: string | number | bigint): string => {
-    const val = typeof raw === "string" ? raw : raw.toString();
-    if (isErc20) return (Number(val) / 1e6).toFixed(2);
-    return ((Number(val) / 1e18) * rate).toFixed(isCardano ? 2 : 4);
-  };
-
+  const [activeCurrency, setActiveCurrency] = useState("eth");
   const [data, setData] = useState<LaunchpadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<Record<number, number>>({});
@@ -83,6 +102,36 @@ export function LaunchpadDetail({
   const [priorSpend, setPriorSpend] = useState(0n);
   const [activePackages, setActivePackages] = useState<Set<string>>(new Set());
 
+  // Active coin id (eth | usdc | ada) and its on-chain mapping (from the API `coins`).
+  // Cardano → ADA only; EVM → ETH/USDC; no wallet → coins for the link's `type`, else any.
+  const availableCurrencies = isCardano
+    ? CARDANO_CURRENCIES
+    : isEvm
+      ? CURRENCIES
+      : walletType === "cardano"
+        ? CARDANO_CURRENCIES
+        : walletType === "evm"
+          ? CURRENCIES
+          : ALL_CURRENCIES;
+  const activeToken = isCardano
+    ? "ada"
+    : availableCurrencies.some((c) => c.address === activeCurrency)
+      ? activeCurrency
+      : availableCurrencies[0].address;
+  const coins = data?.coins ?? [];
+  const activeCoin = coins.find((c) => c.token === activeToken);
+  const decimals = activeCoin?.decimals ?? (activeToken === "eth" ? 18 : 6);
+  const currencySymbol = activeCoin?.symbol ?? (activeToken === "usdc" ? "USDC" : activeToken === "ada" ? "ADA" : "ETH");
+  const paymentTokenAddress = activeCoin?.paymentToken ?? (activeToken === "usdc" ? MOCK_USDC_ADDRESS : ZERO_ADDRESS);
+
+  // Display a smallest-unit amount in the active coin (divide by its decimals — no float in math).
+  const formatPrice = (raw: string | number | bigint): string => {
+    const val = Number(typeof raw === "string" ? raw : raw.toString());
+    return (val / 10 ** decimals).toFixed(decimals <= 6 ? 2 : 4);
+  };
+  const amountOf = (item: Item): bigint =>
+    BigInt(item.amounts?.[activeToken] ?? item.prices?.[activeToken] ?? "0");
+
   const walletAddress = isCardano ? w.cardanoAddress : w.evmAddress;
 
   useEffect(() => {
@@ -90,7 +139,7 @@ export function LaunchpadDetail({
     fetch(`${apiUrl}/api/userData/${slug}?wallet=${walletAddress}`)
       .then((r) => r.ok ? r.json() : null)
       .then((d: any) => {
-        if (d?.user?.total_amount && d.user.payment_token === activeToken) {
+        if (d?.user?.total_amount && d.user.payment_token === paymentTokenAddress) {
           setPriorSpend(BigInt(d.user.total_amount));
         } else {
           setPriorSpend(0n);
@@ -215,17 +264,13 @@ export function LaunchpadDetail({
     });
   };
 
-  const standardItems = data?.items.filter((i) => "prices" in i && i.prices) ?? [];
-  const rewardItems = data?.items.filter((i) => "freeAt" in i && i.freeAt) ?? [];
+  const standardItems = data?.items.filter((i) => i.kind !== "reward") ?? [];
+  const rewardItems = data?.items.filter((i) => i.kind === "reward") ?? [];
 
-  const totalCost = standardItems.length > 0
-    ? Object.entries(cart).reduce((sum, [id, qty]) => {
-        const item = standardItems.find((i) => i.id === Number(id));
-        if (!item?.prices) return sum;
-        const price = BigInt(item.prices[activeToken] || "0");
-        return sum + price * BigInt(qty);
-      }, 0n)
-    : 0n;
+  const totalCost = Object.entries(cart).reduce((sum, [id, qty]) => {
+    const item = standardItems.find((i) => i.id === Number(id));
+    return item ? sum + amountOf(item) * BigInt(qty) : sum;
+  }, 0n);
 
   const hasItems = Object.keys(cart).length > 0;
 
@@ -280,24 +325,22 @@ export function LaunchpadDetail({
             {data.description}
           </p>
 
-          {/* Currency toggle — only for EVM wallets or when not connected */}
-          {!isCardano && (
-            <div style={{ marginBottom: 16 }}>
-              <CurrencyToggle
-                currencies={CURRENCIES}
-                active={activeCurrency}
-                onChange={setActiveCurrency}
-              />
-            </div>
-          )}
+          {/* Currency toggle — ADA when a Cardano wallet is connected, otherwise ETH/USDC */}
+          <div style={{ marginBottom: 16 }}>
+            <CurrencyToggle
+              currencies={availableCurrencies}
+              active={activeToken}
+              onChange={setActiveCurrency}
+            />
+          </div>
 
           <div style={{
             display: "inline-flex", gap: 12, fontSize: 11, fontFamily: "monospace", color: "#484f58",
             background: "#0d1117", padding: "6px 14px", borderRadius: 6, border: "1px solid #21262d",
           }}>
-            <span>EVM: {data.address.substring(0, 10)}...{data.address.substring(data.address.length - 6)}</span>
+            <span>EVM: <AddressChip value={data.address} color="#8b949e" /></span>
             {data.cardanoPaymentAddress && (
-              <span>Cardano: {data.cardanoPaymentAddress.substring(0, 16)}...</span>
+              <span>Cardano: <AddressChip value={data.cardanoPaymentAddress} color="#8b949e" /></span>
             )}
           </div>
         </div>
@@ -362,7 +405,7 @@ export function LaunchpadDetail({
                   Limited
                 </div>
               )}
-              <ItemBanner itemId={item.id} text={item.name} />
+              <ItemBanner itemId={item.id} text={item.name} image={item.image} />
               <div style={{ padding: 12 }}>
                 <h3 style={{ fontSize: 13, color: "#e6edf3", marginBottom: 4 }}>{item.name}</h3>
                 <p style={{ color: "#6e7681", fontSize: 11, marginBottom: 8, lineHeight: 1.4, minHeight: 30 }}>
@@ -371,7 +414,7 @@ export function LaunchpadDetail({
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <span style={{ color: "#19B17B", fontSize: 13, fontWeight: 600, fontFamily: "monospace" }}>
-                      {item.prices ? formatPrice(item.prices[activeToken] || "0") : "0"} {currencySymbol}
+                      {formatPrice(amountOf(item))} {currencySymbol}
                     </span>
                     {item.supply !== undefined && (
                       <span style={{ color: "#d29922", fontSize: 10, marginLeft: 6 }}>
@@ -411,10 +454,14 @@ export function LaunchpadDetail({
       {(hasItems || lastTx) && (
         <OrderFooter
           launchpadAddress={data.address}
+          receiver={data.receiver}
+          referrer={referrer}
           cardanoPaymentAddress={data.cardanoPaymentAddress}
           cart={cart}
           totalCost={totalCost}
           selectedToken={activeToken}
+          paymentTokenAddress={paymentTokenAddress}
+          decimals={decimals}
           items={standardItems}
           rewards={rewardItems as { id: number; name: string; freeAt: Record<string, string> }[]}
           formatPrice={formatPrice}
@@ -433,10 +480,14 @@ export function LaunchpadDetail({
         <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 32px 64px" }}>
           <WalletPanel
             launchpadAddress={data?.address || ""}
+            receiver={data?.receiver}
+            referrer={referrer}
             cardanoPaymentAddress={data?.cardanoPaymentAddress}
             cart={cart}
             totalCostWei={totalCost}
             selectedToken={activeToken}
+            paymentTokenAddress={paymentTokenAddress}
+            decimals={decimals}
             items={data?.items || []}
             onPurchaseComplete={handlePurchaseComplete}
             onClearCart={() => setCart({})}

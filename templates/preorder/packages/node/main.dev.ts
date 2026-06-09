@@ -10,7 +10,7 @@ import { migrationTable } from "@preorder/database";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "./grammar.ts";
-import { BuyItemsPrimitive } from "./primitives.ts";
+import { BuyItemsPrimitive, ReferrerRewardPrimitive } from "./primitives.ts";
 main(function* () {
   yield* init();
   console.log("Starting Preorder Sync Node (Local)");
@@ -26,6 +26,7 @@ main(function* () {
       grammar,
       userDefinedPrimitives: {
         "EVM:BUY-ITEMS": BuyItemsPrimitive,
+        "EVM:REFERRER-REWARD": ReferrerRewardPrimitive,
       },
     });
   });

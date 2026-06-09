@@ -17,4 +17,11 @@ export const LaunchpadFactoryModule = buildModule("LaunchpadFactoryModule", (m) 
   return { factory };
 });
 
+// Deterministic admin/config inbox. Owner = account #0 (the deployer/admin); fee 0 in dev.
+export const EffectstreamL2Module = buildModule("EffectstreamL2Module", (m) => {
+  const owner = m.getAccount(0);
+  const l2 = m.contract("EffectstreamL2Contract", [owner, 0n]);
+  return { l2 };
+});
+
 export default LaunchpadFactoryModule;
