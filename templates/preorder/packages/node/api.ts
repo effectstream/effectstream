@@ -19,7 +19,7 @@ import {
 } from "@preorder/database";
 import { MOCK_USDC_ADDRESS } from "./launchpad-config.ts";
 import { EXTRA_ADDRESSES } from "./addresses.ts";
-import { RECEIPT_POLICY_ID } from "./cardano-receipt.ts";
+import { RECEIPT_POLICY_ID, RECEIPT_SCRIPT } from "./cardano-receipt.ts";
 
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@effectstream/runtime";
@@ -142,6 +142,8 @@ export const apiRouter: StartConfigApiRouter = async function (
       chainId: 31337,
       evmRpc: "http://localhost:8545",
       cardanoReceiptPolicyId: RECEIPT_POLICY_ID,
+      // Applied PlutusV3 script so the frontend can mint the on-chain purchase receipt.
+      cardanoReceiptScript: RECEIPT_SCRIPT,
       coins,
     });
   });
