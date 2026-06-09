@@ -7,4 +7,5 @@ export * from "./bitcoin/rpc.ts";
 export * from "./celestia/rpc.ts";
 export * from "./types.ts";
 export * from "./all.ts";
+export * from "./solana/rpc.ts";
 export * from "./decorators/mod.ts";

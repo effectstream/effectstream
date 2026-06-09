@@ -44,6 +44,10 @@ import {
   CommonResponseNearRpcParallel,
   ConfigSyncProtocolSchemaNearParallel,
 } from "./near/rpc.ts";
+import {
+  CommonResponseSolanaRpcParallel,
+  ConfigSyncProtocolSchemaSolanaParallel,
+} from "./solana/rpc.ts";
 import type { ToMapping } from "../utils.ts";
 import { ConfigSyncProtocolDecorator } from "./decorators/all.ts";
 import {
@@ -78,6 +82,8 @@ export const parallelSyncProtocolTypes = {
     ConfigSyncProtocolSchemaCelestiaParallel,
   [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]:
     ConfigSyncProtocolSchemaNearParallel,
+  [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]:
+    ConfigSyncProtocolSchemaSolanaParallel,
 } as const;
 
 export const syncProtocolCommonResponse = {
@@ -97,6 +103,8 @@ export const syncProtocolCommonResponse = {
     CommonResponseCelestiaRpcParallel,
   [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]:
     CommonResponseNearRpcParallel,
+  [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]:
+    CommonResponseSolanaRpcParallel,
 } as const satisfies Record<ConfigSyncProtocolType, TSchema>;
 export type ConfigSyncProtocolCommonAll = typeof syncProtocolCommonResponse;
 

@@ -11,4 +11,5 @@ export enum ConfigNetworkType {
   BITCOIN = "bitcoin",
   CELESTIA = "celestia",
   NEAR = "near",
+  SOLANA = "solana",
 }

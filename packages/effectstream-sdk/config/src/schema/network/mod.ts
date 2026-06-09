@@ -5,6 +5,7 @@ export * from "./substrate/mod.ts";
 export * from "./bitcoin.ts";
 export * from "./celestia.ts";
 export * from "./near.ts";
+export * from "./solana.ts";
 export * from "./types.ts";
 export * from "./utils.ts";
 export * from "./all.ts";

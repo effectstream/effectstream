@@ -54,6 +54,7 @@ export enum AddressType {
   AVAIL = 6,
   POLKADOT = 7,
   NEAR = 8,
+  SOLANA = 9,
 }
 
 function tryDecode<T>(

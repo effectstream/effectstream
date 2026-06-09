@@ -1,0 +1,182 @@
+import {
+  ConfigSyncProtocolType,
+  type PrimitiveEntry,
+} from "@effectstream/config";
+import { BaseDataFetcher } from "../base/fetcher.ts";
+import type { DataFetched } from "../base/fetcher.ts";
+import type {
+  LastPage,
+  OutputAndCleanup,
+  RootConversion,
+} from "../base/state.ts";
+import type { RootOutput, RootPage } from "../types.ts";
+import type {
+  ConfigType,
+  Input,
+  Output,
+  Page,
+  PrimitiveType,
+} from "./types.ts";
+import { SolanaClient } from "./SolanaClient.ts";
+import { call, type Operation } from "effection";
+import { bound } from "@effectstream/utils";
+
+export class SolanaFetcher extends BaseDataFetcher<
+  Input,
+  Output,
+  RootOutput,
+  Page,
+  RootPage
+> {
+  readonly client: SolanaClient;
+
+  constructor(
+    readonly config: ConfigType,
+  ) {
+    super(config.syncProtocol.name);
+    this.client = new SolanaClient(config.network.rpcUrl);
+  }
+
+  @bound
+  override *readData(
+    data: Input,
+    rootConversion: RootConversion<Output, RootOutput, RootPage>,
+    lastPage: LastPage<Page, RootPage> | undefined,
+  ): Operation<DataFetched<Output, Page, RootPage>> {
+    const outputs: OutputAndCleanup<Output>[] = [];
+
+    console.log(
+      `[Solana] Fetching slots from ${data.from} to ${data.to}.${
+        data.isPresync ? " [presync]" : ""
+      }`,
+    );
+
+    for (let slot = Number(data.from); slot <= Number(data.to); slot++) {
+      const block = yield* call(() =>
+        this.client.getBlock(slot)
+      );
+
+      // Skipped slots (no block produced) are skipped gracefully
+      if (!block) {
+        continue;
+      }
+
+      const primitives = yield* this.readPrimitives(
+        slot,
+        block,
+        this.config.primitives,
+      );
+
+      outputs.push({
+        output: {
+          slot,
+          blockhash: block.blockhash,
+          blockTime: block.blockTime,
+          blockHeight: block.blockHeight,
+          parentSlot: block.parentSlot,
+          transactions: (block.transactions ?? []).map((tx) => ({
+            err: tx.meta.err,
+            logMessages: tx.meta.logMessages,
+            preBalances: tx.meta.preBalances,
+            postBalances: tx.meta.postBalances,
+          })),
+          primitives,
+        },
+        cleanup: () => {},
+      });
+    }
+
+    if (outputs.length === 0) {
+      if (!lastPage) {
+        throw new Error(
+          `[Solana] Could not fetch any blocks from ${data.from} to ${data.to} and no previous page was found.`,
+        );
+      }
+      return {
+        output: [],
+        lastPage,
+      };
+    }
+
+    const lastOutput = outputs[outputs.length - 1].output;
+    return {
+      output: outputs,
+      lastPage: {
+        ownBlockNumber: lastOutput.slot,
+        own: lastOutput.slot as Page,
+        root: rootConversion.toRootPage(lastOutput),
+      },
+    };
+  }
+
+  @bound
+  *readPrimitives(
+    slot: number,
+    block: {
+      transactions: {
+        transaction: {
+          message: { accountKeys: string[] };
+        };
+        meta: {
+          logMessages: string[] | null;
+        };
+      }[];
+    },
+    primitiveEntries: Extract<
+      PrimitiveEntry,
+      { syncProtocol: ConfigSyncProtocolType.SOLANA_RPC_PARALLEL }
+    >[],
+  ): Operation<PrimitiveType[]> {
+    if (primitiveEntries.length === 0) return [];
+
+    const allPrimitives: PrimitiveType[] = [];
+
+    for (
+      let txIndex = 0;
+      txIndex < block.transactions.length;
+      txIndex++
+    ) {
+      const tx = block.transactions[txIndex];
+      const logs = tx.meta.logMessages ?? [];
+
+      for (const entry of primitiveEntries) {
+        const prim = entry.primitive;
+
+        // Check if this transaction involves the primitive's programId
+        const involvesProgram = tx.transaction.message.accountKeys.includes(
+          prim.programId,
+        );
+        if (!involvesProgram) continue;
+
+        // Filter by eventType if specified
+        if (prim.eventType) {
+          const hasMatchingLog = logs.some((log) =>
+            log.includes(prim.eventType!)
+          );
+          if (!hasMatchingLog) continue;
+        }
+
+        allPrimitives.push({
+          syncProtocol: {
+            name: entry.syncProtocol,
+            blockNumber: slot,
+            transactionHash: tx.transaction.message.accountKeys[0] ?? "",
+            contractAddress: prim.programId,
+            logIndex: txIndex,
+          },
+          primitive: prim.name,
+          output: {
+            payloadType: "solana:transaction",
+            payload: {
+              programId: prim.programId,
+              slot,
+              logMessages: logs,
+            },
+          },
+        });
+      }
+    }
+
+    return allPrimitives;
+  }
+}

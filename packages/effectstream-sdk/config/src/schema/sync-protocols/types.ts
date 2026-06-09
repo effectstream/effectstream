@@ -17,6 +17,7 @@ export enum ConfigSyncProtocolType {
   BITCOIN_RPC_PARALLEL = "bitcoin-rpc-parallel",
   CELESTIA_PARALLEL = "celestia-rpc-parallel",
   NEAR_RPC_PARALLEL = "near-rpc-parallel",
+  SOLANA_RPC_PARALLEL = "solana-rpc-parallel",
 }
 
 export const SyncProtocolToNetwork = {
@@ -30,6 +31,7 @@ export const SyncProtocolToNetwork = {
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: ConfigNetworkType.BITCOIN,
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: ConfigNetworkType.CELESTIA,
   [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]: ConfigNetworkType.NEAR,
+  [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]: ConfigNetworkType.SOLANA,
 } satisfies Record<ConfigSyncProtocolType, ConfigNetworkType>;
 
 export type NetworkTypeFromSyncProtocol<T extends ConfigSyncProtocolType> =
@@ -114,8 +116,7 @@ type CelestiaPrimitive = BasePrimitive & {
   namespace: string;
 };
 
-type NearPrimitive = BasePrimitive & {
-  /** NEAR account ID of the contract to watch (e.g., "intents.near") */
+type NearPrimitive = BasePrimitive & {  /** NEAR account ID of the contract to watch (e.g., "intents.near") */
   contractId: string;
   /** NEP-297 event standard field filter (e.g., "nep141", "dip4") */
   eventStandard?: string;
@@ -128,6 +129,13 @@ type NearPrimitive = BasePrimitive & {
 };
 
 type NtpMainPrimitive = BasePrimitive & {};
+
+type SolanaPrimitive = BasePrimitive & {
+  /** Solana program ID to watch for logs or account changes */
+  programId: string;
+  /** Optional event type label used to filter log lines */
+  eventType?: string;
+}
 
 export type BitcoinPrimitiveDirection = "inputs" | "outputs" | "both";
 
@@ -162,6 +170,7 @@ export type ProtocolPrimitiveMap = {
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitive;
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: CelestiaPrimitive;
   [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]: NearPrimitive;
+  [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]: SolanaPrimitive;
 };
 
 /**

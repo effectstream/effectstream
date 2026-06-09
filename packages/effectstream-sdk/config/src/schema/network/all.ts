@@ -12,6 +12,7 @@ import { ConfigNetworkSchemaNtp } from "./ntp.ts";
 import { ConfigNetworkSchemaBitcoin } from "./bitcoin.ts";
 import { ConfigNetworkSchemaCelestia } from "./celestia.ts";
 import { ConfigNetworkSchemaNear } from "./near.ts";
+import { ConfigNetworkSchemaSolana } from "./solana.ts";
 
 export const networkTypes = {
   [ConfigNetworkType.NTP]: ConfigNetworkSchemaNtp,
@@ -25,6 +26,7 @@ export const networkTypes = {
   [ConfigNetworkType.BITCOIN]: ConfigNetworkSchemaBitcoin,
   [ConfigNetworkType.CELESTIA]: ConfigNetworkSchemaCelestia,
   [ConfigNetworkType.NEAR]: ConfigNetworkSchemaNear,
+  [ConfigNetworkType.SOLANA]: ConfigNetworkSchemaSolana,
 } as const;
 
 export type ConfigNetworkSubmapping<T extends ConfigNetworkType> = ToMapping<

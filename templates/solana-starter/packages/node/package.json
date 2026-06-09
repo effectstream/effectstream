@@ -1,0 +1,9 @@
+{
+  "name": "@solana-starter/node",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start:dev": "bun run main.dev.ts"
+  }
+}

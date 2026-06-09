@@ -31,6 +31,8 @@ import { CelestiaFetcher } from "./sync-protocols/celestia/fetcher.ts";
 import { CelestiaSyncState } from "./sync-protocols/celestia/state.ts";
 import { NearFetcher } from "./sync-protocols/near/fetcher.ts";
 import { NearSyncState } from "./sync-protocols/near/state.ts";
+import { SolanaFetcher } from "./sync-protocols/solana/fetcher.ts";
+import { SolanaSyncState } from "./sync-protocols/solana/state.ts";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -144,6 +146,16 @@ export function* genSyncProtocols(
     ) {
       const fetcher = new NearFetcher(entry);
       const state = yield* NearSyncState.restoreState(
+        dbConn,
+        entry,
+        fetcher,
+      );
+      result.push(state);
+    } else if (
+      entry.networkType === ConfigNetworkType.SOLANA
+    ) {
+      const fetcher = new SolanaFetcher(entry);
+      const state = yield* SolanaSyncState.restoreState(
         dbConn,
         entry,
         fetcher,
