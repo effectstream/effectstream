@@ -54,8 +54,8 @@ const fillerProcesses = fillerDefinitions.map((filler) => {
 export default {
   processes: [
     ...launchPglite(),
-    ...launchBitcoin("@night-bitcoin/contracts-bitcoin", { resolveFrom: root }),
-    ...launchMidnight("@night-bitcoin/contracts-midnight", { resolveFrom: root }, {
+    ...launchBitcoin("@night-bitcoin/contracts-bitcoin", { cwd: path.join(root, "packages/contracts-bitcoin") }),
+    ...launchMidnight("@night-bitcoin/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
       env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
     }),
 

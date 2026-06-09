@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
 import { launchBitcoin, BitcoinNames } from "@effectstream/orchestrator/launch-bitcoin";
@@ -6,8 +7,8 @@ import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch
 export default {
   processes: [
     ...launchPglite(),
-    ...launchBitcoin("@night-bitcoin/contracts-bitcoin", { resolveFrom: import.meta.dirname! }),
-    ...launchMidnight("@night-bitcoin/contracts-midnight", { resolveFrom: import.meta.dirname! }, {
+    ...launchBitcoin("@night-bitcoin/contracts-bitcoin", { cwd: path.join(import.meta.dirname!, "../contracts-bitcoin") }),
+    ...launchMidnight("@night-bitcoin/contracts-midnight", { cwd: path.join(import.meta.dirname!, "../contracts-midnight") }, {
       env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
     }),
 
