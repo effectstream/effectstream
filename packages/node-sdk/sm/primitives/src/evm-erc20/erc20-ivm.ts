@@ -2,6 +2,7 @@
 // This will allow to create new tables during migrations.
 
 import { PrimitiveTypeEVMERC20 } from "../builtin.ts";
+import type { MaterializedViewStrategy } from "@effectstream/db";
 
 // TODO The IVM here is not relevant, as the trigger does the work.
 
@@ -9,9 +10,10 @@ import { PrimitiveTypeEVMERC20 } from "../builtin.ts";
  * Creates a new IVM for the ERC20 token with the given name.
  * This will track the current balance of each address.
  * @param name - The name of the ERC20 token.
+ * @param strategy - How to publish the read-side view (pg_ivm or plain VIEW).
  * @returns A string containing the SQL script to create the IVM.
  */
-export function erc20Ivm(name: string) {
+export function erc20Ivm(name: string, strategy: MaterializedViewStrategy) {
   const lowerName = name.toLowerCase();
   const validSQLName = lowerName.replace(/[^a-zA-Z0-9_]/g, "");
   if (validSQLName !== lowerName) {
@@ -19,6 +21,9 @@ export function erc20Ivm(name: string) {
   }
 
   const balanceTable = `primitives.erc20_balances_intermediate_${validSQLName}`;
+  const viewName = `primitives.erc20_balances_view_${validSQLName}`;
+  const selectSql =
+    `SELECT primitive_name, address, balance FROM ${balanceTable} WHERE balance > 0`;
 
   return `
     -- Intermediate table for current ERC20 balances (maintained by triggers)
@@ -28,7 +33,7 @@ export function erc20Ivm(name: string) {
         balance numeric(78,0) DEFAULT 0,
         PRIMARY KEY (primitive_name, address)
     );
-    
+
     -- Trigger function to maintain ERC20 balances
     CREATE OR REPLACE FUNCTION update_erc20_balances_${validSQLName}() RETURNS TRIGGER AS $$
     DECLARE
@@ -37,25 +42,25 @@ export function erc20Ivm(name: string) {
         to_address TEXT;
     BEGIN
         -- Only process ERC20 transfers
-        IF NEW.payload_type = '${PrimitiveTypeEVMERC20}' 
+        IF NEW.payload_type = '${PrimitiveTypeEVMERC20}'
            AND NEW.primitive_name = '${name}'
            AND NEW.payload->>'value' IS NOT NULL THEN
-           
+
          transfer_value := (NEW.payload->>'value')::numeric(78,0);
          from_address := lower(NEW.payload->>'from');
          to_address := lower(NEW.payload->>'to');
-         
+
          -- Handle FROM address (subtract balance, but skip burn address)
-         IF from_address IS NOT NULL 
-            AND from_address != '' 
+         IF from_address IS NOT NULL
+            AND from_address != ''
             AND from_address != '0x0000000000000000000000000000000000000000' THEN
-             
+
              INSERT INTO ${balanceTable} (primitive_name, address, balance)
              VALUES (NEW.primitive_name, from_address, -transfer_value)
              ON CONFLICT (primitive_name, address) DO UPDATE SET
                  balance = ${balanceTable}.balance - transfer_value;
          END IF;
-         
+
          -- Handle TO address (add balance)
          IF to_address IS NOT NULL AND to_address != '' THEN
              INSERT INTO ${balanceTable} (primitive_name, address, balance)
@@ -64,26 +69,19 @@ export function erc20Ivm(name: string) {
                  balance = ${balanceTable}.balance + transfer_value;
          END IF;
         END IF;
-        
+
         RETURN NEW;
     END;
     $$ LANGUAGE plpgsql;
-    
+
     -- Create trigger on primitive_accounting for ERC20 balances
     CREATE TRIGGER trigger_update_erc20_balances_${validSQLName}
         AFTER INSERT ON effectstream.primitive_accounting  -- Note: Qualify with paima schema
         FOR EACH ROW
         EXECUTE FUNCTION update_erc20_balances_${validSQLName}();
-    
-    -- Simple incrementally maintained view on the intermediate table
-    SELECT pgivm.create_immv('primitives.erc20_balances_view_${validSQLName}',
-        'SELECT
-            primitive_name,
-            address,
-            balance
-        FROM ${balanceTable}
-        WHERE balance > 0;
-    ');
+
+    -- Publish the read-side view (incrementally maintained or plain, per strategy)
+    ${strategy.createView(viewName, selectSql)}
     `;
 }
 

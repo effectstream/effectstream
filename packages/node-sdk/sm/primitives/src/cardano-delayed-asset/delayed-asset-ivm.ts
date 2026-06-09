@@ -1,6 +1,10 @@
 import { PrimitiveTypeCardanoDelayedAsset } from "../builtin.ts";
+import type { MaterializedViewStrategy } from "@effectstream/db";
 
-export function delayedAssetIvm(name: string) {
+export function delayedAssetIvm(
+  name: string,
+  strategy: MaterializedViewStrategy,
+) {
   const lowerName = name.toLowerCase();
   const validSQLName = lowerName.replace(/[^a-zA-Z0-9_]/g, "");
   if (validSQLName !== lowerName) {
@@ -8,6 +12,9 @@ export function delayedAssetIvm(name: string) {
   }
 
   const intermediateTable = `primitives.cardano_asset_utxos_intermediate_${validSQLName}`;
+  const viewName = `primitives.cardano_asset_utxos_view_${validSQLName}`;
+  const selectSql =
+    `SELECT primitive_name, tx_id, output_index, address, cip14_fingerprint, policy_id, asset_name, amount, block_height FROM ${intermediateTable}`;
 
   return `
     CREATE TABLE IF NOT EXISTS ${intermediateTable} (
@@ -69,19 +76,7 @@ export function delayedAssetIvm(name: string) {
         FOR EACH ROW
         EXECUTE FUNCTION update_delayed_asset_${validSQLName}();
 
-    SELECT pgivm.create_immv('primitives.cardano_asset_utxos_view_${validSQLName}',
-        'SELECT
-            primitive_name,
-            tx_id,
-            output_index,
-            address,
-            cip14_fingerprint,
-            policy_id,
-            asset_name,
-            amount,
-            block_height
-        FROM ${intermediateTable};
-    ');
+    ${strategy.createView(viewName, selectSql)}
     `;
 }
 
