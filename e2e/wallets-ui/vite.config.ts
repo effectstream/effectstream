@@ -5,6 +5,7 @@ import "react";
 import "react-dom";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
+import { existsSync } from "node:fs";
 import wasm from "vite-plugin-wasm";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
@@ -20,6 +21,22 @@ const utilsPath = join(projectRoot, "../../packages/effectstream-sdk/utils/");
 
 const midnightContractEip20Path = join(projectRoot, "../shared/contracts/midnight/contract-eip-20/src/managed/contract/");
 const midnightContractCounterBasicPath = join(projectRoot, "../shared/contracts/midnight/contract-counter/src/managed/contract/");
+
+// The client statically imports the gitignored `src/managed/` output of the
+// Midnight contracts. Fail fast with instructions instead of letting rollup
+// die later with a cryptic "Could not resolve ./managed/contract/index.js".
+for (const [name, managedPath] of [
+  ["contract-counter", midnightContractCounterBasicPath],
+  ["contract-eip-20", midnightContractEip20Path],
+] as const) {
+  if (!existsSync(managedPath)) {
+    throw new Error(
+      `Missing generated Midnight contract artifacts for ${name}.\n` +
+        `Compile them first (requires the \`compact\` CLI):\n\n` +
+        `  cd e2e/shared/contracts/midnight/${name} && bun run compact\n`,
+    );
+  }
+}
 
 // Browser-safe config — the real @e2e/data-types/config-localhost reads
 // the filesystem at module load which crashes in the browser.
@@ -71,11 +88,19 @@ export default defineConfig({
     nodePolyfills(),
     viteStaticCopy({
       targets: [
-        {
-          src: join(projectRoot, "../shared/contracts/midnight/contract-counter.undeployed.json"),
-          dest: "contract_address",
-          rename: "counter.undeployed.json",
-        },
+        // The deployed-contract address only exists after
+        // `midnight-contract:deploy` against a live local node; the build
+        // smoke must work without it (the Midnight counter flow fails its
+        // runtime fetch with a clear error instead).
+        ...(existsSync(join(projectRoot, "../shared/contracts/midnight/contract-counter.undeployed.json"))
+          ? [
+              {
+                src: join(projectRoot, "../shared/contracts/midnight/contract-counter.undeployed.json"),
+                dest: "contract_address",
+                rename: "counter.undeployed.json",
+              },
+            ]
+          : []),
         {
           src: join(projectRoot, "../shared/contracts/midnight/contract-counter/src/managed/keys/*"),
           dest: "keys",
