@@ -383,6 +383,61 @@ const getFutureGameInputByMaxTimestampIR: any = {"usedParamSet":{"max_timestamp"
 export const getFutureGameInputByMaxTimestamp = new PreparedQuery<IGetFutureGameInputByMaxTimestampParams,IGetFutureGameInputByMaxTimestampResult>(getFutureGameInputByMaxTimestampIR);
 
 
+/** 'GetEarliestScheduledBlockHeight' parameters type */
+export type IGetEarliestScheduledBlockHeightParams = void;
+
+/** 'GetEarliestScheduledBlockHeight' return type */
+export interface IGetEarliestScheduledBlockHeightResult {
+  min_block_height: number | null;
+}
+
+/** 'GetEarliestScheduledBlockHeight' query type */
+export interface IGetEarliestScheduledBlockHeightQuery {
+  params: IGetEarliestScheduledBlockHeightParams;
+  result: IGetEarliestScheduledBlockHeightResult;
+}
+
+const getEarliestScheduledBlockHeightIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT MIN(future_block_height) AS min_block_height\nFROM effectstream.rollup_input_future_block"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT MIN(future_block_height) AS min_block_height
+ * FROM effectstream.rollup_input_future_block
+ * ```
+ */
+export const getEarliestScheduledBlockHeight = new PreparedQuery<IGetEarliestScheduledBlockHeightParams,IGetEarliestScheduledBlockHeightResult>(getEarliestScheduledBlockHeightIR);
+
+
+/** 'GetEarliestScheduledTimestamp' parameters type */
+export type IGetEarliestScheduledTimestampParams = void;
+
+/** 'GetEarliestScheduledTimestamp' return type */
+export interface IGetEarliestScheduledTimestampResult {
+  min_timestamp: Date | null;
+}
+
+/** 'GetEarliestScheduledTimestamp' query type */
+export interface IGetEarliestScheduledTimestampQuery {
+  params: IGetEarliestScheduledTimestampParams;
+  result: IGetEarliestScheduledTimestampResult;
+}
+
+const getEarliestScheduledTimestampIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT MIN(rollup_input_future_timestamp.future_ms_timestamp) AS min_timestamp\nFROM effectstream.rollup_input_future_timestamp\nLEFT OUTER JOIN effectstream.rollup_input_result\n  ON (effectstream.rollup_input_result.id = effectstream.rollup_input_future_timestamp.id)\nWHERE effectstream.rollup_input_result.id IS NULL"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT MIN(rollup_input_future_timestamp.future_ms_timestamp) AS min_timestamp
+ * FROM effectstream.rollup_input_future_timestamp
+ * LEFT OUTER JOIN effectstream.rollup_input_result
+ *   ON (effectstream.rollup_input_result.id = effectstream.rollup_input_future_timestamp.id)
+ * WHERE effectstream.rollup_input_result.id IS NULL
+ * ```
+ */
+export const getEarliestScheduledTimestamp = new PreparedQuery<IGetEarliestScheduledTimestampParams,IGetEarliestScheduledTimestampResult>(getEarliestScheduledTimestampIR);
+
+
 /** 'GetGameInputResultByBlockHeight' parameters type */
 export interface IGetGameInputResultByBlockHeightParams {
   block_height: number;

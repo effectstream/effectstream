@@ -48,6 +48,7 @@ export type RunSpec = {
    * ahead and persisted its page row before we kill the process.
    */
   waitPages?: Record<string, number>;
+  coalesce?: boolean;
 };
 
 const noopStf: StartConfigGameStateTransitions = function* () {};
@@ -60,6 +61,7 @@ async function main() {
   // broker (it binds fixed ports and isn't freed on halt) and a per-run API port.
   process.env.MQTT_BROKER = "false";
   process.env.EFFECTSTREAM_API_PORT = String(spec.apiPort);
+  process.env.EFFECTSTREAM_COALESCE_EMPTY_BLOCKS = spec.coalesce ? "true" : "false";
   const isPglite = process.env.PGLITE === "true";
 
   for (const [name, tip] of Object.entries(spec.tips)) {

@@ -32,6 +32,7 @@ import {
   type PendingEvent,
   processFinalizedBlockWithRetry,
 } from "./process-blocks.ts";
+import { createEmptyBlockCoalescer } from "./coalesce.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import { recordAppliedBlock } from "./api/apply-status.ts";
 import type { StartConfig } from "./types.ts";
@@ -92,9 +93,12 @@ export function* start(config: StartConfig): Operation<void> {
     );
   });
 
+  // 10× main clock block time (NTP if present, else protocol 0). Undefined disables lag gating.
   const ntpConfig = syncInfo.find(s => s.networkType === ConfigNetworkType.NTP);
-  const ntpBlockTimeMS = (ntpConfig?.network as { blockTimeMS: number } | undefined)?.blockTimeMS;
-  const lagThresholdMs = ntpBlockTimeMS != null ? ntpBlockTimeMS * 10 : undefined;
+  const clockBlockTimeMS =
+    (ntpConfig?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS ??
+    (syncInfo[0]?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS;
+  const lagThresholdMs = clockBlockTimeMS != null ? clockBlockTimeMS * 10 : undefined;
 
   const finalizedBlockStream = createChannel<ChainBlock>();
 
@@ -148,9 +152,36 @@ export function* start(config: StartConfig): Operation<void> {
     yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
   }
 
-  let nextBlock = yield* finalizedBlocks.next();
-  for (; !nextBlock.done; nextBlock = yield* finalizedBlocks.next()) {
-    const value = nextBlock.value;
+  const coalescer = createEmptyBlockCoalescer({
+    enabled: ENV.EFFECTSTREAM_COALESCE_EMPTY_BLOCKS,
+    subscription: finalizedBlocks,
+    pool: dbConn as any, // Pool,
+    migrations: config.migrations,
+    lagThresholdMs,
+    getPreviousBlockHash: () => blockHash,
+    onFlush: (endpoint, length) => {
+      recordAppliedBlock(endpoint);
+      emitLatestBlocks(
+        endpoint.blockNumber,
+        endpoint.timestamp,
+        getRangesForSyncProtocols(endpoint),
+      );
+      log.local(
+        ComponentNames.EFFECTSTREAM_SYNC,
+        "block-merge",
+        SeverityNumber.INFO,
+        (l) =>
+          l(
+            `coalesced ${length} empty block(s) → block ${endpoint.blockNumber}`,
+          ),
+      );
+    },
+  });
+
+  while (true) {
+    const value = yield* coalescer.advance();
+    if (value === undefined) break;
+
     // processFinalizedBlockWithRetry owns connection checkout, the per-block
     // DB mutex (PGLite), and transient-pg retry/backoff. App events it
     // collects are flushed below ONLY after it returns — i.e. strictly after
