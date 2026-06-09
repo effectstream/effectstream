@@ -1,0 +1,15 @@
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "files.associations": {
+    ".env.*": "properties"
+  },
+  "[sql]": {
+    "editor.formatOnSave": false
+  },
+  "[json][jsonc][json5]": {
+    "editor.formatOnSave": true
+  }
+}

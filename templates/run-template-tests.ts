@@ -42,6 +42,7 @@ export const ENABLED = [
   "zk-cardano",
   "zswap-da",
   "batcher-validations",
+  "hex-battle",
   // "chess-v2",        // TODO: migrate to effectstream-bun
   // "chess",           // TODO: migrate to effectstream-bun
   // "dice",            // TODO: migrate to effectstream-bun
