@@ -1,0 +1,58 @@
+.wrapper {
+  margin: 1.75rem 0;
+  border: 1px solid var(--cyano-paper-trace);
+  border-radius: 2px;
+  background: rgba(244, 249, 251, 0.03);
+  overflow: hidden;
+}
+
+.label {
+  padding: 0.45rem 0.85rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--cyano-amber);
+  background: rgba(244, 249, 251, 0.04);
+  border-bottom: 1px dashed var(--cyano-paper-trace);
+}
+
+.body {
+  padding: 0.85rem 1rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+}
+
+.message {
+  flex: 1 1 16rem;
+  margin: 0;
+  color: var(--cyano-paper-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.action {
+  flex: 0 0 auto;
+  display: inline-block;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--cyano-amber);
+  border-radius: 2px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cyano-amber);
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.action:hover {
+  background-color: var(--cyano-amber);
+  color: var(--cyano-bg);
+  text-decoration: none;
+}

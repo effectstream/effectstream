@@ -1,0 +1,156 @@
+---
+slug: go-fish
+title: Go Fish
+date: 2026-05-01
+description: Mental poker and MPC-style card shuffling, with a private key fed directly into circuits.
+leaderboardUrl: https://api-gofish.midnight.fun/metrics/leaderboard?limit=10&offset=0
+achievementsUrl: https://api-gofish.midnight.fun/metrics
+repoUrl: https://github.com/effectstream/go-fish
+---
+
+import GameEmbed from '@site/src/components/GameEmbed';
+
+{/* truncate */}
+
+<GameEmbed slug="go-fish" title="Go Fish" src="https://gofish.midnight.fun/?game_frame=true" />
+
+<MultiChainNote />
+
+The classic card game, played honestly between two strangers - no trusted dealer, thanks to mental poker.
+
+## Under the hood
+
+**The game.** Go Fish is a 2-player card game: ask your opponent for ranks, draw from the pond, and collect books of four. The client is built in **Three.js** with Balatro-style post-processing.
+
+**Chains.** Go Fish splits responsibilities across two chains: **Arbitrum** hosts the lobby and matchmaking (a `PaimaL2Contract` emits `createdLobby` / `joinedLobby`), while the actual card cryptography - shuffling, dealing, revealing - runs on **Midnight**. Arbitrum is swappable for any EVM chain; the Midnight side is where the interesting part lives.
+
+**Running on EffectStream.** The EffectStream state machine watches the EVM lobby events and auto-starts the match when the second player joins, then tracks the Midnight gameplay. Card moves are proved client-side in a WebAssembly worker and submitted through the **batcher** in gasless mode, so players don't need a funded wallet to play. A 300-second turn timeout (enforced on-chain) keeps a stalled opponent from freezing the game.
+
+**Leaderboard.** Players are ranked by games won and win-rate on the leaderboard endpoint (the Standings panel). No achievements - the ladder is the progression surface. The contract is also multi-tenant: one deployment hosts many concurrent games, every piece of state keyed by `gameId`.
+
+## The Compact contract
+
+<GameRepo />
+
+**Source:** [`packages/shared/contracts/midnight/go-fish-contract/src/Deck.compact`](https://github.com/effectstream/go-fish/blob/main/packages/shared/contracts/midnight/go-fish-contract/src/Deck.compact)
+
+Go Fish's headline is a complete **mental poker** implementation in Compact - the protocol for shuffling and dealing a deck without anyone, including the contract, learning the card order. It isn't Go Fish-specific: any card game can be built on top of it. Cards are points on the Jubjub curve; players collaboratively mask the deck with secret scalars and reveal cards by peeling those scalars back off.
+
+### Cards as elliptic curve points
+
+Every card is a point on the embedded Jubjub curve. A static deck of 21 points (one per card value) is initialized once at deploy time and shared by every game; each per-game shuffle starts from a copy. Storing cards as curve points is what makes the rest of the protocol possible: `std_ecMul(point, scalar)` lets each player homomorphically mask the deck with their secret without anyone decrypting anything in between.
+
+<CompactCode summary="`init_static_deck` + per-game deck">
+
+```compact
+module Deck {
+import CompactStandardLibrary;
+import CompactStandardLibrary prefix std_;
+import './HashTransient' prefix h_;
+
+// Static mapping shared by every game: value <-> JubjubPoint
+export ledger deckCurveToCard:        Map<JubjubPoint, Field>;
+export ledger reverseDeckCurveToCard: Map<Uint<32>, JubjubPoint>;
+export ledger staticDeckInitialized:  Boolean;
+
+// Per-game deck state: gid -> {cardIndex -> JubjubPoint}
+export ledger gameDeck:         Map<Bytes<32>, Map<Uint<32>, JubjubPoint>>;
+export ledger gameDeckSize:     Map<Bytes<32>, Uint<64>>;
+export ledger gameTopCardIndex: Map<Bytes<32>, Uint<32>>;
+
+// One-time: seed the static deck with 21 curve points
+export circuit init_static_deck(): [] {
+    if (staticDeckInitialized) { return []; }
+    for (const i of 0..21) {
+        const cardPoint: JubjubPoint = getPointFromValue(i);
+        deckCurveToCard.insert(cardPoint, (i) as Field);
+        reverseDeckCurveToCard.insert((i) as Uint<32>, cardPoint);
+    }
+    staticDeckInitialized = true;
+}
+```
+
+</CompactCode>
+
+### Joint shuffle with cheating detection
+
+Each player calls `shuffle_deck`. The circuit masks every card with the player's secret scalar via `std_ecMul`, then asks an off-chain witness (`get_sorted_deck_witness`) to return the masked cards in shuffled order. To catch a witness that swapped a card out, the circuit computes a coordinate-based **grand product** over both the original and the sorted lists with an in-circuit challenge `gamma`; the products must match. If any card was substituted, the product breaks and the shuffle reverts. After the second player shuffles, the deck is fully masked - no single party can decrypt it.
+
+<CompactCode summary="`shuffle_deck`">
+
+```compact
+export circuit shuffle_deck(gameId: Bytes<32>, playerIndex: Uint<64>): [] {
+    const gid = disclose(gameId);
+    const secret = player_secret_key(gid, playerIndex);
+
+    const INDICES_21: Vector<21, Uint<64>> = [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    ];
+
+    // Apply the player's secret as a scalar to every card point
+    const cards = map((idx) => {
+        const point = gameDeck.lookup(gid).lookup(disclose(idx) as Uint<32>) as JubjubPoint;
+        return std_ecMul(disclose(point), disclose(secret));
+    }, INDICES_21);
+
+    // Witness returns the masked deck in shuffled order
+    const sorted_cards = get_sorted_deck_witness(cards);
+
+    // Grand-product cheating check over X-coordinates
+    const xsum = fold((acc, c) => acc + jubjubPointX(c), 0 as Field, cards);
+    const gamma: Field = h_hashField(xsum) as Field;
+
+    const prod_original = fold((acc, c) => acc * (jubjubPointX(c) + gamma), 1 as Field, cards);
+    const prod_sorted   = fold((acc, c) => acc * (jubjubPointX(c) + gamma), 1 as Field, sorted_cards);
+    assert(prod_original == prod_sorted,
+           "Witness failed: Cheating detected (cards modified)");
+
+    // Write the shuffled, masked deck back
+    for (const i of 0..21) {
+        gameDeck.lookup(gid).insert((i) as Uint<32>, disclose(sorted_cards[i]));
+    }
+}
+```
+
+</CompactCode>
+
+### Card reveal via partial decryption
+
+To learn a card, every other player who masked the deck applies the **inverse** of their secret scalar with `std_ecMul(point, invScalar)`. Once all masks except the asking player's are peeled off, the result is a `JubjubPoint` back in the static value-to-point map - the asker reads its card value while everyone else still sees only a masked point. The contract verifies the inverse scalar against a stored hash so a player can't submit a wrong inverse to corrupt the reveal.
+
+<CompactCode summary="`partial_decryption`">
+
+```compact
+// player_secret_key & getFieldInverse are private witnesses; only their
+// hashes go on-chain.
+witness getFieldInverse(x: Field): Field;
+witness player_secret_key(gameId: Bytes<32>, player: Field): Field;
+
+export circuit partial_decryption(
+    gameId: Bytes<32>,
+    point: JubjubPoint,
+    playerId: Uint<64>,
+): JubjubPoint {
+    const gid = disclose(gameId);
+    const secret = player_secret_key(gid, disclose(playerId));
+    const secret_hash = h_hashField(secret);
+
+    // Verify this secret was used to mask this game's deck
+    assert(
+        gamePlayersKeysHashes.lookup(gid).member(disclose(secret_hash)),
+        "Player secret key unknown in this game",
+    );
+
+    // Recompute the multiplicative inverse and verify against the stored hash
+    const invScalar = getFieldInverse(disclose(secret));
+    const invScalar_hash = h_hashField(invScalar);
+    const expected = gamePlayersKeysInverses.lookup(gid).lookup(disclose(secret_hash)) as Bytes<32>;
+    assert(invScalar_hash == expected, "Witness failed: Invalid Field inverse");
+
+    // Peel this player's mask off the point
+    return std_ecMul(disclose(point), disclose(invScalar));
+}
+```
+
+</CompactCode>
