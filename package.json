@@ -1,6 +1,6 @@
 {
   "name": "effectstream",
-  "version": "0.100.19",
+  "version": "0.100.20",
   "private": true,
   "workspaces": [
     "packages/**",
