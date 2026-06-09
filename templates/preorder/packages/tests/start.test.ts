@@ -54,6 +54,17 @@ export default {
     },
 
     {
+      name: "batcher",
+      description: "NFT mint batcher",
+      args: ["run", "packages/batcher/batcher.dev.ts"],
+      cwd: root,
+      waitToExit: false,
+      type: "system-dependency",
+      stopProcessAtPort: [3334],
+      dependsOn: [EvmNames.GENERATE_MOD],
+    },
+
+    {
       name: "frontend-dev",
       description: "Vite dev server for E2E tests",
       args: ["x", "vite", "--port", "10598", "--mode", "dev"],

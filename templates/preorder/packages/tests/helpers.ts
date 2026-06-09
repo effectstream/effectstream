@@ -7,6 +7,7 @@ export type DeployedAddresses = {
   factory: `0x${string}`;
   mockErc20: `0x${string}`;
   effectStreamL2: `0x${string}`;
+  itemNft: `0x${string}`;
   admin: `0x${string}`;
 };
 

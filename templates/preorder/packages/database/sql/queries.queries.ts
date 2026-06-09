@@ -1224,3 +1224,68 @@ const getReferralRewardsByCampaignIR: any = {"usedParamSet":{"campaign_id":true}
 export const getReferralRewardsByCampaign = new PreparedQuery<IGetReferralRewardsByCampaignParams,IGetReferralRewardsByCampaignResult>(getReferralRewardsByCampaignIR);
 
 
+/** 'GetMintableItems' parameters type */
+export interface IGetMintableItemsParams {
+  launchpad: string;
+}
+
+/** 'GetMintableItems' return type */
+export interface IGetMintableItemsResult {
+  chain: string;
+  item_id: number;
+  quantity: number;
+  wallet: string;
+}
+
+/** 'GetMintableItems' query type */
+export interface IGetMintableItemsQuery {
+  params: IGetMintableItemsParams;
+  result: IGetMintableItemsResult;
+}
+
+const getMintableItemsIR: any = {"usedParamSet":{"launchpad":true},"params":[{"name":"launchpad","required":true,"transform":{"type":"scalar"},"locs":[{"a":179,"b":189}]}],"statement":"SELECT ui.wallet, ui.item_id, ui.quantity, u.chain\nFROM launchpad_user_items ui\nJOIN launchpad_users u ON u.launchpad = ui.launchpad AND u.wallet = ui.wallet\nWHERE ui.launchpad = :launchpad!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT ui.wallet, ui.item_id, ui.quantity, u.chain
+ * FROM launchpad_user_items ui
+ * JOIN launchpad_users u ON u.launchpad = ui.launchpad AND u.wallet = ui.wallet
+ * WHERE ui.launchpad = :launchpad!
+ * ```
+ */
+export const getMintableItems = new PreparedQuery<IGetMintableItemsParams,IGetMintableItemsResult>(getMintableItemsIR);
+
+
+/** 'InsertNftMint' parameters type */
+export interface IInsertNftMintParams {
+  campaign_id: string;
+  chain: string;
+  created_block: number;
+  item_id: number;
+  quantity: number;
+  wallet: string;
+}
+
+/** 'InsertNftMint' return type */
+export type IInsertNftMintResult = void;
+
+/** 'InsertNftMint' query type */
+export interface IInsertNftMintQuery {
+  params: IInsertNftMintParams;
+  result: IInsertNftMintResult;
+}
+
+const insertNftMintIR: any = {"usedParamSet":{"campaign_id":true,"chain":true,"wallet":true,"item_id":true,"quantity":true,"created_block":true},"params":[{"name":"campaign_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":101,"b":113}]},{"name":"chain","required":true,"transform":{"type":"scalar"},"locs":[{"a":116,"b":122}]},{"name":"wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":125,"b":132}]},{"name":"item_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":135,"b":143}]},{"name":"quantity","required":true,"transform":{"type":"scalar"},"locs":[{"a":146,"b":155}]},{"name":"created_block","required":true,"transform":{"type":"scalar"},"locs":[{"a":169,"b":183}]}],"statement":"INSERT INTO nft_mints (campaign_id, chain, wallet, item_id, quantity, status, created_block)\nVALUES (:campaign_id!, :chain!, :wallet!, :item_id!, :quantity!, 'pending', :created_block!)\nON CONFLICT (campaign_id, chain, wallet, item_id) DO NOTHING"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO nft_mints (campaign_id, chain, wallet, item_id, quantity, status, created_block)
+ * VALUES (:campaign_id!, :chain!, :wallet!, :item_id!, :quantity!, 'pending', :created_block!)
+ * ON CONFLICT (campaign_id, chain, wallet, item_id) DO NOTHING
+ * ```
+ */
+export const insertNftMint = new PreparedQuery<IInsertNftMintParams,IInsertNftMintResult>(insertNftMintIR);
+
+

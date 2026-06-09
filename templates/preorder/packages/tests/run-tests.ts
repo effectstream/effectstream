@@ -250,6 +250,14 @@ async function test() {
     const { frontendE2eTest } = await import("./frontend/e2e.test.ts");
     await frontendE2eTest();
 
+    // ── Phase F: Admin post-sale NFT minting ────────────────────────────
+    // Runs last: it ends the campaign + mints via the batcher, which would
+    // otherwise break the purchase-dependent phases above.
+    console.log("\n--- Phase F: Admin NFT Minting ---\n");
+
+    const { adminMintTest } = await import("./stm/admin-mint.test.ts");
+    await adminMintTest(db);
+
     printSummary();
   } catch (e) {
     printSummary();

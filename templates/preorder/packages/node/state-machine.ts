@@ -15,7 +15,10 @@ import {
   upsertCampaign,
   endCampaign,
   getCampaignByReceiver,
+  getCampaignById,
   getActiveCampaign,
+  getMintableItems,
+  insertNftMint,
   upsertProduct,
   getProductsByCampaign,
   upsertCoin,
@@ -220,6 +223,44 @@ stm.addStateTransition("set-coin", function* (data) {
     decimals: Number(c.decimals ?? 18),
   });
   console.log(`[STM:set-coin] ${c.token} x=${c.x} n=${c.n}`);
+});
+
+// Post-sale NFT distribution. Once a campaign is ended, enqueue one mint job per
+// (chain, buyer, item) for every item a buyer owns. The off-chain nft-dispatch
+// worker drains these and submits them to the batcher. Deterministic + idempotent
+// (re-running adds nothing new thanks to the nft_mints primary key).
+stm.addStateTransition("mint-nfts", function* (data) {
+  if (!isAdmin(data)) return;
+  const { campaignId } = data.parsedInput;
+  const id = String(campaignId);
+
+  const [campaign] = yield* World.resolve(getCampaignById, { campaign_id: id });
+  if (!campaign) {
+    console.log(`[STM:mint-nfts] unknown campaign ${id}`);
+    return;
+  }
+  if (campaign.status !== "ended") {
+    console.log(`[STM:mint-nfts] campaign ${id} not ended (status=${campaign.status})`);
+    return;
+  }
+
+  // launchpad_user_items is keyed by the campaign's launchpad address (see buy-items).
+  const launchpad = String(campaign.launchpad_address);
+  const rows = yield* World.resolve(getMintableItems, { launchpad });
+
+  let count = 0;
+  for (const r of rows) {
+    yield* World.resolve(insertNftMint, {
+      campaign_id: id,
+      chain: r.chain,
+      wallet: r.wallet,
+      item_id: r.item_id,
+      quantity: r.quantity,
+      created_block: data.blockHeight,
+    });
+    count++;
+  }
+  console.log(`[STM:mint-nfts] campaign=${id} enqueued ${count} mint job(s)`);
 });
 
 // ──────────────────────────────────────────────────────────────────────────

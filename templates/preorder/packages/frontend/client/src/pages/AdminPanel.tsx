@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import type { Address } from "viem";
 import { CurrencyToggle } from "../components/CurrencyToggle.tsx";
-import { adminAddress, createCampaign, setProduct, endCampaign, setCoin, getAdminBalance } from "../wallet/admin-wallet.ts";
+import { adminAddress, createCampaign, setProduct, endCampaign, setCoin, mintNfts, getAdminBalance } from "../wallet/admin-wallet.ts";
 import { WalletConfirmModal } from "../wallet/WalletConfirmModal.tsx";
 import { AddressChip } from "../components/AddressChip.tsx";
 import { useLog } from "../logs/LogContext.tsx";
@@ -84,6 +84,16 @@ type AdminStatus = {
     tx_hash: string;
     block_height: number;
   }[];
+  nftMints?: {
+    chain: string;
+    wallet: string;
+    item_id: number;
+    quantity: number;
+    status: string;
+    tx_hash?: string;
+    error?: string;
+  }[];
+  nftMintSummary?: Record<string, number>;
   summary: { total: number; valid: number; invalid: number };
 };
 
@@ -157,6 +167,23 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
     }, 1500);
   }, []);
 
+  // Minting (esp. Cardano) is serial + slow, so keep refreshing the status until no jobs remain
+  // pending/submitted (or a generous cap). Without this the table stops polling after ~12s and
+  // looks "stuck" while mints are still completing.
+  const pollMintsUntilSettled = useCallback(() => {
+    let n = 0;
+    const iv = setInterval(async () => {
+      try {
+        const s = await (await fetch(`${apiUrl}/api/admin/status/${CAMPAIGN_ID}`)).json();
+        setStatus(s);
+        const sum = (s.nftMintSummary || {}) as Record<string, number>;
+        const inflight = (sum.pending || 0) + (sum.submitted || 0);
+        if (inflight === 0 && ((sum.minted || 0) + (sum.failed || 0)) > 0) clearInterval(iv);
+      } catch { /* keep polling */ }
+      if (++n >= 150) clearInterval(iv); // ~5 min cap
+    }, 2000);
+  }, [apiUrl]);
+
   // Surface a Sign Transaction modal (admin signs with the local dev key) before submitting.
   const requestConfirm = useCallback((summary: string, run: () => Promise<void>) => {
     getAdminBalance()
@@ -224,6 +251,20 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
       refreshSoon();
     } catch (e: any) {
       addLog("error", "end-campaign failed", e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitMintNfts = async () => {
+    if (!l2) return;
+    setBusy(true);
+    try {
+      const { txHash } = await mintNfts(l2, campaignId);
+      addLog("success", `mint-nfts submitted: ${campaignId}`, txHash);
+      pollMintsUntilSettled();
+    } catch (e: any) {
+      addLog("error", "mint-nfts failed", e.message);
     } finally {
       setBusy(false);
     }
@@ -567,6 +608,55 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
           </table>
         ) : (
           <p style={{ color: "#8b949e", fontSize: 13 }}>No referral payouts yet.</p>
+        )}
+      </section>
+
+      {/* Post-sale NFT minting */}
+      <section style={cardStyle}>
+        <h2 style={h2Style}>Post-sale NFT minting</h2>
+        <p style={{ color: "#8b949e", fontSize: 12, marginBottom: 12 }}>
+          After the campaign ends, mint an item NFT to every buyer for each item they own. Jobs are
+          submitted to the batcher, which holds funds and performs the actual mint.
+        </p>
+        <button
+          data-testid="admin-mint-nfts"
+          style={{ ...btnStyle, background: "#1f6f5f", border: "1px solid #2ea08c" }}
+          disabled={busy || !l2 || status?.campaign.status !== "ended"}
+          onClick={() => requestConfirm(`mint-nfts · ${campaignId}`, submitMintNfts)}
+        >
+          {busy
+            ? "Submitting…"
+            : status?.campaign.status === "ended"
+              ? "Mint item NFTs"
+              : "End campaign first"}
+        </button>
+        {status?.nftMintSummary && Object.keys(status.nftMintSummary).length > 0 && (
+          <div data-testid="nft-mint-summary" style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 12, fontFamily: "monospace" }}>
+            {Object.entries(status.nftMintSummary).map(([s, n]) => (
+              <span key={s} style={{ color: s === "minted" ? "#3fb950" : s === "failed" ? "#f85149" : "#d29922" }}>
+                {s}: {n}
+              </span>
+            ))}
+          </div>
+        )}
+        {status && status.nftMints && status.nftMints.length > 0 && (
+          <table data-testid="nft-mints-table" style={{ ...tableStyle, marginTop: 12 }}>
+            <thead>
+              <tr>{["chain", "wallet", "item", "qty", "status", "tx"].map((h) => (<th key={h} style={thStyle}>{h}</th>))}</tr>
+            </thead>
+            <tbody>
+              {status.nftMints.slice(0, 20).map((m, i) => (
+                <tr key={`${m.chain}-${m.wallet}-${m.item_id}-${i}`}>
+                  <td style={tdStyle}>{m.chain}</td>
+                  <td style={tdStyle}><AddressChip value={m.wallet} /></td>
+                  <td style={tdStyle}>{m.item_id}</td>
+                  <td style={tdStyle}>{m.quantity}</td>
+                  <td style={{ ...tdStyle, color: m.status === "minted" ? "#3fb950" : m.status === "failed" ? "#f85149" : "#d29922" }}>{m.status}</td>
+                  <td style={tdStyle}>{m.tx_hash ? <AddressChip value={m.tx_hash} /> : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </section>
 

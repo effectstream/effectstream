@@ -66,3 +66,9 @@ export function endCampaign(l2: Address, campaignId: string) {
 export function setCoin(l2: Address, coin: unknown) {
   return submitL2Input(l2, ["set-coin", JSON.stringify(coin)]);
 }
+
+// Post-sale: enqueue NFT mints for every item each buyer owns (campaign must be ended).
+// The sync node's dispatcher then submits each to the batcher, which performs the mint.
+export function mintNfts(l2: Address, campaignId: string) {
+  return submitL2Input(l2, ["mint-nfts", campaignId]);
+}
