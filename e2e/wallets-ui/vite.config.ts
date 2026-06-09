@@ -5,6 +5,7 @@ import "react";
 import "react-dom";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
+import { existsSync } from "node:fs";
 import wasm from "vite-plugin-wasm";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
@@ -71,11 +72,19 @@ export default defineConfig({
     nodePolyfills(),
     viteStaticCopy({
       targets: [
-        {
-          src: join(projectRoot, "../shared/contracts/midnight/contract-counter.undeployed.json"),
-          dest: "contract_address",
-          rename: "counter.undeployed.json",
-        },
+        // The deployed-contract address only exists after
+        // `midnight-contract:deploy` against a live local node; the build
+        // smoke must work without it (the Midnight counter flow fails its
+        // runtime fetch with a clear error instead).
+        ...(existsSync(join(projectRoot, "../shared/contracts/midnight/contract-counter.undeployed.json"))
+          ? [
+              {
+                src: join(projectRoot, "../shared/contracts/midnight/contract-counter.undeployed.json"),
+                dest: "contract_address",
+                rename: "counter.undeployed.json",
+              },
+            ]
+          : []),
         {
           src: join(projectRoot, "../shared/contracts/midnight/contract-counter/src/managed/keys/*"),
           dest: "keys",
