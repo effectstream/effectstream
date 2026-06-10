@@ -7,6 +7,8 @@ import {
   insertKnownToken,
   isNullifierSpent,
   isUnshieldedSpent,
+  isUnshieldedCreated,
+  isKnownRoot,
 } from "@zswap-da/database";
 
 import { MIDNIGHT_NETWORK_ID, OFFER_MAX_BYTES, midnightContract } from "./env.ts";
@@ -215,6 +217,30 @@ export const apiRouter: StartConfigApiRouter = async function (
             error: "UTXO_SPENT",
             reason:
               `unshielded UTXO already spent: ${s.owner}/${s.intentHash}/${s.outputNo}`,
+          });
+        }
+      }
+      // Existence: the referenced unshielded UTXO must have been created.
+      for (const s of validation.unshieldedSpends ?? []) {
+        const created = await isUnshieldedCreated.run(
+          { owner: s.owner, intent_hash: s.intentHash, output_no: s.outputNo },
+          dbConn,
+        );
+        if (created.length === 0) {
+          return reply.code(400).send({
+            error: "UTXO_UNKNOWN",
+            reason:
+              `unshielded UTXO never created on chain: ${s.owner}/${s.intentHash}/${s.outputNo}`,
+          });
+        }
+      }
+      // Root-known: each shielded input must prove against a known recent root.
+      for (const root of validation.inputRoots ?? []) {
+        const known = await isKnownRoot.run({ root }, dbConn);
+        if (known.length === 0) {
+          return reply.code(400).send({
+            error: "ROOT_UNKNOWN",
+            reason: `input merkle root not a known recent chain root: ${root}`,
           });
         }
       }

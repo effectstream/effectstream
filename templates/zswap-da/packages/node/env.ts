@@ -73,6 +73,16 @@ export const OFFER_MAX_BYTES = parseInt(
   getEnv("OFFER_MAX_BYTES") ?? String(1024 * 1024),
 );
 
+// Retention window for the known-roots set used by the root-known liveness
+// check: roots last seen older than this are pruned (mirroring the ledger's
+// `past_roots`). Keep it ≥ the chain's on-chain root window or legitimate
+// offers proving against an in-window-but-older root get falsely rejected.
+// Default 14 days = the next-release window; on a current ~1h-window network
+// set ~3600.
+export const ROOT_WINDOW_SECONDS = parseInt(
+  getEnv("ROOT_WINDOW_SECONDS") ?? String(60 * 60 * 24 * 14),
+);
+
 export const midnightContract = (() => {
   try {
     return readMidnightContract("contract-offer-files", {

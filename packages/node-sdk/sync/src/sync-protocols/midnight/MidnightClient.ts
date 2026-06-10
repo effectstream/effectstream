@@ -32,6 +32,14 @@ export interface MidnightGqlBlockState {
         outputIndex: number;
         owner:       string;
       }[];
+      unshieldedCreatedOutputs?: {
+        intentHash:  string;
+        outputIndex: number;
+        owner:       string;
+      }[];
+      // Present only on RegularTransaction (selected via inline fragment): the
+      // coin-commitment Merkle tree root after this transaction.
+      zswapMerkleTreeRoot?: string;
     }[];
   };
 };
@@ -43,6 +51,10 @@ export interface BlockFetchOptions {
   zswapLedgerEvents?: boolean;
   /** Include unshieldedSpentOutputs (needed for MidnightUnshieldedSpendPrimitive). Default: false */
   unshieldedSpentOutputs?: boolean;
+  /** Include unshieldedCreatedOutputs (needed for MidnightUnshieldedCreatePrimitive). Default: false */
+  unshieldedCreatedOutputs?: boolean;
+  /** Include `... on RegularTransaction { zswapMerkleTreeRoot }` (needed for MidnightZswapRootPrimitive). Default: false */
+  zswapRoots?: boolean;
 }
 
 type PublicDataProvider = ReturnType<typeof indexerPublicDataProvider>;
@@ -168,6 +180,8 @@ export class MidnightClient {
       contractActions = true,
       zswapLedgerEvents = true,
       unshieldedSpentOutputs = false,
+      unshieldedCreatedOutputs = false,
+      zswapRoots = false,
     } = options;
     const contractActionsField = contractActions
       ? `contractActions { address state }`
@@ -177,6 +191,14 @@ export class MidnightClient {
       : "";
     const unshieldedSpentField = unshieldedSpentOutputs
       ? `unshieldedSpentOutputs { intentHash outputIndex owner }`
+      : "";
+    const unshieldedCreatedField = unshieldedCreatedOutputs
+      ? `unshieldedCreatedOutputs { intentHash outputIndex owner }`
+      : "";
+    // zswapMerkleTreeRoot lives on RegularTransaction, not the Transaction
+    // interface, so it must be selected through an inline fragment.
+    const zswapRootFragment = zswapRoots
+      ? `... on RegularTransaction { zswapMerkleTreeRoot }`
       : "";
     const query = `query {
       block(offset: { height: ${blockHeight} }) {
@@ -192,6 +214,8 @@ export class MidnightClient {
           ${contractActionsField}
           ${zswapField}
           ${unshieldedSpentField}
+          ${unshieldedCreatedField}
+          ${zswapRootFragment}
         }
       }
     }`;
