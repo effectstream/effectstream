@@ -113,14 +113,28 @@ export class MidnightFetcher extends BaseDataFetcher<
     const fetched = yield* all(
       heights.map(function* (height) {
         const signal = yield* useAbortSignal();
-        const result: MidnightGqlBlockState = yield* call(() =>
-          self.client.fetchBlock(height, blockFetchOptions, signal)
-        );
-        const primitives = yield* self.readPrimitives(
-          height,
-          result,
-          self.config.primitives,
-        );
+        let result: MidnightGqlBlockState;
+        let primitives;
+        try {
+          result = yield* call(() =>
+            self.client.fetchBlock(height, blockFetchOptions, signal)
+          );
+          primitives = yield* self.readPrimitives(
+            height,
+            result,
+            self.config.primitives,
+          );
+        } catch (e) {
+          // Surface per-height failures: the outer fetch loop swallows errors
+          // and retries silently, which previously hid a permanent failure
+          // (e.g. a wasm-instance mismatch in a contract ledger() call) as an
+          // ever-stuck page with no log output.
+          console.error(
+            `[Midnight] readData failed at height ${height}:`,
+            (e as Error)?.stack ?? e,
+          );
+          throw e;
+        }
         return {
           output: {
             raw: result.block as unknown as Block,
