@@ -23,7 +23,33 @@ import {
   archiveOfferByNullifier,
   archiveOfferByUnshieldedSpend,
   archiveOfferByIdTtl,
+  upsertSeenNullifier,
+  findSeenNullifier,
+  deleteSeenNullifier,
+  upsertSeenUnshieldedSpend,
+  findSeenUnshieldedSpend,
+  deleteSeenUnshieldedSpend,
 } from "@zswap-da/database";
+
+// ─── Indexer scope and known limitations ─────────────────────────────────────
+//
+// This template indexes published ZSwap offers and decides whether each is
+// still *open* by watching the on-chain nullifiers (shielded) and
+// unshielded UTXO refs of its inputs. Two limits are intentional:
+//
+//   1. CONSUMED conflates *filled* and *canceled*. The indexer watches
+//      input consumption only; an offer's *output commitments* are not
+//      tracked, so a maker who spends the coin elsewhere is
+//      indistinguishable from a successful swap. If you need
+//      fill-vs-cancel attribution, extend the decoder to surface ZswapOutput
+//      commitments and classify on consumption.
+//
+//   2. Archival is destructive (rows are DELETEd into history). If a
+//      consuming Midnight/Celestia block is later reorged out, the offer
+//      cannot be restored without a full resync. Only safe when
+//      archive-triggering events come from finalized blocks; the
+//      confirmation depth lives in the sync layer.
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { grammar } from "./grammar.ts";
 import { extractMidnightLedgerSnapshot } from "./zswap-logic.ts";
@@ -80,11 +106,28 @@ stm.addStateTransition("midnight-nullifier", function* (data) {
       nullifier,
     });
     if (archived.length === 0) {
-      console.log("[MIDNIGHT] Nullifier not found in offer_file_nullifiers", nullifier);
+      // No offer indexed yet — could be a cross-chain ordering race
+      // (Midnight consumption replayed before the Celestia publish, e.g.
+      // during re-sync). Persist so celestia-zswap can reconcile at index
+      // time. We use the Midnight block height as `first_seen_height`.
+      yield* World.resolve(upsertSeenNullifier, {
+        nullifier,
+        first_seen_height: data.blockHeight,
+      });
+      console.log(
+        "[MIDNIGHT] Nullifier not matched yet — buffered in seen_nullifiers",
+        nullifier,
+      );
       return;
     }
     console.log("[MIDNIGHT] Archived offer(s) for nullifier", nullifier, archived);
-    emitAppEvent({ type: "offer_consumed", offerId: archived[0].id, nullifier });
+    // One event per archived offer — multiple offers can share a nullifier.
+    // Note: `offer_consumed` here conflates *filled* (the swap completed)
+    // and *canceled* (maker spent the coin elsewhere); the indexer watches
+    // input nullifiers only, not output commitments.
+    for (const row of archived) {
+      emitAppEvent({ type: "offer_consumed", offerId: row.id, nullifier });
+    }
   } catch (e) {
     console.error("[MIDNIGHT] Failed to archive offer for nullifier", nullifier, e);
   }
@@ -118,8 +161,16 @@ stm.addStateTransition("midnight-unshielded-spend", function* (data) {
       output_no: outputNo,
     });
     if (archived.length === 0) {
+      // Early-arrival race: buffer so a later-arriving Celestia offer
+      // can reconcile. See midnight-nullifier handler for context.
+      yield* World.resolve(upsertSeenUnshieldedSpend, {
+        owner,
+        intent_hash: intentHash,
+        output_no: outputNo,
+        first_seen_height: data.blockHeight,
+      });
       console.log(
-        "[MIDNIGHT] Unshielded spend not matched in offer_file_unshielded_spends",
+        "[MIDNIGHT] Unshielded spend not matched yet — buffered in seen_unshielded_spends",
         { owner, intentHash, outputNo },
       );
       return;
@@ -129,11 +180,15 @@ stm.addStateTransition("midnight-unshielded-spend", function* (data) {
       { owner, intentHash, outputNo },
       archived,
     );
-    emitAppEvent({
-      type: "offer_consumed",
-      offerId: archived[0].id,
-      unshieldedSpend: { owner, intentHash, outputNo },
-    });
+    // One event per archived offer — see midnight-nullifier for the
+    // CONSUMED-conflates-filled-and-canceled caveat.
+    for (const row of archived) {
+      emitAppEvent({
+        type: "offer_consumed",
+        offerId: row.id,
+        unshieldedSpend: { owner, intentHash, outputNo },
+      });
+    }
   } catch (e) {
     console.error(
       "[MIDNIGHT] Failed to archive offer for unshielded spend",
@@ -244,13 +299,27 @@ stm.addStateTransition("celestia-zswap", function* (data) {
     const offerFileId = offerFileRes[0].id;
 
     // ── Extract nullifiers (shielded path) ──
-    // Shielded inputs at segment 0 carry a cryptographic nullifier; the
-    // chain emits a `midnight-nullifier` STM event when one is consumed.
-    const nullifiers: string[] = offerTx.guaranteedOffer
-      ? offerTx.guaranteedOffer.inputs.map((input: any) => input.nullifier)
-      : [];
-    for (const nullifier of nullifiers) {
-      const nullifierStr = bytesOrStringToHex(nullifier);
+    // Shielded spends carry a cryptographic nullifier; the chain emits a
+    // `midnight-nullifier` STM event whenever one is consumed. Cover all
+    // input sources the ledger applies:
+    //   - guaranteedOffer.inputs    (segment 0 spent inputs)
+    //   - guaranteedOffer.transients (segment 0 input+output in same tx)
+    //   - fallibleOffer[seg].inputs / .transients (each non-guaranteed segment)
+    // Detection (Midnight fetcher) is segment-agnostic, so indexing must
+    // match — otherwise consumed offers go un-archived until TTL.
+    const shieldedOffers: any[] = [];
+    if (offerTx.guaranteedOffer) shieldedOffers.push(offerTx.guaranteedOffer);
+    if (offerTx.fallibleOffer && typeof (offerTx.fallibleOffer as any).values === "function") {
+      for (const segOffer of (offerTx.fallibleOffer as any).values() as Iterable<any>) {
+        if (segOffer) shieldedOffers.push(segOffer);
+      }
+    }
+    const nullifierStrs: string[] = [];
+    for (const o of shieldedOffers) {
+      for (const input of o.inputs ?? []) nullifierStrs.push(bytesOrStringToHex(input.nullifier));
+      for (const t of o.transients ?? []) nullifierStrs.push(bytesOrStringToHex(t.nullifier));
+    }
+    for (const nullifierStr of nullifierStrs) {
       yield* World.resolve(insertOfferFileNullifier, {
         offer_file_id: offerFileId,
         nullifier: nullifierStr,
@@ -267,6 +336,7 @@ stm.addStateTransition("celestia-zswap", function* (data) {
     // `UtxoSpend.owner` is a raw SignatureVerifyingKey — distinct from the
     // 32-byte address that the indexer reports on consumption. Apply
     // `addressFromKey` so both sides of the lookup store the same address.
+    const unshieldedSpends: Array<{ owner: string; intent_hash: string; output_no: number }> = [];
     const intents = (offerTx as any).intents;
     if (intents && typeof intents.values === "function") {
       for (const intent of intents.values() as Iterable<any>) {
@@ -278,8 +348,7 @@ stm.addStateTransition("celestia-zswap", function* (data) {
           for (const spend of offer.inputs ?? []) {
             const ownerSvk = bytesOrStringToHex(spend.owner);
             const ownerAddr = addressFromKey(ownerSvk).toLowerCase();
-            yield* World.resolve(insertOfferFileUnshieldedSpend, {
-              offer_file_id: offerFileId,
+            unshieldedSpends.push({
               owner: ownerAddr,
               intent_hash: bytesOrStringToHex(spend.intentHash).toLowerCase(),
               output_no: Number(spend.outputNo),
@@ -288,8 +357,17 @@ stm.addStateTransition("celestia-zswap", function* (data) {
         }
       }
     }
+    for (const s of unshieldedSpends) {
+      yield* World.resolve(insertOfferFileUnshieldedSpend, {
+        offer_file_id: offerFileId,
+        ...s,
+      });
+    }
 
     // ── Insert derived gives/wants ──
+    // Must come before the early-arrival reconciliation below: the archive
+    // queries copy these into offer_file_tokens_history in one statement,
+    // so they have to exist when the archive runs.
     for (const g of gives) {
       yield* World.resolve(insertOfferFileToken, {
         offer_file_id: offerFileId,
@@ -305,6 +383,44 @@ stm.addStateTransition("celestia-zswap", function* (data) {
         amount: w.amount,
         direction: "WANTING",
       });
+    }
+
+    // ── Reconcile against early-arrival buffer ──
+    // If a Midnight consumption event was processed before this offer was
+    // indexed (race during re-sync / replay), it lives in seen_* tables.
+    // Archive the offer immediately so it doesn't get served as active.
+    let archivedEarly = false;
+    for (const nullifierStr of nullifierStrs) {
+      const seen = yield* World.resolve(findSeenNullifier, { nullifier: nullifierStr });
+      if (seen.length === 0) continue;
+      const archived = yield* World.resolve(archiveOfferByNullifier, { nullifier: nullifierStr });
+      yield* World.resolve(deleteSeenNullifier, { nullifier: nullifierStr });
+      for (const row of archived) {
+        emitAppEvent({ type: "offer_consumed", offerId: row.id, nullifier: nullifierStr });
+      }
+      if (archived.length > 0) archivedEarly = true;
+    }
+    if (!archivedEarly) {
+      for (const s of unshieldedSpends) {
+        const seen = yield* World.resolve(findSeenUnshieldedSpend, s);
+        if (seen.length === 0) continue;
+        const archived = yield* World.resolve(archiveOfferByUnshieldedSpend, s);
+        yield* World.resolve(deleteSeenUnshieldedSpend, s);
+        for (const row of archived) {
+          emitAppEvent({
+            type: "offer_consumed",
+            offerId: row.id,
+            unshieldedSpend: { owner: s.owner, intentHash: s.intent_hash, outputNo: s.output_no },
+          });
+        }
+        if (archived.length > 0) archivedEarly = true;
+      }
+    }
+    if (archivedEarly) {
+      console.log(
+        `[ZSWAP] Offer ${offerFileId} archived at index-time (early-arrival consumption)`,
+      );
+      return;
     }
 
     // Schedule a follow-up STM input to run after the TTL expires.

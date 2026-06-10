@@ -26,7 +26,7 @@ INSERT INTO offer_file (
     :auth_signer_public_key,
     :auth_signature,
     :auth_scheme,
-    COALESCE(:ttl_seconds, 604800)
+    COALESCE(:ttl_seconds, 3600)
 ) RETURNING id;
 
 /* @name InsertOfferFileToken */
@@ -63,7 +63,7 @@ INSERT INTO offer_file_nullifiers (
 ) VALUES (
     :offer_file_id!,
     :nullifier!
-) ON CONFLICT (nullifier) DO NOTHING;
+) ON CONFLICT (offer_file_id, nullifier) DO NOTHING;
 
 /* @name GetOfferFileNullifiers */
 SELECT * FROM offer_file_nullifiers WHERE offer_file_id = :offer_file_id!;
@@ -79,17 +79,19 @@ INSERT INTO offer_file_unshielded_spends (
     :owner!,
     :intent_hash!,
     :output_no!
-) ON CONFLICT (owner, intent_hash, output_no) DO NOTHING;
+) ON CONFLICT (offer_file_id, owner, intent_hash, output_no) DO NOTHING;
 
 /* @name GetOfferFileUnshieldedSpends */
 SELECT * FROM offer_file_unshielded_spends WHERE offer_file_id = :offer_file_id!;
 
 /* @name ArchiveOfferByNullifier */
+-- Archive every offer that referenced this nullifier. A single coin can
+-- back multiple competing offers (different counter-asset, etc.) — all of
+-- them die when the coin is spent.
 WITH matched AS (
-    SELECT offer_file_id
+    SELECT DISTINCT offer_file_id
     FROM offer_file_nullifiers
     WHERE nullifier = :nullifier!
-    LIMIT 1
 ),
 archived_offer AS (
     INSERT INTO offer_file_history (
@@ -169,13 +171,14 @@ WHERE id IN (SELECT offer_file_id FROM matched)
 RETURNING id;
 
 /* @name ArchiveOfferByUnshieldedSpend */
+-- Archive every offer that referenced this unshielded UTXO. Same rule as
+-- nullifiers: a single UTXO can back multiple competing offers.
 WITH matched AS (
-    SELECT offer_file_id
+    SELECT DISTINCT offer_file_id
     FROM offer_file_unshielded_spends
     WHERE owner = :owner!
       AND intent_hash = :intent_hash!
       AND output_no = :output_no!
-    LIMIT 1
 ),
 archived_offer AS (
     INSERT INTO offer_file_history (
@@ -337,3 +340,36 @@ archived_unshielded_spends AS (
 DELETE FROM offer_file
 WHERE id IN (SELECT offer_file_id FROM matched)
 RETURNING id;
+
+/* @name UpsertSeenNullifier */
+-- Persist a nullifier event that did not (yet) match any indexed offer,
+-- so a later-arriving Celestia offer can reconcile against it.
+INSERT INTO seen_nullifiers (nullifier, first_seen_height)
+VALUES (:nullifier!, :first_seen_height!)
+ON CONFLICT (nullifier) DO NOTHING;
+
+/* @name FindSeenNullifier */
+SELECT nullifier, first_seen_height
+FROM seen_nullifiers
+WHERE nullifier = :nullifier!;
+
+/* @name DeleteSeenNullifier */
+DELETE FROM seen_nullifiers WHERE nullifier = :nullifier!;
+
+/* @name UpsertSeenUnshieldedSpend */
+INSERT INTO seen_unshielded_spends (owner, intent_hash, output_no, first_seen_height)
+VALUES (:owner!, :intent_hash!, :output_no!, :first_seen_height!)
+ON CONFLICT (owner, intent_hash, output_no) DO NOTHING;
+
+/* @name FindSeenUnshieldedSpend */
+SELECT owner, intent_hash, output_no, first_seen_height
+FROM seen_unshielded_spends
+WHERE owner = :owner!
+  AND intent_hash = :intent_hash!
+  AND output_no = :output_no!;
+
+/* @name DeleteSeenUnshieldedSpend */
+DELETE FROM seen_unshielded_spends
+WHERE owner = :owner!
+  AND intent_hash = :intent_hash!
+  AND output_no = :output_no!;

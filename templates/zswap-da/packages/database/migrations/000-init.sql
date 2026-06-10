@@ -22,8 +22,9 @@ CREATE TABLE offer_file (
     auth_signature TEXT,
     auth_scheme TEXT,
     -- TTL in seconds for how long this offer should remain active.
-    -- Defaults to 7 days when not explicitly provided.
-    ttl_seconds BIGINT NOT NULL DEFAULT 604800,
+    -- Default = 1 hour (matches the Midnight reference Merkle-root window
+    -- on the shielded path; see packages/node/env.ts for the full rationale).
+    ttl_seconds BIGINT NOT NULL DEFAULT 3600,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -46,19 +47,29 @@ CREATE INDEX IF NOT EXISTS idx_offer_file_tokens_token_direction_offer
 CREATE INDEX IF NOT EXISTS idx_offer_file_tokens_offer_file_id
     ON offer_file_tokens (offer_file_id);
 
+-- A single shielded coin can back multiple competing offers (e.g. maker
+-- posts A→NIGHT and A→USDC both spending the same coin). All such offers
+-- share the same nullifier and are mutually exclusive — the first one to
+-- land wins. So the constraint is per-offer, not global.
 CREATE TABLE offer_file_nullifiers (
     id SERIAL PRIMARY KEY,
     offer_file_id INTEGER NOT NULL REFERENCES offer_file(id) ON DELETE CASCADE,
-    nullifier TEXT NOT NULL UNIQUE
+    nullifier TEXT NOT NULL,
+    UNIQUE (offer_file_id, nullifier)
 );
 
+CREATE INDEX IF NOT EXISTS idx_offer_file_nullifiers_nullifier
+    ON offer_file_nullifiers (nullifier);
+
+-- Same multi-offer rule as nullifiers: a single unshielded UTXO can be
+-- referenced by multiple competing offers.
 CREATE TABLE offer_file_unshielded_spends (
     id SERIAL PRIMARY KEY,
     offer_file_id INTEGER NOT NULL REFERENCES offer_file(id) ON DELETE CASCADE,
     owner TEXT NOT NULL,
     intent_hash TEXT NOT NULL,
     output_no INTEGER NOT NULL,
-    UNIQUE (owner, intent_hash, output_no)
+    UNIQUE (offer_file_id, owner, intent_hash, output_no)
 );
 
 CREATE INDEX IF NOT EXISTS idx_offer_file_unshielded_spends_lookup
@@ -78,7 +89,19 @@ CREATE TABLE offer_file_history (
     -- Copy of the TTL (in seconds) that was active for the original offer.
     ttl_seconds BIGINT,
     -- Reason why this offer was moved out of the main table.
-    -- For example: 'CONSUMED' or 'TTL'.
+    --   'CONSUMED' — one of the offer's inputs was spent on Midnight. This
+    --     conflates *filled* (the offer's intended swap completed) and
+    --     *canceled* (the maker spent the coin elsewhere) — the indexer
+    --     watches input nullifiers/UTXO refs only, not output commitments,
+    --     so the two cases produce identical signals.
+    --   'TTL' — the scheduled cleanup timer fired before any consumption
+    --     was observed. Note this does not mean the offer was still
+    --     fillable on chain right up until then — see env.ts for the
+    --     Merkle-root-window caveat on the shielded path.
+    -- Archival is destructive (live row is DELETEd). If the consuming
+    -- block is later reorged out, the offer cannot be restored without a
+    -- full resync. Only safe when archive-triggering events come from
+    -- finalized blocks.
     archive_reason TEXT,
     archived_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -106,4 +129,24 @@ CREATE TABLE offer_file_unshielded_spends_history (
     intent_hash TEXT NOT NULL,
     output_no INTEGER NOT NULL,
     archived_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Cross-chain race buffer: a Midnight consumption event can be processed
+-- before the matching Celestia offer is indexed (re-sync, replay, clock
+-- skew). Without persistence the event would be dropped, leaving the
+-- offer permanently "active" until TTL. We persist every unmatched
+-- consumption event here and reconcile at offer-index time.
+CREATE TABLE seen_nullifiers (
+    nullifier TEXT PRIMARY KEY,
+    first_seen_height BIGINT NOT NULL,
+    first_seen_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE seen_unshielded_spends (
+    owner TEXT NOT NULL,
+    intent_hash TEXT NOT NULL,
+    output_no INTEGER NOT NULL,
+    first_seen_height BIGINT NOT NULL,
+    first_seen_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (owner, intent_hash, output_no)
 );
