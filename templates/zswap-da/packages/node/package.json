@@ -21,6 +21,7 @@
     "@effectstream/sm": "0.100.17",
     "@effectstream/utils": "0.100.17",
     "@zswap-da/database": "workspace:*",
+    "@zswap-da/validator": "workspace:*",
     "@zswap-da/contract-offer-files": "workspace:*",
     "@midnight-ntwrk/compact-js": "2.5.0",
     "@midnight-ntwrk/ledger-v8": "8.0.3",

@@ -34,23 +34,43 @@ export const CELESTIA_TX_PRIORITY = _txPriority ? parseInt(_txPriority) : undefi
 
 // Offer lifetime before the TTL-cleanup scheduled input archives it.
 //
-// Shielded offers carry a Merkle-tree root in each `Input`/`Transient` and
-// the Midnight node only retains recent roots (reference implementation:
-// 1 hour). Once the referenced root ages out, the input fails with
-// `UnknownMerkleRoot` at apply time — silently, with no event the indexer
-// can observe. So we cap the default TTL to 1 hour to keep the active set
-// in line with on-chain fillability.
+// A shielded offer is fillable only while the Merkle root its `Input`/`Transient`
+// proves against is still in the node's retained root history; once that root
+// ages out the input fails with `UnknownMerkleRoot` at apply time — silently,
+// with no event the indexer can observe. So the TTL should track that
+// root-history window to keep the active set in line with on-chain fillability.
+//
+// That window is **version-dependent**:
+//   - current ledger release: ~1 hour (`Duration::from_secs(3600)`,
+//     `zswap/src/ledger.rs:235-247`)
+//   - next release: ~14 days (per Midnight release notes; not yet visible in
+//     the reference checkout — re-verify when it lands)
+// We default to **30 days** for headroom across releases (a too-short TTL
+// archives still-fillable offers). Tune `OFFER_TTL_SECONDS` to your network:
+// e.g. set ~3600 on a current 1h-window network so the indexer doesn't keep
+// serving offers that can no longer settle.
 //
 // Caveats:
-//   - The exact root-history window depends on the deployed ledger; tune
-//     this for your network if the node configures something other than
-//     the reference 3600s.
-//   - Unshielded-only offers don't have this constraint and could live
-//     longer; if you need that, split the TTL by offer kind.
-//   - Makers should publish offers immediately after proving — the fill
-//     window starts at the referenced root, not at publication.
+//   - The window bounds *proof freshness*, not coin age: a maker proves an
+//     old coin against a recent root, so old coins are unaffected.
+//   - Unshielded-only offers have no root window (a UTXO is valid until spent);
+//     if you need them to live longer, split the TTL by offer kind.
+//   - Makers should publish promptly after proving — the fill window starts at
+//     the referenced root, not at publication.
 export const OFFER_TTL_SECONDS = parseInt(
-  getEnv("OFFER_TTL_SECONDS") ?? String(60 * 60),
+  getEnv("OFFER_TTL_SECONDS") ?? String(60 * 60 * 24 * 30),
+);
+
+// Midnight network id the offers are created against. Used as the `wellFormed`
+// reference-state network (offer validation) — must match the network whose
+// proofs the offers carry.
+export const MIDNIGHT_NETWORK_ID = midnightNetworkConfig.id;
+
+// Upper bound on a decoded offer transaction, in bytes. A DoS guard for the
+// validator (the Celestia adapter separately caps the on-wire blob at 1.5 MB);
+// set generously so legitimate proof-bearing offers are never rejected.
+export const OFFER_MAX_BYTES = parseInt(
+  getEnv("OFFER_MAX_BYTES") ?? String(1024 * 1024),
 );
 
 export const midnightContract = (() => {
