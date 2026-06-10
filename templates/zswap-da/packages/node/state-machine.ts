@@ -3,17 +3,11 @@ import { World } from "@effectstream/coroutine";
 import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
 import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
-import {
-  addressFromKey,
-  Transaction,
-  type UnprovenTransaction,
-  type TokenType,
-} from "@midnight-ntwrk/ledger-v8";
 import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 import { Buffer } from "node:buffer";
 import { newScheduledTimestampData } from "@effectstream/db";
 import { AddressType } from "@effectstream/utils";
-import { decodeOffer, OFFER_HRP } from "mip-zswap-offer";
+import { getBlankRefState, validateZswapOffer } from "@zswap-da/validator";
 
 import {
   insertOfferFile,
@@ -29,6 +23,10 @@ import {
   upsertSeenUnshieldedSpend,
   findSeenUnshieldedSpend,
   deleteSeenUnshieldedSpend,
+  insertSpentNullifier,
+  isNullifierSpent,
+  insertSpentUnshielded,
+  isUnshieldedSpent,
 } from "@zswap-da/database";
 
 // ─── Indexer scope and known limitations ─────────────────────────────────────
@@ -54,7 +52,7 @@ import {
 import { grammar } from "./grammar.ts";
 import { extractMidnightLedgerSnapshot } from "./zswap-logic.ts";
 import { emitAppEvent } from "./event-bus.ts";
-import { OFFER_TTL_SECONDS } from "./env.ts";
+import { MIDNIGHT_NETWORK_ID, OFFER_MAX_BYTES, OFFER_TTL_SECONDS } from "./env.ts";
 
 // Normalize a value that may be a Uint8Array or a hex string into lowercase
 // hex (no `0x` prefix). Used at offer-indexing for nullifiers, owner keys,
@@ -102,6 +100,14 @@ stm.addStateTransition("midnight-nullifier", function* (data) {
   const { nullifier } = payload;
 
   try {
+    // Record the spend permanently (append-only) so the offer validator can
+    // reject offers that reference this now-consumed coin. Done on every event,
+    // matched or not, so spent_nullifiers is a superset of seen_nullifiers.
+    yield* World.resolve(insertSpentNullifier, {
+      nullifier,
+      height: data.blockHeight,
+    });
+
     const archived = yield* World.resolve(archiveOfferByNullifier, {
       nullifier,
     });
@@ -155,6 +161,15 @@ stm.addStateTransition("midnight-unshielded-spend", function* (data) {
   }
 
   try {
+    // Record the spend permanently for the offer validator's liveness check
+    // (see midnight-nullifier handler). Superset of seen_unshielded_spends.
+    yield* World.resolve(insertSpentUnshielded, {
+      owner,
+      intent_hash: intentHash,
+      output_no: outputNo,
+      height: data.blockHeight,
+    });
+
     const archived = yield* World.resolve(archiveOfferByUnshieldedSpend, {
       owner,
       intent_hash: intentHash,
@@ -202,87 +217,79 @@ stm.addStateTransition("celestia-zswap", function* (data) {
   const { payload } = data.parsedInput;
   const raw = payload.suppliedValue;
 
-  // Blob must be a bech32m `zswapoffer1…` string — no JSON envelope.
-  if (typeof raw !== "string" || !raw.startsWith(`${OFFER_HRP}1`)) {
-    console.error("[ZSWAP] Invalid blob: not a zswapoffer bech32m string, skipping");
+  // ── Validate the offer (structure + cryptographic proofs) ──
+  // Deterministic: the verdict is a pure function of (raw, refState, tblock).
+  // `tblock` is the Celestia block time and `refState` is a blank ledger state
+  // for the configured network, so it replays identically. Anyone can post a
+  // blob directly to the public Celestia namespace, so we must validate
+  // defensively even though /api/zswap/submit and the batcher also gate.
+  const result = validateZswapOffer(raw, {
+    refState: getBlankRefState(MIDNIGHT_NETWORK_ID),
+    tblock: new Date(data.blockTimestamp),
+    maxBytes: OFFER_MAX_BYTES,
+  });
+  if (!result.ok) {
+    console.warn("[ZSWAP] Rejected offer", {
+      code: result.code,
+      reason: result.reason,
+      celestiaHeight: data.blockHeight,
+    });
+    emitAppEvent({
+      type: "offer_rejected",
+      code: result.code,
+      reason: result.reason,
+      celestiaHeight: data.blockHeight,
+    });
     return;
   }
 
-  // Decode bech32m → raw bytes → deserialized transaction.
-  let rawTx: Uint8Array;
-  try {
-    rawTx = decodeOffer(raw);
-  } catch (e) {
-    console.error("[ZSWAP] Invalid bech32m blob, skipping", e);
-    return;
-  }
+  const nullifierStrs = result.nullifiers ?? [];
+  const unshieldedSpends = (result.unshieldedSpends ?? []).map((s) => ({
+    owner: s.owner,
+    intent_hash: s.intentHash,
+    output_no: s.outputNo,
+  }));
+  const gives = result.gives ?? [];
+  const wants = result.wants ?? [];
 
-  // Lace-made offers (`makeIntent`) arrive as <Sig, Proof, Binding> — the wallet
-  // proves+binds inside its secure context.
-  let offerTx: UnprovenTransaction;
-  try {
-    offerTx = Transaction.deserialize(
-      "signature" as const,
-      "proof" as const,
-      "binding" as const,
-      rawTx,
-    ) as UnprovenTransaction;
-    console.log(`[ZSWAP] Deserialized offer at height ${data.blockHeight}`);
-  } catch (e) {
-    console.error("[ZSWAP] Failed to deserialize transaction as <signature, proof, binding>", e);
-    return;
-  }
-
-  try {
-    // ── Derive gives/wants from imbalances ──
-    // 0 = guaranteed segment. Lace's makeIntent populates `intents` and may also
-    // touch `fallibleOffer` depending on the kinds (shielded/unshielded) involved.
-    // Union both so we capture every segment with imbalances.
-    const intentKeys = (offerTx as any).intents
-      ? Array.from((offerTx as any).intents.keys() as Iterable<number>)
-      : [];
-    const fallibleKeys = offerTx.fallibleOffer
-      ? Array.from(offerTx.fallibleOffer.keys() as Iterable<number>)
-      : [];
-    const segmentIds: number[] = Array.from(
-      new Set<number>([0, ...intentKeys, ...fallibleKeys]),
-    );
-
-    const mergedImbalances = new Map<string, bigint>();
-    for (const segId of segmentIds) {
-      let entries: Iterable<[TokenType, bigint]>;
-      try {
-        entries = offerTx.imbalances(segId);
-      } catch (e) {
-        // Segment IDs came from the tx itself — this shouldn't happen.
-        // Partial imbalance data would produce a wrong offer, so drop it entirely.
-        console.error(`[ZSWAP] imbalances(${segId}) threw at height ${data.blockHeight}`, e);
-        return;
-      }
-
-      for (const [tokenType, delta] of entries) {
-        const tt = tokenType as TokenType;
-        if (tt.tag === 'dust') continue;
-        if (tt.tag !== 'shielded' && tt.tag !== 'unshielded') {
-          console.warn(`[ZSWAP] Unknown token tag "${tt.tag}" in segment ${segId}, skipping`);
-          continue;
-        }
-        const token = tt.raw.toLowerCase();
-        mergedImbalances.set(token, (mergedImbalances.get(token) ?? 0n) + delta);
-      }
+  // ── Liveness: drop offers whose coins are already spent on chain ──
+  // The midnight-* handlers ingest every consumed nullifier / unshielded UTXO
+  // into the permanent spent_* sets, so these are a plain existence check. We
+  // do NOT compare heights across chains (Midnight height ≠ Celestia height);
+  // determinism comes from the rollup's fixed input ordering. An already-spent
+  // coin means the offer can never settle, so it must not be indexed.
+  for (const nullifier of nullifierStrs) {
+    const spent = yield* World.resolve(isNullifierSpent, { nullifier });
+    if (spent.length > 0) {
+      console.warn("[ZSWAP] Rejected offer: nullifier already spent", {
+        nullifier,
+        celestiaHeight: data.blockHeight,
+      });
+      emitAppEvent({
+        type: "offer_rejected",
+        code: "NULLIFIER_SPENT",
+        celestiaHeight: data.blockHeight,
+      });
+      return;
     }
-
-    const gives: { token: string; amount: string }[] = [];
-    const wants: { token: string; amount: string }[] = [];
-
-    for (const [token, delta] of mergedImbalances) {
-      if (delta > 0n) {
-        gives.push({ token, amount: delta.toString() });
-      } else if (delta < 0n) {
-        wants.push({ token, amount: (-delta).toString() });
-      }
+  }
+  for (const s of unshieldedSpends) {
+    const spent = yield* World.resolve(isUnshieldedSpent, s);
+    if (spent.length > 0) {
+      console.warn("[ZSWAP] Rejected offer: unshielded UTXO already spent", {
+        ...s,
+        celestiaHeight: data.blockHeight,
+      });
+      emitAppEvent({
+        type: "offer_rejected",
+        code: "UTXO_SPENT",
+        celestiaHeight: data.blockHeight,
+      });
+      return;
     }
+  }
 
+  try {
     // ── Insert offer ──
     const offerFileRes = yield* World.resolve(insertOfferFile, {
       celestia_height: data.blockHeight,
@@ -298,64 +305,17 @@ stm.addStateTransition("celestia-zswap", function* (data) {
 
     const offerFileId = offerFileRes[0].id;
 
-    // ── Extract nullifiers (shielded path) ──
-    // Shielded spends carry a cryptographic nullifier; the chain emits a
-    // `midnight-nullifier` STM event whenever one is consumed. Cover all
-    // input sources the ledger applies:
-    //   - guaranteedOffer.inputs    (segment 0 spent inputs)
-    //   - guaranteedOffer.transients (segment 0 input+output in same tx)
-    //   - fallibleOffer[seg].inputs / .transients (each non-guaranteed segment)
-    // Detection (Midnight fetcher) is segment-agnostic, so indexing must
-    // match — otherwise consumed offers go un-archived until TTL.
-    const shieldedOffers: any[] = [];
-    if (offerTx.guaranteedOffer) shieldedOffers.push(offerTx.guaranteedOffer);
-    if (offerTx.fallibleOffer && typeof (offerTx.fallibleOffer as any).values === "function") {
-      for (const segOffer of (offerTx.fallibleOffer as any).values() as Iterable<any>) {
-        if (segOffer) shieldedOffers.push(segOffer);
-      }
-    }
-    const nullifierStrs: string[] = [];
-    for (const o of shieldedOffers) {
-      for (const input of o.inputs ?? []) nullifierStrs.push(bytesOrStringToHex(input.nullifier));
-      for (const t of o.transients ?? []) nullifierStrs.push(bytesOrStringToHex(t.nullifier));
-    }
-    for (const nullifierStr of nullifierStrs) {
+    // ── Persist spend refs (derived + validated above) ──
+    // nullifierStrs covers guaranteed + fallible segments, inputs + transients;
+    // unshieldedSpends carries the (owner, intentHash, outputNo) triples with
+    // owner already normalized via addressFromKey so the midnight-* consumption
+    // events match. Both must be inserted before the early-arrival
+    // reconciliation, which copies them into the history tables in one shot.
+    for (const nullifier of nullifierStrs) {
       yield* World.resolve(insertOfferFileNullifier, {
         offer_file_id: offerFileId,
-        nullifier: nullifierStr,
+        nullifier,
       });
-    }
-
-    // ── Extract unshielded UTXO refs (unshielded path) ──
-    // Unshielded inputs have no nullifier; they're identified by the
-    // (owner, intentHash, outputNo) triple of `UtxoSpend` records on each
-    // Intent's guaranteed/fallible UnshieldedOffer. Capture them so the
-    // `midnight-unshielded-spend` STM event can match-and-archive when the
-    // chain consumes one of these UTXOs.
-    //
-    // `UtxoSpend.owner` is a raw SignatureVerifyingKey — distinct from the
-    // 32-byte address that the indexer reports on consumption. Apply
-    // `addressFromKey` so both sides of the lookup store the same address.
-    const unshieldedSpends: Array<{ owner: string; intent_hash: string; output_no: number }> = [];
-    const intents = (offerTx as any).intents;
-    if (intents && typeof intents.values === "function") {
-      for (const intent of intents.values() as Iterable<any>) {
-        const unshieldedOffers = [
-          intent.guaranteedUnshieldedOffer,
-          intent.fallibleUnshieldedOffer,
-        ].filter(Boolean);
-        for (const offer of unshieldedOffers) {
-          for (const spend of offer.inputs ?? []) {
-            const ownerSvk = bytesOrStringToHex(spend.owner);
-            const ownerAddr = addressFromKey(ownerSvk).toLowerCase();
-            unshieldedSpends.push({
-              owner: ownerAddr,
-              intent_hash: bytesOrStringToHex(spend.intentHash).toLowerCase(),
-              output_no: Number(spend.outputNo),
-            });
-          }
-        }
-      }
     }
     for (const s of unshieldedSpends) {
       yield* World.resolve(insertOfferFileUnshieldedSpend, {

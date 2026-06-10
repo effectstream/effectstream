@@ -5,12 +5,14 @@ import {
   getOfferFiles,
   getOfferFileTokens,
   insertKnownToken,
+  isNullifierSpent,
+  isUnshieldedSpent,
 } from "@zswap-da/database";
 
-import { midnightContract } from "./env.ts";
+import { MIDNIGHT_NETWORK_ID, OFFER_MAX_BYTES, midnightContract } from "./env.ts";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { submitBlobViaBatcher } from "./batcher-client.ts";
-import { decodeOffer, OFFER_HRP } from "mip-zswap-offer";
+import { getBlankRefState, validateZswapOffer } from "@zswap-da/validator";
 import { eventBus, emitAppEvent } from "./event-bus.ts";
 
 // ─── API Router ───────────────────────────────────────────────────────────────
@@ -158,8 +160,11 @@ export const apiRouter: StartConfigApiRouter = async function (
     };
   });
 
-  // POST /api/zswap/submit — validate a bech32m `zswapoffer1…` blob and forward
-  // it to Celestia DA. The frontend produces the blob via encodeOffer().
+  // POST /api/zswap/submit — fully validate a `zswapoffer1…` blob, then forward
+  // it to Celestia DA via the batcher. We validate here so the frontend gets
+  // fast, specific feedback; the batcher's validateInput hook re-validates as
+  // the authoritative pre-fee gate. The frontend produces the blob via
+  // encodeOffer().
   server.post(
     "/api/zswap/submit",
     {
@@ -173,18 +178,45 @@ export const apiRouter: StartConfigApiRouter = async function (
         },
       },
     },
-    async (request: any) => {
+    async (request: any, reply: any) => {
       const { blob } = request.body;
 
-      if (typeof blob !== "string" || !blob.startsWith(`${OFFER_HRP}1`)) {
-        throw new Error("Invalid blob: not a zswapoffer bech32m string");
+      // Structure + cryptographic proofs (steps 1–5).
+      const validation = validateZswapOffer(blob, {
+        refState: getBlankRefState(MIDNIGHT_NETWORK_ID),
+        tblock: new Date(),
+        maxBytes: OFFER_MAX_BYTES,
+      });
+      if (!validation.ok) {
+        return reply
+          .code(400)
+          .send({ error: validation.code, reason: validation.reason });
       }
 
-      // Verify it decodes without error (checksum + HRP check).
-      try {
-        decodeOffer(blob);
-      } catch (e: any) {
-        throw new Error(`Invalid bech32m: ${e.message ?? String(e)}`);
+      // Liveness: never pay a Celestia fee for an offer whose coins are already
+      // spent on chain (it can never settle). The spent_* sets are populated by
+      // the node's midnight-* sync handlers.
+      for (const nullifier of validation.nullifiers ?? []) {
+        const spent = await isNullifierSpent.run({ nullifier }, dbConn);
+        if (spent.length > 0) {
+          return reply.code(400).send({
+            error: "NULLIFIER_SPENT",
+            reason: `nullifier already spent: ${nullifier}`,
+          });
+        }
+      }
+      for (const s of validation.unshieldedSpends ?? []) {
+        const spent = await isUnshieldedSpent.run(
+          { owner: s.owner, intent_hash: s.intentHash, output_no: s.outputNo },
+          dbConn,
+        );
+        if (spent.length > 0) {
+          return reply.code(400).send({
+            error: "UTXO_SPENT",
+            reason:
+              `unshielded UTXO already spent: ${s.owner}/${s.intentHash}/${s.outputNo}`,
+          });
+        }
       }
 
       const result = await submitBlobViaBatcher(blob);

@@ -876,3 +876,129 @@ const deleteSeenUnshieldedSpendIR: any = {"usedParamSet":{"owner":true,"intent_h
 export const deleteSeenUnshieldedSpend = new PreparedQuery<IDeleteSeenUnshieldedSpendParams,IDeleteSeenUnshieldedSpendResult>(deleteSeenUnshieldedSpendIR);
 
 
+
+
+/** 'InsertSpentNullifier' parameters type */
+export interface IInsertSpentNullifierParams {
+  height: NumberOrString;
+  nullifier: string;
+}
+
+/** 'InsertSpentNullifier' return type */
+export type IInsertSpentNullifierResult = void;
+
+/** 'InsertSpentNullifier' query type */
+export interface IInsertSpentNullifierQuery {
+  params: IInsertSpentNullifierParams;
+  result: IInsertSpentNullifierResult;
+}
+
+const insertSpentNullifierIR: any = {"usedParamSet":{"nullifier":true,"height":true},"params":[{"name":"nullifier","required":true,"transform":{"type":"scalar"},"locs":[{"a":208,"b":218}]},{"name":"height","required":true,"transform":{"type":"scalar"},"locs":[{"a":221,"b":228}]}],"statement":"-- Append-only record of an observed shielded nullifier spend. The offer\n-- validator reads spent_nullifiers to reject offers referencing spent coins.\nINSERT INTO spent_nullifiers (nullifier, height)\nVALUES (:nullifier!, :height!)\nON CONFLICT (nullifier) DO NOTHING"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * -- Append-only record of an observed shielded nullifier spend. The offer
+ * -- validator reads spent_nullifiers to reject offers referencing spent coins.
+ * INSERT INTO spent_nullifiers (nullifier, height)
+ * VALUES (:nullifier!, :height!)
+ * ON CONFLICT (nullifier) DO NOTHING
+ * ```
+ */
+export const insertSpentNullifier = new PreparedQuery<IInsertSpentNullifierParams,IInsertSpentNullifierResult>(insertSpentNullifierIR);
+
+
+
+/** 'IsNullifierSpent' parameters type */
+export interface IIsNullifierSpentParams {
+  nullifier: string;
+}
+
+/** 'IsNullifierSpent' return type */
+export interface IIsNullifierSpentResult {
+  spent: number | null;
+}
+
+/** 'IsNullifierSpent' query type */
+export interface IIsNullifierSpentQuery {
+  params: IIsNullifierSpentParams;
+  result: IIsNullifierSpentResult;
+}
+
+const isNullifierSpentIR: any = {"usedParamSet":{"nullifier":true},"params":[{"name":"nullifier","required":true,"transform":{"type":"scalar"},"locs":[{"a":58,"b":68}]}],"statement":"SELECT 1 AS spent\nFROM spent_nullifiers\nWHERE nullifier = :nullifier!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT 1 AS spent
+ * FROM spent_nullifiers
+ * WHERE nullifier = :nullifier!
+ * ```
+ */
+export const isNullifierSpent = new PreparedQuery<IIsNullifierSpentParams,IIsNullifierSpentResult>(isNullifierSpentIR);
+
+
+
+/** 'InsertSpentUnshielded' parameters type */
+export interface IInsertSpentUnshieldedParams {
+  height: NumberOrString;
+  intent_hash: string;
+  output_no: number;
+  owner: string;
+}
+
+/** 'InsertSpentUnshielded' return type */
+export type IInsertSpentUnshieldedResult = void;
+
+/** 'InsertSpentUnshielded' query type */
+export interface IInsertSpentUnshieldedQuery {
+  params: IInsertSpentUnshieldedParams;
+  result: IInsertSpentUnshieldedResult;
+}
+
+const insertSpentUnshieldedIR: any = {"usedParamSet":{"owner":true,"intent_hash":true,"output_no":true,"height":true},"params":[{"name":"owner","required":true,"transform":{"type":"scalar"},"locs":[{"a":137,"b":143}]},{"name":"intent_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":146,"b":158}]},{"name":"output_no","required":true,"transform":{"type":"scalar"},"locs":[{"a":161,"b":171}]},{"name":"height","required":true,"transform":{"type":"scalar"},"locs":[{"a":174,"b":181}]}],"statement":"-- Append-only record of an observed unshielded UTXO spend.\nINSERT INTO spent_unshielded (owner, intent_hash, output_no, height)\nVALUES (:owner!, :intent_hash!, :output_no!, :height!)\nON CONFLICT (owner, intent_hash, output_no) DO NOTHING"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * -- Append-only record of an observed unshielded UTXO spend.
+ * INSERT INTO spent_unshielded (owner, intent_hash, output_no, height)
+ * VALUES (:owner!, :intent_hash!, :output_no!, :height!)
+ * ON CONFLICT (owner, intent_hash, output_no) DO NOTHING
+ * ```
+ */
+export const insertSpentUnshielded = new PreparedQuery<IInsertSpentUnshieldedParams,IInsertSpentUnshieldedResult>(insertSpentUnshieldedIR);
+
+
+
+/** 'IsUnshieldedSpent' parameters type */
+export interface IIsUnshieldedSpentParams {
+  intent_hash: string;
+  output_no: number;
+  owner: string;
+}
+
+/** 'IsUnshieldedSpent' return type */
+export interface IIsUnshieldedSpentResult {
+  spent: number | null;
+}
+
+/** 'IsUnshieldedSpent' query type */
+export interface IIsUnshieldedSpentQuery {
+  params: IIsUnshieldedSpentParams;
+  result: IIsUnshieldedSpentResult;
+}
+
+const isUnshieldedSpentIR: any = {"usedParamSet":{"owner":true,"intent_hash":true,"output_no":true},"params":[{"name":"owner","required":true,"transform":{"type":"scalar"},"locs":[{"a":54,"b":60}]},{"name":"intent_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":82,"b":94}]},{"name":"output_no","required":true,"transform":{"type":"scalar"},"locs":[{"a":114,"b":124}]}],"statement":"SELECT 1 AS spent\nFROM spent_unshielded\nWHERE owner = :owner!\n  AND intent_hash = :intent_hash!\n  AND output_no = :output_no!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT 1 AS spent
+ * FROM spent_unshielded
+ * WHERE owner = :owner!
+ *   AND intent_hash = :intent_hash!
+ *   AND output_no = :output_no!
+ * ```
+ */
+export const isUnshieldedSpent = new PreparedQuery<IIsUnshieldedSpentParams,IIsUnshieldedSpentResult>(isUnshieldedSpentIR);

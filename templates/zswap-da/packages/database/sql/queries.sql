@@ -373,3 +373,28 @@ DELETE FROM seen_unshielded_spends
 WHERE owner = :owner!
   AND intent_hash = :intent_hash!
   AND output_no = :output_no!;
+
+/* @name InsertSpentNullifier */
+-- Append-only record of an observed shielded nullifier spend. The offer
+-- validator reads spent_nullifiers to reject offers referencing spent coins.
+INSERT INTO spent_nullifiers (nullifier, height)
+VALUES (:nullifier!, :height!)
+ON CONFLICT (nullifier) DO NOTHING;
+
+/* @name IsNullifierSpent */
+SELECT 1 AS spent
+FROM spent_nullifiers
+WHERE nullifier = :nullifier!;
+
+/* @name InsertSpentUnshielded */
+-- Append-only record of an observed unshielded UTXO spend.
+INSERT INTO spent_unshielded (owner, intent_hash, output_no, height)
+VALUES (:owner!, :intent_hash!, :output_no!, :height!)
+ON CONFLICT (owner, intent_hash, output_no) DO NOTHING;
+
+/* @name IsUnshieldedSpent */
+SELECT 1 AS spent
+FROM spent_unshielded
+WHERE owner = :owner!
+  AND intent_hash = :intent_hash!
+  AND output_no = :output_no!;
