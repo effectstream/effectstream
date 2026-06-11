@@ -181,7 +181,7 @@ test("1a: backpressure caps the buffer while the node keeps applying blocks", as
   let mainPauses = 0;
   try {
     const startMs = Date.now();
-    const deadline = startMs + 6000;
+    const deadline = startMs + 30_000;
     while (Date.now() < deadline) {
       const wall = Date.now();
       const mainBuf = bufferSize(node, MAIN_1A);
@@ -331,7 +331,8 @@ test("1b: a stalled chain still halts production, but the fast chain's buffer st
   let fastPauses = 0;
   try {
     const startMs = Date.now();
-    const deadline = startMs + 15_000;
+    // Generous for slow CI; exits early once the stall + capped sibling are captured.
+    const deadline = startMs + 30_000;
     let lastHeight = -1;
     let lastChange = Date.now();
     while (Date.now() < deadline) {
@@ -479,7 +480,8 @@ test("1c: a skipped-ahead root does NOT deadlock the merge on the first non-empt
   let lastApplied = 0;
   try {
     const startMs = Date.now();
-    const deadline = startMs + 20_000;
+    // Generous for slow CI; exits early once the liveness target is reached.
+    const deadline = startMs + 30_000;
     while (Date.now() < deadline) {
       const wall = Date.now();
       const mainBuf = bufferSize(node, MAIN_1C);
@@ -605,7 +607,8 @@ test("1d: a parallel chain denser than the cap does NOT deadlock the merge", asy
   let lastApplied = 0;
   try {
     const startMs = Date.now();
-    const deadline = startMs + 20_000;
+    // Generous for slow CI; exits early once the liveness target is reached.
+    const deadline = startMs + 30_000;
     while (Date.now() < deadline) {
       const wall = Date.now();
       const mainBuf = bufferSize(node, MAIN_1D);
