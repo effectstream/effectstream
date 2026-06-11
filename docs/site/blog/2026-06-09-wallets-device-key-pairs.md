@@ -88,8 +88,8 @@ This is not a prototype - the device key-pair is in production on [midnight.fun]
 
 The device key-pair is the building block for the rest of this series:
 
-- **Part 2 - Social login (2-of-3).** Back the device key with a recoverable 2-of-3 secret so a player can restore access without a seed phrase.
-- **Part 3 - Biometric login.** Unlock the device key with the platform's biometric authenticator.
+- [**Part 2 - Social login (2-of-3)**](/blog/wallets-social-login-2of3): a wallet from a Google sign-in, backed by a recoverable 2-of-3 secret - no seed phrase.
+- [**Part 3 - Biometric login**](/blog/wallets-biometric-passkeys): unlock the wallet with the platform's biometric authenticator (passkeys).
 
 ## Source
 

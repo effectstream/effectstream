@@ -12,6 +12,7 @@
     "contract:compile": "bun run compact"
   },
   "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.15.0",
     "@night-bitcoin/midnight-contract-erc7683": "workspace:*",
     "vitest": "^3.2.4"
   }
