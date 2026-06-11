@@ -146,6 +146,11 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
       rootInfo.toPage(rootInfo.value),
     ) <= 0
   ) {
+    // Publish the demand before waiting so the cap exempts this chain while the
+    // merge is gated on its page (see SyncState.mergeWaitingForPage). No lock
+    // needed: the fetch loop re-polls stateToInput every pollingInterval.
+    state.mergeWaitingForPage = true;
+    state.mergeDemandRoot = rootInfo.toPage(rootInfo.value);
     log.remote(
       ComponentNames.EFFECTSTREAM_SYNC,
       state.getNamespace(),
@@ -160,6 +165,8 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
       (log) => log("Merge unblocked (missing parallel data): got data"),
     );
   }
+  state.mergeWaitingForPage = false;
+  state.mergeDemandRoot = undefined;
   const cleanups = getFromBuffer(
     {
       data: iState.bufferedData,

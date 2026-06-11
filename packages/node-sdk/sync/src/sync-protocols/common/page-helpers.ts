@@ -33,11 +33,15 @@ export function bufferAtCap(
   state: {
     bufferedData: { size(): number };
     recordBackpressure(atCap: boolean, cap: number): void;
+    mergeWaitingForPage: boolean;
   },
   syncProtocol: { maxBufferedPages?: number; stepSize?: number },
 ): boolean {
   const cap = bufferCapFor(syncProtocol);
-  const atCap = state.bufferedData.size() >= cap;
+  // Exempt this chain from the cap while the merge is blocked on its page (pausing
+  // there would deadlock — see SyncState.mergeWaitingForPage). Reporting
+  // atCap=false while exempt is correct: the chain is genuinely not paused.
+  const atCap = !state.mergeWaitingForPage && state.bufferedData.size() >= cap;
   state.recordBackpressure(atCap, cap);
   return atCap;
 }

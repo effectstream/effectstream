@@ -167,7 +167,18 @@ Consequences during catch-up:
   (`mergeIntoRoot`, `merge.ts`), so a slow/stalled chain stalls all block production while
   the others keep ballooning (head-of-line blocking).
 
-→ Fix: **(C) backpressure** — cap `bufferedData` and pause the fetch loop until the merge drains.
+→ Fix: **(C) backpressure** — ✅ SHIPPED. `bufferAtCap` (`common/page-helpers.ts`) caps
+`bufferedData` and pauses the fetch loop (each chain's `stateToInput` returns `undefined`)
+until the merge drains. See README "Backpressure (`maxBufferedPages`)".
+
+> **Merge-demand exemption (safeguard).** A naive cap can deadlock the merge: it drains a
+> parallel chain's buffer only *after* its page passes the root timestamp `τ`, so if the cap
+> pauses the fetcher while its page is still `≤ τ` (a far skip-ahead, or a chain finer-grained
+> than the cap), merge waits for the page ↔ the page waits for a fetch ↔ the fetch waits for
+> the buffer to drain — circular. Guard: `mergeIntoRoot` sets `SyncState.mergeWaitingForPage`
+> while blocked on a chain's page, and `bufferAtCap` returns `false` for that chain while the
+> flag is set — so the fetcher advances past `τ`. Bounded by necessity: only
+> `(lastPage.root, τ]` is buffered above the cap. Repros: `buffering.test.ts` 1c/1d.
 
 ### 2. Silent data gap on restart (correctness) — ✅ FIXED (D)
 
@@ -202,5 +213,7 @@ block-hash chain.
 > (with `test` as the worked example).
 >
 > Deterministic reproductions of #1/#2/#3 and their fixes land alongside each fix:
-> **#2 → block-accurate resume is DONE** (`consistency.test.ts`). Still in follow-up
-> PRs: #1 → fetch backpressure; #3 → opt-in empty-block commit batching during catch-up.
+> **#2 → block-accurate resume is DONE** (`consistency.test.ts`); **#1 → fetch
+> backpressure is DONE** (`buffering.test.ts`, incl. 1c/1d for the merge-demand
+> exemption). Still in follow-up PRs: #3 → opt-in empty-block commit batching during
+> catch-up.

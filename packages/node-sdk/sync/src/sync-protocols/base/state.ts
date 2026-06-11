@@ -88,6 +88,18 @@ export abstract class SyncState<
   /** Start of the current pause, for accumulating `backpressurePausedMs`. */
   private pauseStartMs: number = 0;
 
+  // ── Merge-demand exemption (see common/page-helpers.ts + README) ──
+  /**
+   * True while the merge is blocked waiting for THIS chain's page to pass the
+   * current root timestamp. The cap must not pause the fetcher here: the merge
+   * drains this chain's buffer only after its page passes the target, so pausing
+   * would be a circular wait. While exempt the fetcher buffers only the data the
+   * merge must hold to build that block anyway (bounded by necessity).
+   */
+  public mergeWaitingForPage: boolean = false;
+  /** Root page (ms timestamp) the merge is waiting to exceed — observability only. */
+  public mergeDemandRoot: RootPage | undefined = undefined;
+
   constructor(
     public readonly name: string,
     lastPage: undefined | LastPage<Page, RootPage>,

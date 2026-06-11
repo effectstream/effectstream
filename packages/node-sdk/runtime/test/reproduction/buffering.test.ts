@@ -8,6 +8,10 @@
  *  1b — head-of-line blocking: a stalled slow chain STILL halts block production
  *       (the merge gate is correct), but the fast chain's buffer is now bounded by
  *       the cap instead of ballooning behind the head-of-line block.
+ *  1c — skip-ahead: the merge-demand exemption lifts the cap while the merge is gated
+ *       on a chain whose page is far behind the (skipped-ahead) root, so it advances
+ *       instead of deadlocking.
+ *  1d — density: the same exemption when a parallel chain is finer-grained than the cap.
  *
  * Before the fix these buffers reached ~49k–50k (see
  * e2e/perf/results/BACKPRESSURE-BASELINE.md); these tests assert they now
@@ -386,4 +390,258 @@ test("1b: a stalled chain still halts production, but the fast chain's buffer st
   expect(peakMain).toBeLessThanOrEqual(BUFFER_BOUND);
   // ...and the cap actually fired on the fast chain (observability metric populated).
   expect(fastPauses).toBeGreaterThan(0);
+}, 60_000);
+
+// ── 1c — skip-ahead: merge-demand exemption keeps the cap from deadlocking ────────
+//
+// The root (main clock) starts far ahead of a parallel chain that starts at block 1.
+// To produce the first root block at τ (main page SKIP_START) the merge needs the
+// parallel page PAST τ — so the fetcher must scan ~SKIP_START blocks, more than the
+// cap. The exemption lifts the cap while the merge is gated on this chain, so it
+// reaches τ and production proceeds (without it the node wedges on the first block).
+
+const MAIN_1C = "mainClock1c";
+const PAR_1C = "parallelP1c";
+// Main genesis page (skip-ahead); cap far below it so the parallel chain must buffer
+// past the cap to reach τ.
+const SKIP_START = 300;
+const SMALL_STEP = 50;
+const SMALL_CAP = 100;
+// Liveness: past the first non-empty block at SKIP_START.
+const LIVE_TARGET_1C = SKIP_START + 10;
+// Bounded by necessity: at most the skip window + one in-flight chunk.
+const SKIP_BUFFER_BOUND = SKIP_START + SMALL_STEP + 200;
+
+function buildConfig1c() {
+  return new ConfigBuilder()
+    .setNamespace((b) => b.setSecurityNamespace("sync-buffering-1c"))
+    .buildNetworks((b) =>
+      b
+        .addNetwork({
+          name: "clock",
+          type: ConfigNetworkType.TEST,
+          startTime: START_TIME,
+          blockTimeMS: BLOCK_TIME_MS,
+        })
+        .addNetwork({
+          name: "chainP",
+          type: ConfigNetworkType.TEST,
+          startTime: START_TIME,
+          blockTimeMS: BLOCK_TIME_MS,
+        })
+    )
+    .buildDeployments((b) => b)
+    .buildSyncProtocols((b) =>
+      b
+        .addMain(
+          (n) => n.clock,
+          () => ({
+            name: MAIN_1C,
+            type: ConfigSyncProtocolType.TEST_MAIN,
+            // Skipped far ahead of the parallel chain (the recovery skip-ahead).
+            startBlockHeight: SKIP_START,
+            pollingInterval: 30,
+            stepSize: SMALL_STEP,
+            maxBufferedPages: SMALL_CAP,
+          }),
+        )
+        .addParallel(
+          (n) => (n as any).chainP,
+          () => ({
+            name: PAR_1C,
+            type: ConfigSyncProtocolType.TEST_PARALLEL,
+            startBlockHeight: 1,
+            pollingInterval: 30,
+            stepSize: SMALL_STEP,
+            delayMs: 0,
+            events: [],
+            maxBufferedPages: SMALL_CAP,
+          }),
+        )
+    )
+    .buildPrimitives((b) =>
+      b.addPrimitive(
+        (sp) => (sp as any)[PAR_1C],
+        () => ({ name: "noEvt1c", type: TEST_PRIMITIVE_TYPE, startBlockHeight: 1 }),
+      )
+    )
+    .build();
+}
+
+test("1c: a skipped-ahead root does NOT deadlock the merge on the first non-empty block", async () => {
+  // Main skipped to SKIP_START; parallel starts at 1 with a high tip.
+  TestChainControl.setTip(MAIN_1C, SKIP_START + 100);
+  TestChainControl.setTip(PAR_1C, 10_000);
+
+  const node = await h.runNode({ config: buildConfig1c(), apiPort: 19143 });
+  const samples: BufSample[] = [];
+  let peakPar = 0;
+  let lastApplied = 0;
+  try {
+    const startMs = Date.now();
+    const deadline = startMs + 20_000;
+    while (Date.now() < deadline) {
+      const wall = Date.now();
+      const mainBuf = bufferSize(node, MAIN_1C);
+      const parBuf = bufferSize(node, PAR_1C);
+      const appliedBlock = await latestFinalizedHeight(h.pool);
+      samples.push({
+        t: wall - startMs,
+        wall,
+        mainBuf,
+        evmBuf: parBuf,
+        mainOwnBlock: ownBlock(node, MAIN_1C),
+        evmOwnBlock: ownBlock(node, PAR_1C),
+        rss: process.memoryUsage().rss,
+        appliedBlock,
+      });
+      peakPar = Math.max(peakPar, parBuf);
+      lastApplied = appliedBlock ?? lastApplied;
+      // Got past the first non-empty block → the deadlock is broken; stop early.
+      if (lastApplied >= LIVE_TARGET_1C) break;
+      await sleep(50);
+    }
+  } finally {
+    writeArtifact("buffering-1c", samples, {
+      mode: "1c-skip-ahead-deadlock",
+      stepSize: SMALL_STEP,
+      skipStart: SKIP_START,
+      cap: SMALL_CAP,
+      liveTarget: LIVE_TARGET_1C,
+      peakParBuf: peakPar,
+      lastApplied,
+    });
+    await node.stop();
+  }
+
+  // Liveness: production advanced past the first non-empty block (no wedge).
+  expect(lastApplied).toBeGreaterThanOrEqual(LIVE_TARGET_1C);
+  // Bounded by necessity: only the skip window + one chunk, not the whole tip.
+  expect(peakPar).toBeLessThanOrEqual(SKIP_BUFFER_BOUND);
+}, 60_000);
+
+// ── 1d — density: same exemption when a chain is finer-grained than the cap ───────
+//
+// Same circular wait without a skip-ahead: a parallel chain far finer than the root
+// (100 parallel blocks per root slot). Each root block needs the parallel page past
+// the slot boundary (~PER_SLOT buffered items), but the cap is below that. The
+// exemption lets the per-slot window buffer and drain each slot (without it the node
+// wedges on the first block).
+
+const MAIN_1D = "mainClock1d";
+const PAR_1D = "parallelP1d";
+const DENSE_BLOCK_MS = 10; // 100 parallel blocks per 1000ms root slot
+const PER_SLOT = BLOCK_TIME_MS / DENSE_BLOCK_MS; // 100 parallel items per root slot
+// Step + cap small enough that cap + one overshoot chunk (~40) stays below PER_SLOT
+// (100), so the fetcher pauses before its page can cross the slot boundary.
+const DENSE_STEP = 10;
+const CAP_1D = 30;
+const LIVE_TARGET_1D = 20;
+// Bounded by the per-slot need plus one chunk — not the whole tip.
+const DENSE_BUFFER_BOUND = PER_SLOT + DENSE_STEP + 150;
+
+function buildConfig1d() {
+  return new ConfigBuilder()
+    .setNamespace((b) => b.setSecurityNamespace("sync-buffering-1d"))
+    .buildNetworks((b) =>
+      b
+        .addNetwork({
+          name: "clock",
+          type: ConfigNetworkType.TEST,
+          startTime: START_TIME,
+          blockTimeMS: BLOCK_TIME_MS,
+        })
+        .addNetwork({
+          name: "chainDense",
+          type: ConfigNetworkType.TEST,
+          startTime: START_TIME,
+          blockTimeMS: DENSE_BLOCK_MS,
+        })
+    )
+    .buildDeployments((b) => b)
+    .buildSyncProtocols((b) =>
+      b
+        .addMain(
+          (n) => n.clock,
+          () => ({
+            name: MAIN_1D,
+            type: ConfigSyncProtocolType.TEST_MAIN,
+            startBlockHeight: 1,
+            pollingInterval: 30,
+            stepSize: DENSE_STEP,
+            maxBufferedPages: 200,
+          }),
+        )
+        .addParallel(
+          (n) => (n as any).chainDense,
+          () => ({
+            name: PAR_1D,
+            type: ConfigSyncProtocolType.TEST_PARALLEL,
+            startBlockHeight: 1,
+            pollingInterval: 30,
+            stepSize: DENSE_STEP,
+            delayMs: 0,
+            events: [],
+            maxBufferedPages: CAP_1D,
+          }),
+        )
+    )
+    .buildPrimitives((b) =>
+      b.addPrimitive(
+        (sp) => (sp as any)[PAR_1D],
+        () => ({ name: "noEvt1d", type: TEST_PRIMITIVE_TYPE, startBlockHeight: 1 }),
+      )
+    )
+    .build();
+}
+
+test("1d: a parallel chain denser than the cap does NOT deadlock the merge", async () => {
+  TestChainControl.setTip(MAIN_1D, 60);
+  TestChainControl.setTip(PAR_1D, 10_000);
+
+  const node = await h.runNode({ config: buildConfig1d(), apiPort: 19144 });
+  const samples: BufSample[] = [];
+  let peakPar = 0;
+  let lastApplied = 0;
+  try {
+    const startMs = Date.now();
+    const deadline = startMs + 20_000;
+    while (Date.now() < deadline) {
+      const wall = Date.now();
+      const mainBuf = bufferSize(node, MAIN_1D);
+      const parBuf = bufferSize(node, PAR_1D);
+      const appliedBlock = await latestFinalizedHeight(h.pool);
+      samples.push({
+        t: wall - startMs,
+        wall,
+        mainBuf,
+        evmBuf: parBuf,
+        mainOwnBlock: ownBlock(node, MAIN_1D),
+        evmOwnBlock: ownBlock(node, PAR_1D),
+        rss: process.memoryUsage().rss,
+        appliedBlock,
+      });
+      peakPar = Math.max(peakPar, parBuf);
+      lastApplied = appliedBlock ?? lastApplied;
+      if (lastApplied >= LIVE_TARGET_1D) break;
+      await sleep(50);
+    }
+  } finally {
+    writeArtifact("buffering-1d", samples, {
+      mode: "1d-density-deadlock",
+      stepSize: SMALL_STEP,
+      denseBlockMs: DENSE_BLOCK_MS,
+      perSlot: PER_SLOT,
+      cap: CAP_1D,
+      liveTarget: LIVE_TARGET_1D,
+      peakParBuf: peakPar,
+      lastApplied,
+    });
+    await node.stop();
+  }
+
+  // Liveness: the node produces blocks (no wedge on block 1).
+  expect(lastApplied).toBeGreaterThanOrEqual(LIVE_TARGET_1D);
+  // Bounded by the per-slot need: ~one slot of parallel data plus one chunk.
+  expect(peakPar).toBeLessThanOrEqual(DENSE_BUFFER_BOUND);
 }, 60_000);
