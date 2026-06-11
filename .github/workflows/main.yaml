@@ -73,11 +73,41 @@ jobs:
           docker run --rm --name templates_${{ github.run_number }} testing_image:${{ github.sha }} \
             bash -c "bun run templates/run-template-tests.ts ${{ needs.changes.outputs.templates }} --skip-disabled"
 
+  # Browser build (+ tests) of @effectstream/frontend-sdk. This is the ONLY
+  # package that needs a build before publish, and that build (`bun run build`,
+  # target: "browser") is otherwise never exercised until release-publish time.
+  # A node-only module leaking into the browser bundle therefore passes every
+  # push/PR check and only blows up the release — which is exactly what happened
+  # for v0.100.19–v0.100.22 (@effectstream/midnight-contracts, an optional peer
+  # dep of @effectstream/wallets reached via dynamic import, pulled `node:util`
+  # parseArgs into the bundle). Run the build + its regression test here, gated on
+  # core changes, so the failure surfaces in PRs instead of at release.
+  frontend-build:
+    needs: changes
+    if: ${{ needs.changes.outputs.core == 'true' && (github.event_name == 'push' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Runs build.test.ts (spawns the real `bun run build`, asserting the
+      # browser bundle succeeds + node-only optional peers stay external) and
+      # examples.test.ts (the public re-export surface).
+      - name: Build & test frontend SDK
+        run: bun test packages/frontend/test/
+
   # Aggregate gate: a single stable check to mark required in branch protection.
-  # Passes when e2e/template-tests succeed or are skipped; fails if either fails
-  # or is cancelled (or if the changes job itself failed).
+  # Passes when the gated jobs succeed or are skipped; fails if any fails or is
+  # cancelled (or if the changes job itself failed).
   ci-ok:
-    needs: [changes, e2e, template-tests]
+    needs: [changes, e2e, template-tests, frontend-build]
     if: ${{ always() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 5
@@ -87,11 +117,14 @@ jobs:
           echo "changes=${{ needs.changes.result }}"
           echo "e2e=${{ needs.e2e.result }}"
           echo "template-tests=${{ needs.template-tests.result }}"
+          echo "frontend-build=${{ needs.frontend-build.result }}"
           if [ "${{ needs.changes.result }}" = "failure" ] || \
              [ "${{ needs.e2e.result }}" = "failure" ] || \
              [ "${{ needs.e2e.result }}" = "cancelled" ] || \
              [ "${{ needs.template-tests.result }}" = "failure" ] || \
-             [ "${{ needs.template-tests.result }}" = "cancelled" ]; then
+             [ "${{ needs.template-tests.result }}" = "cancelled" ] || \
+             [ "${{ needs.frontend-build.result }}" = "failure" ] || \
+             [ "${{ needs.frontend-build.result }}" = "cancelled" ]; then
             echo "::error::A required job failed or was cancelled."
             exit 1
           fi
