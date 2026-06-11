@@ -5,7 +5,7 @@ authors: [effectstream]
 tags: [farcaster, mini-apps, game-templates, social, cardano, evm]
 ---
 
-<iframe width="100%" height="415" src="https://www.youtube.com/embed/pJhG-yLFevE" title="Farcaster Canvas Mini App demo" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
+<iframe width="100%" height="415" src="https://www.youtube.com/embed/NYjVmRQBbcU" title="Farcaster Canvas Mini App demo" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
 
 [Farcaster Canvas](https://github.com/effectstream/farcaster-app) is a collaborative pixel-painting game that ships as a [Farcaster Mini App](https://miniapps.farcaster.xyz). Two users on Warpcast can sit on the same canvas, pick colors from a palette, and watch each other's paints land in near real time. When a canvas runs out of slots, anyone can fork it to their own timeline as the next canvas to paint on.
 

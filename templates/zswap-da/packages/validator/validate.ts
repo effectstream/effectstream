@@ -9,6 +9,7 @@ import {
   UnknownTokenTagError,
 } from "./derive.ts";
 import { buildStrictness } from "./refstate.ts";
+import { extractOfferInputRoots, RootExtractError } from "./extract-root.ts";
 import type {
   OfferRejectCode,
   OfferValidation,
@@ -140,7 +141,14 @@ export function validateZswapOffer(
   }
 
   const identifiers = safeIdentifiers(tx);
-  const derived = { tx, nullifiers, unshieldedSpends, gives, wants, identifiers };
+  let derived: Partial<OfferValidation> = {
+    tx,
+    nullifiers,
+    unshieldedSpends,
+    gives,
+    wants,
+    identifiers,
+  };
 
   // ── 5. Cryptographic (rejects forged proofs / made-up coins) ──
   try {
@@ -152,6 +160,23 @@ export function validateZswapOffer(
       : "PROOF_INVALID";
     return { ok: false, code, reason: `wellFormed failed: ${m}`, ...derived };
   }
+
+  // ── 5b. Extract each shielded input's merkle root (fail-closed) ──
+  // The binding has no root getter, so we read it from the serialized input
+  // (pinned zswap-input[v2] layout). A parse anomaly is rejected, not ignored:
+  // a wrong root would otherwise match no known root anyway.
+  let inputRoots: string[];
+  try {
+    inputRoots = extractOfferInputRoots(tx);
+  } catch (e) {
+    return {
+      ok: false,
+      code: e instanceof RootExtractError ? "ROOT_UNREADABLE" : "ROOT_UNREADABLE",
+      reason: `root extraction failed: ${errMsg(e)}`,
+      ...derived,
+    };
+  }
+  derived = { ...derived, inputRoots };
 
   // ── 6. Liveness (optional synchronous checks) ──
   if (opts.isNullifierSpent) {
@@ -174,6 +199,31 @@ export function validateZswapOffer(
           code: "UTXO_SPENT",
           reason:
             `unshielded UTXO already spent: ${ref.owner}/${ref.intentHash}/${ref.outputNo}`,
+          ...derived,
+        };
+      }
+    }
+  }
+  if (opts.isUnshieldedCreated) {
+    for (const ref of unshieldedSpends) {
+      if (!opts.isUnshieldedCreated(ref)) {
+        return {
+          ok: false,
+          code: "UTXO_UNKNOWN",
+          reason:
+            `unshielded UTXO never created on chain: ${ref.owner}/${ref.intentHash}/${ref.outputNo}`,
+          ...derived,
+        };
+      }
+    }
+  }
+  if (opts.isKnownRoot) {
+    for (const root of inputRoots) {
+      if (!opts.isKnownRoot(root)) {
+        return {
+          ok: false,
+          code: "ROOT_UNKNOWN",
+          reason: `input merkle root not a known recent chain root: ${root}`,
           ...derived,
         };
       }

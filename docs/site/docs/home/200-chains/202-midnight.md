@@ -122,6 +122,34 @@ import * as MyContract from "@my-project/midnight-contract/contract";
 )
 ```
 
+In addition to contract state, four ledger-level primitives surface raw zswap
+activity (no contract address needed) — each emits a state-machine input under
+its `stateMachinePrefix`. They underpin the `zswap-da` template's offer-liveness
+checks (is a coin spent? does a UTXO exist? is a Merkle root real and recent?):
+
+*   **`PrimitiveTypeMidnightNullifier`**: emits each shielded coin **nullifier** as it is consumed (a spend). Payload `{ nullifier, txHash, eventId, logicalSegment }`.
+*   **`PrimitiveTypeMidnightUnshieldedSpend`**: emits each **unshielded UTXO spend** as `{ owner, intentHash, outputIndex, txHash }`.
+*   **`PrimitiveTypeMidnightUnshieldedCreate`**: emits each **unshielded UTXO creation** (regular **and** system transactions — rewards/bridge mint UTXOs) as `{ owner, intentHash, outputIndex, txHash }`. The existence counterpart of `UnshieldedSpend`.
+*   **`PrimitiveTypeMidnightZswapRoot`**: emits the zswap coin-commitment Merkle tree **root** as it advances (the last `RegularTransaction.zswapMerkleTreeRoot` of each block) as `{ root, txHash }`.
+
+```ts
+import {
+  PrimitiveTypeMidnightUnshieldedCreate,
+  PrimitiveTypeMidnightZswapRoot,
+} from "@effectstream/sm/builtin";
+
+.addPrimitive(
+  (syncProtocols) => syncProtocols.parallelMidnight,
+  () => ({
+    name: "Midnight-ZswapRoot",
+    type: PrimitiveTypeMidnightZswapRoot,
+    startBlockHeight: 1,
+    stateMachinePrefix: "midnight-zswap-root",
+    networkId: midnightNetworkConfig.id,
+  }),
+)
+```
+
 ## 2. Batcher Adapters (Write)
 
 Writing to Midnight involves proving and submitting ZK circuits. EffectStream provides the `MidnightAdapter` to handle this complexity.

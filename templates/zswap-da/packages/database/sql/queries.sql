@@ -398,3 +398,39 @@ FROM spent_unshielded
 WHERE owner = :owner!
   AND intent_hash = :intent_hash!
   AND output_no = :output_no!;
+
+/* @name InsertCreatedUnshielded */
+-- Append-only record of an unshielded UTXO created on chain (existence set).
+INSERT INTO created_unshielded (owner, intent_hash, output_no, height)
+VALUES (:owner!, :intent_hash!, :output_no!, :height!)
+ON CONFLICT (owner, intent_hash, output_no) DO NOTHING;
+
+/* @name IsUnshieldedCreated */
+SELECT 1 AS present
+FROM created_unshielded
+WHERE owner = :owner!
+  AND intent_hash = :intent_hash!
+  AND output_no = :output_no!;
+
+/* @name UpsertKnownRoot */
+-- Record/refresh a coin-commitment tree root the chain has held (root-known
+-- set). last_seen_ms is the block time, used by PruneKnownRoots to age roots
+-- out of the on-chain root window.
+INSERT INTO known_roots (root, height, last_seen_ms)
+VALUES (:root!, :height!, :last_seen_ms!)
+ON CONFLICT (root) DO UPDATE
+  SET height = EXCLUDED.height,
+      last_seen_ms = EXCLUDED.last_seen_ms;
+
+/* @name IsKnownRoot */
+SELECT 1 AS present
+FROM known_roots
+WHERE root = :root!;
+
+/* @name PruneKnownRoots */
+-- Drop roots older than the window cutoff, but never the most recent root: on
+-- a quiet chain the latest root keeps being re-accepted, mirroring the
+-- ledger's past_roots re-insertion each block.
+DELETE FROM known_roots
+WHERE last_seen_ms < :cutoff_ms!
+  AND height < (SELECT MAX(height) FROM known_roots);
