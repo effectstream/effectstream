@@ -99,6 +99,9 @@ WORKDIR /app
 COPY --from=compact /root/.local/bin/ /root/.local/bin/
 COPY --from=compact /root/.compact/ /root/.compact/
 ENV PATH="/root/.local/bin:$PATH"
+# Also expose compact on the default PATH so login shells (`bash -l` sources
+# /etc/profile, which resets root's PATH) can still find it.
+RUN ln -sf /root/.local/bin/compact /usr/local/bin/compact && compact --version
 
 # Copy solc cache from stage 3
 COPY --from=solc /root/.cache/hardhat-nodejs/ /root/.cache/hardhat-nodejs/
