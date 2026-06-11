@@ -46,12 +46,18 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function waitForBlock(targetBlock: number) {
   while (true) {
-    const blockhash = await bitcoinRpcCall("getbestblockhash", []);
-    const block = await bitcoinRpcCall("getblock", [blockhash]);
-    if (block.height > targetBlock) {
-      return;
+    try {
+      const blockhash = await bitcoinRpcCall("getbestblockhash", []);
+      const block = await bitcoinRpcCall("getblock", [blockhash]);
+      if (block.height > targetBlock) {
+        return;
+      }
+      console.log(`Waiting for block: ${targetBlock}. Current block: ${block.height}`);
+    } catch (e) {
+      // bitcoind rejects RPC while starting up (-28 "Loading block index…",
+      // connection refused) — keep polling; the orchestrator owns the timeout.
+      console.log(`Waiting for bitcoind: ${e instanceof Error ? e.message : e}`);
     }
-    console.log(`Waiting for block: ${targetBlock}. Current block: ${block.height}`);
     await delay(500);
   }
 }

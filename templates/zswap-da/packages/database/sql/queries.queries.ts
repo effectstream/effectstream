@@ -1002,3 +1002,164 @@ const isUnshieldedSpentIR: any = {"usedParamSet":{"owner":true,"intent_hash":tru
  * ```
  */
 export const isUnshieldedSpent = new PreparedQuery<IIsUnshieldedSpentParams,IIsUnshieldedSpentResult>(isUnshieldedSpentIR);
+
+
+/** 'InsertCreatedUnshielded' parameters type */
+export interface IInsertCreatedUnshieldedParams {
+  height: NumberOrString;
+  intent_hash: string;
+  output_no: number;
+  owner: string;
+}
+
+/** 'InsertCreatedUnshielded' return type */
+export type IInsertCreatedUnshieldedResult = void;
+
+/** 'InsertCreatedUnshielded' query type */
+export interface IInsertCreatedUnshieldedQuery {
+  params: IInsertCreatedUnshieldedParams;
+  result: IInsertCreatedUnshieldedResult;
+}
+
+const insertCreatedUnshieldedIR: any = {"usedParamSet":{"owner":true,"intent_hash":true,"output_no":true,"height":true},"params":[{"name":"owner","required":true,"transform":{"type":"scalar"},"locs":[{"a":157,"b":163}]},{"name":"intent_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":166,"b":178}]},{"name":"output_no","required":true,"transform":{"type":"scalar"},"locs":[{"a":181,"b":191}]},{"name":"height","required":true,"transform":{"type":"scalar"},"locs":[{"a":194,"b":201}]}],"statement":"-- Append-only record of an unshielded UTXO created on chain (existence set).\nINSERT INTO created_unshielded (owner, intent_hash, output_no, height)\nVALUES (:owner!, :intent_hash!, :output_no!, :height!)\nON CONFLICT (owner, intent_hash, output_no) DO NOTHING"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * -- Append-only record of an unshielded UTXO created on chain (existence set).
+ * INSERT INTO created_unshielded (owner, intent_hash, output_no, height)
+ * VALUES (:owner!, :intent_hash!, :output_no!, :height!)
+ * ON CONFLICT (owner, intent_hash, output_no) DO NOTHING
+ * ```
+ */
+export const insertCreatedUnshielded = new PreparedQuery<IInsertCreatedUnshieldedParams,IInsertCreatedUnshieldedResult>(insertCreatedUnshieldedIR);
+
+
+
+/** 'IsUnshieldedCreated' parameters type */
+export interface IIsUnshieldedCreatedParams {
+  intent_hash: string;
+  output_no: number;
+  owner: string;
+}
+
+/** 'IsUnshieldedCreated' return type */
+export interface IIsUnshieldedCreatedResult {
+  present: number | null;
+}
+
+/** 'IsUnshieldedCreated' query type */
+export interface IIsUnshieldedCreatedQuery {
+  params: IIsUnshieldedCreatedParams;
+  result: IIsUnshieldedCreatedResult;
+}
+
+const isUnshieldedCreatedIR: any = {"usedParamSet":{"owner":true,"intent_hash":true,"output_no":true},"params":[{"name":"owner","required":true,"transform":{"type":"scalar"},"locs":[{"a":58,"b":64}]},{"name":"intent_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":86,"b":98}]},{"name":"output_no","required":true,"transform":{"type":"scalar"},"locs":[{"a":118,"b":128}]}],"statement":"SELECT 1 AS present\nFROM created_unshielded\nWHERE owner = :owner!\n  AND intent_hash = :intent_hash!\n  AND output_no = :output_no!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT 1 AS present
+ * FROM created_unshielded
+ * WHERE owner = :owner!
+ *   AND intent_hash = :intent_hash!
+ *   AND output_no = :output_no!
+ * ```
+ */
+export const isUnshieldedCreated = new PreparedQuery<IIsUnshieldedCreatedParams,IIsUnshieldedCreatedResult>(isUnshieldedCreatedIR);
+
+
+
+/** 'UpsertKnownRoot' parameters type */
+export interface IUpsertKnownRootParams {
+  height: NumberOrString;
+  last_seen_ms: NumberOrString;
+  root: string;
+}
+
+/** 'UpsertKnownRoot' return type */
+export type IUpsertKnownRootResult = void;
+
+/** 'UpsertKnownRoot' query type */
+export interface IUpsertKnownRootQuery {
+  params: IUpsertKnownRootParams;
+  result: IUpsertKnownRootResult;
+}
+
+const upsertKnownRootIR: any = {"usedParamSet":{"root":true,"height":true,"last_seen_ms":true},"params":[{"name":"root","required":true,"transform":{"type":"scalar"},"locs":[{"a":252,"b":257}]},{"name":"height","required":true,"transform":{"type":"scalar"},"locs":[{"a":260,"b":267}]},{"name":"last_seen_ms","required":true,"transform":{"type":"scalar"},"locs":[{"a":270,"b":283}]}],"statement":"-- Record/refresh a coin-commitment tree root the chain has held (root-known\n-- set). last_seen_ms is the block time, used by PruneKnownRoots to age roots\n-- out of the on-chain root window.\nINSERT INTO known_roots (root, height, last_seen_ms)\nVALUES (:root!, :height!, :last_seen_ms!)\nON CONFLICT (root) DO UPDATE\n  SET height = EXCLUDED.height,\n      last_seen_ms = EXCLUDED.last_seen_ms"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * -- Record/refresh a coin-commitment tree root the chain has held (root-known
+ * -- set). last_seen_ms is the block time, used by PruneKnownRoots to age roots
+ * -- out of the on-chain root window.
+ * INSERT INTO known_roots (root, height, last_seen_ms)
+ * VALUES (:root!, :height!, :last_seen_ms!)
+ * ON CONFLICT (root) DO UPDATE
+ *   SET height = EXCLUDED.height,
+ *       last_seen_ms = EXCLUDED.last_seen_ms
+ * ```
+ */
+export const upsertKnownRoot = new PreparedQuery<IUpsertKnownRootParams,IUpsertKnownRootResult>(upsertKnownRootIR);
+
+
+
+/** 'IsKnownRoot' parameters type */
+export interface IIsKnownRootParams {
+  root: string;
+}
+
+/** 'IsKnownRoot' return type */
+export interface IIsKnownRootResult {
+  present: number | null;
+}
+
+/** 'IsKnownRoot' query type */
+export interface IIsKnownRootQuery {
+  params: IIsKnownRootParams;
+  result: IIsKnownRootResult;
+}
+
+const isKnownRootIR: any = {"usedParamSet":{"root":true},"params":[{"name":"root","required":true,"transform":{"type":"scalar"},"locs":[{"a":50,"b":55}]}],"statement":"SELECT 1 AS present\nFROM known_roots\nWHERE root = :root!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT 1 AS present
+ * FROM known_roots
+ * WHERE root = :root!
+ * ```
+ */
+export const isKnownRoot = new PreparedQuery<IIsKnownRootParams,IIsKnownRootResult>(isKnownRootIR);
+
+
+
+/** 'PruneKnownRoots' parameters type */
+export interface IPruneKnownRootsParams {
+  cutoff_ms: NumberOrString;
+}
+
+/** 'PruneKnownRoots' return type */
+export type IPruneKnownRootsResult = void;
+
+/** 'PruneKnownRoots' query type */
+export interface IPruneKnownRootsQuery {
+  params: IPruneKnownRootsParams;
+  result: IPruneKnownRootsResult;
+}
+
+const pruneKnownRootsIR: any = {"usedParamSet":{"cutoff_ms":true},"params":[{"name":"cutoff_ms","required":true,"transform":{"type":"scalar"},"locs":[{"a":244,"b":254}]}],"statement":"-- Drop roots older than the window cutoff, but never the most recent root: on\n-- a quiet chain the latest root keeps being re-accepted, mirroring the\n-- ledger's past_roots re-insertion each block.\nDELETE FROM known_roots\nWHERE last_seen_ms < :cutoff_ms!\n  AND height < (SELECT MAX(height) FROM known_roots)"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * -- Drop roots older than the window cutoff, but never the most recent root: on
+ * -- a quiet chain the latest root keeps being re-accepted, mirroring the
+ * -- ledger's past_roots re-insertion each block.
+ * DELETE FROM known_roots
+ * WHERE last_seen_ms < :cutoff_ms!
+ *   AND height < (SELECT MAX(height) FROM known_roots)
+ * ```
+ */
+export const pruneKnownRoots = new PreparedQuery<IPruneKnownRootsParams,IPruneKnownRootsResult>(pruneKnownRootsIR);
