@@ -48,15 +48,9 @@ const check = (name: string, cond: boolean, extra = "") => {
 const counts = await tableCounts();
 console.log("[e2e] liveness tables:", JSON.stringify(counts));
 check("known_roots populated by midnight-zswap-root primitive", counts.known_roots > 0);
-// created_unshielded only fills when the chain has unshielded ACTIVITY — a
-// fresh devnet has none (genesis allocations are not transactions). Assert it
-// when activity exists; otherwise note the skip. full-lifecycle-e2e.ts covers
-// the rest of the lifecycle.
-if (counts.created_unshielded > 0) {
-  check("created_unshielded populated by midnight-unshielded-create primitive", true);
-} else {
-  console.log("⏭  created_unshielded = 0 (no unshielded txs on this chain yet — skipping)");
-}
+// Populated by the startup `midnight-mint-test-tokens` process (the unshielded
+// mint emits unshieldedCreatedOutputs).
+check("created_unshielded populated by midnight-unshielded-create primitive", counts.created_unshielded > 0);
 
 // 2) garbage → 400 BAD_ENCODING (submit gate runs)
 const garbage = await submit("not-a-zswap-offer");

@@ -22,8 +22,13 @@
     "@midnight-ntwrk/compact-runtime": "0.15.0",
     "@midnight-ntwrk/compact-js": "2.5.0",
     "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "@midnight-ntwrk/midnight-js-contracts": "4.0.4",
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.4",
     "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk-abstractions": "2.0.0",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
     "@zswap-da/contract-offer-files": "workspace:*",
+    "rxjs": "^7.8.2",
     "wait-on": "8.0.3"
   }
 }

@@ -9,6 +9,11 @@ bun install
 bun run dev   # PGLite + Compact compile + Midnight + Celestia + sync + batcher + frontend
 ```
 
+On dev startup the `midnight-mint-test-tokens` process mints test tokens via the
+offer-files contract (two shielded colors + one unshielded color to the genesis
+wallet), so e2e swaps have real multi-token inventory and the unshielded
+liveness sets receive on-chain events.
+
 - Frontend: http://localhost:10599
 - API: http://localhost:9999
 - Batcher: http://localhost:3334
