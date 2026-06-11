@@ -504,6 +504,10 @@ export const startHttpServer = function* (
           pausedNow: p.pausedNow,
           pauses: p.backpressurePauses,
           pausedMs: p.backpressurePausedMs,
+          // Merge-demand exemption: when true the merge is gated on this chain's
+          // page and the cap is lifted.
+          mergeWaiting: p.mergeWaitingForPage,
+          mergeDemandRoot: p.mergeDemandRoot ?? null,
         })),
         // Apply-stage lag: how old the last-applied block is. Unlike `buf` (fetch
         // backlog) this stays high when the node is write/apply-bound.
