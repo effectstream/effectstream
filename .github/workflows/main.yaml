@@ -68,8 +68,10 @@ jobs:
 
       - name: Run template tests
         run: |
+          # Plain bash, NOT a login shell: `bash -l` sources /etc/profile which
+          # resets root's PATH and drops /root/.local/bin, losing `compact`.
           docker run --rm --name templates_${{ github.run_number }} testing_image:${{ github.sha }} \
-            bash -lc "bun run templates/run-template-tests.ts ${{ needs.changes.outputs.templates }} --skip-disabled"
+            bash -c "bun run templates/run-template-tests.ts ${{ needs.changes.outputs.templates }} --skip-disabled"
 
   # Aggregate gate: a single stable check to mark required in branch protection.
   # Passes when e2e/template-tests succeed or are skipped; fails if either fails
