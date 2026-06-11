@@ -19,13 +19,25 @@ import { log } from "./mod.ts";
  */
 let unhandledRejectionLoggerInstalled = false;
 
-export function installUnhandledRejectionLogger(
+/**
+ * Build the `unhandledRejection` handler in isolation from `process.on`.
+ *
+ * The fatal-exit step is injected (`onFatal`, defaulting to `process.exit`) so
+ * the decision — *does this rejection crash the process or survive?* — can be
+ * exercised in a test without actually killing the test runner. This is the
+ * unit-level guard for the zombie failure mode: anything that is **not**
+ * classified survivable (e.g. a generic error escaping the effection root)
+ * must hit `onFatal`, never just log-and-continue.
+ *
+ * @returns the number of `onFatal` calls would-be (for the install path this is
+ * ignored; tests inspect their injected spy).
+ */
+export function buildUnhandledRejectionHandler(
   componentName: string,
   shouldSurvive?: (reason: unknown) => boolean,
-): void {
-  if (unhandledRejectionLoggerInstalled) return;
-  unhandledRejectionLoggerInstalled = true;
-  process.on("unhandledRejection", (reason: unknown) => {
+  onFatal: (code: number) => void = (code) => process.exit(code),
+): (reason: unknown) => void {
+  return (reason: unknown) => {
     const survive = shouldSurvive?.(reason) ?? false;
     log.remote(
       componentName,
@@ -33,6 +45,18 @@ export function installUnhandledRejectionLogger(
       survive ? SeverityNumber.WARN : SeverityNumber.ERROR,
       (log) => log(reason),
     );
-    if (!survive) process.exit(1);
-  });
+    if (!survive) onFatal(1);
+  };
+}
+
+export function installUnhandledRejectionLogger(
+  componentName: string,
+  shouldSurvive?: (reason: unknown) => boolean,
+): void {
+  if (unhandledRejectionLoggerInstalled) return;
+  unhandledRejectionLoggerInstalled = true;
+  process.on(
+    "unhandledRejection",
+    buildUnhandledRejectionHandler(componentName, shouldSurvive),
+  );
 }

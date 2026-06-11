@@ -105,12 +105,11 @@ export function* start(config: StartConfig): Operation<void> {
   const finalizedBlockStream = createChannel<ChainBlock>();
 
   // Subscribe BEFORE spawning the merge: effection channels drop sends with no
-  // active subscriber, so a fast restart (in-memory state, no RPC wait) could
-  // emit blocks before we subscribe and silently stall at the pre-restart height.
+  // subscriber, so a fast restart could emit blocks before we subscribe and
+  // stall at the pre-restart height.
   const finalizedBlocks = yield* finalizedBlockStream;
-  // NOTE: this subscriber's queue is unbounded. During deep catch-up the merge
-  // can outpace the per-block processing below and grow it without bound — the
-  // downstream side of the Fix C backpressure issue (see sync/CLAUDE.md).
+  // NOTE: this subscriber's queue is unbounded — during deep catch-up the merge
+  // can outpace block processing and grow it (Fix C backpressure, sync/CLAUDE.md).
 
   yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
 
@@ -184,10 +183,9 @@ export function* start(config: StartConfig): Operation<void> {
     const value = yield* coalescer.advance();
     if (value === undefined) break;
 
-    // processFinalizedBlockWithRetry owns connection checkout, the per-block
-    // DB mutex (PGLite), and transient-pg retry/backoff. App events it
-    // collects are flushed below ONLY after it returns — i.e. strictly after
-    // the block's COMMIT.
+    // Owns connection checkout, the per-block DB mutex (PGLite), and
+    // transient-pg retry/backoff. App events flush below only after it
+    // returns — strictly after the block's COMMIT.
     const result = yield* processFinalizedBlockWithRetry(
       value,
       config,
@@ -204,21 +202,14 @@ export function* start(config: StartConfig): Operation<void> {
     // Used to emit & log the block range for each protocol.
     const contentBlocksForProtocol = getRangesForSyncProtocols(value);
 
-    // Fire-and-forget: do not stall the sync loop on broker acks.
+    // Fire-and-forget: don't stall the sync loop on broker acks. Ordering is
+    // safe without a wrapper queue — Opifex assigns packet IDs synchronously in
+    // publish() and net.Socket serializes writes in call order, so MQTT 3.1.1
+    // §4.6 in-order delivery holds per (publisher, topic, QoS).
     //
-    // Opifex's TcpClient assigns packet IDs synchronously in client.publish()
-    // and writes to the socket via Node's net.Socket, which has its own write
-    // queue — so concurrent publish() calls land on the wire in call order.
-    // MQTT 3.1.1 §4.6 then guarantees in-order delivery to each subscriber
-    // per (publisher, topic, QoS). We don't need a wrapper queue.
-    //
-    // TODO(scaling): the broker runs in-process (see `new EventBroker(...)`
-    // above). Fan-out to N subscribers consumes the same event loop as block
-    // processing. At ~thousands of subscribers, consider:
-    //   1) moving the broker to a worker / separate process,
-    //   2) a publisher-side circuit breaker if ctx.unresolvedPublish.size > N
-    //      (drop events with a counter for observability).
-    // Today: localhost, in-process, expected O(10²) subscribers — non-issue.
+    // TODO(scaling): the broker is in-process, so fan-out shares this event
+    // loop. At ~thousands of subscribers, move it to a worker and/or add a
+    // publisher-side circuit breaker. Today: localhost, O(10²) subs — non-issue.
     emitLatestBlocks(
       value.blockNumber,
       value.timestamp,
@@ -270,13 +261,9 @@ function getRangesForSyncProtocols(value: ChainBlock): Record<string, [number, n
 }
 
 /**
- * Publish built-in block-level events.
- *
- * Fire-and-forget for the same reasons as the app-event flush above
- * (do not stall the sync loop; ordering preserved by Opifex + MQTT 3.1.1).
- *
- * Errors are caught locally so they don't escape to the global
- * `unhandledrejection` handler without context.
+ * Publish built-in block-level events. Fire-and-forget like the app-event flush
+ * above (don't stall the sync loop; ordering held by Opifex + MQTT 3.1.1).
+ * Errors are caught locally so they don't reach the global handler contextless.
  */
 function emitLatestBlocks(
   rollUpBlockHeight: number,
@@ -327,45 +314,48 @@ function* startup(
     });
   });
 
-  
   yield* acquireDBMutex(`startup-node`);
+  // `finally` releases the mutex on error/cancellation too; a throw in any step
+  // below would otherwise leak it and deadlock every later DB operation.
+  try {
+    // Dev-only reset of user-owned public tables
+    if (config.dev?.resetPublicData) {
+      yield* resetPublicTables(dbConn as any); // Client,
+    }
 
-  // Dev-only reset of user-owned public tables
-  if (config.dev?.resetPublicData) {
-    yield* resetPublicTables(dbConn as any); // Client,
+    // When the node is started, we apply system migrations.
+    // Either system initial migrations, or migrations given a Paima Engine Update.
+    yield* applySystemMigrations(
+      config.appVersion,
+      versionInfo,
+      lastBlockHeight,
+      dbConn,
+      config.migrations,
+    );
+
+    // Validate that immutable config fields (e.g. NTP startTime, startBlockHeight)
+    // have not changed since the last run. Persists a snapshot on first start.
+    // Must run after system migrations so the snapshot table exists.
+    yield* validateAndSnapshotConfig(syncInfo, dbConn);
+
+    const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
+      syncInfo);
+
+    const capabilities = yield* until(detectCapabilities(dbConn as any));
+    const viewStrategy = selectViewStrategy(capabilities);
+
+    yield* createDynamicTables(
+      versionInfo,
+      lastBlockHeight,
+      dbConn as any, // Client,
+      syncProtocols,
+      viewStrategy,
+    );
+
+    return syncProtocols;
+  } finally {
+    releaseDBMutex(`startup-node`);
   }
-
-  // When the node is started, we apply system migrations.
-  // Either system initial migrations, or migrations given a Paima Engine Update.
-  yield* applySystemMigrations(
-    config.appVersion,
-    versionInfo,
-    lastBlockHeight,
-    dbConn,
-    config.migrations,
-  );
-
-  // Validate that immutable config fields (e.g. NTP startTime, startBlockHeight)
-  // have not changed since the last run. Persists a snapshot on first start.
-  // Must run after system migrations so the snapshot table exists.
-  yield* validateAndSnapshotConfig(syncInfo, dbConn);
-
-  const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
-    syncInfo);
-
-  const capabilities = yield* until(detectCapabilities(dbConn as any));
-  const viewStrategy = selectViewStrategy(capabilities);
-
-  yield* createDynamicTables(
-    versionInfo,
-    lastBlockHeight,
-    dbConn as any, // Client,
-    syncProtocols,
-    viewStrategy,
-  );
-
-  releaseDBMutex(`startup-node`);
-  return syncProtocols;
 }
 
 // Convert the primitive config to the final primitive instance
