@@ -1,15 +1,6 @@
 import type { LedgerState, UnprovenTransaction } from "@midnight-ntwrk/ledger-v8";
 
 // Why an offer is rejected. Ordered roughly cheap → expensive in the pipeline.
-//
-// Liveness note: ROOT_UNKNOWN is intentionally absent. The apply-time
-// root-known check needs the global ZswapChainState, which is not fetchable
-// from the node RPC or indexer, and `ZswapInput` does not expose the input's
-// merkle root — so it cannot be checked here. Root staleness is instead
-// bounded by the offer TTL (set to track the on-chain root window — ~1h in the
-// current ledger release, ~14 days next; default 30 days, configurable), and a
-// fake/stale-root offer can never settle. A future Midnight sync primitive that
-// ingests the recent-roots set can make this check explicit.
 export type OfferRejectCode =
   | "BAD_ENCODING"
   | "TOO_LARGE"
@@ -20,8 +11,15 @@ export type OfferRejectCode =
   | "UNKNOWN_TOKEN"
   | "PROOF_INVALID"
   | "SIGNATURE_INVALID"
+  // Liveness — supplied by the caller's async checks against the node's
+  // ingested sets / the indexer; see ValidateOpts. ROOT_UNKNOWN means the
+  // input's merkle root is not a real recent chain root (fabricated or aged
+  // out); ROOT_UNREADABLE means the root could not be extracted (fail-closed).
   | "NULLIFIER_SPENT"
   | "UTXO_SPENT"
+  | "UTXO_UNKNOWN"
+  | "ROOT_UNKNOWN"
+  | "ROOT_UNREADABLE"
   | "DUPLICATE";
 
 // An unshielded UTXO an offer spends, identified the same way the
@@ -56,6 +54,10 @@ export interface OfferValidation {
   gives?: OfferLeg[];
   wants?: OfferLeg[];
   identifiers?: string[];
+  // Canonical hex (== indexer zswapMerkleTreeRoot form) of each shielded
+  // input's merkle root. Populated once crypto passes; a caller checks these
+  // against its known-roots set for the root-known liveness check.
+  inputRoots?: string[];
 }
 
 export interface ValidateOpts {
@@ -76,6 +78,11 @@ export interface ValidateOpts {
   // NULLIFIER_SPENT / UTXO_SPENT codes.
   isNullifierSpent?: (nullifierHex: string) => boolean;
   isUnshieldedSpent?: (ref: UnshieldedSpendRef) => boolean;
+  // Existence checks (same sync-vs-async note as above): UTXO ever created;
+  // input's merkle root is a known recent chain root. Reuse UTXO_UNKNOWN /
+  // ROOT_UNKNOWN in the async caller path.
+  isUnshieldedCreated?: (ref: UnshieldedSpendRef) => boolean;
+  isKnownRoot?: (rootHex: string) => boolean;
   // Optional dedup hook (e.g. already-indexed nullifiers/identifiers).
   seen?: (nullifiers: string[], identifiers: string[]) => boolean;
 }

@@ -57,6 +57,39 @@ stm.addStateTransition("midnightNullifierState", function* (data) {
   ));
 });
 
+// MidnightUnshieldedCreate: writes unshielded UTXO creation events to
+// midnight_unshielded_creates (payload: { owner, intentHash, outputIndex, txHash }).
+stm.addStateTransition("midnightUnshieldedCreateState", function* (data) {
+  const { payload } = data.parsedInput;
+  const owner = String(payload?.owner ?? "");
+  const intentHash = String(payload?.intentHash ?? "");
+  const outputIndex = Number(payload?.outputIndex ?? -1);
+  const txHash = String(payload?.txHash ?? "");
+  console.log(`[STM] midnightUnshieldedCreateState: owner=${owner.slice(0, 16)}… intentHash=${intentHash.slice(0, 16)}… outputIndex=${outputIndex}`);
+  yield* World.promise(pool.query(
+    `INSERT INTO midnight_unshielded_creates (block_height, owner, intent_hash, output_index, tx_hash)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (owner, intent_hash, output_index) DO NOTHING`,
+    [data.blockHeight, owner, intentHash, outputIndex, txHash],
+  ));
+});
+
+// MidnightZswapRoot: tracks the coin-commitment tree root as it advances
+// (payload: { root, txHash }). Re-observing an unchanged root refreshes the
+// height — mirroring the ledger's past_roots re-insertion semantics.
+stm.addStateTransition("midnightZswapRootState", function* (data) {
+  const { payload } = data.parsedInput;
+  const root = String(payload?.root ?? "");
+  const txHash = String(payload?.txHash ?? "");
+  console.log(`[STM] midnightZswapRootState: root=${root.slice(0, 18)}… txHash=${txHash.slice(0, 16)}…`);
+  yield* World.promise(pool.query(
+    `INSERT INTO midnight_zswap_roots (block_height, root, tx_hash)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (root) DO UPDATE SET block_height = EXCLUDED.block_height`,
+    [data.blockHeight, root, txHash],
+  ));
+});
+
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,

@@ -27,6 +27,11 @@ import {
   isNullifierSpent,
   insertSpentUnshielded,
   isUnshieldedSpent,
+  insertCreatedUnshielded,
+  isUnshieldedCreated,
+  upsertKnownRoot,
+  isKnownRoot,
+  pruneKnownRoots,
 } from "@zswap-da/database";
 
 // ─── Indexer scope and known limitations ─────────────────────────────────────
@@ -49,10 +54,17 @@ import {
 //      confirmation depth lives in the sync layer.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { canonicalRootHex } from "@zswap-da/validator";
+
 import { grammar } from "./grammar.ts";
 import { extractMidnightLedgerSnapshot } from "./zswap-logic.ts";
 import { emitAppEvent } from "./event-bus.ts";
-import { MIDNIGHT_NETWORK_ID, OFFER_MAX_BYTES, OFFER_TTL_SECONDS } from "./env.ts";
+import {
+  MIDNIGHT_NETWORK_ID,
+  OFFER_MAX_BYTES,
+  OFFER_TTL_SECONDS,
+  ROOT_WINDOW_SECONDS,
+} from "./env.ts";
 
 // Normalize a value that may be a Uint8Array or a hex string into lowercase
 // hex (no `0x` prefix). Used at offer-indexing for nullifiers, owner keys,
@@ -213,6 +225,65 @@ stm.addStateTransition("midnight-unshielded-spend", function* (data) {
   }
 });
 
+// Fires once per unshielded UTXO *created* on chain (regular AND system txs).
+// Records the (owner, intent_hash, output_no) triple in the permanent
+// created_unshielded set so the offer validator can reject offers that
+// reference a UTXO the chain never created (existence check).
+stm.addStateTransition("midnight-unshielded-create", function* (data) {
+  const { payload } = data.parsedInput;
+  const owner = unshieldedOwnerToCanonicalHex(payload?.owner);
+  const intentHash = bytesOrStringToHex(payload?.intentHash);
+  const outputNoRaw = payload?.outputIndex ?? payload?.outputNo;
+  const outputNo = typeof outputNoRaw === "number"
+    ? outputNoRaw
+    : Number(outputNoRaw);
+
+  if (!owner || !intentHash || !Number.isFinite(outputNo)) {
+    console.warn("[MIDNIGHT] Skipping malformed unshielded-create payload", payload);
+    return;
+  }
+
+  try {
+    yield* World.resolve(insertCreatedUnshielded, {
+      owner,
+      intent_hash: intentHash,
+      output_no: outputNo,
+      height: data.blockHeight,
+    });
+  } catch (e) {
+    console.error(
+      "[MIDNIGHT] Failed to record created unshielded UTXO",
+      { owner, intentHash, outputNo },
+      e,
+    );
+  }
+});
+
+// Fires once per block whose coin-commitment tree root advanced. Records the
+// root in the windowed known_roots set and prunes roots older than the root
+// window, mirroring the ledger's `past_roots`. The offer validator checks an
+// offer's input root against this set (root-known liveness). Deterministic:
+// keyed on the block timestamp, never wall-clock.
+stm.addStateTransition("midnight-zswap-root", function* (data) {
+  const root = canonicalRootHex(String(data.parsedInput.payload?.root ?? ""));
+  if (!root) {
+    console.warn("[MIDNIGHT] Skipping empty zswap-root payload");
+    return;
+  }
+  try {
+    yield* World.resolve(upsertKnownRoot, {
+      root,
+      height: data.blockHeight,
+      last_seen_ms: data.blockTimestamp,
+    });
+    yield* World.resolve(pruneKnownRoots, {
+      cutoff_ms: data.blockTimestamp - ROOT_WINDOW_SECONDS * 1000,
+    });
+  } catch (e) {
+    console.error("[MIDNIGHT] Failed to record zswap root", root, e);
+  }
+});
+
 stm.addStateTransition("celestia-zswap", function* (data) {
   const { payload } = data.parsedInput;
   const raw = payload.suppliedValue;
@@ -283,6 +354,43 @@ stm.addStateTransition("celestia-zswap", function* (data) {
       emitAppEvent({
         type: "offer_rejected",
         code: "UTXO_SPENT",
+        celestiaHeight: data.blockHeight,
+      });
+      return;
+    }
+  }
+
+  // ── Existence: drop offers referencing an unshielded UTXO the chain never
+  // created (midnight-unshielded-create populates created_unshielded). ──
+  for (const s of unshieldedSpends) {
+    const created = yield* World.resolve(isUnshieldedCreated, s);
+    if (created.length === 0) {
+      console.warn("[ZSWAP] Rejected offer: unshielded UTXO never created", {
+        ...s,
+        celestiaHeight: data.blockHeight,
+      });
+      emitAppEvent({
+        type: "offer_rejected",
+        code: "UTXO_UNKNOWN",
+        celestiaHeight: data.blockHeight,
+      });
+      return;
+    }
+  }
+
+  // ── Root-known: drop offers whose shielded input proves against a root the
+  // chain never held / that has aged out (midnight-zswap-root populates
+  // known_roots). inputRoots are canonical hex == the indexer's root form. ──
+  for (const root of result.inputRoots ?? []) {
+    const known = yield* World.resolve(isKnownRoot, { root });
+    if (known.length === 0) {
+      console.warn("[ZSWAP] Rejected offer: input merkle root unknown", {
+        root,
+        celestiaHeight: data.blockHeight,
+      });
+      emitAppEvent({
+        type: "offer_rejected",
+        code: "ROOT_UNKNOWN",
         celestiaHeight: data.blockHeight,
       });
       return;

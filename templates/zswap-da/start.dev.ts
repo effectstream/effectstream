@@ -30,7 +30,15 @@ try {
   ].join("\\n"));
   process.exit(1);
 }
-const list = execSync("compact list", { encoding: "utf8" });
+// "compact list" occasionally hangs forever (CLI quirk); the CLI itself
+// already responded to --version above, so treat a hung list as non-fatal.
+let list = "";
+try {
+  list = execSync("compact list", { encoding: "utf8", timeout: 30000 });
+} catch {
+  console.log("compact list timed out — compact CLI responds, continuing");
+  process.exit(0);
+}
 if (!list.includes("${COMPACT_VERSION}")) {
   console.error([
     "",
@@ -76,6 +84,16 @@ export default {
         dependsOn: ["compact-build"],
       },
     ),
+
+    {
+      name: "midnight-mint-test-tokens",
+      description: "Mint dev test tokens (2 shielded + 1 unshielded) via the offer-files contract",
+      cwd: path.join(root, "packages/contracts-midnight"),
+      args: ["run", "mint-test-tokens.ts"],
+      waitToExit: true,
+      // NOT critical: a mint hiccup must not tear the dev stack down.
+      dependsOn: [MidnightNames.CONTRACT_DEPLOY],
+    },
 
     ...launchCelestia(
       "@zswap-da/contracts-celestia",

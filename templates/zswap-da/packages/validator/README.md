@@ -29,15 +29,24 @@ wants / identifiers` so callers don't re-parse.
 
 ## Liveness
 
-Implemented: cryptographic validation (`wellFormed`) plus nullifier- and
-unshielded-spent checks against the node's permanent spent-sets, so an offer
-spending an already-consumed coin is rejected. Not yet implemented: **root-known**
-(rejecting offers proven against a fabricated or aged-out Merkle root) — until
-then it is bounded by `OFFER_TTL_SECONDS` (set to track the on-chain root
-window) plus the fact that such an offer can never settle.
+All four state-dependent checks are implemented, fed by the node's permanent
+sets (populated by the Midnight sync primitives) and supplied to the validator
+as callbacks:
 
-`scripts/check-preview-indexer.ts` confirms (against the public preview indexer)
-that the on-chain fields these checks rely on exist and are populated:
+- **nullifier-unspent** / **unshielded-unspent** — `spent_nullifiers` /
+  `spent_unshielded` (already-consumed coins).
+- **unshielded-exists** (`UTXO_UNKNOWN`) — `created_unshielded`: the referenced
+  UTXO must have been created on chain.
+- **root-known** (`ROOT_UNKNOWN`) — `known_roots`: each shielded input's merkle
+  root must be a real recent chain root. The root is read from the serialized
+  input by `extract-root.ts` (the `ledger-v8` binding exposes no getter); the
+  pinned `zswap-input[v2]` layout was verified against live-chain ground truth
+  (a real offer's extracted root equals the indexer's `zswapMerkleTreeRoot`
+  byte-for-byte). Extraction is **fail-closed** (`ROOT_UNREADABLE`).
+
+`known_roots` is pruned to `ROOT_WINDOW_SECONDS` (mirrors the on-chain root
+window). `scripts/check-preview-indexer.ts` confirms the on-chain fields these
+checks rely on exist and are populated:
 
 ```bash
 bun packages/validator/scripts/check-preview-indexer.ts        # preview

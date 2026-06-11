@@ -12,6 +12,12 @@ export {
   deriveLegs,
   UnknownTokenTagError,
 } from "./derive.ts";
+export {
+  canonicalRootHex,
+  extractInputRoot,
+  extractOfferInputRoots,
+  RootExtractError,
+} from "./extract-root.ts";
 export type {
   OfferRejectCode,
   OfferValidation,

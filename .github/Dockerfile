@@ -99,9 +99,13 @@ WORKDIR /app
 COPY --from=compact /root/.local/bin/ /root/.local/bin/
 COPY --from=compact /root/.compact/ /root/.compact/
 ENV PATH="/root/.local/bin:$PATH"
-# Also expose compact on the default PATH so login shells (`bash -l` sources
-# /etc/profile, which resets root's PATH) can still find it.
-RUN ln -sf /root/.local/bin/compact /usr/local/bin/compact && compact --version
+
+# Login shells (`bash -lc`, used by the template-tests job) source /etc/profile,
+# which resets PATH and drops /root/.local/bin — same reason bun is symlinked
+# into /usr/local/bin above. Validate under `bash -lc` to keep it that way.
+RUN ln -s /root/.local/bin/compact /usr/local/bin/compact && \
+    bash -lc "compact --version && compact compile --version"
+
 
 # Copy solc cache from stage 3
 COPY --from=solc /root/.cache/hardhat-nodejs/ /root/.cache/hardhat-nodejs/

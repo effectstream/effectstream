@@ -153,11 +153,41 @@ describe.skipIf(!hasFixture)("validateZswapOffer — crypto + liveness (real fix
     expect(r.code).toBe("NULLIFIER_SPENT");
   });
 
-  test("determinism: identical verdict on repeat", () => {
+  test("populates inputRoots (33-byte 0x73 hex) on a valid offer", () => {
+    const r = validateZswapOffer(blob, opts());
+    expect(r.ok).toBe(true);
+    expect(r.inputRoots!.length).toBeGreaterThan(0);
+    for (const root of r.inputRoots!) {
+      expect(root.length).toBe(66);
+      expect(root.startsWith("73")).toBe(true);
+    }
+  });
+
+  test("root-known: accepts when the input root IS known, rejects when not", () => {
+    const probe = validateZswapOffer(blob, opts());
+    const known = new Set(probe.inputRoots);
+    // Known → ok (this is the accept path the always-on check must NOT brick).
+    expect(validateZswapOffer(blob, { ...opts(), isKnownRoot: (r) => known.has(r) }).ok).toBe(true);
+    // Unknown → ROOT_UNKNOWN.
+    const r = validateZswapOffer(blob, { ...opts(), isKnownRoot: () => false });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("ROOT_UNKNOWN");
+  });
+
+  test("existence: a never-created unshielded UTXO → UTXO_UNKNOWN (if offer has one)", () => {
+    const probe = validateZswapOffer(blob, opts());
+    if (!probe.ok || (probe.unshieldedSpends?.length ?? 0) === 0) return; // shielded-only fixture
+    const r = validateZswapOffer(blob, { ...opts(), isUnshieldedCreated: () => false });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("UTXO_UNKNOWN");
+  });
+
+  test("determinism: identical verdict + roots on repeat", () => {
     const a = validateZswapOffer(blob, opts());
     const b = validateZswapOffer(blob, opts());
     expect(a.ok).toBe(b.ok);
     expect(a.nullifiers).toEqual(b.nullifiers);
+    expect(a.inputRoots).toEqual(b.inputRoots);
     expect(a.gives).toEqual(b.gives);
     expect(a.wants).toEqual(b.wants);
   });

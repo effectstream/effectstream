@@ -8,6 +8,8 @@ import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeMidnightNullifier,
   PrimitiveTypeMidnightUnshieldedSpend,
+  PrimitiveTypeMidnightUnshieldedCreate,
+  PrimitiveTypeMidnightZswapRoot,
 } from "@effectstream/sm/builtin";
 import type { BlockNumber } from "@effectstream/utils";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
@@ -196,6 +198,24 @@ export const config = new ConfigBuilder()
         type: PrimitiveTypeMidnightUnshieldedSpend,
         startBlockHeight: MIDNIGHT_START_BLOCK,
         stateMachinePrefix: "midnight-unshielded-spend",
+        networkId: midnightNetworkConfig.id,
+      }),
+    ).addPrimitive(
+      (syncProtocols) => (syncProtocols as any).parallelMidnight,
+      () => ({
+        name: "Midnight-UnshieldedCreate",
+        type: PrimitiveTypeMidnightUnshieldedCreate,
+        startBlockHeight: MIDNIGHT_START_BLOCK,
+        stateMachinePrefix: "midnight-unshielded-create",
+        networkId: midnightNetworkConfig.id,
+      }),
+    ).addPrimitive(
+      (syncProtocols) => (syncProtocols as any).parallelMidnight,
+      () => ({
+        name: "Midnight-ZswapRoot",
+        type: PrimitiveTypeMidnightZswapRoot,
+        startBlockHeight: MIDNIGHT_START_BLOCK,
+        stateMachinePrefix: "midnight-zswap-root",
         networkId: midnightNetworkConfig.id,
       }),
     );

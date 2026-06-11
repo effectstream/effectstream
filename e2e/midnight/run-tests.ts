@@ -116,6 +116,65 @@ async function doTriggerNullifiers(): Promise<void> {
   }
 }
 
+// -- Unshielded-create trigger: unshielded self-transfer creates UTXOs --------
+
+async function doTriggerUnshieldedCreates(): Promise<void> {
+  try {
+    const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
+    const { triggerUnshieldedCreates } = await import("../shared/contracts/midnight/faucet.ts");
+    await triggerUnshieldedCreates(
+      {
+        indexer: midnightNetworkConfig.indexer,
+        indexerWS: midnightNetworkConfig.indexerWS,
+        node: midnightNetworkConfig.node,
+        proofServer: midnightNetworkConfig.proofServer,
+      },
+      midnightNetworkConfig.id,
+    );
+  } catch (e) {
+    console.error("Failed to trigger unshielded creates (non-fatal):", e);
+  }
+}
+
+// -- Indexer GraphQL helper (fidelity cross-checks) ----------------------------
+
+const INDEXER_GRAPHQL_URL = "http://localhost:8088/api/v3/graphql";
+
+async function indexerGql(query: string, variables?: unknown): Promise<any> {
+  const response = await fetch(INDEXER_GRAPHQL_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+  return response.json();
+}
+
+/**
+ * Scan indexer blocks from latest going back, looking for the transaction with
+ * `txHash` and returning its zswapMerkleTreeRoot (RegularTransaction only).
+ */
+async function findIndexerRootForTx(txHash: string, maxBlocksBack = 600): Promise<string | undefined> {
+  const latest = (await indexerGql(`{ block { height } }`))?.data?.block?.height;
+  if (typeof latest !== "number") return undefined;
+  const floor = Math.max(1, latest - maxBlocksBack);
+  for (let h = latest; h >= floor; h--) {
+    const res = await indexerGql(
+      `query($h: Int!) {
+        block(offset: { height: $h }) {
+          transactions { hash ... on RegularTransaction { zswapMerkleTreeRoot } }
+        }
+      }`,
+      { h },
+    );
+    for (const tx of res?.data?.block?.transactions ?? []) {
+      if (tx.hash === txHash && tx.zswapMerkleTreeRoot) {
+        return tx.zswapMerkleTreeRoot;
+      }
+    }
+  }
+  return undefined;
+}
+
 // -- Sync Tests (STM value validation) ----------------------------------------
 
 async function runSyncTests(db: Client): Promise<void> {
@@ -190,6 +249,81 @@ async function runSyncTests(db: Client): Promise<void> {
       return count >= 2;
     },
   );
+
+  // UnshieldedCreate primitive: tracked + populated by the unshielded transfer
+  await assertSQL<{ primitive_name: string }>(
+    "Midnight: primitive_accounting has Midnight-UnshieldedCreate entries",
+    db,
+    `SELECT primitive_name FROM effectstream.primitive_accounting
+     WHERE primitive_name = 'Midnight-UnshieldedCreate'
+     LIMIT 1;`,
+    (res) => res.rows.length >= 1,
+    (res) => res.rows[0].primitive_name === "Midnight-UnshieldedCreate",
+  );
+
+  await assertSQL<{ owner: string; intent_hash: string; output_index: number; tx_hash: string | null }>(
+    "Midnight: midnight_unshielded_creates has shape-valid rows from unshielded transfer",
+    db,
+    `SELECT owner, intent_hash, output_index, tx_hash FROM midnight_unshielded_creates
+     ORDER BY id ASC;`,
+    (res) => res.rows.length >= 1,
+    (res) => {
+      console.log(`  Unshielded-create count: ${res.rows.length}`);
+      return res.rows.every((r) =>
+        r.owner.length > 0 &&
+        r.intent_hash.length > 0 &&
+        r.output_index >= 0 &&
+        (r.tx_hash ?? "").length > 0
+      );
+    },
+  );
+
+  // ZswapRoot primitive: tracked + roots are well-formed (33-byte SCALE run,
+  // lowercase hex, first byte 0x73 — the form verified against the live chain)
+  await assertSQL<{ primitive_name: string }>(
+    "Midnight: primitive_accounting has Midnight-ZswapRoot entries",
+    db,
+    `SELECT primitive_name FROM effectstream.primitive_accounting
+     WHERE primitive_name = 'Midnight-ZswapRoot'
+     LIMIT 1;`,
+    (res) => res.rows.length >= 1,
+    (res) => res.rows[0].primitive_name === "Midnight-ZswapRoot",
+  );
+
+  const rootsResult = await assertSQL<{ root: string; tx_hash: string | null; block_height: number }>(
+    "Midnight: midnight_zswap_roots tracks well-formed advancing roots",
+    db,
+    `SELECT root, tx_hash, block_height FROM midnight_zswap_roots
+     ORDER BY id ASC;`,
+    (res) => res.rows.length >= 1,
+    (res) => {
+      console.log(`  Zswap root count: ${res.rows.length}`);
+      const malformed = res.rows.filter((r) => !/^73[0-9a-f]{64}$/.test(r.root));
+      if (malformed.length > 0) {
+        console.error("  Malformed roots:", malformed.map((r) => r.root));
+        return false;
+      }
+      return res.rows.every((r) => (r.tx_hash ?? "").length > 0);
+    },
+  );
+
+  // Fidelity cross-check: the latest stored root must byte-equal what the
+  // indexer reports as zswapMerkleTreeRoot for that same transaction —
+  // proves fetcher→STM→DB did not mangle the value.
+  await assert(
+    "Midnight: stored zswap root matches indexer zswapMerkleTreeRoot for its tx",
+    async () => {
+      const last = rootsResult.rows[rootsResult.rows.length - 1];
+      if (!last?.tx_hash) {
+        console.error("  No stored root/tx_hash to cross-check");
+        return false;
+      }
+      const indexerRoot = await findIndexerRootForTx(last.tx_hash);
+      console.log(`  stored:  ${last.root}`);
+      console.log(`  indexer: ${indexerRoot}`);
+      return indexerRoot === last.root;
+    },
+  );
 }
 
 // -- Main ---------------------------------------------------------------------
@@ -217,8 +351,10 @@ async function test() {
     await waitForBlock(1);
     console.log("Sync node is healthy.\n");
 
-    // 4.5. Trigger a shielded transfer to produce nullifier events on-chain
+    // 4.5. Trigger a shielded transfer to produce nullifier events on-chain,
+    // then an unshielded self-transfer to produce unshielded-create events
     await doTriggerNullifiers();
+    await doTriggerUnshieldedCreates();
 
     // 5. Connect to DB and run sync tests
     db = getDBConnection();
