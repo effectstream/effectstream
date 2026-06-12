@@ -4,6 +4,7 @@ import {
   PrimitiveTypeMidnightUnshieldedSpend,
   PrimitiveTypeMidnightUnshieldedCreate,
   PrimitiveTypeMidnightZswapRoot,
+  PrimitiveTypeMidnightTokenMint,
   PrimitiveTypeEVMEffectstreamL2,
   PrimitiveTypeEVMERC721,
   PrimitiveTypeEVMERC20,
@@ -31,6 +32,7 @@ import { MidnightNullifierPrimitive } from "./midnight-nullifier/midnight-nullif
 import { MidnightUnshieldedSpendPrimitive } from "./midnight-unshielded-spend/midnight-unshielded-spend.ts";
 import { MidnightUnshieldedCreatePrimitive } from "./midnight-unshielded-create/midnight-unshielded-create.ts";
 import { MidnightZswapRootPrimitive } from "./midnight-zswap-root/midnight-zswap-root.ts";
+import { MidnightTokenMintPrimitive } from "./midnight-token-mint/midnight-token-mint.ts";
 import { EffectstreamL2Primitive } from "./evm-effectstream-l2/effectstream-l2-primitive.ts";
 import { Erc721Primitive } from "./evm-erc721/erc721-primitive.ts";
 import { Erc20Primitive } from "./evm-erc20/erc20-primitive.ts";
@@ -58,6 +60,7 @@ const builtInPrimitivesMap = {
   [PrimitiveTypeMidnightUnshieldedSpend]: MidnightUnshieldedSpendPrimitive,
   [PrimitiveTypeMidnightUnshieldedCreate]: MidnightUnshieldedCreatePrimitive,
   [PrimitiveTypeMidnightZswapRoot]: MidnightZswapRootPrimitive,
+  [PrimitiveTypeMidnightTokenMint]: MidnightTokenMintPrimitive,
   [PrimitiveTypeEVMEffectstreamL2]: EffectstreamL2Primitive,
   [PrimitiveTypeEVMERC721]: Erc721Primitive,
   [PrimitiveTypeEVMERC20]: Erc20Primitive,
@@ -90,6 +93,7 @@ export {
   MidnightUnshieldedSpendPrimitive,
   MidnightUnshieldedCreatePrimitive,
   MidnightZswapRootPrimitive,
+  MidnightTokenMintPrimitive,
   EffectstreamL2Primitive,
   Erc721Primitive,
   Erc20Primitive,

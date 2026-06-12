@@ -22,6 +22,7 @@ import {
 } from "@e2e/engine";
 import type { Client } from "pg";
 import path from "path";
+import type { MintedTokens } from "../shared/contracts/midnight/trigger-token-mints.ts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 
@@ -136,6 +137,27 @@ async function doTriggerUnshieldedCreates(): Promise<void> {
   }
 }
 
+// -- Token-mint trigger: mint custom tokens via the counter contract ----------
+
+async function doTriggerTokenMints(): Promise<MintedTokens | undefined> {
+  try {
+    const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
+    const { triggerTokenMints } = await import("../shared/contracts/midnight/trigger-token-mints.ts");
+    return await triggerTokenMints(
+      {
+        indexer: midnightNetworkConfig.indexer,
+        indexerWS: midnightNetworkConfig.indexerWS,
+        node: midnightNetworkConfig.node,
+        proofServer: midnightNetworkConfig.proofServer,
+      },
+      midnightNetworkConfig.id,
+    );
+  } catch (e) {
+    console.error("Failed to trigger token mints (non-fatal):", e);
+    return undefined;
+  }
+}
+
 // -- Indexer GraphQL helper (fidelity cross-checks) ----------------------------
 
 const INDEXER_GRAPHQL_URL = "http://localhost:8088/api/v3/graphql";
@@ -177,7 +199,7 @@ async function findIndexerRootForTx(txHash: string, maxBlocksBack = 600): Promis
 
 // -- Sync Tests (STM value validation) ----------------------------------------
 
-async function runSyncTests(db: Client): Promise<void> {
+async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
   console.log("\n--- Phase 3: Sync Tests (STM value validation) ---\n");
 
   await assertSQL<{ id: number; primitive_name: string; payload_json: string }>(
@@ -324,6 +346,121 @@ async function runSyncTests(db: Client): Promise<void> {
       return indexerRoot === last.root;
     },
   );
+
+  // ── TokenMint primitive: token id → minting contract registry ──────────────
+
+  // L1: the primitive ran at all.
+  await assertSQL<{ primitive_name: string }>(
+    "Midnight: primitive_accounting has Midnight-TokenMint entries",
+    db,
+    `SELECT primitive_name FROM effectstream.primitive_accounting
+     WHERE primitive_name = 'Midnight-TokenMint'
+     LIMIT 1;`,
+    (res) => res.rows.length >= 1,
+    (res) => res.rows[0].primitive_name === "Midnight-TokenMint",
+  );
+
+  // L2: the registry has shape-valid rows for both mint kinds.
+  const mintsResult = await assertSQL<{
+    token_type: string;
+    kind: string;
+    contract_address: string;
+    domain_sep: string;
+    total_minted: string;
+    tx_hash: string | null;
+  }>(
+    "Midnight: midnight_token_mints has shape-valid shielded + unshielded rows",
+    db,
+    `SELECT token_type, kind, contract_address, domain_sep, total_minted, tx_hash
+     FROM midnight_token_mints ORDER BY id ASC;`,
+    (res) => res.rows.length >= 2,
+    (res) => {
+      console.log(`  Token-mint count: ${res.rows.length}`);
+      const kinds = new Set(res.rows.map((r) => r.kind));
+      return (
+        kinds.has("shielded") &&
+        kinds.has("unshielded") &&
+        res.rows.every((r) =>
+          /^[0-9a-f]{64}$/.test(r.token_type) &&
+          /^[0-9a-f]{64}$/.test(r.domain_sep) &&
+          r.contract_address.length > 0 &&
+          (r.tx_hash ?? "").length > 0 &&
+          Number(r.total_minted) > 0
+        )
+      );
+    },
+  );
+
+  // L3a: derivation fidelity — recompute rawTokenType(domain_sep, contract)
+  // with ledger-v8 for every row and require byte-equality with the stored
+  // token_type. Proves the fetcher's derivation (and the row pairing) exact.
+  await assert(
+    "Midnight: every stored token_type equals rawTokenType(domain_sep, contract_address)",
+    async () => {
+      const { rawTokenType } = await import("@midnight-ntwrk/ledger-v8");
+      const hexToBytes = (hex: string) =>
+        Uint8Array.from(Buffer.from(hex.replace(/^0x/, ""), "hex"));
+      const normalize = (s: string) => s.replace(/^0x/, "").toLowerCase();
+      for (const row of mintsResult.rows) {
+        const derived = normalize(
+          String(rawTokenType(hexToBytes(row.domain_sep), row.contract_address)),
+        );
+        if (derived !== normalize(row.token_type)) {
+          console.error(
+            `  MISMATCH kind=${row.kind}: derived=${derived} stored=${row.token_type}`,
+          );
+          return false;
+        }
+      }
+      return mintsResult.rows.length > 0;
+    },
+  );
+
+  // L3b: the user's use case — the wallet-visible colors returned by the mint
+  // trigger must resolve through the registry to the minting contract.
+  await assert(
+    "Midnight: trigger's wallet-visible colors resolve to the counter contract via the registry",
+    async () => {
+      if (!minted) {
+        console.error("  No minted-token info from the trigger");
+        return false;
+      }
+      const normalize = (s: string) => s.replace(/^0x/, "").toLowerCase();
+      const sameAddress = (a: string, b: string) => {
+        const an = normalize(a), bn = normalize(b);
+        const longest = Math.max(an.length, bn.length);
+        // Addresses length can be padded by 0's
+        return an.padStart(longest, "0") === bn.padStart(longest, "0");
+      };
+      for (
+        const [kind, expected] of [
+          ["shielded", minted.shielded],
+          ["unshielded", minted.unshielded],
+        ] as const
+      ) {
+        const row = mintsResult.rows.find(
+          (r) => r.kind === kind && normalize(r.token_type) === normalize(expected.color),
+        );
+        if (!row) {
+          console.error(`  No registry row for ${kind} color ${expected.color}`);
+          return false;
+        }
+        if (normalize(row.domain_sep) !== normalize(expected.domainSep)) {
+          console.error(`  ${kind} domain_sep mismatch: ${row.domain_sep} != ${expected.domainSep}`);
+          return false;
+        }
+        if (!sameAddress(row.contract_address, minted.contractAddress)) {
+          console.error(`  ${kind} contract mismatch: ${row.contract_address} != ${minted.contractAddress}`);
+          return false;
+        }
+        if (row.total_minted !== minted.amount) {
+          console.error(`  ${kind} total_minted ${row.total_minted} != minted ${minted.amount}`);
+          return false;
+        }
+      }
+      return true;
+    },
+  );
 }
 
 // -- Main ---------------------------------------------------------------------
@@ -352,13 +489,16 @@ async function test() {
     console.log("Sync node is healthy.\n");
 
     // 4.5. Trigger a shielded transfer to produce nullifier events on-chain,
-    // then an unshielded self-transfer to produce unshielded-create events
+    // an unshielded self-transfer to produce unshielded-create events, then
+    // contract mints to produce token-mint events. (To run the TokenMint
+    // negative check, skip the mint trigger and confirm its assertions fail.)
     await doTriggerNullifiers();
     await doTriggerUnshieldedCreates();
+    const minted = await doTriggerTokenMints();
 
     // 5. Connect to DB and run sync tests
     db = getDBConnection();
-    await runSyncTests(db);
+    await runSyncTests(db, minted);
 
     // 6. Wait for batcher + run batcher tests
     try {

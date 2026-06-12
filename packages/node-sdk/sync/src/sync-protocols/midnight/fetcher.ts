@@ -19,6 +19,7 @@ import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
 import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
 import { decodeZswapInputEvent } from "./zswap-decoder.ts";
+import { decodeTokenMints } from "./mint-decoder.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -86,7 +87,8 @@ export class MidnightFetcher extends BaseDataFetcher<
           p.primitive.type !== "Midnight:Nullifier" &&
           p.primitive.type !== "Midnight:UnshieldedSpend" &&
           p.primitive.type !== "Midnight:UnshieldedCreate" &&
-          p.primitive.type !== "Midnight:ZswapRoot",
+          p.primitive.type !== "Midnight:ZswapRoot" &&
+          p.primitive.type !== "Midnight:TokenMint",
       ),
       zswapLedgerEvents: this.config.primitives.some(
         (p) => p.primitive.type === "Midnight:Nullifier",
@@ -99,6 +101,9 @@ export class MidnightFetcher extends BaseDataFetcher<
       ),
       zswapRoots: this.config.primitives.some(
         (p) => p.primitive.type === "Midnight:ZswapRoot",
+      ),
+      tokenMints: this.config.primitives.some(
+        (p) => p.primitive.type === "Midnight:TokenMint",
       ),
     };
     const self = this;
@@ -192,6 +197,8 @@ export class MidnightFetcher extends BaseDataFetcher<
         syncResults.push(...this.fetchUnshieldedCreates(height, primitiveEntry, block));
       } else if (primitiveEntry.primitive.type === "Midnight:ZswapRoot") {
         syncResults.push(...this.fetchZswapRoots(height, primitiveEntry, block));
+      } else if (primitiveEntry.primitive.type === "Midnight:TokenMint") {
+        syncResults.push(...this.fetchTokenMints(height, primitiveEntry, block));
       } else {
         asyncOps.push(
           this.fetchContractState(height, client, primitiveEntry, block),
@@ -337,6 +344,42 @@ export class MidnightFetcher extends BaseDataFetcher<
         },
       },
     ];
+  }
+
+  // Decode custom token mints out of each regular transaction's raw bytes
+  // (ledger-v8 deserialize → contract call transcript effects). One input per
+  // (tx, call, domainSep, kind) that actually applied on chain — see
+  // mint-decoder.ts for the segment semantics. System transactions carry no
+  // transactionResult and are skipped.
+  @bound
+  fetchTokenMints(
+    height: number,
+    primitiveEntry: PrimitiveEntryType,
+    block: MidnightGqlBlockState,
+  ): PrimitiveType[] {
+    const results: PrimitiveType[] = [];
+    for (const tx of block.block.transactions) {
+      if (!tx.raw || !tx.transactionResult) continue;
+      for (const mint of decodeTokenMints(tx.raw, tx.transactionResult)) {
+        results.push({
+          syncProtocol: {
+            name: primitiveEntry.syncProtocol,
+            blockNumber: height,
+            transactionHash: tx.hash,
+            contractAddress: mint.contractAddress,
+          },
+          primitive: primitiveEntry.primitive.name,
+          output: {
+            payloadType: "midnight-token-mint",
+            payload: {
+              ...mint,
+              txHash: tx.hash,
+            },
+          },
+        });
+      }
+    }
+    return results;
   }
 
   @bound
