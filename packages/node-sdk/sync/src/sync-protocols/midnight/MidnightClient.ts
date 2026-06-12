@@ -40,6 +40,14 @@ export interface MidnightGqlBlockState {
       // Present only on RegularTransaction (selected via inline fragment): the
       // coin-commitment Merkle tree root after this transaction.
       zswapMerkleTreeRoot?: string;
+      // Selected only for MidnightTokenMintPrimitive: the serialized
+      // transaction bytes (Transaction interface) and the apply result
+      // (RegularTransaction only — absent on system transactions).
+      raw?: string;
+      transactionResult?: {
+        status: "SUCCESS" | "PARTIAL_SUCCESS" | "FAILURE";
+        segments?: { id: number; success: boolean }[] | null;
+      };
     }[];
   };
 };
@@ -55,6 +63,8 @@ export interface BlockFetchOptions {
   unshieldedCreatedOutputs?: boolean;
   /** Include `... on RegularTransaction { zswapMerkleTreeRoot }` (needed for MidnightZswapRootPrimitive). Default: false */
   zswapRoots?: boolean;
+  /** Include tx `raw` + `... on RegularTransaction { transactionResult }` (needed for MidnightTokenMintPrimitive). Default: false */
+  tokenMints?: boolean;
 }
 
 type PublicDataProvider = ReturnType<typeof indexerPublicDataProvider>;
@@ -182,6 +192,7 @@ export class MidnightClient {
       unshieldedSpentOutputs = false,
       unshieldedCreatedOutputs = false,
       zswapRoots = false,
+      tokenMints = false,
     } = options;
     const contractActionsField = contractActions
       ? `contractActions { address state }`
@@ -200,6 +211,14 @@ export class MidnightClient {
     const zswapRootFragment = zswapRoots
       ? `... on RegularTransaction { zswapMerkleTreeRoot }`
       : "";
+    // `raw` is on the Transaction interface; `transactionResult` is
+    // RegularTransaction-only (system transactions have neither result nor
+    // contract calls, so they are skipped downstream). Duplicate inline
+    // fragments merge legally in GraphQL.
+    const tokenMintFields = tokenMints
+      ? `raw
+         ... on RegularTransaction { transactionResult { status segments { id success } } }`
+      : "";
     const query = `query {
       block(offset: { height: ${blockHeight} }) {
         hash
@@ -216,6 +235,7 @@ export class MidnightClient {
           ${unshieldedSpentField}
           ${unshieldedCreatedField}
           ${zswapRootFragment}
+          ${tokenMintFields}
         }
       }
     }`;

@@ -13,6 +13,7 @@ import {
   PrimitiveTypeMidnightNullifier,
   PrimitiveTypeMidnightUnshieldedCreate,
   PrimitiveTypeMidnightZswapRoot,
+  PrimitiveTypeMidnightTokenMint,
 } from "@effectstream/sm/builtin";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
@@ -160,6 +161,16 @@ export const config = new ConfigBuilder()
           type: PrimitiveTypeMidnightZswapRoot,
           startBlockHeight: 1,
           stateMachinePrefix: "midnightZswapRootState",
+          networkId: midnightNetworkConfig.id,
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelMidnight,
+        (network, deployments, syncProtocol) => ({
+          name: "Midnight-TokenMint",
+          type: PrimitiveTypeMidnightTokenMint,
+          startBlockHeight: 1,
+          stateMachinePrefix: "midnightTokenMintState",
           networkId: midnightNetworkConfig.id,
         }),
       )
