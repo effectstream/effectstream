@@ -49,7 +49,7 @@ async function main(): Promise<void> {
     const { midnightReadyTest } = await import("./infra/midnight-ready.test.ts");
     await midnightReadyTest();
 
-    await waitForProcess("midnight-contract-deploy", {
+    await waitForProcess("midnight-contract", {
       waitForExit: true,
       timeoutMs: 300_000,
     });
