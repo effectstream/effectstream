@@ -8,5 +8,5 @@ export const grammar = {
   "midnightNullifierState": [["payload", Type.Any()]],
   "midnightUnshieldedCreateState": [["payload", Type.Any()]],
   "midnightZswapRootState": [["payload", Type.Any()]],
-  "midnightTokenMintState": [["payload", Type.Any()]],
+  // Midnight-TokenMint has no STM handler — it owns its table (dynamicTables).
 } as const satisfies GrammarDefinition;

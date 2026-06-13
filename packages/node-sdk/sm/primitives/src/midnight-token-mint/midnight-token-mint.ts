@@ -18,31 +18,33 @@ import type {
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { PrimitiveTypeMidnightTokenMint } from "../builtin.ts";
 import { midnightTokenMintGrammar } from "./midnight-token-mint-grammar.ts";
+import {
+  MIDNIGHT_TOKEN_MINT_INTERMEDIATE_PREFIX,
+  MIDNIGHT_TOKEN_MINT_VIEW_PREFIX,
+  midnightTokenMintIvm,
+} from "./midnight-token-mint-ivm.ts";
 
 /**
  * MidnightTokenMintPrimitive
  *
- * Watches custom token *mints* on the Midnight ledger. A contract call's
- * effects record minted tokens as `domain_sep → amount` maps (shielded and
- * unshielded), and the resulting token type ("color") is derived as
- * `rawTokenType(domain_sep, contract_address)` — so this primitive is the
- * only way for a consumer to map a wallet-visible token id back to the
- * contract that minted it. The fetcher deserializes each regular
- * transaction's raw bytes with ledger-v8, walks the contract calls, and
- * emits one state-machine input per `(tx, call, domainSep, kind)` — only
- * for effects that actually applied on chain (failed segments roll back).
+ * Watches custom token *mints* on the Midnight ledger and maps a token id
+ * ("color") back to the contract that minted it — the mapping wallets cannot
+ * provide. A contract call's effects record mints as `domain_sep → amount`
+ * maps (shielded and unshielded); the token type is
+ * `rawTokenType(domain_sep, contract_address)`. The fetcher deserializes each
+ * regular transaction with ledger-v8, walks the contract calls, and emits one
+ * event per `(tx, call, domainSep, kind)`.
+ *
+ * The primitive OWNS its registry table: `dynamicTables` declares
+ * `primitives.midnight_token_mint_view_<instance>` (maintained by a trigger on
+ * effectstream.primitive_accounting), so a consumer gets the registry with
+ * only an `.addPrimitive(...)` line — no state-machine handler, grammar entry,
+ * or migration. Set `persist: false` in config to skip the owned table (the
+ * accounting row is still written; useful when a consumer wants to handle the
+ * data itself or skip it).
  *
  * The mint nonce is NOT part of token identity (it only randomizes coin
- * commitments) and is never public for shielded mints, so it is not part
- * of the payload.
- *
- * Usage:
- *   stm.addStateTransition("myPrefix", function* (data) {
- *     const { payload } = data.parsedInput;
- *     // payload = { txHash, contractAddress, domainSep, rawTokenType,
- *     //             kind: "shielded" | "unshielded", amount, entryPoint }
- *     // amount is a decimal string (u64 mints can exceed MAX_SAFE_INTEGER)
- *   });
+ * commitments) and is never public for shielded mints, so it is not recorded.
  */
 export class MidnightTokenMintPrimitive extends Primitive<
   ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
@@ -51,20 +53,32 @@ export class MidnightTokenMintPrimitive extends Primitive<
   readonly internalTypeName = PrimitiveTypeMidnightTokenMint;
   override readonly grammar = midnightTokenMintGrammar;
 
-  override dynamicTables = undefined;
+  /** When true (default) the primitive owns + populates its registry table. */
+  readonly persist: boolean;
+
+  // Owned table — gated by `persist`. When disabled, no DDL is emitted, so no
+  // table/trigger is created and nothing is consolidated (accounting only).
+  override dynamicTables = (
+    name: string,
+    strategy: Parameters<typeof midnightTokenMintIvm>[1],
+  ): string | undefined =>
+    this.persist ? midnightTokenMintIvm(name, strategy) : undefined;
+
   override getIntermediatePrefix(): string[] {
-    return [];
+    return [MIDNIGHT_TOKEN_MINT_INTERMEDIATE_PREFIX];
   }
   override getViewPrefix(): string[] {
-    return [];
+    return [MIDNIGHT_TOKEN_MINT_VIEW_PREFIX];
   }
 
   constructor(config: {
     instanceName: string;
     startBlockHeight: number;
-    stateMachinePrefix: string;
+    stateMachinePrefix?: string;
+    persist?: boolean;
   }) {
-    super(config);
+    super({ ...config, stateMachinePrefix: config.stateMachinePrefix });
+    this.persist = config.persist ?? true;
   }
 
   override *getPayload(
@@ -82,10 +96,26 @@ export class MidnightTokenMintPrimitive extends Primitive<
       accountingPayload: ParamToData<typeof midnightTokenMintGrammar>;
     }[];
   }> {
-    const payload = primitiveTransactionData.output.payload;
+    const p = primitiveTransactionData.output.payload as {
+      contractAddress: string;
+      domainSep: string;
+      rawTokenType: string;
+      kind: string;
+      amount: string;
+      txHash: string;
+      entryPoint?: string;
+    };
 
+    // Flat accounting payload so the owned-table trigger reads columns via
+    // payload->>'field' (matches ERC20/NEP141).
     const accountingPayload: ParamToData<typeof this.grammar> = {
-      payload,
+      contractAddress: p.contractAddress,
+      domainSep: p.domainSep,
+      rawTokenType: p.rawTokenType,
+      kind: p.kind,
+      amount: p.amount,
+      txHash: p.txHash,
+      entryPoint: p.entryPoint ?? "",
     };
 
     const stateMachinePayload:
@@ -120,7 +150,7 @@ export class MidnightTokenMintPrimitive extends Primitive<
       name: this.instanceName,
       type: this.internalTypeName,
       startBlockHeight: this.startBlockHeight,
-      scheduledPrefix: this.stateMachinePrefix ?? "",
+      scheduledPrefix: this.stateMachinePrefix,
     } as const;
   }
 }

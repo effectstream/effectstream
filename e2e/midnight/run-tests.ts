@@ -348,6 +348,12 @@ async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
   );
 
   // ── TokenMint primitive: token id → minting contract registry ──────────────
+  // The primitive OWNS this table (no STM handler / migration). It's published
+  // as primitives.midnight_token_mint_view_<instance>, where the instance name
+  // "Midnight-TokenMint" is lowercased + stripped to a valid SQL name.
+  const TOKEN_MINT_VIEW =
+    "primitives.midnight_token_mint_view_" +
+    "Midnight-TokenMint".toLowerCase().replace(/[^a-z0-9_]/g, "");
 
   // L1: the primitive ran at all.
   await assertSQL<{ primitive_name: string }>(
@@ -369,10 +375,10 @@ async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
     total_minted: string;
     tx_hash: string | null;
   }>(
-    "Midnight: midnight_token_mints has shape-valid shielded + unshielded rows",
+    "Midnight: owned token-mint view has shape-valid shielded + unshielded rows",
     db,
     `SELECT token_type, kind, contract_address, domain_sep, total_minted, tx_hash
-     FROM midnight_token_mints ORDER BY id ASC;`,
+     FROM ${TOKEN_MINT_VIEW} ORDER BY token_type, kind;`,
     (res) => res.rows.length >= 2,
     (res) => {
       console.log(`  Token-mint count: ${res.rows.length}`);

@@ -170,7 +170,9 @@ export const config = new ConfigBuilder()
           name: "Midnight-TokenMint",
           type: PrimitiveTypeMidnightTokenMint,
           startBlockHeight: 1,
-          stateMachinePrefix: "midnightTokenMintState",
+          // No stateMachinePrefix: the primitive owns its table (persist
+          // defaults true) and populates it via the primitive_accounting
+          // trigger — zero state-machine wiring needed.
           networkId: midnightNetworkConfig.id,
         }),
       )

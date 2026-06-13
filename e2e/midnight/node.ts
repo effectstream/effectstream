@@ -90,27 +90,10 @@ stm.addStateTransition("midnightZswapRootState", function* (data) {
   ));
 });
 
-// MidnightTokenMint: registry of token id ("color") → minting contract +
-// domain separator (payload: { txHash, contractAddress, domainSep,
-// rawTokenType, kind, amount, entryPoint }). The mapping is immutable, so
-// conflicts only accumulate the running total.
-stm.addStateTransition("midnightTokenMintState", function* (data) {
-  const { payload } = data.parsedInput;
-  const tokenType = String(payload?.rawTokenType ?? "");
-  const kind = String(payload?.kind ?? "");
-  const contractAddress = String(payload?.contractAddress ?? "");
-  const domainSep = String(payload?.domainSep ?? "");
-  const amount = String(payload?.amount ?? "0");
-  const txHash = String(payload?.txHash ?? "");
-  console.log(`[STM] midnightTokenMintState: token=${tokenType.slice(0, 16)}… kind=${kind} contract=${contractAddress.slice(0, 16)}… amount=${amount}`);
-  yield* World.promise(pool.query(
-    `INSERT INTO midnight_token_mints (block_height, token_type, kind, contract_address, domain_sep, total_minted, tx_hash)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     ON CONFLICT (token_type, kind)
-     DO UPDATE SET total_minted = midnight_token_mints.total_minted + EXCLUDED.total_minted`,
-    [data.blockHeight, tokenType, kind, contractAddress, domainSep, amount, txHash],
-  ));
-});
+// MidnightTokenMint needs NO state-machine handler: the primitive owns its
+// registry table (primitives.midnight_token_mint_view_*) and populates it via
+// a trigger on primitive_accounting. This is the whole point of the refactor —
+// the registry is available with only the `.addPrimitive(...)` line in config.
 
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
