@@ -53,10 +53,14 @@ once PR #763 is merged).
 | # | File | Change |
 |---|------|--------|
 | 7 | `config.ts` | `.addPrimitive(...)` entry on the chain's parallel sync protocol |
-| 8 | `grammar.ts` | a grammar entry keyed by the `stateMachinePrefix` |
-| 9 | `node.ts` (or the template's state-machine module) | `stm.addStateTransition(prefix, ...)` handler writing to a user table |
-| 10 | DB migration (`create-user-tables.sql` or template migration) | the user table |
+| 8 | `grammar.ts` | a grammar entry keyed by the `stateMachinePrefix` — **STM-handler path only** |
+| 9 | `node.ts` (or the template's state-machine module) | `stm.addStateTransition(prefix, ...)` handler writing to a user table — **STM-handler path only** |
+| 10 | DB migration (`create-user-tables.sql` or template migration) | the user table — **STM-handler path only** |
 | 11 | test runner (`run-tests.ts`) | an on-chain trigger + assertions (see e2e section) |
+
+**Two ways to land structured data — pick one (see [Owned tables](#owned-tables-the-default-for-structured-data) below):**
+- **Owned table (default for read models / registries):** the primitive declares `dynamicTables` and the SDK creates + populates a `primitives.*` table for it. The consumer needs **only** row 7 (`.addPrimitive`) — rows 8–10 disappear. Use this whenever the primitive exposes structured data a consumer would just shovel into a table (balances, ownership, a token→contract registry).
+- **STM handler (rows 8–10):** only when the consumer needs **app-specific logic** on each event (TTL pruning, cross-record archival, validation). The handler reads the same payload and writes its own table.
 
 Nothing else changes: `@effectstream/config` treats the type string opaquely
 and the runtime dispatches through the `mod.ts` map, so don't go hunting for a
@@ -106,7 +110,12 @@ export class MidnightZswapRootPrimitive extends Primitive<
   readonly internalTypeName = PrimitiveTypeMidnightZswapRoot;
   override readonly grammar = midnightZswapRootGrammar;
 
-  // no dynamic tables / view prefixes for plain event streams
+  // Plain event stream → no owned table. For a primitive that exposes
+  // structured data, own a table instead (see "Owned tables" below):
+  //   override dynamicTables = (name, strategy) =>
+  //     this.persist ? myIvm(name, strategy) : undefined;
+  //   override getIntermediatePrefix() { return [MY_INTERMEDIATE_PREFIX]; }
+  //   override getViewPrefix() { return [MY_VIEW_PREFIX]; }
   override dynamicTables = undefined;
   override getIntermediatePrefix(): string[] { return []; }
   override getViewPrefix(): string[] { return []; }
@@ -225,7 +234,77 @@ Rules that earn their keep:
   debugging — the log line now exists in the Midnight fetcher; keep it true
   for yours).
 
+## Owned tables (the default for structured data)
+
+If the primitive exposes structured data (a registry, balances, ownership),
+**own the table inside the primitive** instead of pushing the write into every
+consumer's state machine. The SDK already supports this — ERC20/NEP141 use it,
+and `midnight-token-mint` is the Midnight reference. The win: a consumer gets
+the table with **only** the `.addPrimitive(...)` line (file-inventory row 7) —
+no grammar entry, no STM handler, no migration.
+
+How it works: `primitive_accounting` is written for **every** primitive event
+regardless of `stateMachinePrefix`, so a trigger on it can maintain a derived
+table with zero consumer code. Add a `<chain>-<name>-ivm.ts` (mirror
+`evm-erc20/erc20-ivm.ts` or `near-nep141/nep141-ivm.ts`):
+
+```ts
+// returns DDL: an intermediate table + an AFTER INSERT trigger on
+// effectstream.primitive_accounting + a read-side view (per strategy).
+export function myIvm(name: string, strategy: MaterializedViewStrategy) {
+  const n = name.toLowerCase().replace(/[^a-z0-9_]/g, "");
+  const table = `primitives.my_intermediate_${n}`;
+  const view  = `primitives.my_view_${n}`;
+  return `
+    CREATE TABLE IF NOT EXISTS ${table} ( primitive_name TEXT NOT NULL, /* key + cols */ , PRIMARY KEY (...) );
+    CREATE OR REPLACE FUNCTION upd_my_${n}() RETURNS TRIGGER AS $$ BEGIN
+      IF NEW.payload_type = '${PrimitiveTypeMyThing}' AND NEW.primitive_name = '${name}'
+         AND NEW.payload->>'someField' IS NOT NULL THEN
+        INSERT INTO ${table} (...) VALUES ( NEW.primitive_name, NEW.payload->>'someField', ..., NEW.effectstream_block_height )
+        ON CONFLICT (...) DO UPDATE SET /* accumulate / latest-wins */ ;
+      END IF; RETURN NEW; END; $$ LANGUAGE plpgsql;
+    CREATE TRIGGER trg_my_${n} AFTER INSERT ON effectstream.primitive_accounting
+      FOR EACH ROW EXECUTE FUNCTION upd_my_${n}();
+    ${strategy.createView(view, `SELECT ... FROM ${table}`)}
+  `;
+}
+export const MY_VIEW_PREFIX = "my_view_" as const;
+export const MY_INTERMEDIATE_PREFIX = "my_intermediate_" as const;
+```
+
+Then in the primitive class (Step 3): wire `dynamicTables` + the prefixes, and
+**build a flat `accountingPayload`** with named grammar fields (not a single
+`[["payload", Type.Any()]]` blob) so the trigger can read `payload->>'field'`
+directly:
+
+```ts
+readonly persist: boolean;                       // config flag, default true
+override dynamicTables = (name, strategy) =>      // gated by the flag
+  this.persist ? myIvm(name, strategy) : undefined;
+override getIntermediatePrefix() { return [MY_INTERMEDIATE_PREFIX]; }
+override getViewPrefix() { return [MY_VIEW_PREFIX]; }
+constructor(config: { /* … */ persist?: boolean }) { super(config); this.persist = config.persist ?? true; }
+```
+
+**The `persist` flag** (default `true`): when `false`, `dynamicTables` returns
+`undefined` → no DDL, no table, nothing consolidated (the `primitive_accounting`
+row is still written). It's the per-instance "write this / skip this" control;
+a consumer that wants to handle the data itself sets `persist: false` and adds
+its own STM handler. (No config-package change needed — extra config fields flow
+through the constructor; just add `persist?: boolean` to the constructor type.
+Note `dynamicTables`'s return type is `string | undefined` on the base.)
+
+Consumers **read** the owned table by view name:
+`primitives.${MY_VIEW_PREFIX}${instanceNameLowercasedStripped}` (or via
+`getPrimitivePrefix(type)` from `@effectstream/db`). E2e asserts against this
+view — no consumer table to create.
+
 ## Step 7 — consumer wiring
+
+> If the primitive owns its table (above), the consumer wiring is **just the
+> `.addPrimitive(...)` entry below** — skip the grammar entry, STM handler, and
+> migration. The rest of this step is the **STM-handler path** (app-specific
+> logic only).
 
 In the consuming node (template or e2e):
 
@@ -278,8 +357,9 @@ is testable immediately — no publish, no linking. The pattern (see the
 Midnight suite, which covers Nullifier and — post-#763 — UnshieldedCreate +
 ZswapRoot):
 
-1. Wire steps 7's four files inside `e2e/<chain>/` (config, grammar, node,
-   `database/migrations/create-user-tables.sql`).
+1. Wire step 7 inside `e2e/<chain>/`. Owned-table primitive → just the
+   `.addPrimitive(...)` entry in `config.ts`. STM-handler primitive → also the
+   grammar entry, node handler, and `create-user-tables.sql` table.
 2. **Generate the event on-chain.** Add a `trigger<Name>s()` helper to the
    chain's shared test utilities (e.g.
    `e2e/shared/contracts/midnight/faucet.ts` — `triggerNullifiers` does a
@@ -289,8 +369,10 @@ ZswapRoot):
 3. **Assert in three layers** (use `assertSQL`, which polls):
    - `effectstream.primitive_accounting` has rows for your instance name —
      proves the primitive ran at all;
-   - the user table has shape-valid rows (non-empty keys, sane indexes) —
-     proves the STM handler parsed the payload;
+   - the table has shape-valid rows (non-empty keys, sane indexes) — read the
+     **owned view** `primitives.<view-prefix><instance>` for an owned-table
+     primitive, or the consumer's user table for the STM-handler path; proves
+     the row was materialized correctly;
    - a **fidelity cross-check**: take a stored row and re-query the chain's
      source of truth (e.g. the local indexer's GraphQL) for the same
      transaction; assert byte-equality. This proves fetcher → STM → DB didn't
