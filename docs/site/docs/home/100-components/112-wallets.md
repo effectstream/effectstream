@@ -1,8 +1,5 @@
 # Wallets
 
-> NOTE THIS IS A PREVIEW DOCUMENTATION. NYI.
-
-
 In any decentralized application, the user's wallet is their identity, their key, and their signature. It's the fundamental tool that allows them to interact with the blockchain and prove ownership of their assets and actions.
 
 A major challenge in building multi-chain dApps is that every blockchain ecosystem has its own wallet standards and connection methods. EffectStream solves this problem by providing a single, unified interface that handles the complexity for you.
@@ -28,26 +25,29 @@ This table is a EffectStream numeric representation of wallet address type. Norm
 
 ## Connecting a Wallet in Your Frontend
 
-Integrating wallet connectivity into your dApp is streamlined with a single `login` function. You simply specify which type of wallet you want to connect to using the `WalletMode` enum, and the library handles the rest.
+Integrating wallet connectivity into your dApp is streamlined with a single `walletLogin` function. You simply specify which type of wallet you want to connect to using the `WalletMode` enum, and the library handles the rest.
 
 ```ts
-import { WalletMode, login } from '@effectstream/wallets';
-
-const effectstreamConfig = new EffectStreamConfig(...); // see EffectStreamConfig in the @effectstream/wallets package
+import { WalletMode, walletLogin, signMessage } from '@effectstream/wallets';
 
 async function connectWallet() {
-  try {
-    // The login function prompts the user with their chosen wallet extension.
-    const loginInfo = await login(WalletMode.EvmInjected);
+  // walletLogin prompts the user with their chosen wallet extension and
+  // returns a Result<Wallet>.
+  const result = await walletLogin({
+    mode: WalletMode.EvmInjected,
+    preference: { name: 'MetaMask' },
+  });
 
-    // The result contains the wallet client, address, and other info.
-    console.log('Connected Wallet:', loginInfo.walletAddress);
-
-    // Now you can use loginInfo.walletClient to sign messages or transactions.
-    // Example: const signature = await loginInfo.walletClient.signMessage(...);
-  } catch (error) {
-    console.error('Failed to connect wallet:', error);
+  if (!result.success) {
+    console.error('Failed to connect wallet:', result.errorMessage);
+    return;
   }
+
+  const wallet = result.result;
+  console.log('Connected wallet:', wallet.walletAddress);
+
+  // Use the wallet to sign messages, or sendTransaction to submit inputs.
+  const signature = await signMessage(wallet, 'hello effectstream');
 }
 ```
 
@@ -97,12 +97,12 @@ delegation, a real wallet can authorise the local key to sign non-financial
 inputs - so the player signs once and subsequent actions need no pop-up. The
 same pattern is available on EVM (`EvmViem`) and Midnight (`MidnightLocal`).
 
-## EffectStreamConfig
+## EffectstreamConfig
 
-The `EffectStreamConfig` is used to configure the EffectStream.
+The `EffectstreamConfig` is used to configure the EffectStream.
 
 Settings:
-* **App Name**: The name of the app, used to internally sign messages.
+* **Security Namespace**: A string the wallet signs into every batched message; must match the server's security namespace.
 * **EffectStream L2 Sync Protocol Name**: The name of the effectstream l2 sync protocol defined in your config.
 * **EffectStream L2 Contract Address**: The address of the effectstream l2 contract to target.
 * **EffectStream L2 Chain**: The chain of the effectstream l2 contract.
@@ -110,11 +110,11 @@ Settings:
 * **Batcher URL**: The url of the batcher to use.
 * **Prefer Batched Mode**: If true use batcher by default, otherwise use self-sequenced transaction.
 
-See the `EffectStreamConfig` in the `@effectstream/wallets` package for more details.
+See the `EffectstreamConfig` in the `@effectstream/wallets` package for more details.
 
 ```ts
-const effectstreamConfig = new EffectStreamConfig(
-  "my-app",                       // app name
+const effectstreamConfig = new EffectstreamConfig(
+  "my-app",                       // security namespace
   "effectstream-l2-sync-protocol-name",  // effectstream l2 sync protocol name
   "0x1234567890abcdef",           // effectstream l2 contract address
   hardhat,                        // effectstream l2 chain
