@@ -63,6 +63,39 @@ The `WalletMode` enum allows you to support a broad range of ecosystems, enablin
 | **`Mina`** | Mina | Connects to the Auro wallet for the Mina Protocol. |
 | **`AvailJs`** | Avail | Connects to wallets for the Avail network. |
 | **`Midnight`** | Midnight | Connects to Lace Wallet |
+| **`CardanoLocal`** | Cardano | In-browser local wallet: a BIP-39 key-pair generated and managed by the library. No extension required. |
+| **`MidnightLocal`** | Midnight | In-browser local wallet from a generated hex seed. No extension required. |
+| **`EvmViem`** | EVM | In-browser local wallet from a viem `0x` private key. No extension required. |
+
+### Local (in-browser) wallets
+
+For Cardano you have two options, both managed by `@effectstream/wallets`:
+
+1. **Connect a real wallet** (`WalletMode.Cardano`) - the user signs with
+   their CIP-30 extension (Lace, Eternl, Nami, NuFi, ...).
+2. **Use a local wallet** (`WalletMode.CardanoLocal`) - the library
+   generates and manages a key-pair in the browser, with no extension. The
+   code for this lives in `packages/effectstream-sdk/wallets/src/cardano/`.
+
+```ts
+import { WalletMode, walletLogin, signMessage } from '@effectstream/wallets';
+
+// A fresh BIP-39 seed is generated in the browser when `seedPhrase` is omitted.
+const wallet = await walletLogin({
+  mode: WalletMode.CardanoLocal,
+  network: 'Preview', // 'Mainnet' | 'Preprod' | 'Preview' | 'Custom'
+});
+if (!wallet.success) throw new Error(wallet.errorMessage);
+
+console.log('Local address:', wallet.result.walletAddress); // addr_test1...
+const signature = await signMessage(wallet.result, 'hello effectstream');
+```
+
+The local key never leaves the browser. Combined with the [Account
+System](#wallets-and-the-effectstream-account-system)'s `&linkAddress`
+delegation, a real wallet can authorise the local key to sign non-financial
+inputs - so the player signs once and subsequent actions need no pop-up. The
+same pattern is available on EVM (`EvmViem`) and Midnight (`MidnightLocal`).
 
 ## EffectStreamConfig
 
