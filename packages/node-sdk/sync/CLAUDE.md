@@ -171,6 +171,15 @@ Consequences during catch-up:
 `bufferedData` and pauses the fetch loop (each chain's `stateToInput` returns `undefined`)
 until the merge drains. See README "Backpressure (`maxBufferedPages`)".
 
+> **Merge→apply queue cap (Fix C′) — ✅ SHIPPED.** The Deque cap above bounds *fetch*, but the
+> merge then sends finalized blocks into an effection channel whose subscriber queue buffers
+> unbounded — so the merge (no I/O) could still race ahead of the serial apply loop and grow that
+> queue toward the whole backlog, especially with empty-block coalescing (Fix E) removing the
+> per-block apply brake. The runtime now gates the merge's `send` (`runtime/src/main.ts`): it blocks
+> once `EFFECTSTREAM_FINALIZED_STREAM_CAP` (default 2048) produced blocks are unconsumed, and the
+> apply loop wakes it as it drains. `inFlight = produced − consumed` is surfaced on
+> `/debug/metrics`. Repro/guard: `runtime/test/reproduction/coalesce-memory.test.ts`.
+
 > **Merge-demand exemption (safeguard).** A naive cap can deadlock the merge: it drains a
 > parallel chain's buffer only *after* its page passes the root timestamp `τ`, so if the cap
 > pauses the fetcher while its page is still `≤ τ` (a far skip-ahead, or a chain finer-grained

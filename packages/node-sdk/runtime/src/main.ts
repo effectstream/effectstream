@@ -23,7 +23,6 @@ import {
 import { startMerge, startSync } from "@effectstream/sync";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import {
-  createChannel,
   type Operation,
   sleep,
   spawn,
@@ -37,6 +36,8 @@ import {
 import { createEmptyBlockCoalescer } from "./coalesce.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import { recordAppliedBlock } from "./api/apply-status.ts";
+import { recordCoalesced } from "./api/stream-status.ts";
+import { createBoundedFinalizedStream } from "./finalized-stream.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
 import type { EffectstreamBlockHash } from "@effectstream/utils";
@@ -102,16 +103,13 @@ export function* start(config: StartConfig): Operation<void> {
     (syncInfo[0]?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS;
   const lagThresholdMs = clockBlockTimeMS != null ? clockBlockTimeMS * 10 : undefined;
 
-  const finalizedBlockStream = createChannel<ChainBlock>();
+  // Bounded hand-off queue between the merge and the apply loop. Backpressure caps
+  // the in-memory queue so deep catch-up can't grow it toward the whole backlog
+  // (see finalized-stream.ts / sync/CLAUDE.md Finding #1).
+  const { stream: finalizedStream, subscription: finalizedBlocks } =
+    yield* createBoundedFinalizedStream(ENV.EFFECTSTREAM_FINALIZED_STREAM_CAP);
 
-  // Subscribe BEFORE spawning the merge: effection channels drop sends with no
-  // subscriber, so a fast restart could emit blocks before we subscribe and
-  // stall at the pre-restart height.
-  const finalizedBlocks = yield* finalizedBlockStream;
-  // NOTE: this subscriber's queue is unbounded — during deep catch-up the merge
-  // can outpace block processing and grow it (Fix C backpressure, sync/CLAUDE.md).
-
-  yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
+  yield* spawn(() => startMerge(syncProtocols, finalizedStream));
 
   const heartbeatIntervalMs = 60_000;
   yield* spawn(function* () {
@@ -161,6 +159,9 @@ export function* start(config: StartConfig): Operation<void> {
     lagThresholdMs,
     getPreviousBlockHash: () => blockHash,
     onFlush: (endpoint, length) => {
+      // `consumed` is counted at the subscription pull point (above), not here, so
+      // it reflects the channel depth regardless of how many blocks a run folds.
+      recordCoalesced(length);
       recordAppliedBlock(endpoint);
       emitLatestBlocks(
         endpoint.blockNumber,
