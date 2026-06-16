@@ -321,6 +321,13 @@ const definitions: Record<string, ConfigDefinition> = {
     description:
       "Fold consecutive empty catch-up blocks into one DB transaction when behind the chain tip. Default: false.",
   },
+  EFFECTSTREAM_FINALIZED_STREAM_CAP: {
+    key: "EFFECTSTREAM_FINALIZED_STREAM_CAP",
+    type: "number",
+    defaultValue: 2048,
+    description:
+      "Backpressure cap on the in-memory finalized-block queue between the merge and the runtime apply loop. The merge blocks once this many produced blocks are unconsumed, bounding memory during deep catch-up. Default: 2048.",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -460,6 +467,9 @@ export class ENV {
   }
   static get EFFECTSTREAM_COALESCE_EMPTY_BLOCKS(): boolean {
     return ENV.getConfig(definitions.EFFECTSTREAM_COALESCE_EMPTY_BLOCKS);
+  }
+  static get EFFECTSTREAM_FINALIZED_STREAM_CAP(): number {
+    return ENV.getConfig(definitions.EFFECTSTREAM_FINALIZED_STREAM_CAP);
   }
 
   public static getConfig<T>(config: ConfigDefinition): T {

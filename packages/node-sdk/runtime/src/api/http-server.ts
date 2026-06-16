@@ -1,6 +1,7 @@
 import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
 import { appliedBlockStatus } from "./apply-status.ts";
+import { finalizedStreamStatus } from "./stream-status.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
 import { run, until } from "effection";
@@ -509,6 +510,14 @@ export const startHttpServer = function* (
           mergeWaiting: p.mergeWaitingForPage,
           mergeDemandRoot: p.mergeDemandRoot ?? null,
         })),
+        // Finalized-block stream backlog: blocks the merge has produced but the
+        // apply loop hasn't drained. `inFlight` is the otherwise-unobservable
+        // subscriber-queue depth, bounded by backpressure (sync/CLAUDE.md Finding #1).
+        // `coalesced` = empty blocks folded away during catch-up.
+        finalizedStream: {
+          inFlight: finalizedStreamStatus.produced - finalizedStreamStatus.consumed,
+          coalesced: finalizedStreamStatus.coalesced,
+        },
         // Apply-stage lag: how old the last-applied block is. Unlike `buf` (fetch
         // backlog) this stays high when the node is write/apply-bound.
         applied: {

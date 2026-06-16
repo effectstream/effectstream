@@ -32,6 +32,8 @@ import { toSyncProtocolWithNetwork } from "@effectstream/config";
 export type RunNodeOpts = {
   config: any;
   apiPort: number;
+  /** Enable/disable empty-block coalescing for this long-lived node. */
+  coalesce?: boolean;
 };
 
 export type RunningNode = {
@@ -40,6 +42,10 @@ export type RunningNode = {
   bufferSizes: Record<string, number>;
   pauses: Record<string, number>;
   ownBlocks: Record<string, number | null>;
+  /** finalizedBlockStream backlog (produced − consumed); 0 until first scrape. */
+  inFlight: number;
+  /** Empty blocks folded away by the coalescer so far. */
+  coalescedBlocks: number;
   stop: () => Promise<void>;
   syncProtocols: () => any[];
 };
@@ -230,8 +236,6 @@ function ensureCluster(): Promise<Cluster> {
     const dataDir = mkdtempSync(join(tmpdir(), "repro-pg-"));
     const port = await freePort();
 
-    writeFileSync(join(dataDir, "repro-owner.pid"), String(process.pid));
-
     execFileSync(join(bin, "initdb"), [
       "-D", dataDir,
       "-U", "postgres",
@@ -240,6 +244,10 @@ function ensureCluster(): Promise<Cluster> {
       "--encoding=UTF8",
       "--no-instructions",
     ], { env, stdio: "ignore" });
+
+    // Write our owner marker AFTER initdb — it refuses a non-empty data dir, so
+    // this must not exist beforehand. Read later by cleanupOrphanedClusters.
+    writeFileSync(join(dataDir, "repro-owner.pid"), String(process.pid));
     appendFileSync(join(dataDir, "postgresql.conf"), `\nport = ${port}\n`);
     execFileSync(join(bin, "pg_ctl"), [
       "-D", dataDir,
@@ -384,6 +392,7 @@ function makeRunNode(
       target: 999999,
       apiPort: opts.apiPort,
       config: opts.config,
+      coalesce: opts.coalesce,
     };
 
     const child = spawn("bun", [RUNNER, JSON.stringify(spec)], {
@@ -401,6 +410,8 @@ function makeRunNode(
       bufferSizes: {},
       pauses: {},
       ownBlocks: {},
+      inFlight: 0,
+      coalescedBlocks: 0,
       syncProtocols() {
         return Object.entries(this.bufferSizes).map(([name, buf]) => ({
           name,
@@ -432,6 +443,10 @@ function makeRunNode(
                 node.pauses[p.name] = p.pauses;
                 node.ownBlocks[p.name] = p.ownBlockNumber;
               }
+            }
+            if (data?.finalizedStream) {
+              node.inFlight = data.finalizedStream.inFlight ?? 0;
+              node.coalescedBlocks = data.finalizedStream.coalesced ?? 0;
             }
           }
         } catch {
