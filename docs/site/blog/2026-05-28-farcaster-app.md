@@ -1,8 +1,15 @@
-# Inside farcaster-canvas: A Farcaster Mini App as an Effectstream Indexer
+---
+slug: farcaster-app
+title: "Inside farcaster-canvas: A Farcaster Mini App as an EffectStream Indexer"
+authors: [effectstream]
+tags: [farcaster, mini-apps, game-templates, social, cardano, evm]
+---
 
-<iframe width="100%" height="415" src="https://www.youtube.com/embed/pJhG-yLFevE" title="Farcaster Canvas Mini App demo" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
+<iframe width="100%" height="415" src="https://www.youtube.com/embed/NYjVmRQBbcU" title="Farcaster Canvas Mini App demo" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
 
 [Farcaster Canvas](https://github.com/effectstream/farcaster-app) is a collaborative pixel-painting game that ships as a [Farcaster Mini App](https://miniapps.farcaster.xyz). Two users on Warpcast can sit on the same canvas, pick colors from a palette, and watch each other's paints land in near real time. When a canvas runs out of slots, anyone can fork it to their own timeline as the next canvas to paint on.
+
+The app is built on EffectStream, which is multi-chain by design: the game logic is chain-neutral, so while this build settles on an EVM chain inside Warpcast, the same state machine retargets to the Cardano ecosystem with a configuration change - the social surface (Farcaster) and the settlement chain are independent choices.
 
 The interesting thing about this implementation isn't the canvas itself — it's that the entire game is wired through an Effectstream node sitting between a near-empty Solidity contract and a React UI rendered inside Warpcast's iframe. There's no game logic on chain. There's no game logic in the frontend. Everything that decides "is this paint valid, does this canvas get filled, who owns the fork" runs inside a state machine that consumes JSON inputs from a single L2 event.
 

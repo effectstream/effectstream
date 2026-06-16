@@ -9,7 +9,13 @@ export type AppEvent =
       unshieldedSpend?: { owner: string; intentHash: string; outputNo: number };
     }
   | { type: "offer_expired"; offerId: number }
-  | { type: "token_minted"; name: string; color: string };
+  | { type: "token_minted"; name: string; color: string }
+  | {
+      type: "offer_rejected";
+      code?: string;
+      reason?: string;
+      celestiaHeight: number | string;
+    };
 
 export const eventBus = new EventEmitter();
 eventBus.setMaxListeners(50);

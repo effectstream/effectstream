@@ -33,9 +33,54 @@ export const CELESTIA_MAX_GAS_PRICE = _maxGasPrice ? parseFloat(_maxGasPrice) : 
 export const CELESTIA_TX_PRIORITY = _txPriority ? parseInt(_txPriority) : undefined;
 
 // Offer lifetime before the TTL-cleanup scheduled input archives it.
-// Defaults to 7 days.
+//
+// A shielded offer is fillable only while the Merkle root its `Input`/`Transient`
+// proves against is still in the node's retained root history; once that root
+// ages out the input fails with `UnknownMerkleRoot` at apply time — silently,
+// with no event the indexer can observe. So the TTL should track that
+// root-history window to keep the active set in line with on-chain fillability.
+//
+// That window is **version-dependent**:
+//   - current ledger release: ~1 hour (`Duration::from_secs(3600)`,
+//     `zswap/src/ledger.rs:235-247`)
+//   - next release: ~14 days (per Midnight release notes; not yet visible in
+//     the reference checkout — re-verify when it lands)
+// We default to **30 days** for headroom across releases (a too-short TTL
+// archives still-fillable offers). Tune `OFFER_TTL_SECONDS` to your network:
+// e.g. set ~3600 on a current 1h-window network so the indexer doesn't keep
+// serving offers that can no longer settle.
+//
+// Caveats:
+//   - The window bounds *proof freshness*, not coin age: a maker proves an
+//     old coin against a recent root, so old coins are unaffected.
+//   - Unshielded-only offers have no root window (a UTXO is valid until spent);
+//     if you need them to live longer, split the TTL by offer kind.
+//   - Makers should publish promptly after proving — the fill window starts at
+//     the referenced root, not at publication.
 export const OFFER_TTL_SECONDS = parseInt(
-  getEnv("OFFER_TTL_SECONDS") ?? String(7 * 24 * 60 * 60),
+  getEnv("OFFER_TTL_SECONDS") ?? String(60 * 60 * 24 * 30),
+);
+
+// Midnight network id the offers are created against. Used as the `wellFormed`
+// reference-state network (offer validation) — must match the network whose
+// proofs the offers carry.
+export const MIDNIGHT_NETWORK_ID = midnightNetworkConfig.id;
+
+// Upper bound on a decoded offer transaction, in bytes. A DoS guard for the
+// validator (the Celestia adapter separately caps the on-wire blob at 1.5 MB);
+// set generously so legitimate proof-bearing offers are never rejected.
+export const OFFER_MAX_BYTES = parseInt(
+  getEnv("OFFER_MAX_BYTES") ?? String(1024 * 1024),
+);
+
+// Retention window for the known-roots set used by the root-known liveness
+// check: roots last seen older than this are pruned (mirroring the ledger's
+// `past_roots`). Keep it ≥ the chain's on-chain root window or legitimate
+// offers proving against an in-window-but-older root get falsely rejected.
+// Default 14 days = the next-release window; on a current ~1h-window network
+// set ~3600.
+export const ROOT_WINDOW_SECONDS = parseInt(
+  getEnv("ROOT_WINDOW_SECONDS") ?? String(60 * 60 * 24 * 14),
 );
 
 export const midnightContract = (() => {

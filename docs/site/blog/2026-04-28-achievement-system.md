@@ -157,6 +157,10 @@ The walkthrough below shows the full earn-to-display loop: a player plays a game
 
 <iframe src="https://drive.google.com/file/d/1j9KKy3Z2Jw5LAxK1a-PWNzUIhJj_-6H7/preview" width="100%" height="480" allow="autoplay"></iframe>
 
+At a glance - earning points in Safe Solver, then the same wallet's achievements visible on the midnight.fun portal:
+
+![A player earns points in Safe Solver, then the achievement appears on the midnight.fun portal next to their wallet](/img/blog/achievement-earn-to-portal.gif)
+
 ## How it works under the hood
 
 When a player connects their wallet to midnight.fun, the portal queries each game's PRC-1 endpoint to fetch that player's achievements. Because the standard uses wallet addresses as the primary identifier, achievements are cross-game and cross-platform by default: any portal or app can query any PRC-1 game.

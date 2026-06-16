@@ -2,7 +2,7 @@
 slug: blockkart
 title: BlockKart
 date: 2026-03-01
-description: Arbitrum finality plus an effect stream to keep the racing loop snappy, with a global leaderboard.
+description: Arbitrum plus an effect stream to keep the racing loop snappy, with a global leaderboard.
 leaderboardUrl: https://api-blockkart.paimastudios.com/metrics/leaderboard?limit=10&offset=0
 achievementsUrl: https://api-blockkart.paimastudios.com/metrics
 repoUrl: https://github.com/effectstream/block-kart-legends
@@ -38,7 +38,7 @@ Here's the teaching moment: the Midnight contract is intentionally tiny. All of 
 
 ### The "anchor only" pattern
 
-The entire contract is 11 lines: a single `ledger payload: Opaque<"string">` plus a `storeValue` circuit that `disclose`s and writes it. No enums, no maps, no witnesses, no commit-reveal. The EffectStream node calls `storeValue` to notarize game-event data on Midnight, while the heavy lifting stays on the EVM side. Reach for this pattern when you need tamper-evident anchoring but not zero-knowledge - the cheaper the on-chain piece, the cheaper every update.
+The entire contract is 11 lines: a single `ledger payload: Opaque<"string">` plus a `storeValue` circuit that `disclose`s and writes it. No enums, no maps, no witnesses, no commit-reveal. The EffectStream node calls `storeValue` to notarize game-event data on Midnight. Reach for this pattern when you need tamper-evident anchoring but not zero-knowledge - the cheaper the on-chain piece, the cheaper every update.
 
 <CompactCode summary="Full contract (11 lines)">
 

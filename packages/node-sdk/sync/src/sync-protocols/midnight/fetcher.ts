@@ -19,6 +19,7 @@ import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
 import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
 import { decodeZswapInputEvent } from "./zswap-decoder.ts";
+import { decodeTokenMints } from "./mint-decoder.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -84,13 +85,25 @@ export class MidnightFetcher extends BaseDataFetcher<
       contractActions: this.config.primitives.some(
         (p) =>
           p.primitive.type !== "Midnight:Nullifier" &&
-          p.primitive.type !== "Midnight:UnshieldedSpend",
+          p.primitive.type !== "Midnight:UnshieldedSpend" &&
+          p.primitive.type !== "Midnight:UnshieldedCreate" &&
+          p.primitive.type !== "Midnight:ZswapRoot" &&
+          p.primitive.type !== "Midnight:TokenMint",
       ),
       zswapLedgerEvents: this.config.primitives.some(
         (p) => p.primitive.type === "Midnight:Nullifier",
       ),
       unshieldedSpentOutputs: this.config.primitives.some(
         (p) => p.primitive.type === "Midnight:UnshieldedSpend",
+      ),
+      unshieldedCreatedOutputs: this.config.primitives.some(
+        (p) => p.primitive.type === "Midnight:UnshieldedCreate",
+      ),
+      zswapRoots: this.config.primitives.some(
+        (p) => p.primitive.type === "Midnight:ZswapRoot",
+      ),
+      tokenMints: this.config.primitives.some(
+        (p) => p.primitive.type === "Midnight:TokenMint",
       ),
     };
     const self = this;
@@ -105,14 +118,28 @@ export class MidnightFetcher extends BaseDataFetcher<
     const fetched = yield* all(
       heights.map(function* (height) {
         const signal = yield* useAbortSignal();
-        const result: MidnightGqlBlockState = yield* call(() =>
-          self.client.fetchBlock(height, blockFetchOptions, signal)
-        );
-        const primitives = yield* self.readPrimitives(
-          height,
-          result,
-          self.config.primitives,
-        );
+        let result: MidnightGqlBlockState;
+        let primitives;
+        try {
+          result = yield* call(() =>
+            self.client.fetchBlock(height, blockFetchOptions, signal)
+          );
+          primitives = yield* self.readPrimitives(
+            height,
+            result,
+            self.config.primitives,
+          );
+        } catch (e) {
+          // Surface per-height failures: the outer fetch loop swallows errors
+          // and retries silently, which previously hid a permanent failure
+          // (e.g. a wasm-instance mismatch in a contract ledger() call) as an
+          // ever-stuck page with no log output.
+          console.error(
+            `[Midnight] readData failed at height ${height}:`,
+            (e as Error)?.stack ?? e,
+          );
+          throw e;
+        }
         return {
           output: {
             raw: result.block as unknown as Block,
@@ -166,6 +193,12 @@ export class MidnightFetcher extends BaseDataFetcher<
         syncResults.push(...this.fetchNullifiers(height, primitiveEntry, block));
       } else if (primitiveEntry.primitive.type === "Midnight:UnshieldedSpend") {
         syncResults.push(...this.fetchUnshieldedSpends(height, primitiveEntry, block));
+      } else if (primitiveEntry.primitive.type === "Midnight:UnshieldedCreate") {
+        syncResults.push(...this.fetchUnshieldedCreates(height, primitiveEntry, block));
+      } else if (primitiveEntry.primitive.type === "Midnight:ZswapRoot") {
+        syncResults.push(...this.fetchZswapRoots(height, primitiveEntry, block));
+      } else if (primitiveEntry.primitive.type === "Midnight:TokenMint") {
+        syncResults.push(...this.fetchTokenMints(height, primitiveEntry, block));
       } else {
         asyncOps.push(
           this.fetchContractState(height, client, primitiveEntry, block),
@@ -234,6 +267,112 @@ export class MidnightFetcher extends BaseDataFetcher<
               owner: spend.owner,
               intentHash: spend.intentHash,
               outputIndex: spend.outputIndex,
+              txHash: tx.hash,
+            },
+          },
+        });
+      }
+    }
+    return results;
+  }
+
+  // Mirror of fetchUnshieldedSpends over `unshieldedCreatedOutputs` — every
+  // unshielded UTXO created in the block (regular AND system transactions).
+  // One state-machine input per created output.
+  @bound
+  fetchUnshieldedCreates(
+    height: number,
+    primitiveEntry: PrimitiveEntryType,
+    block: MidnightGqlBlockState,
+  ): PrimitiveType[] {
+    const results: PrimitiveType[] = [];
+    for (const tx of block.block.transactions) {
+      for (const created of tx.unshieldedCreatedOutputs ?? []) {
+        results.push({
+          syncProtocol: {
+            name: primitiveEntry.syncProtocol,
+            blockNumber: height,
+            transactionHash: tx.hash,
+            contractAddress: "",
+          },
+          primitive: primitiveEntry.primitive.name,
+          output: {
+            payloadType: "midnight-unshielded-create",
+            payload: {
+              owner: created.owner,
+              intentHash: created.intentHash,
+              outputIndex: created.outputIndex,
+              txHash: tx.hash,
+            },
+          },
+        });
+      }
+    }
+    return results;
+  }
+
+  // Emit the latest zswap coin-commitment Merkle tree root for the block: the
+  // `zswapMerkleTreeRoot` of the last RegularTransaction that carries one.
+  // Blocks with no regular transactions emit nothing (the root is unchanged).
+  @bound
+  fetchZswapRoots(
+    height: number,
+    primitiveEntry: PrimitiveEntryType,
+    block: MidnightGqlBlockState,
+  ): PrimitiveType[] {
+    let root: string | undefined;
+    let txHash = "";
+    for (const tx of block.block.transactions) {
+      if (tx.zswapMerkleTreeRoot) {
+        root = tx.zswapMerkleTreeRoot;
+        txHash = tx.hash;
+      }
+    }
+    if (!root) return [];
+    return [
+      {
+        syncProtocol: {
+          name: primitiveEntry.syncProtocol,
+          blockNumber: height,
+          transactionHash: txHash,
+          contractAddress: "",
+        },
+        primitive: primitiveEntry.primitive.name,
+        output: {
+          payloadType: "midnight-zswap-root",
+          payload: { root, txHash },
+        },
+      },
+    ];
+  }
+
+  // Decode custom token mints out of each regular transaction's raw bytes
+  // (ledger-v8 deserialize → contract call transcript effects). One input per
+  // (tx, call, domainSep, kind) that actually applied on chain — see
+  // mint-decoder.ts for the segment semantics. System transactions carry no
+  // transactionResult and are skipped.
+  @bound
+  fetchTokenMints(
+    height: number,
+    primitiveEntry: PrimitiveEntryType,
+    block: MidnightGqlBlockState,
+  ): PrimitiveType[] {
+    const results: PrimitiveType[] = [];
+    for (const tx of block.block.transactions) {
+      if (!tx.raw || !tx.transactionResult) continue;
+      for (const mint of decodeTokenMints(tx.raw, tx.transactionResult)) {
+        results.push({
+          syncProtocol: {
+            name: primitiveEntry.syncProtocol,
+            blockNumber: height,
+            transactionHash: tx.hash,
+            contractAddress: mint.contractAddress,
+          },
+          primitive: primitiveEntry.primitive.name,
+          output: {
+            payloadType: "midnight-token-mint",
+            payload: {
+              ...mint,
               txHash: tx.hash,
             },
           },
