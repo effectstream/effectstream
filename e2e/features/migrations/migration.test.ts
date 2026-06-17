@@ -28,9 +28,10 @@ export async function migrationTest(db: Client) {
       "SELECT name, is_system_migration FROM effectstream.effectstream_migration_history",
       "migration-count",
     );
-    // At minimum: 4 system migrations + 5 dynamic table migrations
+    // At minimum: 5 system migrations (0.0.0, 0.0.1, 0.0.2, 0.8.1, 0.8.2)
+    // + 5 dynamic table migrations
     const systemCount = result.rows.filter((r: any) => r.is_system_migration).length;
-    return systemCount >= 4;
+    return systemCount >= 5;
   });
 
   await assert("Migration: dynamic table migrations applied", async () => {
