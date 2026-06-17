@@ -216,8 +216,14 @@ export type EmptyBlockCoalescerOptions = {
   idleFlushMs?: number;
 };
 
+export type CoalescerAdvanceResult = {
+  block: ChainBlock;
+  /** Boundaries loaded during this block's coalescability check, or null if not loaded. */
+  boundaries: EmptyRunBoundaries | null;
+};
+
 export type EmptyBlockCoalescer = {
-  advance(): Operation<ChainBlock | undefined>;
+  advance(): Operation<CoalescerAdvanceResult | undefined>;
 };
 
 export function createEmptyBlockCoalescer(
@@ -253,10 +259,10 @@ export function createEmptyBlockCoalescer(
     ]);
   }
 
-  function* advance(): Operation<ChainBlock | undefined> {
+  function* advance(): Operation<CoalescerAdvanceResult | undefined> {
     if (!opts.enabled) {
       const n = yield* readFinalizedBlock(opts.subscription);
-      return n.tag === "done" ? undefined : n.value;
+      return n.tag === "done" ? undefined : { block: n.value, boundaries: null };
     }
     while (true) {
       const next = yield* nextItem();
@@ -281,9 +287,14 @@ export function createEmptyBlockCoalescer(
           if (pendingRun.length >= MAX_EMPTY_RUN) yield* flush();
           continue;
         }
+        // Not coalesceable (migration or scheduled input at this height) but
+        // boundaries were just loaded — pass them to the apply loop so it can
+        // skip the scheduled-input queries if they confirm null.
+        yield* flush();
+        return { block: value, boundaries };
       }
       yield* flush();
-      return value;
+      return { block: value, boundaries: null };
     }
   }
 

@@ -33,7 +33,8 @@ import {
   type PendingEvent,
   processFinalizedBlockWithRetry,
 } from "./process-blocks.ts";
-import { createEmptyBlockCoalescer } from "./coalesce.ts";
+import { createEmptyBlockCoalescer, loadEmptyRunBoundaries } from "./coalesce.ts";
+import type { EmptyRunBoundaries } from "./coalesce.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import { recordAppliedBlock } from "./api/apply-status.ts";
 import { recordCoalesced } from "./api/stream-status.ts";
@@ -180,9 +181,18 @@ export function* start(config: StartConfig): Operation<void> {
     },
   });
 
+  // Boundaries cache: populated after the first empty block following a non-empty
+  // one (one load replaces 2 per-block queries). Invalidated on every non-empty block.
+  let cachedBoundaries: EmptyRunBoundaries | null = null;
+
   while (true) {
-    const value = yield* coalescer.advance();
-    if (value === undefined) break;
+    const next = yield* coalescer.advance();
+    if (next === undefined) break;
+    const { block: value, boundaries: coalescerBoundaries } = next;
+
+    // Use coalescer-provided boundaries (catch-up non-coalesceable blocks already
+    // have them loaded) or the main-loop cache (tip empty blocks).
+    const boundaries = coalescerBoundaries ?? cachedBoundaries;
 
     // Owns connection checkout, the per-block DB mutex (PGLite), and
     // transient-pg retry/backoff. App events flush below only after it
@@ -192,10 +202,17 @@ export function* start(config: StartConfig): Operation<void> {
       config,
       dbConn as any, // Pool,
       blockHash,
+      boundaries,
     );
     const blockAppEvents: PendingEvent[] = result.events;
     if (result.blockHash !== "0x0") {
       blockHash = result.blockHash;
+      cachedBoundaries = null; // non-empty block: invalidate
+    } else if (boundaries === null) {
+      // First empty block after non-empty: load boundaries and cache for subsequent empties.
+      cachedBoundaries = yield* loadEmptyRunBoundaries(dbConn as any);
+    } else {
+      cachedBoundaries = boundaries; // keep warm
     }
 
     recordAppliedBlock(value); // apply-stage liveness for /debug/metrics

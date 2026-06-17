@@ -30,6 +30,7 @@ import type { EffectstreamBlockHash } from "@effectstream/utils";
 import { generateEffectstreamBlockHash, Prando } from "@effectstream/crypto";
 import { applyUserMigrations } from "./version-migrations.ts";
 import type { EventPathAndDef } from "@effectstream/event-client";
+import type { EmptyRunBoundaries } from "./coalesce.ts";
 
 /**
  * A pending app event collected during STF execution, flushed to MQTT by
@@ -151,12 +152,30 @@ export function* processFinalizedBlock(
   config: StartConfig,
   dbConn: Pool,
   previousBlockHash: EffectstreamBlockHash | null,
+  boundaries?: EmptyRunBoundaries | null,
 ): Operation<ProcessFinalizedBlockResult> {
   const { gameStateTransitions, migrations } = config;
+
+  // When both scheduled-input boundaries are null, the DB has no scheduled
+  // inputs — skip both getFutureGameInput* queries. This is the common case
+  // for empty tip blocks and for catch-up blocks that broke a coalesced run
+  // due to a migration (not a scheduled input).
+  const noScheduledInputs =
+    boundaries != null &&
+    boundaries.minScheduledBlockHeight === null &&
+    boundaries.minScheduledTimestampMs === null;
+
+  // NB: the block hash / Prando seed are computed unconditionally. The empty-block
+  // row (hash 0x0) is NOT deleted in this tx — STEP 6 only deletes the *previous*
+  // empty marker — so its `seed` persists and is observable via `getBlockSeeds`.
+  // It must match the coalesced path (coalesce.ts writeEndpoint), which seeds from
+  // the block hash; seeding from the block number here would diverge the two paths
+  // and break coalesced/non-coalesced DB equivalence.
   const blockHash: EffectstreamBlockHash = generateEffectstreamBlockHash(
     value,
     previousBlockHash,
   );
+
   // Per-block event buffer. Only events from STF runs that succeeded
   // (and survived to the post-COMMIT return) end up here. On block-level
   // ROLLBACK below, this buffer goes out of scope unflushed.
@@ -198,22 +217,31 @@ export function* processFinalizedBlock(
       yield* executeGeneratorStepByStep(generator, dbConn);
     }
 
-    /* STEP 4: Extract the scheduled data. */
-    const scheduledData1 = yield* call(() =>
-      getFutureGameInputByBlockHeight.run({
-        block_height: value.blockNumber,
-      }, dbConn)
-    );
-    /* STEP 4.b: Extract the scheduled data by timestamp. */
-    const scheduledData2 = yield* call(() =>
-      getFutureGameInputByMaxTimestamp.run({
-        max_timestamp: new Date(value.timestamp),
-      }, dbConn)
-    );
+    /* STEP 4: Extract the scheduled data.
+     * Skip both queries when boundaries confirm no scheduled inputs exist. */
+    let scheduledData: (
+      | Awaited<ReturnType<typeof getFutureGameInputByBlockHeight.run>>[number]
+      | Awaited<ReturnType<typeof getFutureGameInputByMaxTimestamp.run>>[number]
+    )[];
+    if (noScheduledInputs) {
+      scheduledData = [];
+    } else {
+      const scheduledData1 = yield* call(() =>
+        getFutureGameInputByBlockHeight.run({
+          block_height: value.blockNumber,
+        }, dbConn)
+      );
+      /* STEP 4.b: Extract the scheduled data by timestamp. */
+      const scheduledData2 = yield* call(() =>
+        getFutureGameInputByMaxTimestamp.run({
+          max_timestamp: new Date(value.timestamp),
+        }, dbConn)
+      );
+      scheduledData = [...scheduledData1, ...scheduledData2];
+    }
 
     /* STEP 5: Process the scheduled data in the State Machine. */
     // TODO What should be the order of the scheduled data - per id?
-    const scheduledData = [...scheduledData1, ...scheduledData2];
     let index_in_block = 0;
 
     if (gameStateTransitions && scheduledData.length > 0) {
@@ -404,6 +432,7 @@ export function* processFinalizedBlockWithRetry(
   config: StartConfig,
   pool: Pool,
   previousBlockHash: EffectstreamBlockHash | null,
+  boundaries?: EmptyRunBoundaries | null,
 ): Operation<ProcessFinalizedBlockResult> {
   const lockName = `processing-blocks:${value.blockNumber}`;
   let attempt = 0;
@@ -418,6 +447,7 @@ export function* processFinalizedBlockWithRetry(
         config,
         dbClient as unknown as Pool, // a checked-out client, used as the tx conn
         previousBlockHash,
+        boundaries,
       );
     } catch (err) {
       if (!isTransientPgError(err)) throw err;
