@@ -4,9 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --mode dev",
-    "build": "vite build --mode dev",
-    "build:dev": "vite build --mode dev",
-    "build:mainnet": "vite build --mode mainnet",
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 vite build --mode dev",
+    "build:dev": "NODE_OPTIONS=--max-old-space-size=4096 vite build --mode dev",
+    "build:mainnet": "NODE_OPTIONS=--max-old-space-size=4096 vite build --mode mainnet",
     "serve": "bun run server/main.ts"
   },
   "dependencies": {
