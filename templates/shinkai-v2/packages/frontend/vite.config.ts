@@ -41,6 +41,7 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname!, "client/dist"),
     emptyOutDir: true,
     target: "esnext",
+    minify: false,
     commonjsOptions: {
       transformMixedEsModules: true,
       extensions: [".js", ".cjs"],
