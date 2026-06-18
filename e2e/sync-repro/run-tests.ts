@@ -20,7 +20,7 @@ const proc = Bun.spawn(
     cwd: repoRoot,
     stdout: "inherit",
     stderr: "inherit",
-    env: { ...process.env },
+    env: { PGLITE: "true", ...process.env },
   },
 );
 
