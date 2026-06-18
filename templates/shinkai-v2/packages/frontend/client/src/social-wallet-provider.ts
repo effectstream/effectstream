@@ -18,6 +18,110 @@ interface WalletMsg {
   requestId?: string;
 }
 
+function showSigningPopup(message: string): HTMLElement {
+  const overlay = document.createElement("div");
+  overlay.style.cssText = [
+    "position:fixed", "inset:0", "z-index:10001",
+    "display:flex", "align-items:center", "justify-content:center",
+    "background:rgba(0,0,0,0.72)",
+    "font-family:ui-sans-serif,system-ui,-apple-system,sans-serif",
+  ].join(";");
+
+  const card = document.createElement("div");
+  card.style.cssText = [
+    "background:#13151e",
+    "border:1px solid #2a2f3a",
+    "border-radius:16px",
+    "padding:28px 32px",
+    "width:min(400px,92vw)",
+    "box-shadow:0 12px 48px rgba(0,0,0,0.7)",
+    "color:#e8eaed",
+  ].join(";");
+
+  // Header row
+  const header = document.createElement("div");
+  header.style.cssText = "display:flex;align-items:center;gap:10px;margin-bottom:20px;";
+
+  const icon = document.createElement("span");
+  icon.textContent = "🔏";
+  icon.style.cssText = "font-size:22px;line-height:1;";
+
+  const title = document.createElement("span");
+  title.textContent = "Signature Request";
+  title.style.cssText = "font-size:17px;font-weight:600;letter-spacing:-0.01em;";
+
+  const badge = document.createElement("span");
+  badge.textContent = "Social / Biometric";
+  badge.style.cssText = [
+    "margin-left:auto",
+    "background:#0e4c6e",
+    "color:#67d4f8",
+    "font-size:11px",
+    "font-weight:600",
+    "padding:3px 9px",
+    "border-radius:20px",
+    "letter-spacing:0.03em",
+  ].join(";");
+
+  header.append(icon, title, badge);
+
+  // Message box
+  const label = document.createElement("div");
+  label.textContent = "Message to sign";
+  label.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:#6b7280;margin-bottom:6px;";
+
+  const msgBox = document.createElement("div");
+  // Show first 120 chars of the message — these are batcher messages, not human-readable prose
+  const preview = message.length > 120 ? message.slice(0, 120) + "…" : message;
+  msgBox.textContent = preview;
+  msgBox.style.cssText = [
+    "background:#0d0f16",
+    "border:1px solid #1f2535",
+    "border-radius:8px",
+    "padding:10px 12px",
+    "font-size:11px",
+    "font-family:ui-monospace,SFMono-Regular,monospace",
+    "color:#94a3b8",
+    "word-break:break-all",
+    "line-height:1.55",
+    "max-height:80px",
+    "overflow-y:auto",
+    "margin-bottom:20px",
+  ].join(";");
+
+  // Status row
+  const status = document.createElement("div");
+  status.style.cssText = "display:flex;align-items:center;gap:10px;";
+
+  const spinner = document.createElement("div");
+  spinner.style.cssText = [
+    "width:18px", "height:18px",
+    "border:2px solid #1e3a5f",
+    "border-top-color:#06b6d4",
+    "border-radius:50%",
+    "animation:spin 0.8s linear infinite",
+    "flex-shrink:0",
+  ].join(";");
+
+  // Inject keyframes once
+  if (!document.getElementById("_spin_kf")) {
+    const style = document.createElement("style");
+    style.id = "_spin_kf";
+    style.textContent = "@keyframes spin{to{transform:rotate(360deg)}}";
+    document.head.appendChild(style);
+  }
+
+  const statusText = document.createElement("span");
+  statusText.textContent = "Confirm with your biometric or passkey…";
+  statusText.style.cssText = "font-size:13px;color:#9ca3af;";
+
+  status.append(spinner, statusText);
+  card.append(header, label, msgBox, status);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
 class SocialProvider implements IProvider<Window> {
   constructor(
     private readonly evmAddress: string,
@@ -37,24 +141,28 @@ class SocialProvider implements IProvider<Window> {
   }
 
   signMessage(message: string): Promise<string> {
+    const popup = showSigningPopup(message);
     return new Promise<string>((resolve, reject) => {
       const requestId = crypto.randomUUID();
 
-      const timeout = setTimeout(() => {
+      const done = (sig?: string, err?: string) => {
+        clearTimeout(timeout);
         window.removeEventListener("message", handler);
-        reject(new Error("Social wallet sign timed out (2 min)"));
-      }, 120_000);
+        popup.remove();
+        if (sig !== undefined) resolve(sig);
+        else reject(new Error(err ?? "sign-error"));
+      };
+
+      const timeout = setTimeout(() => done(undefined, "Social wallet sign timed out (2 min)"), 120_000);
 
       const handler = (event: MessageEvent) => {
         if (event.origin !== this.iframeOrigin) return;
         const data = event.data as WalletMsg | undefined;
         if (!data || data.source !== SOURCE_WALLET || data.requestId !== requestId) return;
-        clearTimeout(timeout);
-        window.removeEventListener("message", handler);
         if (data.type === "signed") {
-          resolve((data.payload as any).signature as string);
+          done((data.payload as any).signature as string);
         } else {
-          reject(new Error((data.payload as any)?.message ?? "sign-error"));
+          done(undefined, (data.payload as any)?.message ?? "sign-error");
         }
       };
 
