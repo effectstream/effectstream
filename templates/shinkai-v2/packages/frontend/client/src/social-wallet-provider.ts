@@ -141,28 +141,36 @@ class SocialProvider implements IProvider<Window> {
   }
 
   signMessage(message: string): Promise<string> {
+    const MIN_DISPLAY_MS = 1_400; // keep popup visible long enough for users to see it
     const popup = showSigningPopup(message);
+    const shownAt = Date.now();
+
     return new Promise<string>((resolve, reject) => {
       const requestId = crypto.randomUUID();
+      let result: { sig?: string; err?: string } | null = null;
 
-      const done = (sig?: string, err?: string) => {
+      const finish = (sig?: string, err?: string) => {
         clearTimeout(timeout);
         window.removeEventListener("message", handler);
-        popup.remove();
-        if (sig !== undefined) resolve(sig);
-        else reject(new Error(err ?? "sign-error"));
+        const elapsed = Date.now() - shownAt;
+        const delay = Math.max(0, MIN_DISPLAY_MS - elapsed);
+        setTimeout(() => {
+          popup.remove();
+          if (sig !== undefined) resolve(sig);
+          else reject(new Error(err ?? "sign-error"));
+        }, delay);
       };
 
-      const timeout = setTimeout(() => done(undefined, "Social wallet sign timed out (2 min)"), 120_000);
+      const timeout = setTimeout(() => finish(undefined, "Social wallet sign timed out (2 min)"), 120_000);
 
       const handler = (event: MessageEvent) => {
         if (event.origin !== this.iframeOrigin) return;
         const data = event.data as WalletMsg | undefined;
         if (!data || data.source !== SOURCE_WALLET || data.requestId !== requestId) return;
         if (data.type === "signed") {
-          done((data.payload as any).signature as string);
+          finish((data.payload as any).signature as string);
         } else {
-          done(undefined, (data.payload as any)?.message ?? "sign-error");
+          finish(undefined, (data.payload as any)?.message ?? "sign-error");
         }
       };
 
