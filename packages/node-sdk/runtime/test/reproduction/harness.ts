@@ -225,7 +225,9 @@ function cleanupOrphanedClusters(bin: string, env: Record<string, string | undef
  * so they don't accumulate and exhaust system resources.
  */
 function ensureCluster(): Promise<Cluster> {
-  if (clusterPromise) return clusterPromise;
+  // If the cluster was stopped (last harness tore down), start a fresh one.
+  if (clusterPromise && !clusterStopped) return clusterPromise;
+  clusterPromise = undefined;
   clusterPromise = (async () => {
     const bin = resolvePgBinDir()!;
     clusterBin = bin;
@@ -499,9 +501,6 @@ async function setupPostgresHarness(): Promise<Harness> {
   });
   await admin.query(`CREATE DATABASE "${dbName}"`);
   await admin.end();
-
-  // Parent assertions go through poll.ts's `q`; PGLITE=false → plain queries.
-  process.env.PGLITE = "false";
 
   const dbEnv = {
     PGLITE: "false",

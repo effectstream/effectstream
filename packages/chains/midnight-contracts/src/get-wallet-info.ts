@@ -827,6 +827,42 @@ function buildShieldedWallet(config: DefaultConfiguration, seed: Uint8Array) {
   return ShieldedWallet(config as any).startWithSeed(seed);
 }
 
+/**
+ * Sync batching tuning for the dust wallet.
+ *
+ * The wallet SDK's default sync settings (batch size 10, 1ms timeout, 4ms
+ * spacing) are tuned to keep a browser UI responsive — they emit many small
+ * state snapshots and throttle 4ms between every batch. In a headless backend
+ * (e.g. the batcher's fee wallets) that is wasteful: it slows initial sync and
+ * produces a lot of short-lived intermediate state, inflating memory churn.
+ *
+ * We collect larger batches (fewer intermediate snapshots) with minimal
+ * spacing. Spacing is kept >0 because the batcher syncs on the main event loop
+ * rather than in a worker — spacing 0 would starve other work during the
+ * initial catch-up sync.
+ *
+ * NOTE: `batchUpdates` is only honoured by `wallet-sdk-dust-wallet >= 4.0.0`.
+ * On the currently-pinned 3.0.0 these values are ignored unless the package is
+ * patched (see patches/). Plumbing them here is harmless on 3.0.0.
+ */
+function resolveDustBatchUpdates(): {
+  size: number;
+  timeout: number;
+  spacing: number;
+} {
+  const num = (name: string, fallback: number): number => {
+    const raw = getEnv(name);
+    if (raw == null || raw === "") return fallback;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+  };
+  return {
+    size: num("MIDNIGHT_DUST_SYNC_BATCH_SIZE", 100),
+    timeout: num("MIDNIGHT_DUST_SYNC_BATCH_TIMEOUT_MS", 1),
+    spacing: num("MIDNIGHT_DUST_SYNC_BATCH_SPACING_MS", 1),
+  };
+}
+
 function buildDustWallet(
   config: DefaultConfiguration,
   seed: Uint8Array,
@@ -834,6 +870,7 @@ function buildDustWallet(
 ) {
   const dustConfig = {
     ...config,
+    batchUpdates: resolveDustBatchUpdates(),
     costParameters: {
       ledgerParams: LedgerParameters.initialParameters(),
       additionalFeeOverhead: CONSTANTS.DUST_FEE_OVERHEAD,
