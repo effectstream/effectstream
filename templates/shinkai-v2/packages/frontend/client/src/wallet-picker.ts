@@ -1,70 +1,75 @@
-import { Sprite, Text, Graphics } from "pixi.js";
+import { Graphics, Text } from "pixi.js";
 import { allInjectedWallets, walletLogin, WalletMode } from "@effectstream/wallets";
 import type { Wallet } from "@effectstream/wallets";
 import { GameState } from "./game-state.ts";
-import { loader, createButton } from "./graphics.ts";
+import { loader } from "./graphics.ts";
 import { connectSocialWallet } from "./social-wallet-provider.ts";
+import { paimaConfig } from "./config.ts";
 
 type WalletType = "evm" | "cardano" | "social";
 
-// ── Cardano sub-picker (mirrors the original pickCardanoWallet in main.ts) ─
-async function pickCardanoWallet(
-  options: { metadata: { name: string; displayName: string } }[],
-): Promise<string> {
-  return new Promise((resolve) => {
-    const overlay = loader(GameState.app);
-    const title = new Text({
-      text: "Choose a Cardano wallet",
-      style: { fontFamily: "oswald", fontSize: 42, fill: "#fff", align: "center", dropShadow: true },
-    });
-    title.anchor.set(0.5, 0.5);
-    title.x = 512;
-    title.y = 200;
-    GameState.app.stage.addChild(title);
-
-    const created: { sprite: Sprite; text: Text }[] = [];
-    const cleanup = () => {
-      title.destroy();
-      created.forEach(({ sprite, text }) => { sprite.destroy(); text.destroy(); });
-      overlay.forEach((o) => o.destroy());
-    };
-
-    options.forEach((opt, i) => {
-      const [sprite, text] = createButton(312, 310 + i * 110, opt.metadata.displayName, () => {
-        cleanup();
-        resolve(opt.metadata.name);
-      });
-      GameState.app.stage.addChild(sprite);
-      GameState.app.stage.addChild(text);
-      created.push({ sprite, text });
-    });
-  });
+interface PickerEntry {
+  displayName: string;
+  sub: string;
+  badgeLabel: string;
+  badgeColor: number;
+  walletType: WalletType;
+  walletName?: string; // undefined for social
 }
 
-// ── Main wallet type picker ────────────────────────────────────────────────
+// ── Main entry point ──────────────────────────────────────────────────────
 export async function showWalletPicker(): Promise<{ wallet: string; walletType: WalletType }> {
-  const type = await pickWalletType();
+  const injected = await allInjectedWallets();
+  const evmWallets = injected[WalletMode.EvmInjected] ?? [];
+  const cardanoWallets = injected[WalletMode.Cardano] ?? [];
 
-  if (type === "evm") {
-    const result = await walletLogin({ mode: WalletMode.EvmInjected });
-    if (!result.success) throw new Error(`EVM wallet connection failed: ${result.errorMessage}`);
+  const entries: PickerEntry[] = [
+    ...evmWallets.map((w) => ({
+      displayName: w.metadata.displayName,
+      sub: "EVM",
+      badgeLabel: "EVM",
+      badgeColor: 0x3b82f6,
+      walletType: "evm" as WalletType,
+      walletName: w.metadata.name,
+    })),
+    ...cardanoWallets.map((w) => ({
+      displayName: w.metadata.displayName,
+      sub: "Cardano",
+      badgeLabel: "ADA",
+      badgeColor: 0xf97316,
+      walletType: "cardano" as WalletType,
+      walletName: w.metadata.name,
+    })),
+    {
+      displayName: "Social / Biometric",
+      sub: "Google Drive + passkey",
+      badgeLabel: "KEY",
+      badgeColor: 0x06b6d4,
+      walletType: "social",
+    },
+  ];
+
+  const chosen = await pickFromList(entries);
+
+  if (chosen.walletType === "evm") {
+    const result = await walletLogin({
+      mode: WalletMode.EvmInjected,
+      preferBatchedMode: true,
+      chain: paimaConfig.effectstreamL2Chain,
+      preference: { name: chosen.walletName! },
+    });
+    if (!result.success) throw new Error(`EVM wallet failed: ${result.errorMessage}`);
     GameState.walletObj = result.result;
     GameState.wallet = result.result.walletAddress;
     return { wallet: result.result.walletAddress, walletType: "evm" };
   }
 
-  if (type === "cardano") {
-    const injected = await allInjectedWallets();
-    const cardanoWallets = injected[WalletMode.Cardano] ?? [];
-    if (cardanoWallets.length === 0) {
-      throw new Error("No Cardano wallet detected. Install Nami, Lace, Eternl, or another CIP-30 wallet.");
-    }
-    const chosen =
-      cardanoWallets.length === 1
-        ? cardanoWallets[0].metadata.name
-        : await pickCardanoWallet(cardanoWallets);
-    const result = await walletLogin({ mode: WalletMode.Cardano, preference: { name: chosen } });
-    if (!result.success) throw new Error(`Cardano wallet connection failed: ${result.errorMessage}`);
+  if (chosen.walletType === "cardano") {
+    const result = await walletLogin({
+      mode: WalletMode.Cardano,
+      preference: { name: chosen.walletName! },
+    });
+    if (!result.success) throw new Error(`Cardano wallet failed: ${result.errorMessage}`);
     GameState.walletObj = result.result;
     GameState.wallet = result.result.walletAddress;
     return { wallet: result.result.walletAddress, walletType: "cardano" };
@@ -77,76 +82,118 @@ export async function showWalletPicker(): Promise<{ wallet: string; walletType: 
   return { wallet: socialWallet.walletAddress, walletType: "social" };
 }
 
-// ── Three-card type picker overlay ────────────────────────────────────────
-function pickWalletType(): Promise<WalletType> {
+// ── PixiJS list picker ────────────────────────────────────────────────────
+function pickFromList(entries: PickerEntry[]): Promise<PickerEntry> {
   return new Promise((resolve) => {
     const overlay = loader(GameState.app);
+    const created: (Graphics | Text)[] = [];
 
     const title = new Text({
       text: "Connect Wallet",
-      style: { fontFamily: "oswald", fontSize: 52, fill: "#fff", align: "center", dropShadow: true },
+      style: {
+        fontFamily: "oswald",
+        fontSize: 46,
+        fill: "#ffffff",
+        align: "center",
+        dropShadow: true,
+      },
     });
     title.anchor.set(0.5, 0.5);
     title.x = 512;
-    title.y = 180;
+    title.y = 150;
     GameState.app.stage.addChild(title);
+    created.push(title);
 
-    const cards: Array<{ bg: Graphics; label: Text; sub: Text }> = [];
-    const created: Array<Sprite | Text | Graphics> = [title];
+    if (entries.length === 1) {
+      // Only Social — add a "no injected wallets" note
+      const note = new Text({
+        text: "No EVM or Cardano wallets detected",
+        style: { fontFamily: "oswald", fontSize: 18, fill: "#8899bb" },
+      });
+      note.anchor.set(0.5, 0.5);
+      note.x = 512;
+      note.y = 210;
+      GameState.app.stage.addChild(note);
+      created.push(note);
+    }
 
     const cleanup = () => {
       created.forEach((n) => n.destroy());
       overlay.forEach((o) => o.destroy());
     };
 
-    const options: Array<{ label: string; sub: string; type: WalletType }> = [
-      { label: "EVM", sub: "MetaMask, WalletConnect, etc.", type: "evm" },
-      { label: "Cardano", sub: "Nami, Lace, Eternl, Flint…", type: "cardano" },
-      { label: "Social / Biometric", sub: "Google Drive + passkey", type: "social" },
-    ];
+    const cardW = 380;
+    const cardH = 72;
+    const cardX = 512 - cardW / 2;
+    const startY = entries.length <= 4 ? 230 : 190;
+    const gap = Math.min(90, (820 - startY) / entries.length);
 
-    options.forEach((opt, i) => {
-      const cardX = 512 - 160;
-      const cardY = 310 + i * 130;
-      const cardW = 320;
-      const cardH = 100;
+    entries.forEach((entry, i) => {
+      const cardY = startY + i * gap;
 
+      // Card background
       const bg = new Graphics()
-        .roundRect(cardX, cardY, cardW, cardH, 12)
-        .fill({ color: 0x1a1d24, alpha: 0.95 })
-        .stroke({ color: 0x3a4060, width: 1.5 });
+        .roundRect(cardX, cardY, cardW, cardH, 10)
+        .fill({ color: 0x1a1d28, alpha: 0.95 })
+        .stroke({ color: 0x2d3452, width: 1.5 });
       bg.eventMode = "static";
       bg.cursor = "pointer";
 
-      const label = new Text({
-        text: opt.label,
-        style: { fontFamily: "oswald", fontSize: 28, fill: "#ffffff", dropShadow: true },
-      });
-      label.anchor.set(0, 0.5);
-      label.x = cardX + 20;
-      label.y = cardY + 34;
+      // Colored badge pill
+      const badgeW = 52;
+      const badge = new Graphics()
+        .roundRect(cardX + 14, cardY + cardH / 2 - 12, badgeW, 24, 6)
+        .fill({ color: entry.badgeColor, alpha: 0.9 });
 
-      const sub = new Text({
-        text: opt.sub,
-        style: { fontFamily: "oswald", fontSize: 16, fill: "#8899bb" },
+      const badgeText = new Text({
+        text: entry.badgeLabel,
+        style: { fontFamily: "oswald", fontSize: 13, fill: "#ffffff", fontWeight: "bold" },
       });
-      sub.anchor.set(0, 0.5);
-      sub.x = cardX + 20;
-      sub.y = cardY + 68;
+      badgeText.anchor.set(0.5, 0.5);
+      badgeText.x = cardX + 14 + badgeW / 2;
+      badgeText.y = cardY + cardH / 2;
+
+      // Wallet name
+      const nameText = new Text({
+        text: entry.displayName,
+        style: { fontFamily: "oswald", fontSize: 24, fill: "#ffffff", dropShadow: true },
+      });
+      nameText.anchor.set(0, 0.5);
+      nameText.x = cardX + 80;
+      nameText.y = cardY + cardH / 2 - 8;
+
+      // Sub-label
+      const subText = new Text({
+        text: entry.sub,
+        style: { fontFamily: "oswald", fontSize: 14, fill: "#6677aa" },
+      });
+      subText.anchor.set(0, 0.5);
+      subText.x = cardX + 80;
+      subText.y = cardY + cardH / 2 + 16;
 
       bg.on("pointerdown", () => {
         cleanup();
-        resolve(opt.type);
+        resolve(entry);
       });
-      bg.on("pointerover", () => bg.tint = 0xccddff);
-      bg.on("pointerout", () => bg.tint = 0xffffff);
+      bg.on("pointerover", () => {
+        bg.clear()
+          .roundRect(cardX, cardY, cardW, cardH, 10)
+          .fill({ color: 0x252840, alpha: 0.98 })
+          .stroke({ color: entry.badgeColor, width: 1.5 });
+      });
+      bg.on("pointerout", () => {
+        bg.clear()
+          .roundRect(cardX, cardY, cardW, cardH, 10)
+          .fill({ color: 0x1a1d28, alpha: 0.95 })
+          .stroke({ color: 0x2d3452, width: 1.5 });
+      });
 
       GameState.app.stage.addChild(bg);
-      GameState.app.stage.addChild(label);
-      GameState.app.stage.addChild(sub);
-
-      cards.push({ bg, label, sub });
-      created.push(bg, label, sub);
+      GameState.app.stage.addChild(badge);
+      GameState.app.stage.addChild(badgeText);
+      GameState.app.stage.addChild(nameText);
+      GameState.app.stage.addChild(subText);
+      created.push(bg, badge, badgeText, nameText, subText);
     });
   });
 }
