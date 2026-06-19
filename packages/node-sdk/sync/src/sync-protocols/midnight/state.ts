@@ -12,11 +12,6 @@ import { MidnightClient } from "./MidnightClient.ts";
 import { applyDelay } from "../common/utils.ts";
 import { bufferAtCap } from "../common/page-helpers.ts";
 
-type LatestBlock = {
-  block: {
-    height: number;
-  };
-};
 
 export class MidnightSyncState extends SyncState<
   Input,
@@ -27,6 +22,13 @@ export class MidnightSyncState extends SyncState<
   MidnightFetcher
 > {
   private readonly url: string;
+  private cachedLatestHeight: number | undefined;
+  private cacheTimestampMs: number = 0;
+  // Midnight produces ~1 block every 6 s. Re-query the real tip once this many
+  // estimated chain blocks have elapsed, giving periodic lag info without a
+  // round-trip on every batch.
+  private static readonly CHAIN_BLOCK_TIME_MS = 6_000;
+  private static readonly REFRESH_EVERY_CHAIN_BLOCKS = 100;
 
   constructor(
     lastPage: LastPage<Page, RootPage> | undefined,
@@ -74,11 +76,28 @@ export class MidnightSyncState extends SyncState<
   @bound
   override *stateToInput(): Operation<Input | undefined> {
     if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
-    const latestBlockResult = yield* call(() => this.client.fetchLatestBlock());
-    const latestHeight = latestBlockResult.block.height;
 
     const startHeight = this.lastPage?.own.height ??
       this.config.syncProtocol.startBlockHeight - 1;
+
+    // Extrapolate how many new chain blocks have likely arrived since the last
+    // real query, then re-query only when that estimate exceeds the threshold.
+    // This bounds indexer round-trips to O(catch-up_time / (REFRESH * block_time))
+    // rather than one per batch, while still refreshing periodically so lag
+    // metrics stay accurate.
+    const estimatedNewBlocks = this.cachedLatestHeight !== undefined
+      ? Math.floor((Date.now() - this.cacheTimestampMs) / MidnightSyncState.CHAIN_BLOCK_TIME_MS)
+      : 0;
+    if (
+      this.cachedLatestHeight === undefined ||
+      startHeight >= this.cachedLatestHeight ||
+      estimatedNewBlocks >= MidnightSyncState.REFRESH_EVERY_CHAIN_BLOCKS
+    ) {
+      const latestBlockResult = yield* call(() => this.client.fetchLatestBlock());
+      this.cachedLatestHeight = latestBlockResult.block.height;
+      this.cacheTimestampMs = Date.now();
+    }
+    const latestHeight = this.cachedLatestHeight;
 
     if (startHeight >= latestHeight) {
       return undefined;

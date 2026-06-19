@@ -35,16 +35,9 @@ export class MidnightFetcher extends BaseDataFetcher<
   ) {
     super(config.syncProtocol.name);
     const indexerHttp = config.syncProtocol.indexer;
-    const indexerWs =
-      (config.syncProtocol as any).indexerWS ??
-      (config.syncProtocol as any).indexerWs;
-    if (!indexerHttp || !indexerWs) {
+    if (!indexerHttp) {
       throw new Error(
-        `Midnight sync protocol "${
-          config.syncProtocol.name
-        }" requires both indexer and indexerWS URLs. Received indexer=${
-          indexerHttp ?? "undefined"
-        }, indexerWS=${indexerWs ?? "undefined"}.`,
+        `Midnight sync protocol "${config.syncProtocol.name}" requires an indexer URL.`,
       );
     }
     this.networkId = config.network?.networkId ??
@@ -65,7 +58,6 @@ export class MidnightFetcher extends BaseDataFetcher<
 
     this.client = new MidnightClient(
       indexerHttp,
-      indexerWs,
       this.networkId,
     );
   }
@@ -385,19 +377,17 @@ export class MidnightFetcher extends BaseDataFetcher<
   @bound
   *fetchContractState(
     height: number,
-    client: MidnightClient,
+    _client: MidnightClient,
     primitiveEntry: PrimitiveEntryType,
     block: MidnightGqlBlockState,
   ): Operation<PrimitiveType[]> {
     const contractAddress = primitiveEntry.primitive.contractAddress!;
-    const blockFinalState = yield* call(() =>
-      client.fetchContractState(contractAddress, height)
-    );
-    // The state returns null if the contract was not called in the block height
-    if (!blockFinalState) {
-      return [];
-    }
 
+    // Determine whether the contract was called in this block by inspecting
+    // the contractActions already present in the fetched block data — no extra
+    // network round-trip needed. The per-transaction state is also read from
+    // contractActions below, so queryContractState would be redundant and its
+    // accumulating internal WS subscriptions caused saturation during catch-up.
     const transactions = block.block.transactions.filter((t) => {
       return (t.contractActions ?? []).some((c) => {
         const longest = Math.max(contractAddress.length, c.address.length);
@@ -406,6 +396,9 @@ export class MidnightFetcher extends BaseDataFetcher<
       });
     });
 
+    if (transactions.length === 0) {
+      return [];
+    }
 
     return transactions.map(t => {
       // TODO: What does it mean if t.contractActions has more than one element?
