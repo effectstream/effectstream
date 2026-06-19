@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "copy-zk-assets": "rm -rf public/keys public/zkir && cp -R ../contracts-midnight/contract-offer-files/src/managed/keys public/keys && cp -R ../contracts-midnight/contract-offer-files/src/managed/zkir public/zkir",
+    "copy-zk-assets": "bun run copy-zk-assets.ts",
     "predev": "bun run copy-zk-assets",
     "prebuild": "bun run copy-zk-assets",
     "dev": "vite",
