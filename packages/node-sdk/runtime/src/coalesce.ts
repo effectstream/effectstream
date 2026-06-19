@@ -34,11 +34,18 @@ const MAX_RETRY_BACKOFF_MS = 5_000;
 
 export function* loadEmptyRunBoundaries(
   dbConn: Pool,
+  fromBlockNumber: number,
 ): Operation<EmptyRunBoundaries> {
   const [bh] = yield* until(getEarliestScheduledBlockHeight.run(undefined, dbConn));
   const [ts] = yield* until(getEarliestScheduledTimestamp.run(undefined, dbConn));
+  // Ignore scheduled block heights already in the past: a stale unprocessed row
+  // (e.g. from a DB reset) would otherwise permanently suppress coalescing for
+  // all current blocks, since every block number >= the stale height.
+  const minScheduledBlockHeight = bh?.min_block_height != null && bh.min_block_height >= fromBlockNumber
+    ? bh.min_block_height
+    : null;
   return {
-    minScheduledBlockHeight: bh?.min_block_height ?? null,
+    minScheduledBlockHeight,
     minScheduledTimestampMs: ts?.min_timestamp != null
       ? new Date(ts.min_timestamp).getTime()
       : null,
@@ -274,7 +281,7 @@ export function createEmptyBlockCoalescer(
         Date.now() - value.timestamp > opts.lagThresholdMs;
       if (behindTip && value.primitives.length === 0) {
         const boundaries = pendingRun?.boundaries ??
-          (yield* loadEmptyRunBoundaries(opts.pool));
+          (yield* loadEmptyRunBoundaries(opts.pool, value.blockNumber));
         if (isCoalescableEmptyBlock(value, boundaries, opts.migrations)) {
           pendingRun = pendingRun
             ? { boundaries, endpoint: value, length: pendingRun.length + 1 }

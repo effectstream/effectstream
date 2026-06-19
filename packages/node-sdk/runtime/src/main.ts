@@ -96,12 +96,14 @@ export function* start(config: StartConfig): Operation<void> {
     );
   });
 
-  // 10× main clock block time (NTP if present, else protocol 0). Undefined disables lag gating.
+  // 10× main clock block time (NTP if present, else protocol 0).
+  // Falls back to 60 s so coalescing is not silently disabled for chains that
+  // don't expose a blockTimeMS on their network config (e.g. Midnight-as-main).
   const ntpConfig = syncInfo.find(s => s.networkType === ConfigNetworkType.NTP);
   const clockBlockTimeMS =
     (ntpConfig?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS ??
     (syncInfo[0]?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS;
-  const lagThresholdMs = clockBlockTimeMS != null ? clockBlockTimeMS * 10 : undefined;
+  const lagThresholdMs = clockBlockTimeMS != null ? clockBlockTimeMS * 10 : 60_000;
 
   // Bounded hand-off queue between the merge and the apply loop. Backpressure caps
   // the in-memory queue so deep catch-up can't grow it toward the whole backlog
