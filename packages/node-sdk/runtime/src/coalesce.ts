@@ -62,6 +62,7 @@ export function isCoalescableEmptyBlock(
     boundaries.minScheduledBlockHeight != null &&
     value.blockNumber >= boundaries.minScheduledBlockHeight
   ) {
+    log.local(ComponentNames.EFFECTSTREAM_SYNC, "coalesce", SeverityNumber.DEBUG, (l) => l(`coalescing suppressed: minScheduledBlockHeight=${boundaries.minScheduledBlockHeight} blockNumber=${value.blockNumber}`));
     return false;
   }
   if (
