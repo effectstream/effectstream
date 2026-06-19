@@ -16,6 +16,7 @@ import {
   getPaymentsByStatus,
   getPaymentsByWallet,
   getReferralRewardsByCampaign,
+  getMintableItems,
 } from "@preorder/database";
 import { MOCK_USDC_ADDRESS } from "./launchpad-config.ts";
 import { EXTRA_ADDRESSES } from "./addresses.ts";
@@ -405,6 +406,97 @@ export const apiRouter: StartConfigApiRouter = async function (
     );
     reply.send({ nfts: result.rows });
   });
+
+  // Dry-run preview of `mint-nfts`: report WHO gets WHAT and HOW MANY NFTs would be minted,
+  // WITHOUT enqueuing anything. Mirrors the STM's eligibility (getMintableItems by launchpad)
+  // and accounts for idempotency — rows already present in nft_mints (the STM inserts ON
+  // CONFLICT DO NOTHING) are flagged so the admin sees the *net new* mints a click would create.
+  server.get<{ Params: { slug: string } }>(
+    "/api/admin/mint-preview/:slug",
+    async (request, reply) => {
+      const [campaign] = await runPreparedQuery(
+        getCampaignBySlug.run({ slug: request.params.slug }, dbConn),
+        "/api/admin/mint-preview/campaign",
+      );
+      if (!campaign) {
+        reply.code(404).send({ error: "Launchpad not found" });
+        return;
+      }
+
+      // Exactly the rows the STM would enqueue: every (buyer, chain, item) a wallet owns.
+      const eligible = await runPreparedQuery(
+        getMintableItems.run({ launchpad: campaign.launchpad_address }, dbConn),
+        "/api/admin/mint-preview/eligible",
+      );
+
+      // Jobs already enqueued (re-running mint-nfts won't duplicate these).
+      const existingRes = await dbConn.query(
+        `SELECT chain, wallet, item_id, status FROM nft_mints WHERE campaign_id = $1`,
+        [campaign.campaign_id],
+      );
+      const existing = new Map<string, string>();
+      for (const r of existingRes.rows) existing.set(`${r.chain}:${r.wallet}:${r.item_id}`, r.status);
+
+      // Item names for a friendlier summary.
+      const products = await runPreparedQuery(
+        getProductsByCampaign.run({ campaign_id: campaign.campaign_id }, dbConn),
+        "/api/admin/mint-preview/products",
+      );
+      const nameById = new Map<number, string>();
+      for (const p of products) nameById.set(p.item_id, p.name);
+
+      const rows = eligible.map((e) => {
+        const key = `${e.chain}:${e.wallet}:${e.item_id}`;
+        const already = existing.has(key);
+        return {
+          chain: e.chain,
+          wallet: e.wallet,
+          itemId: e.item_id,
+          itemName: nameById.get(e.item_id) ?? `Item #${e.item_id}`,
+          quantity: Number(e.quantity),
+          alreadyEnqueued: already,
+          existingStatus: already ? existing.get(key) ?? null : null,
+        };
+      });
+
+      const newRows = rows.filter((r) => !r.alreadyEnqueued);
+      const sumQty = (rs: typeof rows) => rs.reduce((a, r) => a + r.quantity, 0);
+      const distinctBuyers = (rs: typeof rows) => new Set(rs.map((r) => r.wallet)).size;
+
+      const byChainMap: Record<string, { chain: string; tokens: number; buyers: Set<string>; newTokens: number }> = {};
+      const byItemMap: Record<number, { itemId: number; name: string; tokens: number; buyers: Set<string> }> = {};
+      for (const r of rows) {
+        const c = (byChainMap[r.chain] ||= { chain: r.chain, tokens: 0, buyers: new Set(), newTokens: 0 });
+        c.tokens += r.quantity;
+        c.buyers.add(r.wallet);
+        if (!r.alreadyEnqueued) c.newTokens += r.quantity;
+        const it = (byItemMap[r.itemId] ||= { itemId: r.itemId, name: r.itemName, tokens: 0, buyers: new Set() });
+        it.tokens += r.quantity;
+        it.buyers.add(r.wallet);
+      }
+
+      reply.send({
+        campaign: { slug: campaign.slug, campaignId: campaign.campaign_id, status: campaign.status },
+        // The STM only enqueues once the campaign has ended; surface that so the UI can warn.
+        willEnqueue: campaign.status === "ended",
+        totals: {
+          tokens: sumQty(rows),
+          buyers: distinctBuyers(rows),
+          jobs: rows.length,
+          newTokens: sumQty(newRows),
+          newJobs: newRows.length,
+          alreadyEnqueuedJobs: rows.length - newRows.length,
+        },
+        byChain: Object.values(byChainMap).map((c) => ({
+          chain: c.chain, tokens: c.tokens, buyers: c.buyers.size, newTokens: c.newTokens,
+        })),
+        byItem: Object.values(byItemMap)
+          .map((it) => ({ itemId: it.itemId, name: it.name, tokens: it.tokens, buyers: it.buyers.size }))
+          .sort((a, b) => a.itemId - b.itemId),
+        rows,
+      });
+    },
+  );
 
   // Marketplace integration — item metadata.
   server.get<{ Params: { slug: string } }>(

@@ -36,7 +36,7 @@ type PendingConnect = {
   action: () => void;
 };
 
-export function Header({ walletType }: { walletType?: "evm" | "cardano" } = {}) {
+export function Header({ walletType, admin }: { walletType?: "evm" | "cardano"; admin?: boolean } = {}) {
   const w = useWallet();
   const isEvm = w.mode.startsWith("evm");
   const address = isEvm ? w.evmAddress : w.cardanoAddress;
@@ -93,7 +93,7 @@ export function Header({ walletType }: { walletType?: "evm" | "cardano" } = {}) 
               <div style={{ position: "relative" }}>
                 <button data-testid="connect-evm-btn" onClick={() => setOpenMenu(openMenu === "evm" ? null : "evm")}
                   style={{ ...pillBtnStyle, background: "#1f3a5f", color: "#58a6ff", border: "1px solid #264a78" }}>
-                  {w.isConnecting ? "Connecting..." : "Connect EVM"}
+                  {w.isConnecting ? "Connecting..." : admin ? "Connect Admin Wallet" : "Connect EVM"}
                 </button>
                 {openMenu === "evm" && (
                   <div style={dropdownStyle}>
