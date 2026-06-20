@@ -33,7 +33,10 @@ import {
   type PendingEvent,
   processFinalizedBlockWithRetry,
 } from "./process-blocks.ts";
-import { createEmptyBlockCoalescer } from "./coalesce.ts";
+import {
+  createEmptyBlockCoalescer,
+  initMergeCoalescingBoundaries,
+} from "./coalesce.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import { recordAppliedBlock } from "./api/apply-status.ts";
 import { recordCoalesced } from "./api/stream-status.ts";
@@ -355,6 +358,9 @@ function* startup(
       syncProtocols,
       viewStrategy,
     );
+
+    // Seed the merge loop's coalescing boundaries before any block is produced.
+    yield* initMergeCoalescingBoundaries(dbConn, lastBlockHeight + 1, config.migrations);
 
     return syncProtocols;
   } finally {

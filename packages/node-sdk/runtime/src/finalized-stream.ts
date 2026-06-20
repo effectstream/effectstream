@@ -20,6 +20,7 @@ import {
   finalizedStreamStatus,
   recordConsumed,
   recordProduced,
+  recordCoalesced,
 } from "./api/stream-status.ts";
 import type { FinalizedBlockSubscription } from "./coalesce.ts";
 
@@ -52,6 +53,9 @@ export function* createBoundedFinalizedStream(
         yield* drained.wait();
       }
       recordProduced();
+      if (block.coalescedCount && block.coalescedCount > 1) {
+        recordCoalesced(block.coalescedCount - 1);
+      }
       yield* channel.send(block);
     },
   };

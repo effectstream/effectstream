@@ -1,7 +1,7 @@
 /** Empty-block coalescing during deep catch-up: fold consecutive no-op blocks into one transaction. */
 import type { ChainBlock } from "@effectstream/sync";
 import { call, type Operation, race, sleep, until } from "effection";
-import type { Pool, PoolClient } from "pg";
+import type { Client, Pool, PoolClient } from "pg";
 import {
   acquireDBMutex,
   blockHeightDone,
@@ -21,6 +21,7 @@ import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import { generateEffectstreamBlockHash, Prando } from "@effectstream/crypto";
 import type { EffectstreamBlockHash } from "@effectstream/utils";
 import type { DBMigrations } from "@effectstream/runtime";
+import { mergeCoalescingBoundaries } from "@effectstream/sync";
 
 /** Scheduled-input boundaries sampled once at run start (stable until the next non-empty block). */
 export type EmptyRunBoundaries = {
@@ -44,12 +45,51 @@ export function* loadEmptyRunBoundaries(
   const minScheduledBlockHeight = bh?.min_block_height != null && bh.min_block_height >= fromBlockNumber
     ? bh.min_block_height
     : null;
+  const minScheduledTimestampMs = ts?.min_timestamp != null
+    ? new Date(ts.min_timestamp).getTime()
+    : null;
+
+  mergeCoalescingBoundaries.minScheduledBlockHeight = minScheduledBlockHeight;
+  mergeCoalescingBoundaries.minScheduledTimestampMs = minScheduledTimestampMs;
+
   return {
     minScheduledBlockHeight,
-    minScheduledTimestampMs: ts?.min_timestamp != null
-      ? new Date(ts.min_timestamp).getTime()
-      : null,
+    minScheduledTimestampMs,
   };
+}
+
+/**
+ * Seed {@link mergeCoalescingBoundaries} once at startup so the merge loop knows
+ * which empty blocks it may coalesce before the runtime has applied any block.
+ * `loadEmptyRunBoundaries` keeps these in sync afterwards on each non-empty block.
+ *
+ * @param fromBlockNumber the next block height to apply (lastBlockHeight + 1);
+ *        scheduled heights below this are stale and ignored (see {@link loadEmptyRunBoundaries}).
+ */
+export function* initMergeCoalescingBoundaries(
+  dbConn: Pool | Client,
+  fromBlockNumber: number,
+  migrations: DBMigrations[] | undefined,
+): Operation<void> {
+  const [bh] = yield* until(getEarliestScheduledBlockHeight.run(undefined, dbConn));
+  const [ts] = yield* until(getEarliestScheduledTimestamp.run(undefined, dbConn));
+  const minScheduledBlockHeight = bh?.min_block_height != null && bh.min_block_height >= fromBlockNumber
+    ? bh.min_block_height
+    : null;
+  const minScheduledTimestampMs = ts?.min_timestamp != null
+    ? new Date(ts.min_timestamp).getTime()
+    : null;
+
+  const migrationBlockHeights: number[] = [];
+  for (const m of migrations ?? []) {
+    if (m.blockHeight != null) {
+      migrationBlockHeights.push(m.blockHeight);
+    }
+  }
+
+  mergeCoalescingBoundaries.minScheduledBlockHeight = minScheduledBlockHeight;
+  mergeCoalescingBoundaries.minScheduledTimestampMs = minScheduledTimestampMs;
+  mergeCoalescingBoundaries.migrationBlockHeights = migrationBlockHeights;
 }
 
 /** Mirrors the empty-block checks in process-blocks.ts without DB/STF work. */
