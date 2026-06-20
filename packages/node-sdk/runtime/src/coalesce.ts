@@ -39,9 +39,13 @@ export function* loadEmptyRunBoundaries(
 ): Operation<EmptyRunBoundaries> {
   const [bh] = yield* until(getEarliestScheduledBlockHeight.run(undefined, dbConn));
   const [ts] = yield* until(getEarliestScheduledTimestamp.run(undefined, dbConn));
-  // Ignore scheduled block heights already in the past: a stale unprocessed row
-  // (e.g. from a DB reset) would otherwise permanently suppress coalescing for
-  // all current blocks, since every block number >= the stale height.
+  // getEarliestScheduledBlockHeight now excludes heights at/below the last applied
+  // block in SQL, so this is always an upcoming schedule (or null when none pends).
+  // The `>= fromBlockNumber` check is a belt-and-suspenders guard. BEWARE the old
+  // shape: that query returned the global MIN, and a stale below-head row (e.g. an
+  // input that was already skipped) collapsed the boundary to null *here* — which
+  // disables coalescing's scheduled-input guard entirely, so every later scheduled
+  // input inside an empty run gets coalesced over. One orphan permanently broke it.
   const minScheduledBlockHeight = bh?.min_block_height != null && bh.min_block_height >= fromBlockNumber
     ? bh.min_block_height
     : null;
