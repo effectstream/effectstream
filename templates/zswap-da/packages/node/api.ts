@@ -16,7 +16,8 @@ import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight
 import { submitBlobViaBatcher } from "./batcher-client.ts";
 import { getBlankRefState, validateZswapOffer } from "@zswap-da/validator";
 import { eventBus, emitAppEvent } from "./event-bus.ts";
-import { quote, buildStats, buildDepth, buildHistory } from "./market-mock.ts";
+import { quote, buildDepth } from "./market-mock.ts";
+import { realStats, realHistory } from "./trade-data.ts";
 
 // ─── API Router ───────────────────────────────────────────────────────────────
 
@@ -114,8 +115,11 @@ export const apiRouter: StartConfigApiRouter = async function (
     return quote(fromToken, toToken, fromAmount, toAmount);
   });
 
-  // GET /api/chart/{stats,depth,history} — synthetic per-pair market data
-  // (see market-mock.ts). Params: base, quote (hex colors).
+  // GET /api/chart/{stats,history} — REAL per-pair market data derived from the
+  // indexer DB: history = consumed offers (offer_file_history), stats = last/24h/
+  // high/low/volume from those fills (mid of open offers as fallback). /depth is
+  // still the synthetic mock but unused by the frontend (it builds the book from
+  // live offers directly). Params: base, quote (hex colors).
   const readPair = (request: any): { base: string; quote: string } => {
     const q = request?.query ?? {};
     const base = String((q as any).base ?? "").toLowerCase();
@@ -125,7 +129,7 @@ export const apiRouter: StartConfigApiRouter = async function (
   };
   server.get("/api/chart/stats", async (request: any) => {
     const { base, quote: quoteToken } = readPair(request);
-    return buildStats(base, quoteToken);
+    return realStats(dbConn, base, quoteToken);
   });
   server.get("/api/chart/depth", async (request: any) => {
     const { base, quote: quoteToken } = readPair(request);
@@ -133,7 +137,7 @@ export const apiRouter: StartConfigApiRouter = async function (
   });
   server.get("/api/chart/history", async (request: any) => {
     const { base, quote: quoteToken } = readPair(request);
-    return buildHistory(base, quoteToken);
+    return realHistory(dbConn, base, quoteToken);
   });
 
   // POST /api/known-tokens — register a token name/color pair. The browser-wallet

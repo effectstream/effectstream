@@ -58,8 +58,44 @@ export function isShielded(sym: string): boolean {
   return !!(TOKENS[sym] && TOKENS[sym].shielded);
 }
 
+// ---- deterministic coin colors -------------------------------------------
+// A token's identifier is split in half: the FIRST half seeds the background
+// hue, the SECOND half seeds the glyph (font) hue. Lightness is constrained to
+// guaranteed-safe ranges so every hue pairing reads with strong contrast: the
+// background is darkened until its luminance is low enough that the always-light
+// pastel glyph contrasts clearly against it.
+function hashStr(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h >>> 0;
+}
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  s /= 100; l /= 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
+}
+function relLuminance([r, g, b]: [number, number, number]): number {
+  const c = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * c(r) + 0.7152 * c(g) + 0.0722 * c(b);
+}
+export function coinColors(seed: string): { bg: string; fg: string } {
+  const s = seed && seed.length ? seed : '?';
+  const mid = Math.max(1, Math.ceil(s.length / 2));
+  const hBg = hashStr(s.slice(0, mid)) % 360;
+  const hFg = hashStr(s.slice(mid) || s) % 360;
+  // pick the lightest background lightness whose luminance is still dark enough
+  let bgL = 16;
+  for (const L of [46, 40, 34, 28, 22, 16]) {
+    if (relLuminance(hslToRgb(hBg, 62, L)) <= 0.085) { bgL = L; break; }
+  }
+  return { bg: `hsl(${hBg}, 62%, ${bgL}%)`, fg: `hsl(${hFg}, 85%, 90%)` };
+}
+
 export function Coin({ sym, size }: { sym: string; size?: 'lg' | 'sm' }) {
-  const t = TOKENS[sym] || { bg: '#C2C9D4', fg: '#fff', glyph: sym?.[0] || '?', shielded: false };
+  const meta = TOKENS[sym];
+  const t = meta ?? { ...coinColors(sym), glyph: (sym?.[0] || '?').toUpperCase(), shielded: false };
   const cls =
     'zs-coin' +
     (size === 'lg' ? ' zs-coin--lg' : size === 'sm' ? ' zs-coin--sm' : '') +

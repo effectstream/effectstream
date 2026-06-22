@@ -45,7 +45,7 @@ function Cell({ amt, sym, accent }: { amt: number; sym: string; accent?: boolean
   );
 }
 
-export function MyTrades({ st }: { st: ZSwapApp }) {
+export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
   const trades = st.myTrades;
   const [filter, setFilter] = useState<'all' | 'open' | 'completed'>('all');
   const [viewing, setViewing] = useState<MyTrade | null>(null);
@@ -76,46 +76,36 @@ export function MyTrades({ st }: { st: ZSwapApp }) {
     }
   };
 
-  return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-.03em', margin: 0 }}>My trades</h1>
-          <p style={{ fontSize: 14, color: 'var(--ink-2)', margin: '6px 0 0' }}>Every order you post or take, kept on this device.</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="zs-btn zs-btn--primary" onClick={() => { setImportErr(null); setImportOpen(true); }} style={{ padding: '9px 14px', fontSize: 13 }}><Icon.arrow style={{ transform: 'rotate(-90deg)' }} /> Import ZSwap</button>
-          {trades.length > 0 && (
-            <button className="zs-btn" onClick={st.clearAllTrades} style={{ padding: '9px 14px', fontSize: 13 }}>Clear all</button>
-          )}
-        </div>
-      </div>
+  const filterSeg = (
+    <div className="zs-seg" style={{ background: 'var(--bg-tint)' }}>
+      {([['all', 'All'], ['open', 'Open'], ['completed', 'Completed']] as const).map(([id, lbl]) => (
+        <button key={id} className="zs-nav-tab" aria-selected={filter === id} onClick={() => setFilter(id)}
+          style={filter === id ? { background: 'var(--surface)', color: 'var(--ink)', boxShadow: '0 1px 3px rgba(10,12,20,.08)' } : { background: 'transparent', color: 'var(--ink-2)' }}>
+          {lbl} <span className="zs-num" style={{ color: 'var(--ink-3)', fontWeight: 600 }}>{counts[id]}</span>
+        </button>
+      ))}
+    </div>
+  );
 
-      <div style={{ display: 'flex', gap: 11, padding: '13px 15px', borderRadius: 'var(--r-field)', background: 'var(--warn-soft)', border: '1px solid color-mix(in srgb, var(--warn) 22%, transparent)', marginBottom: 18 }}>
-        <span style={{ color: 'var(--warn)', fontWeight: 800, fontSize: 15, flex: '0 0 auto', lineHeight: 1.3 }}>!</span>
-        <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
-          This list is stored <b style={{ color: 'var(--ink)' }}>only in your browser</b>. Shielded ZSwaps are secret — if you clear it, it <b style={{ color: 'var(--ink)' }}>cannot be recovered</b>.
+  const actions = (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <button className="zs-btn zs-btn--secondary" onClick={() => { setImportErr(null); setImportOpen(true); }} style={{ padding: '9px 14px', fontSize: 13 }}>Import ZSwap</button>
+      {trades.length > 0 && (
+        <button className="zs-btn" onClick={st.clearAllTrades} style={{ padding: '9px 14px', fontSize: 13 }}>Clear all</button>
+      )}
+    </div>
+  );
+
+  const tableCard = (
+    <div className="zs-card" style={compact ? { padding: '8px 6px 6px', maxHeight: 380, overflowY: 'auto' } : { padding: '16px 8px 8px' }}>
+      {rows.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: compact ? '34px 16px' : '48px 20px' }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-2)' }}>No trades yet</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-3)', margin: '6px 0 16px' }}>Post or take a ZSwap and it'll show up here.</div>
         </div>
-      </div>
-
-      <div className="zs-seg" style={{ background: 'var(--bg-tint)', marginBottom: 16 }}>
-        {([['all', 'All'], ['open', 'Open'], ['completed', 'Completed']] as const).map(([id, lbl]) => (
-          <button key={id} className="zs-nav-tab" aria-selected={filter === id} onClick={() => setFilter(id)}
-            style={filter === id ? { background: 'var(--surface)', color: 'var(--ink)', boxShadow: '0 1px 3px rgba(10,12,20,.08)' } : { background: 'transparent', color: 'var(--ink-2)' }}>
-            {lbl} <span className="zs-num" style={{ color: 'var(--ink-3)', fontWeight: 600 }}>{counts[id]}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="zs-card" style={{ padding: '16px 8px 8px' }}>
-        {rows.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-2)' }}>No trades yet</div>
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', margin: '6px 0 16px' }}>Post or take a ZSwap and it'll show up here.</div>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="zs-table">
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="zs-table">
               <thead><tr>
                 <th>Offered</th><th>Requested</th><th style={{ textAlign: 'right' }}>Price</th><th>Date</th><th>Status</th><th></th>
               </tr></thead>
@@ -150,7 +140,10 @@ export function MyTrades({ st }: { st: ZSwapApp }) {
           </div>
         )}
       </div>
+  );
 
+  const modals = (
+    <>
       {/* offer-file blob viewer */}
       <Modal open={!!viewing} onClose={() => setViewing(null)} width={520}>
         {viewing && (
@@ -200,6 +193,43 @@ export function MyTrades({ st }: { st: ZSwapApp }) {
           </div>
         </div>
       </Modal>
+    </>
+  );
+
+  if (compact) {
+    return (
+      <div style={{ width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+          {filterSeg}
+          {actions}
+        </div>
+        {tableCard}
+        {modals}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-.03em', margin: 0 }}>My trades</h1>
+          <p style={{ fontSize: 14, color: 'var(--ink-2)', margin: '6px 0 0' }}>Every order you post or take, kept on this device.</p>
+        </div>
+        {actions}
+      </div>
+
+      <div style={{ display: 'flex', gap: 11, padding: '13px 15px', borderRadius: 'var(--r-field)', background: 'var(--warn-soft)', border: '1px solid color-mix(in srgb, var(--warn) 22%, transparent)', marginBottom: 18 }}>
+        <span style={{ color: 'var(--warn)', fontWeight: 800, fontSize: 15, flex: '0 0 auto', lineHeight: 1.3 }}>!</span>
+        <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+          This list is stored <b style={{ color: 'var(--ink)' }}>only in your browser</b>. Shielded ZSwaps are secret — if you clear it, it <b style={{ color: 'var(--ink)' }}>cannot be recovered</b>.
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>{filterSeg}</div>
+
+      {tableCard}
+      {modals}
     </div>
   );
 }

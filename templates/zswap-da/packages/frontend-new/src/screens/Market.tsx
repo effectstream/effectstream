@@ -1,20 +1,23 @@
 // Order book tab — pair header + 24h stats + depth book (asks/bids, click-to-
-// select range → Take) + trade history. Pair discovery comes from REAL open
-// orders (st.orders); the depth ladder / stats / history come from the backend
-// GET /api/chart/** endpoints (synthetic for now behind the API — the frontend
-// no longer fabricates them). The depth "Take" is indicative (the rows are
-// aggregate market data, not individual offers) → it routes you to live offers
-// you can actually settle from Place Order.
+// select range → Take) + trade history. Pair discovery AND the order-book ladder
+// (price / amount / total) are built from REAL open offers (st.orders); only the
+// 24h stats + trade history still come from the backend GET /api/chart/** routes.
+// Selecting price levels and pressing "Take" settles the underlying real offers
+// via the shared confirm dialog (st.requestTakeMany); your own offers are
+// skipped (you can't take your own ZSwap).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Coin, Icon, isShielded } from '../ui/icons';
-import { api, type ChartDepth, type ChartHistoryRow, type ChartStats } from '../services/api';
+import { api, type ChartHistoryRow, type ChartStats } from '../services/api';
 import { shortToken } from '../utils';
-import type { ZSwapApp } from '../state/useZSwapApp';
+import type { Order, ZSwapApp } from '../state/useZSwapApp';
 
 type Side = 'ask' | 'bid';
 type View = 'both' | 'asks' | 'bids';
 interface Pair { base: string; quote: string }
+// A real order-book level — keeps the underlying offers so it can be taken.
+interface BookRow { price: number; amt: number; total: number; orders: Order[] }
+interface Book { mid: number; asks: BookRow[]; bids: BookRow[]; maxTotal: number; spread: number }
 
 function fmtPrice(p: number): string {
   if (!Number.isFinite(p)) return '0';
@@ -39,7 +42,7 @@ function Stat({ label, children, sub }: { label: string; children: React.ReactNo
   );
 }
 
-export function Market({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') => void }) {
+export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () => void }) {
   const [pair, setPair] = useState<Pair | null>(null);
   const [view, setView] = useState<View>('both');
   const [nonce, setNonce] = useState(0);
@@ -58,22 +61,22 @@ export function Market({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') => vo
   const baseColor = colorByName[base] ?? base;
   const quoteColor = colorByName[quote] ?? quote;
 
-  const [depth, setDepth] = useState<ChartDepth | null>(null);
   const [stats, setStats] = useState<ChartStats | null>(null);
   const [history, setHistory] = useState<ChartHistoryRow[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Stats (24h/high/low/volume) + trade history are still served by the backend;
+  // the order-book ladder itself is now built from real open offers (below).
   useEffect(() => {
-    if (!pair) { setDepth(null); setStats(null); setHistory([]); return; }
+    if (!pair) { setStats(null); setHistory([]); return; }
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      api.getChartDepth(baseColor, quoteColor),
       api.getChartStats(baseColor, quoteColor),
       api.getChartHistory(baseColor, quoteColor),
     ])
-      .then(([d, s, h]) => { if (!cancelled) { setDepth(d); setStats(s); setHistory(h); } })
-      .catch(() => { if (!cancelled) { setDepth(null); setStats(null); setHistory([]); } })
+      .then(([s, h]) => { if (!cancelled) { setStats(s); setHistory(h); } })
+      .catch(() => { if (!cancelled) { setStats(null); setHistory([]); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,32 +89,70 @@ export function Market({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') => vo
   }, []);
 
   // Pairs with liquidity from real open orders; opposite directions merge.
+  // `mine` marks pairs that include one of your own offers.
   const liquidPairs = useMemo(() => {
     const orders = st.orders || [];
-    const m: Record<string, { count: number; dirs: Record<string, number> }> = {};
+    const m: Record<string, { count: number; dirs: Record<string, number>; mine: boolean }> = {};
     orders.forEach((o) => {
       const key = [o.from, o.to].sort().join('/');
-      if (!m[key]) m[key] = { count: 0, dirs: {} };
+      if (!m[key]) m[key] = { count: 0, dirs: {}, mine: false };
       m[key].count++;
+      if (o.isMine) m[key].mine = true;
       const dk = o.from + '/' + o.to;
       m[key].dirs[dk] = (m[key].dirs[dk] || 0) + 1;
     });
     return Object.values(m).map((p) => {
       const [top] = Object.entries(p.dirs).sort((a, b) => b[1] - a[1]);
       const [b0, q0] = top[0].split('/');
-      return { base: b0, quote: q0, count: p.count };
+      return { base: b0, quote: q0, count: p.count, mine: p.mine };
     }).sort((a, b) => b.count - a.count).slice(0, 24);
   }, [st.orders]);
 
   const q = pairQuery.trim().toLowerCase();
   const shownPairs = q ? liquidPairs.filter((p) => (p.base + ' ' + p.quote).toLowerCase().includes(q)) : liquidPairs;
 
+  // Real order book built from the open offers for this pair (st.orders):
+  //  - ask = an offer GIVING base, WANTING quote (selling base); price = quote/base
+  //  - bid = an offer GIVING quote, WANTING base (buying base);  price = quote/base
+  // Same-price offers aggregate into one level; totals accumulate outward from mid
+  // (asks: best/lowest sits just above mid; bids: best/highest just below).
+  const realDepth = useMemo<Book | null>(() => {
+    if (!pair) return null;
+    const askAt = new Map<number, Order[]>();
+    const bidAt = new Map<number, Order[]>();
+    const push = (m: Map<number, Order[]>, price: number, o: Order) => {
+      const arr = m.get(price); if (arr) arr.push(o); else m.set(price, [o]);
+    };
+    for (const o of st.orders) {
+      if (!(o.amtFrom > 0 && o.amtTo > 0)) continue;
+      if (o.from === base && o.to === quote) push(askAt, o.amtTo / o.amtFrom, o);
+      else if (o.from === quote && o.to === base) push(bidAt, o.amtFrom / o.amtTo, o);
+    }
+    const mkRows = (m: Map<number, Order[]>, side: Side): BookRow[] =>
+      [...m.entries()]
+        .map(([price, orders]) => ({ price, amt: orders.reduce((s, o) => s + (side === 'ask' ? o.amtFrom : o.amtTo), 0), total: 0, orders }))
+        .sort((a, b) => b.price - a.price);
+    const asks = mkRows(askAt, 'ask');
+    const bids = mkRows(bidAt, 'bid');
+    if (!asks.length && !bids.length) return null;
+    let ta = 0;
+    for (let i = asks.length - 1; i >= 0; i--) { ta += asks[i].amt; asks[i].total = ta; }
+    let tb = 0;
+    for (const r of bids) { tb += r.amt; r.total = tb; }
+    const bestAsk = asks.length ? asks[asks.length - 1].price : 0;
+    const bestBid = bids.length ? bids[0].price : 0;
+    const mid = bestAsk && bestBid ? (bestAsk + bestBid) / 2 : (bestAsk || bestBid);
+    const spread = bestAsk && bestBid ? bestAsk - bestBid : 0;
+    const maxTotal = Math.max(1, asks.length ? asks[0].total : 0, bids.length ? bids[bids.length - 1].total : 0);
+    return { mid, asks, bids, maxTotal, spread };
+  }, [st.orders, pair, base, quote]);
+
   // depth-derived locals (empty-safe)
-  const asks = depth?.asks ?? [];
-  const bids = depth?.bids ?? [];
-  const mid = depth?.mid ?? 0;
-  const maxTotal = depth?.maxTotal ?? 1;
-  const spread = depth?.spread ?? 0;
+  const asks = realDepth?.asks ?? [];
+  const bids = realDepth?.bids ?? [];
+  const mid = realDepth?.mid ?? 0;
+  const maxTotal = realDepth?.maxTotal ?? 1;
+  const spread = realDepth?.spread ?? 0;
   const change24 = stats?.change24 ?? 0;
   const lastUp = change24 >= 0;
 
@@ -159,16 +200,20 @@ export function Market({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') => vo
       ? { pay: quoteAmt, paySym: quote, get: baseAmt, getSym: base, n: rows.length, preview: !committed }
       : { pay: baseAmt, paySym: base, get: quoteAmt, getSym: quote, n: rows.length, preview: !committed };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, hover, base, quote, depth]);
+  }, [active, hover, base, quote, realDepth]);
 
   const takeDepth = () => {
-    // Depth rows are aggregate market data, not individual settle-able offers.
-    // Point the user at real offers (Place Order suggestions / Take).
-    st.toast('Depth is indicative — take a live offer from Place Order.');
-    onGo?.('swap');
+    // Settle the real offers behind the selected price levels via the shared
+    // confirm dialog (st.requestTakeMany filters out your own offers + guards
+    // the wallet, then opens the Take popup).
+    const side = activeSide;
+    if (!side) return;
+    const rows = side === 'ask' ? asks : bids;
+    const orders = rows.filter((_, i) => isActive(side, i)).flatMap((r) => r.orders);
+    st.requestTakeMany(orders);
   };
 
-  const Row = ({ r, side, idx }: { r: ChartDepth['asks'][number]; side: Side; idx: number }) => {
+  const Row = ({ r, side, idx }: { r: BookRow; side: Side; idx: number }) => {
     const pct = Math.min(100, (r.total / maxTotal) * 100);
     const col = side === 'ask' ? 'var(--neg)' : 'var(--pos)';
     const bg = side === 'ask' ? 'rgba(229,72,77,.09)' : 'rgba(14,159,110,.10)';
@@ -198,9 +243,11 @@ export function Market({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') => vo
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* pair header + stats */}
+      {/* pair selector header — ALWAYS visible. When no pair is picked, the
+          "Markets with liquidity" picker lives inside this same card (below a
+          divider) so the dropdown and the picker read as one connected unit. */}
       <div className="zs-card" style={{ padding: '18px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: pair ? 18 : 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
           <div ref={pickRef} style={{ position: 'relative' }}>
             <button onClick={() => setPickOpen((o) => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--r-pill)', padding: pair ? '7px 14px 7px 9px' : '10px 16px', cursor: 'pointer', fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>
               {pair ? (
@@ -222,7 +269,8 @@ export function Market({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') => vo
                     <button key={i} onClick={() => { setPair({ base: p.base, quote: p.quote }); setPickOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', border: 'none', background: pair && pair.base === p.base && pair.quote === p.quote ? 'var(--surface-2)' : 'transparent', borderRadius: 10, cursor: 'pointer', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}><Coin sym={p.base} size="sm" /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={p.quote} size="sm" /></div>
                       <span style={{ flex: 1, fontWeight: 700, fontSize: 13.5 }}>{p.base}<span style={{ color: 'var(--ink-3)', fontWeight: 500 }}> / {p.quote}</span></span>
-                      <span className="zs-num" style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{p.count} open</span>
+                      {p.mine && <span className="zs-pill" style={{ padding: '2px 7px', fontSize: 10, color: 'var(--accent)', background: 'var(--accent-soft)', borderColor: 'var(--accent-line)', flex: '0 0 auto' }}>Yours</span>}
+                      <span className="zs-num" style={{ fontSize: 11.5, color: 'var(--ink-3)', flex: '0 0 auto' }}>{p.count} open</span>
                     </button>
                   ))}
                 </div>
@@ -251,27 +299,20 @@ export function Market({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') => vo
             <Stat label={base + ' asset ID'}>{shortToken(baseColor)}</Stat>
           </div>
         )}
-      </div>
 
-      {/* book + history — or suggestions when no pair is selected */}
-      {!pair ? (
-        <div className="zs-card" style={{ padding: 22, minHeight: 420, display: 'flex', flexDirection: 'column' }}>
+        {/* picker lives inside the header card when no pair is selected */}
+        {!pair && (
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <Icon.spark style={{ color: 'var(--accent)' }} />
             <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-.02em' }}>Markets with liquidity</span>
           </div>
-          <p style={{ fontSize: 13.5, color: 'var(--ink-2)', margin: '0 0 16px' }}>Pick a pair to open its order book and trade history. These have open ZSwaps right now.</p>
-
-          <div className="zs-field" style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, maxWidth: 360 }}>
-            <Icon.search style={{ color: 'var(--ink-3)', flex: '0 0 auto' }} />
-            <input value={pairQuery} onChange={(e) => setPairQuery(e.target.value)} placeholder="Search token or pair" style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, minWidth: 0, fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--ink)' }} />
-            {pairQuery && <button onClick={() => setPairQuery('')} style={{ border: 'none', background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', padding: 0, fontSize: 14, flex: '0 0 auto' }}>✕</button>}
-          </div>
+          <p style={{ fontSize: 13.5, color: 'var(--ink-2)', margin: '0 0 16px' }}>Pick a pair to open its order book and trade history — use “Select a pair” above to search. These have open ZSwaps right now.</p>
 
           {shownPairs.length === 0 ? (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 12, padding: '30px 0' }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-2)' }}>{q ? `No pairs match “${pairQuery}”` : 'No open liquidity right now'}</div>
-              <button className="zs-btn zs-btn--primary" onClick={() => onGo?.('swap')}>Create the first order <Icon.arrow /></button>
+              <button className="zs-btn zs-btn--primary" onClick={() => onStartOrder?.()}>Create the first order <Icon.arrow /></button>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
@@ -283,22 +324,23 @@ export function Market({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') => vo
                       <span style={{ display: 'inline-flex', alignItems: 'center' }}><Coin sym={p.base} /><span style={{ margin: '0 4px', color: 'var(--ink-3)', position: 'relative', zIndex: 2 }}>→</span><Coin sym={p.quote} /></span>
                       <span style={{ fontWeight: 700, fontSize: 14.5 }}>{p.base}<span style={{ color: 'var(--ink-3)', fontWeight: 500 }}> / {p.quote}</span></span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                       <span className="zs-tag">Open ZSwaps</span>
-                      <span className={sh ? 'zs-badge-shield' : 'zs-pill'} style={{ padding: '4px 9px', fontSize: 11 }}>{p.count} open</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {p.mine && <span className="zs-pill" style={{ padding: '3px 8px', fontSize: 10.5, color: 'var(--accent)', background: 'var(--accent-soft)', borderColor: 'var(--accent-line)' }}>Yours</span>}
+                        <span className={sh ? 'zs-badge-shield' : 'zs-pill'} style={{ padding: '4px 9px', fontSize: 11 }}>{p.count} open</span>
+                      </span>
                     </div>
                   </button>
                 );
               })}
             </div>
           )}
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 'auto', paddingTop: 18, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Don't see the pair you want?</span>
-            <button className="zs-btn zs-btn--primary" style={{ padding: '9px 16px', fontSize: 13.5 }} onClick={() => onGo?.('swap')}>Add your own · Swap now <Icon.arrow /></button>
-          </div>
         </div>
-      ) : (
+        )}
+      </div>
+
+      {pair && (
         <div className="zs-grid2" style={{ gap: 16, alignItems: 'start' }}>
           {/* ORDER BOOK */}
           <div className="zs-card" style={{ overflow: 'hidden' }} onMouseLeave={() => setHover(null)}>
@@ -316,8 +358,8 @@ export function Market({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') => vo
               <span>Price ({quote})</span><span style={{ textAlign: 'right' }}>Amount ({base})</span><span style={{ textAlign: 'right' }}>Total ({base})</span>
             </div>
 
-            {!depth ? (
-              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>{loading ? 'Loading order book…' : 'No market data.'}</div>
+            {!realDepth ? (
+              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>{st.ordersLoading ? 'Loading order book…' : 'No open orders for this pair yet.'}</div>
             ) : (
               <>
                 {view !== 'bids' && asks.map((r, i) => <Row key={'a' + i} r={r} side="ask" idx={i} />)}
@@ -350,12 +392,7 @@ export function Market({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') => vo
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 16px', borderTop: '1px solid var(--line)', background: 'var(--surface-2)', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>You don't find a trade for you?</span>
-                    <button className="zs-btn zs-btn--primary" style={{ padding: '9px 16px', fontSize: 13.5 }} onClick={() => onGo?.('swap')}>Add your own · Swap now <Icon.arrow /></button>
-                  </div>
-                )}
+                ) : null}
               </>
             )}
           </div>

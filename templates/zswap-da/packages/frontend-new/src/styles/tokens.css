@@ -90,6 +90,16 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); -w
   border-color: transparent; box-shadow: var(--sh-btn);
 }
 .zs-btn--primary:hover { background: var(--accent-700); }
+/* secondary: outlined neutral action — quieter than the solid-blue primary,
+   and intentionally non-accent so it never reads like the shield badge. */
+.zs-btn--secondary {
+  background: var(--surface); color: var(--ink);
+  border-color: color-mix(in srgb, var(--ink) 18%, transparent); box-shadow: none;
+}
+.zs-btn--secondary:hover {
+  background: var(--surface-2);
+  border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+}
 .zs-btn--ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
 .zs-btn--ghost:hover { background: var(--surface-2); color: var(--ink); }
 .zs-btn--block { width: 100%; justify-content: center; padding: 17px; font-size: 17px; border-radius: var(--r-field); }
@@ -240,3 +250,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); -w
 
 /* ---- swap page grid (panel + suggestions) */
 @media (max-width: 900px) { .zs-swap-grid { grid-template-columns: 1fr !important; } }
+
+/* ---- bottom console dock — fixed-width Place Order, My trades fills the rest */
+.zs-console-grid { display: grid; grid-template-columns: 440px minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 900px) { .zs-console-grid { grid-template-columns: 1fr; } }

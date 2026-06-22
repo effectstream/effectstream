@@ -2,10 +2,11 @@
 // Step 1: design system + static nav. Step 2: real wallet connect + balances.
 // Screens/data wired in from Step 3 onward via the `st` adapter (useZSwapApp).
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import './styles/tokens.css';
 import { Wordmark, Icon } from './ui/icons';
 import { Footer } from './ui/Footer';
+import { ConsoleDock } from './ui/ConsoleDock';
 import { ConnectModal } from './ui/ConnectModal';
 import { Toasts } from './ui/Toasts';
 import { WalletMenu } from './ui/WalletMenu';
@@ -13,19 +14,16 @@ import { NetworkMenu } from './ui/NetworkMenu';
 import { useZSwapApp } from './state/useZSwapApp';
 import { Market } from './screens/Market';
 import { Faucet } from './screens/Faucet';
-import { Swap } from './screens/Swap';
-import { MyTrades } from './screens/MyTrades';
 import { HowItWorks } from './screens/HowItWorks';
 import { ConfirmModal } from './ui/ConfirmModal';
 import { shortToken } from './utils';
 import { fmtBalance } from './state/format';
 
-type PageId = 'market' | 'swap' | 'trades' | 'how' | 'faucet';
+// Place Order + My trades live in the bottom console dock, not in the top nav.
+type PageId = 'market' | 'how' | 'faucet';
 
 const TABS: [PageId, string][] = [
   ['market', 'Order book'],
-  ['swap', 'Place Order'],
-  ['trades', 'My trades'],
   ['how', 'How it works'],
   ['faucet', 'Faucet'],
 ];
@@ -55,7 +53,19 @@ function BalancesCard({ title, balances }: { title: string; balances: Record<str
 export default function App() {
   const [page, setPage] = useState<PageId>('market');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [consoleOpen, setConsoleOpen] = useState(true);
+  const [payPickerOpen, setPayPickerOpen] = useState(false);
+  const dockRef = useRef<HTMLElement>(null);
   const st = useZSwapApp();
+
+  // Links that used to navigate to the Place Order screen now reveal the console.
+  const openConsole = () => {
+    setConsoleOpen(true);
+    setTimeout(() => dockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 60);
+  };
+  // "Start an order" CTAs: reveal the console AND pop the Pay-with token picker
+  // so the flow begins immediately.
+  const startOrder = () => { openConsole(); setPayPickerOpen(true); };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -73,7 +83,7 @@ export default function App() {
             <div style={{ flex: 1 }} />
             <NetworkMenu value={st.network} onChange={st.setNetwork} />
             <span className="zs-badge-shield" title="Private session"><Icon.shield /> Private session</span>
-            {st.wallet ? <WalletMenu st={st} /> : <button className="zs-btn zs-btn--primary" onClick={st.connect}>Connect wallet</button>}
+            {st.wallet ? <WalletMenu st={st} /> : <button className="zs-btn zs-btn--secondary" onClick={st.connect}>Connect wallet</button>}
           </div>
 
           {/* mobile burger */}
@@ -94,13 +104,13 @@ export default function App() {
               <hr className="zs-hr" style={{ margin: '6px 0' }} />
               {st.wallet
                 ? <button className="zs-btn zs-btn--block" style={{ padding: 13 }} onClick={() => { setMenuOpen(false); st.disconnect(); }}>Disconnect</button>
-                : <button className="zs-btn zs-btn--primary zs-btn--block" onClick={() => { setMenuOpen(false); st.connect(); }}>Connect wallet</button>}
+                : <button className="zs-btn zs-btn--secondary zs-btn--block" onClick={() => { setMenuOpen(false); st.connect(); }}>Connect wallet</button>}
             </div>
           )}
         </div>
       </header>
 
-      <main style={{ flex: 1, width: '100%', maxWidth: 1180, margin: '0 auto', padding: '32px 24px 80px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <main style={{ flex: 1, width: '100%', maxWidth: 1180, margin: '0 auto', padding: '32px 24px 40px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {page === 'market' && (
           <div>
             {st.wallet ? (
@@ -109,14 +119,15 @@ export default function App() {
                 <BalancesCard title="Unshielded balances" balances={st.unshieldedBalances} />
               </div>
             ) : null}
-            <Market st={st} onGo={setPage} />
+            <Market st={st} onStartOrder={startOrder} />
           </div>
         )}
-        {page === 'swap' && <Swap st={st} />}
-        {page === 'trades' && <MyTrades st={st} />}
-        {page === 'how' && <HowItWorks st={st} onGo={setPage} />}
+        {page === 'how' && <HowItWorks st={st} onGo={startOrder} />}
         {page === 'faucet' && <Faucet st={st} />}
       </main>
+
+      <ConsoleDock st={st} open={consoleOpen} onToggle={() => setConsoleOpen((o) => !o)} dockRef={dockRef}
+        requestPayPicker={payPickerOpen} onPayPickerHandled={() => setPayPickerOpen(false)} />
 
       <Footer />
 
