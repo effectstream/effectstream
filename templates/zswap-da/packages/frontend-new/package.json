@@ -1,0 +1,52 @@
+{
+  "name": "@zswap-da/frontend-new",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "copy-zk-assets": "bun run copy-zk-assets.ts",
+    "predev": "bun run copy-zk-assets",
+    "prebuild": "bun run copy-zk-assets",
+    "dev": "vite --port 10600 --host",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 10600 --host",
+    "serve": "vite preview --port 10600 --host"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "three": "^0.183.2",
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0",
+    "@scure/base": "^2.0.0",
+    "mip-zswap-offer": "github:effectstream/mip-zswap-offer#main",
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "@midnight-ntwrk/dapp-connector-api": "4.0.1",
+    "@midnight-ntwrk/compact-js": "2.5.0",
+    "@midnight-ntwrk/midnight-js-contracts": "4.0.2",
+    "@midnight-ntwrk/midnight-js-types": "4.0.2",
+    "@midnight-ntwrk/midnight-js-utils": "4.0.2",
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.2",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "4.0.2",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.0.2",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.2",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "@effectstream/wallets": "0.100.22",
+    "@effectstream/midnight-contracts": "0.100.22",
+    "@zswap-da/contract-offer-files": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.183.1",
+    "@vitejs/plugin-react": "^5.1.1",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-node-stdlib-browser": "0.2.1",
+    "node-stdlib-browser": "^1.2.0",
+    "crypto-browserify": "^3.12.1",
+"vite-plugin-wasm": "^3.4.1"
+  }
+}
