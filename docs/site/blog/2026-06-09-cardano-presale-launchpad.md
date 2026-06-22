@@ -58,7 +58,7 @@ On the admin side, the campaign creator manages the catalog - adding a new produ
 
 ## Watch the full flow
 
-<iframe width="100%" height="415" src="https://www.youtube.com/embed/DieQvTTTJUM" title="Launching a Cardano presale with EffectStream (Part 2)" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
+<iframe width="100%" height="415" src="https://www.youtube.com/embed/5xc2yQVVi3c" title="Launching a Cardano presale with EffectStream (Part 2)" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
 
 The walkthrough runs the whole thing end to end: clone the repo, boot the stack, watch the `create-campaign` land on startup, the UTxORPC sync catch up, an admin add a product, and a buyer purchase it with ADA.
 
