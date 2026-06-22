@@ -16,6 +16,7 @@ import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight
 import { submitBlobViaBatcher } from "./batcher-client.ts";
 import { getBlankRefState, validateZswapOffer } from "@zswap-da/validator";
 import { eventBus, emitAppEvent } from "./event-bus.ts";
+import { quote, buildStats, buildDepth, buildHistory } from "./market-mock.ts";
 
 // ─── API Router ───────────────────────────────────────────────────────────────
 
@@ -93,6 +94,46 @@ export const apiRouter: StartConfigApiRouter = async function (
   server.get("/api/known-tokens", async () => {
     const result = await getKnownTokens.run(undefined, dbConn);
     return result;
+  });
+
+  // GET /api/quote — synthetic price quote for from→to (see market-mock.ts).
+  // Params: from_token, to_token (hex colors), from_amount (base units),
+  // optional to_amount (a user-set receive amount → discount/sponsored vs it).
+  // The frontend uses this so it never fabricates rates/sponsorship itself.
+  server.get("/api/quote", async (request: any) => {
+    const q = request?.query ?? {};
+    const fromToken = String((q as any).from_token ?? "").toLowerCase();
+    const toToken = String((q as any).to_token ?? "").toLowerCase();
+    if (!fromToken || !toToken) {
+      throw new Error("from_token and to_token are required");
+    }
+    const digits = (v: unknown) => String(v ?? "").replace(/[^0-9]/g, "");
+    const fromAmount = BigInt(digits((q as any).from_amount) || "0");
+    const toRaw = digits((q as any).to_amount);
+    const toAmount = toRaw.length ? BigInt(toRaw) : undefined;
+    return quote(fromToken, toToken, fromAmount, toAmount);
+  });
+
+  // GET /api/chart/{stats,depth,history} — synthetic per-pair market data
+  // (see market-mock.ts). Params: base, quote (hex colors).
+  const readPair = (request: any): { base: string; quote: string } => {
+    const q = request?.query ?? {};
+    const base = String((q as any).base ?? "").toLowerCase();
+    const quoteToken = String((q as any).quote ?? "").toLowerCase();
+    if (!base || !quoteToken) throw new Error("base and quote are required");
+    return { base, quote: quoteToken };
+  };
+  server.get("/api/chart/stats", async (request: any) => {
+    const { base, quote: quoteToken } = readPair(request);
+    return buildStats(base, quoteToken);
+  });
+  server.get("/api/chart/depth", async (request: any) => {
+    const { base, quote: quoteToken } = readPair(request);
+    return buildDepth(base, quoteToken);
+  });
+  server.get("/api/chart/history", async (request: any) => {
+    const { base, quote: quoteToken } = readPair(request);
+    return buildHistory(base, quoteToken);
   });
 
   // POST /api/known-tokens — register a token name/color pair. The browser-wallet
