@@ -29,6 +29,7 @@ import { parseTakerLegs } from '../services/offerParse';
 import { isOwnOffer, parseOfferSender, unshieldedAddressToHex } from '../services/offerSender';
 import { isMyOffer } from './myOffers';
 import { findTokenName, shortToken } from '../utils';
+import { log } from '../lib/log';
 import type { KnownToken, ZSwapOffer } from '../types';
 
 const NETWORK_ID = 'undeployed';
@@ -48,6 +49,9 @@ export interface Order {
   blob?: string;
   multiGive: boolean;
   multiWant: boolean;
+  /** true when this offer was created by the connected wallet (shown in the
+   *  listings as liquidity, but not takeable — you can't take your own offer). */
+  isMine: boolean;
 }
 
 /** Taker-perspective preview of an importable offer blob. */
@@ -81,6 +85,7 @@ function toOrder(offer: ZSwapOffer, knownTokens: KnownToken[]): Order | null {
     blob: offer.transaction_hex,
     multiGive: (offer.gives?.length ?? 0) > 1,
     multiWant: (offer.wants?.length ?? 0) > 1,
+    isMine: false,
   };
 }
 
@@ -137,11 +142,12 @@ export interface ZSwapApp {
   onMinted: () => void;
   // swap — create / take offers (browser-wallet ConnectedAPI path)
   canTrade: boolean;
-  createOffer: (gives: OfferLeg[], wants: OfferLeg[]) => Promise<void>;
+  createOffer: (gives: OfferLeg[], wants: OfferLeg[], opts?: { onStatus?: (s: string) => void }) => Promise<void>;
   takeOffer: (blob: string) => Promise<void>;
   // shared take-confirm dialog (driven by any screen, rendered once in App)
   pendingConfirm: ConfirmPayload | null;
   requestTake: (o: Order) => void;
+  requestTakeMany: (orders: Order[]) => void;
   closeConfirm: () => void;
   // my trades — local, on-device log of created/taken offers
   myTrades: MyTrade[];
@@ -215,20 +221,24 @@ export function useZSwapApp(): ZSwapApp {
     [wstate?.unshieldedAddress],
   );
 
-  // Map offers → order rows, EXCLUDING the connected wallet's own offers:
-  // shielded offers are anonymous on-chain, so we use (a) a local record of
-  // offers we created (isMyOffer) and (b) unshielded-owner match (isOwnOffer).
+  // Map offers → order rows. We KEEP the connected wallet's own offers (they are
+  // real open liquidity and affect the market — hiding them makes it look like
+  // your orders don't exist), but flag them `isMine` so the UI can mark them and
+  // keep them non-takeable. Ownership: shielded offers are anonymous on-chain, so
+  // we use (a) a local record of offers we created (isMyOffer) and (b) an
+  // unshielded-owner match (isOwnOffer).
   const orders = useMemo<Order[]>(() => {
     return (zapi.offers ?? [])
-      .filter((o) => {
-        if (isMyOffer(o.transaction_hex)) return false;
-        if (selfUnshieldedHex && o.transaction_hex) {
+      .map((o) => {
+        const order = toOrder(o, knownTokens);
+        if (!order) return null;
+        let mine = isMyOffer(o.transaction_hex);
+        if (!mine && selfUnshieldedHex && o.transaction_hex) {
           const info = parseOfferSender(o.transaction_hex, NETWORK_ID as any);
-          if (isOwnOffer(info, selfUnshieldedHex)) return false;
+          mine = isOwnOffer(info, selfUnshieldedHex);
         }
-        return true;
+        return { ...order, isMine: mine };
       })
-      .map((o) => toOrder(o, knownTokens))
       .filter((o): o is Order => o !== null);
   }, [zapi.offers, knownTokens, selfUnshieldedHex]);
 
@@ -245,9 +255,18 @@ export function useZSwapApp(): ZSwapApp {
 
   const refreshState = useCallback(async (c: Connected) => {
     try {
-      setWstate(await readState(c));
+      const s = await readState(c);
+      setWstate(s);
+      log.info('[wallet] state read', {
+        kind: c.kind,
+        name: c.name,
+        shieldedAddress: s.shieldedAddress,
+        unshieldedAddress: s.unshieldedAddress,
+        shieldedBalances: s.shieldedBalances,
+        unshieldedBalances: s.unshieldedBalances,
+      });
     } catch (e) {
-      console.warn('[wallet] readState failed', e);
+      log.error('[wallet] readState failed', e);
     }
   }, []);
 
@@ -320,11 +339,18 @@ export function useZSwapApp(): ZSwapApp {
   // encode + submit the blob, record it locally (so it's excluded from the
   // order book as "mine"), then refresh.
   const createOffer = useCallback(
-    async (gives: OfferLeg[], wants: OfferLeg[]) => {
+    async (gives: OfferLeg[], wants: OfferLeg[], opts?: { onStatus?: (s: string) => void }) => {
       const w = requireWallet();
       const cfg = contract.config ?? (await api.getMidnightConfig());
+      opts?.onStatus?.('Building offer in wallet…');
       const blob = await w.buildOfferBlob(cfg.networkId, gives, wants);
-      await api.submitSwapOffer(blob);
+      opts?.onStatus?.('Posting to Celestia…');
+      await api.submitSwapOfferRetrying(blob, {
+        onWait: (n, total) => {
+          opts?.onStatus?.(`Waiting for chain to sync root… (${n}/${total})`);
+          if (n === 1 || n % 5 === 0) toast('Waiting for the chain to sync your offer root…');
+        },
+      });
       addMyOffer(blob);
       const give = gives[0];
       const want = wants[0];
@@ -386,6 +412,55 @@ export function useZSwapApp(): ZSwapApp {
       });
     },
     [toast, takeOffer],
+  );
+
+  // Take one or more order-book offers in a single confirm dialog. Filters out
+  // your own offers (you can't take them) and blobs we can't settle; aggregates
+  // the pay/receive across the selection; settles each via the batcher in turn.
+  const requestTakeMany = useCallback(
+    (orders: Order[]) => {
+      // Only real bech32m offers (zswapoffer1…) can be settled. Seeded demo
+      // liquidity carries a placeholder blob and must be skipped with a clear
+      // message rather than a cryptic decode error.
+      const isReal = (b?: string) => !!b && /^zswapoffer1/i.test(b);
+      const takeable = orders.filter((o) => isReal(o.blob) && !o.isMine);
+      if (takeable.length === 0) {
+        const seeded = orders.some((o) => o.blob && !isReal(o.blob) && !o.isMine);
+        toast(
+          orders.some((o) => o.isMine) ? "That's your own offer — you can't take your own ZSwap."
+            : seeded ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (zswapoffer1…) offer to test taking."
+            : 'No live offer to take here.',
+        );
+        return;
+      }
+      if (!tradeWallet?.canTransact) {
+        toast('Use the browser wallet (Lace) to take offers.');
+        return;
+      }
+      const n = takeable.length;
+      const payAmt = takeable.reduce((s, o) => s + o.amtTo, 0);
+      const recvAmt = takeable.reduce((s, o) => s + o.amtFrom, 0);
+      setPendingConfirm({
+        title: n > 1 ? `Take ${n} offers` : 'Take offer',
+        pay: { sym: takeable[0].to, amt: fmtAmt(payAmt) },
+        receive: { sym: takeable[0].from, amt: fmtAmt(recvAmt) },
+        cta: n > 1 ? `Take ${n} offers` : 'Take offer',
+        onConfirm: async () => {
+          for (const o of takeable) {
+            await takeOffer(o.blob!);
+            addTrade({
+              kind: 'take',
+              give: { sym: o.to, amt: o.amtTo },
+              get: { sym: o.from, amt: o.amtFrom },
+              status: 'completed',
+              shielded: false,
+              blob: o.blob,
+            });
+          }
+        },
+      });
+    },
+    [toast, takeOffer, tradeWallet],
   );
   const closeConfirm = useCallback(() => setPendingConfirm(null), []);
 
@@ -487,6 +562,7 @@ export function useZSwapApp(): ZSwapApp {
     takeOffer,
     pendingConfirm,
     requestTake,
+    requestTakeMany,
     closeConfirm,
     myTrades,
     clearTrade,

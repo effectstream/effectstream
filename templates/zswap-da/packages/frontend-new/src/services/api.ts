@@ -64,8 +64,39 @@ export const api = {
       body: JSON.stringify({ blob }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
+    if (!res.ok) {
+      const err = new Error(data.reason ?? data.message ?? JSON.stringify(data)) as Error & { code?: string };
+      err.code = data.error;
+      throw err;
+    }
     return data;
+  },
+
+  // ROOT_UNKNOWN is transient: the maker proves against a real chain root, but
+  // the sync node may not have ingested it into `known_roots` yet. Re-submitting
+  // the same blob succeeds once the root lands (mirrors the e2e suites). Other
+  // errors throw immediately.
+  submitSwapOfferRetrying: async (
+    blob: string,
+    opts?: { tries?: number; delayMs?: number; onWait?: (attempt: number, tries: number) => void },
+  ) => {
+    const tries = opts?.tries ?? 24;
+    const delayMs = opts?.delayMs ?? 4000;
+    for (let i = 0; ; i++) {
+      try {
+        return await api.submitSwapOffer(blob);
+      } catch (e: any) {
+        if (e?.code === 'ROOT_UNKNOWN' && i < tries) {
+          opts?.onWait?.(i + 1, tries);
+          await new Promise((r) => setTimeout(r, delayMs));
+          continue;
+        }
+        if (e?.code === 'ROOT_UNKNOWN') {
+          throw new Error('The chain has not caught up to your wallet state yet (offer root unknown). Make sure your wallet is fully synced to this network, then try again.');
+        }
+        throw e;
+      }
+    }
   },
 
   getZSwaps: async (params: Record<string, string>): Promise<ZSwapOffer[]> => {
