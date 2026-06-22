@@ -1,5 +1,5 @@
 {
-  "name": "@zswap-da/frontend",
+  "name": "@zswap-da/frontend-new",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,10 +7,10 @@
     "copy-zk-assets": "bun run copy-zk-assets.ts",
     "predev": "bun run copy-zk-assets",
     "prebuild": "bun run copy-zk-assets",
-    "dev": "vite",
+    "dev": "vite --port 10600 --host",
     "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "serve": "vite preview --port 10599 --host"
+    "preview": "vite preview --port 10600 --host",
+    "serve": "vite preview --port 10600 --host"
   },
   "dependencies": {
     "react": "^19.2.0",
@@ -32,6 +32,8 @@
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
     "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.2",
     "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "@effectstream/wallets": "0.100.22",
+    "@effectstream/midnight-contracts": "0.100.22",
     "@zswap-da/contract-offer-files": "workspace:*"
   },
   "devDependencies": {

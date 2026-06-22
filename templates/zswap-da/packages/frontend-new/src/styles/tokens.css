@@ -1,0 +1,242 @@
+/* ============================================================
+   ZSwap — design tokens & shared component styles
+   Light, airy, privacy-forward. Accent: electric blue #0000FE.
+   Ink: Midnight Black #0A0A0A. Mono numerals for all figures.
+   Ported verbatim from the design mock (Dex ZSwap / lib/tokens.css).
+   ============================================================ */
+
+:root {
+  /* palette ------------------------------------------------ */
+  --bg:          #F4F5F8;
+  --bg-tint:     #EEF0F5;
+  --surface:     #FFFFFF;
+  --surface-2:   #F4F6FA;
+  --surface-3:   #ECEFF4;
+
+  --ink:         #0A0A0A;
+  --ink-2:       #5A6473;
+  --ink-3:       #98A1B0;
+  --ink-4:       #C2C9D4;
+
+  --line:        rgba(10, 12, 20, 0.08);
+  --line-2:      rgba(10, 12, 20, 0.045);
+
+  --accent:      #0000FE;     /* Midnight electric blue (single source) */
+  --accent-700:  color-mix(in srgb, var(--accent) 78%, #000);
+  --accent-ink:  #FFFFFF;
+  --accent-soft: color-mix(in srgb, var(--accent) 7%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 18%, transparent);
+
+  --pos:         #0E9F6E;
+  --pos-soft:    rgba(14, 159, 110, 0.10);
+  --neg:         #E5484D;
+  --warn:        #C77700;
+  --warn-soft:   rgba(199, 119, 0, 0.10);
+
+  /* radii -------------------------------------------------- */
+  --r-card:  24px;
+  --r-field: 18px;
+  --r-pill:  999px;
+  --r-chip:  14px;
+
+  /* density (overridden by [data-density="compact"]) ------- */
+  --pad-card:  22px;
+  --gap-row:   12px;
+  --field-pad: 18px;
+  --row-h:     56px;
+
+  /* type --------------------------------------------------- */
+  --font-ui:   "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* elevation ---------------------------------------------- */
+  --sh-card: 0 1px 2px rgba(10,12,20,.04), 0 12px 34px -12px rgba(10,12,20,.14);
+  --sh-pop:  0 8px 30px -6px rgba(10,12,20,.20), 0 0 0 1px var(--line);
+  --sh-btn:  0 1px 0 rgba(255,255,255,.35) inset, 0 8px 20px -8px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+[data-density="compact"] {
+  --pad-card:  16px;
+  --gap-row:   8px;
+  --field-pad: 14px;
+  --row-h:     46px;
+  --r-card:    20px;
+  --r-field:   15px;
+}
+
+* { box-sizing: border-box; }
+
+@keyframes zsfade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes zspop { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+
+html, body { margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); -webkit-font-smoothing: antialiased; }
+
+.zs-num { font-family: var(--font-mono); font-feature-settings: "tnum" 1, "zero" 1; letter-spacing: -.02em; }
+
+/* ---- buttons ------------------------------------------------ */
+.zs-btn {
+  font-family: var(--font-ui); font-weight: 600; font-size: 15px;
+  border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink); border-radius: var(--r-pill);
+  padding: 11px 18px; cursor: pointer; line-height: 1;
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  transition: background .15s, border-color .15s, transform .08s, box-shadow .15s;
+}
+.zs-btn:hover { background: var(--surface-2); }
+.zs-btn:active { transform: translateY(1px); }
+.zs-btn--primary {
+  background: var(--accent); color: var(--accent-ink);
+  border-color: transparent; box-shadow: var(--sh-btn);
+}
+.zs-btn--primary:hover { background: var(--accent-700); }
+.zs-btn--ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.zs-btn--ghost:hover { background: var(--surface-2); color: var(--ink); }
+.zs-btn--block { width: 100%; justify-content: center; padding: 17px; font-size: 17px; border-radius: var(--r-field); }
+
+/* ---- pills / badges ----------------------------------------- */
+.zs-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 600; line-height: 1;
+  padding: 6px 11px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line-2); white-space: nowrap;
+}
+.zs-badge-shield {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: .01em;
+  padding: 5px 9px 5px 7px; border-radius: var(--r-pill); white-space: nowrap;
+  background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line);
+}
+.zs-tag {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ---- token chip (selector) ---------------------------------- */
+.zs-token {
+  display: inline-flex; align-items: center; gap: 9px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-pill); padding: 6px 12px 6px 7px;
+  font-weight: 700; font-size: 17px; color: var(--ink); cursor: pointer; white-space: nowrap;
+  transition: background .15s, border-color .15s;
+}
+.zs-token:hover { background: var(--surface-2); }
+.zs-token--empty { background: var(--accent); color: #fff; border-color: transparent; padding-left: 16px; box-shadow: var(--sh-btn); }
+.zs-caret { width: 14px; height: 14px; color: var(--ink-3); flex: 0 0 auto; }
+.zs-token--empty .zs-caret { color: rgba(255,255,255,.8); }
+
+/* ---- token coin glyph --------------------------------------- */
+.zs-coin {
+  width: 30px; height: 30px; border-radius: 50%; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-ui); font-weight: 800; color: #fff;
+  position: relative; font-size: 13px;
+  box-shadow: 0 0 0 1px rgba(10,12,20,.06) inset;
+}
+.zs-coin--lg { width: 40px; height: 40px; font-size: 17px; }
+.zs-coin--sm { width: 22px; height: 22px; font-size: 10px; }
+
+/* shielded coin — blue-cyan forcefield glow that breathes */
+.zs-coin--shielded { animation: zs-forcefield 2.1s ease-in-out infinite; }
+.zs-coin--sm.zs-coin--shielded { animation: zs-forcefield-sm 2.1s ease-in-out infinite; }
+@keyframes zs-forcefield {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(10,12,20,.06) inset, 0 0 0 1.5px rgba(34,150,243,.85), 0 0 5px 0.5px rgba(34,150,243,.4); }
+  50%      { box-shadow: 0 0 0 1px rgba(10,12,20,.06) inset, 0 0 0 2px rgba(56,182,255,1), 0 0 13px 3px rgba(34,150,243,.7); }
+}
+@keyframes zs-forcefield-sm {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(10,12,20,.06) inset, 0 0 0 1.25px rgba(34,150,243,.85), 0 0 4px 0.5px rgba(34,150,243,.4); }
+  50%      { box-shadow: 0 0 0 1px rgba(10,12,20,.06) inset, 0 0 0 1.5px rgba(56,182,255,1), 0 0 9px 2px rgba(34,150,243,.68); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zs-coin--shielded { animation: none; box-shadow: 0 0 0 1px rgba(10,12,20,.06) inset, 0 0 0 1.5px rgba(34,150,243,.9), 0 0 7px 1px rgba(34,150,243,.5); }
+}
+
+/* ---- field (the swap "from/to" rows) ------------------------ */
+.zs-field {
+  background: var(--surface-2); border: 1px solid transparent;
+  border-radius: var(--r-field); padding: var(--field-pad);
+  transition: border-color .15s, background .15s;
+}
+.zs-field:focus-within { border-color: var(--accent-line); background: var(--surface); }
+.zs-field-label { font-size: 12.5px; font-weight: 600; color: var(--ink-3); white-space: nowrap; }
+.zs-amount {
+  border: none; background: transparent; outline: none; width: 100%;
+  font-family: var(--font-mono); font-weight: 600; font-size: 34px;
+  letter-spacing: -.03em; color: var(--ink); padding: 0;
+}
+.zs-amount::placeholder { color: var(--ink-4); }
+
+/* ---- the swap-direction switch ------------------------------ */
+.zs-switch {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink); cursor: pointer; box-shadow: var(--sh-card);
+  transition: transform .2s, background .15s;
+}
+.zs-switch:hover { background: var(--surface-2); transform: rotate(180deg); }
+
+/* ---- segmented control / tabs ------------------------------- */
+.zs-seg { display: inline-flex; background: var(--surface-2); border-radius: var(--r-pill); padding: 4px; gap: 2px; }
+.zs-seg button {
+  border: none; background: transparent; font-family: var(--font-ui);
+  font-weight: 600; font-size: 13.5px; color: var(--ink-2);
+  padding: 8px 16px; border-radius: var(--r-pill); cursor: pointer; transition: all .15s;
+}
+.zs-seg button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(10,12,20,.10); }
+
+/* nav tab (header segmented control) */
+.zs-nav-tab { font-weight: 600; font-size: 14.5px; color: var(--ink-2); padding: 8px 14px; border-radius: var(--r-pill); border: none; background: transparent; cursor: pointer; transition: color .15s, background .15s; }
+.zs-nav-tab:hover { color: var(--ink); }
+.zs-nav-tab[aria-selected="true"] { color: var(--ink); background: var(--surface); box-shadow: 0 1px 3px rgba(10,12,20,.08); }
+.zs-nav-desktop { display: flex; align-items: center; gap: 20px; flex: 1; min-width: 0; }
+.zs-nav-mobile { display: none; align-items: center; flex: 1; justify-content: flex-end; }
+.zs-burger { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+@media (max-width: 880px) {
+  .zs-nav-desktop { display: none; }
+  .zs-nav-mobile { display: flex; }
+}
+
+/* ---- card --------------------------------------------------- */
+.zs-card {
+  background: var(--surface); border-radius: var(--r-card);
+  box-shadow: var(--sh-card); border: 1px solid var(--line-2);
+}
+
+/* ---- order-book table --------------------------------------- */
+.zs-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.zs-table th {
+  text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-3); padding: 0 14px 12px; white-space: nowrap;
+}
+.zs-table td { padding: 13px 14px; border-top: 1px solid var(--line-2); vertical-align: middle; }
+.zs-table tbody tr { transition: background .12s; }
+.zs-table tbody tr:hover { background: var(--surface-2); }
+
+/* ---- ttl countdown ------------------------------------------ */
+.zs-ttl { display: inline-flex; align-items: center; gap: 7px; }
+.zs-ttl-bar { width: 46px; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.zs-ttl-bar > i { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
+.zs-ttl-bar.is-warn > i { background: var(--warn); }
+
+/* ---- shielded value treatment (privacy hero) ---------------- */
+.zs-shielded {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); color: var(--ink-3); letter-spacing: .12em;
+}
+.zs-dots { letter-spacing: .18em; }
+
+/* ---- hairline rule ------------------------------------------ */
+.zs-hr { height: 1px; background: var(--line); border: 0; margin: 0; }
+
+/* ---- mini logo mark (ring + 3 cubes) ------------------------ */
+.zs-mark { display: inline-flex; align-items: center; gap: 9px; }
+.zs-mark-word { font-weight: 800; font-size: 19px; letter-spacing: -.02em; color: var(--ink); }
+.zs-mark-word b { color: var(--accent); }
+
+/* ---- two-column responsive grid (Order Book / Trade History) */
+.zs-grid2 { display: grid; grid-template-columns: 1fr 1fr; }
+@media (max-width: 880px) { .zs-grid2 { grid-template-columns: 1fr; } }
+
+/* ---- swap page grid (panel + suggestions) */
+@media (max-width: 900px) { .zs-swap-grid { grid-template-columns: 1fr !important; } }

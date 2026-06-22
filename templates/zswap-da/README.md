@@ -64,6 +64,41 @@ bun run test
 
 Runs Phase A (infrastructure assertions: Celestia consensus/bridge, Midnight node/indexer) and Phase B (state-machine + DB + API). **Phase B is currently stubbed** — the original SDK-flow and API tests assumed a backend-wallet completion path that has since been removed, and need to be rewritten on top of the browser/batcher flow. See the TODO comments in `packages/tests/stm/*.test.ts` and the original implementation in git history (`templates/zswap-da/e2e/run-tests.ts` before the migration).
 
+### Standalone swap e2e scripts
+
+These run against a live `bun run dev` stack and exercise the full
+batcher-settled swap path — makers post unbalanced offers (`payFees:false`, so
+**no participant needs dust**), a solver assembles a token-balanced transaction,
+and the batcher adds dust + submits. Shared helpers live in `packages/tests/lib/`.
+
+```bash
+bun packages/tests/ring-swap-e2e.ts 2        # A↔B swap (2-cycle), batcher-settled
+bun packages/tests/ring-swap-e2e.ts 3        # ring a→b→c→a (merge N proven offers)
+bun packages/tests/multi-token-swap-e2e.ts   # multi-give {T0,T1} ↔ multi-want {T0,T1}
+bun packages/tests/api-roundtrip-swap-e2e.ts # push → read /api/zswaps → reconstruct → settle
+                                             #   + negatives: corrupted (BAD_ENCODING) and
+                                             #     consumed (NULLIFIER_SPENT) never reach Celestia
+bun packages/tests/root-unknown-negative-e2e.ts  # well-formed offer rejected by past_roots gate
+bun packages/tests/unshielded-only-swap-e2e.ts   # unshielded↔unshielded (taker-balanced + batcher dust)
+bun packages/tests/unshielded-diagnose.ts        # diagnostic: shielded vs unshielded offer structure
+```
+
+Swap-shape support note: shielded-only and unshielded-only swaps work; **combined
+shielded↔unshielded swaps are not supported by the wallet SDK yet** (the SDK's own
+`facade/test/swap.test.ts` marks it `it.skip(… "Not supported yet")`).
+`packages/tests/unshielded-swap-e2e.ts` documents this by attempting a mixed swap
+and skipping safely when the offer comes out give-only.
+
+### Browser minting / swapping (frontend)
+
+In-browser proving needs the zswap + dust **primitive** ZK keys
+(`keys/midnight/zswap/output.*` etc.), not just the contract circuit keys.
+`packages/frontend/copy-zk-assets.ts` stages both into `public/` — the contract
+keys from `contracts-midnight/.../src/managed`, and the primitive keys from the
+Midnight ZK-params cache (`~/.cache/midnight/zk-params`, override with
+`MIDNIGHT_ZK_PARAMS_DIR`). It runs on `predev`/`prebuild`. Without the primitive
+keys, the browser mint fails with `GET /keys/midnight/zswap/output.prover 404`.
+
 ## Project Structure
 
 ```
