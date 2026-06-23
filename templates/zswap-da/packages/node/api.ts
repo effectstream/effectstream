@@ -195,11 +195,13 @@ export const apiRouter: StartConfigApiRouter = async function (
   // contract client needs (contract address, indexer, proof server). Never
   // include secrets.
   server.get("/api/midnight/config", async () => {
-    if (!midnightContract) {
+    const contractAddress =
+      midnightContract?.contractAddress ?? process.env.MIDNIGHT_CONTRACT_ADDRESS;
+    if (!contractAddress) {
       throw new Error("Midnight contract metadata is not available");
     }
     return {
-      contractAddress: midnightContract.contractAddress,
+      contractAddress,
       indexerUri: midnightNetworkConfig.indexer,
       indexerWsUri: midnightNetworkConfig.indexerWS,
       proofServerUri: midnightNetworkConfig.proofServer,

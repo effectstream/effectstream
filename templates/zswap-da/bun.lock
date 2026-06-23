@@ -10,6 +10,7 @@
         "@effectstream/orchestrator": "0.100.22",
         "@electric-sql/pglite": "^0.3.14",
         "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+        "@scure/bip39": "^2.2.0",
         "wait-on": "8.0.3",
       },
       "devDependencies": {
@@ -2523,8 +2524,6 @@
     "@zswap-da/frontend-new/@midnight-ntwrk/midnight-js-contracts": ["@midnight-ntwrk/midnight-js-contracts@4.0.2", "", { "dependencies": { "@midnight-ntwrk/compact-js": "2.5.0", "@midnight-ntwrk/midnight-js-network-id": "4.0.2", "@midnight-ntwrk/midnight-js-types": "4.0.2", "@midnight-ntwrk/midnight-js-utils": "4.0.2" } }, "sha512-mzUmelrhWEKR+f0uThgQb6IfQK+9LzOlWXlh74LjwuqDAIQgAuZZIXLuC1U58uYCTXVdmkJlmtQdORzXphJKOg=="],
 
     "@zswap-da/frontend-new/@midnight-ntwrk/midnight-js-network-id": ["@midnight-ntwrk/midnight-js-network-id@4.0.2", "", {}, "sha512-6XYxm267tZ6ckgMxp337QJkycxX9XqZT+3HdQGvR24Z/K7XLV9sR6Qyv2aPKquEk7nn0JhF4yKbiODw6VjfbuA=="],
-
-    "@zswap-da/frontend-new/mip-zswap-offer": ["mip-zswap-offer@github:effectstream/mip-zswap-offer#32377f4", { "peerDependencies": { "@midnight-ntwrk/ledger-v8": "*", "@noble/curves": "^1.0.0 || ^2.0.0", "@noble/hashes": "^1.0.0 || ^2.0.0", "@scure/base": "^1.1.0 || ^2.0.0" }, "optionalPeers": ["@midnight-ntwrk/ledger-v8"] }, "effectstream-mip-zswap-offer-32377f4", "sha512-pmokkKfv9IMm/Gp4NeBvoq3FleFt60NOgfk54zvSNJi76BgRUIUqfsulypICPGDpt0hVT04hruU+85jQR1ZOkw=="],
 
     "algosdk/js-sha3": ["js-sha3@0.8.0", "", {}, "sha512-gF1cRrHhIzNfToc802P800N8PpXS+evLLXfsVpowqmAFR9uwbi89WvXg2QspOmXL8QL86J4T1EpFu+yUkwJY3Q=="],
 

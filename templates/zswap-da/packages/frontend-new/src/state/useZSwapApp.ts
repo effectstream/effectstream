@@ -32,7 +32,7 @@ import { findTokenName, shortToken } from '../utils';
 import { log } from '../lib/log';
 import type { KnownToken, ZSwapOffer } from '../types';
 
-const NETWORK_ID = 'undeployed';
+const NETWORK_ID = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string) || 'undeployed';
 
 /** A single open swap offer, in the shape the order-book screen consumes. */
 export interface Order {
