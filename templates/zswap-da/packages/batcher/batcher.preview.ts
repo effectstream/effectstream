@@ -1,3 +1,10 @@
+/**
+ * Preview-network batcher: Midnight balancer + Celestia DA.
+ *
+ * Requires MIDNIGHT_NETWORK_ID=preview and BATCHER_WALLET_SEED set to a hex
+ * seed for a wallet that has dust on Midnight Preview. Use mnemonic-to-seed.ts
+ * to derive the seed from a 24-word phrase, then set BATCHER_WALLET_SEED in .env.
+ */
 import { main, suspend } from "effection";
 import {
   createNewBatcher,
@@ -14,9 +21,9 @@ const BALANCER_TARGET = "midnight-balancer";
 const CELESTIA_TARGET = "celestia";
 
 const batcherConfig = loadBatcherConfig();
-if (batcherConfig.midnight.id !== "undeployed") {
+if (batcherConfig.midnight.id !== "preview") {
   throw new Error(
-    `batcher.dev.ts requires MIDNIGHT_NETWORK_ID=undeployed, got "${batcherConfig.midnight.id}"`,
+    `batcher.preview.ts requires MIDNIGHT_NETWORK_ID=preview, got "${batcherConfig.midnight.id}"`,
   );
 }
 const midnightAdapter = createMidnightBalancingAdapter(batcherConfig);

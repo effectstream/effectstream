@@ -14,7 +14,7 @@ import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import { walletLogin, allInjectedWallets } from '@effectstream/wallets';
 import { api } from '../services/api';
 
-const NETWORK_ID = 'undeployed';
+const NETWORK_ID = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string) || 'undeployed';
 // @effectstream/wallets WalletMode is a numeric const enum (stable published
 // order): Midnight = 3. We use the literal to avoid a cross-module const-enum
 // import (disallowed under verbatimModuleSyntax / fragile at runtime).

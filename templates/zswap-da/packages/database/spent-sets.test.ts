@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
-// Verifies the 001-spent-sets migration + the spent_* queries end-to-end
-// against an in-memory PGlite served over the pg wire protocol — no Docker /
-// external Postgres needed. This is the regression guard for the hand-written
-// pgtyped IR (param offsets) and the migration SQL.
+// Verifies the nullifiers table (merged from seen_nullifiers + spent_nullifiers)
+// and its queries end-to-end against an in-memory PGlite served over the pg wire
+// protocol — no Docker / external Postgres needed. Regression guard for the
+// hand-written pgtyped IR (param offsets) and the migration SQL.
 process.env["DB_USER"] ??= "postgres";
 process.env["DB_NAME"] ??= "postgres";
 process.env["PGLITE_DATA_DIR"] ??= "memory://";
@@ -12,10 +12,11 @@ const { startPglite } = await import("@effectstream/db/start-pglite");
 const pg = (await import("pg")).default;
 const {
   migrationTable,
-  insertSpentNullifier,
+  upsertNullifier,
   isNullifierSpent,
-  insertSpentUnshielded,
-  isUnshieldedSpent,
+  markNullifierMatched,
+  findUnmatchedNullifier,
+  pruneStaleNullifiers,
 } = await import("@zswap-da/database");
 
 const PORT = 54329;
@@ -37,32 +38,42 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Close the server/DB without sending a client Terminate: PGlite's WASM
-  // throws when it processes the Terminate on socket teardown (a PGlite +
-  // pg-gateway + Bun quirk, unrelated to the assertions, which have run).
   try {
     await handle?.close();
   } catch { /* noop */ }
 });
 
-test("spent_nullifiers: insert then lookup, and absent lookup", async () => {
-  await insertSpentNullifier.run({ nullifier: "deadbeef", height: 7 }, client);
+test("upsertNullifier: insert then isNullifierSpent returns row, absent nullifier returns empty", async () => {
+  await upsertNullifier.run({ nullifier: "deadbeef", height: 7 }, client);
   expect((await isNullifierSpent.run({ nullifier: "deadbeef" }, client)).length).toBe(1);
   expect((await isNullifierSpent.run({ nullifier: "cafe" }, client)).length).toBe(0);
 });
 
-test("insertSpentNullifier is idempotent (ON CONFLICT DO NOTHING)", async () => {
-  await insertSpentNullifier.run({ nullifier: "dup", height: 1 }, client);
-  await insertSpentNullifier.run({ nullifier: "dup", height: 2 }, client);
+test("upsertNullifier is idempotent (ON CONFLICT DO NOTHING)", async () => {
+  await upsertNullifier.run({ nullifier: "dup", height: 1 }, client);
+  await upsertNullifier.run({ nullifier: "dup", height: 2 }, client);
   expect((await isNullifierSpent.run({ nullifier: "dup" }, client)).length).toBe(1);
 });
 
-test("spent_unshielded: triple insert then lookup, and partial-mismatch absent", async () => {
-  const ref = { owner: "owner1", intent_hash: "ih1", output_no: 3 };
-  await insertSpentUnshielded.run({ ...ref, height: 9 }, client);
-  expect((await isUnshieldedSpent.run(ref, client)).length).toBe(1);
-  // Same owner/intent but different output index must NOT match.
-  expect(
-    (await isUnshieldedSpent.run({ ...ref, output_no: 4 }, client)).length,
-  ).toBe(0);
+test("findUnmatchedNullifier: returns row when offer_matched=false, empty after markNullifierMatched", async () => {
+  await upsertNullifier.run({ nullifier: "early", height: 5 }, client);
+  expect((await findUnmatchedNullifier.run({ nullifier: "early" }, client)).length).toBe(1);
+  await markNullifierMatched.run({ nullifier: "early" }, client);
+  expect((await findUnmatchedNullifier.run({ nullifier: "early" }, client)).length).toBe(0);
+  // isNullifierSpent still returns the row (offer_matched=true is still a spent record)
+  expect((await isNullifierSpent.run({ nullifier: "early" }, client)).length).toBe(1);
+});
+
+test("pruneStaleNullifiers: removes unmatched rows older than cutoff, keeps matched rows", async () => {
+  await client.query(`
+    INSERT INTO nullifiers (nullifier, height, recorded_at, offer_matched)
+    VALUES
+      ('stale_unmatched', 1, NOW() - INTERVAL '31 days', false),
+      ('fresh_unmatched', 2, NOW(),                      false),
+      ('stale_matched',   3, NOW() - INTERVAL '31 days', true)
+  `);
+  await pruneStaleNullifiers.run({ cutoff_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, client);
+  expect((await isNullifierSpent.run({ nullifier: "stale_unmatched" }, client)).length).toBe(0);
+  expect((await isNullifierSpent.run({ nullifier: "fresh_unmatched" }, client)).length).toBe(1);
+  expect((await isNullifierSpent.run({ nullifier: "stale_matched" }, client)).length).toBe(1);
 });

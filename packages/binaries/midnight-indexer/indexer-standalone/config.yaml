@@ -44,8 +44,6 @@ infra:
         batch_size: 20
       dust_nullifier_transactions:
         batch_size: 20
-      shielded_nullifier_transactions:
-        batch_size: 20
       shielded_transactions:
         batch_size: 20
         progress_update_interval: "30s"

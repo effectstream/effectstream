@@ -18,7 +18,11 @@ export const BATCHER_SUBMIT_URL = getEnv("BATCHER_SUBMIT_URL") ??
 // 30s (≈2.5 blocks) is safe and cuts call volume ~5x vs the 6s devnet default.
 export const CELESTIA_POLLING_INTERVAL_MS = parseInt(
   getEnv("CELESTIA_POLLING_INTERVAL_MS") ??
-    (CELESTIA_NETWORK === "mainnet" ? "30000" : "6000"),
+    (CELESTIA_NETWORK === "mainnet"
+      ? "30000"
+      : CELESTIA_NETWORK === "mocha"
+        ? "3000"
+        : "6000"),
 );
 
 // celestia-node v0.30+ TxConfig. Each explicit field removes one consensus-gRPC
@@ -71,6 +75,15 @@ export const MIDNIGHT_NETWORK_ID = midnightNetworkConfig.id;
 // set generously so legitimate proof-bearing offers are never rejected.
 export const OFFER_MAX_BYTES = parseInt(
   getEnv("OFFER_MAX_BYTES") ?? String(1024 * 1024),
+);
+
+// TTL for unmatched nullifier/unshielded-spend rows (offer_matched=false).
+// These accumulate when Midnight events arrive before the matching Celestia
+// offer (early-arrival race), and also from Midnight-wide activity that will
+// never be matched here (other tokens, other namespaces). Default 30 days
+// matches the offer TTL; tune via env var.
+export const SEEN_NULLIFIER_TTL_SECONDS = parseInt(
+  getEnv("SEEN_NULLIFIER_TTL_SECONDS") ?? String(60 * 60 * 24 * 30),
 );
 
 // Retention window for the known-roots set used by the root-known liveness

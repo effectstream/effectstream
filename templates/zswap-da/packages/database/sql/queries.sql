@@ -341,69 +341,34 @@ DELETE FROM offer_file
 WHERE id IN (SELECT offer_file_id FROM matched)
 RETURNING id;
 
-/* @name UpsertSeenNullifier */
--- Persist a nullifier event that did not (yet) match any indexed offer,
--- so a later-arriving Celestia offer can reconcile against it.
-INSERT INTO seen_nullifiers (nullifier, first_seen_height)
-VALUES (:nullifier!, :first_seen_height!)
-ON CONFLICT (nullifier) DO NOTHING;
-
-/* @name FindSeenNullifier */
-SELECT nullifier, first_seen_height
-FROM seen_nullifiers
-WHERE nullifier = :nullifier!;
-
-/* @name DeleteSeenNullifier */
-DELETE FROM seen_nullifiers WHERE nullifier = :nullifier!;
-
-/* @name UpsertSeenUnshieldedSpend */
-INSERT INTO seen_unshielded_spends (owner, intent_hash, output_no, first_seen_height)
-VALUES (:owner!, :intent_hash!, :output_no!, :first_seen_height!)
-ON CONFLICT (owner, intent_hash, output_no) DO NOTHING;
-
-/* @name FindSeenUnshieldedSpend */
-SELECT owner, intent_hash, output_no, first_seen_height
-FROM seen_unshielded_spends
-WHERE owner = :owner!
-  AND intent_hash = :intent_hash!
-  AND output_no = :output_no!;
-
-/* @name DeleteSeenUnshieldedSpend */
-DELETE FROM seen_unshielded_spends
-WHERE owner = :owner!
-  AND intent_hash = :intent_hash!
-  AND output_no = :output_no!;
-
-/* @name InsertSpentNullifier */
--- Append-only record of an observed shielded nullifier spend. The offer
--- validator reads spent_nullifiers to reject offers referencing spent coins.
-INSERT INTO spent_nullifiers (nullifier, height)
+/* @name UpsertNullifier */
+INSERT INTO nullifiers (nullifier, height)
 VALUES (:nullifier!, :height!)
 ON CONFLICT (nullifier) DO NOTHING;
 
+/* @name MarkNullifierMatched */
+UPDATE nullifiers SET offer_matched = true WHERE nullifier = :nullifier!;
+
+/* @name FindUnmatchedNullifier */
+SELECT nullifier, height FROM nullifiers
+WHERE nullifier = :nullifier! AND offer_matched = false;
+
 /* @name IsNullifierSpent */
-SELECT 1 AS spent
-FROM spent_nullifiers
-WHERE nullifier = :nullifier!;
+SELECT 1 AS spent FROM nullifiers WHERE nullifier = :nullifier!;
 
-/* @name InsertSpentUnshielded */
--- Append-only record of an observed unshielded UTXO spend.
-INSERT INTO spent_unshielded (owner, intent_hash, output_no, height)
-VALUES (:owner!, :intent_hash!, :output_no!, :height!)
-ON CONFLICT (owner, intent_hash, output_no) DO NOTHING;
-
-/* @name IsUnshieldedSpent */
-SELECT 1 AS spent
-FROM spent_unshielded
-WHERE owner = :owner!
-  AND intent_hash = :intent_hash!
-  AND output_no = :output_no!;
+/* @name PruneStaleNullifiers */
+DELETE FROM nullifiers WHERE offer_matched = false AND recorded_at < :cutoff_at!;
 
 /* @name InsertCreatedUnshielded */
--- Append-only record of an unshielded UTXO created on chain (existence set).
 INSERT INTO created_unshielded (owner, intent_hash, output_no, height)
 VALUES (:owner!, :intent_hash!, :output_no!, :height!)
 ON CONFLICT (owner, intent_hash, output_no) DO NOTHING;
+
+/* @name DeleteCreatedUnshielded */
+DELETE FROM created_unshielded
+WHERE owner = :owner!
+  AND intent_hash = :intent_hash!
+  AND output_no = :output_no!;
 
 /* @name IsUnshieldedCreated */
 SELECT 1 AS present

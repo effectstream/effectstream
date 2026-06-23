@@ -40,6 +40,9 @@ export async function submitToBatcher(
         target: BATCHER_TARGET,
       },
       confirmationLevel: 'wait-receipt',
+      // Preview: balancing (dust proof) + chain inclusion can take 3-5 minutes.
+      // 600s gives enough headroom; the batcher's default 300s is too tight.
+      timeoutMs: 600_000,
     }),
   });
   const body = await res.json();

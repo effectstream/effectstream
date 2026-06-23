@@ -131,22 +131,18 @@ CREATE TABLE offer_file_unshielded_spends_history (
     archived_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Cross-chain race buffer: a Midnight consumption event can be processed
--- before the matching Celestia offer is indexed (re-sync, replay, clock
--- skew). Without persistence the event would be dropped, leaving the
--- offer permanently "active" until TTL. We persist every unmatched
--- consumption event here and reconcile at offer-index time.
-CREATE TABLE seen_nullifiers (
-    nullifier TEXT PRIMARY KEY,
-    first_seen_height BIGINT NOT NULL,
-    first_seen_at TIMESTAMPTZ DEFAULT NOW()
+-- Unified nullifier table (replaces seen_nullifiers + spent_nullifiers).
+-- offer_matched=true:  matched to an indexed offer — permanent record used
+--   by the validator to reject double-spend attempts.
+-- offer_matched=false: early-arrival race buffer (Midnight event arrived
+--   before the Celestia offer was indexed). Pruned by the midnight-nullifier
+--   STF after SEEN_NULLIFIER_TTL_SECONDS (default 30 days).
+CREATE TABLE nullifiers (
+    nullifier     TEXT        PRIMARY KEY,
+    height        BIGINT      NOT NULL,
+    recorded_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    offer_matched BOOLEAN     NOT NULL DEFAULT FALSE
 );
+CREATE INDEX idx_nullifiers_unmatched ON nullifiers (recorded_at)
+    WHERE offer_matched = false;
 
-CREATE TABLE seen_unshielded_spends (
-    owner TEXT NOT NULL,
-    intent_hash TEXT NOT NULL,
-    output_no INTEGER NOT NULL,
-    first_seen_height BIGINT NOT NULL,
-    first_seen_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (owner, intent_hash, output_no)
-);
