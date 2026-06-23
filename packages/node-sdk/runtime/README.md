@@ -84,11 +84,21 @@ default:
 EFFECTSTREAM_COALESCE_EMPTY_BLOCKS=true
 ```
 
+The lag threshold that defines "behind the chain tip" defaults to **20× the
+main clock's block time** (falling back to 60 s when no `blockTimeMS` is
+exposed by the network config). Override it with
+`EFFECTSTREAM_LAG_THRESHOLD_MS` (milliseconds), e.g. for chains whose main
+clock fires faster than the runtime can keep up with one transaction per block:
+
+```bash
+EFFECTSTREAM_LAG_THRESHOLD_MS=30000   # engage coalescing past 30 s of lag
+```
+
 Behavior and guarantees:
 
 - **Catch-up only.** Coalescing engages only while behind the chain tip
-  (`now - block.timestamp` greater than 10× the main clock's block time) and
-  disengages at the tip, so steady-state stays one block per transaction.
+  (`now - block.timestamp` greater than the lag threshold) and disengages at
+  the tip, so steady-state stays one block per transaction.
 - **Identical database.** A coalesced sync produces a byte-for-byte identical
   database to a non-coalesced one. Empty blocks already never advance the block
   hash or RNG seed, so only the endpoint's block row and the per-protocol resume

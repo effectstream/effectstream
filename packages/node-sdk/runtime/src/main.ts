@@ -33,7 +33,10 @@ import {
   type PendingEvent,
   processFinalizedBlockWithRetry,
 } from "./process-blocks.ts";
-import { createEmptyBlockCoalescer } from "./coalesce.ts";
+import {
+  createEmptyBlockCoalescer,
+  initMergeCoalescingBoundaries,
+} from "./coalesce.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import { recordAppliedBlock } from "./api/apply-status.ts";
 import { recordCoalesced } from "./api/stream-status.ts";
@@ -96,14 +99,15 @@ export function* start(config: StartConfig): Operation<void> {
     );
   });
 
-  // 10× main clock block time (NTP if present, else protocol 0).
+  // 20× main clock block time (NTP if present, else protocol 0).
   // Falls back to 60 s so coalescing is not silently disabled for chains that
   // don't expose a blockTimeMS on their network config (e.g. Midnight-as-main).
   const ntpConfig = syncInfo.find(s => s.networkType === ConfigNetworkType.NTP);
   const clockBlockTimeMS =
     (ntpConfig?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS ??
     (syncInfo[0]?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS;
-  const lagThresholdMs = clockBlockTimeMS != null ? clockBlockTimeMS * 10 : 60_000;
+  const lagThresholdMs = ENV.EFFECTSTREAM_LAG_THRESHOLD_MS ??
+    (clockBlockTimeMS != null ? clockBlockTimeMS * 20 : 60_000);
 
   // Bounded hand-off queue between the merge and the apply loop. Backpressure caps
   // the in-memory queue so deep catch-up can't grow it toward the whole backlog
@@ -354,6 +358,9 @@ function* startup(
       syncProtocols,
       viewStrategy,
     );
+
+    // Seed the merge loop's coalescing boundaries before any block is produced.
+    yield* initMergeCoalescingBoundaries(dbConn, lastBlockHeight + 1, config.migrations);
 
     return syncProtocols;
   } finally {

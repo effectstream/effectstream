@@ -397,7 +397,7 @@ export interface IGetEarliestScheduledBlockHeightQuery {
   result: IGetEarliestScheduledBlockHeightResult;
 }
 
-const getEarliestScheduledBlockHeightIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT MIN(rollup_input_future_block.future_block_height) AS min_block_height\nFROM effectstream.rollup_input_future_block\nLEFT OUTER JOIN effectstream.rollup_input_result\n  ON rollup_input_result.id = rollup_input_future_block.id\nWHERE rollup_input_result.id IS NULL"};
+const getEarliestScheduledBlockHeightIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT MIN(rollup_input_future_block.future_block_height) AS min_block_height\nFROM effectstream.rollup_input_future_block\nLEFT OUTER JOIN effectstream.rollup_input_result\n  ON rollup_input_result.id = rollup_input_future_block.id\nWHERE rollup_input_result.id IS NULL\n  AND rollup_input_future_block.future_block_height >\n    (SELECT COALESCE(MAX(block_height), 0) FROM effectstream.effectstream_blocks)"};
 
 /**
  * Query generated from SQL:
@@ -407,6 +407,8 @@ const getEarliestScheduledBlockHeightIR: any = {"usedParamSet":{},"params":[],"s
  * LEFT OUTER JOIN effectstream.rollup_input_result
  *   ON rollup_input_result.id = rollup_input_future_block.id
  * WHERE rollup_input_result.id IS NULL
+ *   AND rollup_input_future_block.future_block_height >
+ *     (SELECT COALESCE(MAX(block_height), 0) FROM effectstream.effectstream_blocks)
  * ```
  */
 export const getEarliestScheduledBlockHeight = new PreparedQuery<IGetEarliestScheduledBlockHeightParams,IGetEarliestScheduledBlockHeightResult>(getEarliestScheduledBlockHeightIR);

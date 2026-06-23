@@ -321,6 +321,13 @@ const definitions: Record<string, ConfigDefinition> = {
     description:
       "Fold consecutive empty catch-up blocks into one DB transaction when behind the chain tip. Default: false.",
   },
+  EFFECTSTREAM_LAG_THRESHOLD_MS: {
+    key: "EFFECTSTREAM_LAG_THRESHOLD_MS",
+    type: "number",
+    defaultValue: undefined,
+    description:
+      "Override the lag threshold (ms) that gates empty-block coalescing and lag logging. When unset, defaults to 20× the main clock's block time, falling back to 60 s when no blockTimeMS is exposed.",
+  },
   EFFECTSTREAM_FINALIZED_STREAM_CAP: {
     key: "EFFECTSTREAM_FINALIZED_STREAM_CAP",
     type: "number",
@@ -470,6 +477,11 @@ export class ENV {
   }
   static get EFFECTSTREAM_FINALIZED_STREAM_CAP(): number {
     return ENV.getConfig(definitions.EFFECTSTREAM_FINALIZED_STREAM_CAP);
+  }
+  static get EFFECTSTREAM_LAG_THRESHOLD_MS(): number | undefined {
+    const raw = getEnv(definitions.EFFECTSTREAM_LAG_THRESHOLD_MS.key);
+    if (raw == null || raw === "") return undefined;
+    return parseInt(raw, 10);
   }
 
   public static getConfig<T>(config: ConfigDefinition): T {

@@ -34,6 +34,7 @@ export type ChainBlock = {
     >
     & { source: string }
   )[];
+  coalescedCount?: number;
 };
 
 export const chainPageRelation: PageRelation<ChainPage> = {
