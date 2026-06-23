@@ -20,6 +20,7 @@
         "@e2e/engine": "workspace:*",
         "@e2e/evm-contracts": "workspace:*",
         "@e2e/near-contracts": "workspace:*",
+        "@e2e/solana": "workspace:*",
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
         "@effectstream/coroutine": "workspace:*",
@@ -400,6 +401,14 @@
         "viem": "2.37.3",
       },
     },
+    "e2e/solana": {
+      "name": "@e2e/solana",
+      "version": "0.1.0",
+      "dependencies": {
+        "@effectstream/solana-node": "workspace:*",
+        "wait-on": "*",
+      },
+    },
     "e2e/wallets-ui": {
       "name": "@e2e/wallets-ui",
       "version": "0.3.22",
@@ -614,6 +623,16 @@
       "version": "0.100.18",
       "bin": {
         "ord": "./index.js",
+      },
+      "dependencies": {
+        "@xhmikosr/bin-wrapper": "^5.0.0",
+      },
+    },
+    "packages/binaries/solana-node": {
+      "name": "@effectstream/solana-node",
+      "version": "0.100.18",
+      "bin": {
+        "solana-node": "./index.js",
       },
       "dependencies": {
         "@xhmikosr/bin-wrapper": "^5.0.0",
@@ -1241,6 +1260,8 @@
 
     "@e2e/root": ["@e2e/root@workspace:e2e"],
 
+    "@e2e/solana": ["@e2e/solana@workspace:e2e/solana"],
+
     "@e2e/wallets-ui": ["@e2e/wallets-ui@workspace:e2e/wallets-ui"],
 
     "@ecies/ciphers": ["@ecies/ciphers@0.2.6", "", { "peerDependencies": { "@noble/ciphers": "^1.0.0" } }, "sha512-patgsRPKGkhhoBjETV4XxD0En4ui5fbX0hzayqI3M8tvNMGUoUvmyYAIWwlxBc1KX5cturfqByYdj5bYGRpN9g=="],
@@ -1318,6 +1339,8 @@
     "@effectstream/runtime": ["@effectstream/runtime@workspace:packages/node-sdk/runtime"],
 
     "@effectstream/sm": ["@effectstream/sm@workspace:packages/node-sdk/sm"],
+
+    "@effectstream/solana-node": ["@effectstream/solana-node@workspace:packages/binaries/solana-node"],
 
     "@effectstream/sync": ["@effectstream/sync@workspace:packages/node-sdk/sync"],
 

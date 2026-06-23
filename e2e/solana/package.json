@@ -2,5 +2,13 @@
   "name": "@e2e/solana",
   "version": "0.1.0",
   "type": "module",
-  "private": true
+  "private": true,
+  "scripts": {
+    "chain:start": "bun ./node_modules/.bin/solana-node",
+    "chain:wait": "bun ./node_modules/.bin/wait-on tcp:8899"
+  },
+  "dependencies": {
+    "@effectstream/solana-node": "workspace:*",
+    "wait-on": "*"
+  }
 }

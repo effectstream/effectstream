@@ -8,7 +8,7 @@ const root = import.meta.dirname!;
 export default {
   processes: [
     ...launchPglite(),
-    ...launchSolana({ rpcPort: 8899, faucetPort: 9900 }),
+    ...launchSolana("@solana-starter/node", { resolveFrom: root }),
 
     {
       name: "sync",

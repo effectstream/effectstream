@@ -17,7 +17,7 @@ const bin = new BinWrapper()
   .src(`${base}/solana-release-x86_64-apple-darwin.tar.bz2`, 'darwin', 'x64')
   .src(`${base}/solana-release-aarch64-apple-darwin.tar.bz2`, 'darwin', 'arm64')
   .dest(dest)
-  .use('solana-release/bin/solana-test-validator');
+  .use('bin/solana-test-validator');
 
 export default bin;
 

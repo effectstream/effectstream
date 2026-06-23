@@ -1,4 +1,4 @@
-import { assert, runTest } from "@e2e/engine";
+import { assert } from "@e2e/engine";
 
 const SOLANA_RPC = "http://localhost:8899";
 
@@ -48,20 +48,20 @@ async function getBalance(address: string): Promise<number> {
 }
 
 export async function runToolingTests(): Promise<void> {
-  await runTest("Solana: validator is responding", async () => {
+  await assert("Solana: validator is responding", async () => {
     const slot = await getSlot();
-    assert(slot >= 0, `Expected slot >= 0, got ${slot}`);
+    return slot >= 0;
   });
 
-  await runTest("Solana: airdrop works", async () => {
+  await assert("Solana: airdrop works", async () => {
     const testAddress = "11111111111111111111111111111111";
     const sig = await airdrop(testAddress, 1_000_000_000);
-    assert(sig.length > 0, "Expected airdrop signature");
+    return sig.length > 0;
   });
 
-  await runTest("Solana: getBalance returns lamports", async () => {
+  await assert("Solana: getBalance returns lamports", async () => {
     const balance = await getBalance("11111111111111111111111111111111");
-    assert(typeof balance === "number", `Expected number balance, got ${typeof balance}`);
+    return typeof balance === "number";
   });
 
   console.log("Solana tooling tests passed.\n");

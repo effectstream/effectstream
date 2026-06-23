@@ -5,7 +5,7 @@ import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/la
 export default {
   processes: [
     ...launchPglite(),
-    ...launchSolana({ rpcPort: 8899, faucetPort: 9900 }),
+    ...launchSolana("@e2e/solana", { resolveFrom: import.meta.dirname! }),
 
     // ── Sync (the node) ──────────────────────────────────────────────────
     {

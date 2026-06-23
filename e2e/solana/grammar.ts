@@ -1,14 +1,10 @@
-import type { Grammar } from "@effectstream/sm";
+import { Type } from "@sinclair/typebox";
+import type { GrammarDefinition } from "@effectstream/concise";
 
 export const grammar = {
-  "solana-program-log": {
-    type: "event" as const,
-    parser: (data: any) => {
-      return {
-        slot: data.slot ?? data.payload?.slot ?? 0,
-        programId: data.programId ?? data.payload?.programId ?? "",
-        logMessages: data.logMessages ?? data.payload?.logMessages ?? [],
-      };
-    },
-  },
-} satisfies Grammar;
+  "solana-program-log": [
+    ["slot", Type.Number()],
+    ["programId", Type.String()],
+    ["logMessages", Type.Array(Type.String())],
+  ],
+} as const satisfies GrammarDefinition;

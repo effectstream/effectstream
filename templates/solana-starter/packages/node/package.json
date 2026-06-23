@@ -4,6 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start:dev": "bun run main.dev.ts"
+    "start:dev": "bun run main.dev.ts",
+    "chain:start": "bun ./node_modules/.bin/solana-node",
+    "chain:wait": "for i in $(seq 1 60); do curl -sf http://localhost:8899/health > /dev/null 2>&1 && exit 0; sleep 1; done; echo 'Solana validator failed to start'; exit 1"
   }
 }

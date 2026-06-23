@@ -18,6 +18,7 @@
     "@e2e/engine": "workspace:*",
     "@e2e/evm-contracts": "workspace:*",
     "@e2e/near-contracts": "workspace:*",
+    "@e2e/solana": "workspace:*",
     "@e2e/data-types": "workspace:*",
     "@effectstream/config": "workspace:*",
     "@effectstream/concise": "workspace:*",

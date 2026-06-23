@@ -1,40 +1,44 @@
 import type { ProcessConfig } from "../src/config.ts";
+import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
 
 export const SolanaNames = {
   SOLANA_VALIDATOR: "solana-validator",
   SOLANA_VALIDATOR_WAIT: "solana-validator-wait",
 } as const;
 
+const REQUIRED_SCRIPTS = {
+  "chain:start": "Start the Solana test validator",
+  "chain:wait": "Wait for the Solana validator RPC to be ready (e.g. tcp:8899)",
+} as const;
+
 export function launchSolana(
-  opts?: { rpcPort?: number; faucetPort?: number; reset?: boolean },
+  packageName: string,
+  location: ResolveLocation,
+  opts?: { ports?: number[] },
 ): ProcessConfig[] {
-  const rpcPort = opts?.rpcPort ?? 8899;
-  const faucetPort = opts?.faucetPort ?? 9900;
-  const reset = opts?.reset ?? true;
+  const cwd = resolvePackageDir(
+    "launchSolana",
+    packageName,
+    location,
+    REQUIRED_SCRIPTS,
+  );
+  const ports = opts?.ports ?? [8899, 9900];
 
   return [
     {
-      stopProcessAtPort: [rpcPort, faucetPort],
+      stopProcessAtPort: ports,
       name: SolanaNames.SOLANA_VALIDATOR,
-      description: "Start Solana test validator",
-      command: "bunx",
-      args: [
-        "@effectstream/solana-node",
-        "--rpc-port", String(rpcPort),
-        "--faucet-port", String(faucetPort),
-        ...(reset ? ["--reset"] : []),
-      ],
+      description: `Start Solana test validator (${packageName} chain:start)`,
+      cwd,
+      args: ["run", "chain:start"],
       waitToExit: false,
       critical: true,
     },
     {
       name: SolanaNames.SOLANA_VALIDATOR_WAIT,
-      description: "Wait for Solana test validator RPC to be ready",
-      command: "bash",
-      args: [
-        "-c",
-        `for i in $(seq 1 60); do curl -sf http://localhost:${rpcPort}/health > /dev/null 2>&1 && exit 0; sleep 1; done; echo "Solana validator failed to start"; exit 1`,
-      ],
+      description: `Wait for Solana validator RPC (${packageName} chain:wait)`,
+      cwd,
+      args: ["run", "chain:wait"],
       waitToExit: true,
       dependsOn: [SolanaNames.SOLANA_VALIDATOR],
     },
