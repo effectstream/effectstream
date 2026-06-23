@@ -13,6 +13,7 @@ const pg = (await import("pg")).default;
 const {
   migrationTable,
   insertCreatedUnshielded,
+  deleteCreatedUnshielded,
   isUnshieldedCreated,
   upsertKnownRoot,
   isKnownRoot,
@@ -51,6 +52,19 @@ test("created_unshielded insert is idempotent (ON CONFLICT DO NOTHING)", async (
   await insertCreatedUnshielded.run({ ...ref, height: 1 }, client);
   await insertCreatedUnshielded.run({ ...ref, height: 2 }, client);
   expect((await isUnshieldedCreated.run(ref, client)).length).toBe(1);
+});
+
+test("deleteCreatedUnshielded: spend removes the row (liveness check fails after)", async () => {
+  const ref = { owner: "spender", intent_hash: "ihspend", output_no: 0 };
+  await insertCreatedUnshielded.run({ ...ref, height: 5 }, client);
+  expect((await isUnshieldedCreated.run(ref, client)).length).toBe(1);
+  await deleteCreatedUnshielded.run(ref, client);
+  expect((await isUnshieldedCreated.run(ref, client)).length).toBe(0);
+});
+
+test("deleteCreatedUnshielded on absent row is a no-op", async () => {
+  await deleteCreatedUnshielded.run({ owner: "ghost", intent_hash: "ih", output_no: 0 }, client);
+  // no error thrown
 });
 
 test("known_roots: upsert, present lookup, absent lookup", async () => {

@@ -73,6 +73,15 @@ export const OFFER_MAX_BYTES = parseInt(
   getEnv("OFFER_MAX_BYTES") ?? String(1024 * 1024),
 );
 
+// TTL for unmatched nullifier/unshielded-spend rows (offer_matched=false).
+// These accumulate when Midnight events arrive before the matching Celestia
+// offer (early-arrival race), and also from Midnight-wide activity that will
+// never be matched here (other tokens, other namespaces). Default 30 days
+// matches the offer TTL; tune via env var.
+export const SEEN_NULLIFIER_TTL_SECONDS = parseInt(
+  getEnv("SEEN_NULLIFIER_TTL_SECONDS") ?? String(60 * 60 * 24 * 30),
+);
+
 // Retention window for the known-roots set used by the root-known liveness
 // check: roots last seen older than this are pruned (mirroring the ledger's
 // `past_roots`). Keep it ≥ the chain's on-chain root window or legitimate

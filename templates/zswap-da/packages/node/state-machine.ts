@@ -10,6 +10,7 @@ import { AddressType } from "@effectstream/utils";
 import { getBlankRefState, validateZswapOffer } from "@zswap-da/validator";
 
 import {
+  insertKnownToken,
   insertOfferFile,
   insertOfferFileNullifier,
   insertOfferFileUnshieldedSpend,
@@ -17,17 +18,13 @@ import {
   archiveOfferByNullifier,
   archiveOfferByUnshieldedSpend,
   archiveOfferByIdTtl,
-  upsertSeenNullifier,
-  findSeenNullifier,
-  deleteSeenNullifier,
-  upsertSeenUnshieldedSpend,
-  findSeenUnshieldedSpend,
-  deleteSeenUnshieldedSpend,
-  insertSpentNullifier,
+  upsertNullifier,
+  markNullifierMatched,
+  findUnmatchedNullifier,
+  pruneStaleNullifiers,
   isNullifierSpent,
-  insertSpentUnshielded,
-  isUnshieldedSpent,
   insertCreatedUnshielded,
+  deleteCreatedUnshielded,
   isUnshieldedCreated,
   upsertKnownRoot,
   isKnownRoot,
@@ -64,6 +61,7 @@ import {
   OFFER_MAX_BYTES,
   OFFER_TTL_SECONDS,
   ROOT_WINDOW_SECONDS,
+  SEEN_NULLIFIER_TTL_SECONDS,
 } from "./env.ts";
 
 // Normalize a value that may be a Uint8Array or a hex string into lowercase
@@ -112,10 +110,10 @@ stm.addStateTransition("midnight-nullifier", function* (data) {
   const { nullifier } = payload;
 
   try {
-    // Record the spend permanently (append-only) so the offer validator can
-    // reject offers that reference this now-consumed coin. Done on every event,
-    // matched or not, so spent_nullifiers is a superset of seen_nullifiers.
-    yield* World.resolve(insertSpentNullifier, {
+    // Upsert into the unified nullifiers table. offer_matched=false initially;
+    // if the offer was already indexed (or is indexed later), it gets flipped
+    // to true via markNullifierMatched.
+    yield* World.resolve(upsertNullifier, {
       nullifier,
       height: data.blockHeight,
     });
@@ -124,27 +122,28 @@ stm.addStateTransition("midnight-nullifier", function* (data) {
       nullifier,
     });
     if (archived.length === 0) {
-      // No offer indexed yet — could be a cross-chain ordering race
-      // (Midnight consumption replayed before the Celestia publish, e.g.
-      // during re-sync). Persist so celestia-zswap can reconcile at index
-      // time. We use the Midnight block height as `first_seen_height`.
-      yield* World.resolve(upsertSeenNullifier, {
-        nullifier,
-        first_seen_height: data.blockHeight,
-      });
+      // No offer indexed yet — early-arrival race. The row stays in
+      // nullifiers with offer_matched=false; celestia-zswap will flip it
+      // when the offer arrives. TTL prune (below) cleans up strays.
       console.log(
-        "[MIDNIGHT] Nullifier not matched yet — buffered in seen_nullifiers",
+        "[MIDNIGHT] Nullifier not matched yet — buffered in nullifiers",
         nullifier,
       );
-      return;
+    } else {
+      // Flip to matched so the row survives TTL prune.
+      yield* World.resolve(markNullifierMatched, { nullifier });
+      console.log("[MIDNIGHT] Archived offer(s) for nullifier", nullifier, archived);
+      for (const row of archived) {
+        emitAppEvent({ type: "offer_consumed", offerId: row.id, nullifier });
+      }
     }
-    console.log("[MIDNIGHT] Archived offer(s) for nullifier", nullifier, archived);
-    // One event per archived offer — multiple offers can share a nullifier.
-    // Note: `offer_consumed` here conflates *filled* (the swap completed)
-    // and *canceled* (maker spent the coin elsewhere); the indexer watches
-    // input nullifiers only, not output commitments.
-    for (const row of archived) {
-      emitAppEvent({ type: "offer_consumed", offerId: row.id, nullifier });
+
+    // Throttled prune: fire roughly once per ~1000 nullifier events to keep
+    // the table lean without hammering the DB on every event. Not exact —
+    // blockHeight is a proxy for "periodic enough".
+    if (data.blockHeight % 1000 === 0) {
+      const cutoff = new Date(Date.now() - SEEN_NULLIFIER_TTL_SECONDS * 1000);
+      yield* World.resolve(pruneStaleNullifiers, { cutoff_at: cutoff });
     }
   } catch (e) {
     console.error("[MIDNIGHT] Failed to archive offer for nullifier", nullifier, e);
@@ -173,13 +172,13 @@ stm.addStateTransition("midnight-unshielded-spend", function* (data) {
   }
 
   try {
-    // Record the spend permanently for the offer validator's liveness check
-    // (see midnight-nullifier handler). Superset of seen_unshielded_spends.
-    yield* World.resolve(insertSpentUnshielded, {
+    // Delete from created_unshielded — the row's absence is the "spent" signal.
+    // If no offer is currently indexed for this UTXO, the delete is still
+    // correct: a later Celestia offer will see no row and be rejected.
+    yield* World.resolve(deleteCreatedUnshielded, {
       owner,
       intent_hash: intentHash,
       output_no: outputNo,
-      height: data.blockHeight,
     });
 
     const archived = yield* World.resolve(archiveOfferByUnshieldedSpend, {
@@ -188,33 +187,23 @@ stm.addStateTransition("midnight-unshielded-spend", function* (data) {
       output_no: outputNo,
     });
     if (archived.length === 0) {
-      // Early-arrival race: buffer so a later-arriving Celestia offer
-      // can reconcile. See midnight-nullifier handler for context.
-      yield* World.resolve(upsertSeenUnshieldedSpend, {
-        owner,
-        intent_hash: intentHash,
-        output_no: outputNo,
-        first_seen_height: data.blockHeight,
-      });
       console.log(
-        "[MIDNIGHT] Unshielded spend not matched yet — buffered in seen_unshielded_spends",
+        "[MIDNIGHT] Unshielded spend — no active offer matched",
         { owner, intentHash, outputNo },
       );
-      return;
-    }
-    console.log(
-      "[MIDNIGHT] Archived offer(s) for unshielded spend",
-      { owner, intentHash, outputNo },
-      archived,
-    );
-    // One event per archived offer — see midnight-nullifier for the
-    // CONSUMED-conflates-filled-and-canceled caveat.
-    for (const row of archived) {
-      emitAppEvent({
-        type: "offer_consumed",
-        offerId: row.id,
-        unshieldedSpend: { owner, intentHash, outputNo },
-      });
+    } else {
+      console.log(
+        "[MIDNIGHT] Archived offer(s) for unshielded spend",
+        { owner, intentHash, outputNo },
+        archived,
+      );
+      for (const row of archived) {
+        emitAppEvent({
+          type: "offer_consumed",
+          offerId: row.id,
+          unshieldedSpend: { owner, intentHash, outputNo },
+        });
+      }
     }
   } catch (e) {
     console.error(
@@ -344,34 +333,20 @@ stm.addStateTransition("celestia-zswap", function* (data) {
       return;
     }
   }
-  for (const s of unshieldedSpends) {
-    const spent = yield* World.resolve(isUnshieldedSpent, s);
-    if (spent.length > 0) {
-      console.warn("[ZSWAP] Rejected offer: unshielded UTXO already spent", {
-        ...s,
-        celestiaHeight: data.blockHeight,
-      });
-      emitAppEvent({
-        type: "offer_rejected",
-        code: "UTXO_SPENT",
-        celestiaHeight: data.blockHeight,
-      });
-      return;
-    }
-  }
-
-  // ── Existence: drop offers referencing an unshielded UTXO the chain never
-  // created (midnight-unshielded-create populates created_unshielded). ──
+  // ── Existence + liveness for unshielded UTXOs ──
+  // created_unshielded is a live-set: midnight-unshielded-create inserts,
+  // midnight-unshielded-spend deletes. A missing row means either the UTXO
+  // was never created OR it has already been spent — both mean reject.
   for (const s of unshieldedSpends) {
     const created = yield* World.resolve(isUnshieldedCreated, s);
     if (created.length === 0) {
-      console.warn("[ZSWAP] Rejected offer: unshielded UTXO never created", {
+      console.warn("[ZSWAP] Rejected offer: unshielded UTXO not live (never created or already spent)", {
         ...s,
         celestiaHeight: data.blockHeight,
       });
       emitAppEvent({
         type: "offer_rejected",
-        code: "UTXO_UNKNOWN",
+        code: "UTXO_NOT_LIVE",
         celestiaHeight: data.blockHeight,
       });
       return;
@@ -453,36 +428,38 @@ stm.addStateTransition("celestia-zswap", function* (data) {
       });
     }
 
+    // ── Auto-register new token colors ──
+    // Any token color appearing in this offer that isn't already in
+    // known_tokens gets a placeholder entry. ON CONFLICT DO NOTHING means
+    // existing entries (including the pre-seeded native_* tokens) are never
+    // overwritten. kind is always 'shielded': ZSwap offers are structurally
+    // shielded-only; unshielded tokens only appear inside Intent structures.
+    const seenColors = new Set<string>();
+    for (const t of [...gives, ...wants]) {
+      if (seenColors.has(t.token)) continue;
+      seenColors.add(t.token);
+      yield* World.resolve(insertKnownToken, {
+        token_color: t.token,
+        name: `${t.token.slice(0, 3)}...${t.token.slice(-3)}`,
+        kind: "shielded",
+      });
+    }
+
     // ── Reconcile against early-arrival buffer ──
     // If a Midnight consumption event was processed before this offer was
-    // indexed (race during re-sync / replay), it lives in seen_* tables.
-    // Archive the offer immediately so it doesn't get served as active.
+    // indexed (race during re-sync / replay), the nullifier row exists with
+    // offer_matched=false. Archive immediately and flip to matched so the
+    // row persists as a permanent validator record.
     let archivedEarly = false;
     for (const nullifierStr of nullifierStrs) {
-      const seen = yield* World.resolve(findSeenNullifier, { nullifier: nullifierStr });
+      const seen = yield* World.resolve(findUnmatchedNullifier, { nullifier: nullifierStr });
       if (seen.length === 0) continue;
       const archived = yield* World.resolve(archiveOfferByNullifier, { nullifier: nullifierStr });
-      yield* World.resolve(deleteSeenNullifier, { nullifier: nullifierStr });
+      yield* World.resolve(markNullifierMatched, { nullifier: nullifierStr });
       for (const row of archived) {
         emitAppEvent({ type: "offer_consumed", offerId: row.id, nullifier: nullifierStr });
       }
       if (archived.length > 0) archivedEarly = true;
-    }
-    if (!archivedEarly) {
-      for (const s of unshieldedSpends) {
-        const seen = yield* World.resolve(findSeenUnshieldedSpend, s);
-        if (seen.length === 0) continue;
-        const archived = yield* World.resolve(archiveOfferByUnshieldedSpend, s);
-        yield* World.resolve(deleteSeenUnshieldedSpend, s);
-        for (const row of archived) {
-          emitAppEvent({
-            type: "offer_consumed",
-            offerId: row.id,
-            unshieldedSpend: { owner: s.owner, intentHash: s.intent_hash, outputNo: s.output_no },
-          });
-        }
-        if (archived.length > 0) archivedEarly = true;
-      }
     }
     if (archivedEarly) {
       console.log(
