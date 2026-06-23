@@ -18,7 +18,11 @@ export const BATCHER_SUBMIT_URL = getEnv("BATCHER_SUBMIT_URL") ??
 // 30s (≈2.5 blocks) is safe and cuts call volume ~5x vs the 6s devnet default.
 export const CELESTIA_POLLING_INTERVAL_MS = parseInt(
   getEnv("CELESTIA_POLLING_INTERVAL_MS") ??
-    (CELESTIA_NETWORK === "mainnet" ? "30000" : "6000"),
+    (CELESTIA_NETWORK === "mainnet"
+      ? "30000"
+      : CELESTIA_NETWORK === "mocha"
+        ? "3000"
+        : "6000"),
 );
 
 // celestia-node v0.30+ TxConfig. Each explicit field removes one consensus-gRPC
