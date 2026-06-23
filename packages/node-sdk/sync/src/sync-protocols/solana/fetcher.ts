@@ -116,9 +116,11 @@ export class SolanaFetcher extends BaseDataFetcher<
       transactions: {
         transaction: {
           message: { accountKeys: string[] };
+          signatures: string[];
         };
         meta: {
           logMessages: string[] | null;
+          postBalances: number[];
         };
       }[];
     },
@@ -137,43 +139,68 @@ export class SolanaFetcher extends BaseDataFetcher<
       txIndex++
     ) {
       const tx = block.transactions[txIndex];
+      const accountKeys = tx.transaction.message.accountKeys;
       const logs = tx.meta.logMessages ?? [];
+      const postBalances = tx.meta.postBalances ?? [];
+      const txHash = tx.transaction.signatures[0] ?? "";
 
       for (const entry of primitiveEntries) {
         const prim = entry.primitive;
 
-        // Check if this transaction involves the primitive's programId
-        const involvesProgram = tx.transaction.message.accountKeys.includes(
-          prim.programId,
-        );
-        if (!involvesProgram) continue;
-
-        // Filter by eventType if specified
-        if (prim.eventType) {
-          const hasMatchingLog = logs.some((log) =>
-            log.includes(prim.eventType!)
-          );
-          if (!hasMatchingLog) continue;
+        // ── SOLANA:AccountBalance — watch an address's lamport balance ──
+        if (prim.address) {
+          const idx = accountKeys.indexOf(prim.address);
+          if (idx === -1) continue;
+          allPrimitives.push({
+            syncProtocol: {
+              name: entry.syncProtocol,
+              blockNumber: slot,
+              transactionHash: txHash,
+              contractAddress: prim.address,
+              logIndex: txIndex,
+            },
+            primitive: prim.name,
+            output: {
+              payloadType: "solana:balance",
+              payload: {
+                address: prim.address,
+                lamports: postBalances[idx] ?? 0,
+                slot,
+              },
+            },
+          });
+          continue;
         }
 
-        allPrimitives.push({
-          syncProtocol: {
-            name: entry.syncProtocol,
-            blockNumber: slot,
-            transactionHash: tx.transaction.message.accountKeys[0] ?? "",
-            contractAddress: prim.programId,
-            logIndex: txIndex,
-          },
-          primitive: prim.name,
-          output: {
-            payloadType: "solana:transaction",
-            payload: {
-              programId: prim.programId,
-              slot,
-              logMessages: logs,
+        // ── SOLANA:ProgramLog — scrape logs for a watched programId ──
+        if (prim.programId) {
+          if (!accountKeys.includes(prim.programId)) continue;
+          // Filter by eventType if specified
+          if (prim.eventType) {
+            const hasMatchingLog = logs.some((log) =>
+              log.includes(prim.eventType!)
+            );
+            if (!hasMatchingLog) continue;
+          }
+          allPrimitives.push({
+            syncProtocol: {
+              name: entry.syncProtocol,
+              blockNumber: slot,
+              transactionHash: txHash,
+              contractAddress: prim.programId,
+              logIndex: txIndex,
             },
-          },
-        });
+            primitive: prim.name,
+            output: {
+              payloadType: "solana:transaction",
+              payload: {
+                programId: prim.programId,
+                slot,
+                logMessages: logs,
+              },
+            },
+          });
+        }
       }
     }
 

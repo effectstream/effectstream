@@ -28,6 +28,12 @@ export const ConfigSyncProtocolSchemaSolanaBase = NameField.cloneMerge(
   }),
   optional: Type.Object({
     stepSize: Type.Number({ default: 10 }),
+    /**
+     * Number of slots to stay behind the chain tip before a slot is eligible
+     * for sync — the finality vs. latency knob. Higher = safer against reorgs,
+     * lower = faster. Defaults to 32 (~12.8s at 400ms slots).
+     */
+    confirmationDepth: Type.Number({ default: 32 }),
   }),
 })
 

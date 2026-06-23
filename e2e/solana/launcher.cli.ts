@@ -20,5 +20,19 @@ export default {
         SolanaNames.SOLANA_VALIDATOR_WAIT,
       ],
     },
+
+    // ── Batcher (fee-payer sponsor) ──────────────────────────────────────
+    {
+      name: "batcher",
+      description: "E2E Solana fee-payer sponsor batcher",
+      stopProcessAtPort: [3334],
+      args: ["run", "e2e/solana/batcher/main.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      env: { PGLITE: "true" },
+      dependsOn: [
+        SolanaNames.SOLANA_VALIDATOR_WAIT,
+      ],
+    },
   ],
 } satisfies OrchestratorConfig;

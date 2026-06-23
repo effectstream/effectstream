@@ -36,6 +36,8 @@ export { EffectstreamL2DefaultAdapter } from "./adapters/effectstream-l2-adapter
 export { MidnightAdapter } from "./adapters/midnight-adapter.ts";
 export { MidnightBalancingAdapter } from "./adapters/midnight-balancing-adapter.ts";
 export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./adapters/bitcoin-adapter.ts";
+export { SolanaAdapter } from "./adapters/solana-adapter.ts";
+export type { SolanaAdapterConfig, SolanaBatchPayload } from "./adapters/solana-adapter.ts";
 export { parseCircuitArgs } from "./adapters/mod.ts";
 export {
   EvmContractAdapter,

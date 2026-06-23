@@ -8,10 +8,10 @@ const stm = new Stm<typeof grammar, {}>(grammar);
 
 stm.addStateTransition("solana-program-log", function* (data) {
   const { parsedInput, blockHeight } = data;
-  const { slot, program_id, log_messages } = parsedInput;
+  const { slot, programId, logMessages } = parsedInput;
 
   console.log(
-    `[STM] solana-program-log: block=${blockHeight} slot=${slot} program=${program_id} logs=${log_messages.length}`,
+    `[STM] solana-program-log: block=${blockHeight} slot=${slot} program=${programId} logs=${logMessages.length}`,
   );
 
   // Example: store in a user table or process further

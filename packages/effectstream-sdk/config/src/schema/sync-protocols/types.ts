@@ -131,10 +131,12 @@ type NearPrimitive = BasePrimitive & {  /** NEAR account ID of the contract to w
 type NtpMainPrimitive = BasePrimitive & {};
 
 type SolanaPrimitive = BasePrimitive & {
-  /** Solana program ID to watch for logs or account changes */
-  programId: string;
-  /** Optional event type label used to filter log lines */
+  /** Program ID to watch for logs (SOLANA:ProgramLog primitive). */
+  programId?: string;
+  /** Optional event type label used to filter log lines. */
   eventType?: string;
+  /** Account address to watch for balance changes (SOLANA:AccountBalance primitive). */
+  address?: string;
 }
 
 export type BitcoinPrimitiveDirection = "inputs" | "outputs" | "both";

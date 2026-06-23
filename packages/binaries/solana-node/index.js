@@ -23,7 +23,7 @@ export default bin;
 
 const DEFAULT_CONFIG = `
 rpc_port=8899
-rpc_bind_address=0.0.0.0
+rpc_bind_address=127.0.0.1
 `;
 
 export async function run(options = {}) {
@@ -53,7 +53,7 @@ export async function run(options = {}) {
     '--ledger', ledgerDir,
     '--rpc-port', String(rpcPort),
     '--faucet-port', String(faucetPort),
-    '--bind-address', '0.0.0.0',
+    '--bind-address', '127.0.0.1',
   ];
 
   if (reset) {

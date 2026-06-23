@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@sinclair/typebox": "0.34.41",
+    "@solana/web3.js": "^1.95.0",
+    "bs58": "^6.0.0",
     "viem": "^2.21.3",
     "effection": "^3.5.0",
     "fastify": "^5.4.0",

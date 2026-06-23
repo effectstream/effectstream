@@ -47,6 +47,10 @@ export type { NearAdapterConfig, NearBatchPayload } from "./near-adapter.ts";
 export { NearIntentAdapter } from "./near-intent-adapter.ts";
 export type { NearIntentAdapterConfig, NearIntentBatch } from "./near-intent-adapter.ts";
 
+// Solana adapter implementation (fee-payer sponsor)
+export { SolanaAdapter } from "./solana-adapter.ts";
+export type { SolanaAdapterConfig, SolanaBatchPayload } from "./solana-adapter.ts";
+
 // Celestia adapter implementation
 export { CelestiaAdapter } from "./celestia-adapter.ts";
 export type {

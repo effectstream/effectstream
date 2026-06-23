@@ -180,18 +180,4 @@ export class SolanaProvider implements IProvider<SolanaApi> {
       address: this.address,
     };
   }
-
-  /**
-   * Sign a partial transaction for the batcher (dust sponsor flow).
-   * The transaction should have a dummy fee payer; the batcher or
-   * capacity exchange server will replace it.
-   */
-  async signTransaction(txBase58: string): Promise<string> {
-    if (!this.connection.api.signTransaction) {
-      throw new Error("Wallet does not support signTransaction");
-    }
-    const tx = Buffer.from(txBase58, "base64");
-    const signed = await this.connection.api.signTransaction(tx);
-    return Buffer.from(signed as Uint8Array).toString("base64");
-  }
 }

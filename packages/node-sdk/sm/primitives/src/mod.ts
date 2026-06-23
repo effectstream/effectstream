@@ -16,6 +16,8 @@ import {
   PrimitiveTypeNEARIntent,
   PrimitiveTypeNEARGeneric,
   PrimitiveTypeNEARAccountWatch,
+  PrimitiveTypeSolanaProgramLog,
+  PrimitiveTypeSolanaAccountBalance,
   PrimitiveTypeCardanoMintBurn,
   PrimitiveTypeCardanoTransfer,
   PrimitiveTypeCardanoPoolDelegation,
@@ -41,6 +43,8 @@ import { Nep245Primitive } from "./near-nep245/nep245-primitive.ts";
 import { NearIntentPrimitive } from "./near-intent/near-intent-primitive.ts";
 import { NearGenericPrimitive } from "./near-generic/near-generic-primitive.ts";
 import { NearAccountWatchPrimitive } from "./near-account-watch/near-account-watch-primitive.ts";
+import { SolanaProgramLogPrimitive } from "./solana-program-log/solana-program-log-primitive.ts";
+import { SolanaAccountBalancePrimitive } from "./solana-account-balance/solana-account-balance-primitive.ts";
 import { CardanoMintBurnPrimitive } from "./cardano-mint-burn/mint-burn-primitive.ts";
 import { CardanoTransferPrimitive } from "./cardano-transfer/transfer-primitive.ts";
 import { CardanoPoolDelegationPrimitive } from "./cardano-pool-delegation/pool-delegation-primitive.ts";
@@ -66,6 +70,8 @@ const builtInPrimitivesMap = {
   [PrimitiveTypeNEARIntent]: NearIntentPrimitive,
   [PrimitiveTypeNEARGeneric]: NearGenericPrimitive,
   [PrimitiveTypeNEARAccountWatch]: NearAccountWatchPrimitive,
+  [PrimitiveTypeSolanaProgramLog]: SolanaProgramLogPrimitive,
+  [PrimitiveTypeSolanaAccountBalance]: SolanaAccountBalancePrimitive,
   [PrimitiveTypeCardanoMintBurn]: CardanoMintBurnPrimitive,
   [PrimitiveTypeCardanoTransfer]: CardanoTransferPrimitive,
   [PrimitiveTypeCardanoPoolDelegation]: CardanoPoolDelegationPrimitive,

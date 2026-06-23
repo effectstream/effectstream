@@ -9,6 +9,9 @@
   },
   "dependencies": {
     "@effectstream/solana-node": "workspace:*",
+    "@solana/web3.js": "^1.95.0",
+    "@effectstream/batcher-sdk": "workspace:*",
+    "bs58": "^6.0.0",
     "wait-on": "*"
   }
 }

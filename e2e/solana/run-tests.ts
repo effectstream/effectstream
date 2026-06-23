@@ -24,8 +24,10 @@ import path from "path";
 
 // Test modules
 import { runToolingTests } from "./tooling/sandbox-launch.test.ts";
+import { runWalletTransferTest } from "./sync/wallet-transfer.test.ts";
 import { runAccountBalanceTest } from "./sync/account-balance.test.ts";
 import { runProgramLogTest } from "./sync/program-logs.test.ts";
+import { runBatcherTest } from "./sync/batcher.test.ts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 
@@ -54,6 +56,7 @@ async function test() {
     console.log("Solana validator ready.\n");
 
     await runToolingTests();
+    await runWalletTransferTest();
 
     await waitForProcess("sync");
     await waitForHealth();
@@ -62,6 +65,10 @@ async function test() {
 
     db = getDBConnection();
     await runSyncTests(db);
+
+    console.log("\n--- Phase 3: Batcher Tests ---\n");
+    await waitForProcess("batcher");
+    await runBatcherTest(db);
 
     printSummary();
   } catch (e) {
