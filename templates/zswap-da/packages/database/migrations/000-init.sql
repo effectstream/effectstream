@@ -1,7 +1,7 @@
 CREATE TABLE known_tokens (
     id SERIAL PRIMARY KEY,
     token_color TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
+    name TEXT UNIQUE NOT NULL,
     kind TEXT NOT NULL CHECK (kind IN ('shielded', 'unshielded'))
 );
 
@@ -88,7 +88,9 @@ CREATE TABLE offer_file_history (
     created_at TIMESTAMPTZ,
     -- Copy of the TTL (in seconds) that was active for the original offer.
     ttl_seconds BIGINT,
-    -- Reason why this offer was moved out of the main table.
+    -- Reason why this offer was moved out of the main table:
+    --   'CONSUMED' — input coin spent on Midnight (fill or cancel).
+    --   'TTL'      — scheduled cleanup timer fired.
     --   'CONSUMED' — one of the offer's inputs was spent on Midnight. This
     --     conflates *filled* (the offer's intended swap completed) and
     --     *canceled* (the maker spent the coin elsewhere) — the indexer
@@ -106,6 +108,10 @@ CREATE TABLE offer_file_history (
     archived_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- trade-data.ts HISTORY_SQL: WHERE archive_reason = 'CONSUMED' ORDER BY archived_at DESC LIMIT 120
+CREATE INDEX IF NOT EXISTS idx_offer_file_history_reason_archived_at
+    ON offer_file_history (archive_reason, archived_at DESC);
+
 CREATE TABLE offer_file_tokens_history (
     id SERIAL PRIMARY KEY,
     offer_file_id INTEGER NOT NULL,
@@ -114,6 +120,9 @@ CREATE TABLE offer_file_tokens_history (
     direction TEXT NOT NULL,
     archived_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_offer_file_tokens_history_offer_file_id
+    ON offer_file_tokens_history (offer_file_id);
 
 CREATE TABLE offer_file_nullifiers_history (
     id SERIAL PRIMARY KEY,

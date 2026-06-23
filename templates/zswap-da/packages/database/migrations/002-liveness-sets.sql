@@ -25,3 +25,9 @@ CREATE TABLE known_roots (
     height BIGINT NOT NULL,
     last_seen_ms BIGINT NOT NULL
 );
+
+-- PruneKnownRoots runs every ~6 s (once per Midnight block) with:
+--   DELETE WHERE last_seen_ms < :cutoff AND height < (SELECT MAX(height) ...)
+-- Default window is 14 days at 1 root/6 s = ~201 600 rows — must be indexed.
+CREATE INDEX IF NOT EXISTS idx_known_roots_last_seen_ms ON known_roots (last_seen_ms);
+CREATE INDEX IF NOT EXISTS idx_known_roots_height       ON known_roots (height);

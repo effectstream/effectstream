@@ -17,6 +17,7 @@ import { getBlankRefState, validateZswapOffer } from "@zswap-da/validator";
 import { eventBus, emitAppEvent } from "./event-bus.ts";
 import { quote, buildDepth } from "./market-mock.ts";
 import { realStats, realHistory } from "./trade-data.ts";
+import { getSyncStatus } from "./sync-health.ts";
 
 // ─── API Router ───────────────────────────────────────────────────────────────
 
@@ -206,6 +207,14 @@ export const apiRouter: StartConfigApiRouter = async function (
       proofServerUri: midnightNetworkConfig.proofServer,
       networkId: midnightNetworkConfig.id,
     };
+  });
+
+  // GET /api/health/sync — per-protocol sync state (current block, tip, lag).
+  // Uses effectstream.effectstream_blocks for NTP and
+  // effectstream.sync_protocol_pagination for parallel chains.
+  // Chain tips are fetched from the Midnight indexer / Celestia RPC and cached 60 s.
+  server.get("/api/health/sync", async () => {
+    return getSyncStatus(dbConn);
   });
 
   // POST /api/zswap/submit — fully validate a `zswapoffer1…` blob, then forward
