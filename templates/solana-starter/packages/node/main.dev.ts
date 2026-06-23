@@ -7,6 +7,7 @@ import {
 import { config } from "./config.dev.ts";
 import { grammar } from "./grammar.ts";
 import { gameStateTransitions } from "./state-machine.ts";
+import createTables from "./database/migrations/create-tables.sql" with { type: "text" };
 
 main(function* () {
   yield* init();
@@ -16,6 +17,7 @@ main(function* () {
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
       gameStateTransitions,
+      migrations: [{ name: "create-tables", sql: createTables }],
       grammar,
     });
   });

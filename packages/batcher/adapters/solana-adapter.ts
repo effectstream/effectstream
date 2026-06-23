@@ -16,6 +16,11 @@ import {
 } from "@solana/web3.js";
 import bs58 from "bs58";
 
+/** Solana ComputeBudget program — wallets add priority-fee instructions here. */
+const COMPUTE_BUDGET_PROGRAM_ID = new PublicKey(
+  "ComputeBudget111111111111111111111111111111",
+);
+
 export interface SolanaBatchPayload {
   /** Base64-encoded, user-partially-signed serialized transactions */
   transactions: string[];
@@ -126,11 +131,16 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
       return { valid: false, error: "fee payer must be the batcher sponsor" };
     }
     for (const ix of tx.instructions) {
-      if (!ix.programId.equals(this.targetProgramId)) {
+      const pid = ix.programId;
+      // Allow the sponsored program, plus ComputeBudget — wallets (e.g. Phantom)
+      // routinely inject a priority-fee ComputeBudget instruction when signing.
+      // A production operator can cap the priority fee in their validate hook.
+      if (!pid.equals(this.targetProgramId) && !pid.equals(COMPUTE_BUDGET_PROGRAM_ID)) {
         return {
           valid: false,
           error:
-            `only instructions to ${this.targetProgramId.toBase58()} are sponsored`,
+            `instruction targets ${pid.toBase58()}; this batcher only sponsors ` +
+            `${this.targetProgramId.toBase58()} (and ComputeBudget)`,
         };
       }
       if (ix.keys.some((k) => k.pubkey.equals(this.sponsor.publicKey))) {

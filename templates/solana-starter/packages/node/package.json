@@ -7,5 +7,17 @@
     "start:dev": "bun run main.dev.ts",
     "chain:start": "bun ./node_modules/.bin/solana-node",
     "chain:wait": "for i in $(seq 1 60); do curl -sf http://localhost:8899/health > /dev/null 2>&1 && exit 0; sleep 1; done; echo 'Solana validator failed to start'; exit 1"
+  },
+  "dependencies": {
+    "@effectstream/config": "0.100.13",
+    "@effectstream/concise": "0.100.13",
+    "@effectstream/coroutine": "0.100.13",
+    "@effectstream/db": "0.100.13",
+    "@effectstream/runtime": "0.100.13",
+    "@effectstream/sm": "0.100.13",
+    "@effectstream/utils": "0.100.13",
+    "@sinclair/typebox": "0.34.41",
+    "effection": "^3.5.0",
+    "wait-on": "8.0.3"
   }
 }

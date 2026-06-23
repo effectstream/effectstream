@@ -19,5 +19,27 @@ export default {
       env: { PGLITE: "true" },
       dependsOn: [DbNames.PGLITE_WAIT, SolanaNames.SOLANA_VALIDATOR_WAIT],
     },
+
+    {
+      name: "batcher",
+      description: "Solana fee-payer sponsor batcher",
+      stopProcessAtPort: [3334],
+      args: ["run", "packages/batcher/main.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      env: { PGLITE: "true" },
+      dependsOn: [SolanaNames.SOLANA_VALIDATOR_WAIT],
+    },
+
+    {
+      name: "frontend",
+      description: "Vite dev server — wallet + gasless batcher UI",
+      stopProcessAtPort: [5173],
+      cwd: path.join(root, "packages/frontend"),
+      args: ["run", "dev"],
+      waitToExit: false,
+      type: "system-dependency",
+      dependsOn: [SolanaNames.SOLANA_VALIDATOR_WAIT],
+    },
   ],
 } satisfies OrchestratorConfig;

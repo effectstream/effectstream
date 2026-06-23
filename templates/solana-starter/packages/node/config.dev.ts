@@ -3,6 +3,7 @@ import {
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@effectstream/config";
+import { PrimitiveTypeSolanaProgramLog } from "@effectstream/sm/builtin";
 
 export const config = new ConfigBuilder()
   .setNamespace((builder) => builder.setSecurityNamespace("solana-starter"))
@@ -53,10 +54,12 @@ export const config = new ConfigBuilder()
         (syncProtocols) => (syncProtocols as any).mainSolanaRPC,
         (_network, _deployments, _syncProtocol) => ({
           name: "SolanaProgramLog",
-          type: `${ConfigSyncProtocolType.SOLANA_RPC_PARALLEL}:solana:program-log`,
+          type: PrimitiveTypeSolanaProgramLog,
           startBlockHeight: 0,
-          programId: "11111111111111111111111111111111",
-          scheduledPrefix: "solana-program-log",
+          // Watch the SPL Memo program — the program the batcher sponsors, so
+          // memos submitted from the frontend are captured and persisted.
+          programId: "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+          stateMachinePrefix: "solana-program-log",
         }),
       )
   )
