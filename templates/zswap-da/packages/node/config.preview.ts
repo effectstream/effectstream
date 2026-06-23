@@ -52,8 +52,12 @@ export const config = new ConfigBuilder()
       .addNetwork({
         name: "ntp",
         type: ConfigNetworkType.NTP,
-        startTime: new Date().getTime(),
-        blockTimeMS: 1000,
+        // Anchor NTP epoch to Midnight Preview block 1 (2026-03-25T01:05:42 UTC).
+        // blockTimeMS=600000 (10 min/block) reduces 89 days of history from 7.7M
+        // NTP blocks to 12,816, cutting catch-up from ~180 days to ~2.4 hours
+        // while keeping indexing latency tolerable (≤10 min for new offers).
+        startTime: 1774400742000,
+        blockTimeMS: 600_000,
       })
       .addNetwork({
         name: "midnight",
@@ -78,6 +82,9 @@ export const config = new ConfigBuilder()
           chainUri: "",
           startBlockHeight: 1,
           pollingInterval: 1000,
+          // TypeBox default values aren't injected at runtime — must be explicit.
+          // 1000 NTP blocks per batch = 1000 × 10 min = ~6.9 days of history per fetch.
+          stepSize: 1000,
         }),
       )
       .addParallel(
@@ -86,7 +93,10 @@ export const config = new ConfigBuilder()
           name: "parallelMidnight",
           type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
           startBlockHeight: MIDNIGHT_START_BLOCK,
-          pollingInterval: 6000,
+          // 500 blocks per fetch, poll every second: Midnight catches up at ~82 blocks/s
+          // (~4.3 hours for 89 days of history). Each 10-min NTP block covers ~100 Midnight blocks.
+          pollingInterval: 1000,
+          stepSize: 500,
           delayMs: 30_000,
           indexer: midnightNetworkConfig.indexer,
           indexerWs: midnightNetworkConfig.indexerWS,
