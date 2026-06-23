@@ -6,7 +6,6 @@ import {
   getOfferFileTokens,
   insertKnownToken,
   isNullifierSpent,
-  isUnshieldedSpent,
   isUnshieldedCreated,
   isKnownRoot,
 } from "@zswap-da/database";
@@ -254,30 +253,17 @@ export const apiRouter: StartConfigApiRouter = async function (
           });
         }
       }
+      // Liveness: unshielded UTXO must exist in created_unshielded (absent = spent or never created).
       for (const s of validation.unshieldedSpends ?? []) {
-        const spent = await isUnshieldedSpent.run(
+        const live = await isUnshieldedCreated.run(
           { owner: s.owner, intent_hash: s.intentHash, output_no: s.outputNo },
           dbConn,
         );
-        if (spent.length > 0) {
+        if (live.length === 0) {
           return reply.code(400).send({
-            error: "UTXO_SPENT",
+            error: "UTXO_NOT_LIVE",
             reason:
-              `unshielded UTXO already spent: ${s.owner}/${s.intentHash}/${s.outputNo}`,
-          });
-        }
-      }
-      // Existence: the referenced unshielded UTXO must have been created.
-      for (const s of validation.unshieldedSpends ?? []) {
-        const created = await isUnshieldedCreated.run(
-          { owner: s.owner, intent_hash: s.intentHash, output_no: s.outputNo },
-          dbConn,
-        );
-        if (created.length === 0) {
-          return reply.code(400).send({
-            error: "UTXO_UNKNOWN",
-            reason:
-              `unshielded UTXO never created on chain: ${s.owner}/${s.intentHash}/${s.outputNo}`,
+              `unshielded UTXO not live (spent or never created): ${s.owner}/${s.intentHash}/${s.outputNo}`,
           });
         }
       }
