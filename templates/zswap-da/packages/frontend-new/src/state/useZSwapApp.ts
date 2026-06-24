@@ -365,7 +365,7 @@ export function useZSwapApp(): ZSwapApp {
         kind: 'create',
         give: { sym: findTokenName(give.color, knownTokens) ?? shortToken(give.color), amt: Number(give.amount) },
         get: { sym: findTokenName(want.color, knownTokens) ?? shortToken(want.color), amt: Number(want.amount) },
-        status: 'open',
+        status: 'not_public',
         shielded: give.kind === 'shielded' && want.kind === 'shielded',
         blob,
       });
@@ -508,19 +508,46 @@ export function useZSwapApp(): ZSwapApp {
   const clearTrade = useCallback((id: string) => removeTrade(id), []);
   const clearAllTrades = useCallback(() => clearTrades(), []);
 
-  // Reconcile created-offer status: once a created offer has been observed live
-  // in the book and later disappears (consumed or expired), mark it completed.
+  // Live order-book reconciliation: watch the blob set in each poll cycle.
+  //   not_public → open    when the blob first appears in the live book
+  //   open       → completed  when a previously-seen blob disappears from the book
   const seenBlobs = useRef<Set<string>>(new Set());
   useEffect(() => {
     const offers = zapi.offers ?? [];
     const live = new Set(offers.map((o) => o.transaction_hex).filter(Boolean) as string[]);
-    live.forEach((b) => seenBlobs.current.add(b));
     for (const t of listTrades()) {
-      if (t.kind === 'create' && t.status === 'open' && t.blob && seenBlobs.current.has(t.blob) && !live.has(t.blob)) {
+      if (t.kind !== 'create' || !t.blob) continue;
+      if (t.status === 'not_public' && live.has(t.blob)) {
+        seenBlobs.current.add(t.blob);
+        updateTradeStatus(t.id, 'open');
+      } else if (t.status === 'open' && seenBlobs.current.has(t.blob) && !live.has(t.blob)) {
         updateTradeStatus(t.id, 'completed');
+      } else {
+        // Track any live blob regardless of status so we detect future removal.
+        if (live.has(t.blob)) seenBlobs.current.add(t.blob);
       }
     }
   }, [zapi.offers]);
+
+  // Startup-only reconciliation: on first mount, ask the server for the
+  // definitive status of every non-terminal created trade.
+  useEffect(() => {
+    const blobs = listTrades()
+      .filter((t) => t.kind === 'create' && t.blob && t.status !== 'cancelled')
+      .map((t) => t.blob!);
+    if (blobs.length === 0) return;
+    api.fetchTradeStatuses(blobs).then((statusMap) => {
+      for (const t of listTrades()) {
+        if (t.kind !== 'create' || !t.blob) continue;
+        const srv = statusMap[t.blob];
+        if (!srv || srv === 'unknown') continue;
+        if (srv === 'completed' && t.status !== 'completed') updateTradeStatus(t.id, 'completed');
+        else if (srv === 'expired' && t.status !== 'expired') updateTradeStatus(t.id, 'expired');
+        else if (srv === 'open' && t.status === 'not_public') updateTradeStatus(t.id, 'open');
+      }
+    }).catch(() => { /* startup reconcile is best-effort */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const wallet = useMemo<WalletInfo | null>(() => {
     if (!connected) return null;

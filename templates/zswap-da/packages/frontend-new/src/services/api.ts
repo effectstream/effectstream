@@ -21,6 +21,17 @@ export interface ChartDepth { mid: number; asks: ChartDepthRow[]; bids: ChartDep
 export interface ChartStats { base: string; quote: string; last: number; change24: number; high: number; low: number; volume_base: number; volume_quote: number }
 export interface ChartHistoryRow { price: number; amt: number; up: boolean; at: string }
 
+/** One row from /api/pairs — pair_stats write-side projection merged with live open count. */
+export interface PairInfo {
+  pair_key: string;
+  base_color: string;
+  quote_color: string;
+  trade_count: number;
+  last_price: string | null;
+  last_traded_at: string | null;
+  open_count: number;
+}
+
 const MIDNIGHT_ADDRESS_TYPE = 5;
 
 export async function submitToBatcher(
@@ -164,5 +175,38 @@ export const api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
     return data;
+  },
+
+  /** Fetch all known pairs from the write-side projection (pair_stats). */
+  fetchPairs: async (): Promise<PairInfo[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/api/pairs`);
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Lookup the server-side status for a list of offer blobs.
+   * Returns a map of blob → 'open' | 'completed' | 'expired' | 'not_found'.
+   * Used for startup-only My Trades reconciliation.
+   */
+  fetchTradeStatuses: async (blobs: string[]): Promise<Record<string, string>> => {
+    if (blobs.length === 0) return {};
+    const results = await Promise.all(
+      blobs.map(async (blob): Promise<[string, string]> => {
+        try {
+          const res = await fetch(`${API_BASE}/api/zswap/status?blob=${encodeURIComponent(blob)}`);
+          if (!res.ok) return [blob, 'unknown'];
+          const data = await res.json();
+          return [blob, data.status ?? 'unknown'];
+        } catch {
+          return [blob, 'unknown'];
+        }
+      }),
+    );
+    return Object.fromEntries(results);
   },
 };

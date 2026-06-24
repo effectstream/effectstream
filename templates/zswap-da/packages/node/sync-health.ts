@@ -8,6 +8,15 @@
 
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { BLOCK_TIME_MS, CELESTIA_RPC_URL, NTP_START_TIME } from "./env.ts";
+import {
+  getNtpCurrentBlock,
+  getSyncProtocolPagination,
+  getLatestEffectstreamBlock,
+  getNullifierStats,
+  getKnownRootStats,
+  getUnshieldedStats,
+  getLastOffer,
+} from "@zswap-da/database";
 
 interface CachedTip {
   value: number | null;
@@ -82,39 +91,23 @@ function deriveStatus(ntpCurrent: number, lagSeconds: number): "ok" | "syncing" 
 }
 
 export async function getSyncStatus(dbConn: any) {
-  const [ntpRow, pageRow, blockRow, nullifierRow, rootRow, unshieldedRow, lastOfferRow, midnightTip, celestiaTip] = await Promise.all([
-    dbConn.query("SELECT MAX(block_height) AS current FROM effectstream.effectstream_blocks"),
-    dbConn.query(`
-      SELECT protocol_name,
-             MIN(page_number) AS merged,
-             MAX(page_number) AS fetched
-      FROM effectstream.sync_protocol_pagination
-      GROUP BY protocol_name
-    `),
-    dbConn.query(`
-      SELECT block_height, ms_timestamp, effectstream_block_hash, main_chain_block_hash
-      FROM effectstream.effectstream_blocks
-      ORDER BY block_height DESC
-      LIMIT 1
-    `),
-    dbConn.query("SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM nullifiers"),
-    dbConn.query("SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM known_roots"),
-    dbConn.query("SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM created_unshielded"),
-    dbConn.query(`
-      SELECT id, celestia_height, created_at
-      FROM offer_file
-      ORDER BY id DESC
-      LIMIT 1
-    `),
+  const [ntpRows, pageRows, blockRows, nullifierRows, rootRows, unshieldedRows, lastOfferRows, midnightTip, celestiaTip] = await Promise.all([
+    getNtpCurrentBlock.run(undefined, dbConn),
+    getSyncProtocolPagination.run(undefined, dbConn),
+    getLatestEffectstreamBlock.run(undefined, dbConn),
+    getNullifierStats.run(undefined, dbConn),
+    getKnownRootStats.run(undefined, dbConn),
+    getUnshieldedStats.run(undefined, dbConn),
+    getLastOffer.run(undefined, dbConn),
     fetchMidnightTip(),
     fetchCelestiaTip(),
   ]);
 
-  const ntpCurrent = Number(ntpRow.rows[0]?.current ?? 0);
+  const ntpCurrent = Number(ntpRows[0]?.current ?? 0);
   const ntpTip = Math.floor((Date.now() - NTP_START_TIME) / BLOCK_TIME_MS);
 
   const pages: Record<string, { merged: number; fetched: number }> = {};
-  for (const row of pageRow.rows) {
+  for (const row of pageRows) {
     pages[row.protocol_name] = { merged: Number(row.merged), fetched: Number(row.fetched) };
   }
 
@@ -125,8 +118,8 @@ export async function getSyncStatus(dbConn: any) {
 
   const toHex = (v: unknown) =>
     v != null ? Buffer.from(v as Buffer).toString("hex") : null;
-  const latestBlock = blockRow.rows[0] ?? null;
-  const lastOffer   = lastOfferRow.rows[0] ?? null;
+  const latestBlock = blockRows[0] ?? null;
+  const lastOffer   = lastOfferRows[0] ?? null;
 
   return {
     ts: Date.now(),
@@ -149,7 +142,6 @@ export async function getSyncStatus(dbConn: any) {
       lag_blocks: Math.max(0, ntpTip - ntpCurrent),
       lag_seconds: lagSeconds,
     },
-
     midnight: {
       current: mn?.merged ?? null,
       fetched: mn?.fetched ?? null,
@@ -166,16 +158,16 @@ export async function getSyncStatus(dbConn: any) {
     },
     sets: {
       nullifiers: {
-        total: nullifierRow.rows[0]?.total ?? 0,
-        latest_height: nullifierRow.rows[0]?.latest_height ?? null,
+        total: nullifierRows[0]?.total ?? 0,
+        latest_height: nullifierRows[0]?.latest_height ?? null,
       },
       known_roots: {
-        total: rootRow.rows[0]?.total ?? 0,
-        latest_height: rootRow.rows[0]?.latest_height ?? null,
+        total: rootRows[0]?.total ?? 0,
+        latest_height: rootRows[0]?.latest_height ?? null,
       },
       unshielded_utxos: {
-        total: unshieldedRow.rows[0]?.total ?? 0,
-        latest_height: unshieldedRow.rows[0]?.latest_height ?? null,
+        total: unshieldedRows[0]?.total ?? 0,
+        latest_height: unshieldedRows[0]?.latest_height ?? null,
       },
       last_zswap: lastOffer
         ? {
