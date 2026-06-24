@@ -158,16 +158,18 @@ export const apiRouter: StartConfigApiRouter = async function (
         },
       },
     },
-    async (request: any) => {
+    async (request: any, reply: any) => {
       const color = String(request.body.color).toLowerCase().replace(/^0x/, "");
       const name = String(request.body.name).trim().toUpperCase().slice(0, 16);
       const kind = String(request.body.kind);
       if (!/^[0-9a-f]{64}$/.test(color)) {
-        throw new Error("Invalid token color (expected 64 hex chars)");
+        return reply.code(400).send({ error: "Invalid token color (expected 64 hex chars)" });
       }
-      if (!name) throw new Error("Invalid token name");
+      if (!name) {
+        return reply.code(400).send({ error: "Invalid token name" });
+      }
       if (kind !== "shielded" && kind !== "unshielded") {
-        throw new Error('Invalid kind (expected "shielded" or "unshielded")');
+        return reply.code(400).send({ error: 'Invalid kind (expected "shielded" or "unshielded")' });
       }
 
       const nameCheck = await dbConn.query(
@@ -175,14 +177,14 @@ export const apiRouter: StartConfigApiRouter = async function (
         [name],
       );
       if (nameCheck.rows.length > 0) {
-        throw new Error(`Token name "${name}" is already taken`);
+        return reply.code(409).send({ error: `Token name "${name}" is already taken` });
       }
       const colorCheck = await dbConn.query(
         `SELECT name FROM known_tokens WHERE token_color = $1 LIMIT 1`,
         [color],
       );
       if (colorCheck.rows.length > 0) {
-        throw new Error(`Token color already registered as "${colorCheck.rows[0].name}"`);
+        return reply.code(409).send({ error: `Token color already registered as "${colorCheck.rows[0].name}"` });
       }
 
       await insertKnownToken.run({ token_color: color, name, kind }, dbConn);
