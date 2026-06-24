@@ -40,7 +40,7 @@ export function SyncBanner() {
 
   const isError = health.status === 'error';
   const lagH    = Math.round((health.ntp?.lag_seconds ?? 0) / 3600);
-  const pct     = health.ntp?.pct ?? 0;
+  const pct     = Math.min(health.ntp?.pct ?? 0, 99.9);
 
   return (
     <div style={{

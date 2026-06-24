@@ -70,7 +70,9 @@ async function fetchCelestiaTip(): Promise<number | null> {
 
 function pct(current: number, tip: number | null): number | null {
   if (tip == null || tip <= 0) return null;
-  return Math.round((current / tip) * 1000) / 10;
+  const p = Math.round((current / tip) * 1000) / 10;
+  // Never show 100 when there are still blocks to process.
+  return current < tip ? Math.min(p, 99.9) : p;
 }
 
 // "ok"      — within 2 NTP blocks (≤ 20 min behind), serving live data.
@@ -83,7 +85,7 @@ function deriveStatus(ntpCurrent: number, lagSeconds: number): "ok" | "syncing" 
 }
 
 export async function getSyncStatus(dbConn: any) {
-  const [ntpRow, pageRow, midnightTip, celestiaTip] = await Promise.all([
+  const [ntpRow, pageRow, blockRow, nullifierRow, rootRow, unshieldedRow, lastOfferRow, midnightTip, celestiaTip] = await Promise.all([
     dbConn.query("SELECT MAX(block_height) AS current FROM effectstream.effectstream_blocks"),
     dbConn.query(`
       SELECT protocol_name,
@@ -91,6 +93,21 @@ export async function getSyncStatus(dbConn: any) {
              MAX(page_number) AS fetched
       FROM effectstream.sync_protocol_pagination
       GROUP BY protocol_name
+    `),
+    dbConn.query(`
+      SELECT block_height, ms_timestamp, effectstream_block_hash, main_chain_block_hash
+      FROM effectstream.effectstream_blocks
+      ORDER BY block_height DESC
+      LIMIT 1
+    `),
+    dbConn.query("SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM nullifiers"),
+    dbConn.query("SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM known_roots"),
+    dbConn.query("SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM created_unshielded"),
+    dbConn.query(`
+      SELECT id, celestia_height, created_at
+      FROM offer_file
+      ORDER BY id DESC
+      LIMIT 1
     `),
     fetchMidnightTip(),
     fetchCelestiaTip(),
@@ -109,9 +126,23 @@ export async function getSyncStatus(dbConn: any) {
 
   const lagSeconds = Math.max(0, (ntpTip - ntpCurrent) * NTP_BLOCK_TIME_MS / 1000);
 
+  const toHex = (v: unknown) =>
+    v != null ? Buffer.from(v as Buffer).toString("hex") : null;
+  const latestBlock = blockRow.rows[0] ?? null;
+  const lastOffer   = lastOfferRow.rows[0] ?? null;
+
   return {
     ts: Date.now(),
+    now: new Date().toISOString(),
     status: deriveStatus(ntpCurrent, lagSeconds),
+    block: latestBlock
+      ? {
+          height: latestBlock.block_height,
+          timestamp: latestBlock.ms_timestamp,
+          block_hash: toHex(latestBlock.effectstream_block_hash),
+          main_chain_block_hash: toHex(latestBlock.main_chain_block_hash),
+        }
+      : null,
     ntp: {
       current: ntpCurrent,
       tip: ntpTip,
@@ -124,13 +155,36 @@ export async function getSyncStatus(dbConn: any) {
       current: mn?.merged ?? null,
       fetched: mn?.fetched ?? null,
       tip: midnightTip,
+      lag_blocks: mn && midnightTip != null ? Math.max(0, midnightTip - mn.merged) : null,
       pct: mn ? pct(mn.merged, midnightTip) : null,
     },
     celestia: {
       current: ce?.merged ?? null,
       fetched: ce?.fetched ?? null,
       tip: celestiaTip,
+      lag_blocks: ce && celestiaTip != null ? Math.max(0, celestiaTip - ce.merged) : null,
       pct: ce ? pct(ce.merged, celestiaTip) : null,
+    },
+    sets: {
+      nullifiers: {
+        total: nullifierRow.rows[0]?.total ?? 0,
+        latest_height: nullifierRow.rows[0]?.latest_height ?? null,
+      },
+      known_roots: {
+        total: rootRow.rows[0]?.total ?? 0,
+        latest_height: rootRow.rows[0]?.latest_height ?? null,
+      },
+      unshielded_utxos: {
+        total: unshieldedRow.rows[0]?.total ?? 0,
+        latest_height: unshieldedRow.rows[0]?.latest_height ?? null,
+      },
+      last_zswap: lastOffer
+        ? {
+            id: lastOffer.id,
+            celestia_height: lastOffer.celestia_height,
+            created_at: lastOffer.created_at,
+          }
+        : null,
     },
   };
 }
