@@ -135,12 +135,14 @@ export async function getSyncStatus(dbConn: any) {
     ts: Date.now(),
     now: new Date().toISOString(),
     status: deriveStatus(ntpCurrent, lagSeconds),
-    block: latestBlock
+    blockL2: latestBlock
       ? {
           height: latestBlock.block_height,
           timestamp: latestBlock.ms_timestamp,
           block_hash: toHex(latestBlock.effectstream_block_hash),
           main_chain_block_hash: toHex(latestBlock.main_chain_block_hash),
+          block_time: NTP_BLOCK_TIME_MS,
+          lag: Math.max(0, ntpTip - ntpCurrent),
         }
       : null,
     ntp: {

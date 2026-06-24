@@ -1,0 +1,2 @@
+-- local-migration.sql
+-- Applied after all default migrations. Add project-specific schema changes here.
