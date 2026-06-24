@@ -131,6 +131,7 @@ export async function getSyncStatus(dbConn: any) {
 
   return {
     ts: Date.now(),
+    now: new Date().toISOString(),
     status: deriveStatus(ntpCurrent, lagSeconds),
     block: latestBlock
       ? {
