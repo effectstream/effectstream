@@ -15,11 +15,15 @@ import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight
 import { OfferFilesContract } from "@zswap-da/contract-offer-files";
 
 import {
+  BLOCK_TIME_MS,
   CELESTIA_NAMESPACE,
   CELESTIA_POLLING_INTERVAL_MS,
   CELESTIA_RPC_URL,
   CELESTIA_START_HEIGHT,
+  MIDNIGHT_DELAY_MS,
   midnightContract,
+  NTP_START_TIME,
+  NTP_STEP_SIZE,
 } from "./env.ts";
 
 const CELESTIA_START_BLOCK = CELESTIA_START_HEIGHT != null ? Number(CELESTIA_START_HEIGHT) : 1;
@@ -56,8 +60,8 @@ export const config = new ConfigBuilder()
         // blockTimeMS=600000 (10 min/block) reduces 89 days of history from 7.7M
         // NTP blocks to 12,816, cutting catch-up from ~180 days to ~2.4 hours
         // while keeping indexing latency tolerable (≤10 min for new offers).
-        startTime: 1774400742000,
-        blockTimeMS: 600_000,
+        startTime: NTP_START_TIME,
+        blockTimeMS: BLOCK_TIME_MS,
       })
       .addNetwork({
         name: "midnight",
@@ -84,7 +88,7 @@ export const config = new ConfigBuilder()
           pollingInterval: 1000,
           // TypeBox default values aren't injected at runtime — must be explicit.
           // 1000 NTP blocks per batch = 1000 × 10 min = ~6.9 days of history per fetch.
-          stepSize: 1000,
+          stepSize: NTP_STEP_SIZE,
         }),
       )
       .addParallel(
@@ -97,7 +101,7 @@ export const config = new ConfigBuilder()
           // (~4.3 hours for 89 days of history). Each 10-min NTP block covers ~100 Midnight blocks.
           pollingInterval: 1000,
           stepSize: 500,
-          delayMs: 30_000,
+          delayMs: MIDNIGHT_DELAY_MS,
           indexer: midnightNetworkConfig.indexer,
           indexerWs: midnightNetworkConfig.indexerWS,
         }),
