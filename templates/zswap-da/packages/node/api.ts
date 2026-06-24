@@ -8,13 +8,20 @@ import {
   isNullifierSpent,
   isUnshieldedCreated,
   isKnownRoot,
+  getTokenPrice,
+  upsertTokenPrice,
+  checkTokenNameExists,
+  getTokenByColor,
+  getPairs,
+  getZswapStatusByBlob,
+  upsertPairStatsByOfferId,
 } from "@zswap-da/database";
 
 import { MIDNIGHT_NETWORK_ID, OFFER_MAX_BYTES, midnightContract } from "./env.ts";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { submitBlobViaBatcher } from "./batcher-client.ts";
 import { getBlankRefState, validateZswapOffer } from "@zswap-da/validator";
-import { eventBus, emitAppEvent } from "./event-bus.ts";
+import { eventBus, emitAppEvent, type AppEvent } from "./event-bus.ts";
 import { quoteWithPrices, priceOf } from "./market-mock.ts";
 import { realStats, realHistory } from "./trade-data.ts";
 import { getSyncStatus } from "./sync-health.ts";
@@ -25,6 +32,20 @@ export const apiRouter: StartConfigApiRouter = async function (
   server: any,
   dbConn: any,
 ): Promise<void> {
+  // Update pair_stats after each CONSUMED archive. The state machine fires
+  // offer_consumed after the archive transaction commits; this listener keeps
+  // pair_stats in sync without needing access to dbConn inside the generator.
+  const onAppEvent = async (event: AppEvent) => {
+    if (event.type === "offer_consumed") {
+      try {
+        await upsertPairStatsByOfferId.run({ offer_id: event.offerId }, dbConn);
+      } catch (e) {
+        console.error("[PAIR_STATS] Failed to update pair stats for offer", event.offerId, e);
+      }
+    }
+  };
+  eventBus.on("app_event", onAppEvent);
+
   // GET /api/zswaps — list ZSWAPs ordered by newest first, with optional filtering & pagination
   server.get("/api/zswaps", async (request: any) => {
     const query = request?.query ?? {};
@@ -103,17 +124,10 @@ export const apiRouter: StartConfigApiRouter = async function (
   // Params: from_token, to_token (hex colors), from_amount (base units),
   // optional to_amount (a user-set receive amount → discount/sponsored vs it).
   async function resolvePrice(token: string): Promise<number> {
-    const row = await dbConn.query(
-      "SELECT price_usd FROM token_prices WHERE token_color = $1",
-      [token],
-    );
-    if (row.rows.length > 0) return Number(row.rows[0].price_usd);
+    const rows = await getTokenPrice.run({ token_color: token }, dbConn);
+    if (rows.length > 0) return Number(rows[0].price_usd);
     const fallback = priceOf(token);
-    await dbConn.query(
-      `INSERT INTO token_prices (token_color, price_usd) VALUES ($1, $2)
-       ON CONFLICT (token_color) DO NOTHING`,
-      [token, fallback],
-    );
+    await upsertTokenPrice.run({ token_color: token, price_usd: fallback }, dbConn);
     return fallback;
   }
 
@@ -184,19 +198,13 @@ export const apiRouter: StartConfigApiRouter = async function (
         return reply.code(400).send({ error: 'Invalid kind (expected "shielded" or "unshielded")' });
       }
 
-      const nameCheck = await dbConn.query(
-        `SELECT 1 FROM known_tokens WHERE name = $1 LIMIT 1`,
-        [name],
-      );
-      if (nameCheck.rows.length > 0) {
+      const nameCheck = await checkTokenNameExists.run({ name }, dbConn);
+      if (nameCheck.length > 0) {
         return reply.code(409).send({ error: `Token name "${name}" is already taken` });
       }
-      const colorCheck = await dbConn.query(
-        `SELECT name FROM known_tokens WHERE token_color = $1 LIMIT 1`,
-        [color],
-      );
-      if (colorCheck.rows.length > 0) {
-        return reply.code(409).send({ error: `Token color already registered as "${colorCheck.rows[0].name}"` });
+      const colorCheck = await getTokenByColor.run({ token_color: color }, dbConn);
+      if (colorCheck.length > 0) {
+        return reply.code(409).send({ error: `Token color already registered as "${colorCheck[0].name}"` });
       }
 
       await insertKnownToken.run({ token_color: color, name, kind }, dbConn);
@@ -229,6 +237,24 @@ export const apiRouter: StartConfigApiRouter = async function (
   // Chain tips are fetched from the Midnight indexer / Celestia RPC and cached 60 s.
   server.get("/api/health/sync", async () => {
     return getSyncStatus(dbConn);
+  });
+
+  // GET /api/pairs — all known trading pairs from pair_stats (historical) merged
+  // with live open-offer counts. Fast: pair_stats is a write-side projection
+  // updated on each CONSUMED archive; the live subquery hits a small indexed table.
+  server.get("/api/pairs", async () => {
+    return getPairs.run(undefined, dbConn);
+  });
+
+  // GET /api/zswap/status?blob=<hex> — single-blob status lookup for My Trades
+  // startup reconciliation. Returns { blob, status } where status is one of
+  // 'open' | 'completed' | 'expired' | 'not_found'.
+  server.get("/api/zswap/status", async (request: any, reply: any) => {
+    const blob = String((request.query as any)?.blob ?? "").trim();
+    if (!blob) return reply.code(400).send({ error: "blob query param required" });
+    const rows = await getZswapStatusByBlob.run({ blob }, dbConn);
+    if (rows.length === 0) return { blob, status: "not_found" };
+    return { blob: rows[0].transaction_hex, status: rows[0].status };
   });
 
   // POST /api/zswap/submit — fully validate a `zswapoffer1…` blob, then forward

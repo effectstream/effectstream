@@ -10,7 +10,12 @@ export interface MyTrade {
   give: TradeLeg;
   get: TradeLeg;
   at: number;
-  status: 'open' | 'completed' | 'cancelled';
+  // not_public: submitted to Celestia but not yet visible in the live order book
+  // open:       visible in the live order book
+  // completed:  offer was consumed (settled or cancelled on-chain)
+  // expired:    offer TTL elapsed before being consumed
+  // cancelled:  user cleared or the import/take flow never completed
+  status: 'not_public' | 'open' | 'completed' | 'expired' | 'cancelled';
   shielded: boolean;
   blob?: string;
 }

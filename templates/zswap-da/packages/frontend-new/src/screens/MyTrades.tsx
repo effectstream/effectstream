@@ -27,11 +27,13 @@ function offerName(t: MyTrade) {
 
 function StatusBadge({ status }: { status: MyTrade['status'] }) {
   const map: Record<string, { c: string; bg: string; label: string }> = {
-    open: { c: 'var(--pos)', bg: 'var(--pos-soft)', label: 'Open' },
-    completed: { c: 'var(--accent)', bg: 'var(--accent-soft)', label: 'Completed' },
-    cancelled: { c: 'var(--ink-3)', bg: 'var(--surface-3)', label: 'Cancelled' },
+    not_public: { c: 'var(--ink-3)', bg: 'var(--surface-2)', label: 'Not public' },
+    open:       { c: 'var(--pos)', bg: 'var(--pos-soft)', label: 'Open' },
+    completed:  { c: 'var(--accent)', bg: 'var(--accent-soft)', label: 'Completed' },
+    expired:    { c: 'var(--warn)', bg: 'var(--warn-soft)', label: 'Expired' },
+    cancelled:  { c: 'var(--ink-3)', bg: 'var(--surface-3)', label: 'Cancelled' },
   };
-  const s = map[status] || map.open;
+  const s = map[status] ?? map.not_public;
   return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: s.c, background: s.bg, borderRadius: 'var(--r-pill)', padding: '4px 10px', whiteSpace: 'nowrap' }}><Icon.dot /> {s.label}</span>;
 }
 
@@ -47,7 +49,7 @@ function Cell({ amt, sym, accent }: { amt: number; sym: string; accent?: boolean
 
 export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
   const trades = st.myTrades;
-  const [filter, setFilter] = useState<'all' | 'open' | 'completed'>('all');
+  const [filter, setFilter] = useState<'all' | 'open' | 'completed' | 'expired'>('all');
   const [viewing, setViewing] = useState<MyTrade | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [dump, setDump] = useState('');
@@ -57,10 +59,13 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
 
   const counts = {
     all: trades.length,
-    open: trades.filter((t) => t.status === 'open').length,
+    open: trades.filter((t) => t.status === 'open' || t.status === 'not_public').length,
     completed: trades.filter((t) => t.status === 'completed').length,
+    expired: trades.filter((t) => t.status === 'expired').length,
   };
-  const rows = filter === 'all' ? trades : trades.filter((t) => t.status === filter);
+  const rows = filter === 'all' ? trades
+    : filter === 'open' ? trades.filter((t) => t.status === 'open' || t.status === 'not_public')
+    : trades.filter((t) => t.status === filter);
 
   const doImport = async () => {
     setImporting(true);
@@ -78,7 +83,7 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
 
   const filterSeg = (
     <div className="zs-seg" style={{ background: 'var(--bg-tint)' }}>
-      {([['all', 'All'], ['open', 'Open'], ['completed', 'Completed']] as const).map(([id, lbl]) => (
+      {([['all', 'All'], ['open', 'Open'], ['completed', 'Completed'], ['expired', 'Expired']] as const).map(([id, lbl]) => (
         <button key={id} className="zs-nav-tab" aria-selected={filter === id} onClick={() => setFilter(id)}
           style={filter === id ? { background: 'var(--surface)', color: 'var(--ink)', boxShadow: '0 1px 3px rgba(10,12,20,.08)' } : { background: 'transparent', color: 'var(--ink-2)' }}>
           {lbl} <span className="zs-num" style={{ color: 'var(--ink-3)', fontWeight: 600 }}>{counts[id]}</span>

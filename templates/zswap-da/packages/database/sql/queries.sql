@@ -399,3 +399,119 @@ WHERE root = :root!;
 DELETE FROM known_roots
 WHERE last_seen_ms < :cutoff_ms!
   AND height < (SELECT MAX(height) FROM known_roots);
+
+/* @name GetNtpCurrentBlock */
+SELECT MAX(block_height) AS current FROM effectstream.effectstream_blocks;
+
+/* @name GetSyncProtocolPagination */
+SELECT protocol_name,
+       MIN(page_number) AS merged,
+       MAX(page_number) AS fetched
+FROM effectstream.sync_protocol_pagination
+GROUP BY protocol_name;
+
+/* @name GetLatestEffectstreamBlock */
+SELECT block_height, ms_timestamp, effectstream_block_hash, main_chain_block_hash
+FROM effectstream.effectstream_blocks
+ORDER BY block_height DESC
+LIMIT 1;
+
+/* @name GetNullifierStats */
+SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM nullifiers;
+
+/* @name GetKnownRootStats */
+SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM known_roots;
+
+/* @name GetUnshieldedStats */
+SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM created_unshielded;
+
+/* @name GetLastOffer */
+SELECT id, celestia_height, created_at
+FROM offer_file
+ORDER BY id DESC
+LIMIT 1;
+
+/* @name GetTradeHistory */
+SELECT (EXTRACT(EPOCH FROM h.archived_at) * 1000)::bigint AS at_ms,
+       g.token_color AS g_color, g.amount AS g_amt,
+       w.token_color AS w_color, w.amount AS w_amt
+FROM offer_file_history h
+JOIN offer_file_tokens_history g ON g.offer_file_id = h.id AND g.direction = 'GIVING'
+JOIN offer_file_tokens_history w ON w.offer_file_id = h.id AND w.direction = 'WANTING'
+WHERE h.archive_reason = 'CONSUMED'
+  AND ((g.token_color = :base! AND w.token_color = :quote!)
+    OR (g.token_color = :quote! AND w.token_color = :base!))
+ORDER BY h.archived_at DESC
+LIMIT 120;
+
+/* @name GetOpenLegs */
+SELECT g.token_color AS g_color, g.amount AS g_amt,
+       w.token_color AS w_color, w.amount AS w_amt
+FROM offer_file o
+JOIN offer_file_tokens g ON g.offer_file_id = o.id AND g.direction = 'GIVING'
+JOIN offer_file_tokens w ON w.offer_file_id = o.id AND w.direction = 'WANTING'
+WHERE ((g.token_color = :base! AND w.token_color = :quote!)
+    OR (g.token_color = :quote! AND w.token_color = :base!));
+
+/* @name GetTokenPrice */
+SELECT price_usd FROM token_prices WHERE token_color = :token_color!;
+
+/* @name UpsertTokenPrice */
+INSERT INTO token_prices (token_color, price_usd)
+VALUES (:token_color!, :price_usd!)
+ON CONFLICT (token_color) DO NOTHING;
+
+/* @name CheckTokenNameExists */
+SELECT 1 AS present FROM known_tokens WHERE name = :name! LIMIT 1;
+
+/* @name GetTokenByColor */
+SELECT name FROM known_tokens WHERE token_color = :token_color! LIMIT 1;
+
+/* @name UpsertPairStatsByOfferId */
+INSERT INTO pair_stats (pair_key, base_color, quote_color, trade_count, last_price, last_traded_at)
+SELECT
+    LEAST(g.token_color, w.token_color) || '|' || GREATEST(g.token_color, w.token_color),
+    LEAST(g.token_color, w.token_color),
+    GREATEST(g.token_color, w.token_color),
+    1,
+    w.amount::numeric / NULLIF(g.amount::numeric, 0),
+    NOW()
+FROM offer_file_tokens_history g
+JOIN offer_file_tokens_history w ON w.offer_file_id = g.offer_file_id AND w.direction = 'WANTING'
+WHERE g.direction = 'GIVING' AND g.offer_file_id = :offer_id!
+ON CONFLICT (pair_key) DO UPDATE SET
+    trade_count    = pair_stats.trade_count + 1,
+    last_price     = EXCLUDED.last_price,
+    last_traded_at = EXCLUDED.last_traded_at;
+
+/* @name GetPairs */
+SELECT
+    COALESCE(ps.pair_key, live.pair_key) AS pair_key,
+    COALESCE(ps.base_color, split_part(live.pair_key, '|', 1)) AS base_color,
+    COALESCE(ps.quote_color, split_part(live.pair_key, '|', 2)) AS quote_color,
+    COALESCE(ps.trade_count, 0) AS trade_count,
+    ps.last_price,
+    ps.last_traded_at,
+    COALESCE(live.open_count, 0) AS open_count
+FROM pair_stats ps
+FULL OUTER JOIN (
+    SELECT
+        LEAST(g.token_color, w.token_color) || '|' || GREATEST(g.token_color, w.token_color) AS pair_key,
+        COUNT(*)::int AS open_count
+    FROM offer_file_tokens g
+    JOIN offer_file_tokens w ON w.offer_file_id = g.offer_file_id AND w.direction = 'WANTING'
+    WHERE g.direction = 'GIVING'
+    GROUP BY 1
+) live ON live.pair_key = ps.pair_key
+ORDER BY open_count DESC, last_traded_at DESC NULLS LAST;
+
+/* @name GetZswapStatusByBlob */
+SELECT transaction_hex, 'open' AS status, NULL::text AS archive_reason
+FROM offer_file
+WHERE transaction_hex = :blob!
+UNION ALL
+SELECT transaction_hex,
+    CASE archive_reason WHEN 'CONSUMED' THEN 'completed' ELSE 'expired' END AS status,
+    archive_reason
+FROM offer_file_history
+WHERE transaction_hex = :blob!;
