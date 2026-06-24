@@ -11,6 +11,7 @@ import { ConnectModal } from './ui/ConnectModal';
 import { Toasts } from './ui/Toasts';
 import { WalletMenu } from './ui/WalletMenu';
 import { NetworkMenu } from './ui/NetworkMenu';
+import { SyncBanner } from './ui/SyncBanner';
 import { useZSwapApp } from './state/useZSwapApp';
 import { Market } from './screens/Market';
 import { Faucet } from './screens/Faucet';
@@ -81,7 +82,7 @@ export default function App() {
               ))}
             </div>
             <div style={{ flex: 1 }} />
-            <NetworkMenu value={st.network} onChange={st.setNetwork} />
+            <NetworkMenu value={st.network} />
             <span className="zs-badge-shield" title="Private session"><Icon.shield /> Private session</span>
             {st.wallet ? <WalletMenu st={st} /> : <button className="zs-btn zs-btn--secondary" onClick={st.connect}>Connect wallet</button>}
           </div>
@@ -109,6 +110,7 @@ export default function App() {
           )}
         </div>
       </header>
+      <SyncBanner />
 
       <main style={{ flex: 1, width: '100%', maxWidth: 1180, margin: '0 auto', padding: '32px 24px 40px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {page === 'market' && (

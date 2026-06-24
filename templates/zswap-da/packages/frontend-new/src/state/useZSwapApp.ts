@@ -91,6 +91,13 @@ function toOrder(offer: ZSwapOffer, knownTokens: KnownToken[]): Order | null {
 
 const LOCAL_WALLET_NETWORK = 'Undeployed';
 
+// Derive the display network name from the env var (e.g. 'preview' → 'Preview').
+// Falls back to 'Undeployed' when no network is configured.
+const DISPLAY_NETWORK =
+  NETWORK_ID === 'undeployed'
+    ? LOCAL_WALLET_NETWORK
+    : NETWORK_ID.charAt(0).toUpperCase() + NETWORK_ID.slice(1);
+
 function brandStyle(name: string): { tint: string; glyph: string } {
   if (name === 'midnight-local') return { tint: '#0000FE', glyph: 'JS' };
   if (/lace/i.test(name)) return { tint: '#0A0A0A', glyph: '◧' };
@@ -165,7 +172,7 @@ export function useZSwapApp(): ZSwapApp {
   const [refreshing, setRefreshing] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const [network, setNetwork] = useState(LOCAL_WALLET_NETWORK);
+  const [network, setNetwork] = useState(DISPLAY_NETWORK);
   const zapi = useZSwapAPI();
   const { knownTokens, refetchTokens } = useTokens();
   const contract = useContract(connected?.connectedApi ?? null);
