@@ -302,14 +302,14 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                   {pairQuery && <button onClick={() => setPairQuery('')} style={{ border: 'none', background: 'transparent', color: 'var(--ink-3)', cursor: 'pointer', padding: 0, fontSize: 14, flex: '0 0 auto' }}>✕</button>}
                 </div>
                 <div style={{ overflowY: 'auto' }}>
-                  <div className=”zs-tag” style={{ padding: '6px 10px 8px', display: 'flex', alignItems: 'center', gap: 6 }}><Icon.spark style={{ color: 'var(--accent)' }} /> Known pairs</div>
-                  {shownPairs.length === 0 && <div style={{ padding: '6px 10px 12px', fontSize: 12.5, color: 'var(--ink-3)' }}>{q ? `No pairs match “${pairQuery}”.` : 'No pairs yet.'}</div>}
+                  <div className="zs-tag" style={{ padding: '6px 10px 8px', display: 'flex', alignItems: 'center', gap: 6 }}><Icon.spark style={{ color: 'var(--accent)' }} /> Known pairs</div>
+                  {shownPairs.length === 0 && <div style={{ padding: '6px 10px 12px', fontSize: 12.5, color: 'var(--ink-3)' }}>{q ? `No pairs match "${pairQuery}".` : 'No pairs yet.'}</div>}
                   {shownPairs.map((p, i) => (
                     <button key={i} onClick={() => { setPair({ base: p.base, quote: p.quote }); setPickOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', border: 'none', background: pair && pair.base === p.base && pair.quote === p.quote ? 'var(--surface-2)' : 'transparent', borderRadius: 10, cursor: 'pointer', textAlign: 'left', opacity: p.dimmed ? 0.6 : 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}><Coin sym={p.base} size=”sm” /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={p.quote} size=”sm” /></div>
+                      <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}><Coin sym={p.base} size="sm" /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={p.quote} size="sm" /></div>
                       <span style={{ flex: 1, fontWeight: 700, fontSize: 13.5 }}>{p.base}<span style={{ color: 'var(--ink-3)', fontWeight: 500 }}> / {p.quote}</span></span>
-                      {p.mine && <span className=”zs-pill” style={{ padding: '2px 7px', fontSize: 10, color: 'var(--accent)', background: 'var(--accent-soft)', borderColor: 'var(--accent-line)', flex: '0 0 auto' }}>Yours</span>}
-                      <span className=”zs-num” style={{ fontSize: 11.5, color: 'var(--ink-3)', flex: '0 0 auto' }}>{p.count} open</span>
+                      {p.mine && <span className="zs-pill" style={{ padding: '2px 7px', fontSize: 10, color: 'var(--accent)', background: 'var(--accent-soft)', borderColor: 'var(--accent-line)', flex: '0 0 auto' }}>Yours</span>}
+                      <span className="zs-num" style={{ fontSize: 11.5, color: 'var(--ink-3)', flex: '0 0 auto' }}>{p.count} open</span>
                     </button>
                   ))}
                 </div>
@@ -350,8 +350,8 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
 
           {shownPairs.length === 0 ? (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 12, padding: '30px 0' }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-2)' }}>{q ? `No pairs match “${pairQuery}”` : 'No open liquidity right now'}</div>
-              <button className=”zs-btn zs-btn--primary” onClick={() => onStartOrder?.()}>Create the first order <Icon.arrow /></button>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-2)' }}>{q ? `No pairs match "${pairQuery}"` : 'No open liquidity right now'}</div>
+              <button className="zs-btn zs-btn--primary" onClick={() => onStartOrder?.()}>Create the first order <Icon.arrow /></button>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
@@ -364,9 +364,9 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                       <span style={{ fontWeight: 700, fontSize: 14.5 }}>{p.base}<span style={{ color: 'var(--ink-3)', fontWeight: 500 }}> / {p.quote}</span></span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <span className=”zs-tag”>{p.count > 0 ? 'Open ZSwaps' : 'No open orders'}</span>
+                      <span className="zs-tag">{p.count > 0 ? 'Open ZSwaps' : 'No open orders'}</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {p.mine && <span className=”zs-pill” style={{ padding: '3px 8px', fontSize: 10.5, color: 'var(--accent)', background: 'var(--accent-soft)', borderColor: 'var(--accent-line)' }}>Yours</span>}
+                        {p.mine && <span className="zs-pill" style={{ padding: '3px 8px', fontSize: 10.5, color: 'var(--accent)', background: 'var(--accent-soft)', borderColor: 'var(--accent-line)' }}>Yours</span>}
                         <span className={sh ? 'zs-badge-shield' : 'zs-pill'} style={{ padding: '4px 9px', fontSize: 11 }}>{p.count} open</span>
                       </span>
                     </div>
