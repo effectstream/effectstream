@@ -83,7 +83,7 @@ function deriveStatus(ntpCurrent: number, lagSeconds: number): "ok" | "syncing" 
 }
 
 export async function getSyncStatus(dbConn: any) {
-  const [ntpRow, pageRow, midnightTip, celestiaTip] = await Promise.all([
+  const [ntpRow, pageRow, blockRow, midnightTip, celestiaTip] = await Promise.all([
     dbConn.query("SELECT MAX(block_height) AS current FROM effectstream.effectstream_blocks"),
     dbConn.query(`
       SELECT protocol_name,
@@ -91,6 +91,12 @@ export async function getSyncStatus(dbConn: any) {
              MAX(page_number) AS fetched
       FROM effectstream.sync_protocol_pagination
       GROUP BY protocol_name
+    `),
+    dbConn.query(`
+      SELECT block_height, ms_timestamp, effectstream_block_hash, main_chain_block_hash
+      FROM effectstream.effectstream_blocks
+      ORDER BY block_height DESC
+      LIMIT 1
     `),
     fetchMidnightTip(),
     fetchCelestiaTip(),
@@ -109,9 +115,21 @@ export async function getSyncStatus(dbConn: any) {
 
   const lagSeconds = Math.max(0, (ntpTip - ntpCurrent) * NTP_BLOCK_TIME_MS / 1000);
 
+  const toHex = (v: unknown) =>
+    v != null ? Buffer.from(v as Buffer).toString("hex") : null;
+  const latestBlock = blockRow.rows[0] ?? null;
+
   return {
     ts: Date.now(),
     status: deriveStatus(ntpCurrent, lagSeconds),
+    block: latestBlock
+      ? {
+          height: latestBlock.block_height,
+          timestamp: latestBlock.ms_timestamp,
+          block_hash: toHex(latestBlock.effectstream_block_hash),
+          main_chain_block_hash: toHex(latestBlock.main_chain_block_hash),
+        }
+      : null,
     ntp: {
       current: ntpCurrent,
       tip: ntpTip,

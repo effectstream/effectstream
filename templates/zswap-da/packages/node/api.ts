@@ -209,26 +209,6 @@ export const apiRouter: StartConfigApiRouter = async function (
     };
   });
 
-  // GET /api/block/latest — latest finalized L2 (NTP) block from the framework DB.
-  server.get("/api/block/latest", async () => {
-    const result = await dbConn.query(
-      `SELECT block_height, ms_timestamp, effectstream_block_hash, main_chain_block_hash
-       FROM effectstream.effectstream_blocks
-       ORDER BY block_height DESC
-       LIMIT 1`,
-    );
-    const row = result.rows[0] ?? null;
-    if (!row) return null;
-    const toHex = (v: unknown) =>
-      v != null ? Buffer.from(v as Buffer).toString("hex") : null;
-    return {
-      block_height: row.block_height,
-      timestamp: row.ms_timestamp,
-      block_hash: toHex(row.effectstream_block_hash),
-      main_chain_block_hash: toHex(row.main_chain_block_hash),
-    };
-  });
-
   // GET /api/health/sync — per-protocol sync state (current block, tip, lag).
   // Uses effectstream.effectstream_blocks for NTP and
   // effectstream.sync_protocol_pagination for parallel chains.
