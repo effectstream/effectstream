@@ -7,10 +7,7 @@
 // Chain tips are fetched externally and cached for 60 s to limit outbound calls.
 
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
-import { CELESTIA_RPC_URL } from "./env.ts";
-
-const NTP_START_TIME_MS = 1774400742000; // Midnight Preview block-1 genesis (2026-03-25T01:05:42 UTC)
-const NTP_BLOCK_TIME_MS = 600_000;       // must match config.preview.ts blockTimeMS
+import { BLOCK_TIME_MS, CELESTIA_RPC_URL, NTP_START_TIME } from "./env.ts";
 
 interface CachedTip {
   value: number | null;
@@ -80,7 +77,7 @@ function pct(current: number, tip: number | null): number | null {
 // "error"   — no blocks finalized yet (migrations pending or node crash).
 function deriveStatus(ntpCurrent: number, lagSeconds: number): "ok" | "syncing" | "error" {
   if (ntpCurrent === 0) return "error";
-  if (lagSeconds > NTP_BLOCK_TIME_MS * 2 / 1000) return "syncing"; // > 2 blocks (20 min)
+  if (lagSeconds > BLOCK_TIME_MS * 2 / 1000) return "syncing"; // > 2 blocks
   return "ok";
 }
 
@@ -114,7 +111,7 @@ export async function getSyncStatus(dbConn: any) {
   ]);
 
   const ntpCurrent = Number(ntpRow.rows[0]?.current ?? 0);
-  const ntpTip = Math.floor((Date.now() - NTP_START_TIME_MS) / NTP_BLOCK_TIME_MS);
+  const ntpTip = Math.floor((Date.now() - NTP_START_TIME) / BLOCK_TIME_MS);
 
   const pages: Record<string, { merged: number; fetched: number }> = {};
   for (const row of pageRow.rows) {
@@ -124,7 +121,7 @@ export async function getSyncStatus(dbConn: any) {
   const mn = pages["parallelMidnight"];
   const ce = pages["parallelCelestia"];
 
-  const lagSeconds = Math.max(0, (ntpTip - ntpCurrent) * NTP_BLOCK_TIME_MS / 1000);
+  const lagSeconds = Math.max(0, (ntpTip - ntpCurrent) * BLOCK_TIME_MS / 1000);
 
   const toHex = (v: unknown) =>
     v != null ? Buffer.from(v as Buffer).toString("hex") : null;
@@ -141,7 +138,7 @@ export async function getSyncStatus(dbConn: any) {
           timestamp: latestBlock.ms_timestamp,
           block_hash: toHex(latestBlock.effectstream_block_hash),
           main_chain_block_hash: toHex(latestBlock.main_chain_block_hash),
-          block_time: NTP_BLOCK_TIME_MS,
+          block_time: BLOCK_TIME_MS,
           lag: Math.max(0, ntpTip - ntpCurrent),
         }
       : null,

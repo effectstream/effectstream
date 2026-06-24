@@ -15,7 +15,7 @@ import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight
 import { submitBlobViaBatcher } from "./batcher-client.ts";
 import { getBlankRefState, validateZswapOffer } from "@zswap-da/validator";
 import { eventBus, emitAppEvent } from "./event-bus.ts";
-import { quote, buildDepth } from "./market-mock.ts";
+import { quoteWithPrices, priceOf } from "./market-mock.ts";
 import { realStats, realHistory } from "./trade-data.ts";
 import { getSyncStatus } from "./sync-health.ts";
 
@@ -97,10 +97,26 @@ export const apiRouter: StartConfigApiRouter = async function (
     return result;
   });
 
-  // GET /api/quote — synthetic price quote for from→to (see market-mock.ts).
+  // GET /api/quote — price quote for from→to backed by the token_prices DB table.
+  // On first request for a token the deterministic fallback price is inserted so
+  // subsequent calls are consistent and operators can override rows manually.
   // Params: from_token, to_token (hex colors), from_amount (base units),
   // optional to_amount (a user-set receive amount → discount/sponsored vs it).
-  // The frontend uses this so it never fabricates rates/sponsorship itself.
+  async function resolvePrice(token: string): Promise<number> {
+    const row = await dbConn.query(
+      "SELECT price_usd FROM token_prices WHERE token_color = $1",
+      [token],
+    );
+    if (row.rows.length > 0) return Number(row.rows[0].price_usd);
+    const fallback = priceOf(token);
+    await dbConn.query(
+      `INSERT INTO token_prices (token_color, price_usd) VALUES ($1, $2)
+       ON CONFLICT (token_color) DO NOTHING`,
+      [token, fallback],
+    );
+    return fallback;
+  }
+
   server.get("/api/quote", async (request: any) => {
     const q = request?.query ?? {};
     const fromToken = String((q as any).from_token ?? "").toLowerCase();
@@ -112,14 +128,14 @@ export const apiRouter: StartConfigApiRouter = async function (
     const fromAmount = BigInt(digits((q as any).from_amount) || "0");
     const toRaw = digits((q as any).to_amount);
     const toAmount = toRaw.length ? BigInt(toRaw) : undefined;
-    return quote(fromToken, toToken, fromAmount, toAmount);
+    const [pf, pt] = await Promise.all([resolvePrice(fromToken), resolvePrice(toToken)]);
+    return quoteWithPrices(fromToken, toToken, fromAmount, pf, pt, toAmount);
   });
 
   // GET /api/chart/{stats,history} — REAL per-pair market data derived from the
   // indexer DB: history = consumed offers (offer_file_history), stats = last/24h/
-  // high/low/volume from those fills (mid of open offers as fallback). /depth is
-  // still the synthetic mock but unused by the frontend (it builds the book from
-  // live offers directly). Params: base, quote (hex colors).
+  // high/low/volume from those fills (mid of open offers as fallback).
+  // Params: base, quote (hex colors).
   const readPair = (request: any): { base: string; quote: string } => {
     const q = request?.query ?? {};
     const base = String((q as any).base ?? "").toLowerCase();
@@ -130,10 +146,6 @@ export const apiRouter: StartConfigApiRouter = async function (
   server.get("/api/chart/stats", async (request: any) => {
     const { base, quote: quoteToken } = readPair(request);
     return realStats(dbConn, base, quoteToken);
-  });
-  server.get("/api/chart/depth", async (request: any) => {
-    const { base, quote: quoteToken } = readPair(request);
-    return buildDepth(base, quoteToken);
   });
   server.get("/api/chart/history", async (request: any) => {
     const { base, quote: quoteToken } = readPair(request);

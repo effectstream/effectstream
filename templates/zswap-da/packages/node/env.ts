@@ -10,6 +10,12 @@ export const CELESTIA_AUTH_TOKEN = getEnv("CELESTIA_AUTH_TOKEN") ?? "";
 export const CELESTIA_NETWORK = getEnv("CELESTIA_NETWORK") ?? "devnet";
 export const CELESTIA_START_HEIGHT = getEnv("CELESTIA_START_HEIGHT");
 
+// NTP / sync timing — override via env to adjust for a different network epoch.
+export const BLOCK_TIME_MS     = parseInt(getEnv("BLOCK_TIME_MS")     ?? "600000");
+export const NTP_STEP_SIZE     = parseInt(getEnv("NTP_STEP_SIZE")     ?? "1000");
+export const NTP_START_TIME    = parseInt(getEnv("NTP_START_TIME")    ?? "1774400742000");
+export const MIDNIGHT_DELAY_MS = parseInt(getEnv("MIDNIGHT_DELAY_MS") ?? "30000");
+
 // Local batcher endpoint for forwarding zswap blob submissions.
 export const BATCHER_SUBMIT_URL = getEnv("BATCHER_SUBMIT_URL") ??
   `http://127.0.0.1:${getEnv("BATCHER_PORT") ?? "3334"}`;
