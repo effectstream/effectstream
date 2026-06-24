@@ -58,6 +58,44 @@ export interface Quote {
 // user set a custom receive amount), discount/sponsored are computed against it;
 // otherwise they describe the auto-suggested amount (which lands exactly on the
 // sponsorship threshold, i.e. always sponsored).
+// Variant that accepts pre-resolved prices (e.g. from the token_prices DB table).
+export function quoteWithPrices(
+  fromToken: string,
+  toToken: string,
+  fromAmount: bigint,
+  pf: number,
+  pt: number,
+  toAmount?: bigint,
+): Quote {
+  const marketRate = pf / pt; // `to` units per 1 `from`
+  const fromNum = Number(fromAmount);
+  const suggested = BigInt(Math.max(0, Math.floor(fromNum * marketRate * (1 - SPONSOR_DISCOUNT))));
+  const eff = toAmount ?? suggested;
+  let impliedRate: number | null = null;
+  let discount: number | null = null;
+  let sponsored = false;
+  let toUsd: number | null = null;
+  if (fromNum > 0) {
+    impliedRate = Number(eff) / fromNum;
+    discount = 1 - impliedRate / marketRate;
+    sponsored = discount >= SPONSOR_DISCOUNT - 1e-9;
+    toUsd = Number(eff) * pt;
+  }
+  return {
+    from_token: fromToken,
+    to_token: toToken,
+    from_amount: fromAmount.toString(),
+    market_rate: marketRate,
+    suggested_to_amount: suggested.toString(),
+    to_amount: eff.toString(),
+    implied_rate: impliedRate,
+    discount,
+    sponsored,
+    from_usd: fromNum * pf,
+    to_usd: toUsd,
+  };
+}
+
 export function quote(
   fromToken: string,
   toToken: string,
