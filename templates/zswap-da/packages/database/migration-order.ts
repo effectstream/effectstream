@@ -2,6 +2,7 @@ import type { DBMigrations } from "@effectstream/runtime";
 import databaseSql from "./migrations/000-init.sql" with { type: "text" };
 import spentSetsSql from "./migrations/001-spent-sets.sql" with { type: "text" };
 import livenessSetsSql from "./migrations/002-liveness-sets.sql" with { type: "text" };
+import localMigrationSql from "./migrations/local-migration.sql" with { type: "text" };
 export const migrationTable: DBMigrations[] = [
   {
     name: "000-init.sql",
@@ -14,5 +15,9 @@ export const migrationTable: DBMigrations[] = [
   {
     name: "002-liveness-sets.sql",
     sql: livenessSetsSql,
+  },
+  {
+    name: "local-migration.sql",
+    sql: localMigrationSql,
   },
 ];
