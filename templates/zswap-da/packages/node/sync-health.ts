@@ -83,7 +83,7 @@ function deriveStatus(ntpCurrent: number, lagSeconds: number): "ok" | "syncing" 
 }
 
 export async function getSyncStatus(dbConn: any) {
-  const [ntpRow, pageRow, blockRow, midnightTip, celestiaTip] = await Promise.all([
+  const [ntpRow, pageRow, blockRow, nullifierRow, rootRow, unshieldedRow, lastOfferRow, midnightTip, celestiaTip] = await Promise.all([
     dbConn.query("SELECT MAX(block_height) AS current FROM effectstream.effectstream_blocks"),
     dbConn.query(`
       SELECT protocol_name,
@@ -96,6 +96,15 @@ export async function getSyncStatus(dbConn: any) {
       SELECT block_height, ms_timestamp, effectstream_block_hash, main_chain_block_hash
       FROM effectstream.effectstream_blocks
       ORDER BY block_height DESC
+      LIMIT 1
+    `),
+    dbConn.query("SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM nullifiers"),
+    dbConn.query("SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM known_roots"),
+    dbConn.query("SELECT COUNT(*)::int AS total, MAX(height) AS latest_height FROM created_unshielded"),
+    dbConn.query(`
+      SELECT id, celestia_height, created_at
+      FROM offer_file
+      ORDER BY id DESC
       LIMIT 1
     `),
     fetchMidnightTip(),
@@ -118,6 +127,7 @@ export async function getSyncStatus(dbConn: any) {
   const toHex = (v: unknown) =>
     v != null ? Buffer.from(v as Buffer).toString("hex") : null;
   const latestBlock = blockRow.rows[0] ?? null;
+  const lastOffer   = lastOfferRow.rows[0] ?? null;
 
   return {
     ts: Date.now(),
@@ -149,6 +159,27 @@ export async function getSyncStatus(dbConn: any) {
       fetched: ce?.fetched ?? null,
       tip: celestiaTip,
       pct: ce ? pct(ce.merged, celestiaTip) : null,
+    },
+    sets: {
+      nullifiers: {
+        total: nullifierRow.rows[0]?.total ?? 0,
+        latest_height: nullifierRow.rows[0]?.latest_height ?? null,
+      },
+      known_roots: {
+        total: rootRow.rows[0]?.total ?? 0,
+        latest_height: rootRow.rows[0]?.latest_height ?? null,
+      },
+      unshielded_utxos: {
+        total: unshieldedRow.rows[0]?.total ?? 0,
+        latest_height: unshieldedRow.rows[0]?.latest_height ?? null,
+      },
+      last_zswap: lastOffer
+        ? {
+            id: lastOffer.id,
+            celestia_height: lastOffer.celestia_height,
+            created_at: lastOffer.created_at,
+          }
+        : null,
     },
   };
 }
