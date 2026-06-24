@@ -70,7 +70,9 @@ async function fetchCelestiaTip(): Promise<number | null> {
 
 function pct(current: number, tip: number | null): number | null {
   if (tip == null || tip <= 0) return null;
-  return Math.round((current / tip) * 1000) / 10;
+  const p = Math.round((current / tip) * 1000) / 10;
+  // Never show 100 when there are still blocks to process.
+  return current < tip ? Math.min(p, 99.9) : p;
 }
 
 // "ok"      — within 2 NTP blocks (≤ 20 min behind), serving live data.
@@ -153,12 +155,14 @@ export async function getSyncStatus(dbConn: any) {
       current: mn?.merged ?? null,
       fetched: mn?.fetched ?? null,
       tip: midnightTip,
+      lag_blocks: mn && midnightTip != null ? Math.max(0, midnightTip - mn.merged) : null,
       pct: mn ? pct(mn.merged, midnightTip) : null,
     },
     celestia: {
       current: ce?.merged ?? null,
       fetched: ce?.fetched ?? null,
       tip: celestiaTip,
+      lag_blocks: ce && celestiaTip != null ? Math.max(0, celestiaTip - ce.merged) : null,
       pct: ce ? pct(ce.merged, celestiaTip) : null,
     },
     sets: {
