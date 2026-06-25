@@ -2,7 +2,7 @@
 //
 // Usage:
 //   bun run api-examples/run-all.ts              # read-only: 01–06
-//   WALLET_OPS=1 bun run api-examples/run-all.ts # also runs 08–10 (wallet + offer + settle)
+//   WALLET_OPS=1 bun run api-examples/run-all.ts # also runs 08–11 (wallet + mint + offer + settle)
 //
 // The batcher and Midnight node cannot handle concurrent calls — every step
 // runs sequentially, with a configurable pause between wallet operations.
@@ -10,7 +10,7 @@
 // Env overrides (passed through to child scripts):
 //   MIDNIGHT_NETWORK_ID  NODE_URL  BATCHER_URL
 //   WALLET_SEED  TAKER_SEED  WALLET_OPS
-//   GIVE_TOKEN  WANT_TOKEN  GIVE_AMOUNT  WANT_AMOUNT  TTL_MINUTES
+//   GIVE_TOKEN  WANT_TOKEN  GIVE_AMOUNT  WANT_AMOUNT  TTL_MINUTES  MINT_AMOUNT
 
 import { config, header } from "./config.ts";
 
@@ -76,9 +76,20 @@ if (!walletOk) {
   process.exit(1);
 }
 
-// Submit offer (maker wallet → Celestia via batcher)
+// Mint test tokens (maker wallet → on-chain contract circuits)
+// Domain separators are fixed so re-runs top up the same token colors.
 await sleep(PAUSE_MS);
-const submitOk = await run("09 · Build + submit offer", "api-examples/09-submit-offer.ts", {
+const mintOk = await run("09 · Mint test tokens", "api-examples/09-mint.ts", {
+  WALLET_SEED: config.walletSeed,
+});
+if (!mintOk) {
+  console.error("Mint failed — check WALLET_SEED has NIGHT for dust fees and proof server is reachable.");
+  process.exit(1);
+}
+
+// Submit offer using the freshly minted tokens (maker wallet → Celestia via batcher)
+await sleep(PAUSE_MS);
+const submitOk = await run("10 · Build + submit offer", "api-examples/10-submit-offer.ts", {
   WALLET_SEED: config.walletSeed,
 });
 if (!submitOk) {
@@ -88,7 +99,7 @@ if (!submitOk) {
 
 // Settle offer (taker wallet → Midnight)
 await sleep(PAUSE_MS);
-await run("10 · Settle offer on Midnight", "api-examples/10-settle-offer.ts", {
+await run("11 · Settle offer on Midnight", "api-examples/11-settle-offer.ts", {
   TAKER_SEED: config.takerSeed,
 });
 

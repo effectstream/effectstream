@@ -1,4 +1,4 @@
-// 10-settle-offer.ts — Take and settle an open offer on Midnight.
+// 11-settle-offer.ts — Take and settle an open offer on Midnight.
 //
 // What this does:
 //   1. Fetches the first open offer from the book (or use OFFER_BLOB env var).
