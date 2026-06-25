@@ -57,9 +57,6 @@ const CELESTIA_AUTH_TOKEN = ENV.getString("CELESTIA_AUTH_TOKEN", "");
 const CELESTIA_RPC_TIMEOUT_MS = parseInt(
   ENV.getString("CELESTIA_RPC_TIMEOUT_MS", "15000"),
 );
-const CELESTIA_RPC_RETRIES = parseInt(
-  ENV.getString("CELESTIA_RPC_RETRIES", "3"),
-);
 
 /**
  * Converts a hex-encoded Celestia namespace to a base64-encoded 29-byte array.
@@ -86,41 +83,38 @@ export class CelestiaClient {
   }
 
   private async rpc<T>(method: string, params: unknown[]): Promise<T | null> {
-    let lastErr: unknown;
-    for (let attempt = 0; attempt <= CELESTIA_RPC_RETRIES; attempt++) {
-      let res: Response;
+    // Retry forever — a transient stall must never cause a block to be skipped.
+    // The only exit paths are: (a) success, (b) "blob: not found" (empty namespace).
+    // Everything else (network error, timeout, RPC error) loops with backoff.
+    let attempt = 0;
+    while (true) {
       try {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (CELESTIA_AUTH_TOKEN) headers["Authorization"] = `Bearer ${CELESTIA_AUTH_TOKEN}`;
-        res = await fetch(this.rpcUrl, {
+        const res = await fetch(this.rpcUrl, {
           method: "POST",
           headers,
           body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
           signal: AbortSignal.timeout(CELESTIA_RPC_TIMEOUT_MS),
         });
+        const json = await res.json();
+        if (json.error) {
+          const errMsg: string = json.error.message ?? String(json.error);
+          if (errMsg.includes("blob: not found")) return null;
+          throw new Error(`[Celestia] RPC error [${method}]: ${errMsg}`);
+        }
+        return json.result as T;
       } catch (err: unknown) {
-        // Network or timeout error — retry up to CELESTIA_RPC_RETRIES times.
-        lastErr = err;
-        continue;
+        attempt++;
+        const backoffMs = Math.min(1000 * 2 ** Math.min(attempt - 1, 5), 30_000);
+        console.warn(
+          `[Celestia] ${method} attempt ${attempt} failed (retrying in ${backoffMs}ms): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
-
-      const json = await res.json();
-      if (json.error) {
-        const errMsg: string = json.error.message ?? String(json.error);
-        // Genuine empty namespace: not an error, return null so callers map to [].
-        if (errMsg.includes("blob: not found")) return null;
-        // Deterministic RPC errors won't improve on retry — throw immediately.
-        throw new Error(`[Celestia] RPC error [${method}]: ${errMsg}`);
-      }
-      return json.result as T;
     }
-    // All retries exhausted. Throw so the batch fails and the driver retries the
-    // whole window — never return null/[] here, which would silently drop a block.
-    throw new Error(
-      `[Celestia] ${method} failed after ${CELESTIA_RPC_RETRIES + 1} attempts: ${
-        lastErr instanceof Error ? lastErr.message : String(lastErr)
-      }`,
-    );
   }
 
   async getLatestBlockHeight(): Promise<number> {
