@@ -16,10 +16,12 @@ import { OfferFilesContract } from "@zswap-da/contract-offer-files";
 
 import {
   BLOCK_TIME_MS,
+  CELESTIA_FETCH_CONCURRENCY,
   CELESTIA_NAMESPACE,
   CELESTIA_POLLING_INTERVAL_MS,
   CELESTIA_RPC_URL,
   CELESTIA_START_HEIGHT,
+  CELESTIA_STEP_SIZE,
   MIDNIGHT_DELAY_MS,
   midnightContract,
   NTP_START_TIME,
@@ -115,6 +117,8 @@ export const config = new ConfigBuilder()
           pollingInterval: CELESTIA_POLLING_INTERVAL_MS,
           delayMs: 12_000,
           confirmationDepth: 1,
+          stepSize: CELESTIA_STEP_SIZE,
+          concurrency: CELESTIA_FETCH_CONCURRENCY,
         }),
       )
   )
