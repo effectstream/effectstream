@@ -26,7 +26,7 @@ The starting point is [farcaster-canvas](https://github.com/effectstream/farcast
 
 ## What's actually Farcaster-specific
 
-Everything described so far -- the grammar, the state machine, the schema, the API, the chain config -- is chain-agnostic EffectStream infrastructure. The entire Farcaster integration is exactly two things.
+Everything described so far - the grammar, the state machine, the schema, the API, the chain config - is chain-agnostic EffectStream infrastructure. The entire Farcaster integration is exactly two things.
 
 **1. The embed manifest.** Warpcast fetches `/.well-known/farcaster.json` before opening any Mini App frame. The file is a signed JSON object with three fields:
 
@@ -50,7 +50,7 @@ Everything described so far -- the grammar, the state machine, the schema, the A
 // 3. Legacy window.ethereum -- old wallets that never adopted EIP-6963.
 ```
 
-One hook, both contexts, no code fork. When the Cardano wallet path is active, this hook is simply unused -- Lucid handles the Cardano side directly.
+One hook, both contexts, no code fork. When the Cardano wallet path is active, this hook is simply unused - LucidEvolution handles the Cardano side directly.
 
 Everything else in the template is standard EffectStream scaffolding.
 
@@ -182,6 +182,14 @@ server.get("/api/results", async (_req, reply) => {
 });
 ```
 
+### The frontend
+
+The frontend is a React + Vite app that ships inside `packages/frontend/`. Five `MovieCard` components render in a grid - each shows the TMDB poster, live vote counts, and Best / Meh / Worst buttons. A log panel at the bottom records wallet activity and chain events in real time: key generation, faucet TX, metadata construction, submission hash, and block confirmation as each step completes. Results come from polling `/api/results` every two seconds; the counts update live as votes land on chain.
+
+This is plain React - no special EffectStream frontend library. You can replace it with anything that can hit an HTTP endpoint.
+
+![Connected wallet showing address in header, vote buttons active per movie card](/img/blog/movie-poll-wallet.png)
+
 ## Config is the chain
 
 The four app files are identical whether the settlement chain is EVM or Cardano. The only thing that changes is the wiring in `config.dev.ts`. Here is the relevant diff from the canvas game to the poll:
@@ -208,9 +216,7 @@ The four app files are identical whether the settlement chain is EVM or Cardano.
 + }))
 ```
 
-The grammar, state machine, schema, and API are untouched. Swapping back to EVM -- or supporting both simultaneously -- means restoring the removed lines. The same poll would accept votes from Base and Cardano wallets in the same results table with no code changes to the app layer.
-
-![Connected wallet showing address in header, vote buttons active per movie card](/img/blog/movie-poll-wallet.png)
+The grammar, state machine, schema, and API are untouched. Swapping back to EVM - or supporting both simultaneously - means restoring the removed lines. The same poll would accept votes from Base and Cardano wallets in the same results table with no code changes to the app layer.
 
 ## Get started
 
