@@ -16,12 +16,15 @@ function brandTint(name: string): string {
 }
 
 function Row({ tint, glyph, icon, title, sub, getUrl, onClick }: { tint: string; glyph?: string; icon?: string; title: string; sub?: string; getUrl?: string; onClick: () => void }) {
+  const hasIcon = !!(icon || glyph);
   return (
     <div onClick={onClick} className="zs-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 13, cursor: 'pointer', textAlign: 'left', border: '1px solid var(--line)', background: 'var(--surface)' }}
       onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface)')}>
-      <span style={{ width: 36, height: 36, borderRadius: 10, background: tint, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: glyph && glyph.length > 1 ? 12 : 18, fontWeight: 700, flex: '0 0 auto', overflow: 'hidden' }}>
-        {icon ? <img src={icon} alt="" style={{ width: 36, height: 36, objectFit: 'cover' }} /> : glyph}
-      </span>
+      {hasIcon && (
+        <span style={{ width: 36, height: 36, borderRadius: 10, background: tint, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: glyph && glyph.length > 1 ? 12 : 18, fontWeight: 700, flex: '0 0 auto', overflow: 'hidden' }}>
+          {icon ? <img src={icon} alt="" style={{ width: 36, height: 36, objectFit: 'cover' }} /> : glyph}
+        </span>
+      )}
       <span style={{ flex: 1, fontWeight: 700, fontSize: 15, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
         {title}{sub && <span className="zs-pill" style={{ padding: '3px 8px', fontSize: 10.5 }}>{sub}</span>}
       </span>
@@ -56,14 +59,17 @@ export function ConnectModal({
             <Row key={w.name} tint={brandTint(w.name)} glyph="◧" icon={w.icon} title={w.displayName} onClick={() => onPickInjected(w.name)} />
           ))}
           {injected.length === 0 && (
-            <Row tint="#0A0A0A" glyph="◧" title="Lace" sub="not detected" getUrl="https://www.lace.io/" onClick={() => onPickInjected('')} />
+            <>
+              <Row tint="#0A0A0A" title="Lace" sub="not detected" getUrl="https://www.lace.io/" onClick={() => window.open('https://www.lace.io/', '_blank')} />
+              <Row tint="#1A1A2E" title="1am" sub="not detected" getUrl="https://1am.xyz/" onClick={() => window.open('https://1am.xyz/', '_blank')} />
+            </>
           )}
           {localAvailable && (
             <Row tint="#0000FE" glyph="JS" title="JS Wallet" sub="local · undeployed" onClick={onPickLocal} />
           )}
         </div>
         <p style={{ fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', marginTop: 14, lineHeight: 1.5 }}>
-          {localAvailable ? 'The JS wallet runs entirely in your browser — no extension needed (undeployed only).' : 'By connecting you agree to post zero-knowledge orders to Celestia DA.'}
+          {localAvailable ? 'The JS wallet runs entirely in your browser — no extension needed (undeployed only).' : 'Connecting your wallet does not share any information.'}
         </p>
       </div>
     </Modal>

@@ -2,6 +2,7 @@
 // disconnect. Adapted from app/ZSwap.html WalletMenu — wired to live wallet data.
 import { useEffect, useRef, useState } from 'react';
 import { WalletPill, type WalletInfo } from './WalletPill';
+import { Icon } from './icons';
 import { shortToken, truncateAddress } from '../utils';
 import { fmtBalance } from '../state/format';
 
@@ -58,7 +59,10 @@ export function WalletMenu({ st }: { st: WalletMenuState }) {
               <button className="zs-btn zs-btn--ghost" style={{ padding: '2px 8px', fontSize: 11 }} disabled={st.refreshing} onClick={() => st.refreshBalances!()}>{st.refreshing ? '…' : 'Refresh'}</button>
             )}
           </div>
-          <div className="zs-num" style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 12, wordBreak: 'break-all', color: 'var(--ink-2)' }}>{truncateAddress(addr)}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+            <Icon.shield style={{ color: 'var(--accent)', flex: '0 0 auto' }} />
+            <span className="zs-num" style={{ fontSize: 12.5, fontWeight: 600, wordBreak: 'break-all', color: 'var(--ink-2)' }}>{truncateAddress(addr)}</span>
+          </div>
           <BalRows title="Shielded" balances={st.shieldedBalances} />
           <BalRows title="Unshielded" balances={st.unshieldedBalances} />
           <button className="zs-btn zs-btn--block" style={{ padding: 11, fontSize: 14 }} onClick={() => { setOpen(false); st.disconnect(); }}>Disconnect</button>

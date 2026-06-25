@@ -35,6 +35,7 @@
     "@sinclair/typebox": "^0.34.30",
     "effection": "^3.5.0",
     "mip-zswap-offer": "github:effectstream/mip-zswap-offer#main",
+    "@fastify/rate-limit": "^9.1.0",
     "rxjs": "^7.8.2"
   }
 }

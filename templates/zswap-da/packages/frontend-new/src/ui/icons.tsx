@@ -93,15 +93,16 @@ export function coinColors(seed: string): { bg: string; fg: string } {
   return { bg: `hsl(${hBg}, 62%, ${bgL}%)`, fg: `hsl(${hFg}, 85%, 90%)` };
 }
 
-export function Coin({ sym, size }: { sym: string; size?: 'lg' | 'sm' }) {
+export function Coin({ sym, size, address }: { sym: string; size?: 'lg' | 'sm'; address?: string }) {
   const meta = TOKENS[sym];
   const t = meta ?? { ...coinColors(sym), glyph: (sym?.[0] || '?').toUpperCase(), shielded: false };
   const cls =
     'zs-coin' +
     (size === 'lg' ? ' zs-coin--lg' : size === 'sm' ? ' zs-coin--sm' : '') +
     ((t as TokenMeta).shielded ? ' zs-coin--shielded' : '');
+  const tooltip = address ?? sym;
   return (
-    <span className={cls} style={{ background: t.bg }} title={(t as TokenMeta).shielded ? 'Shielded' : undefined}>
+    <span className={cls + ' zs-coin--tip'} style={{ background: t.bg }} data-tip={tooltip}>
       <span style={{ color: t.fg, transform: 'translateY(-0.5px)' }}>{t.glyph}</span>
     </span>
   );

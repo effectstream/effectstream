@@ -290,7 +290,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
           <div ref={pickRef} style={{ position: 'relative' }}>
             <button onClick={() => setPickOpen((o) => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--r-pill)', padding: pair ? '7px 14px 7px 9px' : '10px 16px', cursor: 'pointer', fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>
               {pair ? (
-                <><span style={{ display: 'inline-flex', alignItems: 'center' }}><Coin sym={base} size="sm" /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={quote} size="sm" /></span> {base}/{quote}</>
+                <><span style={{ display: 'inline-flex', alignItems: 'center' }}><Coin sym={base} size="sm" address={baseColor} /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={quote} size="sm" address={quoteColor} /></span> {base}/{quote}</>
               ) : (<>Select a pair</>)}
               <Icon.caret style={{ color: 'var(--ink-3)' }} />
             </button>
@@ -306,7 +306,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                   {shownPairs.length === 0 && <div style={{ padding: '6px 10px 12px', fontSize: 12.5, color: 'var(--ink-3)' }}>{q ? `No pairs match "${pairQuery}".` : 'No pairs yet.'}</div>}
                   {shownPairs.map((p, i) => (
                     <button key={i} onClick={() => { setPair({ base: p.base, quote: p.quote }); setPickOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', border: 'none', background: pair && pair.base === p.base && pair.quote === p.quote ? 'var(--surface-2)' : 'transparent', borderRadius: 10, cursor: 'pointer', textAlign: 'left', opacity: p.dimmed ? 0.6 : 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}><Coin sym={p.base} size="sm" /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={p.quote} size="sm" /></div>
+                      <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}><Coin sym={p.base} size="sm" address={colorByName[p.base]} /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={p.quote} size="sm" address={colorByName[p.quote]} /></div>
                       <span style={{ flex: 1, fontWeight: 700, fontSize: 13.5 }}>{p.base}<span style={{ color: 'var(--ink-3)', fontWeight: 500 }}> / {p.quote}</span></span>
                       {p.mine && <span className="zs-pill" style={{ padding: '2px 7px', fontSize: 10, color: 'var(--accent)', background: 'var(--accent-soft)', borderColor: 'var(--accent-line)', flex: '0 0 auto' }}>Yours</span>}
                       <span className="zs-num" style={{ fontSize: 11.5, color: 'var(--ink-3)', flex: '0 0 auto' }}>{p.count} open</span>
@@ -360,7 +360,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                 return (
                   <button key={i} onClick={() => setPair({ base: p.base, quote: p.quote })} style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 'var(--r-field)', border: '1px solid var(--line)', background: 'var(--surface)', cursor: 'pointer', textAlign: 'left', opacity: p.dimmed ? 0.55 : 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center' }}><Coin sym={p.base} /><span style={{ margin: '0 4px', color: 'var(--ink-3)', position: 'relative', zIndex: 2 }}>→</span><Coin sym={p.quote} /></span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}><Coin sym={p.base} address={colorByName[p.base]} /><span style={{ margin: '0 4px', color: 'var(--ink-3)', position: 'relative', zIndex: 2 }}>→</span><Coin sym={p.quote} address={colorByName[p.quote]} /></span>
                       <span style={{ fontWeight: 700, fontSize: 14.5 }}>{p.base}<span style={{ color: 'var(--ink-3)', fontWeight: 500 }}> / {p.quote}</span></span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

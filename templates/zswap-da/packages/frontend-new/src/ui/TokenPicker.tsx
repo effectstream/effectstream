@@ -95,7 +95,7 @@ export function TokenPicker({
             return (
               <button key={t.token_color} onClick={() => { onPick(t); onClose(); }} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 10px', border: 'none', background: 'transparent', borderRadius: 12, cursor: 'pointer', textAlign: 'left' }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                <Coin sym={t.name} />
+                <Coin sym={t.name} address={t.token_color} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
                   <div className="zs-num" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{shortToken(t.token_color)}</div>

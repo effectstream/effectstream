@@ -216,7 +216,7 @@ export function useZSwapApp(): ZSwapApp {
     fetchOffers();
     const id = setInterval(() => {
       fetchOffers();
-    }, 8000);
+    }, 60_000);
     return () => clearInterval(id);
   }, [fetchOffers, refetchTokens]);
 
@@ -432,10 +432,13 @@ export function useZSwapApp(): ZSwapApp {
       const isReal = (b?: string) => !!b && /^zswapoffer1/i.test(b);
       const takeable = orders.filter((o) => isReal(o.blob) && !o.isMine);
       if (takeable.length === 0) {
+        if (orders.some((o) => o.isMine)) {
+          setConnectOpen(true);
+          return;
+        }
         const seeded = orders.some((o) => o.blob && !isReal(o.blob) && !o.isMine);
         toast(
-          orders.some((o) => o.isMine) ? "That's your own offer — you can't take your own ZSwap."
-            : seeded ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (zswapoffer1…) offer to test taking."
+          seeded ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (zswapoffer1…) offer to test taking."
             : 'No live offer to take here.',
         );
         return;
