@@ -17,9 +17,6 @@ import { Market } from './screens/Market';
 import { Faucet } from './screens/Faucet';
 import { HowItWorks } from './screens/HowItWorks';
 import { ConfirmModal } from './ui/ConfirmModal';
-import { shortToken } from './utils';
-import { fmtBalance } from './state/format';
-
 // Place Order + My trades live in the bottom console dock, not in the top nav.
 type PageId = 'market' | 'how' | 'faucet';
 
@@ -28,28 +25,6 @@ const TABS: [PageId, string][] = [
   ['how', 'How it works'],
   ['faucet', 'Faucet'],
 ];
-
-
-function BalancesCard({ title, balances }: { title: string; balances: Record<string, string> | null }) {
-  const entries = Object.entries(balances ?? {}).filter(([, v]) => Number(v) > 0);
-  return (
-    <div className="zs-card" style={{ padding: 20, flex: 1, minWidth: 240 }}>
-      <div className="zs-tag" style={{ marginBottom: 12 }}>{title}</div>
-      {entries.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>No balance</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {entries.map(([color, amt]) => (
-            <div key={color} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <span className="zs-num" style={{ fontSize: 13, color: 'var(--ink-3)' }}>{shortToken(color)}</span>
-              <span className="zs-num" style={{ fontSize: 14, fontWeight: 600 }}>{fmtBalance(amt)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function App() {
   const [page, setPage] = useState<PageId>('market');
@@ -113,17 +88,7 @@ export default function App() {
       <SyncBanner />
 
       <main style={{ flex: 1, width: '100%', maxWidth: 1180, margin: '0 auto', padding: '32px 24px 40px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {page === 'market' && (
-          <div>
-            {st.wallet ? (
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
-                <BalancesCard title="Shielded balances" balances={st.shieldedBalances} />
-                <BalancesCard title="Unshielded balances" balances={st.unshieldedBalances} />
-              </div>
-            ) : null}
-            <Market st={st} onStartOrder={startOrder} />
-          </div>
-        )}
+        {page === 'market' && <Market st={st} onStartOrder={startOrder} />}
         {page === 'how' && <HowItWorks st={st} onGo={startOrder} />}
         {page === 'faucet' && <Faucet st={st} />}
       </main>

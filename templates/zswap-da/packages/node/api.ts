@@ -1,4 +1,5 @@
 import type { StartConfigApiRouter } from "@effectstream/runtime";
+import rateLimit from "@fastify/rate-limit";
 
 import {
   getKnownTokens,
@@ -32,6 +33,16 @@ export const apiRouter: StartConfigApiRouter = async function (
   server: any,
   dbConn: any,
 ): Promise<void> {
+  // 60 requests/min per IP — applied to every route in this router.
+  await server.register(rateLimit, {
+    max: 60,
+    timeWindow: "1 minute",
+    errorResponseBuilder: () => ({
+      error: "RATE_LIMITED",
+      reason: "Too many requests — please wait before retrying.",
+    }),
+  });
+
   // Update pair_stats after each CONSUMED archive. The state machine fires
   // offer_consumed after the archive transaction commits; this listener keeps
   // pair_stats in sync without needing access to dbConn inside the generator.
