@@ -196,3 +196,7 @@ bun run dev
 The orchestrator boots PGLite + the local chain + the node + the frontend in one command. For Cardano, apply the config diff above and `bun run dev` switches to YACI DevKit + Dolos automatically. Open `http://localhost:10599`, connect the ephemeral wallet, hit the faucet, and vote.
 
 The `farcaster-canvas` template and this poll are both at https://github.com/effectstream/farcaster-app.
+
+## Video walkthrough
+
+https://youtu.be/dveSIwH_EFY
