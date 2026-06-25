@@ -181,6 +181,50 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); -w
   .zs-coin--tip::after { transition: none; }
 }
 
+/* zs-token-id — inline token label: hover 2 s → full hex tooltip, click → copy */
+.zs-token-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 1px 4px;
+  transition: background 0.12s;
+  user-select: none;
+}
+.zs-token-id:hover { background: var(--surface-2); }
+.zs-token-id::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: var(--sh-pop);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease 0s;
+  z-index: 99;
+}
+.zs-token-id:hover::after {
+  opacity: 1;
+  transition-delay: 2s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .zs-token-id::after { transition: none; }
+}
+
 /* shielded coin — blue-cyan forcefield glow that breathes */
 .zs-coin--shielded { animation: zs-forcefield 2.1s ease-in-out infinite; }
 .zs-coin--sm.zs-coin--shielded { animation: zs-forcefield-sm 2.1s ease-in-out infinite; }

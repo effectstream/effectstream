@@ -1,3 +1,8 @@
+-- DEMO / TEMPORARY: known_tokens is a manually curated convenience table for
+-- this demo. The official Midnight token-metadata standard is not yet live.
+-- Names and kinds stored here are unverified and MUST NOT be treated as
+-- authoritative token information. This table and its API endpoints will be
+-- replaced once the standard is finalised.
 CREATE TABLE known_tokens (
     id SERIAL PRIMARY KEY,
     token_color TEXT UNIQUE NOT NULL,

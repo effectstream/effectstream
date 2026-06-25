@@ -429,9 +429,12 @@ stm.addStateTransition("celestia-zswap", function* (data) {
     }
 
     // ── Auto-register new token colors ──
+    // DEMO / TEMPORARY: known_tokens is a manually curated convenience table.
+    // The Midnight token-metadata standard is not yet live — names written here
+    // are placeholder abbreviations and MUST NOT be trusted as authoritative.
     // Any token color appearing in this offer that isn't already in
     // known_tokens gets a placeholder entry. ON CONFLICT DO NOTHING means
-    // existing entries (including the pre-seeded native_* tokens) are never
+    // existing entries (including the pre-seeded NIGHT token) are never
     // overwritten. kind is always 'shielded': ZSwap offers are structurally
     // shielded-only; unshielded tokens only appear inside Intent structures.
     const seenColors = new Set<string>();
