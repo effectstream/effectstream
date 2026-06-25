@@ -51,44 +51,49 @@ export class CelestiaFetcher extends BaseDataFetcher<
       (p) => p.primitive.getAllBlockHeaders,
     );
 
+    const heights: number[] = [];
+    for (let h = data.from; h <= data.to; h++) heights.push(h);
+
     console.log(
-      `[Celestia] Fetching blocks from ${data.from} to ${data.to}.${
+      `[Celestia] Fetching blocks from ${data.from} to ${data.to} (${heights.length} blocks, concurrency=${(this.config.syncProtocol as any).concurrency ?? 1}).${
         data.isPresync ? " [presync]" : ""
       }`,
     );
 
-    let lastFetchedOutput: Output | undefined;
-    for (let height = data.from; height <= data.to; height++) {
-      let extHeader;
-      try {
-        extHeader = yield* call(() =>
-          this.client.getHeaderAtHeight(height)
-        );
-      } catch (_e) {
-        break;
+    const results: (Output | undefined)[] = new Array(heights.length);
+    let cursor = 0;
+    const concurrency: number = (this.config.syncProtocol as any).concurrency ?? 1;
+    const self = this;
+
+    // Each worker pulls the next unstarted height from `cursor` and stores the
+    // result at the corresponding index so output order is always height-ascending.
+    // The cursor increment is cooperative-race-free in effection: it runs
+    // synchronously before the first yield in each worker iteration.
+    function* worker(): Operation<void> {
+      while (true) {
+        const i = cursor++;
+        if (i >= heights.length) return;
+        const height = heights[i];
+        const extHeader = yield* call(() => self.client.getHeaderAtHeight(height));
+        const blockHash = extHeader.commit.block_id.hash;
+        const primitives = yield* self.readPrimitives(height, blockHash, self.config.primitives);
+        results[i] = { timestamp: extHeader.header.time, height, hash: blockHash, primitives };
       }
+    }
 
-      const blockHash = extHeader.commit.block_id.hash;
-
-      const primitives = yield* this.readPrimitives(
-        height,
-        blockHash,
-        this.config.primitives,
+    if (heights.length > 0) {
+      yield* all(
+        Array.from({ length: Math.min(concurrency, heights.length) }, () => worker()),
       );
+    }
 
-      const output: Output = {
-        timestamp: extHeader.header.time,
-        height,
-        hash: blockHash,
-        primitives,
-      };
+    let lastFetchedOutput: Output | undefined;
+    for (let i = 0; i < results.length; i++) {
+      const output = results[i];
+      if (!output) continue;
       lastFetchedOutput = output;
-
-      if (fetchAllBlocks || primitives.length > 0 || height === data.to) {
-        outputs.push({
-          output,
-          cleanup: () => {},
-        });
+      if (fetchAllBlocks || output.primitives.length > 0 || output.height === data.to) {
+        outputs.push({ output, cleanup: () => {} });
       }
     }
 

@@ -9,6 +9,12 @@ export const CELESTIA_GAS_LIMIT = parseInt(getEnv("CELESTIA_GAS_LIMIT") ?? "1000
 export const CELESTIA_AUTH_TOKEN = getEnv("CELESTIA_AUTH_TOKEN") ?? "";
 export const CELESTIA_NETWORK = getEnv("CELESTIA_NETWORK") ?? "devnet";
 export const CELESTIA_START_HEIGHT = getEnv("CELESTIA_START_HEIGHT");
+// Concurrent fetcher knobs — see packages/sync celestia/fetcher.ts.
+// stepSize controls how many blocks are batched per fetch window;
+// concurrency controls how many heights are fetched in parallel within each window.
+// Both default to values safe for Mocha-4 (~21 blocks/min with ~10% stalls).
+export const CELESTIA_STEP_SIZE = parseInt(getEnv("CELESTIA_STEP_SIZE") ?? "200");
+export const CELESTIA_FETCH_CONCURRENCY = parseInt(getEnv("CELESTIA_FETCH_CONCURRENCY") ?? "12");
 
 // NTP / sync timing — override via env to adjust for a different network epoch.
 export const BLOCK_TIME_MS     = parseInt(getEnv("BLOCK_TIME_MS")     ?? "600000");
