@@ -24,6 +24,36 @@ The starting point is [farcaster-canvas](https://github.com/effectstream/farcast
 | `packages/database/migrations/000-init.sql` | `canvases`, `paints`, `rewards` | `movies`, `votes` |
 | `packages/node/api.ts` | `/api/canvases`, `/api/canvas/:id` | `/api/movies`, `/api/results` |
 
+## What's actually Farcaster-specific
+
+Everything described so far -- the grammar, the state machine, the schema, the API, the chain config -- is chain-agnostic EffectStream infrastructure. The entire Farcaster integration is exactly two things.
+
+**1. The embed manifest.** Warpcast fetches `/.well-known/farcaster.json` before opening any Mini App frame. The file is a signed JSON object with three fields:
+
+```json
+{
+  "header": "eyJhbGciOiJFZERTQSIsInR5cCI6Ikp...",
+  "payload": "eyJhcHBVcmwiOiJodHRwczovL215YX...",
+  "signature": "MjA5YWM5NTI0ZjYwZDI4..."
+}
+```
+
+`payload` is a base64-encoded object that declares the app URL, splash screen, and webhook endpoint. `signature` is an EdDSA signature from the developer's Farcaster account key. You generate it once with the Farcaster developer portal and serve it as a static file. That's the entire embed integration.
+
+**2. The wallet connector.** Inside Warpcast, `window.ethereum` and EIP-6963 wallet announces don't exist. The Farcaster Mini App SDK exposes an EIP-1193 provider at `sdk.wallet.ethProvider` instead. Outside Warpcast, in a regular browser, you want MetaMask, Rabby, Coinbase, or any EIP-6963 wallet. The `useWallet.ts` hook resolves the right provider in priority order:
+
+```ts
+// 1. Farcaster Mini App host -- the only path that works inside Warpcast.
+//    sdk.wallet.ethProvider is direct; the SDK's own EIP-6963 announce is
+//    async (Comlink -> host -> postMessage back) and races against discovery.
+// 2. EIP-6963 multi-injected providers (MetaMask, Rabby, Coinbase, etc.).
+// 3. Legacy window.ethereum -- old wallets that never adopted EIP-6963.
+```
+
+One hook, both contexts, no code fork. When the Cardano wallet path is active, this hook is simply unused -- Lucid handles the Cardano side directly.
+
+Everything else in the template is standard EffectStream scaffolding.
+
 ## How a Cardano vote works end to end
 
 The EVM path for this kind of app is well-documented: user signs an off-chain message, the batcher bundles it, a contract emits an event, the indexer picks it up. Cardano is more direct -- no batcher, no contract -- and the mechanics are worth spelling out.
