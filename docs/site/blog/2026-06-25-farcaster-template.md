@@ -5,7 +5,9 @@ authors: [effectstream]
 tags: [farcaster, mini-apps, game-templates, cardano, evm, tutorial]
 ---
 
-[farcaster-canvas](https://github.com/effectstream/farcaster-app) is a working pixel-painting Mini App. It is also a reusable scaffold. Every line of code that is specific to the canvas game lives in exactly four files inside `packages/node/`. Replace those four files and you have a different app running on the same batcher, the same node runtime, the same live-event system, and the same wallet injection — without touching any of that plumbing.
+![Movie of the Year Poll: five movie cards with Best/Meh/Worst vote buttons and a live results bar chart](/img/blog/movie-poll-ui.png)
+
+[farcaster-canvas](https://github.com/effectstream/farcaster-app) is a working pixel-painting Mini App. It is also a reusable scaffold. Every line of code that is specific to the canvas game lives in exactly four files inside `packages/node/`. Replace those four files and you have a different app running on the same batcher, the same node runtime, the same live-event system, and the same wallet injection -- without touching any of that plumbing.
 
 This post shows what you inherit for free and walks through a concrete substitution: a Movie of the Year poll (Best / Meh / Worst, one vote per wallet per film) built on the same codebase.
 
@@ -87,20 +89,15 @@ stm.addStateTransition("cardano-vote", function* (data) {
   if (!movie || !VALID_MOVIES.has(movie)) return;
   if (!rating || !VALID_RATINGS.has(rating)) return;
 
-  // One vote per wallet per movie. STM guard + DB UNIQUE constraint.
-  const existing = yield* World.resolve(getVote, { movie_id: movie, voter });
-  if (existing) return;
-
+  // One vote per wallet per movie. ON CONFLICT DO NOTHING is the hard guard.
   yield* World.resolve(insertVote, {
     movie_id: movie, voter, rating,
     tx_hash: txId, block_height: data.blockHeight,
   });
-
-  data.emit("VoteRecorded", { movie, rating, voter });
 });
 ```
 
-Forty lines. No batcher code, no wallet code, no MQTT publish — the runtime handles everything outside this function.
+Thirty lines. No batcher code, no wallet code, no MQTT publish -- the runtime handles everything outside this function.
 
 ### schema
 
@@ -148,6 +145,8 @@ server.get("/api/results", async (_req, reply) => {
 ```
 
 The frontend polls this every 2 seconds - or refreshes on the `VoteRecorded` MQTT event, whichever comes first.
+
+![Wallet connected - address shown in header, faucet funded, vote buttons active](/img/blog/movie-poll-wallet.png)
 
 ## The batcher: why users don't pay gas
 
