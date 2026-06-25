@@ -32,6 +32,11 @@ export const ConfigSyncProtocolSchemaCelestiaBase = NameField.cloneMerge(
   }),
   optional: Type.Object({
     stepSize: Type.Number({ default: 10 }),
+    // Number of heights fetched concurrently within each window.
+    // Default 1 preserves the original serial behaviour for deployments that
+    // do not set this explicitly. Set to 8–16 for Mocha/mainnet to overlap the
+    // ~10% of blob.GetAll calls that stall on shrex share retrieval.
+    concurrency: Type.Number({ default: 1 }),
   }),
 });
 
