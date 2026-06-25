@@ -1,0 +1,60 @@
+---
+slug: blockkart
+title: BlockKart
+date: 2026-03-01
+description: Arbitrum plus an effect stream to keep the racing loop snappy, with a global leaderboard.
+leaderboardUrl: https://api-blockkart.paimastudios.com/metrics/leaderboard?limit=10&offset=0
+achievementsUrl: https://api-blockkart.paimastudios.com/metrics
+repoUrl: https://github.com/effectstream/block-kart-legends
+---
+
+import GameEmbed from '@site/src/components/GameEmbed';
+
+{/* truncate */}
+
+<GameEmbed slug="blockkart" title="BlockKart" src="https://blockkart.paimastudios.com/?game_frame=true" />
+
+<MultiChainNote />
+
+A fast-paced racing simulator where you tune a kart, race for the top spot, and climb an on-chain leaderboard.
+
+## Under the hood
+
+**The game.** BlockKart is a single-player score-attack racer: you submit a car build plus item loadout, and a deterministic race runs against three AI bots. The client renders the race in **Three.js** (native WebGL canvas) with a CRT-style post-processing pass.
+
+**Chains.** BlockKart pairs **Arbitrum** with **Midnight**. Game inputs go to an Arbitrum `PaimaL2Contract` (deployed with `fee = 0`); the deterministic race simulation runs in the EffectStream node; and Midnight holds a tiny anchor contract. Arbitrum is the chosen EVM today, but the EVM layer is standard `PaimaL2Contract` - point it at any EVM chain and the rest is unchanged.
+
+**Running on EffectStream.** The EffectStream state machine ingests the EVM `PaimaGameInteraction` events: a `play` input records the race entry and schedules an `executeRace` ~10 blocks later, which replays the seeded simulation, records the result, and awards achievements. The batcher has both an EVM adapter and a Midnight adapter; the Midnight side writes the anchor.
+
+**Leaderboard & achievements.** Results land in Postgres and are ranked by wins on the `/metrics/leaderboard` endpoint. BlockKart defines win, loss, and per-surface (dirt/ice/asphalt) achievements, shown in the Honors panel.
+
+## The Compact contract
+
+<GameRepo />
+
+**Source:** [`packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact`](https://github.com/effectstream/block-kart-legends/blob/main/packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact)
+
+Here's the teaching moment: the Midnight contract is intentionally tiny. All of the racing logic lives on Arbitrum and in the EffectStream node; Midnight is just an immutable anchor. Not every Compact contract should model the whole game.
+
+### The "anchor only" pattern
+
+The entire contract is 11 lines: a single `ledger payload: Opaque<"string">` plus a `storeValue` circuit that `disclose`s and writes it. No enums, no maps, no witnesses, no commit-reveal. The EffectStream node calls `storeValue` to notarize game-event data on Midnight. Reach for this pattern when you need tamper-evident anchoring but not zero-knowledge - the cheaper the on-chain piece, the cheaper every update.
+
+<CompactCode summary="Full contract (11 lines)">
+
+```compact
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+
+constructor() {
+}
+
+export ledger payload: Opaque<"string">;
+
+export circuit storeValue(_payload: Opaque<"string">): [] {
+    payload = disclose(_payload);
+}
+```
+
+</CompactCode>

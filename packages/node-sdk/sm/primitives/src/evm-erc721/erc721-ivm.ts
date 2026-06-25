@@ -1,12 +1,14 @@
 import { PrimitiveTypeEVMERC721 } from "../builtin.ts";
+import type { MaterializedViewStrategy } from "@effectstream/db";
 
 /**
  * Creates a new IVM for the ERC721 token with the given name.
  * This will track the current owner of each token.
  * @param name - The name of the ERC721 token.
+ * @param strategy - How to publish the read-side view (pg_ivm or plain VIEW).
  * @returns A string containing the SQL script to create the IVM.
  */
-export function erc721Ivm(name: string) {
+export function erc721Ivm(name: string, strategy: MaterializedViewStrategy) {
   const lowerName = name.toLowerCase();
   const validSQLName = lowerName.replace(/[^a-zA-Z0-9_]/g, "");
   if (validSQLName !== lowerName) {
@@ -15,6 +17,9 @@ export function erc721Ivm(name: string) {
 
   const ownershipTable =
     `primitives.erc721_ownership_intermediate_${validSQLName}`;
+  const viewName = `primitives.erc721_ownership_view_${validSQLName}`;
+  const selectSql =
+    `SELECT primitive_name, token_id, current_owner FROM ${ownershipTable}`;
 
   return `
   -- Intermediate table for current ERC721 ownership (maintained by triggers)
@@ -68,14 +73,8 @@ export function erc721Ivm(name: string) {
       FOR EACH ROW
       EXECUTE FUNCTION update_erc721_ownership_${validSQLName}();
 
-  -- Simple incrementally maintained view on the intermediate table
-  SELECT pgivm.create_immv('primitives.erc721_ownership_view_${validSQLName}',
-      'SELECT
-          primitive_name,
-          token_id,
-          current_owner
-      FROM ${ownershipTable};
-  ');
+  -- Publish the read-side view (incrementally maintained or plain, per strategy)
+  ${strategy.createView(viewName, selectSql)}
   `;
 }
 

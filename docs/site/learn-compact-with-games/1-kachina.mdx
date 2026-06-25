@@ -1,0 +1,126 @@
+---
+slug: kachina
+title: Kachina
+date: 2026-01-01
+description: Browser-native gameplay with sponsored transactions, commit-reveal moves, and a shared lobby.
+leaderboardUrl: https://api-kachina.midnight.fun/metrics/leaderboard?limit=10&offset=0
+achievementsUrl: https://api-kachina.midnight.fun/metrics
+repoUrl: https://github.com/effectstream/kachina-colosseum
+---
+
+import GameEmbed from '@site/src/components/GameEmbed';
+
+{/* truncate */}
+
+<GameEmbed
+  slug="kachina"
+  title="Kachina"
+  src="https://kachina.midnight.fun/?game_frame=true"
+  virtualWidth={1440}
+  virtualHeight={1080}
+/>
+
+<MultiChainNote />
+
+Build a team of gladiators and fight 3v3, head-to-head, in a tactical browser battleground.
+
+## Under the hood
+
+**The game.** Kachina is a turn-based PvP arena: you draft three heroes, equip them, pick a stance each round, and trade blows until one side falls. The client is built on **Phaser 3**, with a thin TypeScript API layer bridging the game scenes and the on-chain contract.
+
+**Chains.** Kachina runs entirely on **Midnight** - there's no second chain. The lobby, matchmaking, every move, and the win/loss result all live in one Compact contract. Because it's built on EffectStream, swapping or adding a settlement chain later is a config change, not a rewrite.
+
+**Running on EffectStream.** An EffectStream state machine subscribes to the Midnight indexer, reads the contract's public ledger each block, and mirrors it into Postgres so the frontend can poll game state over REST. Player moves never touch a wallet pop-up for gas: the move is handed to a **batcher** that generates the ZK proof, balances the transaction with dust, and submits it - so **players pay zero fees**. Proving happens client-side in a WebAssembly Web Worker, so nobody installs a proof server.
+
+**Leaderboard.** Wins are tallied from finalized matches into a ranked leaderboard exposed at a `/metrics/leaderboard` endpoint (the Standings panel on the right). Kachina has no achievements - the ladder is the whole progression story.
+
+## The Compact contract
+
+<GameRepo />
+
+**Source:** [`backend/packages/midnight/contract-pvp/src/pvp.compact`](https://github.com/effectstream/kachina-colosseum/blob/main/backend/packages/midnight/contract-pvp/src/pvp.compact)
+
+The Compact contract is the referee. It runs the match as a state machine, anchors every action to a witness-derived player secret, gates moves on block time, and - crucially - locks moves behind a commit-reveal hash so neither player can react to what the other hasn't shown yet.
+
+### Commit-reveal via `transientHash`
+
+P1's move stays in private witnesses; only `transientHash<MoveHasher>(secret, commands, stances, nonce)` is written to public state. P2 then commits in the clear, and P1 reveals - the contract recomputes the same hash from the now-disclosed values and rejects the reveal unless it matches. `transientHash` is the circuit-efficient hash from the Compact standard library; the nonce is what makes two identical move sequences produce different commitments.
+
+<CompactCode summary="Commit step + reveal verification">
+
+```compact
+// In p1_commit_commands - P1's move is committed as a hash:
+p1_commit.insert(match_id, transientHash<MoveHasher>(MoveHasher {
+    disclose(player_secret_key()),
+    disclose(player_commands()),
+    disclose(player_stances()),
+    disclose(nonce),
+}));
+commit_nonce.insert(match_id, disclose(nonce));
+game_state.insert(match_id, GAME_STATE.p2_commit_reveal);
+
+// In p1_reveal_commands - the reveal must recompute the same hash:
+assert(transientHash<MoveHasher>(MoveHasher {
+    disclose(player_secret_key()),
+    disclose(player_commands()),
+    disclose(player_stances()),
+    commit_nonce.lookup(match_id),
+}) == p1_commit.lookup(match_id), "Commit doesn't match");
+```
+
+</CompactCode>
+
+### Witness-derived player identity
+
+Identity in Kachina is never a wallet pubkey. It's `transientCommit(player_secret_key(), salt)` - a commitment the contract can verify but the network can't unwind. Every authorized action calls `derive_public_key` against the caller's witness and asserts equality with the stored value; an attacker who learns the on-chain commitment still needs the secret to produce a matching one.
+
+<CompactCode summary="`derive_public_key` + authorization assert">
+
+```compact
+witness player_secret_key(): Bytes<32>;
+
+export pure circuit derive_public_key(sk: Bytes<32>): Field {
+    return transientCommit<Bytes<32>>(disclose(sk), 123456789);
+}
+
+// On every authorized action:
+assert(
+    p1_public_key.lookup(match_id) == derive_public_key(player_secret_key()),
+    "Not authorized as P1",
+);
+```
+
+</CompactCode>
+
+### Block-time gating + turn timeout
+
+Every action carries a claimed `now` parameter and asserts it lies inside a tight window around the actual chain time using `blockTimeGte` / `blockTimeLte`. The same primitives power `claim_timeout_win`: if the opponent has been silent for longer than `TURN_TIMEOUT`, the active player can prove the wait against chain time and end the match.
+
+<CompactCode summary="`blockTimeGte` / `blockTimeLte` + timeout win">
+
+```compact
+// 5-minute per-turn timeout, in seconds (blockTimeGte uses secondsSinceEpoch)
+ledger TURN_TIMEOUT: Uint<64>;
+// 2-block grace for clock drift between prover and chain
+ledger BLOCK_TIME: Uint<64>;
+
+// On every action - "now" must fall inside the chain-time window:
+assert(blockTimeGte(disclose(now - BLOCK_TIME)),
+       "Claimed timestamp is in the future");
+assert(blockTimeLte(disclose((now + TIMESTAMP_MAX_AGE) as Uint<64>)),
+       "Timestamp is too old");
+
+// claim_timeout_win - end the match if the opponent times out:
+export circuit claim_timeout_win(): [] {
+    const match_id = disclose(current_match_id());
+    const last_move_at_timestamp = last_move_at.lookup(match_id) as Uint<64>;
+    // [state/auth checks omitted for brevity]
+    assert(
+        blockTimeGte(disclose((last_move_at_timestamp + TURN_TIMEOUT) as Uint<64>)),
+        "Opponent has not timed out yet",
+    );
+    // ... assigns the win to whichever player is the active one
+}
+```
+
+</CompactCode>

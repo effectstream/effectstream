@@ -10,6 +10,7 @@ Avail.
 - Spans MetaMask + injected EVM, Cardano (CIP-30), Midnight, Mina, Polkadot, Algorand, Avail.
 - Used together with `@effectstream/crypto` (server-side verification).
 - High-level helpers `walletLogin` and `sendTransaction` hide the polling loop.
+- Also supports **local (in-browser) wallets** that need no extension: `CardanoLocal`, `EvmViem`, `MidnightLocal`.
 
 ## Install
 
@@ -60,6 +61,40 @@ const evmOptions = available[WalletMode.EvmInjected]; // [{ metadata, ... }, …
 > Cardano CIP-30 API, etc. - it won't load in plain Node. Server-side
 > signature verification is `@effectstream/crypto`.
 
+## Local wallets (no extension required)
+
+Besides connecting an injected/extension wallet, `@effectstream/wallets`
+can generate and manage a key-pair **locally, in the browser**. The local
+modes return the same `Wallet` handle as the injected ones, so `signMessage`
+and `sendTransaction` work identically:
+
+- `WalletMode.CardanoLocal` - BIP-39 seed generated in-browser (via Lucid).
+- `WalletMode.EvmViem` - viem account from a `0x` private key.
+- `WalletMode.MidnightLocal` - hex seed generated in-browser.
+
+```typescript
+import { walletLogin, WalletMode, signMessage } from "@effectstream/wallets";
+
+// A fresh BIP-39 seed is generated in the browser when `seedPhrase` is omitted.
+const wallet = await walletLogin({
+  mode: WalletMode.CardanoLocal,
+  network: "Preview", // "Mainnet" | "Preprod" | "Preview" | "Custom"
+});
+if (!wallet.success) throw new Error(wallet.errorMessage);
+
+wallet.result.walletAddress; // addr_test1...
+const signature = await signMessage(wallet.result, "hello effectstream");
+```
+
+These modes need no browser extension (no `window.ethereum`, no CIP-30) -
+the key material is created client-side and never touches a server. Pair a
+local key with the account-linking delegation (`&linkAddress`) so a real
+wallet (Cardano CIP-30, MetaMask, ...) can authorise it to sign
+non-financial inputs: this is the basis of the device-key / frictionless
+signing flow. Source: [`src/cardano/local.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/wallets/src/cardano/local.ts)
+and the runnable [`src/cardano/local.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/effectstream-sdk/wallets/src/cardano/local.test.ts)
+(generate -> sign -> verify with `@effectstream/crypto`).
+
 ## Inside EffectStream
 
 The client-side counterpart to `@effectstream/crypto`. Frontends
@@ -87,7 +122,7 @@ Sending transactions:
 
 Wallet discovery / identification:
 
-- `WalletMode`: enum of `EvmInjected`, `EvmEthers`, `Midnight`, `Cardano`, `Polkadot`, `Algorand`, `Mina`, `AvailJs`.
+- `WalletMode`: enum of `EvmInjected`, `EvmEthers`, `EvmViem`, `Cardano`, `CardanoLocal`, `Midnight`, `MidnightLocal`, `Polkadot`, `Algorand`, `Mina`, `AvailJs`. The `*Local` and `EvmViem` modes are in-browser wallets that need no extension.
 - `WalletNameMap`: `Record<WalletMode, string>` for display.
 - `allInjectedWallets(config)` lists installed wallets in the browser.
 - `getAddressType(walletMode)` maps a `WalletMode` to its `@effectstream/utils` `AddressType`.

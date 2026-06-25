@@ -11,16 +11,17 @@
     "start:mainnet": "bun run main.mainnet.ts"
   },
   "dependencies": {
-    "@effectstream/config": "0.100.17",
-    "@effectstream/concise": "0.100.17",
-    "@effectstream/coroutine": "0.100.17",
-    "@effectstream/db": "0.100.17",
-    "@effectstream/log": "0.100.17",
-    "@effectstream/midnight-contracts": "0.100.17",
-    "@effectstream/runtime": "0.100.17",
-    "@effectstream/sm": "0.100.17",
-    "@effectstream/utils": "0.100.17",
+    "@effectstream/config": "0.100.22",
+    "@effectstream/concise": "0.100.22",
+    "@effectstream/coroutine": "0.100.22",
+    "@effectstream/db": "0.100.22",
+    "@effectstream/log": "0.100.22",
+    "@effectstream/midnight-contracts": "0.100.22",
+    "@effectstream/runtime": "0.100.22",
+    "@effectstream/sm": "0.100.22",
+    "@effectstream/utils": "0.100.22",
     "@zswap-da/database": "workspace:*",
+    "@zswap-da/validator": "workspace:*",
     "@zswap-da/contract-offer-files": "workspace:*",
     "@midnight-ntwrk/compact-js": "2.5.0",
     "@midnight-ntwrk/ledger-v8": "8.0.3",
@@ -34,6 +35,7 @@
     "@sinclair/typebox": "^0.34.30",
     "effection": "^3.5.0",
     "mip-zswap-offer": "github:effectstream/mip-zswap-offer#main",
+    "@fastify/rate-limit": "^10.0.0",
     "rxjs": "^7.8.2"
   }
 }

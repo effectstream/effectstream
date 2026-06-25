@@ -18,6 +18,10 @@ export enum ConfigSyncProtocolType {
   CELESTIA_PARALLEL = "celestia-rpc-parallel",
   NEAR_RPC_PARALLEL = "near-rpc-parallel",
   SOLANA_RPC_PARALLEL = "solana-rpc-parallel",
+  /** Synthetic test chain acting as the main clock (see ConfigNetworkType.TEST). */
+  TEST_MAIN = "test-main",
+  /** Synthetic test chain acting as a parallel data source that emits configured events. */
+  TEST_PARALLEL = "test-parallel",
 }
 
 export const SyncProtocolToNetwork = {
@@ -32,6 +36,8 @@ export const SyncProtocolToNetwork = {
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: ConfigNetworkType.CELESTIA,
   [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]: ConfigNetworkType.NEAR,
   [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]: ConfigNetworkType.SOLANA,
+  [ConfigSyncProtocolType.TEST_MAIN]: ConfigNetworkType.TEST,
+  [ConfigSyncProtocolType.TEST_PARALLEL]: ConfigNetworkType.TEST,
 } satisfies Record<ConfigSyncProtocolType, ConfigNetworkType>;
 
 export type NetworkTypeFromSyncProtocol<T extends ConfigSyncProtocolType> =
@@ -139,6 +145,9 @@ type SolanaPrimitive = BasePrimitive & {
   address?: string;
 }
 
+type TestMainPrimitive = BasePrimitive & {};
+type TestParallelPrimitive = BasePrimitive & {};
+
 export type BitcoinPrimitiveDirection = "inputs" | "outputs" | "both";
 
 type BitcoinPrimitive = BasePrimitive & {
@@ -173,6 +182,8 @@ export type ProtocolPrimitiveMap = {
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: CelestiaPrimitive;
   [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]: NearPrimitive;
   [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]: SolanaPrimitive;
+  [ConfigSyncProtocolType.TEST_MAIN]: TestMainPrimitive;
+  [ConfigSyncProtocolType.TEST_PARALLEL]: TestParallelPrimitive;
 };
 
 /**

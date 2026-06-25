@@ -49,6 +49,10 @@ A key advantage of built-in primitives is that many come with automatic database
 | **`PrimitiveTypeEVMERC721`** | EVM | Tracks `Transfer` events for an ERC721 NFT and maintains ownership tables. |
 | **`PrimitiveTypeEVMERC1155`**| EVM | Tracks `TransferSingle` and `TransferBatch` events for an ERC1155 token. |
 | **`PrimitiveTypeMidnightGeneric`**| Midnight | Monitors the public `ledger` state of a Midnight ZK contract for changes. |
+| **`PrimitiveTypeMidnightNullifier`** | Midnight | Emits each shielded coin nullifier (spend) as it is consumed on chain. |
+| **`PrimitiveTypeMidnightUnshieldedSpend`** | Midnight | Emits each unshielded UTXO spend as an `(owner, intentHash, outputIndex)` triple. |
+| **`PrimitiveTypeMidnightUnshieldedCreate`** | Midnight | Emits each unshielded UTXO **created** on chain (regular **and** system transactions) — the existence counterpart of `UnshieldedSpend`. |
+| **`PrimitiveTypeMidnightZswapRoot`** | Midnight | Emits the zswap coin-commitment Merkle tree **root** as it advances (the latest `zswapMerkleTreeRoot` per block). |
 | **`PrimitiveTypeAvailGeneric`** | Avail | Listens for generic data blobs submitted to a specific application ID on the Avail DA layer. |
 | **`PrimitiveTypeCardanoDelayedAsset`** | Cardano | Tracks creation and spending of native asset UTxOs with a real-time view of unspent holdings. |
 | **`PrimitiveTypeCardanoMintBurn`** | Cardano | Captures native token mint and burn events with transaction metadata and participant addresses. |

@@ -1,6 +1,7 @@
 import { PrimitiveTypeNEARIntent } from "../builtin.ts";
+import type { MaterializedViewStrategy } from "@effectstream/db";
 
-export function nearIntentIvm(name: string) {
+export function nearIntentIvm(name: string, strategy: MaterializedViewStrategy) {
   const lowerName = name.toLowerCase();
   const validSQLName = lowerName.replace(/[^a-zA-Z0-9_]/g, "");
   if (validSQLName !== lowerName) {
@@ -8,6 +9,9 @@ export function nearIntentIvm(name: string) {
   }
 
   const settlementTable = `primitives.near_intent_settlement_intermediate_${validSQLName}`;
+  const viewName = `primitives.near_intent_settlement_view_${validSQLName}`;
+  const selectSql =
+    `SELECT primitive_name, intent_hash, account_id, token_id, amount, block_height FROM ${settlementTable}`;
 
   return `
     CREATE TABLE IF NOT EXISTS ${settlementTable} (
@@ -54,16 +58,7 @@ export function nearIntentIvm(name: string) {
         FOR EACH ROW
         EXECUTE FUNCTION update_near_intent_settlement_${validSQLName}();
 
-    SELECT pgivm.create_immv('primitives.near_intent_settlement_view_${validSQLName}',
-        'SELECT
-            primitive_name,
-            intent_hash,
-            account_id,
-            token_id,
-            amount,
-            block_height
-        FROM ${settlementTable};
-    ');
+    ${strategy.createView(viewName, selectSql)}
     `;
 }
 

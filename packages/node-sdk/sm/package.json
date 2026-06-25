@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/sm",
-  "version": "0.100.18",
+  "version": "0.100.22",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -25,13 +25,12 @@
     "@effectstream/event-client": "workspace:*",
     "@effectstream/log": "workspace:*",
     "@effectstream/utils": "workspace:*",
-    "pg": "8.17.2",
+    "pg": "8.21.0",
     "pg-tx": "^1.0.1",
     "@sinclair/typebox": "0.34.41",
     "assert-never": "^1.4.0",
     "viem": "2.37.3",
     "@pgtyped/runtime": "^2.4.2",
-    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
     "effection": "^3.5.0"
   },
   "description": "State machine DSL for EffectStream"

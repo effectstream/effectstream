@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "pg": "^8.14.0",
-    "viem": "^2.23.14"
+    "viem": "^2.23.14",
+    "@preorder/contracts-cardano": "workspace:*"
   }
 }

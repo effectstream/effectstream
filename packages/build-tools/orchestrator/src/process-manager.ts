@@ -87,12 +87,26 @@ export class ProcessManager {
     // Otherwise, pipe output so we can suppress silenced processes.
     const usesPipe = typeof outFd !== "number";
 
+    // Build child env. When writing to a file fd, suppress ANSI/TTY noise:
+    //   - Strip FORCE_COLOR (inherited from parent or set by orchestrator) so
+    //     children don't emit color escapes.
+    //   - Set NO_COLOR=1 (broadly respected) and CI=1 to coax bun's
+    //     `--filter` runner out of its live-redraw TTY mode, which would
+    //     otherwise leave cursor-move escapes and "[N lines elided]" in logs.
+    const childEnv: Record<string, string | undefined> = {
+      ...process.env,
+      ...config.env,
+    };
+    if (usesPipe) {
+      childEnv.FORCE_COLOR = "true";
+    } else {
+      delete childEnv.FORCE_COLOR;
+      childEnv.NO_COLOR = "1";
+      childEnv.CI = "1";
+    }
+
     const proc = Bun.spawn([command, ...config.args], {
-      env: {
-        ...process.env,
-        ...config.env,
-        FORCE_COLOR: "true",
-      },
+      env: childEnv,
       cwd: config.cwd ?? process.cwd(),
       stdout: usesPipe ? "pipe" : outFd,
       stderr: usesPipe ? "pipe" : outFd,

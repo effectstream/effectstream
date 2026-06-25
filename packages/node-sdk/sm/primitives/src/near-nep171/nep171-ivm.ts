@@ -1,6 +1,7 @@
 import { PrimitiveTypeNEARNEP171 } from "../builtin.ts";
+import type { MaterializedViewStrategy } from "@effectstream/db";
 
-export function nep171Ivm(name: string) {
+export function nep171Ivm(name: string, strategy: MaterializedViewStrategy) {
   const lowerName = name.toLowerCase();
   const validSQLName = lowerName.replace(/[^a-zA-Z0-9_]/g, "");
   if (validSQLName !== lowerName) {
@@ -8,6 +9,9 @@ export function nep171Ivm(name: string) {
   }
 
   const ownerTable = `primitives.nep171_owner_intermediate_${validSQLName}`;
+  const viewName = `primitives.nep171_owner_view_${validSQLName}`;
+  const selectSql =
+    `SELECT primitive_name, token_id, current_owner FROM ${ownerTable}`;
 
   return `
     CREATE TABLE IF NOT EXISTS ${ownerTable} (
@@ -57,13 +61,7 @@ export function nep171Ivm(name: string) {
         FOR EACH ROW
         EXECUTE FUNCTION update_nep171_owner_${validSQLName}();
 
-    SELECT pgivm.create_immv('primitives.nep171_owner_view_${validSQLName}',
-        'SELECT
-            primitive_name,
-            token_id,
-            current_owner
-        FROM ${ownerTable};
-    ');
+    ${strategy.createView(viewName, selectSql)}
     `;
 }
 

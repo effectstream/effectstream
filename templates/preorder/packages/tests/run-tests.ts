@@ -183,6 +183,25 @@ async function test() {
       console.log("User migrations applied.");
     }
 
+    // Wait for the seeded campaign (create-campaign EffectstreamL2 input processed by the STM).
+    // Buys are filtered by the campaign receiver, so this must exist before Phase B purchases.
+    console.log("Waiting for seeded campaign...");
+    {
+      const start = Date.now();
+      let found = false;
+      while (Date.now() - start < 120_000) {
+        try {
+          const r = await db.query("SELECT 1 FROM offchain_campaigns WHERE status = 'active' LIMIT 1");
+          if (r.rows.length > 0) { found = true; break; }
+        } catch { /* table not ready */ }
+        await delay(1000);
+      }
+      if (!found) {
+        throw new Error("Campaign not seeded within 120s — offchain_campaigns has no active row");
+      }
+      console.log("Campaign seeded.");
+    }
+
     const { buyItemsNativeTest } = await import("./stm/buy-items-native.test.ts");
     await buyItemsNativeTest(db);
 
@@ -192,8 +211,17 @@ async function test() {
     const { validationTest } = await import("./stm/validation.test.ts");
     await validationTest(db);
 
+    const { evmNegativeTest } = await import("./stm/evm-negative.test.ts");
+    await evmNegativeTest(db);
+
+    const { referralEvmTest } = await import("./stm/referral-evm.test.ts");
+    await referralEvmTest(db);
+
     const { cardanoPaymentTest } = await import("./stm/cardano-payment.test.ts");
     await cardanoPaymentTest(db);
+
+    const { cardanoReceiptPurchaseTest } = await import("./stm/cardano-receipt-purchase.test.ts");
+    await cardanoReceiptPurchaseTest(db);
 
     // ── Phase C: API Tests ──────────────────────────────────────────────
     console.log("\n--- Phase C: API Tests ---\n");
@@ -221,6 +249,14 @@ async function test() {
 
     const { frontendE2eTest } = await import("./frontend/e2e.test.ts");
     await frontendE2eTest();
+
+    // ── Phase F: Admin post-sale NFT minting ────────────────────────────
+    // Runs last: it ends the campaign + mints via the batcher, which would
+    // otherwise break the purchase-dependent phases above.
+    console.log("\n--- Phase F: Admin NFT Minting ---\n");
+
+    const { adminMintTest } = await import("./stm/admin-mint.test.ts");
+    await adminMintTest(db);
 
     printSummary();
   } catch (e) {

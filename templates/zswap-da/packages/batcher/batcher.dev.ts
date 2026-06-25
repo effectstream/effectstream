@@ -14,6 +14,11 @@ const BALANCER_TARGET = "midnight-balancer";
 const CELESTIA_TARGET = "celestia";
 
 const batcherConfig = loadBatcherConfig();
+if (batcherConfig.midnight.id !== "undeployed") {
+  throw new Error(
+    `batcher.dev.ts requires MIDNIGHT_NETWORK_ID=undeployed, got "${batcherConfig.midnight.id}"`,
+  );
+}
 const midnightAdapter = createMidnightBalancingAdapter(batcherConfig);
 const celestiaAdapter = createCelestiaAdapter(batcherConfig);
 

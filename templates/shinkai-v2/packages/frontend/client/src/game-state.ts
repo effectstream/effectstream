@@ -9,6 +9,7 @@ export class GameState {
   public static gameId = -1;
   public static wallet: string = "";
   public static walletObj: Wallet | null = null;
+  public static walletType: "evm" | "cardano" | "social" | null = null;
   public static ready = false;
   public static app: Application;
   public static persistentUI: Container[] = [];

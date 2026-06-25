@@ -9,15 +9,17 @@
     "dev": "NODE_ENV=development bunx orchestrator start",
     "start:mainnet": "bun run start.mainnet.ts",
     "test": "bun run packages/tests/run-tests.ts",
+    "seed:market": "bun run packages/tests/seed-market.ts",
     "build:midnight": "bun run --filter @zswap-da/contract-offer-files compact",
     "build:pgtypes": "bun run --filter @zswap-da/database pgtyped:update"
   },
   "dependencies": {
-    "@effectstream/celestia": "0.100.17",
-    "@effectstream/midnight-contracts": "0.100.17",
-    "@effectstream/orchestrator": "0.100.17",
+    "@effectstream/celestia": "0.100.22",
+    "@effectstream/midnight-contracts": "0.100.22",
+    "@effectstream/orchestrator": "0.100.22",
     "@electric-sql/pglite": "^0.3.14",
     "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "@scure/bip39": "^2.2.0",
     "wait-on": "8.0.3"
   },
   "effectstream": {

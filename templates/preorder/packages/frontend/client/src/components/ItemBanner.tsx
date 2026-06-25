@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 function fitFontSize(ctx: CanvasRenderingContext2D, text: string, maxW: number, baseFontWeight: string, baseFontFamily: string, idealSize: number): number {
   let size = idealSize;
@@ -409,14 +409,46 @@ const effects: Record<number, EffectFn> = {
   },
 };
 
-const fallback = effects[1]!;
+// Neutral default effect used for items that have no bespoke effect and no image URL
+// (e.g. products added at runtime via the admin console).
+const defaultEffect: EffectFn = (ctx, w, h, t, text) => {
+  ctx.clearRect(0, 0, w, h);
+  const grd = ctx.createLinearGradient(0, 0, w, h);
+  grd.addColorStop(0, "#0d1117");
+  grd.addColorStop(1, "#10241c");
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, w, h);
+  for (let i = 0; i < 16; i++) {
+    const seed = i * 53.7;
+    const x = (seed * 9.1 + t * 14) % w;
+    const y = h / 2 + Math.sin(t + i) * (h * 0.32);
+    ctx.beginPath();
+    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(25, 177, 123, ${0.12 + Math.sin(t * 2 + i) * 0.08})`;
+    ctx.fill();
+  }
+  const size = fitFontSize(ctx, text, w, "bold", "sans-serif", 26);
+  ctx.font = `bold ${size}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#19B17B";
+  ctx.shadowColor = "rgba(25, 177, 123, 0.6)";
+  ctx.shadowBlur = 16 + Math.sin(t * 2) * 8;
+  ctx.fillText(text, w / 2, h / 2);
+  ctx.shadowBlur = 0;
+};
 
-export function ItemBanner({ itemId, text }: { itemId: number; text: string }) {
+export function ItemBanner({ itemId, text, image }: { itemId: number; text: string; image?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef(0);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  // Use the image URL when provided (and it loads); otherwise fall back to the canvas effect.
+  const showImage = !!image && !imgFailed;
 
   useEffect(() => {
+    if (showImage) return;
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
@@ -434,7 +466,7 @@ export function ItemBanner({ itemId, text }: { itemId: number; text: string }) {
     const ro = new ResizeObserver(resize);
     ro.observe(container);
 
-    const draw = effects[itemId] || fallback;
+    const draw = effects[itemId] || defaultEffect;
     let start: number | null = null;
 
     const loop = (ts: number) => {
@@ -447,7 +479,20 @@ export function ItemBanner({ itemId, text }: { itemId: number; text: string }) {
     };
     frameRef.current = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(frameRef.current); ro.disconnect(); };
-  }, [itemId, text]);
+  }, [itemId, text, showImage]);
+
+  if (showImage) {
+    return (
+      <div style={{ width: "100%", height: 120, overflow: "hidden", background: "#0d1117" }}>
+        <img
+          src={image}
+          alt={text}
+          onError={() => setImgFailed(true)}
+          style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} style={{ width: "100%", height: 120 }}>

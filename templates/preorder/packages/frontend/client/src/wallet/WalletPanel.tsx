@@ -5,21 +5,29 @@ import { sendPayment, getBalance } from "./cardano-wallet.ts";
 import { WalletConfirmModal } from "./WalletConfirmModal.tsx";
 import { PurchaseSuccessPopup } from "./PurchaseSuccessPopup.tsx";
 import { useLog } from "../logs/LogContext.tsx";
-import { ETH_TO_ADA_RATE, ZERO_ADDRESS, MOCK_USDC_ADDRESS } from "../config.ts";
+import { ZERO_ADDRESS } from "../config.ts";
 import type { Address } from "viem";
 
 type ItemInfo = {
   id: number;
   name: string;
+  amounts?: Record<string, string>;
   prices?: Record<string, string>;
 };
 
 interface Props {
   launchpadAddress: string;
+  /** Campaign routing key passed as the on-chain `receiver` arg; the STM maps it to this campaign. */
+  receiver?: string;
+  /** Optional referrer (from the ?ref= link) — passed as the on-chain `referrer` arg. */
+  referrer?: string;
   cardanoPaymentAddress?: string;
   cart: Record<number, number>;
+  // Total owed in the active coin's smallest unit (wei / microUSDC / lovelace).
   totalCostWei: bigint;
-  selectedToken?: string;
+  selectedToken?: string; // active coin id (eth | usdc | ada)
+  paymentTokenAddress?: string; // resolved on-chain token address for the active coin
+  decimals?: number; // active coin decimals
   items: ItemInfo[];
   onPurchaseComplete?: (purchasedCart?: Record<number, number>) => void;
   onClearCart?: () => void;
@@ -27,10 +35,14 @@ interface Props {
 
 export function WalletPanel({
   launchpadAddress,
+  receiver,
+  referrer,
   cardanoPaymentAddress,
   cart,
   totalCostWei,
   selectedToken,
+  paymentTokenAddress,
+  decimals,
   items,
   onPurchaseComplete,
   onClearCart,
@@ -47,26 +59,24 @@ export function WalletPanel({
   const isDevWallet = w.mode === "evm-local" || w.mode === "cardano-dev";
 
   const isCardano = !isEvm && w.mode !== "none";
-  const tokenAddr = selectedToken || ZERO_ADDRESS;
-  const isErc20 = isEvm && tokenAddr !== ZERO_ADDRESS;
+  const coinId = selectedToken || "eth";
+  const payAddr = (paymentTokenAddress ?? ZERO_ADDRESS) as Address;
+  const isErc20 = isEvm && payAddr.toLowerCase() !== ZERO_ADDRESS;
   const currencySymbol = isCardano ? "ADA" : isErc20 ? "USDC" : "ETH";
-  const rate = isCardano ? ETH_TO_ADA_RATE : 1;
-  const decimals = isCardano ? 2 : isErc20 ? 2 : 4;
-  const formatDisplay = (wei: number | bigint) => {
-    if (isErc20) return (Number(wei) / 1e6).toFixed(2);
-    return ((Number(wei) / 1e18) * rate).toFixed(decimals);
-  };
+  const coinDecimals = decimals ?? (isErc20 ? 6 : isCardano ? 6 : 18);
+  const displayDp = coinDecimals <= 6 ? 2 : 4;
+  const formatDisplay = (amount: number | bigint) =>
+    (Number(amount) / 10 ** coinDecimals).toFixed(displayDp);
 
   const cartItems = Object.entries(cart).map(([id, qty]) => {
     const item = items.find((i) => i.id === Number(id));
-    const rawPrice = item?.prices?.[isCardano ? ZERO_ADDRESS : tokenAddr] || "0";
-    const divisor = isErc20 ? 1e6 : 1e18;
-    const unitPrice = (Number(rawPrice) / divisor) * (isCardano ? ETH_TO_ADA_RATE : 1);
+    const rawAmount = item?.amounts?.[coinId] ?? item?.prices?.[coinId] ?? "0";
+    const unitPrice = Number(rawAmount) / 10 ** coinDecimals;
     return {
       id: Number(id),
       name: item?.name || `Item #${id}`,
       quantity: qty,
-      price: (unitPrice * qty).toFixed(decimals),
+      price: (unitPrice * qty).toFixed(displayDp),
     };
   });
 
@@ -77,24 +87,27 @@ export function WalletPanel({
     const itemIds = Object.keys(cart).map((id) => BigInt(id));
     const quantities = Object.values(cart).map((q) => BigInt(q));
     const itemSummary = Object.entries(cart).map(([id, q]) => `item#${id} x${q}`).join(", ");
-    const referrer = ZERO_ADDRESS as Address;
+    // Referrer from the ?ref= link (defaults to none). Mirrors the EVM launchpad's referrer arg.
+    const referrerArg = (referrer || ZERO_ADDRESS) as Address;
+    // The on-chain `receiver` is the campaign routing key (the STM credits the buyer = msg.sender).
+    const receiverAddr = (receiver || w.evmAddress) as Address;
     try {
       let result: { txHash: string };
       if (isErc20) {
         addLog("pending", "Submitting ERC20 transaction...", `buyItemsErc20(${itemSummary}) | ${formatDisplay(totalCostWei)} USDC`);
-        addLog("chain", "approve → buyItemsErc20 → PaimaLaunchpad", `token: ${tokenAddr}`);
+        addLog("chain", "approve → buyItemsErc20 → PaimaLaunchpad", `token: ${payAddr} | ref: ${referrerArg}`);
         result = await buyItemsErc20(
           w.evmWalletClient, w.evmPublicClient,
-          launchpadAddress as Address, tokenAddr as Address, totalCostWei,
-          w.evmAddress as Address, referrer, itemIds, quantities,
+          launchpadAddress as Address, payAddr, totalCostWei,
+          receiverAddr, referrerArg, itemIds, quantities,
         );
       } else {
         addLog("pending", "Submitting EVM transaction...", `buyItemsNative(${itemSummary}) | value: ${(Number(totalCostWei) / 1e18).toFixed(4)} ETH`);
-        addLog("chain", "writeContract → PaimaLaunchpad", `to: ${launchpadAddress}`);
+        addLog("chain", "writeContract → PaimaLaunchpad", `to: ${launchpadAddress} | ref: ${referrerArg}`);
         result = await buyItemsNative(
           w.evmWalletClient, w.evmPublicClient,
-          launchpadAddress as Address, w.evmAddress as Address,
-          referrer, itemIds, quantities, totalCostWei,
+          launchpadAddress as Address, receiverAddr,
+          referrerArg, itemIds, quantities, totalCostWei,
         );
       }
       addLog("success", "EVM transaction confirmed", `txHash: ${result.txHash}`);
@@ -114,7 +127,8 @@ export function WalletPanel({
     if (!w.cardanoLucid || !w.cardanoAddress || !cardanoPaymentAddress) return;
     setPurchasing(true);
     setTxStatus(null);
-    const lovelace = (totalCostWei * BigInt(ETH_TO_ADA_RATE)) / 1_000_000_000_000n;
+    // totalCostWei is already the ADA total in lovelace (the active coin's smallest unit).
+    const lovelace = totalCostWei;
     const cartItems = Object.entries(cart).map(([id, qty]) => ({ id: Number(id), qty }));
     addLog("pending", "Building Cardano transaction...", `sendPayment(${lovelace} lovelace) → ${cardanoPaymentAddress.substring(0, 30)}...`);
     addLog("chain", "Lucid tx.payToAddress → sign → submit (client-side)", `items: ${JSON.stringify(cartItems)}`);
@@ -144,7 +158,7 @@ export function WalletPanel({
       let balanceDisplay: string;
       if (isEvm && w.evmPublicClient && w.evmAddress) {
         if (isErc20) {
-          const bal = await getErc20Balance(w.evmPublicClient, tokenAddr as Address, w.evmAddress as Address);
+          const bal = await getErc20Balance(w.evmPublicClient, payAddr, w.evmAddress as Address);
           balanceDisplay = (Number(bal) / 1e6).toFixed(2);
         } else {
           const bal = await w.evmPublicClient.getBalance({ address: w.evmAddress as Address });

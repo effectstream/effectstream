@@ -27,6 +27,8 @@ export type RunOptions = {
   onTaskRunning?: (name: string) => void;
   onTaskDone?: (name: string) => void;
   onTaskFailed?: (name: string, code: number) => void;
+  /** Called when the scheduler blocks until one or more waitToExit processes finish. */
+  onWaitingForExit?: (names: string[]) => void;
   /** Called when a critical process fails and the whole run should stop. */
   onShutdown?: (reason: string) => void;
 };
@@ -170,6 +172,7 @@ export async function runProcesses(
   };
 
   let shutdownRequested = false;
+  let lastWaitingForExitKey = "";
 
   while (pending.size > 0 || waitingToExit.size > 0) {
     if (shutdownRequested) break;
@@ -259,6 +262,11 @@ export async function runProcesses(
       );
     } else if (waitingToExit.size > 0) {
       // All ready tasks are launched; wait for a waitToExit one to finish
+      const waitingKey = [...waitingToExit].sort().join("\0");
+      if (waitingKey !== lastWaitingForExitKey) {
+        lastWaitingForExitKey = waitingKey;
+        options.onWaitingForExit?.([...waitingToExit].sort());
+      }
       await waitForWake();
     } else {
       // pending > 0 but nothing is ready and nothing is waiting — circular dep

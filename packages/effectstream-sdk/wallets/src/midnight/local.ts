@@ -194,8 +194,11 @@ export class MidnightLocalConnector {
     args: MidnightLocalConnectArgs,
     networkUrls: MidnightLocalNetworkUrls,
   ): Promise<MidnightLocalProvider> => {
+    // Use the `/wallet-info` subpath, not the package barrel: the barrel
+    // re-exports `deploy.ts` (`node:fs/promises`), which breaks browser bundles
+    // of `@effectstream/wallets`.
     const contractsMod = await import(
-      "@effectstream/midnight-contracts"
+      "@effectstream/midnight-contracts/wallet-info"
     ).catch(() => {
       throw new Error(
         "@effectstream/midnight-contracts is required when `networkUrls` is passed to MidnightLocal.connectFromSeed. Install it as a peer dependency.",

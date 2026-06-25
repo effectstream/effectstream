@@ -1,0 +1,60 @@
+---
+slug: safe-solver
+title: Safe Solver
+date: 2026-04-01
+description: Many small actions per round leaning on an EVM chain for a responsive puzzle feel.
+leaderboardUrl: https://api-safesolver.midnight.fun/metrics/leaderboard?limit=10&offset=0
+achievementsUrl: https://api-safesolver.midnight.fun/metrics
+repoUrl: https://github.com/effectstream/safe-solver
+---
+
+import GameEmbed from '@site/src/components/GameEmbed';
+
+{/* truncate */}
+
+<GameEmbed slug="safe-solver" title="Safe Solver" src="https://safesolver.midnight.fun/?game_frame=true" />
+
+<MultiChainNote />
+
+Press your luck cracking safes for loot - bank your score before an alarm wipes the round.
+
+## Under the hood
+
+**The game.** Safe Solver is a single-player, turn-based press-your-luck puzzle: open safes one at a time, each resolved by seeded RNG, and cash out before you trip an alarm. The client is rendered in **Three.js** (native WebGL canvas).
+
+**Chains.** Same split as BlockKart - **Arbitrum** for the game inputs (a `PaimaL2Contract` with `fee = 0`) and **Midnight** as a minimal anchor. The EVM choice is swappable; EffectStream handles the sync either way.
+
+**Running on EffectStream.** The state machine's grammar is `initLevel` / `checkSafe` / `submitScore`: each `checkSafe` turn is resolved server-side with seeded RNG, and `submitScore` banks the run. Because a round is *many* small actions, keeping per-turn state on the EVM/backend side - not on Midnight - is what keeps it responsive.
+
+**Leaderboard & achievements.** Banked scores are ranked on the `/metrics/leaderboard` endpoint, and Safe Solver awards achievements shown in the Honors panel.
+
+## The Compact contract
+
+<GameRepo />
+
+**Source:** [`packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact`](https://github.com/effectstream/safe-solver/blob/main/packages/shared/contracts/midnight-contracts/contract-midnight-data/src/midnight-data.compact)
+
+Safe Solver uses the exact same minimal Midnight anchor as BlockKart - byte for byte. It's worth seeing the same architectural choice arrive from a different game's constraints.
+
+### Same anchor pattern, different reason
+
+BlockKart needed off-chain speed for racing; Safe Solver needs it for *volume* - dozens of small actions per round would be prohibitively expensive to prove on Midnight directly. Pushing the per-click state machine onto the EVM side and using Compact only as an anchor is the same design choice for a different reason. When your contract gets this short, ask whether you actually need the rest of Compact's expressiveness or whether the chain is just your notary.
+
+<CompactCode summary="Full contract (11 lines)">
+
+```compact
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+
+constructor() {
+}
+
+export ledger payload: Opaque<"string">;
+
+export circuit storeValue(_payload: Opaque<"string">): [] {
+    payload = disclose(_payload);
+}
+```
+
+</CompactCode>

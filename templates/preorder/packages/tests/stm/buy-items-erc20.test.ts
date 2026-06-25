@@ -67,7 +67,7 @@ export async function buyItemsErc20Test(db: Client) {
       args: [
         mockErc20Address!,
         purchaseAmount,
-        account.address,
+        addresses.admin, // receiver = campaign routing key (the buyer/msg.sender is credited)
         ZERO_ADDRESS,
         [1n],
         [1n],

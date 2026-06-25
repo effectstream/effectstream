@@ -1,0 +1,353 @@
+@import url('https://fonts.googleapis.com/css2?family=Kumbh+Sans:wght@100..900&display=swap');
+
+:root {
+  --primary-bg: #f4f7f6;
+  --secondary-bg: #ffffff;
+  --card-bg: #ffffff;
+  --text-color: #333333;
+  --primary-accent: #4caf50; /* Green */
+  --secondary-accent: #03a9f4; /* Blue */
+  --border-color: #dddddd;
+}
+
+body {
+  margin: 0;
+  font-family: "Kumbh Sans", sans-serif;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--primary-bg);
+  color: var(--text-color);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+}
+
+.app-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.app-header {
+  padding: 20px 0;
+  background-color: #000;
+}
+
+.header-container {
+  max-width: 80%;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.app-header h1 {
+  margin: 0;
+}
+
+.wallet-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.wallet-button {
+  background-color: var(--secondary-accent);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1em;
+}
+
+.wallet-button:hover {
+  opacity: 0.9;
+}
+
+.balance-display {
+  background-color: #3a3a3a;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 1em;
+  display: flex;
+  align-items: center;
+}
+
+.app-body {
+  padding-top: 20px;
+}
+
+.main-title {
+  text-align: center;
+  font-size: 4em;
+  margin-bottom: 30px;
+}
+
+.swap-container {
+  background-color: var(--card-bg);
+  padding: 30px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.swap-label {
+  color: #555;
+  font-size: 2em;
+  margin-bottom: 8px;
+}
+
+.swap-input-line {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.swap-input-line .amount-input,
+.swap-input-line .token-select {
+  font-size: 3em;
+  padding: 12px;
+}
+
+.swap-input-line .token-select {
+  flex-grow: 1;
+}
+
+.swap-input-line .amount-input {
+  /* max-width is no longer needed */
+}
+
+.swap-intro {
+  font-size: 1.2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.amount-input, .token-select {
+  background-color: var(--secondary-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 8px;
+  font-size: 1em;
+}
+
+.amount-input {
+  width: 100px;
+}
+
+.get-quotes-button, .swap-now-button {
+  background-color: var(--primary-accent);
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.4em;
+  margin-top: 20px;
+  transition: background-color 0.2s;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+  font-weight: bold;
+  border-radius: 40px;
+  height: 70px;
+
+}
+
+.swap-now-button:disabled {
+  background-color: #666;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.get-quotes-button:hover, .swap-now-button:hover {
+  background-color: #45a049;
+}
+
+.quotes-list {
+  margin-top: 30px;
+}
+
+.quotes-list h3 {
+  text-align: center;
+}
+
+.quote-item {
+  background-color: var(--card-bg);
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.quote-deposit-address {
+  flex-basis: 100%;
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #b0bec5;
+}
+
+.quote-deposit-address-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-all;
+}
+
+.copy-address-button {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border: 1px solid var(--secondary-accent, #5c6bc0);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--secondary-accent, #7986cb);
+  cursor: pointer;
+}
+
+.copy-address-button:hover:not(:disabled) {
+  background-color: rgba(92, 107, 192, 0.15);
+}
+
+.copy-address-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.copyable-address-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.copyable-address-cell > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.quote-item:hover {
+  border-color: var(--secondary-accent);
+}
+
+.quote-item.selected {
+  border-color: var(--primary-accent);
+}
+
+.quote-provider {
+  font-weight: bold;
+}
+
+.best-deal-label {
+  background-color: var(--primary-accent);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 0.8em;
+  margin-left: 10px;
+}
+
+.swap-now-container {
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* Loader and Popup styles */
+.loader-overlay, .popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  flex-direction: column;
+}
+
+.loader-overlay p {
+  color: white;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top: 4px solid #fff;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.popup {
+  max-width: 80%;
+  background-color: var(--card-bg);
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.popup h3 {
+  margin-top: 0;
+  color: var(--primary-accent);
+}
+
+.popup button {
+  background-color: var(--secondary-accent);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.popup-details-table {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+}
+
+.popup-details-table td {
+  padding: 8px;
+  border: 1px solid #444;
+  text-align: left;
+  word-break: break-all;
+}
+
+.popup-details-table td:first-child {
+  font-weight: bold;
+  white-space: nowrap;
+}

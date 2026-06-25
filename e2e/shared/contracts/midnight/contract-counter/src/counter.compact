@@ -25,3 +25,27 @@ export circuit add_entry(_id: Bytes<32>, _value: Uint<128>): [] {
   map_of_map.insert(id, default<Map<Bytes<32>, Uint<128>>>);
   map_of_map.lookup(id).insert(id, value);
 }
+
+// Native token mints (exercised by the Midnight:TokenMint primitive e2e):
+// minting records `domain_sep → amount` in the call's effects, and the token
+// type ("color") is derived as rawTokenType(domain_sep, contract_address).
+export circuit mint_shielded(
+  domain_sep: Bytes<32>,
+  amount: Uint<64>,
+  nonce: Uint<128>,
+): ShieldedCoinInfo {
+  return mintShieldedToken(
+    disclose(domain_sep),
+    disclose(amount),
+    evolveNonce(disclose(nonce), disclose(domain_sep)),
+    left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey())
+  );
+}
+
+export circuit mint_unshielded(
+  domain_sep: Bytes<32>,
+  amount: Uint<64>,
+  recipient: UserAddress
+): Bytes<32> {
+  return mintUnshieldedToken(disclose(domain_sep), disclose(amount), right<ContractAddress, UserAddress>(disclose(recipient)));
+}
