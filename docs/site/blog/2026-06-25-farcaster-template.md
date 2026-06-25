@@ -1,63 +1,80 @@
 ---
 slug: farcaster-template
-title: "Fork, replace four files, ship: building a different app from farcaster-canvas"
+title: "A Farcaster Mini App that Cardano wallets can vote in"
 authors: [effectstream]
 tags: [farcaster, mini-apps, game-templates, cardano, evm, tutorial]
 ---
 
-![Movie of the Year Poll: five movie cards with Best/Meh/Worst vote buttons and a live results bar chart](/img/blog/movie-poll-ui.png)
+![Movie of the Year Poll: five TMDB poster cards with Best/Meh/Worst vote buttons and a live results bar chart](/img/blog/movie-poll-ui.png)
 
-[farcaster-canvas](https://github.com/effectstream/farcaster-app) is a working pixel-painting Mini App. It is also a reusable scaffold. Every line of code that is specific to the canvas game lives in exactly four files inside `packages/node/`. Replace those four files and you have a different app running on the same batcher, the same node runtime, the same live-event system, and the same wallet injection -- without touching any of that plumbing.
+Farcaster is an EVM-native platform. When you build a Mini App on Warpcast, the default assumption is that your users have a Base wallet. But Cardano wallet holders -- Lace, Eternl, Nami, NuFi users -- are in the Farcaster ecosystem too, and building two separate apps to serve both audiences is the obvious option. With EffectStream it isn't the necessary one.
 
-This post shows what you inherit for free and walks through a concrete substitution: a Movie of the Year poll (Best / Meh / Worst, one vote per wallet per film) built on the same codebase.
+This is a build log for the **Movie of the Year Poll**: five 2024 films, three ratings (Best / Meh / Worst), one vote per wallet per movie, live results. The same Postgres schema, the same state machine, and the same frontend serve both paths -- the only difference is a config file.
 
 <!-- truncate -->
 
-## What you inherit
+## Where the code comes from
 
-When you fork `farcaster-canvas` and leave the scaffold intact, you keep:
+The starting point is [farcaster-canvas](https://github.com/effectstream/farcaster-app), a collaborative pixel-painting game that runs as a Farcaster Mini App. The previous post covers the full architecture. The short version: every line of app-specific logic lives in exactly four files inside `packages/node/`. Everything else -- the batcher, the node runtime, the wallet injection layer, the Postgres connection pool, the Vite frontend shell -- is shared infrastructure that you keep unchanged.
 
-- **The batcher.** A hot-wallet service that collects signed inputs from users and posts them to the chain on a 1-second cadence. Users never pay gas; the batcher does. `packages/batcher/` handles this entirely.
-- **The EffectStream node runtime.** Block ingestion, input validation, Postgres connection pooling, replay safety, and the deterministic PRNG. You configure it; it runs.
-- **MQTT live events.** When your state machine calls `data.emit("SomethingHappened", payload)`, the runtime publishes to MQTT after the DB write commits. The frontend subscribes and re-fetches without polling.
-- **EIP-1193 and Cardano wallet injection.** `@effectstream/wallets` surfaces wallet providers for both EVM (Warpcast's injected provider, MetaMask) and Cardano (Lace, Eternl, Nami, NuFi). Your app picks up whichever the user has.
-- **The `composeCast` mechanic.** Share a deep link back into Warpcast as a Mini App tile. Your app URL, your content - the plumbing in `packages/frontend/client/src/miniapp.ts` stays unchanged.
-- **A Postgres projection.** A schema you own, migrations under `packages/database/migrations/`, typed SQL via pgtyped. Nothing in this layer changes unless your schema does.
-- **Two environments with one codebase.** `start.dev.ts` boots PGLite + local chain + node in one process. `start.mainnet.ts` points at the production chain and a managed Postgres. No code differences between envs, only config.
+| File | farcaster-canvas | Movie poll |
+|---|---|---|
+| `packages/node/grammar.ts` | `fork`, `paint` | `cardano-vote` |
+| `packages/node/state-machine.ts` | Canvas fork / fill logic | Vote deduplication + insert |
+| `packages/database/migrations/000-init.sql` | `canvases`, `paints`, `rewards` | `movies`, `votes` |
+| `packages/node/api.ts` | `/api/canvases`, `/api/canvas/:id` | `/api/movies`, `/api/results` |
 
-None of this is in the four files you replace.
+## How a Cardano vote works end to end
 
-## The four files you replace
+The EVM path for this kind of app is well-documented: user signs an off-chain message, the batcher bundles it, a contract emits an event, the indexer picks it up. Cardano is more direct -- no batcher, no contract -- and the mechanics are worth spelling out.
 
-| File | What it contains | farcaster-canvas | Movie poll |
-|---|---|---|---|
-| `packages/node/grammar.ts` | Vocabulary of valid inputs | `fork`, `paint` | `cardano-vote` |
-| `packages/node/state-machine.ts` | All game rules | Canvas fork/fill logic | Vote deduplication + insert |
-| `packages/database/migrations/000-init.sql` | Schema | `canvases`, `paints`, `rewards` | `movies`, `votes` |
-| `packages/node/api.ts` | REST endpoints | `/api/canvases`, `/api/canvas/:id` | `/api/movies`, `/api/results` |
+**1. The wallet** is generated from a BIP-39 mnemonic via LucidEvolution's `fromSeed`. In the dev setup it's an ephemeral hot wallet; production would use browser wallet injection (Lace, Eternl, etc.) instead. A YACI devnet faucet tops it up with test ADA.
 
-The rest of the monorepo - batcher, orchestrator, Lucid wallet server, Vite frontend shell, Fastify proxy, MQTT wiring - is untouched.
+**2. The transaction** carries the vote as Cardano transaction metadata at label `7890`. Lucid builds and signs it:
 
-## Worked example: Movie of the Year Poll
+```ts
+const tx = await lucid
+  .newTx()
+  .pay.ToAddress(walletAddress, { lovelace: 2_000_000n })
+  .attachMetadata(7890n, { movie: movieId, rating })
+  .complete();
+const signed = await tx.sign.withWallet().complete();
+const txHash = await signed.submit();
+```
+
+The `2_000_000n` lovelace (2 ADA) output is required by the Cardano minimum UTxO rule -- every transaction output must carry at least a small amount of ADA. Sending to your own address keeps the cost minimal; the metadata is the actual payload.
+
+**3. Metadata serialization** is a subtlety worth knowing. Cardano serializes metadata maps as `[{k, v}]` arrays, not plain JSON objects. What you wrote as `{ movie: "dune2", rating: "best" }` arrives in the indexer as:
+
+```json
+[{"k": "movie", "v": "dune2"}, {"k": "rating", "v": "best"}]
+```
+
+The state machine iterates the pairs explicitly.
+
+**4. Voter identity** comes from `inputCredentials` -- the first vkey witness hash on the Cardano transaction. This is more crypto-native than an address: it is the hash of the actual signing key, regardless of which address the user controls. The state machine uses it as the deduplication key.
+
+**5. Block ingestion** runs through Dolos MiniBF (a UTxORPC relay) connected to the YACI devnet. `PrimitiveTypeCardanoTransfer` watches for transactions that match the grammar prefix, extracts the metadata, and feeds a typed input into the state machine for each block.
+
+**6. Deduplication** is enforced at the database layer. The `votes` table has a `UNIQUE(movie_id, voter)` constraint and the insert uses `ON CONFLICT DO NOTHING`. If the same wallet submits a second vote for the same movie, the transaction lands on chain and the indexer processes it, but the row is silently dropped. No error, no user-visible failure.
+
+The wallet log in the UI makes the full flow visible:
+
+![Technical wallet log showing BIP-39 generation, YACI faucet TX, metadata construction, CBOR submission, and block confirmation](/img/blog/movie-poll-vote.png)
+
+## The four files
 
 ### grammar.ts
 
-The grammar declares the one input this app understands. The builtin `cardanoTransfer` grammar already captures the fields the Cardano sync primitive exposes (`txId`, `metadata`, `inputCredentials`, `outputs`), so we alias it under our own name:
+The grammar declares what inputs the app recognizes. `cardanoTransfer` is a builtin that captures `txId`, `metadata`, `inputCredentials`, and `outputs` from any Cardano transfer -- we alias it under our own name:
 
 ```ts
-import type { GrammarDefinition } from "@effectstream/concise";
-import { builtinGrammars } from "@effectstream/sm/grammar";
-
 export const grammar = {
   "cardano-vote": builtinGrammars.cardanoTransfer,
 } as const satisfies GrammarDefinition;
 ```
 
-One line of game-specific content.
-
 ### state-machine.ts
-
-The state machine parses the vote out of the Cardano transaction metadata (label 7890), deduplicates by voter, and writes one row:
 
 ```ts
 const VALID_MOVIES  = new Set(["dune2","gladiator2","wicked","alien","joker2"]);
@@ -66,30 +83,27 @@ const VALID_RATINGS = new Set(["best","meh","worst"]);
 stm.addStateTransition("cardano-vote", function* (data) {
   const { txId, metadata, inputCredentials } = data.parsedInput;
 
-  // Voter identity: first vkey witness hash from the Cardano TX.
+  // Voter = first vkey witness hash (signing key identity, not address).
   let voter = txId;
   try {
     const creds = JSON.parse(inputCredentials);
     if (creds[0]) voter = creds[0];
   } catch {}
 
-  // Cardano metadata maps serialise as [{k, v}] pairs.
-  // We embedded { movie: "dune2", rating: "best" } at label 7890.
+  // Cardano metadata maps arrive as [{k, v}] pairs.
   let movie, rating;
   try {
     const entry = JSON.parse(metadata)?.["7890"];
-    if (Array.isArray(entry)) {
+    if (Array.isArray(entry))
       for (const { k, v } of entry) {
         if (k === "movie")  movie  = String(v);
         if (k === "rating") rating = String(v);
       }
-    }
   } catch {}
 
   if (!movie || !VALID_MOVIES.has(movie)) return;
   if (!rating || !VALID_RATINGS.has(rating)) return;
 
-  // One vote per wallet per movie. ON CONFLICT DO NOTHING is the hard guard.
   yield* World.resolve(insertVote, {
     movie_id: movie, voter, rating,
     tx_hash: txId, block_height: data.blockHeight,
@@ -97,24 +111,23 @@ stm.addStateTransition("cardano-vote", function* (data) {
 });
 ```
 
-Thirty lines. No batcher code, no wallet code, no MQTT publish -- the runtime handles everything outside this function.
+Thirty lines. No chain code, no wallet code, no event publishing -- the runtime handles all of that outside this function.
 
 ### schema
-
-The migration seeds five movies and enforces a UNIQUE constraint at the DB layer as a hard guard:
 
 ```sql
 CREATE TABLE movies (id TEXT PRIMARY KEY, title TEXT NOT NULL);
 INSERT INTO movies VALUES
-  ('dune2','Dune: Part Two'),('gladiator2','Gladiator II'),
-  ('wicked','Wicked'),('alien','Alien: Romulus'),('joker2','Joker: Folie a Deux');
+  ('dune2','Dune: Part Two'), ('gladiator2','Gladiator II'),
+  ('wicked','Wicked'), ('alien','Alien: Romulus'),
+  ('joker2','Joker: Folie a Deux');
 
 CREATE TABLE votes (
   id           SERIAL PRIMARY KEY,
-  movie_id     TEXT NOT NULL REFERENCES movies(id),
-  voter        TEXT NOT NULL,
-  rating       TEXT NOT NULL CHECK (rating IN ('best','meh','worst')),
-  tx_hash      TEXT NOT NULL,
+  movie_id     TEXT    NOT NULL REFERENCES movies(id),
+  voter        TEXT    NOT NULL,
+  rating       TEXT    NOT NULL CHECK (rating IN ('best','meh','worst')),
+  tx_hash      TEXT    NOT NULL,
   block_height INTEGER NOT NULL,
   UNIQUE (movie_id, voter)
 );
@@ -122,14 +135,9 @@ CREATE TABLE votes (
 
 ### api.ts
 
-Two read endpoints replace the canvas gallery:
+Two read endpoints. The frontend polls `/api/results` every two seconds to update the bar chart:
 
 ```ts
-server.get("/api/movies", async (_req, reply) => {
-  const result = await dbConn.query("SELECT id, title FROM movies ORDER BY id");
-  reply.send(result.rows);
-});
-
 server.get("/api/results", async (_req, reply) => {
   const result = await dbConn.query(`
     SELECT m.id, m.title,
@@ -144,30 +152,12 @@ server.get("/api/results", async (_req, reply) => {
 });
 ```
 
-The frontend polls this every 2 seconds - or refreshes on the `VoteRecorded` MQTT event, whichever comes first.
-
-![Wallet connected - address shown in header, faucet funded, vote buttons active](/img/blog/movie-poll-wallet.png)
-
-## The batcher: why users don't pay gas
-
-The batcher is the part that makes Farcaster Mini Apps feel instant. Here's the flow:
-
-1. The user picks a rating and clicks. The frontend calls `useWallet.submit(["vote", movieId, rating])` (EVM path) or POSTs to `/cardano/vote` (Cardano path).
-2. For EVM: the user signs an off-chain message (no gas, no confirmation dialog). The batcher collects signed inputs from all concurrent users and submits one transaction per second to `EffectstreamL2Contract.effectstreamSubmitGameInput(bytes)`. The batcher's hot wallet pays gas on behalf of every user.
-3. The chain emits an `EffectstreamGameInteraction` event. The node's sync primitive parses it, validates it against the grammar, and feeds it to the state machine.
-4. The state machine writes to Postgres and emits `VoteRecorded`. MQTT delivers it to the frontend. The results panel updates.
-
-This architecture is multi-chain by design. The same grammar and state machine work whether the settlement chain is EVM (Base, a local Hardhat anvil) or Cardano (a YACI devnet, mainnet). On the Cardano path, users attach a small ADA transfer with transaction metadata that carries the vote payload - no batcher needed, the wallet signs and submits directly to the Cardano mempool.
-
-The other direction - a Cardano-native batcher that accepts signed inputs from multiple chains and posts to Cardano - is also possible. It requires implementing a custom `BlockchainAdapter`, but the state machine and grammar stay unchanged.
-
 ## Config is the chain
 
-Switching from EVM to Cardano settlement is a config change, not a code change. The relevant diff in `packages/node/config.dev.ts`:
+The four app files are identical whether the settlement chain is EVM or Cardano. The only thing that changes is the wiring in `config.dev.ts`. Here is the relevant diff from the canvas game to the poll:
 
 ```diff
 - .addViemNetwork({ ...hardhat, name: "evmMain" })
-+ // YACI devnet: local Cardano chain started by the orchestrator
 + .addNetwork({ name: "yaci", type: Yaci, adminApiUrl: "http://localhost:10000" })
 
 - .addParallel(n => n.evmMain, n => ({
@@ -180,7 +170,7 @@ Switching from EVM to Cardano settlement is a config change, not a code change. 
 
 - .addPrimitive(s => s["canvas-l2"], () => ({
 -   type: PrimitiveTypeEVMEffectstreamL2,
--   contractAddress: ...,
+-   contractAddress: "0x...",
 - }))
 + .addPrimitive(s => s["cardano-utxorpc"], () => ({
 +   type: PrimitiveTypeCardanoTransfer,
@@ -188,22 +178,21 @@ Switching from EVM to Cardano settlement is a config change, not a code change. 
 + }))
 ```
 
-Grammar, state machine, schema, and API are untouched. Only the wiring layer changes.
+The grammar, state machine, schema, and API are untouched. Swapping back to EVM -- or supporting both simultaneously -- means restoring the removed lines. The same poll would accept votes from Base and Cardano wallets in the same results table with no code changes to the app layer.
+
+![Connected wallet showing address in header, vote buttons active per movie card](/img/blog/movie-poll-wallet.png)
 
 ## Get started
 
 ```bash
-git clone https://github.com/effectstream/farcaster-app my-app
-cd my-app
+git clone https://github.com/effectstream/farcaster-app my-poll
+cd my-poll
 bun install
 
-# Replace the four game files (grammar, state-machine, migrations, api)
-# then:
+# Replace the four game files, then:
 bun run dev
 ```
 
-The orchestrator boots PGLite + the local chain + the node + the frontend in one command. Open `http://localhost:10599`.
+The orchestrator boots PGLite + the local chain + the node + the frontend in one command. For Cardano, apply the config diff above and `bun run dev` switches to YACI DevKit + Dolos automatically. Open `http://localhost:10599`, connect the ephemeral wallet, hit the faucet, and vote.
 
-To target Cardano instead of EVM, follow the config diff above and run `bun run dev` - the orchestrator switches to YACI DevKit + Dolos automatically.
-
-The `farcaster-canvas` demo and the full source are at https://github.com/effectstream/farcaster-app.
+The `farcaster-canvas` template and this poll are both at https://github.com/effectstream/farcaster-app.
