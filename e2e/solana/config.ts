@@ -3,7 +3,18 @@ import {
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@effectstream/config";
-import { PrimitiveTypeSolanaProgramLog } from "@effectstream/sm/builtin";
+import {
+  PrimitiveTypeSolanaAccountBalance,
+  PrimitiveTypeSolanaProgramLog,
+} from "@effectstream/sm/builtin";
+
+/**
+ * Deterministic address the AccountBalance primitive watches. Derived from a
+ * fixed seed (Keypair.fromSeed(Uint8Array(32).fill(7))) so the e2e can airdrop
+ * to it and assert the synced balance. Shared with the test.
+ */
+export const WATCHED_BALANCE_ADDRESS =
+  "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB";
 
 export const config = new ConfigBuilder()
   .setNamespace(
@@ -59,7 +70,29 @@ export const config = new ConfigBuilder()
           type: PrimitiveTypeSolanaProgramLog,
           startBlockHeight: 0,
           programId: "11111111111111111111111111111111",
-          scheduledPrefix: "solana-program-log",
+          stateMachinePrefix: "solana-program-log",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelSolanaRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "SolanaAccountBalance",
+          type: PrimitiveTypeSolanaAccountBalance,
+          startBlockHeight: 0,
+          address: WATCHED_BALANCE_ADDRESS,
+          stateMachinePrefix: "solana-account-balance",
+        }),
+      )
+      // Watch the SPL Memo program so the sync captures txs the fee-payer
+      // batcher sponsors (the batcher writes a Memo; same solana_log_events table).
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelSolanaRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "SolanaMemoLog",
+          type: PrimitiveTypeSolanaProgramLog,
+          startBlockHeight: 0,
+          programId: "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+          stateMachinePrefix: "solana-program-log",
         }),
       )
   )

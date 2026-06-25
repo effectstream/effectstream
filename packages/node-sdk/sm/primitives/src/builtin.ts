@@ -31,6 +31,7 @@ export const PrimitiveTypeNEARGeneric = "NEAR:Generic" as const;
 export const PrimitiveTypeNEARAccountWatch = "NEAR:AccountWatch" as const;
 
 export const PrimitiveTypeSolanaProgramLog = "SOLANA:ProgramLog" as const;
+export const PrimitiveTypeSolanaAccountBalance = "SOLANA:AccountBalance" as const;
 
 type BuiltInPrimitives =
     typeof PrimitiveTypeMidnightGeneric |
@@ -55,7 +56,8 @@ type BuiltInPrimitives =
     typeof PrimitiveTypeNEARIntent |
     typeof PrimitiveTypeNEARGeneric |
     typeof PrimitiveTypeNEARAccountWatch |
-    typeof PrimitiveTypeSolanaProgramLog // |
+    typeof PrimitiveTypeSolanaProgramLog |
+    typeof PrimitiveTypeSolanaAccountBalance // |
     // typeof PrimitiveTypeEVMGeneric
 ;
 

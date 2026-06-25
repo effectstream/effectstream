@@ -1,0 +1,14 @@
+{
+  "name": "@solana-starter/tests",
+  "version": "1.0.0",
+  "exports": "./run-tests.ts",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@solana-starter/contracts-solana": "workspace:*",
+    "@solana/web3.js": "^1.95.0",
+    "bs58": "^6.0.0",
+    "pg": "^8.14.0",
+    "tweetnacl": "^1.0.3"
+  }
+}

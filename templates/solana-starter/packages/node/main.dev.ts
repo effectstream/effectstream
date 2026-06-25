@@ -7,6 +7,8 @@ import {
 import { config } from "./config.dev.ts";
 import { grammar } from "./grammar.ts";
 import { gameStateTransitions } from "./state-machine.ts";
+import { apiRouter } from "./api.ts";
+import { migrationTable } from "@solana-starter/database";
 
 main(function* () {
   yield* init();
@@ -16,6 +18,8 @@ main(function* () {
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
       gameStateTransitions,
+      migrations: migrationTable,
+      apiRouter,
       grammar,
     });
   });

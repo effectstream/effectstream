@@ -56,7 +56,11 @@ export class SolanaProgramLogPrimitive extends Primitive<
     }[];
   }> {
     const { programId, slot, logMessages } =
-      primitiveTransactionData.output.payload;
+      primitiveTransactionData.output.payload as {
+        programId: string;
+        slot: number;
+        logMessages: string[];
+      };
 
     const accountingPayload: ParamToData<typeof solanaProgramLogGrammar> = {
       slot,

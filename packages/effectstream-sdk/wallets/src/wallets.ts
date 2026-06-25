@@ -15,6 +15,7 @@ import type { LoginInfo } from "./wallet-modes.ts";
 // import { assertNever } from "assert-never";
 import { midnightLoginWrapper } from "./midnight/wrapper.ts";
 import { midnightLocalLoginWrapper } from "./midnight/wrapper-local.ts";
+import { solanaLoginWrapper } from "./solana/wrapper.ts";
 
 export async function walletLogin(
   loginInfo: LoginInfo
@@ -67,6 +68,9 @@ async function login(loginInfo: LoginInfo): Promise<Result<IProvider<unknown>>> 
     }
     case WalletMode.MidnightLocal: {
       return await midnightLocalLoginWrapper(loginInfo);
+    }
+    case WalletMode.Solana: {
+      return await solanaLoginWrapper(loginInfo);
     }
     default:
       throw new Error(`Unsupported wallet mode: ${(loginInfo as any).mode}`);

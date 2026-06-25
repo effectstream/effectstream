@@ -74,11 +74,21 @@ type CelestiaPrimitivePayload = {
   blobIndex: number;
 };
 
-type SolanaPrimitivePayload = {
+type SolanaProgramLogPayload = {
   programId: string;
   slot: number;
   logMessages: string[];
 };
+
+type SolanaAccountBalancePayload = {
+  address: string;
+  lamports: number;
+  slot: number;
+};
+
+type SolanaPrimitivePayload =
+  | SolanaProgramLogPayload
+  | SolanaAccountBalancePayload;
 
 interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.NTP_MAIN]: NtpPrimitivePayload;

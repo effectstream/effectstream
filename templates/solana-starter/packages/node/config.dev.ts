@@ -4,6 +4,7 @@ import {
   ConfigSyncProtocolType,
 } from "@effectstream/config";
 import { PrimitiveTypeSolanaProgramLog } from "@effectstream/sm/builtin";
+import { COUNTER_PROGRAM_ID } from "@solana-starter/contracts-solana/program-id";
 
 export const config = new ConfigBuilder()
   .setNamespace((builder) => builder.setSecurityNamespace("solana-starter"))
@@ -20,7 +21,7 @@ export const config = new ConfigBuilder()
         type: ConfigNetworkType.SOLANA,
         rpcUrl: "http://localhost:8899",
         networkId: "localnet",
-      })
+      }),
   )
   .buildDeployments((builder) => builder)
   .buildSyncProtocols((builder) =>
@@ -38,7 +39,7 @@ export const config = new ConfigBuilder()
       .addParallel(
         (networks) => (networks as any).solanaMain,
         (_network, _deployments) => ({
-          name: "mainSolanaRPC",
+          name: "parallelSolanaRPC",
           type: ConfigSyncProtocolType.SOLANA_RPC_PARALLEL,
           startBlockHeight: 0,
           pollingInterval: 2000,
@@ -46,19 +47,22 @@ export const config = new ConfigBuilder()
           confirmationDepth: 32,
           stepSize: 10,
         }),
-      )
+      ),
   )
   .buildPrimitives((builder) =>
-    builder
-      .addPrimitive(
-        (syncProtocols) => (syncProtocols as any).mainSolanaRPC,
-        (_network, _deployments, _syncProtocol) => ({
-          name: "SolanaProgramLog",
-          type: PrimitiveTypeSolanaProgramLog,
-          startBlockHeight: 0,
-          programId: "11111111111111111111111111111111",
-          scheduledPrefix: "solana-program-log",
-        }),
-      )
+    builder.addPrimitive(
+      (syncProtocols) => (syncProtocols as any).parallelSolanaRPC,
+      (_network, _deployments, _syncProtocol) => ({
+        name: "SolanaProgramLog",
+        type: PrimitiveTypeSolanaProgramLog,
+        startBlockHeight: 0,
+        // The fetcher only surfaces txs whose accountKeys include this
+        // programId, so point it at the counter program.
+        programId: COUNTER_PROGRAM_ID,
+        stateMachinePrefix: "solana-program-log",
+      }),
+    ),
   )
   .build();
+
+export { COUNTER_PROGRAM_ID };

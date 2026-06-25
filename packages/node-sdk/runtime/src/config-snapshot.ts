@@ -20,7 +20,7 @@ import { getEnv } from "@effectstream/utils/runtime";
  *   Cardano CARP               → syncProtocol.startSlot
  *   Cardano UTXOrpc            → syncProtocol.startChainPoint
  *   EVM, Mina, Avail, Midnight,
- *   Bitcoin, Celestia          → syncProtocol.startBlockHeight
+ *   Bitcoin, Celestia, NEAR, Solana → syncProtocol.startBlockHeight
  */
 function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<string, unknown> {
   if (protocol.networkType === ConfigNetworkType.NTP) {
@@ -41,7 +41,7 @@ function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<strin
     return { startChainPoint: sp.startChainPoint };
   }
 
-  // EVM, Mina, Avail, Midnight, Bitcoin, Celestia
+  // EVM, Mina, Avail, Midnight, Bitcoin, Celestia, NEAR, Solana
   const knownBlockHeightProtocols: string[] = [
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
     ConfigSyncProtocolType.MINA_PARALLEL,
@@ -50,6 +50,7 @@ function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<strin
     ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL,
     ConfigSyncProtocolType.CELESTIA_PARALLEL,
     ConfigSyncProtocolType.NEAR_RPC_PARALLEL,
+    ConfigSyncProtocolType.SOLANA_RPC_PARALLEL,
   ];
   if (!knownBlockHeightProtocols.includes(protocol.syncProtocolType)) {
     throw new Error(

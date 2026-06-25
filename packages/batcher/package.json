@@ -12,7 +12,8 @@
     "url": "https://github.com/effectstream/effectstream/issues"
   },
   "exports": {
-    "bun": "./mod.ts"
+    "bun": "./mod.ts",
+    "default": "./mod.ts"
   },
   "dependencies": {
     "@sinclair/typebox": "0.34.41",
@@ -43,6 +44,9 @@
     "@midnight-ntwrk/zswap": "4.0.0",
     "@noble/hashes": "^2.2.0",
     "@noble/secp256k1": "^3.1.0",
+    "@solana/web3.js": "^1.95.0",
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3",
     "bitcoinjs-lib": "^6.1.5",
     "ecpair": "^2.1.0",
     "tiny-secp256k1": "^2.2.1",

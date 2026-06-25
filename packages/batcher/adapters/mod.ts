@@ -56,3 +56,7 @@ export type {
   CelestiaNetwork,
 } from "./celestia-adapter.ts";
 
+// Solana adapter implementation
+export { SolanaAdapter, CapacityExchangeClient } from "./solana-adapter.ts";
+export type { SolanaAdapterConfig, SolanaBatchPayload } from "./solana-adapter.ts";
+
