@@ -10,6 +10,7 @@
         "@effectstream/orchestrator": "0.100.22",
         "@electric-sql/pglite": "^0.3.14",
         "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+        "@scure/bip39": "^2.2.0",
         "wait-on": "8.0.3",
       },
       "devDependencies": {
@@ -81,45 +82,6 @@
       },
       "devDependencies": {
         "@paima/pgtyped-cli": "^2.4.5",
-      },
-    },
-    "packages/frontend": {
-      "name": "@zswap-da/frontend",
-      "version": "0.1.0",
-      "dependencies": {
-        "@midnight-ntwrk/compact-js": "2.5.0",
-        "@midnight-ntwrk/dapp-connector-api": "4.0.1",
-        "@midnight-ntwrk/ledger-v8": "8.0.3",
-        "@midnight-ntwrk/midnight-js-contracts": "4.0.2",
-        "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "4.0.2",
-        "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.0.2",
-        "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
-        "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.2",
-        "@midnight-ntwrk/midnight-js-network-id": "4.0.2",
-        "@midnight-ntwrk/midnight-js-types": "4.0.2",
-        "@midnight-ntwrk/midnight-js-utils": "4.0.2",
-        "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
-        "@noble/curves": "^1.9.7",
-        "@noble/hashes": "^1.8.0",
-        "@scure/base": "^2.0.0",
-        "@zswap-da/contract-offer-files": "workspace:*",
-        "mip-zswap-offer": "github:effectstream/mip-zswap-offer#main",
-        "react": "^19.2.0",
-        "react-dom": "^19.2.0",
-        "three": "^0.183.2",
-      },
-      "devDependencies": {
-        "@types/node": "^22.19.3",
-        "@types/react": "^19.2.7",
-        "@types/react-dom": "^19.2.3",
-        "@types/three": "^0.183.1",
-        "@vitejs/plugin-react": "^5.1.1",
-        "crypto-browserify": "^3.12.1",
-        "node-stdlib-browser": "^1.2.0",
-        "typescript": "~5.9.3",
-        "vite": "^7.3.1",
-        "vite-plugin-node-stdlib-browser": "0.2.1",
-        "vite-plugin-wasm": "^3.4.1",
       },
     },
     "packages/frontend-new": {
@@ -1134,8 +1096,6 @@
     "@zswap-da/contracts-midnight": ["@zswap-da/contracts-midnight@workspace:packages/contracts-midnight"],
 
     "@zswap-da/database": ["@zswap-da/database@workspace:packages/database"],
-
-    "@zswap-da/frontend": ["@zswap-da/frontend@workspace:packages/frontend"],
 
     "@zswap-da/frontend-new": ["@zswap-da/frontend-new@workspace:packages/frontend-new"],
 
@@ -2511,19 +2471,11 @@
 
     "@xhmikosr/downloader/get-stream": ["get-stream@6.0.1", "", {}, "sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg=="],
 
-    "@zswap-da/frontend/@midnight-ntwrk/midnight-js-contracts": ["@midnight-ntwrk/midnight-js-contracts@4.0.2", "", { "dependencies": { "@midnight-ntwrk/compact-js": "2.5.0", "@midnight-ntwrk/midnight-js-network-id": "4.0.2", "@midnight-ntwrk/midnight-js-types": "4.0.2", "@midnight-ntwrk/midnight-js-utils": "4.0.2" } }, "sha512-mzUmelrhWEKR+f0uThgQb6IfQK+9LzOlWXlh74LjwuqDAIQgAuZZIXLuC1U58uYCTXVdmkJlmtQdORzXphJKOg=="],
-
-    "@zswap-da/frontend/@midnight-ntwrk/midnight-js-network-id": ["@midnight-ntwrk/midnight-js-network-id@4.0.2", "", {}, "sha512-6XYxm267tZ6ckgMxp337QJkycxX9XqZT+3HdQGvR24Z/K7XLV9sR6Qyv2aPKquEk7nn0JhF4yKbiODw6VjfbuA=="],
-
     "@zswap-da/frontend-new/@midnight-ntwrk/midnight-js-contracts": ["@midnight-ntwrk/midnight-js-contracts@4.0.2", "", { "dependencies": { "@midnight-ntwrk/compact-js": "2.5.0", "@midnight-ntwrk/midnight-js-network-id": "4.0.2", "@midnight-ntwrk/midnight-js-types": "4.0.2", "@midnight-ntwrk/midnight-js-utils": "4.0.2" } }, "sha512-mzUmelrhWEKR+f0uThgQb6IfQK+9LzOlWXlh74LjwuqDAIQgAuZZIXLuC1U58uYCTXVdmkJlmtQdORzXphJKOg=="],
 
     "@zswap-da/frontend-new/@midnight-ntwrk/midnight-js-network-id": ["@midnight-ntwrk/midnight-js-network-id@4.0.2", "", {}, "sha512-6XYxm267tZ6ckgMxp337QJkycxX9XqZT+3HdQGvR24Z/K7XLV9sR6Qyv2aPKquEk7nn0JhF4yKbiODw6VjfbuA=="],
 
-    "@zswap-da/node/mip-zswap-offer": ["mip-zswap-offer@github:effectstream/mip-zswap-offer#32377f4", { "peerDependencies": { "@midnight-ntwrk/ledger-v8": "*", "@noble/curves": "^1.0.0 || ^2.0.0", "@noble/hashes": "^1.0.0 || ^2.0.0", "@scure/base": "^1.1.0 || ^2.0.0" }, "optionalPeers": ["@midnight-ntwrk/ledger-v8"] }, "effectstream-mip-zswap-offer-32377f4", "sha512-pmokkKfv9IMm/Gp4NeBvoq3FleFt60NOgfk54zvSNJi76BgRUIUqfsulypICPGDpt0hVT04hruU+85jQR1ZOkw=="],
-
     "@zswap-da/tests/pg": ["pg@8.20.0", "", { "dependencies": { "pg-connection-string": "^2.12.0", "pg-pool": "^3.13.0", "pg-protocol": "^1.13.0", "pg-types": "2.2.0", "pgpass": "1.0.5" }, "optionalDependencies": { "pg-cloudflare": "^1.3.0" }, "peerDependencies": { "pg-native": ">=3.0.1" }, "optionalPeers": ["pg-native"] }, "sha512-ldhMxz2r8fl/6QkXnBD3CR9/xg694oT6DZQ2s6c/RI28OjtSOpxnPrUCGOBJ46RCUxcWdx3p6kw/xnDHjKvaRA=="],
-
-    "@zswap-da/validator/mip-zswap-offer": ["mip-zswap-offer@github:effectstream/mip-zswap-offer#32377f4", { "peerDependencies": { "@midnight-ntwrk/ledger-v8": "*", "@noble/curves": "^1.0.0 || ^2.0.0", "@noble/hashes": "^1.0.0 || ^2.0.0", "@scure/base": "^1.1.0 || ^2.0.0" }, "optionalPeers": ["@midnight-ntwrk/ledger-v8"] }, "effectstream-mip-zswap-offer-32377f4", "sha512-pmokkKfv9IMm/Gp4NeBvoq3FleFt60NOgfk54zvSNJi76BgRUIUqfsulypICPGDpt0hVT04hruU+85jQR1ZOkw=="],
 
     "algosdk/js-sha3": ["js-sha3@0.8.0", "", {}, "sha512-gF1cRrHhIzNfToc802P800N8PpXS+evLLXfsVpowqmAFR9uwbi89WvXg2QspOmXL8QL86J4T1EpFu+yUkwJY3Q=="],
 
