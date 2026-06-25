@@ -17,7 +17,7 @@
 //   WANT_AMOUNT=750000
 //   TTL_MINUTES=30
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { config, get, post, header } from "./config.ts";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { buildWalletAndWaitForFunds } from "@effectstream/midnight-contracts";
@@ -130,17 +130,32 @@ console.log(`\n✅  Blob published to Celestia  txhash=${txhash}  height=${heigh
 
 // ── 7. Wait for indexer to pick it up ─────────────────────────────────────────
 console.log("\nWaiting for offer to appear in the indexer…");
+let landed = false;
 for (let i = 0; i < 30; i++) {
   await sleep(5_000);
   const { status } = await get<any>(`/api/zswap/status?blob=${encodeURIComponent(blob)}`);
-  console.log(`  status: ${status}`);
+  console.log(`  [${i + 1}/30] status: ${status}`);
   if (status === "open") {
+    landed = true;
     console.log("✅  Offer is live in the order book.");
     break;
   }
-  if (status === "completed" || status === "expired") break;
+  if (status === "completed" || status === "expired") {
+    console.error(`Offer ended with status "${status}" before it could be seen as open.`);
+    break;
+  }
 }
 
 await wallet.stop().catch(() => {});
-console.log("\nBlob for settlement (copy for 10-settle-offer.ts):");
+
+if (!landed) {
+  console.error("\n✗  Offer did not reach 'open' status within the polling window.");
+  console.error("   Check node sync and Celestia indexer lag, then retry.");
+  process.exit(1);
+}
+
+// Write blob to a handoff file so run-all.ts can confirm and pass it to 11-settle-offer.
+writeFileSync("/tmp/zswap-last-offer.json", JSON.stringify({ blob, status: "open" }));
+console.log("\nBlob written to /tmp/zswap-last-offer.json");
+console.log("Blob for settlement (copy for 11-settle-offer.ts):");
 console.log(`  OFFER_BLOB="${blob}"`);

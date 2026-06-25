@@ -12,7 +12,8 @@
 //   WALLET_SEED  TAKER_SEED  WALLET_OPS
 //   GIVE_TOKEN  WANT_TOKEN  GIVE_AMOUNT  WANT_AMOUNT  TTL_MINUTES  MINT_AMOUNT
 
-import { config, header } from "./config.ts";
+import { readFileSync } from "node:fs";
+import { config, header, get } from "./config.ts";
 
 const WALLET_OPS = process.env.WALLET_OPS === "1";
 // Gap between wallet/chain operations — Midnight batcher queues serially.
@@ -97,10 +98,34 @@ if (!submitOk) {
   process.exit(1);
 }
 
+// ── Confirm the offer is actually open before handing off to the settler ──────
+// Script 10 writes /tmp/zswap-last-offer.json on success; re-check the status
+// via the API here so we never launch the settler against a stale or missing offer.
+console.log("\n── Confirming offer is open before settlement ──────────────────────");
+let offerBlob = "";
+try {
+  const handoff = JSON.parse(readFileSync("/tmp/zswap-last-offer.json", "utf-8"));
+  offerBlob = handoff.blob ?? "";
+} catch {
+  console.error("✗  /tmp/zswap-last-offer.json not found — script 10 may not have completed cleanly.");
+  process.exit(1);
+}
+
+const { status: offerStatus } = await get<any>(
+  `/api/zswap/status?blob=${encodeURIComponent(offerBlob)}`,
+);
+console.log(`   /api/zswap/status → "${offerStatus}"`);
+if (offerStatus !== "open") {
+  console.error(`✗  Offer is not open (status: "${offerStatus}"). Aborting settlement.`);
+  process.exit(1);
+}
+console.log("✅  Offer confirmed open — proceeding to settlement.\n");
+
 // Settle offer (taker wallet → Midnight)
 await sleep(PAUSE_MS);
 await run("11 · Settle offer on Midnight", "api-examples/11-settle-offer.ts", {
   TAKER_SEED: config.takerSeed,
+  OFFER_BLOB: offerBlob,   // pin the exact offer — no guessing from the book
 });
 
 // ── Summary ───────────────────────────────────────────────────────────────────
