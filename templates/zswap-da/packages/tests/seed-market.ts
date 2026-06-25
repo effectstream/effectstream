@@ -23,15 +23,15 @@ const HISTORY_BASE = 9_000_000;
 const BOOK_BASE = 9_500_000;
 const NIGHT = "0000000000000000000000000000000000000000000000000000000000000000";
 
-// Two pairs built from the dev mint-test-tokens colors (base traded vs native_0).
+// Two pairs built from the dev mint-test-tokens colors (base traded vs NIGHT).
 const TOKENS = [
-  { color: NIGHT, name: "native_0", kind: "shielded" },
+  { color: NIGHT, name: "NIGHT", kind: "unshielded" },
   { color: "70ce552eaec9be6e009189bffbb69184b2dd008ba9bdaec6da5305fc505eb569", name: "TESTTOKENA", kind: "shielded" },
   { color: "63b27ee9d4d94ebce3ce1bcee67f3730a87fcbfce5a8dba2c5552a0f54797bd4", name: "TESTTOKENB", kind: "shielded" },
 ];
 const PAIRS = [
-  { base: TOKENS[1]!, quote: TOKENS[0]!, mid: 12.5, histTrades: 48, bookLevels: 6 }, // TESTTOKENA / native_0
-  { base: TOKENS[2]!, quote: TOKENS[0]!, mid: 0.85, histTrades: 40, bookLevels: 5 }, // TESTTOKENB / native_0
+  { base: TOKENS[1]!, quote: TOKENS[0]!, mid: 12.5, histTrades: 48, bookLevels: 6 }, // TESTTOKENA / NIGHT
+  { base: TOKENS[2]!, quote: TOKENS[0]!, mid: 0.85, histTrades: 40, bookLevels: 5 }, // TESTTOKENB / NIGHT
 ];
 
 const HOUR = 3_600_000;
