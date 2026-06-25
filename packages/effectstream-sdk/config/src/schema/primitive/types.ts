@@ -74,6 +74,12 @@ type CelestiaPrimitivePayload = {
   blobIndex: number;
 };
 
+type SolanaPrimitivePayload = {
+  programId: string;
+  slot: number;
+  logMessages: string[];
+};
+
 interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.NTP_MAIN]: NtpPrimitivePayload;
   [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: EVMPrimitivePayload;
@@ -85,4 +91,5 @@ interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: MidnightTPrimitivePayload;
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitivePayload;
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: CelestiaPrimitivePayload;
+  [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]: SolanaPrimitivePayload;
 }

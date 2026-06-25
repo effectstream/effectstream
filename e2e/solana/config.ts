@@ -3,6 +3,7 @@ import {
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@effectstream/config";
+import { PrimitiveTypeSolanaProgramLog } from "@effectstream/sm/builtin";
 
 export const config = new ConfigBuilder()
   .setNamespace(
@@ -55,7 +56,7 @@ export const config = new ConfigBuilder()
         (syncProtocols) => (syncProtocols as any).parallelSolanaRPC,
         (network, deployments, syncProtocol) => ({
           name: "SolanaProgramLog",
-          type: `${ConfigSyncProtocolType.SOLANA_RPC_PARALLEL}:solana:program-log`,
+          type: PrimitiveTypeSolanaProgramLog,
           startBlockHeight: 0,
           programId: "11111111111111111111111111111111",
           scheduledPrefix: "solana-program-log",
