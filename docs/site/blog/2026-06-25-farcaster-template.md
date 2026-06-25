@@ -235,4 +235,4 @@ The `farcaster-canvas` template and this poll are both at https://github.com/eff
 
 ## Video walkthrough
 
-https://youtu.be/dveSIwH_EFY
+<iframe width="100%" style={{aspectRatio: "16/9", border: 0, borderRadius: 8, marginTop: 8}} src="https://www.youtube.com/embed/dveSIwH_EFY" title="Movie of the Year Poll - Cardano + EffectStream" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
