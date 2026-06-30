@@ -9,6 +9,18 @@ export const CELESTIA_GAS_LIMIT = parseInt(getEnv("CELESTIA_GAS_LIMIT") ?? "1000
 export const CELESTIA_AUTH_TOKEN = getEnv("CELESTIA_AUTH_TOKEN") ?? "";
 export const CELESTIA_NETWORK = getEnv("CELESTIA_NETWORK") ?? "devnet";
 export const CELESTIA_START_HEIGHT = getEnv("CELESTIA_START_HEIGHT");
+// Concurrent fetcher knobs — see packages/sync celestia/fetcher.ts.
+// stepSize controls how many blocks are batched per fetch window;
+// concurrency controls how many heights are fetched in parallel within each window.
+// Both default to values safe for Mocha-4 (~21 blocks/min with ~10% stalls).
+export const CELESTIA_STEP_SIZE = parseInt(getEnv("CELESTIA_STEP_SIZE") ?? "200");
+export const CELESTIA_FETCH_CONCURRENCY = parseInt(getEnv("CELESTIA_FETCH_CONCURRENCY") ?? "12");
+
+// NTP / sync timing — override via env to adjust for a different network epoch.
+export const BLOCK_TIME_MS     = parseInt(getEnv("BLOCK_TIME_MS")     ?? "600000");
+export const NTP_STEP_SIZE     = parseInt(getEnv("NTP_STEP_SIZE")     ?? "1000");
+export const NTP_START_TIME    = parseInt(getEnv("NTP_START_TIME")    ?? "1774400742000");
+export const MIDNIGHT_DELAY_MS = parseInt(getEnv("MIDNIGHT_DELAY_MS") ?? "30000");
 
 // Local batcher endpoint for forwarding zswap blob submissions.
 export const BATCHER_SUBMIT_URL = getEnv("BATCHER_SUBMIT_URL") ??
@@ -18,7 +30,11 @@ export const BATCHER_SUBMIT_URL = getEnv("BATCHER_SUBMIT_URL") ??
 // 30s (≈2.5 blocks) is safe and cuts call volume ~5x vs the 6s devnet default.
 export const CELESTIA_POLLING_INTERVAL_MS = parseInt(
   getEnv("CELESTIA_POLLING_INTERVAL_MS") ??
-    (CELESTIA_NETWORK === "mainnet" ? "30000" : "6000"),
+    (CELESTIA_NETWORK === "mainnet"
+      ? "30000"
+      : CELESTIA_NETWORK === "mocha"
+        ? "3000"
+        : "6000"),
 );
 
 // celestia-node v0.30+ TxConfig. Each explicit field removes one consensus-gRPC
@@ -71,6 +87,15 @@ export const MIDNIGHT_NETWORK_ID = midnightNetworkConfig.id;
 // set generously so legitimate proof-bearing offers are never rejected.
 export const OFFER_MAX_BYTES = parseInt(
   getEnv("OFFER_MAX_BYTES") ?? String(1024 * 1024),
+);
+
+// TTL for unmatched nullifier/unshielded-spend rows (offer_matched=false).
+// These accumulate when Midnight events arrive before the matching Celestia
+// offer (early-arrival race), and also from Midnight-wide activity that will
+// never be matched here (other tokens, other namespaces). Default 30 days
+// matches the offer TTL; tune via env var.
+export const SEEN_NULLIFIER_TTL_SECONDS = parseInt(
+  getEnv("SEEN_NULLIFIER_TTL_SECONDS") ?? String(60 * 60 * 24 * 30),
 );
 
 // Retention window for the known-roots set used by the root-known liveness

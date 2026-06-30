@@ -1,4 +1,5 @@
 import type { StartConfigApiRouter } from "@effectstream/runtime";
+import rateLimit from "@fastify/rate-limit";
 
 import {
   getKnownTokens,
@@ -6,16 +7,25 @@ import {
   getOfferFileTokens,
   insertKnownToken,
   isNullifierSpent,
-  isUnshieldedSpent,
   isUnshieldedCreated,
   isKnownRoot,
+  getTokenPrice,
+  upsertTokenPrice,
+  checkTokenNameExists,
+  getTokenByColor,
+  getPairs,
+  getZswapStatusByBlob,
+  upsertPairStatsByOfferId,
 } from "@zswap-da/database";
 
 import { MIDNIGHT_NETWORK_ID, OFFER_MAX_BYTES, midnightContract } from "./env.ts";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { submitBlobViaBatcher } from "./batcher-client.ts";
 import { getBlankRefState, validateZswapOffer } from "@zswap-da/validator";
-import { eventBus, emitAppEvent } from "./event-bus.ts";
+import { eventBus, emitAppEvent, type AppEvent } from "./event-bus.ts";
+import { quoteWithPrices, priceOf } from "./market-mock.ts";
+import { realStats, realHistory } from "./trade-data.ts";
+import { getSyncStatus } from "./sync-health.ts";
 
 // ─── API Router ───────────────────────────────────────────────────────────────
 
@@ -23,6 +33,30 @@ export const apiRouter: StartConfigApiRouter = async function (
   server: any,
   dbConn: any,
 ): Promise<void> {
+  // 60 requests/min per IP — applied to every route in this router.
+  await server.register(rateLimit, {
+    max: 60,
+    timeWindow: "1 minute",
+    errorResponseBuilder: () => ({
+      error: "RATE_LIMITED",
+      reason: "Too many requests — please wait before retrying.",
+    }),
+  });
+
+  // Update pair_stats after each CONSUMED archive. The state machine fires
+  // offer_consumed after the archive transaction commits; this listener keeps
+  // pair_stats in sync without needing access to dbConn inside the generator.
+  const onAppEvent = async (event: AppEvent) => {
+    if (event.type === "offer_consumed") {
+      try {
+        await upsertPairStatsByOfferId.run({ offer_id: event.offerId }, dbConn);
+      } catch (e) {
+        console.error("[PAIR_STATS] Failed to update pair stats for offer", event.offerId, e);
+      }
+    }
+  };
+  eventBus.on("app_event", onAppEvent);
+
   // GET /api/zswaps — list ZSWAPs ordered by newest first, with optional filtering & pagination
   server.get("/api/zswaps", async (request: any) => {
     const query = request?.query ?? {};
@@ -95,6 +129,54 @@ export const apiRouter: StartConfigApiRouter = async function (
     return result;
   });
 
+  // GET /api/quote — price quote for from→to backed by the token_prices DB table.
+  // On first request for a token the deterministic fallback price is inserted so
+  // subsequent calls are consistent and operators can override rows manually.
+  // Params: from_token, to_token (hex colors), from_amount (base units),
+  // optional to_amount (a user-set receive amount → discount/sponsored vs it).
+  async function resolvePrice(token: string): Promise<number> {
+    const rows = await getTokenPrice.run({ token_color: token }, dbConn);
+    if (rows.length > 0) return Number(rows[0].price_usd);
+    const fallback = priceOf(token);
+    await upsertTokenPrice.run({ token_color: token, price_usd: fallback }, dbConn);
+    return fallback;
+  }
+
+  server.get("/api/quote", async (request: any) => {
+    const q = request?.query ?? {};
+    const fromToken = String((q as any).from_token ?? "").toLowerCase();
+    const toToken = String((q as any).to_token ?? "").toLowerCase();
+    if (!fromToken || !toToken) {
+      throw new Error("from_token and to_token are required");
+    }
+    const digits = (v: unknown) => String(v ?? "").replace(/[^0-9]/g, "");
+    const fromAmount = BigInt(digits((q as any).from_amount) || "0");
+    const toRaw = digits((q as any).to_amount);
+    const toAmount = toRaw.length ? BigInt(toRaw) : undefined;
+    const [pf, pt] = await Promise.all([resolvePrice(fromToken), resolvePrice(toToken)]);
+    return quoteWithPrices(fromToken, toToken, fromAmount, pf, pt, toAmount);
+  });
+
+  // GET /api/chart/{stats,history} — REAL per-pair market data derived from the
+  // indexer DB: history = consumed offers (offer_file_history), stats = last/24h/
+  // high/low/volume from those fills (mid of open offers as fallback).
+  // Params: base, quote (hex colors).
+  const readPair = (request: any): { base: string; quote: string } => {
+    const q = request?.query ?? {};
+    const base = String((q as any).base ?? "").toLowerCase();
+    const quoteToken = String((q as any).quote ?? "").toLowerCase();
+    if (!base || !quoteToken) throw new Error("base and quote are required");
+    return { base, quote: quoteToken };
+  };
+  server.get("/api/chart/stats", async (request: any) => {
+    const { base, quote: quoteToken } = readPair(request);
+    return realStats(dbConn, base, quoteToken);
+  });
+  server.get("/api/chart/history", async (request: any) => {
+    const { base, quote: quoteToken } = readPair(request);
+    return realHistory(dbConn, base, quoteToken);
+  });
+
   // POST /api/known-tokens — register a token name/color pair. The browser-wallet
   // mint path submits the contract call client-side and still needs the backend
   // DB to know the token name for indexing/display.
@@ -113,31 +195,27 @@ export const apiRouter: StartConfigApiRouter = async function (
         },
       },
     },
-    async (request: any) => {
+    async (request: any, reply: any) => {
       const color = String(request.body.color).toLowerCase().replace(/^0x/, "");
       const name = String(request.body.name).trim().toUpperCase().slice(0, 16);
       const kind = String(request.body.kind);
       if (!/^[0-9a-f]{64}$/.test(color)) {
-        throw new Error("Invalid token color (expected 64 hex chars)");
+        return reply.code(400).send({ error: "Invalid token color (expected 64 hex chars)" });
       }
-      if (!name) throw new Error("Invalid token name");
+      if (!name) {
+        return reply.code(400).send({ error: "Invalid token name" });
+      }
       if (kind !== "shielded" && kind !== "unshielded") {
-        throw new Error('Invalid kind (expected "shielded" or "unshielded")');
+        return reply.code(400).send({ error: 'Invalid kind (expected "shielded" or "unshielded")' });
       }
 
-      const nameCheck = await dbConn.query(
-        `SELECT 1 FROM known_tokens WHERE name = $1 LIMIT 1`,
-        [name],
-      );
-      if (nameCheck.rows.length > 0) {
-        throw new Error(`Token name "${name}" is already taken`);
+      const nameCheck = await checkTokenNameExists.run({ name }, dbConn);
+      if (nameCheck.length > 0) {
+        return reply.code(409).send({ error: `Token name "${name}" is already taken` });
       }
-      const colorCheck = await dbConn.query(
-        `SELECT name FROM known_tokens WHERE token_color = $1 LIMIT 1`,
-        [color],
-      );
-      if (colorCheck.rows.length > 0) {
-        throw new Error(`Token color already registered as "${colorCheck.rows[0].name}"`);
+      const colorCheck = await getTokenByColor.run({ token_color: color }, dbConn);
+      if (colorCheck.length > 0) {
+        return reply.code(409).send({ error: `Token color already registered as "${colorCheck[0].name}"` });
       }
 
       await insertKnownToken.run({ token_color: color, name, kind }, dbConn);
@@ -150,16 +228,44 @@ export const apiRouter: StartConfigApiRouter = async function (
   // contract client needs (contract address, indexer, proof server). Never
   // include secrets.
   server.get("/api/midnight/config", async () => {
-    if (!midnightContract) {
+    const contractAddress =
+      midnightContract?.contractAddress ?? process.env.MIDNIGHT_CONTRACT_ADDRESS;
+    if (!contractAddress) {
       throw new Error("Midnight contract metadata is not available");
     }
     return {
-      contractAddress: midnightContract.contractAddress,
+      contractAddress,
       indexerUri: midnightNetworkConfig.indexer,
       indexerWsUri: midnightNetworkConfig.indexerWS,
       proofServerUri: midnightNetworkConfig.proofServer,
       networkId: midnightNetworkConfig.id,
     };
+  });
+
+  // GET /api/health/sync — per-protocol sync state (current block, tip, lag).
+  // Uses effectstream.effectstream_blocks for NTP and
+  // effectstream.sync_protocol_pagination for parallel chains.
+  // Chain tips are fetched from the Midnight indexer / Celestia RPC and cached 60 s.
+  server.get("/api/health/sync", async () => {
+    return getSyncStatus(dbConn);
+  });
+
+  // GET /api/pairs — all known trading pairs from pair_stats (historical) merged
+  // with live open-offer counts. Fast: pair_stats is a write-side projection
+  // updated on each CONSUMED archive; the live subquery hits a small indexed table.
+  server.get("/api/pairs", async () => {
+    return getPairs.run(undefined, dbConn);
+  });
+
+  // GET /api/zswap/status?blob=<hex> — single-blob status lookup for My Trades
+  // startup reconciliation. Returns { blob, status } where status is one of
+  // 'open' | 'completed' | 'expired' | 'not_found'.
+  server.get("/api/zswap/status", async (request: any, reply: any) => {
+    const blob = String((request.query as any)?.blob ?? "").trim();
+    if (!blob) return reply.code(400).send({ error: "blob query param required" });
+    const rows = await getZswapStatusByBlob.run({ blob }, dbConn);
+    if (rows.length === 0) return { blob, status: "not_found" };
+    return { blob: rows[0].transaction_hex, status: rows[0].status };
   });
 
   // POST /api/zswap/submit — fully validate a `zswapoffer1…` blob, then forward
@@ -207,30 +313,17 @@ export const apiRouter: StartConfigApiRouter = async function (
           });
         }
       }
+      // Liveness: unshielded UTXO must exist in created_unshielded (absent = spent or never created).
       for (const s of validation.unshieldedSpends ?? []) {
-        const spent = await isUnshieldedSpent.run(
+        const live = await isUnshieldedCreated.run(
           { owner: s.owner, intent_hash: s.intentHash, output_no: s.outputNo },
           dbConn,
         );
-        if (spent.length > 0) {
+        if (live.length === 0) {
           return reply.code(400).send({
-            error: "UTXO_SPENT",
+            error: "UTXO_NOT_LIVE",
             reason:
-              `unshielded UTXO already spent: ${s.owner}/${s.intentHash}/${s.outputNo}`,
-          });
-        }
-      }
-      // Existence: the referenced unshielded UTXO must have been created.
-      for (const s of validation.unshieldedSpends ?? []) {
-        const created = await isUnshieldedCreated.run(
-          { owner: s.owner, intent_hash: s.intentHash, output_no: s.outputNo },
-          dbConn,
-        );
-        if (created.length === 0) {
-          return reply.code(400).send({
-            error: "UTXO_UNKNOWN",
-            reason:
-              `unshielded UTXO never created on chain: ${s.owner}/${s.intentHash}/${s.outputNo}`,
+              `unshielded UTXO not live (spent or never created): ${s.owner}/${s.intentHash}/${s.outputNo}`,
           });
         }
       }

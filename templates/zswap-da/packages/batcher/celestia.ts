@@ -54,6 +54,23 @@ class ZswapCelestiaAdapter extends CelestiaAdapter {
     if (!result.ok) {
       return { valid: false, error: `${result.code}: ${result.reason ?? ""}` };
     }
+
+    // Fee-sponsorship policy gate: the batcher only pays the Celestia posting
+    // fee for "good trades". Currently a no-op stub (always sponsors); see
+    // checkForCelestiaSponsorship.
+    const sponsorship = this.checkForCelestiaSponsorship(input);
+    if (!sponsorship.valid) return sponsorship;
+
+    return { valid: true };
+  }
+
+  // Stub seam for the Celestia fee-sponsorship policy. A real implementation
+  // would decode the offer, derive its gives/wants imbalance into an implied
+  // rate, compare against a market reference, and require the poster to be at
+  // least SPONSOR_DISCOUNT (2.5%) below market — mirroring the node's
+  // market-mock policy behind /api/quote. Until that lands, every structurally
+  // valid offer is sponsored.
+  private checkForCelestiaSponsorship(_input: DefaultBatcherInput): ValidationResult {
     return { valid: true };
   }
 }

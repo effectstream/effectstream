@@ -20,7 +20,7 @@ export interface BatcherConfig {
     rpcUrl: string;
     namespace: string;
     authToken: string | undefined;
-    network: "devnet" | "mainnet";
+    network: "devnet" | "mainnet" | "mocha";
     fee: number;
     gasLimit: number;
     gasPrice: number | undefined;
@@ -53,7 +53,8 @@ const optionalNumber = (key: string): number | undefined => {
 export function loadBatcherConfig(): BatcherConfig {
   const network = ENV.getString("CELESTIA_NETWORK", "devnet") as
     | "devnet"
-    | "mainnet";
+    | "mainnet"
+    | "mocha";
 
   return {
     port: ENV.getNumber("BATCHER_PORT", 3334),

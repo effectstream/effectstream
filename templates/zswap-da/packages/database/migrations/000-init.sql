@@ -1,14 +1,14 @@
 CREATE TABLE known_tokens (
     id SERIAL PRIMARY KEY,
     token_color TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
+    name TEXT UNIQUE NOT NULL,
     kind TEXT NOT NULL CHECK (kind IN ('shielded', 'unshielded'))
 );
 
 INSERT INTO known_tokens (token_color, name, kind) VALUES
-('0000000000000000000000000000000000000000000000000000000000000000', 'native_0', 'shielded'),
-('0000000000000000000000000000000000000000000000000000000000000001', 'native_1', 'shielded'),
-('0000000000000000000000000000000000000000000000000000000000000002', 'native_2', 'shielded')
+('0000000000000000000000000000000000000000000000000000000000000000', 'NIGHT', 'unshielded')
+-- ('0000000000000000000000000000000000000000000000000000000000000001', 'SILK', 'shielded'),
+-- ('0000000000000000000000000000000000000000000000000000000000000002', 'DUSK', 'shielded')
 ON CONFLICT (token_color) DO NOTHING;
 
 CREATE TABLE offer_file (
@@ -88,7 +88,9 @@ CREATE TABLE offer_file_history (
     created_at TIMESTAMPTZ,
     -- Copy of the TTL (in seconds) that was active for the original offer.
     ttl_seconds BIGINT,
-    -- Reason why this offer was moved out of the main table.
+    -- Reason why this offer was moved out of the main table:
+    --   'CONSUMED' — input coin spent on Midnight (fill or cancel).
+    --   'TTL'      — scheduled cleanup timer fired.
     --   'CONSUMED' — one of the offer's inputs was spent on Midnight. This
     --     conflates *filled* (the offer's intended swap completed) and
     --     *canceled* (the maker spent the coin elsewhere) — the indexer
@@ -106,6 +108,10 @@ CREATE TABLE offer_file_history (
     archived_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- trade-data.ts HISTORY_SQL: WHERE archive_reason = 'CONSUMED' ORDER BY archived_at DESC LIMIT 120
+CREATE INDEX IF NOT EXISTS idx_offer_file_history_reason_archived_at
+    ON offer_file_history (archive_reason, archived_at DESC);
+
 CREATE TABLE offer_file_tokens_history (
     id SERIAL PRIMARY KEY,
     offer_file_id INTEGER NOT NULL,
@@ -114,6 +120,9 @@ CREATE TABLE offer_file_tokens_history (
     direction TEXT NOT NULL,
     archived_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_offer_file_tokens_history_offer_file_id
+    ON offer_file_tokens_history (offer_file_id);
 
 CREATE TABLE offer_file_nullifiers_history (
     id SERIAL PRIMARY KEY,
@@ -131,22 +140,18 @@ CREATE TABLE offer_file_unshielded_spends_history (
     archived_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Cross-chain race buffer: a Midnight consumption event can be processed
--- before the matching Celestia offer is indexed (re-sync, replay, clock
--- skew). Without persistence the event would be dropped, leaving the
--- offer permanently "active" until TTL. We persist every unmatched
--- consumption event here and reconcile at offer-index time.
-CREATE TABLE seen_nullifiers (
-    nullifier TEXT PRIMARY KEY,
-    first_seen_height BIGINT NOT NULL,
-    first_seen_at TIMESTAMPTZ DEFAULT NOW()
+-- Unified nullifier table (replaces seen_nullifiers + spent_nullifiers).
+-- offer_matched=true:  matched to an indexed offer — permanent record used
+--   by the validator to reject double-spend attempts.
+-- offer_matched=false: early-arrival race buffer (Midnight event arrived
+--   before the Celestia offer was indexed). Pruned by the midnight-nullifier
+--   STF after SEEN_NULLIFIER_TTL_SECONDS (default 30 days).
+CREATE TABLE nullifiers (
+    nullifier     TEXT        PRIMARY KEY,
+    height        BIGINT      NOT NULL,
+    recorded_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    offer_matched BOOLEAN     NOT NULL DEFAULT FALSE
 );
+CREATE INDEX idx_nullifiers_unmatched ON nullifiers (recorded_at)
+    WHERE offer_matched = false;
 
-CREATE TABLE seen_unshielded_spends (
-    owner TEXT NOT NULL,
-    intent_hash TEXT NOT NULL,
-    output_no INTEGER NOT NULL,
-    first_seen_height BIGINT NOT NULL,
-    first_seen_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (owner, intent_hash, output_no)
-);

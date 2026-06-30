@@ -61,7 +61,6 @@ stm.addStateTransition("ai", function* (data) {
   });
   if (existingQa) return;
 
-  const shinkai = new ShinkaiClient();
   const [worldStats] = yield* World.resolve(getWorldStats, undefined);
   const maxTokens = Math.max(100, Math.min(worldStats?.tokens ?? 1000, 1000));
 
@@ -74,15 +73,23 @@ stm.addStateTransition("ai", function* (data) {
     default: return;
   }
 
-  const [textResult, scoreResult] = yield* World.promise(
-    Promise.all([
-      shinkai.askQuestion(promptFn(response, "text")),
-      shinkai.askQuestion(promptFn(response, "score")),
-    ]),
-  );
-
-  const ai = textResult.response;
-  const score = parseInt(scoreResult.response, 10) || 0;
+  let ai: string;
+  let score: number;
+  try {
+    const shinkai = new ShinkaiClient();
+    const [textResult, scoreResult] = yield* World.promise(
+      Promise.all([
+        shinkai.askQuestion(promptFn(response, "text")),
+        shinkai.askQuestion(promptFn(response, "score")),
+      ]),
+    );
+    ai = textResult.response;
+    score = parseInt(scoreResult.response, 10) || 0;
+  } catch {
+    // Shinkai not configured — use stub so the game still advances
+    ai = "The court acknowledges your answer.";
+    score = 50;
+  }
 
   const updateGameParams: {
     stage: string;

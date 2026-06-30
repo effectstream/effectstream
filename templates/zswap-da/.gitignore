@@ -1,2 +1,10 @@
 packages/batcher/batcher-data/
 packages/contracts-midnight/contract-offer-files/src/managed/
+
+# Preview Docker test setup — not for commit
+Dockerfile
+docker-compose.yml
+docker/
+.env
+.dockerignore
+mnemonic-to-seed.ts

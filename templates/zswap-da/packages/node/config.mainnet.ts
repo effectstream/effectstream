@@ -18,11 +18,13 @@ import { getConnection } from "@effectstream/db";
 
 import {
   CELESTIA_AUTH_TOKEN,
+  CELESTIA_FETCH_CONCURRENCY,
   CELESTIA_NAMESPACE,
   CELESTIA_NETWORK,
   CELESTIA_POLLING_INTERVAL_MS,
   CELESTIA_RPC_URL,
   CELESTIA_START_HEIGHT,
+  CELESTIA_STEP_SIZE,
   midnightContract,
 } from "./env.ts";
 
@@ -158,6 +160,8 @@ export const config = new ConfigBuilder()
           pollingInterval: CELESTIA_POLLING_INTERVAL_MS,
           delayMs: 12_000,
           confirmationDepth: 1,
+          stepSize: CELESTIA_STEP_SIZE,
+          concurrency: CELESTIA_FETCH_CONCURRENCY,
         }),
       )
   )
