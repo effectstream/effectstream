@@ -260,6 +260,7 @@ export function* processFinalizedBlock(
             blockEvents.push(...inputEvents);
           }
         } catch (err) {
+          if (isTransientPgError(err)) throw err;
           success = false;
           log.remote(
             ComponentNames.EFFECTSTREAM_SYNC,
