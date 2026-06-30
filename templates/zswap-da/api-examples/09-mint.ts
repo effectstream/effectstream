@@ -19,10 +19,10 @@
 
 import { dirname, resolve } from "node:path";
 import { writeFileSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
+import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 import {
   buildWalletFacade,
   registerNightForDust,
@@ -140,10 +140,9 @@ for (const [label, sep, idx] of [
 }
 
 console.log("Minting unshielded (proving…)");
-const recipientBytes = wr.unshieldedKeystore.getBech32Address
-  ? (wr.unshieldedKeystore as any).getPublicKey?.() ?? SEP_U
-  : SEP_U;
-const utx = await (deployed.callTx as any).mint_unshielded(SEP_U, MINT_AMOUNT, { bytes: recipientBytes instanceof Uint8Array ? recipientBytes : SEP_U });
+const parsed = MidnightBech32m.parse(wr.unshieldedAddress);
+const recipientBytes = Uint8Array.prototype.slice.call(parsed.data, 0, 32);
+const utx = await (deployed.callTx as any).mint_unshielded(SEP_U, MINT_AMOUNT, { bytes: recipientBytes });
 const ures = utx.private?.result;
 minted.unshielded = (ures instanceof Uint8Array ? toHex(ures) : String(ures ?? toHex(SEP_U))).replace(/^0x/, "").toLowerCase();
 console.log(`  ✅ unshielded: ${minted.unshielded.slice(0, 16)}…\n`);
