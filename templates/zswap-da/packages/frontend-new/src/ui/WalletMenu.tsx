@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { WalletPill, type WalletInfo } from './WalletPill';
 import { Icon } from './icons';
-import { shortToken, truncateAddress } from '../utils';
+import { truncateAddress } from '../utils';
 import { fmtBalance } from '../state/format';
+import { TokenChip } from './TokenChip';
+import type { KnownToken } from '../types';
 
 interface WalletMenuState {
   wallet: WalletInfo | null;
@@ -12,12 +14,13 @@ interface WalletMenuState {
   unshieldedAddress: string | null;
   shieldedBalances: Record<string, string> | null;
   unshieldedBalances: Record<string, string> | null;
+  knownTokens?: KnownToken[];
   disconnect: () => void;
   refreshBalances?: () => void;
   refreshing?: boolean;
 }
 
-function BalRows({ title, balances }: { title: string; balances: Record<string, string> | null }) {
+function BalRows({ title, balances, knownTokens }: { title: string; balances: Record<string, string> | null; knownTokens: KnownToken[] }) {
   const entries = Object.entries(balances ?? {}).filter(([, v]) => Number(v) > 0);
   return (
     <div style={{ marginBottom: 10 }}>
@@ -25,11 +28,11 @@ function BalRows({ title, balances }: { title: string; balances: Record<string, 
       {entries.length === 0 ? (
         <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>none</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {entries.map(([color, amt]) => (
-            <div key={color} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, gap: 12 }}>
-              <span className="zs-num" style={{ color: 'var(--ink-3)' }}>{shortToken(color)}</span>
-              <span className="zs-num" style={{ fontWeight: 600 }}>{fmtBalance(amt)}</span>
+            <div key={color} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <TokenChip color={color} knownTokens={knownTokens} size="sm" />
+              <span className="zs-num" style={{ fontWeight: 600, fontSize: 13 }}>{fmtBalance(amt)}</span>
             </div>
           ))}
         </div>
@@ -63,8 +66,8 @@ export function WalletMenu({ st }: { st: WalletMenuState }) {
             <Icon.shield style={{ color: 'var(--accent)', flex: '0 0 auto' }} />
             <span className="zs-num" style={{ fontSize: 12.5, fontWeight: 600, wordBreak: 'break-all', color: 'var(--ink-2)' }}>{truncateAddress(addr)}</span>
           </div>
-          <BalRows title="Shielded" balances={st.shieldedBalances} />
-          <BalRows title="Unshielded" balances={st.unshieldedBalances} />
+          <BalRows title="Shielded" balances={st.shieldedBalances} knownTokens={st.knownTokens ?? []} />
+          <BalRows title="Unshielded" balances={st.unshieldedBalances} knownTokens={st.knownTokens ?? []} />
           <button className="zs-btn zs-btn--block" style={{ padding: 11, fontSize: 14 }} onClick={() => { setOpen(false); st.disconnect(); }}>Disconnect</button>
         </div>
       )}
