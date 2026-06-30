@@ -1,5 +1,5 @@
 ---
-slug: midnight-commitment-presale
+slug: commitment-presale
 title: "Commitment Presales on Midnight: Buy In Without Locking Up"
 authors: [effectstream]
 tags: [presale, midnight, cardano, zero-knowledge, zswap, usdm, launchpad]
