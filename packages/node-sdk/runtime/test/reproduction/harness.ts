@@ -26,7 +26,7 @@ import { platform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EventSpec } from "./scenario.ts";
-import { TestChainControl } from "@effectstream/sync";
+import { type FailStage, TestChainControl } from "@effectstream/sync";
 import { toSyncProtocolWithNetwork } from "@effectstream/config";
 
 export type RunNodeOpts = {
@@ -317,6 +317,8 @@ export type RunToHeightOpts = {
   securityNamespace?: string;
   /** Enable/disable empty-block coalescing. */
   coalesce?: boolean;
+  /** One-shot failures to inject into the synthetic chain's pipeline. */
+  faults?: { protocol: string; stage: FailStage; times?: number }[];
 };
 
 const RUNNER = join(import.meta.dir, "node-runner.ts");
@@ -342,6 +344,7 @@ function makeRunToHeight(
       apiPort: opts.apiPort,
       waitPages: opts.waitPages,
       coalesce: opts.coalesce,
+      faults: opts.faults,
     };
     return new Promise<void>((resolve, reject) => {
       const child = spawn("bun", [RUNNER, JSON.stringify(spec)], {

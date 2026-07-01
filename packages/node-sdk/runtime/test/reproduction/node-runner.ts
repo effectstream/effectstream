@@ -22,7 +22,7 @@ import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
-import { TestChainControl } from "@effectstream/sync";
+import { type FailStage, TestChainControl } from "@effectstream/sync";
 import { init, start } from "../../src/main.ts";
 import type { StartConfigGameStateTransitions } from "../../src/types.ts";
 import {
@@ -49,6 +49,8 @@ export type RunSpec = {
    */
   waitPages?: Record<string, number>;
   coalesce?: boolean;
+  /** One-shot failures to inject into the synthetic chain's pipeline (see TestChainControl.failNext). */
+  faults?: { protocol: string; stage: FailStage; times?: number }[];
 };
 
 const noopStf: StartConfigGameStateTransitions = function* () {};
@@ -66,6 +68,9 @@ async function main() {
 
   for (const [name, tip] of Object.entries(spec.tips)) {
     TestChainControl.setTip(name, tip);
+  }
+  for (const fault of spec.faults ?? []) {
+    TestChainControl.failNext(fault.protocol, fault.stage, fault.times);
   }
 
   const pool = new pg.Pool({

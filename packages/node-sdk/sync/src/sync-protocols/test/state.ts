@@ -5,11 +5,13 @@ import { getPage } from "@effectstream/db";
 import type { PoolClient } from "pg";
 import { bound, type BlockNumber } from "@effectstream/utils";
 import { type LastPage, SyncState } from "../base/state.ts";
+import type { DataFetched } from "../base/fetcher.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { TestFetcher } from "./fetcher.ts";
 import { bufferAtCap, genInputRange } from "../common/page-helpers.ts";
 import type { Input, Output, Page } from "./types.ts";
 import { toMsTimestamp } from "./types.ts";
+import { TestChainControl } from "./control.ts";
 import type {
   ConfigNetworkType,
   SyncProtocolWithNetwork,
@@ -51,7 +53,21 @@ export class TestSyncState extends SyncState<
   }
 
   @bound
+  override *updateState(
+    input: Input,
+    data: DataFetched<Output, Page, RootPage>,
+  ): Operation<void> {
+    if (TestChainControl.consumeFailure(this.name, "updateState")) {
+      throw new Error(`test-fault:updateState:${this.name}`);
+    }
+    yield* super.updateState(input, data);
+  }
+
+  @bound
   override toRootOutput(data: Output): RootOutput {
+    if (TestChainControl.consumeFailure(this.name, "merge")) {
+      throw new Error(`test-fault:merge:${this.name}`);
+    }
     return {
       blockInfo: data.blockHashes.map((h) => ({
         protocol_name: this.config.syncProtocol.name,
@@ -103,6 +119,9 @@ export class TestSyncState extends SyncState<
     ourOutput: Output,
     rootOutput: RootOutput,
   ): void {
+    if (TestChainControl.consumeFailure(this.name, "merge")) {
+      throw new Error(`test-fault:merge:${this.name}`);
+    }
     const primitives = ourOutput.primitives.map((p) => ({
       ...p,
       source: this.config.syncProtocol.name,

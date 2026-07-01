@@ -52,6 +52,17 @@ export class TestFetcher
     readonly config: TestConfig,
   ) {
     super(config.syncProtocol.name);
+    // Test-only fault injection for producerChannel.send (see control.ts /
+    // sync.ts). Reassigning `send` in place keeps the channel's real
+    // subscriber wiring intact; only this fetcher's calls are intercepted.
+    const name = this.name;
+    const realSend = this.producerChannel.send.bind(this.producerChannel);
+    this.producerChannel.send = function* (message) {
+      if (TestChainControl.consumeFailure(name, "producerChannel")) {
+        throw new Error(`test-fault:producerChannel:${name}`);
+      }
+      return yield* realSend(message);
+    };
   }
 
   private blockOf(page: Page): Output["raw"] {
@@ -69,6 +80,10 @@ export class TestFetcher
     data: Input,
     rootConversion: RootConversion<Output, RootOutput, RootPage>,
   ): Operation<DataFetched<Output, Page, RootPage>> {
+    if (TestChainControl.consumeFailure(this.name, "readData")) {
+      throw new Error(`test-fault:readData:${this.name}`);
+    }
+
     // Events are declared on the (parallel) sync protocol config. The primitive
     // instance name to tag them with is the first declared primitive's id.
     const events: TestEvent[] =
