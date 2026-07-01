@@ -92,6 +92,7 @@ export async function deployMidnightContract(
   config: DeployConfig,
   networkUrls?: NetworkUrls,
   seedOrMnemonic?: { seed: string; mnemonic: string },
+  opts?: { walletResult?: WalletResult },
 ): Promise<string> {
   checkEnvVariables();
 
@@ -141,30 +142,32 @@ export async function deployMidnightContract(
 
   setNetworkId(resolvedNetworkId);
 
-  let walletResult: WalletResult | null = null;
+  let walletResult: WalletResult | null = opts?.walletResult ?? null;
   let providers: ReturnType<typeof configureMidnightNodeProviders> | null = null;
 
   try {
-    log.info("Building wallet...");
-    let seed;
-    if (seedOrMnemonic?.seed) {
-      seed = seedOrMnemonic.seed;
-    } else if (seedOrMnemonic?.mnemonic) {
-      seed = Buffer.from(
-        await mnemonicToSeed(seedOrMnemonic.mnemonic),
-      ).toString("hex");
-    } else {
-      seed = midnightNetworkConfig.walletSeed;
-    }
-    if (!seed) {
-      throw new Error("No seed or mnemonic provided");
-    }
+    if (!walletResult) {
+      log.info("Building wallet...");
+      let seed;
+      if (seedOrMnemonic?.seed) {
+        seed = seedOrMnemonic.seed;
+      } else if (seedOrMnemonic?.mnemonic) {
+        seed = Buffer.from(
+          await mnemonicToSeed(seedOrMnemonic.mnemonic),
+        ).toString("hex");
+      } else {
+        seed = midnightNetworkConfig.walletSeed;
+      }
+      if (!seed) {
+        throw new Error("No seed or mnemonic provided");
+      }
 
-    walletResult = await buildWalletAndWaitForFunds(
-      resolvedNetworkUrls,
-      seed,
-      resolvedNetworkId,
-    );
+      walletResult = await buildWalletAndWaitForFunds(
+        resolvedNetworkUrls,
+        seed,
+        resolvedNetworkId,
+      );
+    }
 
     const {
       wallet,
@@ -174,7 +177,7 @@ export async function deployMidnightContract(
       walletDustSecretKey,
       dustAddress,
       unshieldedKeystore,
-    } = walletResult;
+    } = walletResult!;
     const resolvedDustReceiverAddress =
       getEnv("MIDNIGHT_DUST_RECEIVER_ADDRESS") ?? dustAddress;
     if (resolvedDustReceiverAddress === dustAddress) {
