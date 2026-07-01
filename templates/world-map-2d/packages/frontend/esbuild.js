@@ -26,10 +26,11 @@ function findMonorepoWalletsSrc(startDir) {
     } catch {/* ignore */}
     const parent = path.dirname(dir);
     if (parent === dir) {
-      throw new Error(
-        "frontend/esbuild.js: could not find the @effectstream monorepo root from " +
-          startDir,
-      );
+      // Not inside the monorepo (e.g. a standalone Docker build with published
+      // packages). Return null so the bundler resolves the published
+      // @effectstream/wallets from node_modules normally — the monorepo-src
+      // alias below only exists to honor local edits during LINK_LOCAL dev.
+      return null;
     }
     dir = parent;
   }
@@ -52,9 +53,9 @@ await build({
     "@lucid-evolution/*",
     "@midnight-ntwrk/*",
   ],
-  alias: {
-    "@effectstream/wallets": `${walletsPkg}/src/mod.ts`,
-  },
+  alias: walletsPkg
+    ? { "@effectstream/wallets": `${walletsPkg}/src/mod.ts` }
+    : {},
   plugins: [
     nodeModulesPolyfillPlugin({
       globals: {

@@ -11,6 +11,13 @@ bun run dev
 
 Then open <http://localhost:10599> and connect an EVM wallet (e.g. MetaMask on the Hardhat chain).
 
+> **You need a funded wallet.** Submitting an input is a real on-chain transaction — this template has **no batcher**, so inputs are sent *self-sequenced* and the connected account must hold gas on the local Hardhat chain. Hardhat pre-funds 20 deterministic dev accounts with 10 000 test ETH each; use one of them. In MetaMask: add the network (RPC `http://localhost:8545`, Chain ID `31337`), then **Import account** and paste a Hardhat private key. Default account **#0**:
+>
+> - Address: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
+> - Private key: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+>
+> ⚠️ These are public keys baked into Hardhat — **local dev only**. Never reuse them or send real funds on any live network.
+
 If you are working from inside the Effectstream monorepo and want to use local `@effectstream/*` packages, run `./link.sh` after `bun install`.
 
 ## Environments

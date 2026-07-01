@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@effectstream/batcher-sdk": "0.100.17",
-    "@effectstream/midnight-contracts": "0.100.17",
+    "@effectstream/midnight-contracts": "0.100.28",
     "@effectstream/utils": "0.100.17",
     "@effectstream/wallets": "0.100.17",
     "@midnight-ntwrk/compact-js": "2.5.0",
