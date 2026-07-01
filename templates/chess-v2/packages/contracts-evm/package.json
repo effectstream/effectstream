@@ -10,10 +10,10 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "swap:remappings:forge": "bun ./node_modules/@effectstream/evm-hardhat/src/remappings/remappings-forge.ts --depth 4 --package @effectstream",
+    "swap:remappings:forge": "bun ./node_modules/@effectstream/evm-hardhat/src/remappings/remappings-forge.ts --depth=0",
     "swap:remappings:hardhat": "bun ./node_modules/@effectstream/evm-hardhat/src/remappings/remappings-hardhat.ts",
     "check": "echo 'check'",
-    "build:mod": "(bun run deploy:standalone || true) && bun run @effectstream/evm-hardhat/builder",
+    "build:mod": "(bun run deploy:standalone || true) && bun -e 'await import(\"@effectstream/evm-hardhat/builder\")'",
     "build:clean": "rm -rf build || true",
     "build:forge": "bun run swap:remappings:forge && forge build",
     "build:hardhat": "bun run swap:remappings:hardhat && bun ./node_modules/.bin/hardhat compile",

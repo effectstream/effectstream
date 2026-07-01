@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@effectstream/batcher-sdk": "0.100.17",
-    "@effectstream/midnight-contracts": "0.100.17",
+    "@effectstream/midnight-contracts": "0.100.28",
     "@effectstream/utils": "0.100.17",
     "effection": "^3.5.0"
   }
