@@ -100,6 +100,10 @@ iteration it walks protocols in order:
   `T`* (proving it scanned all data up to `T`), then drain every buffered datum with
   timestamp ≤ `T` into the root via `mergeDatum`.
 - send the block downstream, **then** run cleanups that pop consumed data from each Deque.
+- if any protocol's `toRootOutput`/`mergeDatum` throws while building the candidate block,
+  the whole in-progress block is discarded (no protocol's cleanup has run yet, so every
+  chain's buffered data is untouched) and retried after a short backoff — same
+  swallow/log/retry treatment as the polling loop above, extended to merge.
 
 ## Key design ideas
 

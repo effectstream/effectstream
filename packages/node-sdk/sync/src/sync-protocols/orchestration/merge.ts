@@ -1,4 +1,5 @@
 import type { Channel, Operation } from "effection";
+import { sleep } from "effection";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type {
   AllSyncProtocols,
@@ -12,6 +13,10 @@ import type { ChainBlock } from "../common/root.ts";
 import { chainPageRelation } from "../common/root.ts";
 import type { CacheCleanup, OutputAndCleanup } from "../base/state.ts";
 import { ENV } from "@effectstream/utils/node-env";
+import { tryYield } from "@effectstream/utils";
+
+/** Backoff before retrying a candidate block after a merge failure (see startMerge). */
+const MERGE_ERROR_RETRY_MS = 1000;
 
 export const mergeCoalescingBoundaries = {
   minScheduledBlockHeight: null as number | null,
@@ -107,16 +112,23 @@ export function* startMerge(
     let newBlock: ChainBlock | undefined = undefined;
 
     const cleanup: CacheCleanup[] = [];
+    let mergeError: unknown = null;
+    let erroredProtocol: AllSyncProtocols | null = null;
 
     for (let i = 0; i < syncProtocols.length; i++) {
-      const mergeInfo: MergeResult<RootOutput> = yield* mergeIntoRoot(
-        syncProtocols[i],
-        {
+      const mergeResult = yield* tryYield(
+        mergeIntoRoot(syncProtocols[i], {
           value: newBlock,
           toPage: (block) => block.timestamp,
           comparePage: chainPageRelation,
-        },
+        }),
       );
+      if (mergeResult.error != null) {
+        mergeError = mergeResult.error;
+        erroredProtocol = syncProtocols[i];
+        break;
+      }
+      const mergeInfo: MergeResult<RootOutput> = mergeResult.data;
       cleanup.push(mergeInfo.updateCache);
       if (mergeInfo.newRoot != null) {
         newBlock = mergeInfo.newRoot;
@@ -129,6 +141,22 @@ export function* startMerge(
           (log) => log(`new block ${mergeInfo.newRoot?.blockNumber}`),
         );
       }
+    }
+
+    if (mergeError != null) {
+      // Nothing merged so far for this candidate block has been consumed yet
+      // (updateCache/cleanup only runs below, once every protocol succeeds) —
+      // so every chain's buffered data is still intact and safe to retry.
+      erroredProtocol!.consecutiveErrors++;
+      erroredProtocol!.lastErrorTimestamp = Date.now();
+      log.remote(
+        ComponentNames.EFFECTSTREAM_SYNC,
+        [...erroredProtocol!.getNamespace(), "merge"],
+        SeverityNumber.ERROR,
+        (log) => log(mergeError),
+      );
+      yield* sleep(MERGE_ERROR_RETRY_MS);
+      continue;
     }
     if (newBlock == null) continue;
 

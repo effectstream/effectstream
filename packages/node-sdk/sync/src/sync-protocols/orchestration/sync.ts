@@ -65,9 +65,48 @@ export function* startSync(
         SeverityNumber.TRACE,
         (log) => log(result.data),
       );
-      yield* iState.updateState(input, result.data);
+
+      const updateResult = yield* tryYield(
+        iState.updateState(input, result.data),
+      );
+      if (updateResult.error != null) {
+        state.consecutiveErrors++;
+        state.lastErrorTimestamp = Date.now();
+        log.remote(
+          ComponentNames.EFFECTSTREAM_SYNC,
+          [...state.getNamespace(), "updateState"],
+          SeverityNumber.ERROR,
+          (l) => l(updateResult.error),
+        );
+        if ("pollingInterval" in config.syncProtocol) {
+          yield* sleep(config.syncProtocol.pollingInterval);
+        }
+        continue;
+      }
+
+      let sendError: unknown = null;
       for (const datum of result.data.output) {
-        yield* iState.fetcher.producerChannel.send(datum.output);
+        const sendResult = yield* tryYield(
+          iState.fetcher.producerChannel.send(datum.output),
+        );
+        if (sendResult.error != null) {
+          sendError = sendResult.error;
+          break;
+        }
+      }
+      if (sendError != null) {
+        state.consecutiveErrors++;
+        state.lastErrorTimestamp = Date.now();
+        log.remote(
+          ComponentNames.EFFECTSTREAM_SYNC,
+          [...state.getNamespace(), "producerChannel"],
+          SeverityNumber.ERROR,
+          (l) => l(sendError),
+        );
+        if ("pollingInterval" in config.syncProtocol) {
+          yield* sleep(config.syncProtocol.pollingInterval);
+        }
+        continue;
       }
     }
   });
