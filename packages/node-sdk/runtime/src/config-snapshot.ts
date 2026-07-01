@@ -71,6 +71,23 @@ function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<strin
 }
 
 /**
+ * Compares a saved snapshot value against the current in-memory value.
+ * Falls back to structural JSON comparison for nested objects (which are
+ * always freshly constructed plain objects with stable key-insertion order
+ * from `extractImmutableConfig`), and to reference/identity comparison for
+ * everything else.
+ */
+function valuesDiffer(saved: unknown, current: unknown): boolean {
+  if (
+    typeof saved === "object" && saved !== null &&
+    typeof current === "object" && current !== null
+  ) {
+    return JSON.stringify(saved) !== JSON.stringify(current);
+  }
+  return saved !== current;
+}
+
+/**
  * Checks the saved config snapshot for each sync protocol against the current config.
  *
  * On the first run (no snapshot in DB), the current config is persisted as the canonical snapshot.
@@ -85,7 +102,6 @@ export function* validateAndSnapshotConfig(
   syncInfo: SyncProtocolWithNetwork[],
   dbConn: Client,
 ): Operation<void> {
-  console.log("validateAndSnapshotConfig");
   const useDbStartHeight = getEnv("USE_DB_STARTHEIGHT") !== undefined;
 
   for (const protocol of syncInfo) {
@@ -119,20 +135,9 @@ export function* validateAndSnapshotConfig(
 
     const saved = rows[0].immutable_config as Record<string, unknown>;
     const mismatches: string[] = [];
-    console.log("saved", saved);
     for (const [key, savedValue] of Object.entries(saved)) {
-      console.log("key", key, savedValue, currentImmutable[key]);
-      // if (currentImmutable[key] !== savedValue) {
-      //   mismatches.push(`  ${key}: saved=${JSON.stringify(savedValue)}, current=${JSON.stringify(currentImmutable[key])}`);
-      // }
-      if (typeof savedValue === "object" && savedValue !== null) {
-        for (const [k, v] of Object.entries(savedValue)) {
-          if ((currentImmutable[key] as any)[k] !== v) {
-            mismatches.push(`  ${key}.${k}: saved=${JSON.stringify(v)},\n current=${JSON.stringify((currentImmutable[key] as any)[k])}`);
-          }
-        }
-      } else if (currentImmutable[key] !== savedValue) {
-        mismatches.push(`  ${key}: saved=${JSON.stringify(savedValue)},\n current=${JSON.stringify(currentImmutable[key])}`);
+      if (valuesDiffer(savedValue, currentImmutable[key])) {
+        mismatches.push(`  ${key}: saved=${JSON.stringify(savedValue)}, current=${JSON.stringify(currentImmutable[key])}`);
       }
     }
 
