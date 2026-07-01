@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Coin, Icon, isShielded } from '../ui/icons';
 import { api, type ChartHistoryRow, type ChartStats, type PairInfo } from '../services/api';
 import { shortToken } from '../utils';
+import { TokenChip } from '../ui/TokenChip';
 import type { Order, ZSwapApp } from '../state/useZSwapApp';
 
 type Side = 'ask' | 'bid';
@@ -335,7 +336,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
             <Stat label="High">{fmtPrice(stats.high)}</Stat>
             <Stat label="Low">{fmtPrice(stats.low)}</Stat>
             <Stat label="Volume" sub={fmtQty(stats.volume_quote) + ' ' + quote}>{fmtQty(stats.volume_base)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{base}</span></Stat>
-            <Stat label={base + ' asset ID'}>{shortToken(baseColor)}</Stat>
+            <Stat label="Asset ID"><TokenChip color={baseColor} knownTokens={st.knownTokens} size="sm" /></Stat>
           </div>
         )}
 
@@ -394,7 +395,9 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', padding: '10px 12px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
-              <span>Price ({quote})</span><span style={{ textAlign: 'right' }}>Amount ({base})</span><span style={{ textAlign: 'right' }}>Total ({base})</span>
+              <span>Price (<TokenChip color={quoteColor} knownTokens={st.knownTokens} inline />)</span>
+              <span style={{ textAlign: 'right' }}>Amount (<TokenChip color={baseColor} knownTokens={st.knownTokens} inline />)</span>
+              <span style={{ textAlign: 'right' }}>Total (<TokenChip color={baseColor} knownTokens={st.knownTokens} inline />)</span>
             </div>
 
             {!realDepth ? (
@@ -443,7 +446,9 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
               <span className="zs-pill"><Icon.clock /> {base}/{quote}</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', padding: '10px 12px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
-              <span>Price ({quote})</span><span style={{ textAlign: 'right' }}>Amount ({base})</span><span style={{ textAlign: 'right' }}>Time</span>
+              <span>Price (<TokenChip color={quoteColor} knownTokens={st.knownTokens} inline />)</span>
+              <span style={{ textAlign: 'right' }}>Amount (<TokenChip color={baseColor} knownTokens={st.knownTokens} inline />)</span>
+              <span style={{ textAlign: 'right' }}>Time</span>
             </div>
             <div style={{ maxHeight: 432, overflowY: 'auto' }}>
               {history.length === 0 && <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>{loading ? 'Loading…' : 'No trades.'}</div>}

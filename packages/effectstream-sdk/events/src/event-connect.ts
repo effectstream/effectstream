@@ -4,6 +4,7 @@ import { toPattern } from './utils.ts';
 import { extract, matches } from 'mqtt-pattern';
 import { EventBrokerNames } from './types.ts';
 import { getRuntime } from '@effectstream/utils/runtime';
+import { ENV } from '@effectstream/utils/node-env';
 
 export interface MqttClientAdapter {
   subscribe(topic: string, qos: number): Promise<void>;
@@ -88,13 +89,6 @@ async function createMqttJsClient(url: string): Promise<MqttClientAdapter> {
   };
 }
 
-// TODO This should come from @effectstream/utils/node-env ENV
-const ENV = {
-  MQTT_ENGINE_BROKER_URL: 'mqtt://localhost:8883',
-  MQTT_BATCHER_BROKER_URL: 'mqtt://localhost:8884',
-  MQTT_ENGINE_BROKER_WS_URL: 'ws://localhost:9883',
-  MQTT_BATCHER_BROKER_WS_URL: 'ws://localhost:9884',
-};
 
 export class EventConnect {
   private static clients: {
