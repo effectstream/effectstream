@@ -31,6 +31,10 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
     },
   );
 
+  // Serialize every client's execProtocolRaw through one promise chain
+  // PGlite allows only one in-flight query, and per-process db_mutex can't coordinate across separate TCP clients.
+  let queue: Promise<unknown> = Promise.resolve();
+
   // TODO: consider switching to pglite-socket once it works
   //       https://discord.com/channels/933657521581858818/1371976702674075780/1371992712076595250
   const server = net.createServer(async (socket) => {
@@ -54,8 +58,11 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
           return;
         }
 
-        // Forward raw message to PGlite and send response to client
-        return await db.execProtocolRaw(data);
+        // Forward raw message to PGlite and send response to client, serialized
+        // through the queue so the single WASM backend handles one at a time.
+        const run = queue.then(() => db.execProtocolRaw(data));
+        queue = run.catch(() => {}); // keep the chain alive even if a query errors
+        return await run;
       },
     });
   });

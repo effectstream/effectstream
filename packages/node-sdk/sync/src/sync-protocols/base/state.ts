@@ -1,4 +1,4 @@
-import { type Operation, until } from "effection";
+import { type Operation } from "effection";
 import Deque from "denque";
 import {
   type BlockNumber,
@@ -11,7 +11,6 @@ import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { BaseDataFetcher, DataFetched } from "./fetcher.ts";
 import type { PageRelation } from "./page.ts";
 import type { PoolClient } from "pg";
-import { acquireDBMutex, releaseDBMutex, upsertPage } from "@effectstream/db";
 
 export type LastPage<Page, RootPage> = {
   own: Page;
@@ -75,6 +74,32 @@ export abstract class SyncState<
   /** Timestamp of the most recent error, or 0 if no error has occurred. */
   public lastErrorTimestamp: number = 0;
 
+  // ── Backpressure observability (see common/page-helpers.ts + README) ──
+  /** Resolved fetch cap (`maxBufferedPages`); set on each backpressure check, 0 until the first. */
+  public bufferCap: number = 0;
+  /** Peak `bufferedData.size()` seen since boot — catches spikes the periodic sampler misses. */
+  public bufferHighWater: number = 0;
+  /** Whether fetching is currently paused because the buffer is at/over the cap. */
+  public pausedNow: boolean = false;
+  /** How many times the cap engaged (rising edges) — the "backpressure fired" counter. */
+  public backpressurePauses: number = 0;
+  /** Total time fetching has been paused by the cap, in ms. */
+  public backpressurePausedMs: number = 0;
+  /** Start of the current pause, for accumulating `backpressurePausedMs`. */
+  private pauseStartMs: number = 0;
+
+  // ── Merge-demand exemption (see common/page-helpers.ts + README) ──
+  /**
+   * True while the merge is blocked waiting for THIS chain's page to pass the
+   * current root timestamp. The cap must not pause the fetcher here: the merge
+   * drains this chain's buffer only after its page passes the target, so pausing
+   * would be a circular wait. While exempt the fetcher buffers only the data the
+   * merge must hold to build that block anyway (bounded by necessity).
+   */
+  public mergeWaitingForPage: boolean = false;
+  /** Root page (ms timestamp) the merge is waiting to exceed — observability only. */
+  public mergeDemandRoot: RootPage | undefined = undefined;
+
   constructor(
     public readonly name: string,
     lastPage: undefined | LastPage<Page, RootPage>,
@@ -106,6 +131,24 @@ export abstract class SyncState<
    */
   abstract mergeDatum(ourOutput: Output, rootOutput: RootOutput): void;
 
+  recordBackpressure(atCap: boolean, cap: number): void {
+    this.bufferCap = cap;
+    const now = Date.now();
+    if (atCap && !this.pausedNow) {
+      this.pausedNow = true;
+      this.pauseStartMs = now;
+      this.backpressurePauses += 1;
+    } else if (!atCap && this.pausedNow) {
+      this.pausedNow = false;
+      this.backpressurePausedMs += now - this.pauseStartMs;
+    }
+  }
+  /**
+   * Build the resume marker for a single output: the {@link LastPage} to resume
+   * fetching *after* it. See CLAUDE.md design idea #5 (restart/resume).
+   */
+  abstract outputToLastPage(data: Output): LastPage<Page, RootPage>;
+
   @bound
   *updateState(
     _input: Input,
@@ -115,6 +158,8 @@ export abstract class SyncState<
       for (const datum of data.output) {
         this.bufferedData.push(datum);
       }
+      // Peak right after a push — the local max before the merge drains it.
+      this.bufferHighWater = Math.max(this.bufferHighWater, this.bufferedData.size());
       this.newDataCondVar.wake();
     }
 
@@ -129,13 +174,8 @@ export abstract class SyncState<
           ),
       );
 
-      yield* acquireDBMutex(`update-state-${this.name}`);
-      yield* until(upsertPage.run({
-        protocol_name: this.name,
-        page_number: data.lastPage.ownBlockNumber,
-        page: JSON.stringify(data.lastPage),
-      }, this.dbConn as any)); // Client,
-      releaseDBMutex(`update-state-${this.name}`);
+      // lastPage is in-memory only; the runtime is the sole writer of the
+      // persisted resume marker (see CLAUDE.md design idea #5).
       this.lastPage = data.lastPage;
       this.newPageCondVar.wake();
     }

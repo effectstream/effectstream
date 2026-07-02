@@ -10,6 +10,7 @@ import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/c
 import { getPage } from "@effectstream/db";
 import { AvailClient } from "./AvailClient.ts";
 import { applyDelay } from "../common/utils.ts";
+import { bufferAtCap } from "../common/page-helpers.ts";
 
 export class AvailSyncState extends SyncState<
   Input,
@@ -63,6 +64,7 @@ export class AvailSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     const latestHeight = yield* call(() => this.client.getLatestBlockHeight());
     const startHeight = this.lastPage?.own.height ??
       this.config.syncProtocol.startBlockHeight - 1;
@@ -97,6 +99,15 @@ export class AvailSyncState extends SyncState<
     }];
     rootOutput.blockInfo.push(...blockInfo);
     rootOutput.primitives.push(...primitives);
+  }
+
+  @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    return {
+      own: { height: data.raw.number, hash: data.raw.hash },
+      ownBlockNumber: data.raw.number,
+      root: this.toRootPage(data),
+    };
   }
 
   @bound

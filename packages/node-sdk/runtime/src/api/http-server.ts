@@ -1,5 +1,7 @@
 import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
+import { appliedBlockStatus } from "./apply-status.ts";
+import { finalizedStreamStatus } from "./stream-status.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
 import { run, until } from "effection";
@@ -13,6 +15,7 @@ import {
   getTableSchema,
   type IGetAllAddressesResult,
   type IGetAllTableNamesResult,
+  poolErrors,
   releaseDBMutex,
   runPreparedQuery,
   waitUntilFree,
@@ -364,19 +367,29 @@ export const startHttpServer = function* (
     yield* until(apiRouter(server, dbConn));
   }
 
+  const HealthDbSchema = Type.Object({
+    consecutive: Type.Number(),
+    firstFailureAt: Type.Number(),
+    sustainedDurationMs: Type.Number(),
+    sustained: Type.Boolean(),
+  });
+  const HealthResponseSchema = Type.Object({
+    status: Type.String(),
+    db: HealthDbSchema,
+  });
   server.get("/health", {
     schema: {
       tags: ["status"],
       response: {
-        200: Type.Object({
-          status: Type.String(),
-        }),
+        200: HealthResponseSchema,
+        503: HealthResponseSchema,
       },
     },
-  }, () => {
-    return {
-      status: "ok",
-    };
+  }, (_req, reply) => {
+    const db = poolErrors.state();
+    return reply
+      .status(db.sustained ? 503 : 200)
+      .send({ status: db.sustained ? "db-unreachable" : "ok", db });
   });
 
   server.get("/addresses", {
@@ -469,6 +482,54 @@ export const startHttpServer = function* (
   });
 
   if (ENV.ENABLE_DEV_AND_DEBUG_ENDPOINTS) {
+    server.get("/debug/metrics", {
+      schema: {
+        tags: ["developer"],
+        response: {
+          200: Type.Object({}, { additionalProperties: true }),
+        },
+      },
+    }, () => {
+      const appliedTs = appliedBlockStatus.timestamp;
+      return {
+        timestamp: Date.now(),
+        uptimeSeconds: process.uptime(),
+        memory: process.memoryUsage(),
+        protocols: syncProtocols.map((p) => ({
+          name: p.name,
+          buf: p.bufferedData.size(),
+          ownBlockNumber: p.lastPage?.ownBlockNumber ?? null,
+          // Backpressure observability
+          cap: p.bufferCap,
+          bufHighWater: p.bufferHighWater,
+          pausedNow: p.pausedNow,
+          pauses: p.backpressurePauses,
+          pausedMs: p.backpressurePausedMs,
+          // Merge-demand exemption: when true the merge is gated on this chain's
+          // page and the cap is lifted.
+          mergeWaiting: p.mergeWaitingForPage,
+          mergeDemandRoot: p.mergeDemandRoot ?? null,
+        })),
+        // Finalized-block stream backlog: blocks the merge has produced but the
+        // apply loop hasn't drained. `inFlight` is the otherwise-unobservable
+        // subscriber-queue depth, bounded by backpressure (sync/CLAUDE.md Finding #1).
+        // `coalesced` = empty blocks folded away during catch-up.
+        finalizedStream: {
+          inFlight: finalizedStreamStatus.produced - finalizedStreamStatus.consumed,
+          coalesced: finalizedStreamStatus.coalesced,
+        },
+        // Apply-stage lag: how old the last-applied block is. Unlike `buf` (fetch
+        // backlog) this stays high when the node is write/apply-bound.
+        applied: {
+          blockNumber: appliedBlockStatus.blockNumber,
+          timestamp: appliedTs,
+          lagSeconds: appliedTs != null
+            ? Math.round((Date.now() - appliedTs) / 100) / 10
+            : null,
+        },
+      };
+    });
+
     server.get("/debug/sync-protocols", {
       schema: {
         tags: ["developer"],

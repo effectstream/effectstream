@@ -314,6 +314,27 @@ const definitions: Record<string, ConfigDefinition> = {
     description:
       "Snapshot retention: keep one snapshot per day for this many days. Snapshots older than this are deleted. Default: 7.",
   },
+  EFFECTSTREAM_COALESCE_EMPTY_BLOCKS: {
+    key: "EFFECTSTREAM_COALESCE_EMPTY_BLOCKS",
+    type: "boolean",
+    defaultValue: false,
+    description:
+      "Fold consecutive empty catch-up blocks into one DB transaction when behind the chain tip. Default: false.",
+  },
+  EFFECTSTREAM_LAG_THRESHOLD_MS: {
+    key: "EFFECTSTREAM_LAG_THRESHOLD_MS",
+    type: "number",
+    defaultValue: undefined,
+    description:
+      "Override the lag threshold (ms) that gates empty-block coalescing and lag logging. When unset, defaults to 20× the main clock's block time, falling back to 60 s when no blockTimeMS is exposed.",
+  },
+  EFFECTSTREAM_FINALIZED_STREAM_CAP: {
+    key: "EFFECTSTREAM_FINALIZED_STREAM_CAP",
+    type: "number",
+    defaultValue: 2048,
+    description:
+      "Backpressure cap on the in-memory finalized-block queue between the merge and the runtime apply loop. The merge blocks once this many produced blocks are unconsumed, bounding memory during deep catch-up. Default: 2048.",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -450,6 +471,17 @@ export class ENV {
   }
   static get EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS(): number {
     return ENV.getConfig(definitions.EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS);
+  }
+  static get EFFECTSTREAM_COALESCE_EMPTY_BLOCKS(): boolean {
+    return ENV.getConfig(definitions.EFFECTSTREAM_COALESCE_EMPTY_BLOCKS);
+  }
+  static get EFFECTSTREAM_FINALIZED_STREAM_CAP(): number {
+    return ENV.getConfig(definitions.EFFECTSTREAM_FINALIZED_STREAM_CAP);
+  }
+  static get EFFECTSTREAM_LAG_THRESHOLD_MS(): number | undefined {
+    const raw = getEnv(definitions.EFFECTSTREAM_LAG_THRESHOLD_MS.key);
+    if (raw == null || raw === "") return undefined;
+    return parseInt(raw, 10);
   }
 
   public static getConfig<T>(config: ConfigDefinition): T {
