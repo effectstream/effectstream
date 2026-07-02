@@ -4,14 +4,35 @@ import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { AllSyncProtocols, ISyncProtocol } from "../types.ts";
 import { tryYield } from "@effectstream/utils";
 
+// ponytail: fixed cap; a producer that can't connect in 5 tries is dead, not flaky.
+const STARTASYNC_MAX_ATTEMPTS = 5;
+
 export function* startSync(
   state: AllSyncProtocols,
 ): Operation<void> {
   const iState: ISyncProtocol = state as ISyncProtocol;
+  const { config } = state.fetcher;
+  const pollingInterval = "pollingInterval" in config.syncProtocol
+    ? config.syncProtocol.pollingInterval
+    : undefined;
 
-  // spawn async task
+  // spawn async task — retried like the stages below, but bounded: a dead
+  // producer stalls the merge silently, so on exhaustion rethrow and halt.
   yield* spawn(function* () {
-    yield* iState.startAsync();
+    for (let attempt = 1; ; attempt++) {
+      const result = yield* tryYield(iState.startAsync());
+      if (result.error == null) return;
+      state.consecutiveErrors++;
+      state.lastErrorTimestamp = Date.now();
+      log.remote(
+        ComponentNames.EFFECTSTREAM_SYNC,
+        [...state.getNamespace(), "startAsync"],
+        SeverityNumber.ERROR,
+        (log) => log(result.error),
+      );
+      if (attempt >= STARTASYNC_MAX_ATTEMPTS) throw result.error;
+      if (pollingInterval != null) yield* sleep(pollingInterval);
+    }
   });
 
   // spawn polling task
@@ -27,18 +48,15 @@ export function* startSync(
           SeverityNumber.ERROR,
           (log) => log(inputResult.error),
         );
-        const { config } = state.fetcher;
-        if ("pollingInterval" in config.syncProtocol) {
-          yield* sleep(config.syncProtocol.pollingInterval);
-        }
+        if (pollingInterval != null) yield* sleep(pollingInterval);
         continue;
       }
       const input = inputResult.data;
-      const { config } = state.fetcher;
       if (input == null) {
-        if ("pollingInterval" in config.syncProtocol) {
-          yield* sleep(config.syncProtocol.pollingInterval);
-        }
+        // Idle iteration = success too; otherwise errors right before
+        // catch-up would leave a stale non-zero streak forever.
+        state.consecutiveErrors = 0;
+        if (pollingInterval != null) yield* sleep(pollingInterval);
         continue;
       }
 
@@ -52,9 +70,7 @@ export function* startSync(
           SeverityNumber.ERROR,
           (l) => l(result.error),
         );
-        if ("pollingInterval" in config.syncProtocol) {
-          yield* sleep(config.syncProtocol.pollingInterval);
-        }
+        if (pollingInterval != null) yield* sleep(pollingInterval);
         continue;
       }
       state.consecutiveErrors = 0;
