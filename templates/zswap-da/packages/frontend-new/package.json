@@ -32,8 +32,8 @@
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
     "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.2",
     "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
-    "@effectstream/wallets": "0.100.22",
-    "@effectstream/midnight-contracts": "0.100.22",
+    "@effectstream/wallets": "0.101.0",
+    "@effectstream/midnight-contracts": "0.101.0",
     "@zswap-da/contract-offer-files": "workspace:*"
   },
   "devDependencies": {
