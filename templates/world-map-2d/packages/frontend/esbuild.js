@@ -43,20 +43,33 @@ await build({
   outfile: "dist/min.js",
   sourcemap: true,
   format: "esm",
-  // @effectstream/wallets declares Cardano/Midnight wallet helpers as optional
-  // peer dependencies (`@lucid-evolution/*`, `@midnight-ntwrk/ledger-v8`,
-  // `@midnight-ntwrk/wallet-sdk-*`). This template only uses EVM wallets so
-  // the bundler must not try to bundle them — mark them external. Any code
-  // path that touches a Cardano/Midnight wallet at runtime would throw, but
-  // we never reach those branches.
-  external: [
-    "@lucid-evolution/*",
-    "@midnight-ntwrk/*",
-  ],
   alias: walletsPkg
     ? { "@effectstream/wallets": `${walletsPkg}/src/mod.ts` }
     : {},
   plugins: [
+    // @effectstream/wallets declares Cardano/Midnight wallet helpers as optional
+    // peer deps (@lucid-evolution/*, @midnight-ntwrk/*, @effectstream/midnight-contracts).
+    // This template is EVM-only and never executes those branches. Bundling them
+    // fails (Lucid resolution, ledger-v8 .wasm, Node-only parseArgs), and marking
+    // them `external` leaves bare ESM specifiers the browser can't resolve at load
+    // time even when the code never runs (e.g. "Failed to resolve module specifier
+    // @midnight-ntwrk/wallet-sdk-shielded"). Resolve them to an empty stub instead:
+    // no bare specifiers, and the dead branches see undefined imports never touched.
+    {
+      name: "stub-optional-wallet-deps",
+      setup(build) {
+        const filter =
+          /^(@lucid-evolution\/|@midnight-ntwrk\/|@effectstream\/midnight-contracts(\/|$))/;
+        build.onResolve({ filter }, (args) => ({
+          path: args.path,
+          namespace: "optional-wallet-stub",
+        }));
+        build.onLoad(
+          { filter: /.*/, namespace: "optional-wallet-stub" },
+          () => ({ contents: "module.exports = {};", loader: "js" }),
+        );
+      },
+    },
     nodeModulesPolyfillPlugin({
       globals: {
         process: true,
