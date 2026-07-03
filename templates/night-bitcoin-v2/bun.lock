@@ -212,6 +212,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@effectstream/orchestrator": "0.101.0",
+        "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
         "@night-bitcoin/contracts-bitcoin": "workspace:*",
         "@night-bitcoin/contracts-midnight": "workspace:*",
         "@night-bitcoin/frontend": "workspace:*",
