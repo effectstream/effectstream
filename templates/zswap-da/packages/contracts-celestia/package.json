@@ -11,7 +11,7 @@
     "celestia-fund:bridge": "bun ./fund-bridge.ts"
   },
   "dependencies": {
-    "@effectstream/celestia": "0.101.0"
+    "@effectstream/celestia": "0.101.1"
   },
   "devDependencies": {
     "wait-on": "8.0.3"

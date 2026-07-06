@@ -7,7 +7,7 @@
     "serve": "bun run server/main.ts"
   },
   "dependencies": {
-    "@effectstream/wallets": "0.101.0",
+    "@effectstream/wallets": "0.101.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "viem": "2.37.3",
