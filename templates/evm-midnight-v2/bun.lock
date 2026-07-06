@@ -172,6 +172,7 @@
       "name": "@evm-midnight/tests",
       "version": "1.0.0",
       "dependencies": {
+        "@effectstream/wallets": "0.101.1",
         "@evm-midnight/contracts-evm": "workspace:*",
         "@evm-midnight/midnight-contract": "workspace:*",
         "@midnight-ntwrk/compact-js": "2.5.0",
