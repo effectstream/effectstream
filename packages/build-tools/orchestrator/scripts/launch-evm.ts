@@ -60,6 +60,13 @@ export function launchEvm(
       args: ["run", "chain:start"],
       waitToExit: false,
       critical: true,
+      // Must wait for `hardhat compile` to finish. The node's EDR provider reads
+      // every build-info JSON under build/artifacts/hardhat/build-info/ on
+      // connect; if it reads while `hardhat compile` is still writing them it
+      // hits a truncated file ("Failed to parse build info: EOF…"), poisoning
+      // the node and stalling deploy/generate-mod. COMPILE is waitToExit:true,
+      // so this serializes writer→reader without blocking COMPILE_FORGE.
+      dependsOn: [EvmNames.COMPILE],
     },
     {
       name: EvmNames.HARDHAT_WAIT,
