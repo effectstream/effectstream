@@ -9,8 +9,8 @@
     "postinstall": "node -e \"const fs=require('fs'),p='node_modules/libsodium-wrappers-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs';if(!fs.existsSync(p))fs.symlinkSync('../../../libsodium-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs',p)\""
   },
   "dependencies": {
-    "@effectstream/evm-contracts": "0.100.14",
-    "@effectstream/orchestrator": "0.100.14",
+    "@effectstream/evm-contracts": "0.101.1",
+    "@effectstream/orchestrator": "0.101.1",
     "@electric-sql/pglite": "^0.3.14",
     "@fastify/http-proxy": "^11.4.4",
     "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",

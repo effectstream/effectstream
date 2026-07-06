@@ -63,9 +63,14 @@ export async function frontendInteractionsTest(): Promise<void> {
         ).length;
         await page.click(selector, { timeout: 5_000 });
         await page.waitForTimeout(2_000);
-        const afterPageErrors = jsErrors.filter((e) =>
-          !e.startsWith("console.error:")
-        ).length;
+        const pageErrors = jsErrors.filter((e) => !e.startsWith("console.error:"));
+        const afterPageErrors = pageErrors.length;
+        if (afterPageErrors !== beforePageErrors) {
+          console.error(
+            `[CTA ${name} new pageerror]`,
+            pageErrors.slice(beforePageErrors),
+          );
+        }
         return afterPageErrors === beforePageErrors;
       });
     }

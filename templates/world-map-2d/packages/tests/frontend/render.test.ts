@@ -65,7 +65,12 @@ export async function frontendRenderTest(): Promise<void> {
 
     await assert(
       "Frontend has no fatal JS errors on load",
-      async () => jsErrors.length === 0,
+      async () => {
+        if (jsErrors.length > 0) {
+          console.error("[JS ERRORS on load]", jsErrors);
+        }
+        return jsErrors.length === 0;
+      },
     );
   } finally {
     await browser.close();

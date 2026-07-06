@@ -16,6 +16,22 @@ export default {
       cwd: path.join(root, "packages/contracts-cardano"),
     }).filter((p) => p.name !== CardanoNames.CARDANO_SUBMIT_TX),
 
+    // Register a 2nd pool so the "re-delegate to different pool" e2e test has a
+    // distinct pool to select. Without this the test relied on the devnet
+    // shipping multiple genesis pools, which 0.101.1's Yaci no longer does —
+    // the pool dropdown then has only the genesis pool and selectOption({index:1})
+    // has no target. Mirrors start.dev.ts.
+    {
+      name: "register-test-pool",
+      description: "Register Test Pool 2 on devnet",
+      cwd: path.join(root, "packages/contracts-cardano"),
+      command: "bash",
+      args: ["register-test-pool.sh"],
+      waitToExit: true,
+      type: "system-dependency",
+      dependsOn: [CardanoNames.YACI_DEVKIT_WAIT],
+    },
+
     {
       name: "sync",
       description: "Cardano Delegation sync node (test)",
