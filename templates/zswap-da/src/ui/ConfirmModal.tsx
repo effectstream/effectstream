@@ -16,6 +16,12 @@ export interface ConfirmPayload {
   /** When set, the offer can't be funded by the wallet — reason is shown and the
    *  confirm CTA is disabled (never start a settle the wallet can't complete). */
   blocked?: string;
+  /** Per-offer breakdown for a batch take. `ok:false` rows are unaffordable and
+   *  render muted, so the user can see the batch composition before confirming. */
+  items?: { pay: string; receive: string; ok: boolean }[];
+  /** When the full batch is blocked but a subset is affordable, offer to take
+   *  just that subset via a secondary CTA. */
+  partial?: { cta: string; onConfirm: () => Promise<void> };
   onConfirm: () => Promise<void>;
 }
 
@@ -23,10 +29,10 @@ export function ConfirmModal({ payload, onClose }: { payload: ConfirmPayload | n
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const run = async () => {
-    if (!payload || payload.blocked) return;
+  const run = async (label: string, handler: () => Promise<void>) => {
+    if (!payload) return;
     const t0 = performance.now();
-    dlog(`━━━ CONFIRM PRESSED: "${payload.cta}" ━━━`, {
+    dlog(`━━━ CONFIRM PRESSED: "${label}" ━━━`, {
       title: payload.title,
       pay: `${payload.pay.amt} ${payload.pay.sym}`,
       receive: `${payload.receive.amt} ${payload.receive.sym}`,
@@ -35,11 +41,11 @@ export function ConfirmModal({ payload, onClose }: { payload: ConfirmPayload | n
     setBusy(true);
     setErr(null);
     try {
-      await payload.onConfirm();
-      dlog(`✓✓✓ CONFIRM DONE: "${payload.cta}" (${(performance.now() - t0).toFixed(0)}ms) ✓✓✓`);
+      await handler();
+      dlog(`✓✓✓ CONFIRM DONE: "${label}" (${(performance.now() - t0).toFixed(0)}ms) ✓✓✓`);
       onClose();
     } catch (e: any) {
-      dlog(`✗✗✗ CONFIRM FAILED: "${payload.cta}" (${(performance.now() - t0).toFixed(0)}ms) ✗✗✗`, {
+      dlog(`✗✗✗ CONFIRM FAILED: "${label}" (${(performance.now() - t0).toFixed(0)}ms) ✗✗✗`, {
         name: e?.name,
         message: e?.message,
         cause: e?.cause,
@@ -74,13 +80,32 @@ export function ConfirmModal({ payload, onClose }: { payload: ConfirmPayload | n
               {payload.shielded && <span className="zs-badge-shield" style={{ marginLeft: 'auto' }}><Icon.shield /> Shielded</span>}
             </div>
 
+            {payload.items && payload.items.length > 1 && (
+              <div style={{ marginTop: 12, border: '1px solid var(--line)', borderRadius: 'var(--r-field)', maxHeight: 168, overflowY: 'auto' }}>
+                {payload.items.map((it, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', fontSize: 12.5, borderTop: i ? '1px solid var(--line)' : undefined, opacity: it.ok ? 1 : 0.5 }}>
+                    <span className="zs-num" style={{ color: 'var(--ink)' }}>{it.pay}</span>
+                    <Icon.arrow style={{ color: 'var(--ink-3)', width: 12, height: 12 }} />
+                    <span className="zs-num" style={{ color: 'var(--accent)' }}>{it.receive}</span>
+                    {!it.ok && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--neg)', fontWeight: 600 }}>can't afford</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {(err ?? payload.blocked) && <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--neg)', lineHeight: 1.45, wordBreak: 'break-word' }}>{err ?? payload.blocked}</div>}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button className="zs-btn" style={{ flex: '0 0 auto', padding: '12px 16px' }} disabled={busy} onClick={onClose}>Cancel</button>
-              <button className="zs-btn zs-btn--primary" style={{ flex: 1, justifyContent: 'center', padding: 12, opacity: payload.blocked ? 0.5 : 1, cursor: payload.blocked ? 'not-allowed' : 'pointer' }} disabled={busy || !!payload.blocked} onClick={run}>
-                {busy ? 'Settling…' : <><Icon.bolt /> {payload.cta}</>}
-              </button>
+              {payload.blocked && payload.partial ? (
+                <button className="zs-btn zs-btn--primary" style={{ flex: 1, justifyContent: 'center', padding: 12 }} disabled={busy} onClick={() => run(payload.partial!.cta, payload.partial!.onConfirm)}>
+                  {busy ? 'Settling…' : <><Icon.bolt /> {payload.partial.cta}</>}
+                </button>
+              ) : (
+                <button className="zs-btn zs-btn--primary" style={{ flex: 1, justifyContent: 'center', padding: 12, opacity: payload.blocked ? 0.5 : 1, cursor: payload.blocked ? 'not-allowed' : 'pointer' }} disabled={busy || !!payload.blocked} onClick={() => run(payload.cta, payload.onConfirm)}>
+                  {busy ? 'Settling…' : <><Icon.bolt /> {payload.cta}</>}
+                </button>
+              )}
             </div>
           </div>
         </>

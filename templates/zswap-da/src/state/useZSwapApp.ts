@@ -31,7 +31,7 @@ import { isMyOffer } from './myOffers';
 import { findTokenName, shortToken } from '../utils';
 import { log } from '../lib/log';
 import { dlog, timed } from '../debug';
-import { takerShortfalls, shortfallsFromLegs, shortfallMessage } from '../services/takerBalance';
+import { takerShortfalls, shortfallsFromLegs, shortfallMessage, batchTakerShortfalls, affordableIndices } from '../services/takerBalance';
 import type { KnownToken, ZSwapOffer } from '../types';
 
 const NETWORK_ID = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string) || 'undeployed';
@@ -531,30 +531,63 @@ export function useZSwapApp(): ZSwapApp {
       const n = takeable.length;
       const payAmt = takeable.reduce((s, o) => s + o.amtTo, 0);
       const recvAmt = takeable.reduce((s, o) => s + o.amtFrom, 0);
-      // Block the whole batch if any single offer is unfundable
-      const blocked = takeable.map((o) => takerShortfall(o.blob!)).find((m): m is string => !!m) ?? undefined;
+      // Settle each selected offer via the batcher, in book order.
+      const settle = (orders: Order[]) => async () => {
+        for (const o of orders) {
+          await takeOffer(o.blob!);
+          addTrade({
+            kind: 'take',
+            give: { sym: o.to, amt: o.amtTo },
+            get: { sym: o.from, amt: o.amtFrom },
+            status: 'completed',
+            shielded: false,
+            blob: o.blob,
+          });
+        }
+      };
+      // Block on the AGGREGATE cost — checking each offer against the full
+      // balance would pass a batch that only overspends in sum. When the whole
+      // batch is short, compute the affordable prefix (best-priced first) so the
+      // user can take part instead of nothing.
+      const blocked = shortfallMessage(
+        batchTakerShortfalls(
+          takeable.map((o) => o.blob!),
+          wstate?.shieldedBalances,
+          wstate?.unshieldedBalances,
+          NETWORK_ID as any,
+          knownTokens,
+        ),
+      ) ?? undefined;
+      const okIdx = blocked
+        ? new Set(
+            affordableIndices(
+              takeable.map((o) => parseTakerLegs(o.blob!, NETWORK_ID as any)?.pays ?? []),
+              wstate?.shieldedBalances,
+              wstate?.unshieldedBalances,
+            ),
+          )
+        : null;
+      const affordable = okIdx ? takeable.filter((_, i) => okIdx.has(i)) : takeable;
       setPendingConfirm({
         title: n > 1 ? `Take ${n} offers` : 'Take offer',
         pay: { sym: takeable[0].to, amt: fmtAmt(payAmt) },
         receive: { sym: takeable[0].from, amt: fmtAmt(recvAmt) },
         cta: n > 1 ? `Take ${n} offers` : 'Take offer',
         blocked,
-        onConfirm: async () => {
-          for (const o of takeable) {
-            await takeOffer(o.blob!);
-            addTrade({
-              kind: 'take',
-              give: { sym: o.to, amt: o.amtTo },
-              get: { sym: o.from, amt: o.amtFrom },
-              status: 'completed',
-              shielded: false,
-              blob: o.blob,
-            });
-          }
-        },
+        items: n > 1
+          ? takeable.map((o, i) => ({
+              pay: `${fmtAmt(o.amtTo)} ${o.to}`,
+              receive: `${fmtAmt(o.amtFrom)} ${o.from}`,
+              ok: okIdx ? okIdx.has(i) : true,
+            }))
+          : undefined,
+        partial: blocked && affordable.length > 0
+          ? { cta: `Take affordable ${affordable.length} of ${n}`, onConfirm: settle(affordable) }
+          : undefined,
+        onConfirm: settle(takeable),
       });
     },
-    [toast, takeOffer, tradeWallet, takerShortfall],
+    [toast, takeOffer, tradeWallet, addTrade, wstate, knownTokens],
   );
   const closeConfirm = useCallback(() => setPendingConfirm(null), []);
 

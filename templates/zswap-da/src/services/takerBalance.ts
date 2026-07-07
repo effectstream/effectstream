@@ -77,6 +77,67 @@ export function takerShortfalls(
   return shortfallsFromLegs(parsed.pays, shieldedBalances, unshieldedBalances, knownTokens);
 }
 
+/**
+ * Sum the `pays` legs across many offer blobs into one leg per (kind, color).
+ * Undecodable blobs are skipped. Used to check a whole batch against the wallet
+ * in a single comparison — checking each offer against the full balance would
+ * wrongly pass a batch that only overspends in aggregate.
+ */
+export function aggregatePays(blobs: string[], networkId: NetworkId): ParsedLeg[] {
+  const need = new Map<string, ParsedLeg>();
+  for (const blob of blobs) {
+    const parsed = parseTakerLegs(blob, networkId);
+    if (!parsed) continue;
+    for (const leg of parsed.pays) {
+      const key = `${leg.kind}:${leg.color}`;
+      const cur = need.get(key);
+      if (cur) cur.amount += leg.amount;
+      else need.set(key, { ...leg });
+    }
+  }
+  return [...need.values()];
+}
+
+/** Aggregate `pays` across a batch of blobs, then return the uncovered legs. */
+export function batchTakerShortfalls(
+  blobs: string[],
+  shieldedBalances: Balances,
+  unshieldedBalances: Balances,
+  networkId: NetworkId,
+  knownTokens: KnownToken[] = [],
+): Shortfall[] {
+  return shortfallsFromLegs(aggregatePays(blobs, networkId), shieldedBalances, unshieldedBalances, knownTokens);
+}
+
+/**
+ * Greedily pick the offers (by their `pays` legs, in the given order — the book
+ * is already best-price-first) the wallet can afford when their cost accumulates.
+ * An offer is included only if adding it keeps EVERY (kind, color) within balance.
+ * Conservative: sums pays, ignores receives — settle is sequential, so an earlier
+ * offer can't be assumed funded by a later one. Returns the indices to take.
+ */
+export function affordableIndices(
+  offerPays: ParsedLeg[][],
+  shieldedBalances: Balances,
+  unshieldedBalances: Balances,
+): number[] {
+  const spent = new Map<string, bigint>();
+  const idxs: number[] = [];
+  for (let i = 0; i < offerPays.length; i++) {
+    const trial = new Map(spent);
+    let fits = true;
+    for (const leg of offerPays[i]) {
+      const key = `${leg.kind}:${leg.color}`;
+      const next = (trial.get(key) ?? 0n) + leg.amount;
+      const map = leg.kind === 'shielded' ? shieldedBalances : unshieldedBalances;
+      if (toBig(map?.[leg.color]) < next) { fits = false; break; }
+      trial.set(key, next);
+    }
+    if (fits) { idxs.push(i); spent.clear(); trial.forEach((v, k) => spent.set(k, v)); }
+  }
+  return idxs;
+}
+
 /** One-line reason for the first shortfall, for a disabled CTA / toast. */
 export function shortfallMessage(shortfalls: Shortfall[]): string | null {
   if (shortfalls.length === 0) return null;

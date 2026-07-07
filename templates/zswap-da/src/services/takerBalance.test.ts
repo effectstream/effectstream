@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { ParsedLeg } from './offerParse';
 import type { KnownToken } from '../types';
-import { shortfallsFromLegs, shortfallMessage, takerShortfalls } from './takerBalance';
+import { shortfallsFromLegs, shortfallMessage, takerShortfalls, batchTakerShortfalls, affordableIndices } from './takerBalance';
 
 const A = 'aa'.repeat(32); // shielded token color
 const B = 'bb'.repeat(32); // unshielded token color
@@ -75,5 +75,46 @@ describe('shortfallMessage', () => {
 describe('takerShortfalls (blob path)', () => {
   test('undecodable blob → not blocked (returns [])', () => {
     expect(takerShortfalls('not-a-real-offer-blob', { [A]: '0' }, null, 'undeployed' as any, known)).toEqual([]);
+  });
+});
+
+describe('batchTakerShortfalls (blob path)', () => {
+  test('undecodable blobs → not blocked (returns [])', () => {
+    expect(batchTakerShortfalls(['nope', 'also-nope'], { [A]: '0' }, null, 'undeployed' as any)).toEqual([]);
+  });
+});
+
+describe('affordableIndices', () => {
+  test('all fit → every index', () => {
+    const legs = [[leg(A, 'shielded', 30n)], [leg(A, 'shielded', 30n)]];
+    expect(affordableIndices(legs, { [A]: '100' }, null)).toEqual([0, 1]);
+  });
+
+  test('accumulates across offers of the same color', () => {
+    // 40 + 40 = 80 (ok), + 40 = 120 (over 100) → drop the third.
+    const legs = [[leg(A, 'shielded', 40n)], [leg(A, 'shielded', 40n)], [leg(A, 'shielded', 40n)]];
+    expect(affordableIndices(legs, { [A]: '100' }, null)).toEqual([0, 1]);
+  });
+
+  test('individually-fine batch that overspends in aggregate → prefix only', () => {
+    // Each 60 fits 100 alone (the old per-offer bug), but together they cannot.
+    const legs = [[leg(A, 'shielded', 60n)], [leg(A, 'shielded', 60n)]];
+    expect(affordableIndices(legs, { [A]: '100' }, null)).toEqual([0]);
+  });
+
+  test('keeps scanning past an unaffordable offer', () => {
+    // 40 ok; +80 → 120 over, skip; +30 → 70 still ok, include.
+    const legs = [[leg(A, 'shielded', 40n)], [leg(A, 'shielded', 80n)], [leg(A, 'shielded', 30n)]];
+    expect(affordableIndices(legs, { [A]: '100' }, null)).toEqual([0, 2]);
+  });
+
+  test('tracks each (kind,color) budget independently', () => {
+    // A budget 50, B budget 50. A40 ok, B40 ok, A40 → 80>50 drop.
+    const legs = [[leg(A, 'shielded', 40n)], [leg(B, 'unshielded', 40n)], [leg(A, 'shielded', 40n)]];
+    expect(affordableIndices(legs, { [A]: '50' }, { [B]: '50' })).toEqual([0, 1]);
+  });
+
+  test('none affordable → empty', () => {
+    expect(affordableIndices([[leg(A, 'shielded', 200n)]], { [A]: '100' }, null)).toEqual([]);
   });
 });
