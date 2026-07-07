@@ -5,8 +5,8 @@
 import { useEffect, useState } from 'react';
 import { Mark } from './icons';
 
-const REPO = 'effectstream/effectstream';
-const REPO_URL = 'https://github.com/effectstream/effectstream/tree/v-next/templates/zswap-da';
+const REPO = 'effectstream/zswap-offerfiles-kernel';
+const REPO_URL = 'https://github.com/effectstream/zswap-offerfiles-kernel';
 
 function GhStars() {
   const [stars, setStars] = useState<number | null | false>(null); // null = loading, false = unavailable

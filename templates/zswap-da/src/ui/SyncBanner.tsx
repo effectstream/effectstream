@@ -6,7 +6,7 @@ interface HealthSync {
   ntp: { pct: number; lag_seconds: number };
 }
 
-const ISSUES_URL = 'https://github.com/effectstream/effectstream/issues';
+const ISSUES_URL = 'https://github.com/effectstream/zswap-offerfiles-kernel/issues';
 
 export function SyncBanner() {
   const [health, setHealth] = useState<HealthSync | null>(null);
