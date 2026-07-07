@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@effectstream/orchestrator": "0.101.0",
+    "@effectstream/orchestrator": "0.101.1",
+    "@pgtyped/runtime": "2.4.2",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
     "@night-bitcoin/contracts-bitcoin": "workspace:*",
     "@night-bitcoin/contracts-midnight": "workspace:*",
     "@night-bitcoin/frontend": "workspace:*",

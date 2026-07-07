@@ -160,6 +160,10 @@ async function test() {
 
     await waitForProcess("dolos-minibf-wait", { waitForExit: true, timeoutMs: 300_000 });
 
+    // Ensure the 2nd pool is registered before the e2e suite so the
+    // "re-delegate to different pool" test has a distinct pool to select.
+    await waitForProcess("register-test-pool", { waitForExit: true, timeoutMs: 300_000 });
+
     const { cardanoReadyTest } = await import("./infra/cardano-ready.test.ts");
     await cardanoReadyTest();
 

@@ -13,8 +13,20 @@ export default {
       p.name === "pglite" ? { ...p, env: { ...p.env, DEBUG_PGLITE: "0" } } : p
     ),
     ...launchCardano("@zk-cardano/contracts-cardano", { cwd: path.join(root, "packages/contracts-cardano") }),
+    // Recompile the Compact contract before deploy: the committed src/managed/
+    // output is stripped from the CI Docker context by `.dockerignore`'s
+    // `**/src/managed`, so midnight-contract:deploy (which imports
+    // ./managed/contract/index.js) needs it regenerated first. Mirrors zswap-da.
+    {
+      name: "compact-build",
+      description: "Compile Compact contract (ballot)",
+      cwd: path.join(root, "packages/contracts-midnight/contract-ballot"),
+      args: ["run", "compact"],
+      waitToExit: true,
+    },
     ...launchMidnight("@zk-cardano/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
       env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
+      dependsOn: ["compact-build"],
     }),
 
     {
