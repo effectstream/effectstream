@@ -31,6 +31,7 @@ import { isMyOffer } from './myOffers';
 import { findTokenName, shortToken } from '../utils';
 import { log } from '../lib/log';
 import { dlog, timed } from '../debug';
+import { takerShortfalls, shortfallsFromLegs, shortfallMessage } from '../services/takerBalance';
 import type { KnownToken, ZSwapOffer } from '../types';
 
 const NETWORK_ID = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string) || 'undeployed';
@@ -156,6 +157,8 @@ export interface ZSwapApp {
   pendingConfirm: ConfirmPayload | null;
   requestTake: (o: Order) => void;
   requestTakeMany: (orders: Order[]) => void;
+  /** Reason an offer blob can't be taken with the current balances, else null. */
+  takerShortfall: (blob: string) => string | null;
   closeConfirm: () => void;
   // my trades — local, on-device log of created/taken offers
   myTrades: MyTrade[];
@@ -349,6 +352,27 @@ export function useZSwapApp(): ZSwapApp {
   const createOffer = useCallback(
     async (gives: OfferLeg[], wants: OfferLeg[], opts?: { onStatus?: (s: string) => void }) => {
       const w = requireWallet();
+
+      // Balance guard (authoritative). The maker's `gives` legs become inputs
+      // the wallet must supply when building the offer tx — offering to pay
+      // tokens you don't hold makes the wallet's makeIntent hang/fail. Check
+      // against FRESH balances (readState, not the wstate closure).
+      if (connected) {
+        const fresh = await readState(connected);
+        const short = shortfallsFromLegs(
+          gives,
+          fresh.shieldedBalances,
+          fresh.unshieldedBalances,
+          knownTokens,
+        );
+        if (short.length > 0) {
+          dlog('createOffer: BLOCKED — insufficient balance', {
+            shortfalls: short.map((s) => ({ ...s, need: s.need.toString(), have: s.have.toString() })),
+          });
+          throw new Error(shortfallMessage(short)!);
+        }
+      }
+
       const cfg = contract.config ?? (await api.getMidnightConfig());
       opts?.onStatus?.('Building offer in wallet…');
       const blob = await w.buildOfferBlob(cfg.networkId, gives, wants);
@@ -374,7 +398,7 @@ export function useZSwapApp(): ZSwapApp {
       zapi.fetchOffers();
       refreshBalances();
     },
-    [requireWallet, contract.config, knownTokens, toast, zapi, refreshBalances],
+    [requireWallet, connected, contract.config, knownTokens, toast, zapi, refreshBalances],
   );
 
   // Take an existing offer: reconstruct the maker tx from its blob, balance the
@@ -384,6 +408,30 @@ export function useZSwapApp(): ZSwapApp {
       dlog('takeOffer: enter', { blobLen: blob.length, blobHead: blob.slice(0, 24) });
       const w = requireWallet();
       dlog('takeOffer: wallet', { kind: w.kind, canTransact: w.canTransact });
+
+      // Authoritative balance guard: every take path funnels here, so block once
+      // on fresh balances (a missing input coin makes Lace's makeIntent hang).
+      if (connected) {
+        const fresh = await timed('takeOffer: readState (fresh balances)', () =>
+          readState(connected),
+        );
+        const short = takerShortfalls(
+          blob,
+          fresh.shieldedBalances,
+          fresh.unshieldedBalances,
+          NETWORK_ID as any,
+          knownTokens,
+        );
+        if (short.length > 0) {
+          const msg = shortfallMessage(short)!;
+          dlog('takeOffer: BLOCKED — insufficient balance', {
+            shortfalls: short.map((s) => ({ ...s, need: s.need.toString(), have: s.have.toString() })),
+          });
+          throw new Error(msg);
+        }
+        dlog('takeOffer: balance check passed');
+      }
+
       const cfg = contract.config
         ? (dlog('takeOffer: using cached midnight config', contract.config), contract.config)
         : await timed('takeOffer: GET /api/midnight/config', () => api.getMidnightConfig());
@@ -403,7 +451,23 @@ export function useZSwapApp(): ZSwapApp {
       refreshBalances();
       dlog('takeOffer: exit');
     },
-    [requireWallet, contract.config, toast, zapi, refreshBalances],
+    [requireWallet, connected, knownTokens, contract.config, toast, zapi, refreshBalances],
+  );
+
+  // Proactive (pre-settle) balance check for an offer blob against the CURRENT
+  // wallet balances.
+  const takerShortfall = useCallback(
+    (blob: string): string | null =>
+      shortfallMessage(
+        takerShortfalls(
+          blob,
+          wstate?.shieldedBalances,
+          wstate?.unshieldedBalances,
+          NETWORK_ID as any,
+          knownTokens,
+        ),
+      ),
+    [wstate, knownTokens],
   );
 
   const [pendingConfirm, setPendingConfirm] = useState<ConfirmPayload | null>(null);
@@ -421,6 +485,7 @@ export function useZSwapApp(): ZSwapApp {
         pay: { sym: o.to, amt: fmtAmt(o.amtTo) },
         receive: { sym: o.from, amt: fmtAmt(o.amtFrom) },
         cta: 'Take offer',
+        blocked: takerShortfall(blob) ?? undefined,
         onConfirm: async () => {
           await takeOffer(blob);
           addTrade({
@@ -434,7 +499,7 @@ export function useZSwapApp(): ZSwapApp {
         },
       });
     },
-    [toast, takeOffer],
+    [toast, takeOffer, takerShortfall],
   );
 
   // Take one or more order-book offers in a single confirm dialog. Filters out
@@ -466,11 +531,14 @@ export function useZSwapApp(): ZSwapApp {
       const n = takeable.length;
       const payAmt = takeable.reduce((s, o) => s + o.amtTo, 0);
       const recvAmt = takeable.reduce((s, o) => s + o.amtFrom, 0);
+      // Block the whole batch if any single offer is unfundable
+      const blocked = takeable.map((o) => takerShortfall(o.blob!)).find((m): m is string => !!m) ?? undefined;
       setPendingConfirm({
         title: n > 1 ? `Take ${n} offers` : 'Take offer',
         pay: { sym: takeable[0].to, amt: fmtAmt(payAmt) },
         receive: { sym: takeable[0].from, amt: fmtAmt(recvAmt) },
         cta: n > 1 ? `Take ${n} offers` : 'Take offer',
+        blocked,
         onConfirm: async () => {
           for (const o of takeable) {
             await takeOffer(o.blob!);
@@ -486,7 +554,7 @@ export function useZSwapApp(): ZSwapApp {
         },
       });
     },
-    [toast, takeOffer, tradeWallet],
+    [toast, takeOffer, tradeWallet, takerShortfall],
   );
   const closeConfirm = useCallback(() => setPendingConfirm(null), []);
 
@@ -616,6 +684,7 @@ export function useZSwapApp(): ZSwapApp {
     pendingConfirm,
     requestTake,
     requestTakeMany,
+    takerShortfall,
     closeConfirm,
     myTrades,
     clearTrade,

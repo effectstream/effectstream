@@ -34,5 +34,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "// exclude": "Test files import bun:test (runtime-provided by `bun test`); keep them out of the app/prod build.",
+  "exclude": ["src/**/*.test.ts"]
 }

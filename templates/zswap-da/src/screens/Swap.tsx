@@ -151,6 +151,10 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     }
   };
 
+  // Maker can only offer to pay tokens it holds.
+  const payBalance = balanceFor(st, from);
+  const insufficientPay = !!from && pay > 0 && Number(payBalance ?? 0) < pay;
+
   // primary button state machine (mirrors the mock)
   let label = 'Connect wallet';
   let action: () => void = () => st.connect();
@@ -161,6 +165,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     else if (!sameKind) { label = 'Tokens must share privacy kind'; disabled = true; action = () => {}; }
     else if (pay <= 0) { label = 'Enter the amount you pay'; disabled = true; action = () => {}; }
     else if (recv <= 0) { label = 'Enter the amount you want'; disabled = true; action = () => {}; }
+    else if (insufficientPay) { label = `Insufficient ${from!.name}`; disabled = true; action = () => {}; }
     else if (posting) { label = postStatus || 'Creating…'; disabled = true; action = () => {}; }
     else if (quote && !quote.sponsored) { label = 'Create offer file'; action = post; }
     else { label = bothShielded ? 'Create shielded order' : 'Create order'; action = post; }

@@ -13,6 +13,9 @@ export interface ConfirmPayload {
   receive: { sym: string; amt: string };
   shielded?: boolean;
   cta: string;
+  /** When set, the offer can't be funded by the wallet — reason is shown and the
+   *  confirm CTA is disabled (never start a settle the wallet can't complete). */
+  blocked?: string;
   onConfirm: () => Promise<void>;
 }
 
@@ -21,7 +24,7 @@ export function ConfirmModal({ payload, onClose }: { payload: ConfirmPayload | n
   const [err, setErr] = useState<string | null>(null);
 
   const run = async () => {
-    if (!payload) return;
+    if (!payload || payload.blocked) return;
     const t0 = performance.now();
     dlog(`━━━ CONFIRM PRESSED: "${payload.cta}" ━━━`, {
       title: payload.title,
@@ -71,11 +74,11 @@ export function ConfirmModal({ payload, onClose }: { payload: ConfirmPayload | n
               {payload.shielded && <span className="zs-badge-shield" style={{ marginLeft: 'auto' }}><Icon.shield /> Shielded</span>}
             </div>
 
-            {err && <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--neg)', lineHeight: 1.45, wordBreak: 'break-word' }}>{err}</div>}
+            {(err ?? payload.blocked) && <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--neg)', lineHeight: 1.45, wordBreak: 'break-word' }}>{err ?? payload.blocked}</div>}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button className="zs-btn" style={{ flex: '0 0 auto', padding: '12px 16px' }} disabled={busy} onClick={onClose}>Cancel</button>
-              <button className="zs-btn zs-btn--primary" style={{ flex: 1, justifyContent: 'center', padding: 12 }} disabled={busy} onClick={run}>
+              <button className="zs-btn zs-btn--primary" style={{ flex: 1, justifyContent: 'center', padding: 12, opacity: payload.blocked ? 0.5 : 1, cursor: payload.blocked ? 'not-allowed' : 'pointer' }} disabled={busy || !!payload.blocked} onClick={run}>
                 {busy ? 'Settling…' : <><Icon.bolt /> {payload.cta}</>}
               </button>
             </div>
