@@ -1,5 +1,7 @@
 const { binary, getPlatform, cleanBinaries } = require("./binary");
-const { runMidnightIndexer } = require("./run_midnight_indexer");
+const { runMidnightIndexer, waitForNodeBlock } = require(
+  "./run_midnight_indexer",
+);
 const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
   "./docker",
 );
@@ -185,6 +187,10 @@ async function runWithBinary(env, args, forceClean = false) {
 
   // Set appropriate localhost defaults for binary execution
   const binaryEnv = setBinaryDefaults(env);
+
+  // Gate startup on block #1 so the bundled spo-indexer does not crash the
+  // process on a fresh chain (see waitForNodeBlock for details).
+  await waitForNodeBlock(binaryEnv);
 
   return runMidnightIndexer(binaryEnv, args);
 }
