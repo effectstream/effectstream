@@ -11,6 +11,13 @@ application:
   # 1 by default
   # concurrency_limit:
 
+spo:
+  interval: 5000
+  stake_refresh:
+    period_secs: 900
+    page_size: 100
+    max_rps: 2
+
 infra:
   run_migrations: true
 
@@ -26,6 +33,15 @@ infra:
     reconnect_max_delay: "10s" # 10ms, 100ms, 1s, 10s
     reconnect_max_attempts: 30 # Roughly 5m
     subscription_recovery_timeout: "30s" # Re-subscribe if no block received within this time
+
+  spo_node:
+    url: "ws://localhost:9944"
+    reconnect_max_delay: "10s"
+    reconnect_max_attempts: 30
+    # blockfrost_id is required (must be a non-empty string). SPO/Cardano
+    # features are not exercised in local undeployed dev, so a placeholder is
+    # shipped here; override with APP__INFRA__SPO_NODE__BLOCKFROST_ID if needed.
+    blockfrost_id: "dummy-not-using-spo"
 
   api:
     address: "0.0.0.0"
@@ -44,17 +60,20 @@ infra:
         batch_size: 20
       dust_nullifier_transactions:
         batch_size: 20
+      shielded_nullifier_transactions:
+        batch_size: 20
       shielded_transactions:
         batch_size: 20
         progress_update_interval: "30s"
         keep_wallet_alive_interval: "1m"
-      shielded_nullifier_transactions:
-        batch_size: 20
       unshielded_transactions:
         batch_size: 20
         progress_update_interval: "30s"
       zswap_ledger_events:
         batch_size: 20
+    quota:
+      max_concurrent_per_connection: 20
+      max_session_subscriptions_per_minute: 10
 
 telemetry:
   tracing:
