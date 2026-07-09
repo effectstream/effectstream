@@ -1,6 +1,5 @@
 // src/types/index.ts
-import type { TokenLeg } from 'mip-zswap-offer';
-export type { TokenLeg } from 'mip-zswap-offer';
+export type { TokenLeg, TokenKind } from '../lib/mip6-p2p-swaps';
 
 export interface KnownToken {
   token_color: string;
@@ -8,10 +7,13 @@ export interface KnownToken {
   kind: 'shielded' | 'unshielded';
 }
 
-// UI-layer entry: extends the MIP TokenLeg with a local `type`
-// field distinguishing shielded vs unshielded at the wallet layer.
-export interface TokenEntry extends TokenLeg {
-  type: string;
+// Indexer API still returns untagged {token,amount}; MIP-0006 derive adds
+// type: SHIELDED|UNSHIELDED. Keep both shapes acceptable at the UI boundary.
+export interface TokenEntry {
+  token: string;
+  amount: string;
+  type?: string;
+  name?: string;
 }
 
 export interface ZSwapOffer {

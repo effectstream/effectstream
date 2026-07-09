@@ -6,7 +6,7 @@
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
-import { encodeOffer } from 'mip-zswap-offer';
+import { encodeOffer } from '../lib/mip5-offer-files';
 
 export interface OfferLeg {
   kind: 'shielded' | 'unshielded';

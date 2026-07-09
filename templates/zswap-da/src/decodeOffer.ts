@@ -1,4 +1,5 @@
-import { decodeOffer } from 'mip-zswap-offer';
+import { offerFromBech32 } from './lib/mip5-offer-files';
+import { deriveTokenLegs } from './lib/mip6-p2p-swaps';
 import type { TokenEntry } from './types';
 
 export type DecodedOffer = {
@@ -18,23 +19,11 @@ export type DecodeResult =
   | { ok: true; data: DecodedOffer }
   | { ok: false; error: string };
 
-// Cache the ledger module so repeated decodes don't re-resolve the import.
-let ledgerModulePromise: Promise<typeof import('@midnight-ntwrk/ledger-v8')> | null = null;
-
 export async function decodeOfferForDisplay(bech32: string): Promise<DecodeResult> {
   try {
-    ledgerModulePromise ??= import('@midnight-ntwrk/ledger-v8');
-    const { Transaction } = await ledgerModulePromise;
-
-    const rawTx = decodeOffer(bech32);
-
-    // Lace-made offers are <Sig, Proof, Binding>.
-    let tx: any;
-    try {
-      tx = Transaction.deserialize('signature', 'proof', 'binding', rawTx);
-    } catch (e: any) {
-      return { ok: false, error: `Could not decode: ${e?.message ?? String(e)}` };
-    }
+    // MIP-0005: swapoffer1… → Transaction; MIP-0006: tagged gives/wants.
+    const tx = offerFromBech32(bech32);
+    const { gives, wants } = deriveTokenLegs(tx);
 
     // Segments: 0 = guaranteed, plus union of intents.keys() and
     // fallibleOffer.keys() (Lace's makeIntent may populate either).
@@ -47,8 +36,6 @@ export async function decodeOfferForDisplay(bech32: string): Promise<DecodeResul
     ];
 
     const balance: DecodedOffer['balance'] = [];
-    const merged = new Map<string, bigint>(); // token -> net delta (excluding dust)
-
     for (const { segId, label } of segments) {
       const entries: DecodedOffer['balance'][number]['entries'] = [];
       for (const [tokenType, delta] of tx.imbalances(segId) as Iterable<[any, bigint]>) {
@@ -58,18 +45,8 @@ export async function decodeOfferForDisplay(bech32: string): Promise<DecodeResul
             : 'unknown';
         const token = tag === 'dust' ? 'dust' : String(tokenType?.raw ?? '').toLowerCase();
         entries.push({ token, tag, delta: delta.toString() });
-        if (tag !== 'dust' && tag !== 'unknown') {
-          merged.set(token, (merged.get(token) ?? 0n) + delta);
-        }
       }
       balance.push({ segId, label, entries });
-    }
-
-    const gives: TokenEntry[] = [];
-    const wants: TokenEntry[] = [];
-    for (const [token, delta] of merged) {
-      if (delta > 0n) gives.push({ token, amount: delta.toString(), type: 'shielded' });
-      else if (delta < 0n) wants.push({ token, amount: (-delta).toString(), type: 'shielded' });
     }
 
     return { ok: true, data: { intent: { gives, wants }, balance } };

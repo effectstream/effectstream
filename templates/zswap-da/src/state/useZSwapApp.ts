@@ -507,10 +507,10 @@ export function useZSwapApp(): ZSwapApp {
   // the pay/receive across the selection; settles each via the batcher in turn.
   const requestTakeMany = useCallback(
     (orders: Order[]) => {
-      // Only real bech32m offers (zswapoffer1…) can be settled. Seeded demo
+      // Only real bech32m offers (swapoffer1…) can be settled. Seeded demo
       // liquidity carries a placeholder blob and must be skipped with a clear
       // message rather than a cryptic decode error.
-      const isReal = (b?: string) => !!b && /^zswapoffer1/i.test(b);
+      const isReal = (b?: string) => !!b && /^swapoffer1/i.test(b);
       const takeable = orders.filter((o) => isReal(o.blob) && !o.isMine);
       if (takeable.length === 0) {
         if (orders.some((o) => o.isMine)) {
@@ -519,7 +519,7 @@ export function useZSwapApp(): ZSwapApp {
         }
         const seeded = orders.some((o) => o.blob && !isReal(o.blob) && !o.isMine);
         toast(
-          seeded ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (zswapoffer1…) offer to test taking."
+          seeded ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (swapoffer1…) offer to test taking."
             : 'No live offer to take here.',
         );
         return;

@@ -1,7 +1,7 @@
 // My trades — ported from the mock's mytrades.jsx, wired to the on-device trade
 // log (st.myTrades). Created offers and taken offers are recorded locally; the
 // stored `blob` is the real bech32m offer, so View/Download export the actual
-// shareable offer file. Import pastes a `zswapoffer1…` blob and takes it.
+// shareable offer file. Import pastes a `swapoffer1…` blob and takes it.
 
 import { useState } from 'react';
 import { Coin, Icon } from '../ui/icons';
@@ -176,8 +176,8 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
       <Modal open={importOpen} onClose={() => !importing && setImportOpen(false)} width={480}>
         <ModalHead title="Import ZSwap" onClose={() => !importing && setImportOpen(false)} />
         <div style={{ padding: 16 }}>
-          <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 12px' }}>Paste a <span className="zs-num">zswapoffer1…</span> offer blob shared with you. We'll balance and settle it via the batcher.</p>
-          <textarea value={dump} onChange={(e) => setDump(e.target.value)} autoFocus placeholder="zswapoffer1…"
+          <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 12px' }}>Paste a <span className="zs-num">swapoffer1…</span> offer blob shared with you. We'll balance and settle it via the batcher.</p>
+          <textarea value={dump} onChange={(e) => setDump(e.target.value)} autoFocus placeholder="swapoffer1…"
             style={{ width: '100%', height: 160, resize: 'none', borderRadius: 'var(--r-field)', border: '1px solid var(--line)', background: 'var(--surface-2)', padding: 12, fontFamily: 'var(--font-mono)', fontSize: 11.5, lineHeight: 1.5, color: 'var(--ink-2)', outline: 'none', boxSizing: 'border-box', wordBreak: 'break-all' }} />
           {preview && (preview.pays.length > 0 || preview.gets.length > 0) ? (
             <div style={{ marginTop: 12, padding: '11px 13px', borderRadius: 'var(--r-field)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 13 }}>

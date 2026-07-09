@@ -33,7 +33,7 @@ import {
 } from '@midnight-ntwrk/midnight-js-utils';
 
 import { OfferFilesContract, witnesses } from '@zswap-da/contract-offer-files';
-import { decodeOffer } from 'mip-zswap-offer';
+import { decodeOffer } from '../lib/mip5-offer-files';
 import { API_BASE } from '../config';
 import { submitToBatcher } from './api';
 import { dlog, timed } from '../debug';

@@ -19,7 +19,7 @@ import {
   MidnightBech32m,
   UnshieldedAddress,
 } from '@midnight-ntwrk/wallet-sdk-address-format';
-import { decodeOffer } from 'mip-zswap-offer';
+import { decodeOffer } from '../lib/mip5-offer-files';
 
 export interface OfferSenderInfo {
   // Lowercased hex string suitable for direct equality compare. Either:

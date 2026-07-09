@@ -6,7 +6,7 @@
 
 import { Transaction as LedgerV8Transaction } from '@midnight-ntwrk/ledger-v8';
 import { setNetworkId, type NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
-import { decodeOffer } from 'mip-zswap-offer';
+import { decodeOffer } from '../lib/mip5-offer-files';
 
 export interface ParsedLeg { color: string; kind: 'shielded' | 'unshielded'; amount: bigint }
 export interface ParsedOffer { pays: ParsedLeg[]; gets: ParsedLeg[] }

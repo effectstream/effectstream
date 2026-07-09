@@ -87,7 +87,7 @@ export const api = {
     return res.json();
   },
 
-  // blob is the bech32m `zswapoffer1…` string produced by mip-zswap-offer.encodeOffer().
+  // blob is the bech32m `swapoffer1…` string produced by MIP-0005 encodeOffer().
   submitSwapOffer: async (blob: string) => {
     const res = await fetch(`${API_BASE}/api/zswap/submit`, {
       method: 'POST',

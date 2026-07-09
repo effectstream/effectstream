@@ -16,7 +16,6 @@
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.8.0",
     "@scure/base": "^2.0.0",
-    "mip-zswap-offer": "github:effectstream/mip-zswap-offer#main",
     "@midnight-ntwrk/ledger-v8": "8.0.3",
     "@midnight-ntwrk/dapp-connector-api": "4.0.1",
     "@midnight-ntwrk/compact-js": "2.5.0",
@@ -44,6 +43,6 @@
     "vite-plugin-node-stdlib-browser": "0.2.1",
     "node-stdlib-browser": "^1.2.0",
     "crypto-browserify": "^3.12.1",
-"vite-plugin-wasm": "^3.4.1"
+    "vite-plugin-wasm": "^3.4.1"
   }
 }
