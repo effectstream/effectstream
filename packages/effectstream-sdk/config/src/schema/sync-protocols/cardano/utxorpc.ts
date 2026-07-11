@@ -85,6 +85,9 @@ export const ConfigSyncProtocolSchemaCardanoUtxoRpcBase = NameField
     }),
     optional: Type.Object({
       headers: Type.Record(Type.String(), Type.String()),
+      // Fetch-backpressure cap (utxorpc has no stepSize → defaults apply). See the
+      // "Backpressure (`maxBufferedPages`)" section in @effectstream/sync's README.
+      maxBufferedPages: Type.Optional(Type.Number()),
     }),
   });
 

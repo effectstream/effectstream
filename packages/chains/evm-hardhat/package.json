@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/evm-hardhat",
-  "version": "0.100.22",
+  "version": "0.101.1",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -27,6 +27,7 @@
     "hardhat": "3.0.4",
     "@nomicfoundation/hardhat-ignition": "3.0.2",
     "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
+    "@nomicfoundation/hardhat-verify": "3.0.2",
     "@nomicfoundation/hardhat-viem": "3.0.0",
     "@nomicfoundation/hardhat-errors": "3.0.1",
     "@nomicfoundation/hardhat-utils": "3.0.0",

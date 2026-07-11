@@ -7,7 +7,7 @@ import { bound, type BlockNumber } from "@effectstream/utils";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { TestFetcher } from "./fetcher.ts";
-import { genInputRange } from "../common/page-helpers.ts";
+import { bufferAtCap, genInputRange } from "../common/page-helpers.ts";
 import type { Input, Output, Page } from "./types.ts";
 import { toMsTimestamp } from "./types.ts";
 import type {
@@ -60,6 +60,7 @@ export class TestSyncState extends SyncState<
       })),
       blockNumber: Number(data.raw.blockNumber),
       timestamp: this.toRootPage(data),
+      resumePages: [],
       primitives: data.primitives.map((p) => ({
         ...p,
         source: this.config.syncProtocol.name,
@@ -77,6 +78,7 @@ export class TestSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     return yield* genInputRange(
       this as TestSyncState,
       this.config.syncProtocol.startBlockHeight as BlockNumber,
@@ -112,6 +114,16 @@ export class TestSyncState extends SyncState<
     }));
     rootOutput.primitives.push(...primitives);
     rootOutput.blockInfo.push(...blockInfo);
+  }
+
+  @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    const block = Number(data.raw.blockNumber);
+    return {
+      own: block,
+      ownBlockNumber: block as BlockNumber,
+      root: this.toRootPage(data),
+    };
   }
 
   @bound

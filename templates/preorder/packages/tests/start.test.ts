@@ -64,16 +64,13 @@ export default {
       dependsOn: [EvmNames.GENERATE_MOD],
     },
 
-    {
-      name: "frontend-dev",
-      description: "Vite dev server for E2E tests",
-      args: ["x", "vite", "--port", "10598", "--mode", "dev"],
-      cwd: path.join(root, "packages/frontend"),
-      waitToExit: false,
-      type: "secondary",
-      critical: false,
-      stopProcessAtPort: [10598],
-      dependsOn: ["sync"],
-    },
+    // NOTE: the Vite dev server is intentionally NOT launched here. As a
+    // long-lived `critical: false` background process it would sit idle for
+    // ~80s while the earlier test phases run, and under memory pressure on a
+    // constrained CI runner it can be OOM-killed silently (the orchestrator
+    // only tracks the top-level `bun` PID, not the `bun x` vite grandchild, and
+    // does not restart it) — leaving the E2E readiness poll to time out. The
+    // frontend E2E test (frontend/e2e.test.ts) now spawns its own short-lived
+    // dev server immediately before Playwright and tears it down after.
   ],
 } satisfies OrchestratorConfig;

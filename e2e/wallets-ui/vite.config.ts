@@ -62,6 +62,12 @@ export default defineConfig({
       "@e2e/midnight-contract-eip-20/contract": midnightContractEip20Path + "index.js",
       "@e2e/midnight-contract-counter-basic/contract": midnightContractCounterBasicPath + "index.js",
       "@effectstream/utils/runtime": utilsPath + "src/runtime.ts",
+      // Subpath alias must precede the base `@effectstream/utils` alias — vite
+      // prefix-matches, so without this `@effectstream/utils/node-env` (imported
+      // by @effectstream/events/event-connect.ts) resolves to `src/mod.ts/node-env`
+      // → ENOTDIR, failing the build. `./node-env` maps to config.ts (per the
+      // utils package exports).
+      "@effectstream/utils/node-env": utilsPath + "src/config.ts",
       "@effectstream/utils": utilsPath + "src/mod.ts",
       "@effectstream/config": configPath + "src/mod.ts",
       "@effectstream/concise": concisePath + "src/mod.ts",

@@ -126,27 +126,28 @@ export default {
       dependsOn: [...midnightDeps],
     },
 
+    // The committed frontend lives in packages/frontend-new (Vite + Midnight
+    // wallet UI, served on :10600). packages/frontend is an empty stray dir.
     {
       name: "frontend-build",
-      description: "Build frontend",
-      cwd: path.join(root, "packages/frontend"),
+      description: "Build frontend (frontend-new)",
+      cwd: path.join(root, "packages/frontend-new"),
       args: ["run", "build"],
       waitToExit: true,
       type: "system-dependency",
       critical: true,
       dependsOn: [...midnightDeps],
     },
-
     {
       name: "frontend-server",
-      description: "Serve frontend",
-      cwd: path.join(root, "packages/frontend"),
+      description: "Serve frontend (frontend-new, port 10600)",
+      cwd: path.join(root, "packages/frontend-new"),
       args: ["run", "serve"],
       waitToExit: false,
       type: "system-dependency",
       critical: true,
-      link: "http://localhost:10599",
-      stopProcessAtPort: [10599],
+      link: "http://localhost:10600",
+      stopProcessAtPort: [10600],
       dependsOn: ["frontend-build"],
     },
   ],

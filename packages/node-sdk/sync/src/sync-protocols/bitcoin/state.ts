@@ -16,7 +16,7 @@ import {
   type Output,
   type Page,
 } from "./types.ts";
-import { genInputRange } from "../common/page-helpers.ts";
+import { bufferAtCap, genInputRange } from "../common/page-helpers.ts";
 import type {
   ConfigNetworkType,
   SyncProtocolWithNetwork,
@@ -58,6 +58,7 @@ export class BitcoinSyncState extends SyncState<
         block_number: Number(data.raw.height),
         blockHash: hash,
       })),
+      resumePages: [],
       primitives: data.primitives.map((primitive) => ({
         ...primitive,
         source: this.config.syncProtocol.name,
@@ -75,6 +76,7 @@ export class BitcoinSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     return yield* genInputRange(
       this as BitcoinSyncState,
       this.config.syncProtocol.startBlockHeight as Page,
@@ -110,6 +112,16 @@ export class BitcoinSyncState extends SyncState<
     }));
     rootOutput.primitives.push(...primitives);
     rootOutput.blockInfo.push(...blockInfo);
+  }
+
+  @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    const block = Number(data.raw.height);
+    return {
+      own: block,
+      ownBlockNumber: block,
+      root: this.toRootPage(data),
+    };
   }
 
   @bound

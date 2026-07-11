@@ -62,7 +62,7 @@ export default {
       critical: true,
       link: "http://localhost:10599",
       stopProcessAtPort: [10599],
-      dependsOn: ["frontend-build", "publish-contract-address"],
+      dependsOn: ["frontend-build"],
     },
 
   ],

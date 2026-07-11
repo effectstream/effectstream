@@ -69,6 +69,50 @@ exercised when this loop is running. The `StartConfig` shape determines
 which DB migrations apply, which state machines fire, and whether the
 runtime exposes a Fastify router.
 
+## Empty-block coalescing (catch-up)
+
+The runtime replays one Effectstream block per main-clock tick, each in its
+own DB transaction. During a deep catch-up over an idle gap (e.g. an NTP main
+chain at one block/second across days), most of those blocks are **empty** — no
+on-chain content, no scheduled input, no migration — yet still cost a full
+`BEGIN…COMMIT` round-trip.
+Empty-block coalescing folds a run of consecutive empty blocks into a **single
+transaction** that writes only the run's endpoint. It is **opt-in** and off by
+default:
+
+```bash
+EFFECTSTREAM_COALESCE_EMPTY_BLOCKS=true
+```
+
+The lag threshold that defines "behind the chain tip" defaults to **20× the
+main clock's block time** (falling back to 60 s when no `blockTimeMS` is
+exposed by the network config). Override it with
+`EFFECTSTREAM_LAG_THRESHOLD_MS` (milliseconds), e.g. for chains whose main
+clock fires faster than the runtime can keep up with one transaction per block:
+
+```bash
+EFFECTSTREAM_LAG_THRESHOLD_MS=30000   # engage coalescing past 30 s of lag
+```
+
+Behavior and guarantees:
+
+- **Catch-up only.** Coalescing engages only while behind the chain tip
+  (`now - block.timestamp` greater than the lag threshold) and disengages at
+  the tip, so steady-state stays one block per transaction.
+- **Identical database.** A coalesced sync produces a byte-for-byte identical
+  database to a non-coalesced one. Empty blocks already never advance the block
+  hash or RNG seed, so only the endpoint's block row and the per-protocol resume
+  watermark are written — exactly as the normal path would leave them.
+- **Never skips work.** A run is flushed before any block that has on-chain
+  content, a migration at its height, or a due block-height/timestamp-scheduled
+  input — so nothing that mutates state is ever folded away.
+- **Tip stays visible.** If the producer goes quiet on an empty tail, the run is
+  flushed on a short idle timeout so the latest height still commits.
+- A run is also capped (`MAX_EMPTY_RUN`) to bound transaction size and recovery.
+
+Implementation: [`src/coalesce.ts`](./src/coalesce.ts) (the `createEmptyBlockCoalescer`
+coordinator the main loop drives).
+
 ## Key exports
 
 - `init()` - `Operation<void>`. One-shot setup: OpenTelemetry, config validation, version pinning. Call before `start`.

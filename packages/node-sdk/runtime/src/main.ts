@@ -23,16 +23,24 @@ import {
 import { startMerge, startSync } from "@effectstream/sync";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import {
-  createChannel,
-  each,
   type Operation,
   sleep,
   spawn,
   until,
 } from "effection";
 import { initTelemetry } from "./telemetry.ts";
-import { type PendingEvent, processFinalizedBlock } from "./process-blocks.ts";
+import {
+  type PendingEvent,
+  processFinalizedBlockWithRetry,
+} from "./process-blocks.ts";
+import {
+  createEmptyBlockCoalescer,
+  initMergeCoalescingBoundaries,
+} from "./coalesce.ts";
 import { startHttpServer } from "./api/http-server.ts";
+import { recordAppliedBlock } from "./api/apply-status.ts";
+import { recordCoalesced } from "./api/stream-status.ts";
+import { createBoundedFinalizedStream } from "./finalized-stream.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
 import type { EffectstreamBlockHash } from "@effectstream/utils";
@@ -91,13 +99,23 @@ export function* start(config: StartConfig): Operation<void> {
     );
   });
 
+  // 20× main clock block time (NTP if present, else protocol 0).
+  // Falls back to 60 s so coalescing is not silently disabled for chains that
+  // don't expose a blockTimeMS on their network config (e.g. Midnight-as-main).
   const ntpConfig = syncInfo.find(s => s.networkType === ConfigNetworkType.NTP);
-  const ntpBlockTimeMS = (ntpConfig?.network as { blockTimeMS: number } | undefined)?.blockTimeMS;
-  const lagThresholdMs = ntpBlockTimeMS != null ? ntpBlockTimeMS * 10 : undefined;
+  const clockBlockTimeMS =
+    (ntpConfig?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS ??
+    (syncInfo[0]?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS;
+  const lagThresholdMs = ENV.EFFECTSTREAM_LAG_THRESHOLD_MS ??
+    (clockBlockTimeMS != null ? clockBlockTimeMS * 20 : 60_000);
 
-  const finalizedBlockStream = createChannel<ChainBlock>();
+  // Bounded hand-off queue between the merge and the apply loop. Backpressure caps
+  // the in-memory queue so deep catch-up can't grow it toward the whole backlog
+  // (see finalized-stream.ts / sync/CLAUDE.md Finding #1).
+  const { stream: finalizedStream, subscription: finalizedBlocks } =
+    yield* createBoundedFinalizedStream(ENV.EFFECTSTREAM_FINALIZED_STREAM_CAP);
 
-  yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
+  yield* spawn(() => startMerge(syncProtocols, finalizedStream));
 
   const heartbeatIntervalMs = 60_000;
   yield* spawn(function* () {
@@ -139,55 +157,66 @@ export function* start(config: StartConfig): Operation<void> {
     yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
   }
 
-  for (const value of yield* each(finalizedBlockStream)) {
-    // We request a dbClient for a non-shared dbConn object.
-    // For PGLite, this is not enough, as the can only be one connection at a time.
-    // So we request a DBMutex as well.
-    let dbClient: Client | undefined;
-    // Custom app events emitted by STFs during this block. Collected by
-    // processFinalizedBlock and flushed below ONLY after it returns — i.e.
-    // strictly after the block's COMMIT. See plan invariant I1.
-    let blockAppEvents: PendingEvent[] = [];
-    try {
-      yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
-      dbClient = yield* until((dbConn as any).connect()); // Client,
-
-      const result = yield* processFinalizedBlock(
-        value,
-        config,
-        dbClient as any, // Client,
-        blockHash,
+  const coalescer = createEmptyBlockCoalescer({
+    enabled: ENV.EFFECTSTREAM_COALESCE_EMPTY_BLOCKS,
+    subscription: finalizedBlocks,
+    pool: dbConn as any, // Pool,
+    migrations: config.migrations,
+    lagThresholdMs,
+    getPreviousBlockHash: () => blockHash,
+    onFlush: (endpoint, length) => {
+      // `consumed` is counted at the subscription pull point (above), not here, so
+      // it reflects the channel depth regardless of how many blocks a run folds.
+      recordCoalesced(length);
+      recordAppliedBlock(endpoint);
+      emitLatestBlocks(
+        endpoint.blockNumber,
+        endpoint.timestamp,
+        getRangesForSyncProtocols(endpoint),
       );
-      const resultHash = result.blockHash;
-      blockAppEvents = result.events;
-      if (resultHash !== "0x0") {
-        blockHash = resultHash;
-      }
-    } finally {
-      releaseDBMutex(`processing-blocks:${value.blockNumber}`);
-      if (dbClient) {
-        (dbClient as any).release(); // Client,
-      }
+      log.local(
+        ComponentNames.EFFECTSTREAM_SYNC,
+        "block-merge",
+        SeverityNumber.INFO,
+        (l) =>
+          l(
+            `coalesced ${length} empty block(s) → block ${endpoint.blockNumber}`,
+          ),
+      );
+    },
+  });
+
+  while (true) {
+    const value = yield* coalescer.advance();
+    if (value === undefined) break;
+
+    // Owns connection checkout, the per-block DB mutex (PGLite), and
+    // transient-pg retry/backoff. App events flush below only after it
+    // returns — strictly after the block's COMMIT.
+    const result = yield* processFinalizedBlockWithRetry(
+      value,
+      config,
+      dbConn as any, // Pool,
+      blockHash,
+    );
+    const blockAppEvents: PendingEvent[] = result.events;
+    if (result.blockHash !== "0x0") {
+      blockHash = result.blockHash;
     }
+
+    recordAppliedBlock(value); // apply-stage liveness for /debug/metrics
 
     // Used to emit & log the block range for each protocol.
     const contentBlocksForProtocol = getRangesForSyncProtocols(value);
 
-    // Fire-and-forget: do not stall the sync loop on broker acks.
+    // Fire-and-forget: don't stall the sync loop on broker acks. Ordering is
+    // safe without a wrapper queue — Opifex assigns packet IDs synchronously in
+    // publish() and net.Socket serializes writes in call order, so MQTT 3.1.1
+    // §4.6 in-order delivery holds per (publisher, topic, QoS).
     //
-    // Opifex's TcpClient assigns packet IDs synchronously in client.publish()
-    // and writes to the socket via Node's net.Socket, which has its own write
-    // queue — so concurrent publish() calls land on the wire in call order.
-    // MQTT 3.1.1 §4.6 then guarantees in-order delivery to each subscriber
-    // per (publisher, topic, QoS). We don't need a wrapper queue.
-    //
-    // TODO(scaling): the broker runs in-process (see `new EventBroker(...)`
-    // above). Fan-out to N subscribers consumes the same event loop as block
-    // processing. At ~thousands of subscribers, consider:
-    //   1) moving the broker to a worker / separate process,
-    //   2) a publisher-side circuit breaker if ctx.unresolvedPublish.size > N
-    //      (drop events with a counter for observability).
-    // Today: localhost, in-process, expected O(10²) subscribers — non-issue.
+    // TODO(scaling): the broker is in-process, so fan-out shares this event
+    // loop. At ~thousands of subscribers, move it to a worker and/or add a
+    // publisher-side circuit breaker. Today: localhost, O(10²) subs — non-issue.
     emitLatestBlocks(
       value.blockNumber,
       value.timestamp,
@@ -220,7 +249,7 @@ export function* start(config: StartConfig): Operation<void> {
           }...${lagSuffix} | ${JSON.stringify(contentBlocksForProtocol)}`,
         ),
     );
-    yield* each.next();
+    if (config.dev?.applyDelayMs) yield* sleep(config.dev.applyDelayMs);
   }
 }
 
@@ -239,13 +268,9 @@ function getRangesForSyncProtocols(value: ChainBlock): Record<string, [number, n
 }
 
 /**
- * Publish built-in block-level events.
- *
- * Fire-and-forget for the same reasons as the app-event flush above
- * (do not stall the sync loop; ordering preserved by Opifex + MQTT 3.1.1).
- *
- * Errors are caught locally so they don't escape to the global
- * `unhandledrejection` handler without context.
+ * Publish built-in block-level events. Fire-and-forget like the app-event flush
+ * above (don't stall the sync loop; ordering held by Opifex + MQTT 3.1.1).
+ * Errors are caught locally so they don't reach the global handler contextless.
  */
 function emitLatestBlocks(
   rollUpBlockHeight: number,
@@ -296,45 +321,51 @@ function* startup(
     });
   });
 
-  
   yield* acquireDBMutex(`startup-node`);
+  // `finally` releases the mutex on error/cancellation too; a throw in any step
+  // below would otherwise leak it and deadlock every later DB operation.
+  try {
+    // Dev-only reset of user-owned public tables
+    if (config.dev?.resetPublicData) {
+      yield* resetPublicTables(dbConn as any); // Client,
+    }
 
-  // Dev-only reset of user-owned public tables
-  if (config.dev?.resetPublicData) {
-    yield* resetPublicTables(dbConn as any); // Client,
+    // When the node is started, we apply system migrations.
+    // Either system initial migrations, or migrations given a Paima Engine Update.
+    yield* applySystemMigrations(
+      config.appVersion,
+      versionInfo,
+      lastBlockHeight,
+      dbConn,
+      config.migrations,
+    );
+
+    // Validate that immutable config fields (e.g. NTP startTime, startBlockHeight)
+    // have not changed since the last run. Persists a snapshot on first start.
+    // Must run after system migrations so the snapshot table exists.
+    yield* validateAndSnapshotConfig(syncInfo, dbConn);
+
+    const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
+      syncInfo);
+
+    const capabilities = yield* until(detectCapabilities(dbConn as any));
+    const viewStrategy = selectViewStrategy(capabilities);
+
+    yield* createDynamicTables(
+      versionInfo,
+      lastBlockHeight,
+      dbConn as any, // Client,
+      syncProtocols,
+      viewStrategy,
+    );
+
+    // Seed the merge loop's coalescing boundaries before any block is produced.
+    yield* initMergeCoalescingBoundaries(dbConn, lastBlockHeight + 1, config.migrations);
+
+    return syncProtocols;
+  } finally {
+    releaseDBMutex(`startup-node`);
   }
-
-  // When the node is started, we apply system migrations.
-  // Either system initial migrations, or migrations given a Paima Engine Update.
-  yield* applySystemMigrations(
-    config.appVersion,
-    versionInfo,
-    lastBlockHeight,
-    dbConn,
-    config.migrations,
-  );
-
-  // Validate that immutable config fields (e.g. NTP startTime, startBlockHeight)
-  // have not changed since the last run. Persists a snapshot on first start.
-  // Must run after system migrations so the snapshot table exists.
-  yield* validateAndSnapshotConfig(syncInfo, dbConn);
-
-  const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
-    syncInfo);
-
-  const capabilities = yield* until(detectCapabilities(dbConn as any));
-  const viewStrategy = selectViewStrategy(capabilities);
-
-  yield* createDynamicTables(
-    versionInfo,
-    lastBlockHeight,
-    dbConn as any, // Client,
-    syncProtocols,
-    viewStrategy,
-  );
-
-  releaseDBMutex(`startup-node`);
-  return syncProtocols;
 }
 
 // Convert the primitive config to the final primitive instance
