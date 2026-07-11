@@ -6,8 +6,7 @@ forge-std
 /cache
 /out
 journal.jsonl
-e2e-bitcoin-batcher-data/
-e2e-midnight-batcher-data/
+e2e-*-data/
 midnight-level-db*
 batcher-debug.log
 .orchestrator-logs/
@@ -22,7 +21,6 @@ playwright-report/
 
 # Batcher file storage
 batcher-data/
-e2e-batcher-data/
 
 # Docusaurus
 .docusaurus/

@@ -10,6 +10,15 @@ import {
   type UserSignature,
 } from "../IProvider.ts";
 import { getWindow } from "../windows.ts";
+import { getWallets } from "@wallet-standard/app";
+import bs58 from "bs58";
+
+// Wallet Standard feature names. Wallets like MetaMask expose Solana support
+// through this registry rather than a legacy injected `window.solana` global.
+const STANDARD_CONNECT = "standard:connect";
+const STANDARD_DISCONNECT = "standard:disconnect";
+const SOLANA_SIGN_MESSAGE = "solana:signMessage";
+const SOLANA_SIGN_TRANSACTION = "solana:signTransaction";
 
 /**
  * Solana wallet API interface.
@@ -95,6 +104,31 @@ export class SolanaConnector
       });
     }
 
+    // Wallet Standard wallets ( MetaMask Solana, plus Phantom/Solflare/etc.
+    // that register this way ). De-duped against the injected entries above by
+    // display name so the same wallet isn't listed twice.
+    try {
+      for (const w of getWallets().get()) {
+        if (!isSolanaStandardWallet(w)) continue;
+        const name = (w.name ?? "").toLowerCase();
+        const already = wallets.some(
+          (o) => o.metadata.displayName.toLowerCase() === name,
+        );
+        if (already) continue;
+        wallets.push({
+          metadata: {
+            name: `standard:${name}`,
+            displayName: w.name,
+            icon: w.icon,
+          },
+          api: async () =>
+            new WalletStandardSolanaApi(w) as unknown as SolanaWalletApi,
+        });
+      }
+    } catch {
+      // Registry unavailable ( e.g. non-browser ) — skip.
+    }
+
     return wallets;
   }
 
@@ -109,7 +143,9 @@ export class SolanaConnector
   connectSimple = async (): Promise<SolanaProvider> => {
     const options = SolanaConnector.getWalletOptions();
     if (options.length === 0) {
-      throw new Error("No Solana wallet found. Please install Phantom or Backpack.");
+      throw new Error(
+        "No Solana wallet found. Please install a Solana wallet (Phantom, Backpack, or MetaMask).",
+      );
     }
     return this.connectNamed(options[0].metadata.name);
   };
@@ -185,13 +221,111 @@ export class SolanaProvider implements IProvider<SolanaApi> {
    * Sign a partial transaction for the batcher (dust sponsor flow).
    * The transaction should have a dummy fee payer; the batcher or
    * capacity exchange server will replace it.
+   *
+   * Encoding is base58 on both sides to match the batcher's
+   * `SolanaBatchPayload.transactions` contract and the CES `balanceTx`
+   * round-trip (which feed `sendRawTransaction`).
    */
   async signTransaction(txBase58: string): Promise<string> {
     if (!this.connection.api.signTransaction) {
       throw new Error("Wallet does not support signTransaction");
     }
-    const tx = Buffer.from(txBase58, "base64");
+    const tx = bs58.decode(txBase58);
     const signed = await this.connection.api.signTransaction(tx);
-    return Buffer.from(signed as Uint8Array).toString("base64");
+    return bs58.encode(signed as Uint8Array);
+  }
+}
+
+/** True if a Wallet Standard wallet can connect + sign Solana messages. */
+function isSolanaStandardWallet(wallet: any): boolean {
+  const features = wallet?.features ?? {};
+  return Boolean(features[STANDARD_CONNECT] && features[SOLANA_SIGN_MESSAGE]);
+}
+
+function pickSolanaChain(account: any, wallet: any): string | undefined {
+  const chains: string[] = account?.chains ?? wallet?.chains ?? [];
+  return chains.find((c) => typeof c === "string" && c.startsWith("solana:"));
+}
+
+/**
+ * Adapts a Wallet Standard wallet ( e.g. MetaMask's Solana account ) to the
+ * `SolanaWalletApi` shape the rest of the connector expects. The Wallet
+ * Standard works in serialized bytes, so this bridges to the byte/object
+ * contracts the injected ( Phantom-style ) wallets use.
+ */
+class WalletStandardSolanaApi implements SolanaWalletApi {
+  isConnected = false;
+  private account: any | undefined;
+
+  constructor(private readonly wallet: any) {}
+
+  get publicKey(): { toBase58(): string } {
+    const address = this.account?.address ?? "";
+    return { toBase58: () => address };
+  }
+
+  async connect(): Promise<void> {
+    if (!this.account) {
+      const result = await this.wallet.features[STANDARD_CONNECT].connect();
+      this.account = (result?.accounts ?? this.wallet.accounts ?? [])[0];
+    }
+    if (!this.account) {
+      throw new Error("Wallet returned no Solana account");
+    }
+    this.isConnected = true;
+  }
+
+  async disconnect(): Promise<void> {
+    const feature = this.wallet.features[STANDARD_DISCONNECT];
+    if (feature?.disconnect) {
+      await feature.disconnect();
+    }
+    this.account = undefined;
+    this.isConnected = false;
+  }
+
+  async signMessage(message: Uint8Array): Promise<{ signature: Uint8Array }> {
+    const feature = this.wallet.features[SOLANA_SIGN_MESSAGE];
+    if (!feature) {
+      throw new Error("Wallet does not support solana:signMessage");
+    }
+    const [output] = await feature.signMessage({
+      account: this.account,
+      message,
+    });
+    return { signature: output.signature };
+  }
+
+  // Two callers: the frontend passes a web3.js Transaction ( has `.serialize` )
+  // and calls `.serialize()` on the result; SolanaProvider.signTransaction
+  // passes raw bytes and expects bytes back. Handle both.
+  async signTransaction(tx: unknown): Promise<unknown> {
+    const feature = this.wallet.features[SOLANA_SIGN_TRANSACTION];
+    if (!feature) {
+      throw new Error(
+        "Wallet does not support solana:signTransaction. The batcher flow " +
+          "needs a sign-only signature, which this wallet does not provide.",
+      );
+    }
+    const asObject =
+      tx != null && typeof (tx as any).serialize === "function";
+    const bytes: Uint8Array = asObject
+      ? (tx as any).serialize({
+        requireAllSignatures: false,
+        verifySignatures: false,
+      })
+      : (tx as Uint8Array);
+
+    const chain = pickSolanaChain(this.account, this.wallet);
+    const [output] = await feature.signTransaction({
+      account: this.account,
+      transaction: Uint8Array.from(bytes),
+      ...(chain ? { chain } : {}),
+    });
+    const signed: Uint8Array = output.signedTransaction;
+
+    // Return a Transaction-like object for the frontend ( only `.serialize` is
+    // used ), or raw bytes for the SolanaProvider byte path.
+    return asObject ? { serialize: () => signed } : signed;
   }
 }

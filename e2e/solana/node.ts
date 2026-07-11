@@ -32,6 +32,16 @@ stm.addStateTransition("solana-program-log", function* (data) {
   ));
 });
 
+stm.addStateTransition("solana-account-balance", function* (data) {
+  const { slot, address, lamports } = data.parsedInput;
+  console.log(`[STM] solana-account-balance: slot=${slot} address=${address} lamports=${lamports}`);
+
+  yield* World.promise(pool.query(
+    "INSERT INTO solana_balance_events (slot, address, lamports) VALUES ($1, $2, $3)",
+    [slot, address, lamports],
+  ));
+});
+
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { paymentCredentialOf } from "@lucid-evolution/utils";
 import { useWallet } from "../wallet/WalletContext.tsx";
 import { useLog } from "../logs/LogContext.tsx";
 
@@ -11,6 +12,27 @@ type PurchasedItem = {
   item_id: number;
   quantity: number;
 };
+
+type MintedNft = {
+  chain: string;
+  item_id: number;
+  token_id: string;
+  policy_id: string | null;
+  tx_hash: string;
+};
+
+// minted_nfts.wallet is the EVM address for EVM buyers, but the Cardano payment-key-hash for
+// Cardano buyers (that's what the receipt records). Derive the right lookup key per chain.
+function nftWalletKey(mode: string, address: string): string {
+  if (mode.startsWith("cardano")) {
+    try {
+      return paymentCredentialOf(address).hash;
+    } catch {
+      return address.toLowerCase();
+    }
+  }
+  return address.toLowerCase();
+}
 
 export function MyPurchases({
   slug,
@@ -28,12 +50,14 @@ export function MyPurchases({
   const w = useWallet();
   const { addLog } = useLog();
   const [serverPurchases, setServerPurchases] = useState<PurchasedItem[]>([]);
+  const [mintedNfts, setMintedNfts] = useState<MintedNft[]>([]);
 
   const address = w.mode.startsWith("evm") ? w.evmAddress : w.cardanoAddress;
 
   useEffect(() => {
     if (!address || w.mode === "none") {
       setServerPurchases([]);
+      setMintedNfts([]);
       return;
     }
     addLog("info", "Fetching your purchases...", `GET /api/userData/${slug}?wallet=${address.substring(0, 16)}...`);
@@ -44,6 +68,19 @@ export function MyPurchases({
         setServerPurchases(userItems);
         if (userItems.length > 0) {
           addLog("success", `You own ${userItems.length} item type(s)`);
+        }
+      })
+      .catch(() => {});
+
+    // Minted NFTs (populated after the admin finalises the sale). For Cardano, look up by the
+    // payment-key-hash, since that's how the receipt-based mint records the owner.
+    const nftKey = nftWalletKey(w.mode, address);
+    fetch(`${apiUrl}/api/nfts/${slug}?wallet=${nftKey}`)
+      .then((r) => (r.ok ? r.json() : { nfts: [] }))
+      .then((d: any) => {
+        setMintedNfts(d.nfts || []);
+        if ((d.nfts || []).length > 0) {
+          addLog("success", `You hold ${d.nfts.length} minted NFT(s)`);
         }
       })
       .catch(() => {});
@@ -66,7 +103,7 @@ export function MyPurchases({
     .filter(([, qty]) => qty > 0)
     .map(([id, qty]) => ({ item_id: id, quantity: qty }));
 
-  if (w.mode === "none" || purchased.length === 0) return null;
+  if (w.mode === "none" || (purchased.length === 0 && mintedNfts.length === 0)) return null;
 
   return (
     <div data-testid="my-purchases" style={{ marginTop: 32 }}>
@@ -88,6 +125,32 @@ export function MyPurchases({
           );
         })}
       </div>
+
+      {mintedNfts.length > 0 && (
+        <div data-testid="my-nfts" style={{ marginTop: 24 }}>
+          <h3 style={{ fontSize: 15, marginBottom: 12, color: "#f0c674" }}>
+            Minted NFTs ({mintedNfts.length})
+          </h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 12 }}>
+            {mintedNfts.map((n) => {
+              const info = items.find((i) => i.id === n.item_id);
+              return (
+                <div key={`${n.chain}-${n.token_id}`} style={{
+                  border: "1px solid #5a4708", borderRadius: 8, padding: 12, background: "#0d1117",
+                }}>
+                  <p style={{ fontSize: 13, color: "#e6edf3", fontWeight: 600 }}>{info?.name || `Item #${n.item_id}`}</p>
+                  <div style={{ marginTop: 6, fontSize: 11, color: "#8b949e" }}>
+                    <div>chain: <span style={{ color: "#c9d1d9" }}>{n.chain}</span></div>
+                    <div style={{ fontFamily: "monospace", wordBreak: "break-all" }}>
+                      {n.chain === "evm" ? `#${n.token_id}` : `${n.token_id.substring(0, 16)}…`}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

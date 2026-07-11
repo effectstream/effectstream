@@ -27,14 +27,40 @@ export const paimaEngineConfig = new EffectstreamConfig(
 ```
 
 ```ts
-import { walletLogin, WalletMode } from "@effectstream/wallets";
+import { walletLogin, allInjectedWallets, WalletMode } from "@effectstream/wallets";
 
-// Browser injected wallet (Metamask, etc.)
-const wallet = await walletLogin(paimaEngineConfig, WalletMode.EvmInjected);
+// `walletLogin` takes ONE argument — a LoginInfo object. (It is NOT
+// `walletLogin(config, mode)`; that's the stale pre-lean signature.)
+// It returns { success: true, result: Wallet } | { success: false, errorMessage }.
 
-// Or for local dev with Hardhat accounts:
-//   walletLogin(paimaEngineConfig, WalletMode.EvmEthers /* + private key */)
+// Browser injected wallet (MetaMask, etc.) — discover, then connect a chosen one.
+// EvmInjected REQUIRES `preference`; without it there is no wallet to connect and
+// walletLogin returns { success: false }. Entries are ConnectionOption → read
+// `.metadata.name`, NOT a top-level `.name`.
+const injected = await allInjectedWallets({ signatureSupport: true, transactionSupport: true });
+const opt = injected[WalletMode.EvmInjected][0];
+const res = await walletLogin({
+  mode: WalletMode.EvmInjected,
+  preference: { name: opt.metadata.name },
+  preferBatchedMode: false,
+  chain: hardhat,
+});
+if (!res.success) throw new Error(res.errorMessage);
+const wallet = res.result;
+
+// Local-JS wallet for dev + headless e2e (no extension; prefer over EvmEthers).
+// A funded Hardhat key works directly; a freshly-generated key needs funding first.
+const local = await walletLogin({
+  mode: WalletMode.EvmViem,
+  privateKey: "0xac09…ff80",
+  rpcUrl: "http://localhost:8545",
+  chain: hardhat,
+});
 ```
+
+> See `migration.md` § "Wallet connect gotchas" for the recurring traps (missing
+> `preference`, `opt.metadata.name` vs `opt.name`, local-JS e2e masking the
+> browser path, write-then-read race, per-tab dev-wallet identity).
 
 ```ts
 import { sendTransaction } from "@effectstream/wallets";

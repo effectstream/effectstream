@@ -54,9 +54,16 @@ import {
   CommonResponseNtpMain,
   ConfigSyncProtocolSchemaNtpMain,
 } from "./ntp/rpc.ts";
+import {
+  CommonResponseTestMain,
+  CommonResponseTestParallel,
+  ConfigSyncProtocolSchemaTestMain,
+  ConfigSyncProtocolSchemaTestParallel,
+} from "./test/rpc.ts";
 
 export const mainSyncProtocolTypes = {
   [ConfigSyncProtocolType.NTP_MAIN]: ConfigSyncProtocolSchemaNtpMain,
+  [ConfigSyncProtocolType.TEST_MAIN]: ConfigSyncProtocolSchemaTestMain,
 } as const;
 
 export type ConfigSyncProtocolMappingMain = ToMapping<
@@ -84,6 +91,8 @@ export const parallelSyncProtocolTypes = {
     ConfigSyncProtocolSchemaNearParallel,
   [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]:
     ConfigSyncProtocolSchemaSolanaParallel,
+  [ConfigSyncProtocolType.TEST_PARALLEL]:
+    ConfigSyncProtocolSchemaTestParallel,
 } as const;
 
 export const syncProtocolCommonResponse = {
@@ -105,6 +114,8 @@ export const syncProtocolCommonResponse = {
     CommonResponseNearRpcParallel,
   [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]:
     CommonResponseSolanaRpcParallel,
+  [ConfigSyncProtocolType.TEST_MAIN]: CommonResponseTestMain,
+  [ConfigSyncProtocolType.TEST_PARALLEL]: CommonResponseTestParallel,
 } as const satisfies Record<ConfigSyncProtocolType, TSchema>;
 export type ConfigSyncProtocolCommonAll = typeof syncProtocolCommonResponse;
 

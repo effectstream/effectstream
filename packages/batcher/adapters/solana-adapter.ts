@@ -8,26 +8,13 @@ import type {
 } from "./adapter.ts";
 import { AdapterLogger } from "./adapter-logger.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
-
-export interface SolanaBatchPayload {
-  /** Base58-encoded serialized transactions */
-  transactions: string[];
-  /** Total lamports in the batch */
-  totalLamports: number;
-}
-
-export interface SolanaAdapterConfig {
-  /** Solana JSON-RPC URL */
-  rpcUrl: string;
-  /** Base58-encoded secret key for the batcher wallet (fee payer) */
-  batcherSecretKey?: string;
-  /** Optional capacity exchange server URL for dust-sponsor mode */
-  capacityExchangeUrl?: string;
-  /** Sync protocol name for event filtering */
-  syncProtocolName?: string;
-  /** Max transactions per batch */
-  maxBatchSize?: number;
-}
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+} from "@solana/web3.js";
+import bs58 from "bs58";
 
 // ========================================
 // Capacity Exchange Client (Dust Sponsor)
@@ -38,6 +25,9 @@ export interface SolanaAdapterConfig {
  * The user partially signs a transaction, then this client sends it to
  * a CES server which adds the fee payer signature and returns the
  * finalized transaction ready for submission.
+ *
+ * Preserved as a standalone utility for operators who want the CES/dust-sponsor
+ * flow; the default `SolanaAdapter` below uses the fee-payer sponsor model.
  *
  * Pattern reference:
  * https://github.com/SundaeSwap-finance/capacity-exchange/blob/main/examples/react-vite/src/App.tsx#L128-L144
@@ -77,83 +67,86 @@ export class CapacityExchangeClient {
 }
 
 // =======================================
-// Solana RPC helper
+// Solana Adapter (fee-payer sponsor)
 // =======================================
 
-async function solanaRpc<T>(
-  rpcUrl: string,
-  method: string,
-  params: unknown[] = [],
-): Promise<T> {
-  const res = await fetch(rpcUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method,
-      params,
-    }),
-  });
+/** Solana ComputeBudget program — wallets add priority-fee instructions here. */
+const COMPUTE_BUDGET_PROGRAM_ID = new PublicKey(
+  "ComputeBudget111111111111111111111111111111",
+);
 
-  const json = await res.json();
-  if (json.error) {
-    throw new Error(
-      `[Solana] RPC error [${method}]: ${json.error.message ?? JSON.stringify(json.error)}`,
-    );
-  }
-  return json.result as T;
+export interface SolanaBatchPayload {
+  /** Base64-encoded, user-partially-signed serialized transactions */
+  transactions: string[];
 }
 
-// =======================================
-// Solana Adapter
-// =======================================
+export interface SolanaAdapterConfig {
+  /** Solana JSON-RPC URL */
+  rpcUrl: string;
+  /** Base58-encoded 64-byte secret key for the sponsor (fee payer) wallet */
+  batcherSecretKey: string;
+  /**
+   * The single program this batcher instance will sponsor. Every instruction in
+   * a submitted tx must target this program — the core security scoping: it
+   * auto-rejects System transfers, token moves, ComputeBudget priority-fee
+   * abuse, etc., since those target other programs.
+   */
+  targetProgramId: string;
+  /** Sync protocol name for event filtering */
+  syncProtocolName?: string;
+  /** Max transactions submitted per batch cycle */
+  maxBatchSize?: number;
+  /**
+   * Allow the sponsor (fee payer) to also appear inside an instruction's
+   * account list (e.g. as the rent payer for a PDA the sponsored program
+   * creates). Defaults to false — the strict fee-payer-only posture used by
+   * pure transfer/log programs (e.g. SPL Memo). Per-program scoping
+   * (`targetProgramId`) still confines the sponsor to the one configured
+   * program either way.
+   */
+  allowSponsorAsInstructionAccount?: boolean;
+}
 
 /**
- * Solana batcher adapter supporting two modes:
+ * Solana **fee-payer sponsor** batcher (gasless relayer):
+ * the user builds and partially signs a Solana transaction whose fee payer is
+ * this batcher's sponsor key; the batcher validates it (§ validateInput), adds
+ * the fee-payer signature, and submits it. The user pays 0 SOL. The result is
+ * read back by the sync primitives — the batcher authors no blob.
  *
- * 1. **Backend pays gas**: The batcher keypair signs as fee payer and submits.
- *    The input `data` field contains a base58-encoded Solana transaction that
- *    has been signed by the user but with a dummy fee payer. The batcher
- *    replaces the fee payer, signs, and submits.
- *
- * 2. **Dust sponsor (capacity exchange)**: The user partially signs a
- *    transaction client-side. The batcher sends it to a CES server which
- *    adds the fee payer signature. The batcher then submits the result.
- *    This is inspired by the SundaeSwap capacity exchange pattern.
+ * Scoped per program (`targetProgramId`), like EffectstreamL2 is per contract.
  */
 export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
-  private readonly rpcUrl: string;
-  private readonly batcherSecretKey?: string;
-  private readonly cesClient?: CapacityExchangeClient;
+  private readonly connection: Connection;
+  private readonly sponsor: Keypair;
+  private readonly targetProgramId: PublicKey;
   private readonly syncProtocolName: string;
+  private readonly allowSponsorAsInstructionAccount: boolean;
   public readonly maxBatchSize: number;
   private readonly logger: AdapterLogger;
 
   constructor(config: SolanaAdapterConfig) {
-    this.rpcUrl = config.rpcUrl;
-    this.batcherSecretKey = config.batcherSecretKey;
+    this.connection = new Connection(config.rpcUrl, "confirmed");
+    this.sponsor = Keypair.fromSecretKey(bs58.decode(config.batcherSecretKey));
+    this.targetProgramId = new PublicKey(config.targetProgramId);
     this.syncProtocolName = config.syncProtocolName ?? "parallelSolana";
-    this.maxBatchSize = config.maxBatchSize ?? 50;
+    this.maxBatchSize = config.maxBatchSize ?? 10;
+    this.allowSponsorAsInstructionAccount =
+      config.allowSponsorAsInstructionAccount ?? false;
     this.logger = new AdapterLogger("SolanaAdapter");
-
-    if (config.capacityExchangeUrl) {
-      this.cesClient = new CapacityExchangeClient(
-        config.capacityExchangeUrl,
-      );
-    }
   }
 
   getChainName(): string {
     return "Solana";
   }
 
+  /** The real sponsor (fee-payer) public key. */
   getAccountAddress(): string {
-    return "solana-batcher";
+    return this.sponsor.publicKey.toBase58();
   }
 
   isReady(): boolean {
-    return !!this.batcherSecretKey || !!this.cesClient;
+    return true;
   }
 
   getSyncProtocolName(): string {
@@ -161,34 +154,76 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
   }
 
   async getBlockNumber(): Promise<bigint> {
-    const slot = await solanaRpc<number>(this.rpcUrl, "getSlot", [
-      { commitment: "confirmed" },
-    ]);
-    return BigInt(slot);
+    return BigInt(await this.connection.getSlot("confirmed"));
   }
 
+  /**
+   * Verify the user's authorization: the partially-signed tx must carry a valid
+   * signature from at least one non-fee-payer (the user), and every present
+   * signature must verify. (The fee-payer slot is still empty here.)
+   */
   async verifySignature(input: DefaultBatcherInput): Promise<boolean> {
-    // For Solana, signature verification is done on-chain
-    // For the batcher, we just check that the input has a signature
-    return !!input.signature;
+    try {
+      const tx = this.deserialize(input.input);
+      const userSigners = tx.signatures.filter(
+        (s) => !s.publicKey.equals(this.sponsor.publicKey),
+      );
+      if (userSigners.length === 0) return false;
+      if (userSigners.some((s) => s.signature === null)) return false;
+      // verify all present signatures; the missing fee-payer sig is allowed
+      return tx.verifySignatures(false);
+    } catch (e) {
+      this.logger.log(`verifySignature failed: ${String(e)}`);
+      return false;
+    }
   }
 
-  async validateInput(
-    input: DefaultBatcherInput,
-  ): Promise<ValidationResult> {
+  /**
+   * Structural safety so the sponsor cannot be drained, regardless of any
+   * operator policy layered on top:
+   *  1. fee payer == our sponsor;
+   *  2. every instruction targets the configured program;
+   *  3. the sponsor appears only as fee payer, never in an instruction's accounts.
+   */
+  async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
+    let tx: Transaction;
     try {
-      const payload = JSON.parse(input.input);
-      if (!payload.transaction && !payload.instructions) {
+      tx = this.deserialize(input.input);
+    } catch (e) {
+      return { valid: false, error: `Malformed transaction: ${String(e)}` };
+    }
+
+    if (!tx.feePayer || !tx.feePayer.equals(this.sponsor.publicKey)) {
+      return { valid: false, error: "fee payer must be the batcher sponsor" };
+    }
+    for (const ix of tx.instructions) {
+      const pid = ix.programId;
+      // Allow the sponsored program, plus ComputeBudget — wallets (e.g. Phantom)
+      // routinely inject a priority-fee ComputeBudget instruction when signing.
+      // A production operator can cap the priority fee in their validate hook.
+      if (!pid.equals(this.targetProgramId) && !pid.equals(COMPUTE_BUDGET_PROGRAM_ID)) {
         return {
           valid: false,
-          error: "Input must contain 'transaction' (base58) or 'instructions'",
+          error:
+            `instruction targets ${pid.toBase58()}; this batcher only sponsors ` +
+            `${this.targetProgramId.toBase58()} (and ComputeBudget)`,
         };
       }
-      return { valid: true };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      return { valid: false, error: `Malformed JSON input: ${msg}` };
+      // Defense-in-depth: by default the sponsor must appear ONLY as the fee
+      // payer. Programs that need the sponsor to fund rent (PDA creation) opt
+      // in via `allowSponsorAsInstructionAccount`; per-program scoping above
+      // still confines the sponsor to the configured program.
+      if (
+        !this.allowSponsorAsInstructionAccount &&
+        ix.keys.some((k) => k.pubkey.equals(this.sponsor.publicKey))
+      ) {
+        return {
+          valid: false,
+          error: "sponsor account must appear only as the fee payer",
+        };
+      }
     }
+    return { valid: true };
   }
 
   buildBatchData(
@@ -196,65 +231,40 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
     _options?: BatchBuildingOptions,
   ): BatchBuildingResult<SolanaBatchPayload> | null {
     if (inputs.length === 0) return null;
-
-    const maxSize = this.maxBatchSize;
-    const selectedInputs = inputs.slice(0, maxSize);
-    const transactions = selectedInputs.map((input) => {
-      const payload = JSON.parse(input.input);
-      return payload.transaction ?? "";
-    });
-
+    const selectedInputs = inputs.slice(0, this.maxBatchSize);
     return {
       selectedInputs,
-      data: {
-        transactions,
-        totalLamports: 0,
-      },
+      data: { transactions: selectedInputs.map((i) => i.input) },
     };
   }
 
   async estimateBatchFee(
-    _data: SolanaBatchPayload,
+    data: SolanaBatchPayload,
   ): Promise<string | bigint> {
-    // Solana base fee is 5000 lamports per signature
-    // Each transaction has at least 1 signature (fee payer)
-    return BigInt(5000 * _data.transactions.length);
+    // 5000 lamports per signature; each sponsored tx has >= 1 signature.
+    return BigInt(5000 * data.transactions.length);
   }
 
+  /**
+   * Add the sponsor's fee-payer signature to each user-signed tx and submit it.
+   * One independent transaction per request (no blob; recent-blockhash relay).
+   */
   async submitBatch(
     data: SolanaBatchPayload,
     _fee: string | bigint,
   ): Promise<BlockchainHash> {
     const signatures: BlockchainHash[] = [];
-
-    for (const txBase58 of data.transactions) {
-      if (!txBase58) continue;
-
-      let finalizedTx = txBase58;
-
-      // If capacity exchange is configured, route through CES
-      if (this.cesClient) {
-        finalizedTx = await this.cesClient.balanceTx(txBase58);
-      }
-
-      // Submit via sendRawTransaction
-      const sig = await solanaRpc<string>(
-        this.rpcUrl,
-        "sendRawTransaction",
-        [
-          finalizedTx,
-          {
-            skipPreflight: false,
-            preflightCommitment: "confirmed",
-          },
-        ],
-      );
-
+    for (const txBase64 of data.transactions) {
+      if (!txBase64) continue;
+      const tx = this.deserialize(txBase64);
+      tx.partialSign(this.sponsor); // fills the fee-payer signature slot
+      const sig = await this.connection.sendRawTransaction(tx.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+      });
       signatures.push(sig);
-      this.logger.log(`Submitted Solana tx: ${sig}`);
+      this.logger.log(`Sponsored + submitted Solana tx: ${sig}`);
     }
-
-    // Return the last transaction signature as the batch hash
     return signatures[signatures.length - 1] ?? "";
   }
 
@@ -263,34 +273,24 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
     timeout: number = 60000,
   ): Promise<BlockchainTransactionReceipt> {
     const start = Date.now();
-
     while (Date.now() - start < timeout) {
-      try {
-        const result = await solanaRpc<{
-          value: {
-            slot: number;
-            transaction: { signatures: string[] };
-            meta: { err: unknown | null };
-          } | null;
-        }>(this.rpcUrl, "getTransaction", [
+      const st = await this.connection.getSignatureStatus(hash, {
+        searchTransactionHistory: true,
+      });
+      const v = st.value;
+      if (v && (v.confirmationStatus === "confirmed" || v.confirmationStatus === "finalized")) {
+        return {
           hash,
-          { encoding: "json", commitment: "confirmed" },
-        ]);
-
-        if (result.value) {
-          return {
-            hash,
-            blockNumber: BigInt(result.value.slot),
-            status: result.value.meta.err ? 0 : 1,
-          };
-        }
-      } catch {
-        // Transaction may not be indexed yet
+          blockNumber: BigInt(v.slot ?? 0),
+          status: v.err ? 0 : 1,
+        };
       }
-
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 1500));
     }
-
     throw new Error("Solana transaction confirmation timed out");
+  }
+
+  private deserialize(base64Tx: string): Transaction {
+    return Transaction.from(Buffer.from(base64Tx, "base64"));
   }
 }

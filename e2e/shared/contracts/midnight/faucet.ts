@@ -940,6 +940,37 @@ export async function triggerNullifiers(
   await walletResult.wallet.stop();
 }
 
+export async function triggerUnshieldedCreates(
+  networkUrls: Required<Config>,
+  networkId: NetworkId.NetworkId,
+): Promise<void> {
+  console.log("\n--- Triggering unshielded UTXO creates via unshielded self-transfer ---\n");
+
+  setNetworkId(networkId);
+
+  const GENESIS_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
+  const walletResult = await buildWalletFacade(networkUrls, GENESIS_SEED, networkId);
+  console.log("Genesis wallet built, waiting for funds...");
+
+  await syncAndWaitForFunds(walletResult.wallet, {
+    waitNonZero: true,
+    logLabel: "genesis-unshielded-create",
+    timeoutMs: 120_000,
+  });
+
+  const tokenId = await resolveUnshieldedTokenId(walletResult.wallet);
+  console.log(`Doing unshielded self-transfer (token: ${tokenId}) to trigger UTXO creation...`);
+  const txId = await transfer(
+    walletResult,
+    walletResult.unshieldedAddress,
+    tokenId,
+    1_000_000n,
+  );
+  console.log(`Unshielded self-transfer submitted, txId: ${txId} — unshielded UTXOs should be created on-chain`);
+
+  await walletResult.wallet.stop();
+}
+
 if (import.meta.main) {
   const midnightAddress = getEnv("MIDNIGHT_ADDRESS");
   if (!midnightAddress) {

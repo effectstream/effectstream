@@ -100,6 +100,13 @@ COPY --from=compact /root/.local/bin/ /root/.local/bin/
 COPY --from=compact /root/.compact/ /root/.compact/
 ENV PATH="/root/.local/bin:$PATH"
 
+# Login shells (`bash -lc`, used by the template-tests job) source /etc/profile,
+# which resets PATH and drops /root/.local/bin — same reason bun is symlinked
+# into /usr/local/bin above. Validate under `bash -lc` to keep it that way.
+RUN ln -s /root/.local/bin/compact /usr/local/bin/compact && \
+    bash -lc "compact --version && compact compile --version"
+
+
 # Copy solc cache from stage 3
 COPY --from=solc /root/.cache/hardhat-nodejs/ /root/.cache/hardhat-nodejs/
 
@@ -115,6 +122,23 @@ ENV NODE_ENV=development
 
 RUN bun install
 RUN /app/patch.sh
+
+# `bun install` doesn't fetch browsers; the wallets-ui suite drives Chromium via
+# Playwright. Run from the package dir so bunx uses the pinned playwright (a
+# floating version could fetch a mismatched browser revision).
+RUN cd /app/e2e/wallets-ui && bunx playwright install --with-deps chromium
+
+# Make the Chromium installed above discoverable to the template Phase C frontend
+# tests. Those tests launch Chromium via playwright-core through findChrome(),
+# which probes CHROME_PATH first; without this it fell through to a non-existent
+# /usr/bin/google-chrome and the template-tests job threw at chromium.launch().
+# Pointing CHROME_PATH at the Playwright browser keeps it version-matched to the
+# playwright-core the templates launch it with.
+RUN CHROME_BIN="$(find /root/.cache/ms-playwright -type f -name chrome -path '*chrome-linux*' | head -1)" \
+ && test -n "$CHROME_BIN" \
+ && ln -sf "$CHROME_BIN" /usr/local/bin/chromium-test \
+ && /usr/local/bin/chromium-test --version
+ENV CHROME_PATH=/usr/local/bin/chromium-test
 
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true

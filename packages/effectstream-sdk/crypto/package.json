@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/crypto",
-  "version": "0.100.18",
+  "version": "0.100.22",
   "license": "MIT",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -29,8 +29,10 @@
     "@polkadot/util": "^13.4.3",
     "@polkadot/util-crypto": "^13.4.3",
     "@sinclair/typebox": "0.34.41",
+    "@solana/web3.js": "^1.95.0",
     "algosdk": "^3.4.0",
     "mina-signer": "^3.0.7",
+    "tweetnacl": "^1.0.3",
     "viem": "2.37.3",
     "web3-utils": "^4.3.3",
     "@effectstream/utils": "workspace:*"

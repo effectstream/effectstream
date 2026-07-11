@@ -9,6 +9,9 @@ const L2_ADDRESS = import.meta.env.VITE_L2_ADDRESS ?? "0x00000000000000000000000
 const NAMESPACE = import.meta.env.VITE_NAMESPACE ?? "";
 const CHAIN = import.meta.env.MODE === "mainnet" ? arbitrum : hardhat;
 
+export const SOCIAL_WALLET_URL =
+  import.meta.env.VITE_SOCIAL_WALLET_URL ?? "https://wallet.zkdojo.com/embed/";
+
 export const paimaConfig = new EffectstreamConfig(
   NAMESPACE,
   "mainEvmRPC",

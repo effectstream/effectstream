@@ -63,6 +63,23 @@ link_pkg "effectstream" "runtime"                   "$P/node-sdk/runtime"
 link_pkg "effectstream" "sm"                        "$P/node-sdk/sm"
 link_pkg "effectstream" "utils"                     "$P/effectstream-sdk/utils"
 
+# link.sh historically omitted @zswap-da/validator (a hoisted workspace pkg) — link it.
+link_pkg "zswap-da"      "validator" "$SCRIPT_DIR/packages/validator"
+# @effectstream/sync is a TRANSITIVE dep (only @effectstream/runtime imports it), so Bun
+# resolves it INSIDE the isolated .bun store — a top-level node_modules symlink has NO
+# effect on it. Overwrite the .bun copy's TS source with the monorepo source so this script
+# alone is enough to run monorepo sync (e.g. PR #794 concurrent Celestia fetcher).
+echo ""
+echo "Patching @effectstream/sync (transitive dep) .bun source -> monorepo..."
+shopt -s nullglob
+for SYNC_BUN in "$NM"/.bun/@effectstream+sync@*/node_modules/@effectstream/sync; do
+  if [ -d "$P/node-sdk/sync/src" ] && [ -d "$SYNC_BUN" ]; then
+    rm -rf "$SYNC_BUN/src"
+    cp -r "$P/node-sdk/sync/src" "$SYNC_BUN/src"
+    echo "  SRC-SWAP @effectstream/sync -> packages/node-sdk/sync/src"
+  fi
+done
+
 # When @effectstream/midnight-contracts is linked to monorepo source, its
 # node_modules/@midnight-ntwrk/* symlinks point to the monorepo root's .bun/ copies.
 # The template has its own copies in its .bun/ cache. Two WASM copies = instanceof failure.

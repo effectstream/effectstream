@@ -5,7 +5,25 @@
   "private": true,
   "scripts": {
     "start:dev": "bun run main.dev.ts",
-    "chain:start": "bun ./node_modules/.bin/solana-node",
+    "chain:start": "bun run chain-start.ts",
     "chain:wait": "for i in $(seq 1 60); do curl -sf http://localhost:8899/health > /dev/null 2>&1 && exit 0; sleep 1; done; echo 'Solana validator failed to start'; exit 1"
+  },
+  "dependencies": {
+    "@effectstream/concise": "0.100.28",
+    "@effectstream/config": "0.100.28",
+    "@effectstream/coroutine": "0.100.28",
+    "@effectstream/db": "0.100.28",
+    "@effectstream/log": "0.100.28",
+    "@effectstream/runtime": "0.100.28",
+    "@effectstream/sm": "0.100.28",
+    "@effectstream/utils": "0.100.28",
+    "@effectstream/crypto": "0.100.28",
+    "@effectstream/wallets": "0.100.28",
+    "@solana-starter/contracts-solana": "workspace:*",
+    "@solana-starter/database": "workspace:*",
+    "@sinclair/typebox": "0.34.41",
+    "bs58": "^6.0.0",
+    "effection": "^3.5.0",
+    "pg": "^8.14.0"
   }
 }

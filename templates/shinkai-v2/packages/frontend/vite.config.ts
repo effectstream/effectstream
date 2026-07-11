@@ -41,10 +41,30 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname!, "client/dist"),
     emptyOutDir: true,
     target: "esnext",
+    minify: false,
     commonjsOptions: {
       transformMixedEsModules: true,
       extensions: [".js", ".cjs"],
       ignoreDynamicRequires: true,
+    },
+    rollupOptions: {
+      // Split large vendor deps into separate chunks so Rollup never has to
+      // hold the full dependency graph in memory at once. Without this the
+      // build OOMs on servers with <4 GB RAM.
+      output: {
+        manualChunks(id) {
+          if (id.includes("/node_modules/pixi.js") || id.includes("/node_modules/@pixi/"))
+            return "vendor-pixi";
+          // viem / @effectstream/wallets / @polkadot are circularly dependent —
+          // keep them in one chunk to avoid Rollup circular-chunk warnings.
+          if (
+            id.includes("/node_modules/viem") ||
+            id.includes("/node_modules/@effectstream/") ||
+            id.includes("/node_modules/@polkadot/")
+          )
+            return "vendor-web3";
+        },
+      },
     },
   },
 

@@ -60,7 +60,13 @@ export async function run(options = {}) {
     args.push('--reset');
   }
 
-  const child = spawn(bin.path(), args);
+  // COPYFILE_DISABLE prevents macOS from materializing AppleDouble (`._`)
+  // companion files when the validator archives/unarchives genesis, which
+  // otherwise aborts ledger creation with
+  // "Archive error: extra entry found: ._genesis.bin". No-op on Linux.
+  const child = spawn(bin.path(), args, {
+    env: { ...process.env, COPYFILE_DISABLE: "1" },
+  });
 
   if (verbose) {
     child.stdout.on('data', (data) => {

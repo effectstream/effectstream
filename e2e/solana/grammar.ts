@@ -1,10 +1,7 @@
-import { Type } from "@sinclair/typebox";
 import type { GrammarDefinition } from "@effectstream/concise";
+import { builtinGrammars } from "@effectstream/sm/grammar";
 
 export const grammar = {
-  "solana-program-log": [
-    ["slot", Type.Number()],
-    ["programId", Type.String()],
-    ["logMessages", Type.Array(Type.String())],
-  ],
+  "solana-program-log": builtinGrammars.solanaProgramLog,
+  "solana-account-balance": builtinGrammars.solanaAccountBalance,
 } as const satisfies GrammarDefinition;

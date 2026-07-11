@@ -1,14 +1,32 @@
 {
   "name": "@e2e/solana",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
+    "test": "bun run run-tests.ts",
+    "launcher": "bun run launcher.cli.ts",
+    "node:start": "bun run node.ts",
     "chain:start": "bun ./node_modules/.bin/solana-node",
     "chain:wait": "bun ./node_modules/.bin/wait-on tcp:8899"
   },
   "dependencies": {
+    "@e2e/engine": "workspace:*",
+    "@effectstream/concise": "workspace:*",
+    "@effectstream/config": "workspace:*",
+    "@effectstream/coroutine": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@effectstream/orchestrator": "workspace:*",
+    "@effectstream/runtime": "workspace:*",
+    "@effectstream/sm": "workspace:*",
     "@effectstream/solana-node": "workspace:*",
+    "@effectstream/batcher-sdk": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@solana/web3.js": "^1.95.0",
+    "bs58": "^6.0.0",
+    "@sinclair/typebox": "^0.34.30",
+    "effection": "^3.5.0",
+    "pg": "^8.14.0",
     "wait-on": "*"
   }
 }

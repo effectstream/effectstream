@@ -81,8 +81,9 @@ const DUST_FEE_OVERHEAD = 300_000_000_000_000n;
 /** Fee blocks margin for dust wallet */
 const DUST_FEE_BLOCKS_MARGIN = 5;
 
-/** Wallet sync progress logging throttle interval */
-const WALLET_SYNC_THROTTLE_MS = 10_000;
+// Throttle on the wallet state observable, applied before the isSynced filter.
+// Keep short in-browser — large values delay connect even on already-synced chains.
+const WALLET_SYNC_THROTTLE_MS = 250;
 
 /** Wallet sync timeout (5 minutes) */
 const WALLET_SYNC_TIMEOUT_MS = 300_000;
@@ -691,6 +692,12 @@ const connectMidnightWallet = async (): Promise<{
   wallet: Wallet & Resource;
   providers: CounterProviders;
 }> => {
+  // Reuse cached wallet — first build is slow (WASM init + chain scan).
+  if (globalWallet && globalProviders) {
+    console.log("♻️  Reusing already-built Midnight wallet");
+    return { wallet: globalWallet, providers: globalProviders };
+  }
+
   console.log("🔗 Building Midnight wallet with genesis seed...");
 
   const midnightNodeUrl = await getMidnightNodeUrl();

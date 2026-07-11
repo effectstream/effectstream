@@ -33,6 +33,8 @@ import { NearFetcher } from "./sync-protocols/near/fetcher.ts";
 import { NearSyncState } from "./sync-protocols/near/state.ts";
 import { SolanaFetcher } from "./sync-protocols/solana/fetcher.ts";
 import { SolanaSyncState } from "./sync-protocols/solana/state.ts";
+import { TestFetcher } from "./sync-protocols/test/fetcher.ts";
+import { TestSyncState } from "./sync-protocols/test/state.ts";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -156,6 +158,17 @@ export function* genSyncProtocols(
     ) {
       const fetcher = new SolanaFetcher(entry);
       const state = yield* SolanaSyncState.restoreState(
+        dbConn,
+        entry,
+        fetcher,
+      );
+      result.push(state);
+    } else if (
+      entry.networkType === ConfigNetworkType.TEST
+    ) {
+      // Synthetic test chain (TEST_MAIN clock or TEST_PARALLEL source).
+      const fetcher = new TestFetcher(entry);
+      const state = yield* TestSyncState.restoreState(
         dbConn,
         entry,
         fetcher,

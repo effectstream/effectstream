@@ -3,6 +3,9 @@
 export const PrimitiveTypeMidnightGeneric = "Midnight:Generic" as const;
 export const PrimitiveTypeMidnightNullifier = "Midnight:Nullifier" as const;
 export const PrimitiveTypeMidnightUnshieldedSpend = "Midnight:UnshieldedSpend" as const;
+export const PrimitiveTypeMidnightUnshieldedCreate = "Midnight:UnshieldedCreate" as const;
+export const PrimitiveTypeMidnightZswapRoot = "Midnight:ZswapRoot" as const;
+export const PrimitiveTypeMidnightTokenMint = "Midnight:TokenMint" as const;
 
 export const PrimitiveTypeUtxorpcGeneric = "Utxorpc:Generic" as const;
 export const PrimitiveTypeCardanoMintBurn = "Cardano:MintBurn" as const;
@@ -30,10 +33,16 @@ export const PrimitiveTypeNEARIntent = "NEAR:Intent" as const;
 export const PrimitiveTypeNEARGeneric = "NEAR:Generic" as const;
 export const PrimitiveTypeNEARAccountWatch = "NEAR:AccountWatch" as const;
 
+export const PrimitiveTypeSolanaProgramLog = "SOLANA:ProgramLog" as const;
+export const PrimitiveTypeSolanaAccountBalance = "SOLANA:AccountBalance" as const;
+
 type BuiltInPrimitives =
     typeof PrimitiveTypeMidnightGeneric |
     typeof PrimitiveTypeMidnightNullifier |
     typeof PrimitiveTypeMidnightUnshieldedSpend |
+    typeof PrimitiveTypeMidnightUnshieldedCreate |
+    typeof PrimitiveTypeMidnightZswapRoot |
+    typeof PrimitiveTypeMidnightTokenMint |
     typeof PrimitiveTypeEVMEffectstreamL2 |
     typeof PrimitiveTypeEVMERC721 |
     typeof PrimitiveTypeEVMERC20 |
@@ -52,7 +61,9 @@ type BuiltInPrimitives =
     typeof PrimitiveTypeNEARNEP245 |
     typeof PrimitiveTypeNEARIntent |
     typeof PrimitiveTypeNEARGeneric |
-    typeof PrimitiveTypeNEARAccountWatch // |
+    typeof PrimitiveTypeNEARAccountWatch |
+    typeof PrimitiveTypeSolanaProgramLog |
+    typeof PrimitiveTypeSolanaAccountBalance // |
     // typeof PrimitiveTypeEVMGeneric
 ;
 

@@ -8,15 +8,19 @@ import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeMidnightNullifier,
   PrimitiveTypeMidnightUnshieldedSpend,
+  PrimitiveTypeMidnightUnshieldedCreate,
+  PrimitiveTypeMidnightZswapRoot,
 } from "@effectstream/sm/builtin";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { OfferFilesContract } from "@zswap-da/contract-offer-files";
 import { getConnection } from "@effectstream/db";
 
 import {
+  CELESTIA_FETCH_CONCURRENCY,
   CELESTIA_NAMESPACE,
   CELESTIA_POLLING_INTERVAL_MS,
   CELESTIA_RPC_URL,
+  CELESTIA_STEP_SIZE,
   midnightContract,
 } from "./env.ts";
 
@@ -98,6 +102,8 @@ export const config = new ConfigBuilder()
           pollingInterval: CELESTIA_POLLING_INTERVAL_MS,
           delayMs: 12_000,
           confirmationDepth: 1,
+          stepSize: CELESTIA_STEP_SIZE,
+          concurrency: CELESTIA_FETCH_CONCURRENCY,
         }),
       )
   )
@@ -138,6 +144,24 @@ export const config = new ConfigBuilder()
         type: PrimitiveTypeMidnightUnshieldedSpend,
         startBlockHeight: 1,
         stateMachinePrefix: "midnight-unshielded-spend",
+        networkId: midnightNetworkConfig.id,
+      }),
+    ).addPrimitive(
+      (syncProtocols) => (syncProtocols as any).parallelMidnight,
+      () => ({
+        name: "Midnight-UnshieldedCreate",
+        type: PrimitiveTypeMidnightUnshieldedCreate,
+        startBlockHeight: 1,
+        stateMachinePrefix: "midnight-unshielded-create",
+        networkId: midnightNetworkConfig.id,
+      }),
+    ).addPrimitive(
+      (syncProtocols) => (syncProtocols as any).parallelMidnight,
+      () => ({
+        name: "Midnight-ZswapRoot",
+        type: PrimitiveTypeMidnightZswapRoot,
+        startBlockHeight: 1,
+        stateMachinePrefix: "midnight-zswap-root",
         networkId: midnightNetworkConfig.id,
       }),
     );

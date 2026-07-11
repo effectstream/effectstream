@@ -8,6 +8,8 @@ export type {
 } from "./types.ts";
 export {
     resolveWalletSyncTimeoutMs,
+    suspendAuxWalletSyncForFees,
+    resolveFacadeDustBalance,
     safeStringifyProgress,
     syncAndWaitForFunds,
     buildWalletFacade,
@@ -19,7 +21,10 @@ export {
     saveDustState,
     loadDustState,
 } from "./get-wallet-info.ts";
-export type { WalletSyncMode, DustSyncWithRetryOptions } from "./get-wallet-info.ts";
+export type {
+    WalletSyncMode,
+    DustSyncWithRetryOptions,
+} from "./get-wallet-info.ts";
 export { CONSTANTS } from "./constants.ts";
 export { 
     buildWalletAndWaitForFunds, 

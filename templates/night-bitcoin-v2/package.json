@@ -1,0 +1,41 @@
+{
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "packages/contracts-midnight/erc7683",
+    "packages/contracts-midnight/unshielded-erc20"
+  ],
+  "scripts": {
+    "dev": "NODE_ENV=development bunx orchestrator start --log-dir=./logs",
+    "start:mainnet": "bun run packages/node/main.mainnet.ts",
+    "test": "bun run packages/tests/run-tests.ts",
+    "build:midnight": "bun run --filter @night-bitcoin/midnight-contract-erc7683 compact && bun run --filter @night-bitcoin/midnight-contract-unshielded-erc20 compact",
+    "build:bitcoin": "echo 'no compilation needed for bitcoin contracts'",
+    "start:frontend": "bun run --filter @night-bitcoin/frontend dev",
+    "build:pgtypes": "bun run --filter @night-bitcoin/database pgtyped:update"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@effectstream/midnight-contracts": "0.100.17",
+    "@effectstream/orchestrator": "0.100.17",
+    "wait-on": "8.0.3"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13"
+  },
+  "overrides": {
+    "@effect/platform": "0.96.1",
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "@midnight-ntwrk/wallet-sdk-abstractions": "2.0.0",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "@midnight-ntwrk/wallet-sdk-capabilities": "3.2.0",
+    "@midnight-ntwrk/wallet-sdk-dust-wallet": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk-facade": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk-hd": "3.0.1",
+    "@midnight-ntwrk/wallet-sdk-shielded": "2.1.0",
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "2.1.0"
+  }
+}

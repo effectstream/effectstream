@@ -12,4 +12,10 @@ export enum ConfigNetworkType {
   CELESTIA = "celestia",
   NEAR = "near",
   SOLANA = "solana",
+  /**
+   * Synthetic, fully in-memory chain used for deterministic tests.
+   * Blocks are computed arithmetically (no RPC). Excluded from publishing.
+   * See packages/node-sdk/sync/src/sync-protocols/test/.
+   */
+  TEST = "test",
 }

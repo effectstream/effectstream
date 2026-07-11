@@ -20,14 +20,22 @@ import { getEnv } from "@effectstream/utils/runtime";
  *   Cardano CARP               → syncProtocol.startSlot
  *   Cardano UTXOrpc            → syncProtocol.startChainPoint
  *   EVM, Mina, Avail, Midnight,
- *   Bitcoin, Celestia          → syncProtocol.startBlockHeight
+ *   Bitcoin, Celestia, NEAR, Solana → syncProtocol.startBlockHeight
  */
 function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<string, unknown> {
-  if (protocol.networkType === ConfigNetworkType.NTP) {
-    const ntpNetwork = protocol.network as { startTime: number; blockTimeMS: number };
+  // NTP and the synthetic TEST chain both derive blocks arithmetically from
+  // network.startTime + network.blockTimeMS, so those are the immutable fields.
+  if (
+    protocol.networkType === ConfigNetworkType.NTP ||
+    protocol.networkType === ConfigNetworkType.TEST
+  ) {
+    const arithmeticNetwork = protocol.network as {
+      startTime: number;
+      blockTimeMS: number;
+    };
     return {
-      startTime: ntpNetwork.startTime,
-      blockTimeMS: ntpNetwork.blockTimeMS,
+      startTime: arithmeticNetwork.startTime,
+      blockTimeMS: arithmeticNetwork.blockTimeMS,
     };
   }
 
@@ -41,7 +49,7 @@ function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<strin
     return { startChainPoint: sp.startChainPoint };
   }
 
-  // EVM, Mina, Avail, Midnight, Bitcoin, Celestia
+  // EVM, Mina, Avail, Midnight, Bitcoin, Celestia, NEAR, Solana
   const knownBlockHeightProtocols: string[] = [
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
     ConfigSyncProtocolType.MINA_PARALLEL,
@@ -50,6 +58,7 @@ function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<strin
     ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL,
     ConfigSyncProtocolType.CELESTIA_PARALLEL,
     ConfigSyncProtocolType.NEAR_RPC_PARALLEL,
+    ConfigSyncProtocolType.SOLANA_RPC_PARALLEL,
   ];
   if (!knownBlockHeightProtocols.includes(protocol.syncProtocolType)) {
     throw new Error(

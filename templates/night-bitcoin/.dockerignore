@@ -1,9 +1,0 @@
-node_modules
-.vscode
-cache
-out
-volume
-packages/shared/contracts/midnight-contracts/midnight-level-db/*
-packages/shared/contracts/midnight-contracts/unshielded-erc20/src/managed
-packages/shared/contracts/midnight-contracts/erc7683/src/managed
-packages/frontend/dApp/client/dist/*

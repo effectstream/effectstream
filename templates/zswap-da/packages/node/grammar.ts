@@ -8,6 +8,8 @@ export const grammar = {
   "midnight-zswap": builtinGrammars.midnightGeneric,
   "midnight-nullifier": [["payload", Type.Any()]],
   "midnight-unshielded-spend": [["payload", Type.Any()]],
+  "midnight-unshielded-create": [["payload", Type.Any()]],
+  "midnight-zswap-root": [["payload", Type.Any()]],
 
   // Scheduled game input used for TTL cleanup.
   "zswap-ttl-cleanup": [["offerId", Type.Integer()]],

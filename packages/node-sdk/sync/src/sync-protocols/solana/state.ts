@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Input, Output, Page } from "./types.ts";
+import { toMsTimestamp } from "./types.ts";
 import { blockNumberRelation } from "../common/utils.ts";
 import type { SolanaFetcher } from "./fetcher.ts";
 import type {
@@ -13,7 +14,6 @@ import type {
 import { getPage } from "@effectstream/db";
 import { SolanaClient } from "./SolanaClient.ts";
 import { applyDelay } from "../common/utils.ts";
-import { genInputRange } from "../common/page-helpers.ts";
 
 export class SolanaSyncState extends SyncState<
   Input,
@@ -50,13 +50,15 @@ export class SolanaSyncState extends SyncState<
 
   @bound
   override toRootPage(data: Output): RootPage {
-    // Solana blockTime is in seconds; use slot as tiebreaker for
-    // deterministic ordering when timestamps are equal
-    const timestampMs = (data.blockTime ?? 0) * 1000;
-    // Add a tiny offset based on slot position to break ties deterministically
-    const tieBreaker = (data.slot % 1000) * 0.001;
+    // Solana blockTime is monotonically non-decreasing (enforced by the
+    // cluster) — exactly what the merge gate needs: it pulls buffered parallel
+    // outputs in slot order while their root timestamp is <= the main chain's,
+    // so it disambiguates duplicate blockTimes by buffer/slot order, NOT by
+    // this value. We therefore must NOT add a slot-derived offset: the previous
+    // `(slot % 1000) * 0.001` was unnecessary AND broke monotonicity (it wrapped
+    // every 1000 slots, so slot 1000's root could sort before slot 999's).
     return applyDelay(
-      (timestampMs + tieBreaker) as import("@effectstream/utils").TimestampMs,
+      toMsTimestamp(data.blockTime),
       this.config.syncProtocol.delayMs,
     );
   }
@@ -68,15 +70,30 @@ export class SolanaSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
-    return yield* genInputRange(
-      this as SolanaSyncState,
-      this.config.syncProtocol.startBlockHeight as Page,
-      {
-        name: this.config.syncProtocol.name,
-        startPage: this.config.syncProtocol.startBlockHeight as Page,
-      },
-      this.getNamespace(),
-    );
+    // Query the chain tip directly (like NearSyncState) rather than via
+    // genInputRange, which requires the fetcher to implement PaginatedFetcher
+    // (getLatestPage/nextInterval/...) — SolanaFetcher does not.
+    const latestSlot = yield* call(() => this.client.getSlot());
+    const finalizedSlot = latestSlot - this.config.syncProtocol.confirmationDepth;
+
+    const lastSlot = this.lastPage?.own
+      ?? ((this.config.syncProtocol.startBlockHeight as Page) - 1);
+
+    if (lastSlot >= finalizedSlot) {
+      return undefined;
+    }
+
+    const from = (lastSlot + 1) as Page;
+    const to = Math.min(
+      Number(lastSlot) + this.config.syncProtocol.stepSize,
+      finalizedSlot,
+    ) as Page;
+
+    return {
+      from,
+      to,
+      isPresync: false,
+    };
   }
 
   @bound

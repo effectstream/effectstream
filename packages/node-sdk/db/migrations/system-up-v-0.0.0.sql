@@ -1,7 +1,5 @@
 CREATE SCHEMA IF NOT EXISTS effectstream;
 
-CREATE EXTENSION IF NOT EXISTS pg_ivm;
-
 CREATE TABLE effectstream.effectstream_expected_version (
   app_version_major INTEGER NOT NULL,
   app_version_minor INTEGER NOT NULL,

@@ -1,0 +1,94 @@
+.wrapper {
+  border: 1px solid var(--cyano-paper-trace);
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(244, 249, 251, 0.03);
+}
+
+.label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 1rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cyano-paper-soft);
+  background: rgba(244, 249, 251, 0.04);
+  border-bottom: 1px dashed var(--cyano-paper-trace);
+}
+
+.labelLeft,
+.labelRight {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.labelTitle {
+  color: var(--cyano-amber);
+}
+
+.labelKind {
+  color: var(--cyano-paper-soft);
+}
+
+.labelDot {
+  color: var(--cyano-amber);
+}
+
+.labelStatus {
+  color: var(--cyano-amber);
+}
+
+.date {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--cyano-paper-faint);
+  text-transform: none;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: var(--cyano-bg-2);
+}
+
+.frame {
+  display: block;
+  border: 0;
+  background: var(--cyano-bg-2);
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+}
+
+.caption {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.45rem 1rem;
+  border-top: 1px dashed var(--cyano-paper-trace);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cyano-paper-faint);
+}
+
+.captionLeft {
+  color: var(--cyano-paper-faint);
+  justify-self: start;
+}
+
+.captionRight {
+  color: var(--cyano-amber);
+  grid-column: 2;
+  justify-self: center;
+}
