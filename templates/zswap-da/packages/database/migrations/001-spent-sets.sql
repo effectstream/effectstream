@@ -1,3 +1,0 @@
--- nullifiers and unshielded_spends are defined in 000-init.sql.
--- This file is intentionally empty; it is kept so the migration table
--- ordinal stays stable across existing and future deployments.

@@ -7,6 +7,14 @@ await build({
   outfile: "dist/min.js",
   sourcemap: true,
   format: "esm",
+  // @effectstream/wallets declares Cardano/Midnight helpers (@lucid-evolution/*,
+  // @midnight-ntwrk/*) as optional deps. This template is EVM-only and never
+  // hits those code paths, so mark them external — otherwise esbuild fails on
+  // the unresolved Lucid import and the ledger-v8 .wasm (no wasm loader).
+  external: [
+    "@lucid-evolution/*",
+    "@midnight-ntwrk/*",
+  ],
   plugins: [
     // @effectstream/wallets declares Cardano/Midnight wallet helpers as optional
     // peer deps (@lucid-evolution/*, @midnight-ntwrk/*, @effectstream/midnight-contracts).
