@@ -6,7 +6,7 @@
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
-import { encodeOffer } from '../lib/mip5-offer-files';
+import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 
 export interface OfferLeg {
   kind: 'shielded' | 'unshielded';
@@ -72,5 +72,5 @@ export async function buildMakerOfferBlob(
   const bytes = decodeConnectorTx(tx);
   setNetworkId(networkId as NetworkId);
   // gives/wants are recovered from tx.imbalances() at index time.
-  return encodeOffer(bytes);
+  return OfferFiles.encode(bytes);
 }

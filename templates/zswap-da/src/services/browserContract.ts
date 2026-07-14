@@ -33,7 +33,7 @@ import {
 } from '@midnight-ntwrk/midnight-js-utils';
 
 import { OfferFilesContract, witnesses } from '@zswap-da/contract-offer-files';
-import { decodeOffer } from '../lib/mip5-offer-files';
+import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 import { API_BASE } from '../config';
 import { submitToBatcher } from './api';
 import { dlog, timed } from '../debug';
@@ -546,8 +546,8 @@ export async function proveAndSubmitOffer(
   setNetworkId(config.networkId as NetworkId);
 
   console.log('[browserContract] complete: decoding offer bytes');
-  dlog('proveAndSubmitOffer: → decodeOffer + deserialize maker tx (sync)');
-  const rawBytes = decodeOffer(offerBech32m);
+  dlog('proveAndSubmitOffer: → OfferFiles.decode + deserialize maker tx (sync)');
+  const rawBytes = OfferFiles.decode(offerBech32m);
   const makerTx = LedgerV8Transaction.deserialize(
     'signature',
     'proof',

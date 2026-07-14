@@ -57,9 +57,8 @@ its own repo: **https://github.com/effectstream/zswap-offerfiles-kernel**.
   import; its compiled output (`src/managed/`) is generated when the backend
   dev stack runs `compact compile` on startup. If the import fails to resolve,
   start the backend once first.
-- **Offer encoding** — MIP-0005 / MIP-0006 codecs are vendored under
-  `src/lib/mip5-offer-files.ts` and `src/lib/mip6-p2p-swaps.ts` (HRP `swapoffer`),
-  kept in sync with the backend packages of the same names.
+- **Offer encoding** — MIP-0005 / MIP-0006 codecs come from
+  `@effectstream/mip-zswap-offer` (HRP `swapoffer`).
 
 ## Env vars
 

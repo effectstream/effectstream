@@ -6,7 +6,7 @@
 
 import { Transaction as LedgerV8Transaction } from '@midnight-ntwrk/ledger-v8';
 import { setNetworkId, type NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
-import { decodeOffer } from '../lib/mip5-offer-files';
+import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 
 export interface ParsedLeg { color: string; kind: 'shielded' | 'unshielded'; amount: bigint }
 export interface ParsedOffer { pays: ParsedLeg[]; gets: ParsedLeg[] }
@@ -15,7 +15,7 @@ export function parseTakerLegs(blob: string, networkId: NetworkId): ParsedOffer 
   let tx: any;
   try {
     setNetworkId(networkId);
-    const bytes = decodeOffer(blob);
+    const bytes = OfferFiles.decode(blob);
     tx = LedgerV8Transaction.deserialize('signature', 'proof', 'binding', bytes);
   } catch {
     return null;
