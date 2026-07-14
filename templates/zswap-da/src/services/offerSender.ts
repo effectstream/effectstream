@@ -19,7 +19,7 @@ import {
   MidnightBech32m,
   UnshieldedAddress,
 } from '@midnight-ntwrk/wallet-sdk-address-format';
-import { decodeOffer } from '../lib/mip5-offer-files';
+import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 
 export interface OfferSenderInfo {
   // Lowercased hex string suitable for direct equality compare. Either:
@@ -39,7 +39,7 @@ export function parseOfferSender(offerBech32m: string, networkId: NetworkId): Of
   setNetworkId(networkId);
   let tx: any;
   try {
-    const bytes = decodeOffer(offerBech32m);
+    const bytes = OfferFiles.decode(offerBech32m);
     tx = LedgerV8Transaction.deserialize('signature', 'proof', 'binding', bytes);
   } catch {
     return undefined;

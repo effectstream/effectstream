@@ -1,5 +1,5 @@
 // src/types/index.ts
-export type { TokenLeg, TokenKind } from '../lib/mip6-p2p-swaps';
+export type { TokenLeg, TokenKind } from '@effectstream/mip-zswap-offer/mip6';
 
 export interface KnownToken {
   token_color: string;

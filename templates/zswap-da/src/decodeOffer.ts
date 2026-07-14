@@ -1,5 +1,6 @@
-import { offerFromBech32 } from './lib/mip5-offer-files';
-import { deriveTokenLegs } from './lib/mip6-p2p-swaps';
+import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
+import { P2pAtomicSwaps } from '@effectstream/mip-zswap-offer/mip6';
+import type { UnprovenTransaction } from '@midnight-ntwrk/ledger-v8';
 import type { TokenEntry } from './types';
 
 export type DecodedOffer = {
@@ -22,8 +23,9 @@ export type DecodeResult =
 export async function decodeOfferForDisplay(bech32: string): Promise<DecodeResult> {
   try {
     // MIP-0005: swapoffer1… → Transaction; MIP-0006: tagged gives/wants.
-    const tx = offerFromBech32(bech32);
-    const { gives, wants } = deriveTokenLegs(tx);
+    const tx = OfferFiles.fromBech32(bech32);
+    // Proven offer tx; deriveTokenLegs only needs imbalances()/segment keys.
+    const { gives, wants } = P2pAtomicSwaps.deriveTokenLegs(tx as UnprovenTransaction);
 
     // Segments: 0 = guaranteed, plus union of intents.keys() and
     // fallibleOffer.keys() (Lace's makeIntent may populate either).
