@@ -46,7 +46,7 @@ export const ENABLED = [
   "hex-battle",
   // "chess-v2",        // TODO: migrate to effectstream-bun
   // "chess",           // TODO: migrate to effectstream-bun
-  // "dice",            // TODO: migrate to effectstream-bun
+  "dice",
   // "evm-midnight",    // TODO: migrate to effectstream-bun
   // "minimal",         // TODO: migrate to effectstream-bun
   // "multi-chain-token-transfer", // TODO: migrate to effectstream-bun

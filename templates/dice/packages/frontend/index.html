@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dice Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="container" data-testid="dice-app">
+    <h2>🎲 Dice Game</h2>
+
+    <section id="wallet-section">
+      <h3>Connect Wallet</h3>
+      <p id="wallet-address" data-testid="wallet-address">Not connected</p>
+      <button
+        id="connect-browser"
+        data-testid="connect-browser-wallet"
+        onclick="window.uiConnectBrowser()"
+      >Connect Browser Wallet</button>
+      <button
+        id="connect-local"
+        data-testid="connect-local-wallet"
+        onclick="window.uiConnectLocal()"
+      >Connect Local Wallet (dev)</button>
+    </section>
+
+    <!-- Main menu: create a lobby, browse open lobbies, see your stats. -->
+    <section id="main-menu" data-testid="main-menu" style="margin-top: 1rem;">
+      <h3>Main Menu</h3>
+      <div id="nft-row">
+        <label>Your NFT id:
+          <input id="nft-id" data-testid="nft-id-input" type="number" value="0" min="0" style="width:80px;" />
+        </label>
+      </div>
+
+      <div id="create-lobby" data-testid="create-lobby" style="margin-top: 0.5rem;">
+        <h4>Create Lobby</h4>
+        <label>Rounds: <input id="rounds" type="number" value="3" min="1" style="width:60px;" /></label>
+        <label>Round length: <input id="round-length" type="number" value="100" min="1" style="width:70px;" /></label>
+        <label>Play time: <input id="play-time" type="number" value="100" min="1" style="width:70px;" /></label>
+        <button data-testid="create-lobby-btn" onclick="window.uiCreateLobby()">Create Lobby</button>
+      </div>
+
+      <div id="stats" data-testid="stats" style="margin-top: 0.5rem;">
+        <h4>Your Stats</h4>
+        <button data-testid="refresh-stats-btn" onclick="window.uiRefreshStats()">Refresh Stats</button>
+        <span id="stats-text" data-testid="stats-text">—</span>
+      </div>
+    </section>
+
+    <!-- Open lobbies you can join. -->
+    <section id="open-lobbies" data-testid="open-lobbies" style="margin-top: 1rem;">
+      <h3>Open Lobbies</h3>
+      <button data-testid="refresh-lobbies-btn" onclick="window.uiRefreshLobbies()">Refresh</button>
+      <ul id="lobby-list" data-testid="lobby-list"></ul>
+    </section>
+
+    <!-- The active dice game: shows the lobby, players, current round, and the
+         roll / pass controls. This IS the gameplay surface. -->
+    <section id="dice-game" data-testid="dice-game" style="margin-top: 1rem; display:none;">
+      <h3>Dice Game</h3>
+      <p>Lobby: <span id="game-lobby-id" data-testid="game-lobby-id"></span></p>
+      <div id="players" data-testid="players"></div>
+      <div id="dice-display" data-testid="dice-display" style="font-size: 2rem; margin: 0.5rem 0;">🎲 🎲</div>
+      <button data-testid="dice-roll-btn" onclick="window.uiRoll(true)">Roll Again</button>
+      <button data-testid="dice-pass-btn" onclick="window.uiRoll(false)">Pass</button>
+      <button data-testid="leave-game-btn" onclick="window.uiLeaveGame()">Back to Menu</button>
+    </section>
+  </div>
+
+  <script type="module" src="./min.js"></script>
+
+  <script>
+    let currentLobby = null;
+
+    function nftId() {
+      return parseInt(document.getElementById("nft-id").value || "0", 10);
+    }
+
+    function setAddress(addr) {
+      document.getElementById("wallet-address").innerText = addr ?? "Not connected";
+    }
+
+    window.uiConnectBrowser = async () => {
+      try {
+        await window.dice.connectBrowserWallet();
+        setAddress(window.dice.getAddress());
+        await window.uiRefreshLobbies();
+      } catch (err) {
+        console.error("connect-browser failed:", err);
+        setAddress(`Browser wallet error: ${err.message}`);
+      }
+    };
+
+    window.uiConnectLocal = async () => {
+      try {
+        await window.dice.connectLocalWallet();
+        setAddress(window.dice.getAddress());
+        await window.uiRefreshLobbies();
+      } catch (err) {
+        console.error("connect-local failed:", err);
+        setAddress(`Local wallet error: ${err.message}`);
+      }
+    };
+
+    window.uiCreateLobby = async () => {
+      const rounds = parseInt(document.getElementById("rounds").value || "3", 10);
+      const roundLength = parseInt(document.getElementById("round-length").value || "100", 10);
+      const playTime = parseInt(document.getElementById("play-time").value || "100", 10);
+      await window.dice.createLobby(nftId(), rounds, roundLength, playTime);
+      setTimeout(window.uiRefreshLobbies, 4000);
+    };
+
+    window.uiRefreshLobbies = async () => {
+      const lobbies = await window.dice.fetchOpenLobbies();
+      const list = document.getElementById("lobby-list");
+      list.innerHTML = "";
+      (lobbies ?? []).forEach((lobby) => {
+        const li = document.createElement("li");
+        li.dataset.testid = `lobby-${lobby.lobby_id}`;
+        li.innerHTML = `<span>${lobby.lobby_id} (rounds: ${lobby.num_of_rounds})</span> `;
+        const joinBtn = document.createElement("button");
+        joinBtn.innerText = "Join";
+        joinBtn.dataset.testid = `join-${lobby.lobby_id}`;
+        joinBtn.onclick = () => window.uiJoinLobby(lobby.lobby_id);
+        li.appendChild(joinBtn);
+        list.appendChild(li);
+      });
+    };
+
+    window.uiJoinLobby = async (lobbyId) => {
+      await window.dice.joinLobby(nftId(), lobbyId);
+      setTimeout(() => window.uiOpenGame(lobbyId), 4000);
+    };
+
+    window.uiRefreshStats = async () => {
+      const stats = await window.dice.fetchStats(nftId());
+      const text = document.getElementById("stats-text");
+      if (!stats) { text.innerText = "no stats"; return; }
+      text.innerText = `W:${stats.wins} L:${stats.losses} T:${stats.ties}`;
+    };
+
+    window.uiOpenGame = async (lobbyId) => {
+      currentLobby = lobbyId;
+      document.getElementById("dice-game").style.display = "block";
+      document.getElementById("game-lobby-id").innerText = lobbyId;
+      await window.uiRenderGame();
+    };
+
+    window.uiRenderGame = async () => {
+      if (!currentLobby) return;
+      const lobby = await window.dice.fetchLobby(currentLobby);
+      const playersDiv = document.getElementById("players");
+      if (!lobby) { playersDiv.innerText = "lobby not found"; return; }
+      playersDiv.innerHTML = (lobby.players ?? [])
+        .map((p) => `<div data-testid="player-${p.nftId}">NFT ${p.nftId} — turn ${p.turn}, points ${p.points}, score ${p.score}</div>`)
+        .join("");
+    };
+
+    window.uiRoll = async (rollAgain) => {
+      if (!currentLobby) return;
+      const lobby = await window.dice.fetchLobby(currentLobby);
+      if (!lobby) return;
+      // Animate the dice display.
+      const d1 = 1 + Math.floor(Math.random() * 6);
+      const d2 = 1 + Math.floor(Math.random() * 6);
+      document.getElementById("dice-display").innerText = `🎲 ${d1}  🎲 ${d2}`;
+      await window.dice.submitMove(
+        nftId(),
+        currentLobby,
+        lobby.current_match ?? 0,
+        lobby.current_round ?? 0,
+        rollAgain,
+      );
+      setTimeout(window.uiRenderGame, 4000);
+    };
+
+    window.uiLeaveGame = () => {
+      currentLobby = null;
+      document.getElementById("dice-game").style.display = "none";
+    };
+  </script>
+</body>
+
+</html>

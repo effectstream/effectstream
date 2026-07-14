@@ -37,8 +37,8 @@ packages/frontend/paimaMiddleware.js
 packages/frontend/paimaMiddleware.js.map
 
 # Compiled contracts
-packages/shared/contracts/evm/build/
-packages/shared/contracts/evm/ignition/deployments/
+packages/contracts-evm/build/
+packages/contracts-evm/ignition/deployments/
 
 # Foundry cache
 cache/
