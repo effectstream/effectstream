@@ -15,6 +15,15 @@ export const PollingSyncProtocol = new ConfigSchema({
   }),
   optional: Type.Object({
     maxBufferedPages: Type.Optional(Type.Number()),
+    /**
+     * Hard deadline for a single RPC request made by this protocol's client.
+     *
+     * `fetch` has no default timeout, so without this a blackholed endpoint
+     * hangs `readData` forever and silently stalls block production — see
+     * `@effectstream/sync` `sync-protocols/common/http.ts`. The fetch loop
+     * supplies the retry; this only bounds one attempt.
+     */
+    requestTimeoutMs: TypeboxHelpers.IntervalMs({ default: 15_000 }),
   }),
 });
 

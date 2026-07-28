@@ -13,12 +13,15 @@
  * 0, `lastSuccessfulFetchMs` freezes, and the merge blocks on that chain's page
  * forever. The node stops producing blocks and reports nothing.
  *
- * These tests document CURRENT behaviour:
- *   - Bitcoin / NEAR / Avail  → hang forever            (the bug)
- *   - Midnight                → rejects after its timeout (the desired shape)
+ * Every client now bounds a single request with `AbortSignal.timeout` via
+ * `sync-protocols/common/http.ts:fetchWithTimeout`, configured per protocol by
+ * the optional `requestTimeoutMs` schema field. Retry is deliberately left to
+ * the fetch loop, which already re-runs the same page range and counts the
+ * failure in `consecutiveErrors` — retrying inside the client would hide the
+ * error from the health endpoint.
  *
- * When the fix lands, flip the three `expect(...).toBe("pending")` assertions
- * to `"rejected"` and drop the `KNOWN-BROKEN` markers.
+ * These tests are the permanent regression guard: each client must REJECT
+ * against a blackhole, never hang.
  */
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import net from "node:net";
@@ -80,45 +83,44 @@ async function settlementWithin(
   return winner === pending ? "pending" : outcome;
 }
 
-test("KNOWN-BROKEN: Bitcoin RPC hangs forever on a blackholed endpoint", async () => {
+test("Bitcoin RPC rejects on a blackholed endpoint", async () => {
   const client = new BitcoinRpcClient({
     url: `http://127.0.0.1:${port}`,
     username: null,
     password: null,
+    requestTimeoutMs: CLIENT_TIMEOUT_MS,
   });
 
   const settlement = await settlementWithin(client.getBlockCount(), OBSERVE_MS);
 
-  // BitcoinRpcClient.call() uses bare `fetch` with no AbortSignal
-  // (bitcoin/fetcher.ts). Nothing bounds this call.
-  expect(settlement).toBe("pending");
+  expect(settlement).toBe("rejected");
 }, OBSERVE_MS + 5_000);
 
-test("KNOWN-BROKEN: NEAR RPC hangs forever on a blackholed endpoint", async () => {
-  const client = new NearClient(`http://127.0.0.1:${port}`);
+test("NEAR RPC rejects on a blackholed endpoint", async () => {
+  const client = new NearClient(`http://127.0.0.1:${port}`, CLIENT_TIMEOUT_MS);
 
   const settlement = await settlementWithin(
     client.getBlock({ finality: "final" }),
     OBSERVE_MS,
   );
 
-  // NearClient.rpc() uses bare `fetch` with no AbortSignal (near/NearClient.ts).
-  expect(settlement).toBe("pending");
+  expect(settlement).toBe("rejected");
 }, OBSERVE_MS + 5_000);
 
-test("KNOWN-BROKEN: Avail light-client HTTP hangs forever on a blackholed endpoint", async () => {
+test("Avail light-client HTTP rejects on a blackholed endpoint", async () => {
   // Built without the constructor on purpose: `new AvailClient(...)` eagerly
   // calls `SDK.New(nodeUrl)`, whose websocket provider keeps reconnect timers
   // alive and would outlive the test process. `getStatus()` only touches the
   // light-client HTTP url, which is the code path under test.
   const client: AvailClient = Object.create(AvailClient.prototype);
-  Object.assign(client, { url: `http://127.0.0.1:${port}` });
+  Object.assign(client, {
+    url: `http://127.0.0.1:${port}`,
+    requestTimeoutMs: CLIENT_TIMEOUT_MS,
+  });
 
   const settlement = await settlementWithin(client.getStatus(), OBSERVE_MS);
 
-  // AvailClient.getStatus() uses bare `fetch` with no AbortSignal
-  // (avail/AvailClient.ts).
-  expect(settlement).toBe("pending");
+  expect(settlement).toBe("rejected");
 }, OBSERVE_MS + 5_000);
 
 test("CONTROL: Midnight rejects on a blackholed endpoint (has a request timeout)", async () => {
