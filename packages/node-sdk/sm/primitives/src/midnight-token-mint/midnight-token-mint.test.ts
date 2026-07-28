@@ -79,6 +79,27 @@ test("MidnightTokenMint - persist:false disables the owned table", () => {
   expect(p.getDynamicTables("tok", STRATEGY)).toBeUndefined();
 });
 
+test("MidnightTokenMint - hyphenated instance names are sanitized, not rejected", () => {
+  cleanup();
+  // "Midnight-TokenMint" is the repo's own naming convention. Throwing here
+  // killed the sync node at startup ("Invalid name: Midnight-TokenMint").
+  const p = new MidnightTokenMintPrimitive({
+    instanceName: "Midnight-TokenMint",
+    startBlockHeight: 1,
+    stateMachinePrefix: "midnightTokenMintState",
+  });
+
+  const ddl = p.getDynamicTables("Midnight-TokenMint", STRATEGY)!;
+  expect(ddl).toContain(
+    "primitives.midnight_token_mint_view_midnighttokenmint",
+  );
+  expect(ddl).toContain(
+    "primitives.midnight_token_mint_intermediate_midnighttokenmint",
+  );
+  // No hyphen may survive into an SQL identifier.
+  expect(ddl).not.toContain("midnight_token_mint_view_midnight-tokenmint");
+});
+
 test("MidnightTokenMint - owning a table does not suppress the STM input", () => {
   cleanup();
   const p = new MidnightTokenMintPrimitive({

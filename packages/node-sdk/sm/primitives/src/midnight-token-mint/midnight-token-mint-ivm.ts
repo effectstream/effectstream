@@ -16,10 +16,18 @@ export function midnightTokenMintIvm(
   name: string,
   strategy: MaterializedViewStrategy,
 ) {
+  // The instance name becomes part of an SQL identifier, so strip anything that
+  // isn't identifier-safe. The ERC20/NEP141 IVMs *throw* here instead, which
+  // makes the owned table reject the repo's own naming convention (hyphenated
+  // instance names like "Midnight-TokenMint") — and it throws at sync startup,
+  // taking the whole node down for what is only a naming concern. Names that
+  // were already safe are untouched, so no existing table/view name shifts.
   const lowerName = name.toLowerCase();
   const validSQLName = lowerName.replace(/[^a-zA-Z0-9_]/g, "");
-  if (validSQLName !== lowerName) {
-    throw new Error(`Invalid name: ${name}`);
+  if (validSQLName.length === 0) {
+    throw new Error(
+      `Primitive instance name "${name}" has no SQL-identifier-safe characters`,
+    );
   }
 
   const mintsTable =
