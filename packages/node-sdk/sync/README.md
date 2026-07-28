@@ -108,6 +108,29 @@ was never needed in that run. Steady-state these sit at `0`; during a real deep
 catch-up (or under the perf harness's `PERF_APPLY_DELAY_MS` drain throttle) they climb
 as `buf` pins to `cap`.
 
+## Request timeouts (`requestTimeoutMs`)
+
+`fetch` has no default timeout, so an RPC endpoint that accepts the connection and
+then never answers — a load balancer that dropped its backend, a socket left
+half-open by a NAT rebind — would hang the fetch indefinitely. That is worse than
+an error: the fetch loop never reaches its `catch`, so no error is counted, while
+the merge blocks on that chain's page and block production stops.
+
+**Config.** `requestTimeoutMs` is an optional field on every polling sync-protocol
+config, defaulting to **15 s**. It bounds a single request; retry is the fetch
+loop's job (it re-runs the same page range and counts the failure, which is what
+`/health` reports on).
+
+```ts
+.addParallel((n) => n.myChain, () => ({
+  name: "myChain",
+  type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+  pollingInterval: 1000,
+  requestTimeoutMs: 30_000, // slow archive node
+  // ...
+}))
+```
+
 ## Key exports
 
 - `genSyncProtocols(dbConn, syncInfo)` - Effection generator that instantiates a runtime fetcher + state pair for every protocol in `syncInfo` (from `config.syncProtocols`). Called from the runtime's process-blocks loop.
