@@ -14,6 +14,7 @@ import type {
 import { getPage } from "@effectstream/db";
 import { SolanaClient } from "./SolanaClient.ts";
 import { applyDelay } from "../common/utils.ts";
+import { bufferAtCap } from "../common/page-helpers.ts";
 
 export class SolanaSyncState extends SyncState<
   Input,
@@ -70,6 +71,10 @@ export class SolanaSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    // Pause fetching while the merge drains our buffer (CLAUDE.md finding #1).
+    // Every other protocol gates on this first; skipping it lets the Deque grow
+    // toward the whole backlog during catch-up.
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     // Query the chain tip directly (like NearSyncState) rather than via
     // genInputRange, which requires the fetcher to implement PaginatedFetcher
     // (getLatestPage/nextInterval/...) — SolanaFetcher does not.
@@ -109,6 +114,21 @@ export class SolanaSyncState extends SyncState<
     }];
     rootOutput.blockInfo.push(...blockInfo);
     rootOutput.primitives.push(...primitives);
+  }
+
+  /**
+   * Resume marker for a single slot. `Page` is a flat slot number, so `own` and
+   * `ownBlockNumber` are the same value (cf. EvmSyncState). Declared `abstract`
+   * on SyncState and called unconditionally by the merge for every protocol that
+   * contributes data to a block — see CLAUDE.md design idea #5.
+   */
+  @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    return {
+      own: data.slot as Page,
+      ownBlockNumber: data.slot as Page,
+      root: this.toRootPage(data),
+    };
   }
 
   @bound
