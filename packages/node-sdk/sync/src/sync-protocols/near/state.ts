@@ -10,6 +10,7 @@ import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/c
 import { getPage } from "@effectstream/db";
 import { NearClient } from "./NearClient.ts";
 import { applyDelay } from "../common/utils.ts";
+import { bufferAtCap } from "../common/page-helpers.ts";
 
 export class NearSyncState extends SyncState<
   Input,
@@ -60,6 +61,7 @@ export class NearSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     const latestHeight = yield* call(() =>
       this.client.getLatestBlockHeight()
     );
@@ -96,6 +98,15 @@ export class NearSyncState extends SyncState<
     }];
     rootOutput.blockInfo.push(...blockInfo);
     rootOutput.primitives.push(...primitives);
+  }
+
+  @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    return {
+      own: { height: data.height, hash: data.hash },
+      ownBlockNumber: data.height,
+      root: this.toRootPage(data),
+    };
   }
 
   @bound

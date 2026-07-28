@@ -12,15 +12,23 @@ import { assert, assertSQL } from "../helpers.ts";
  * trust the DB shape.
  */
 export async function intentsTest(db: Client) {
-  await assert("intents/quotes/transfers tables exist", async () => {
-    const res = await db.query<{ table_name: string }>(
-      `SELECT table_name FROM information_schema.tables
-       WHERE table_schema = 'public'
-         AND table_name IN ('intents', 'quotes', 'transfers')`,
-    );
-    const found = new Set(res.rows.map((r) => r.table_name));
-    return found.has("intents") && found.has("quotes") && found.has("transfers");
-  });
+  // The template's schema migration (000-init.sql) applies at block height 1,
+  // so the tables only exist once the sync node has processed the first block.
+  // Poll (via assertSQL's retry) instead of a one-shot check to avoid racing
+  // the migration.
+  await assertSQL<{ table_name: string }>(
+    "intents/quotes/transfers tables exist",
+    db,
+    `SELECT table_name FROM information_schema.tables
+     WHERE table_schema = 'public'
+       AND table_name IN ('intents', 'quotes', 'transfers')`,
+    (rows) => {
+      const found = new Set(rows.map((r) => r.table_name));
+      return found.has("intents") && found.has("quotes") &&
+        found.has("transfers");
+    },
+    () => true,
+  );
 
   const orderId = `test-order-${Date.now()}`;
 

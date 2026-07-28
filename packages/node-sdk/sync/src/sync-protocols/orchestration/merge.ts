@@ -11,11 +11,98 @@ import type Deque from "denque";
 import type { ChainBlock } from "../common/root.ts";
 import { chainPageRelation } from "../common/root.ts";
 import type { CacheCleanup, OutputAndCleanup } from "../base/state.ts";
+import { ENV } from "@effectstream/utils/node-env";
+
+export const mergeCoalescingBoundaries = {
+  minScheduledBlockHeight: null as number | null,
+  minScheduledTimestampMs: null as number | null,
+  migrationBlockHeights: [] as number[],
+};
+
+function isCoalescableEmpty(block: ChainBlock): boolean {
+  if (block.primitives.length > 0) return false;
+
+  const bh = block.blockNumber;
+  if (mergeCoalescingBoundaries.migrationBlockHeights.includes(bh)) {
+    return false;
+  }
+
+  if (
+    mergeCoalescingBoundaries.minScheduledBlockHeight != null &&
+    bh >= mergeCoalescingBoundaries.minScheduledBlockHeight
+  ) {
+    return false;
+  }
+
+  if (
+    mergeCoalescingBoundaries.minScheduledTimestampMs != null &&
+    block.timestamp >= mergeCoalescingBoundaries.minScheduledTimestampMs
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function mergeBlockInfo(
+  target: ChainBlock["blockInfo"],
+  source: ChainBlock["blockInfo"],
+): ChainBlock["blockInfo"] {
+  const map = new Map<string, ChainBlock["blockInfo"][number]>();
+  for (const item of target) {
+    map.set(item.protocol_name, item);
+  }
+  for (const item of source) {
+    map.set(item.protocol_name, item);
+  }
+  return Array.from(map.values());
+}
+
+function mergeResumePages(
+  target: ChainBlock["resumePages"],
+  source: ChainBlock["resumePages"],
+): ChainBlock["resumePages"] {
+  const map = new Map<string, ChainBlock["resumePages"][number]>();
+  for (const item of target) {
+    map.set(item.protocol_name, item);
+  }
+  for (const item of source) {
+    map.set(item.protocol_name, item);
+  }
+  return Array.from(map.values());
+}
 
 export function* startMerge(
   syncProtocols: AllSyncProtocols[],
   finalizedBlockStream: Channel<ChainBlock, void>,
 ): Operation<ChainBlock> {
+  let pendingEmptyRun: {
+    endpoint: ChainBlock;
+    count: number;
+  } | null = null;
+
+  const flushPendingRun = function* (): Operation<void> {
+    if (pendingEmptyRun == null) return;
+    const { endpoint } = pendingEmptyRun;
+    endpoint.coalescedCount = pendingEmptyRun.count;
+
+    log.remote(
+      ComponentNames.EFFECTSTREAM_SYNC,
+      "block-merge",
+      SeverityNumber.INFO,
+      (log) =>
+        log(
+          `producing coalesced empty block run of length ${pendingEmptyRun!.count} ending at block ${endpoint.blockNumber}`,
+        ),
+    );
+
+    yield* finalizedBlockStream.send(endpoint);
+    pendingEmptyRun = null;
+  };
+
+  const enabled = ENV.EFFECTSTREAM_COALESCE_EMPTY_BLOCKS;
+  const MAX_PRODUCER_COALESCE = 1000;
+
   while (true) {
     let newBlock: ChainBlock | undefined = undefined;
 
@@ -44,17 +131,66 @@ export function* startMerge(
       }
     }
     if (newBlock == null) continue;
-    log.remote(
-      ComponentNames.EFFECTSTREAM_SYNC,
-      "block-merge",
-      SeverityNumber.INFO,
-      (log) => log(`producing block ${newBlock?.blockNumber}`),
-    );
 
-    yield* finalizedBlockStream.send(newBlock);
+    if (enabled && isCoalescableEmpty(newBlock)) {
+      if (pendingEmptyRun == null) {
+        pendingEmptyRun = {
+          endpoint: newBlock,
+          count: 1,
+        };
+      } else {
+        pendingEmptyRun.endpoint.blockNumber = newBlock.blockNumber;
+        pendingEmptyRun.endpoint.timestamp = newBlock.timestamp;
+        pendingEmptyRun.endpoint.blockInfo = mergeBlockInfo(
+          pendingEmptyRun.endpoint.blockInfo,
+          newBlock.blockInfo,
+        );
+        pendingEmptyRun.endpoint.resumePages = mergeResumePages(
+          pendingEmptyRun.endpoint.resumePages,
+          newBlock.resumePages,
+        );
+        pendingEmptyRun.count++;
+      }
 
-    for (const fn of cleanup) {
-      fn();
+      // Run cleanups eagerly so the consumed datum leaves the Deque now, instead
+      // of deferring to flush. This (a) keeps the main chain's Deque from growing
+      // by one entry per coalesced block across a long run, and (b) makes the
+      // tip check below meaningful: with the consumed datum removed,
+      // bufferedData.size() === 0 means the buffer is drained and we're at the
+      // tip. Safe because, during an empty run, every cleanup is a no-op — the
+      // main (NTP) datum's cleanup is `() => {}` and parallel chains merge
+      // nothing (cleanups.length === 0). Resume durability is unaffected: the
+      // runtime is the sole writer of the persisted resume marker, which only
+      // lands when the coalesced block commits downstream (CLAUDE.md #5).
+      for (const fn of cleanup) {
+        fn();
+      }
+
+      // At the tip (steady state) the main chain produces one slot per
+      // blockTimeMS, so the Deque drains to empty after each one — flush
+      // immediately so trickle-in blocks aren't held back. While catching up the
+      // Deque stays non-empty and the run keeps accumulating until the cap.
+      const ntpState = syncProtocols[0];
+      const atTip = ntpState.bufferedData.size() === 0;
+      if (pendingEmptyRun.count >= MAX_PRODUCER_COALESCE || atTip) {
+        yield* flushPendingRun();
+      }
+    } else {
+      if (pendingEmptyRun != null) {
+        yield* flushPendingRun();
+      }
+      log.remote(
+        ComponentNames.EFFECTSTREAM_SYNC,
+        "block-merge",
+        SeverityNumber.INFO,
+        (log) => log(`producing block ${newBlock?.blockNumber}`),
+      );
+
+      yield* finalizedBlockStream.send(newBlock);
+
+      for (const fn of cleanup) {
+        fn();
+      }
     }
   }
 }
@@ -124,6 +260,11 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
     }
     const output = iState.bufferedData.peekAt(0)!;
     const newRoot = iState.toRootOutput(output.output);
+    // Resume marker: the single datum this root block is built from (CLAUDE.md #5).
+    newRoot.resumePages.push({
+      protocol_name: state.name,
+      lastPage: iState.outputToLastPage(output.output),
+    });
     return {
       updateCache: () => {
         output.cleanup();
@@ -141,6 +282,11 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
       rootInfo.toPage(rootInfo.value),
     ) <= 0
   ) {
+    // Publish the demand before waiting so the cap exempts this chain while the
+    // merge is gated on its page (see SyncState.mergeWaitingForPage). No lock
+    // needed: the fetch loop re-polls stateToInput every pollingInterval.
+    state.mergeWaitingForPage = true;
+    state.mergeDemandRoot = rootInfo.toPage(rootInfo.value);
     log.remote(
       ComponentNames.EFFECTSTREAM_SYNC,
       state.getNamespace(),
@@ -155,6 +301,8 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
       (log) => log("Merge unblocked (missing parallel data): got data"),
     );
   }
+  state.mergeWaitingForPage = false;
+  state.mergeDemandRoot = undefined;
   const cleanups = getFromBuffer(
     {
       data: iState.bufferedData,
@@ -167,6 +315,17 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
     rootInfo.comparePage,
     iState.mergeDatum,
   );
+
+  // Resume marker: the last (highest) datum merged this iteration, still in the
+  // Deque at `cleanups.length - 1` (cleanup runs after send). Nothing consumed →
+  // no marker. See CLAUDE.md #5.
+  if (cleanups.length > 0) {
+    const lastConsumed = iState.bufferedData.peekAt(cleanups.length - 1)!;
+    rootInfo.value.resumePages.push({
+      protocol_name: state.name,
+      lastPage: iState.outputToLastPage(lastConsumed.output),
+    });
+  }
 
   return {
     updateCache: () => {

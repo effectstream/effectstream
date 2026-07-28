@@ -16,6 +16,12 @@ bun add @effectstream/batcher-sdk
 npm install @effectstream/batcher-sdk
 ```
 
+> **Midnight fee wallets:** if you run the Midnight adapter, see
+> [DUST_SYNC_PATCH.md](./DUST_SYNC_PATCH.md). The dust wallet's sync batching is
+> hard-coded for browser responsiveness in the pinned SDK version; a small,
+> non-transitive patch is required to apply the batcher's backend tuning and
+> reduce its memory footprint. You must re-apply it in your own project.
+
 ## Standalone usage
 
 A minimal end-to-end example using `FileStorage`, the EffectstreamL2 adapter, and the bundled HTTP server.

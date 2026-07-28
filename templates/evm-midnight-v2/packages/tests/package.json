@@ -6,6 +6,7 @@
   "dependencies": {
     "@evm-midnight/contracts-evm": "workspace:*",
     "@evm-midnight/midnight-contract": "workspace:*",
+    "@effectstream/wallets": "0.101.1",
     "pg": "^8.14.0",
     "playwright-core": "^1.52.0",
     "viem": "2.37.3",

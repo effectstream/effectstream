@@ -1,14 +1,14 @@
 /**
  * E2E suite: deterministic sync-service reproductions.
  *
- * Unlike the other suites, this one needs no orchestrator/chains — it runs the
- * in-process reproduction tests (real runtime + PGLite + the synthetic `test`
- * chain) that reproduce the unbounded-buffering and restart-resume issues.
+ * Unlike the other suites, this one needs no orchestrator/chains. Each node runs
+ * in its own subprocess over the synthetic `test` chain (so a restart is a
+ * genuine new OS process whose in-memory Deque is gone while the committed
+ * database survives — the production restart condition).
  *
- * NOTE: these tests assert the FIXED behaviour, so they are expected to FAIL
- * until the backpressure (C) and block-accurate-resume (D) fixes are applied.
- * See packages/node-sdk/sync/CLAUDE.md and
- * packages/node-sdk/runtime/test/reproduction/RESULTS.md.
+ * Runs in the default PGLite mode; the Postgres-only consistency tests skip
+ * unless invoked with `PGLITE=false` (which needs `postgresql` installed).
+ *
  */
 import { join } from "node:path";
 
@@ -20,7 +20,7 @@ const proc = Bun.spawn(
     cwd: repoRoot,
     stdout: "inherit",
     stderr: "inherit",
-    env: { ...process.env },
+    env: { PGLITE: "true", ...process.env },
   },
 );
 

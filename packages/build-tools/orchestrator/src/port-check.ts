@@ -29,7 +29,11 @@ export async function waitForPort(port: number, timeoutMs = 60_000): Promise<boo
  * Uses `lsof -ti tcp:<port>` (macOS / Linux).
  */
 export function pidsByPort(port: number): number[] {
-  const result = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`], {
+  // `-sTCP:LISTEN` restricts to the process LISTENING on the port. Without it,
+  // `lsof -ti tcp:<port>` also returns CLIENTS with an open connection to the
+  // port (e.g. a test harness holding a keepalive fetch to the sync API), which
+  // callers like freePort() would then wrongly SIGTERM.
+  const result = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`, "-sTCP:LISTEN"], {
     stderr: "pipe",
   });
   if (result.exitCode !== 0) return [];
@@ -48,7 +52,12 @@ export function pidsByPort(port: number): number[] {
 export async function freePort(port: number): Promise<void> {
   if (!(await isPortInUse(port))) return;
 
-  const result = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`], {
+  // `-sTCP:LISTEN` so we only kill the listener, never a client connected to
+  // the port (see pidsByPort). During shutdown a template's test process often
+  // holds an open connection to the sync API / chain ports; without this filter
+  // freePort would SIGTERM the test process (and its `bun run test` wrapper),
+  // failing an otherwise-green run with exit 143.
+  const result = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`, "-sTCP:LISTEN"], {
     stderr: "pipe",
   });
 

@@ -32,7 +32,8 @@ export function App() {
           background: "#010409", color: "#e6edf3",
         }}>
           <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
-            <Header walletType={walletType} />
+            {/* On /admin, force the EVM-only wallet UI (Cardano hidden) and relabel the connect button. */}
+            <Header walletType={isAdmin ? "evm" : walletType} admin={isAdmin} />
             <main style={{ flex: 1, overflowY: "auto" }}>
               {isAdmin ? (
                 <AdminPanel apiUrl={API_URL} />

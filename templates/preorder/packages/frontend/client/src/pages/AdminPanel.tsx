@@ -5,6 +5,7 @@ import { adminAddress, createCampaign, setProduct, endCampaign, setCoin, mintNft
 import { WalletConfirmModal } from "../wallet/WalletConfirmModal.tsx";
 import { AddressChip } from "../components/AddressChip.tsx";
 import { useLog } from "../logs/LogContext.tsx";
+import { useWallet } from "../wallet/WalletContext.tsx";
 
 const CAMPAIGN_ID = "test-launchpad-1";
 
@@ -108,10 +109,33 @@ type AppConfig = {
   coins?: AdminCoin[];
 };
 
+// Dry-run result from GET /api/admin/mint-preview/:slug — what mint-nfts WOULD enqueue.
+type MintPreview = {
+  campaign: { slug: string; campaignId: string; status: string };
+  willEnqueue: boolean;
+  totals: {
+    tokens: number; buyers: number; jobs: number;
+    newTokens: number; newJobs: number; alreadyEnqueuedJobs: number;
+  };
+  byChain: { chain: string; tokens: number; buyers: number; newTokens: number }[];
+  byItem: { itemId: number; name: string; tokens: number; buyers: number }[];
+  rows: {
+    chain: string; wallet: string; itemId: number; itemName: string;
+    quantity: number; alreadyEnqueued: boolean; existingStatus: string | null;
+  }[];
+};
+
 export function AdminPanel({ apiUrl }: { apiUrl: string }) {
   const { addLog } = useLog();
+  const w = useWallet();
+  // Admin actions are gated on a connected EVM wallet (the admin signer). The Cardano wallet is
+  // hidden from /admin via the Header's walletType="evm". Without an EVM connection every action
+  // button below is disabled and a notice prompts the user to connect.
+  const evmConnected = w.mode.startsWith("evm") && !!w.evmAddress;
   const [config, setConfig] = useState<AppConfig | null>(null);
   const l2 = (config?.effectStreamL2 ?? null) as Address | null;
+  // A command can only be submitted with the L2 inbox loaded AND an EVM wallet connected.
+  const canAct = !!l2 && evmConnected;
   const [status, setStatus] = useState<AdminStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [tick, setTick] = useState(0);
@@ -119,6 +143,9 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
   // key, so — like a purchase — we surface a Sign Transaction modal before submitting on-chain).
   const [confirmTx, setConfirmTx] = useState<{ summary: string; run: () => Promise<void> } | null>(null);
   const [adminBalance, setAdminBalance] = useState("0");
+  // Dry-run mint preview (GET /api/admin/mint-preview) — populated by "Simulate mint".
+  const [mintPreview, setMintPreview] = useState<MintPreview | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
 
   // Campaign form
   const [campaignId, setCampaignId] = useState(CAMPAIGN_ID);
@@ -256,6 +283,26 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
     }
   };
 
+  // Dry-run: ask the API who/what/how many NFTs mint-nfts would produce — no state change.
+  const loadMintPreview = async () => {
+    setPreviewBusy(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/mint-preview/${CAMPAIGN_ID}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const p = (await res.json()) as MintPreview;
+      setMintPreview(p);
+      addLog(
+        "info",
+        `Mint preview: ${p.totals.newTokens} new token(s) to ${p.totals.buyers} buyer(s)`,
+        `${p.totals.alreadyEnqueuedJobs} already enqueued · total eligible ${p.totals.tokens}`,
+      );
+    } catch (e: any) {
+      addLog("error", "mint-preview failed", e.message);
+    } finally {
+      setPreviewBusy(false);
+    }
+  };
+
   const submitMintNfts = async () => {
     if (!l2) return;
     setBusy(true);
@@ -343,6 +390,21 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
         Acting as admin: {adminAddress()} · L2: {l2 ?? "loading..."}
       </p>
 
+      {/* Admin actions require a connected EVM wallet — use “Connect Admin Wallet” in the header. */}
+      {!evmConnected && (
+        <div data-testid="admin-connect-notice" style={{
+          display: "flex", alignItems: "center", gap: 10, marginBottom: 24, padding: "12px 16px",
+          background: "#2d2410", border: "1px solid #5a4708", borderRadius: 8,
+          color: "#f0c674", fontSize: 13,
+        }}>
+          <span style={{ fontSize: 16 }}>🔒</span>
+          <span>
+            Connect the admin (EVM) wallet to perform actions — click <strong>“Connect Admin Wallet”</strong> in
+            the top-right. All admin actions are disabled until a wallet is connected.
+          </span>
+        </div>
+      )}
+
       {/* Contracts & wallets — informative */}
       <section style={cardStyle}>
         <h2 style={h2Style}>Contracts &amp; wallets</h2>
@@ -381,7 +443,7 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
           <Field label="Description"><input style={inputStyle} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
           <Field label="Referrer reward bps"><input style={inputStyle} type="number" value={referrerRewardBps} onChange={(e) => setReferrerRewardBps(Number(e.target.value))} /></Field>
         </div>
-        <button data-testid="admin-update-campaign" style={btnStyle} disabled={busy || !l2}
+        <button data-testid="admin-update-campaign" style={btnStyle} disabled={busy || !canAct}
           onClick={() => requestConfirm(`update-campaign · ${campaignId}`, submitCampaign)}>
           {busy ? "Submitting…" : "Update campaign"}
         </button>
@@ -511,7 +573,7 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
           <Field label="Supply (blank = unlimited)"><input style={inputStyle} value={pSupply} onChange={(e) => setPSupply(e.target.value)} /></Field>
           <Field label="Image URL (blank = default effect)"><input style={inputStyle} value={pImage} placeholder="https://… (optional)" onChange={(e) => setPImage(e.target.value)} /></Field>
         </div>
-        <button data-testid="admin-set-product" style={btnStyle} disabled={busy || !l2}
+        <button data-testid="admin-set-product" style={btnStyle} disabled={busy || !canAct}
           onClick={() => requestConfirm(`${isEditMode ? "update" : "add"}-product · item ${pId}`, submitProduct)}>
           {busy ? "Submitting…" : isEditMode ? `Update product #${pId}` : "Add product"}
         </button>
@@ -576,7 +638,7 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
           <Field label="Multiplier x"><input style={inputStyle} value={cX} onChange={(e) => setCX(e.target.value)} /></Field>
           <Field label="Exponent n (10^n)"><input style={inputStyle} type="number" value={cN} onChange={(e) => setCN(e.target.value)} /></Field>
         </div>
-        <button data-testid="admin-set-coin" style={btnStyle} disabled={busy || !l2}
+        <button data-testid="admin-set-coin" style={btnStyle} disabled={busy || !canAct}
           onClick={() => requestConfirm(`set-coin · ${cToken} x=${cX} n=${cN}`, submitCoin)}>
           {busy ? "Submitting…" : "Update coin"}
         </button>
@@ -616,20 +678,106 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
         <h2 style={h2Style}>Post-sale NFT minting</h2>
         <p style={{ color: "#8b949e", fontSize: 12, marginBottom: 12 }}>
           After the campaign ends, mint an item NFT to every buyer for each item they own. Jobs are
-          submitted to the batcher, which holds funds and performs the actual mint.
+          submitted to the batcher, which holds funds and performs the actual mint. Run a
+          <strong> Simulate mint </strong> first to preview exactly who/what/how many would be minted —
+          it's a read-only dry-run that enqueues nothing.
         </p>
-        <button
-          data-testid="admin-mint-nfts"
-          style={{ ...btnStyle, background: "#1f6f5f", border: "1px solid #2ea08c" }}
-          disabled={busy || !l2 || status?.campaign.status !== "ended"}
-          onClick={() => requestConfirm(`mint-nfts · ${campaignId}`, submitMintNfts)}
-        >
-          {busy
-            ? "Submitting…"
-            : status?.campaign.status === "ended"
-              ? "Mint item NFTs"
-              : "End campaign first"}
-        </button>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {/* Read-only dry-run — works before the campaign ends so you can preview ahead of time. */}
+          <button
+            data-testid="admin-simulate-mint"
+            style={{ ...btnStyle, background: "#1f3a5f", border: "1px solid #264a78" }}
+            disabled={previewBusy || !canAct}
+            onClick={loadMintPreview}
+          >
+            {previewBusy ? "Simulating…" : "Simulate mint (preview)"}
+          </button>
+          <button
+            data-testid="admin-mint-nfts"
+            style={{ ...btnStyle, background: "#1f6f5f", border: "1px solid #2ea08c" }}
+            disabled={busy || !canAct || status?.campaign.status !== "ended"}
+            onClick={() => requestConfirm(`mint-nfts · ${campaignId}`, submitMintNfts)}
+          >
+            {busy
+              ? "Submitting…"
+              : status?.campaign.status === "ended"
+                ? "Mint item NFTs"
+                : "End campaign first"}
+          </button>
+        </div>
+
+        {mintPreview && (
+          <div data-testid="mint-preview" style={{
+            marginTop: 16, padding: 16, background: "#0b1622",
+            border: "1px solid #1f3a5f", borderRadius: 8,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#58a6ff" }}>
+                Simulation — {mintPreview.totals.newTokens} new token(s) for {mintPreview.totals.buyers} buyer(s)
+              </span>
+              <button onClick={() => setMintPreview(null)} style={{
+                background: "none", border: "none", color: "#6e7681", cursor: "pointer", fontSize: 16, lineHeight: 1,
+              }}>×</button>
+            </div>
+
+            {!mintPreview.willEnqueue && (
+              <div style={{ marginBottom: 12, padding: "8px 12px", background: "#2d2410", border: "1px solid #5a4708", borderRadius: 6, color: "#f0c674", fontSize: 12 }}>
+                Campaign status is <strong>{mintPreview.campaign.status}</strong> — “Mint item NFTs” only runs once
+                the campaign has <strong>ended</strong>. This is a preview of what it would enqueue.
+              </div>
+            )}
+
+            {/* Totals */}
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 14, fontSize: 12, fontFamily: "monospace" }}>
+              <span style={{ color: "#3fb950" }}>new: {mintPreview.totals.newTokens}</span>
+              <span style={{ color: "#8b949e" }}>already enqueued: {mintPreview.totals.alreadyEnqueuedJobs}</span>
+              <span style={{ color: "#c9d1d9" }}>total eligible: {mintPreview.totals.tokens}</span>
+              <span style={{ color: "#c9d1d9" }}>buyers: {mintPreview.totals.buyers}</span>
+            </div>
+
+            {/* Per-chain + per-item summaries */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18, marginBottom: 14 }}>
+              <div>
+                <div style={subHeadStyle}>By chain</div>
+                {mintPreview.byChain.map((c) => (
+                  <KV key={c.chain} label={c.chain}
+                    value={`${c.tokens} token(s) · ${c.buyers} buyer(s) · ${c.newTokens} new`} mono />
+                ))}
+                {mintPreview.byChain.length === 0 && <span style={{ color: "#8b949e", fontSize: 12 }}>nothing eligible</span>}
+              </div>
+              <div>
+                <div style={subHeadStyle}>By item</div>
+                {mintPreview.byItem.map((it) => (
+                  <KV key={it.itemId} label={`#${it.itemId} ${it.name}`}
+                    value={`${it.tokens} token(s) · ${it.buyers} buyer(s)`} mono />
+                ))}
+                {mintPreview.byItem.length === 0 && <span style={{ color: "#8b949e", fontSize: 12 }}>nothing eligible</span>}
+              </div>
+            </div>
+
+            {/* Per-buyer detail */}
+            {mintPreview.rows.length > 0 && (
+              <table data-testid="mint-preview-rows" style={tableStyle}>
+                <thead>
+                  <tr>{["chain", "wallet", "item", "qty", "state"].map((h) => (<th key={h} style={thStyle}>{h}</th>))}</tr>
+                </thead>
+                <tbody>
+                  {mintPreview.rows.slice(0, 50).map((r, i) => (
+                    <tr key={`${r.chain}-${r.wallet}-${r.itemId}-${i}`}>
+                      <td style={tdStyle}>{r.chain}</td>
+                      <td style={tdStyle}><AddressChip value={r.wallet} /></td>
+                      <td style={tdStyle}>#{r.itemId} {r.itemName}</td>
+                      <td style={tdStyle}>{r.quantity}</td>
+                      <td style={{ ...tdStyle, color: r.alreadyEnqueued ? "#8b949e" : "#3fb950", fontWeight: 600 }}>
+                        {r.alreadyEnqueued ? `already (${r.existingStatus})` : "new"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
         {status?.nftMintSummary && Object.keys(status.nftMintSummary).length > 0 && (
           <div data-testid="nft-mint-summary" style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 12, fontFamily: "monospace" }}>
             {Object.entries(status.nftMintSummary).map(([s, n]) => (
@@ -663,7 +811,7 @@ export function AdminPanel({ apiUrl }: { apiUrl: string }) {
       {/* End campaign */}
       <section style={cardStyle}>
         <h2 style={h2Style}>End campaign</h2>
-        <button data-testid="admin-end-campaign" style={{ ...btnStyle, background: "#5f1f2a", border: "1px solid #78263a" }} disabled={busy || !l2}
+        <button data-testid="admin-end-campaign" style={{ ...btnStyle, background: "#5f1f2a", border: "1px solid #78263a" }} disabled={busy || !canAct}
           onClick={() => requestConfirm(`end-campaign · ${campaignId}`, submitEnd)}>
           {busy ? "Submitting…" : `End ${campaignId}`}
         </button>

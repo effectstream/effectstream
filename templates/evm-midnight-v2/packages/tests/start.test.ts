@@ -10,8 +10,20 @@ export default {
   processes: [
     ...launchPglite(),
     ...launchEvm("@evm-midnight/contracts-evm", { cwd: path.join(root, "packages/contracts-evm") }),
+    // Recompile the Compact contract before deploy: the committed src/managed/
+    // output is stripped from the CI Docker context by `.dockerignore`'s
+    // `**/src/managed`, so midnight-contract:deploy (which imports
+    // ./managed/contract/index.js) needs it regenerated first. Mirrors zswap-da.
+    {
+      name: "compact-build",
+      description: "Compile Compact contract (counter)",
+      cwd: path.join(root, "packages/contracts-midnight/contract-round-value"),
+      args: ["run", "compact"],
+      waitToExit: true,
+    },
     ...launchMidnight("@evm-midnight/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
       env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
+      dependsOn: ["compact-build"],
     }),
 
     {

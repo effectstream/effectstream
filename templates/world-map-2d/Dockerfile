@@ -1,67 +1,74 @@
-# For macos build & run:
-# DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build -t world-map-2d-sample -f Dockerfile .
-# DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run world-map-2d-sample
+# Effectstream template image (EVM / Hardhat).
+# Build:  docker build -f Dockerfile . -t world-map-2d
+# Run:    docker run -p 9999:9999 -p 10599:10599 world-map-2d
+# Tests:  docker run world-map-2d bun run test
+FROM oven/bun:1
 
-# Use Ubuntu as base image
-FROM oven/bun:1-ubuntu
-
-# # Update package list and install required dependencies
 RUN apt-get update && apt-get install -y \
-    curl \
-    # We have some scripts that use lsof
-    lsof \
-    # iproute2 is required for ss command - for fkill.
-    iproute2 \
-    unzip \
+    curl lsof iproute2 unzip procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js
-# node-gyp is required for the postinstall script to run.
-# Initialize core-js running 'postinstall' script requires node, or fails.
+# Node.js (postinstall scripts + Hardhat)
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# # Verify Bun installation
-RUN bun --version
+RUN bun --version && node --version && npm --version
 
-# # Verify Node.js installation
-RUN node --version && npm --version
-
-# Install Foundry
-RUN curl -L https://github.com/foundry-rs/foundry/releases/download/v1.3.0-rc1/foundry_v1.3.0-rc1_alpine_amd64.tar.gz -o foundry.tar.gz \
+# Foundry (arch-aware) for EVM contracts
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then FOUNDRY_ARCH="arm64"; else FOUNDRY_ARCH="amd64"; fi && \
+    curl -L "https://github.com/foundry-rs/foundry/releases/download/v1.3.0-rc1/foundry_v1.3.0-rc1_alpine_${FOUNDRY_ARCH}.tar.gz" -o foundry.tar.gz \
     && tar -xzf foundry.tar.gz \
     && mv anvil cast chisel forge /usr/local/bin/ \
     && rm -rf foundry.tar.gz
-
-# Verify Foundry installation
 RUN forge --version && cast --version && anvil --version
 
-# # Create working directory
+# Pre-download solc 0.8.30 (Bun's broken webstreams polyfill blocks runtime download)
+RUN mkdir -p /root/.cache/hardhat-nodejs/compilers-v3/wasm && \
+    curl -fsSL "https://binaries.soliditylang.org/wasm/list.json" \
+      -o /root/.cache/hardhat-nodejs/compilers-v3/wasm/list.json && \
+    curl -fsSL "https://binaries.soliditylang.org/wasm/soljson-v0.8.30+commit.73712a01.js" \
+      -o /root/.cache/hardhat-nodejs/compilers-v3/wasm/soljson-v0.8.30+commit.73712a01.js && \
+    if [ "$(uname -m)" != "aarch64" ]; then \
+      mkdir -p /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64 && \
+      curl -fsSL "https://binaries.soliditylang.org/linux-amd64/list.json" \
+        -o /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64/list.json && \
+      curl -fsSL "https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01" \
+        -o /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01 && \
+      chmod +x /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01; \
+    fi
+
 WORKDIR /app
-
-# # Copy the patch script
-COPY ./patch.sh /app/patch.sh
-RUN chmod +x /app/patch.sh
-
-# Clone the repository
 COPY . .
 
 RUN bun install
-RUN /app/patch.sh
-RUN bun run --filter @world-map-2d/evm-contracts build:mod
+# Bun on Linux doesn't create workspace symlinks — create them manually
+RUN bun -e " \
+  const fs = require('fs'); const path = require('path'); \
+  const pkg = JSON.parse(fs.readFileSync('package.json','utf8')); \
+  for (const pattern of pkg.workspaces || []) { \
+    const glob = new Bun.Glob(pattern); \
+    for (const dir of glob.scanSync({onlyFiles:false})) { \
+      const p = path.join(dir,'package.json'); \
+      if (!fs.existsSync(p)) continue; \
+      const wp = JSON.parse(fs.readFileSync(p,'utf8')); \
+      if (!wp.name) continue; \
+      const [scope,name] = wp.name.startsWith('@') ? wp.name.split('/') : [null,wp.name]; \
+      const target = path.resolve(dir); \
+      const linkDir = scope ? path.join('node_modules',scope) : 'node_modules'; \
+      fs.mkdirSync(linkDir,{recursive:true}); \
+      const link = path.join(linkDir,name); \
+      if (!fs.existsSync(link)) { fs.symlinkSync(target,link); console.log(link+' -> '+target); } \
+    } \
+  }"
 
-RUN cd packages/frontend && npm install && node esbuild.js
+RUN bun run build:evm
 
-COPY .docker-scripts/launch.sh /app/launch.sh
-RUN chmod +x /app/launch.sh
-
-# Frontend / Explorer / Hardhat 1&2 / API / Batcher
-EXPOSE 8080
 EXPOSE 8545
+EXPOSE 8546
 EXPOSE 9999
-EXPOSE 3334
+EXPOSE 10599
 
-ENV RUN_IN_DOCKER=true
-ENV EFFECTSTREAM_STDOUT=true
-CMD ["/app/launch.sh"]
+ENV NODE_ENV=development
+CMD ["bunx", "orchestrator", "start", "--config", "start.dev.ts"]

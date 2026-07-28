@@ -1,4 +1,5 @@
 import { applyDelay } from "../common/utils.ts";
+import { bufferAtCap } from "../common/page-helpers.ts";
 import type { Operation } from "effection";
 import { call } from "effection";
 import { getPage } from "@effectstream/db";
@@ -71,6 +72,7 @@ export class UtxoRpcSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     // Get the value of the latest block height.
     const tipHeight = yield* call(() => this.fetcher.lastHeight());
     if (!tipHeight) {
@@ -155,6 +157,22 @@ export class UtxoRpcSyncState extends SyncState<
     }));
     rootOutput.primitives.push(...primitives);
     rootOutput.blockInfo.push(...blockInfo);
+  }
+
+  @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    // Mirror the fetcher's `own`: slot/height from the block header, and the
+    // block hash from `blockHashes` (the fetcher builds it as `[completed.hash]`,
+    // the same value it stored in `own.hash`).
+    return {
+      own: {
+        slot: Number(data.raw.header!.slot),
+        height: Number(data.raw.header!.height),
+        hash: data.blockHashes[0],
+      },
+      ownBlockNumber: Number(data.raw.header!.height),
+      root: this.toRootPage(data),
+    };
   }
 
   @bound

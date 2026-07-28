@@ -7,7 +7,7 @@ import { bound, type NtpBlockNumber } from "@effectstream/utils";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { NtpFetcher } from "./fetcher.ts";
-import { genInputRange } from "../common/page-helpers.ts";
+import { bufferAtCap, genInputRange } from "../common/page-helpers.ts";
 import type { Input, Output, Page } from "./types.ts";
 import { toMsTimestamp } from "./types.ts";
 import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/config";
@@ -48,6 +48,7 @@ export class NtpSyncState extends SyncState<
       })),
       blockNumber: Number(data.raw.blockNumber),
       timestamp: this.toRootPage(data),
+      resumePages: [],
       primitives: [],
     };
   }
@@ -59,6 +60,7 @@ export class NtpSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     return yield* genInputRange(
       this as NtpSyncState,
       1, // NTP Pages start from 1, and the fetcher offsets using the start page (date)
@@ -84,6 +86,16 @@ export class NtpSyncState extends SyncState<
     rootOutput: RootOutput,
   ): void {
     throw new Error("Only parallel chains merge into root");
+  }
+
+  @bound
+  override outputToLastPage(data: Output): LastPage<Page, RootPage> {
+    const block = Number(data.raw.blockNumber);
+    return {
+      own: block,
+      ownBlockNumber: block,
+      root: this.toRootPage(data),
+    };
   }
 
   @bound

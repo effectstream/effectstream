@@ -43,35 +43,31 @@ So the security guarantee players expect is preserved - nobody moves their asset
 The delegation lifecycle lives in [`@effectstream/wallets`](https://www.npmjs.com/package/@effectstream/wallets): key generation, certificate signing, session management, and silent signing of non-financial inputs. The flow is four steps:
 
 ```typescript
-import { WalletMode, walletLogin, allInjectedWallets } from "@effectstream/wallets";
+import { WalletMode, walletLogin, signMessage } from "@effectstream/wallets";
 
-// 1. Create the device-local session key-pair, generated in the browser
-//    and held in encrypted local storage. preferBatchedMode turns on
-//    delegated (silent) signing.
-const session = await walletLogin({
-  mode: WalletMode.EvmEthers,
-  preferBatchedMode: true,
-  connection: {
-    metadata: { name: "session", displayName: "Session Wallet" },
-    api: await getLocalSignerFromStorage(),
-  },
+// 1. Create the device-local key-pair, generated in the browser. With no
+//    `seedPhrase` a fresh BIP-39 seed is generated client-side; the app can
+//    persist it to encrypted local storage.
+const device = await walletLogin({
+  mode: WalletMode.CardanoLocal,
+  network: "Preview", // "Mainnet" | "Preprod" | "Preview" | "Custom"
 });
 
 // 2. The player connects their real Cardano wallet (Lace, Eternl, Nami,
 //    NuFi...). This is the only step that shows a pop-up.
-const injected = await allInjectedWallets({ signatureSupport: false, transactionSupport: false });
-const cardanoWallet = injected[WalletMode.Cardano][0];
-const realWallet = await walletLogin({
+const real = await walletLogin({
   mode: WalletMode.Cardano,
-  preference: { name: cardanoWallet.metadata.name },
+  preference: { name: "lace" },
 });
 
-// 3. One-time delegation: the Cardano wallet signs a certificate
-//    authorising the device key to submit non-financial inputs.
-await effectStreamService.connectWallets(session.result, realWallet.result);
+// 3. One-time delegation: link the device address to the player's account so
+//    the backend accepts the device key for non-financial inputs. The real
+//    wallet and the device key both sign the `&linkAddress` built-in - see
+//    `accountPayload.linkAddress` in @effectstream/concise.
 
-// 4. Every later action is signed by the device key - no more pop-ups.
-await sendGameMove({ move: "x10y20" });
+// 4. Every later action is signed by the device key - no pop-up - then sent
+//    to the batcher.
+const signature = await signMessage(device.result, "move|x10y20");
 ```
 
 The signing model is uniform across chains: swap `WalletMode.Cardano` for `WalletMode.Midnight`, `WalletMode.EvmInjected`, or any other supported mode and the rest of the flow is identical. Full reference is in the [wallets documentation](/docs/home/components/wallets).

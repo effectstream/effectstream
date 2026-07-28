@@ -79,5 +79,12 @@ export type StartConfig = {
      * state such as `bufferedData.size()`. No effect in production.
      */
     onStarted?: (ctx: { syncProtocols: AllSyncProtocols[] }) => void;
+    /**
+     * Test/diagnostic only: sleep this many ms after each applied block, slowing
+     * the drain so the per-chain fetch buffers fill to their cap and the
+     * backpressure fix becomes observable (otherwise drain ≈ fetch and the buffer
+     * never grows). No effect in production (leave unset / 0).
+     */
+    applyDelayMs?: number;
   };
 };

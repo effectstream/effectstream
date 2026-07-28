@@ -5,6 +5,47 @@ import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { PaginatedSyncProtocols } from "../types.ts";
 import type { PageTypeOf } from "../base/state.ts";
 
+// Fetch backpressure. See README "Backpressure (`maxBufferedPages`)".
+const MAX_BUFFER_MULTIPLE = 4;
+// Fallback chunk size for chains that fetch without an explicit stepSize
+// (e.g. utxorpc streams one block per pass).
+const DEFAULT_STEP_SIZE = 1000;
+
+/** Resolved fetch-backpressure cap for a chain. See README "Backpressure". */
+export function bufferCapFor(
+  syncProtocol: { maxBufferedPages?: number; stepSize?: number },
+): number {
+  const step = syncProtocol.stepSize ?? DEFAULT_STEP_SIZE;
+  return Math.max(
+    syncProtocol.maxBufferedPages ?? MAX_BUFFER_MULTIPLE * step,
+    step + 1,
+  );
+}
+
+/**
+ * Whether a chain should pause fetching because its in-memory buffer is at/over
+ * the cap. Each chain's `stateToInput` calls this first and returns `undefined`
+ * when true, so the fetch loop sleeps + retries while the merge drains. Also
+ * records backpressure metrics on `state` (for `/debug/metrics`).
+ * See README "Backpressure (`maxBufferedPages`)".
+ */
+export function bufferAtCap(
+  state: {
+    bufferedData: { size(): number };
+    recordBackpressure(atCap: boolean, cap: number): void;
+    mergeWaitingForPage: boolean;
+  },
+  syncProtocol: { maxBufferedPages?: number; stepSize?: number },
+): boolean {
+  const cap = bufferCapFor(syncProtocol);
+  // Exempt this chain from the cap while the merge is blocked on its page (pausing
+  // there would deadlock — see SyncState.mergeWaitingForPage). Reporting
+  // atCap=false while exempt is correct: the chain is genuinely not paused.
+  const atCap = !state.mergeWaitingForPage && state.bufferedData.size() >= cap;
+  state.recordBackpressure(atCap, cap);
+  return atCap;
+}
+
 type ConfigSubset<Page> = {
   name: string;
   /**

@@ -2,8 +2,55 @@ const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const yaml = require("js-yaml");
+const axios = require("axios");
 
 const BINARY_NAME = "indexer-standalone";
+
+/**
+ * Waits until the Midnight node has produced at least `minBlock`.
+ *
+ * The v4.3.3 indexer bundles an spo-indexer that, on a fresh DB, reads block #1
+ * to anchor the first epoch and exits(1) — killing the whole indexer — if that
+ * block does not exist yet. Gating startup on block #1 avoids that startup race.
+ * 
+ * @param {Object} env - Environment variables (used to resolve the node URL)
+ * @param {Object} [opts]
+ * @param {number} [opts.minBlock=1] - Block number that must exist
+ * @param {number} [opts.timeoutMs=120000] - Give up (and proceed) after this
+ * @param {number} [opts.intervalMs=1000] - Poll interval
+ * @returns {Promise<void>}
+ */
+async function waitForNodeBlock(env, opts = {}) {
+  const { minBlock = 1, timeoutMs = 120000, intervalMs = 1000 } = opts;
+  const wsUrl = env.SUBSTRATE_NODE_WS_URL ||
+    env.APP__INFRA__NODE__URL ||
+    "ws://localhost:9944";
+  const httpUrl = wsUrl.replace(/^ws:/, "http:").replace(/^wss:/, "https:");
+
+  const deadline = Date.now() + timeoutMs;
+  console.log(
+    `Waiting for node to produce block #${minBlock} at ${httpUrl} (spo-indexer startup guard)...`,
+  );
+  while (Date.now() < deadline) {
+    try {
+      const { data } = await axios.post(
+        httpUrl,
+        { jsonrpc: "2.0", id: 1, method: "chain_getBlockHash", params: [minBlock] },
+        { headers: { "Content-Type": "application/json" }, timeout: 5000 },
+      );
+      if (data && data.result) {
+        console.log(`Node has block #${minBlock} (${data.result}); starting indexer.`);
+        return;
+      }
+    } catch {
+      // node not reachable yet; keep polling
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  console.warn(
+    `Timed out waiting for node block #${minBlock} after ${timeoutMs}ms; starting indexer anyway.`,
+  );
+}
 
 /**
  * Resolves the configuration file path
@@ -251,4 +298,4 @@ function runMidnightIndexer(env = process.env, args = []) {
   return childProcess;
 }
 
-module.exports = { runMidnightIndexer };
+module.exports = { runMidnightIndexer, waitForNodeBlock };
