@@ -20,7 +20,8 @@ import {
   BuiltinEvents,
   EventManager,
 } from "@effectstream/event-client";
-import { startMerge, startSync } from "@effectstream/sync";
+import { setReorgHandler, startMerge, startSync } from "@effectstream/sync";
+import { writeReorgReport } from "./reorg-report.ts";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import {
   type Operation,
@@ -81,6 +82,12 @@ export function* start(config: StartConfig): Operation<void> {
     SeverityNumber.INFO,
     (log) => log("start sync", syncProtocols.map(p => p.name)),
   );
+
+  // Sync detects reorgs but cannot report on them: assessing impact needs the
+  // runtime's database queries. Register the handler before any fetch loop
+  // starts so a reorg found on the first pass is still reported.
+  setReorgHandler(writeReorgReport);
+
   for (const syncProtocol of syncProtocols) {
     yield* startSync(syncProtocol);
   }

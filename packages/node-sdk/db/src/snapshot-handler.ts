@@ -5,7 +5,9 @@ import {
   readDir,
   remove,
   statMtime,
+  writeTextFile,
 } from "@effectstream/utils/fs";
+import { getConnection } from "./pg-connection.ts";
 import { spawnOutput } from "@effectstream/utils/runtime-spawn";
 import { sleep, until, type Operation } from "effection";
 
@@ -111,8 +113,56 @@ export async function createSnapshot(
     throw new Error(`[Snapshot] pg_dump failed with exit code ${result.code}`);
   }
 
+  await writeSnapshotManifest(snapshotPath);
+
   console.log(`[Snapshot] Snapshot created: ${snapshotPath}`);
   await applyRetentionPolicy(snapshotDir, resolved.retention);
+}
+
+/**
+ * Sidecar recording which block height a dump corresponds to.
+ *
+ * Without it a snapshot is only identifiable by wall-clock time, so the
+ * question a reorg forces — "which dump predates effectstream block N?" — has
+ * no answer. The reorg incident report (`runtime/src/reorg-report.ts`)
+ * instructs operators to select a snapshot by this field.
+ *
+ * Best-effort: a snapshot without a manifest is still a valid snapshot, so a
+ * failure here must not fail the dump that already succeeded.
+ */
+async function writeSnapshotManifest(snapshotPath: string): Promise<void> {
+  try {
+    const pool = getConnection();
+    const { rows } = await pool.query(
+      `SELECT MAX(block_height)::int AS block_height
+         FROM effectstream.effectstream_blocks`,
+    );
+    const blockHeight: number | null = rows[0]?.block_height ?? null;
+
+    const { rows: watermarks } = await pool.query(
+      `SELECT protocol_name, MAX(block_number)::int AS block_number
+         FROM effectstream.sync_protocol_block_hash
+        GROUP BY protocol_name
+        ORDER BY protocol_name`,
+    );
+
+    const manifest = {
+      snapshot: snapshotPath.split("/").pop(),
+      createdAt: new Date().toISOString(),
+      blockHeight,
+      protocolWatermarks: watermarks.map((row: {
+        protocol_name: string;
+        block_number: number;
+      }) => ({
+        protocolName: row.protocol_name,
+        blockNumber: row.block_number,
+      })),
+    };
+
+    await writeTextFile(`${snapshotPath}.json`, JSON.stringify(manifest, null, 2));
+  } catch (e) {
+    console.warn(`[Snapshot] Could not write manifest for ${snapshotPath}:`, e);
+  }
 }
 
 /**

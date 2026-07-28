@@ -64,6 +64,23 @@ export type ProtocolHealth = {
   buffered: number;
   bufferCap: number;
   paused: boolean;
+  /**
+   * Whether this chain is monitored for reorgs at all. Reported so an
+   * unmonitored chain is visibly unmonitored rather than assumed safe — only
+   * fetchers implementing `getBlockHashAt` can be checked.
+   */
+  reorgDetectionSupported: boolean;
+  /**
+   * Set once a reorg has been seen, and never cleared: the node does not repair
+   * itself, so this stays until an operator acts. `reportPath` points at the
+   * incident report written for them.
+   */
+  reorgDetected: {
+    forkBlock: number;
+    depth: number;
+    detectedAtMs: number;
+    reportPath: string | null;
+  } | null;
 };
 
 export type HealthReport = {
@@ -168,6 +185,15 @@ function protocolHealth(
     buffered: protocol.bufferedData.size(),
     bufferCap: protocol.bufferCap,
     paused: protocol.pausedNow,
+    reorgDetectionSupported: protocol.reorgDetectionSupported,
+    reorgDetected: protocol.reorgDetected
+      ? {
+        forkBlock: protocol.reorgDetected.forkBlock,
+        depth: protocol.reorgDetected.depth,
+        detectedAtMs: protocol.reorgDetected.detectedAtMs,
+        reportPath: protocol.reorgDetected.reportPath ?? null,
+      }
+      : null,
   };
 }
 
@@ -204,9 +230,15 @@ export function buildHealthReport(
     status = "starting";
   } else if (sinceLastAppliedMs > stallThresholdMs) {
     status = "stalled";
-  } else if (protocols.some((p) => p.status !== "ok" && p.status !== "starting")) {
+  } else if (
+    protocols.some((p) =>
+      (p.status !== "ok" && p.status !== "starting") || p.reorgDetected != null
+    )
+  ) {
     // Something is unhealthy but blocks are still flowing: worth alerting on,
-    // not worth restarting the node over.
+    // not worth restarting the node over. A detected reorg lands here too —
+    // the node is functioning, but its state needs a human decision, and it
+    // must never read back as plain `ok` afterwards.
     status = "degraded";
   } else {
     status = "ok";
