@@ -9,6 +9,7 @@
         "@effectstream/mip-zswap-offer": "0.2.0",
         "@effectstream/wallets": "0.101.1",
         "@midnight-ntwrk/compact-js": "2.5.0",
+        "@midnight-ntwrk/compact-runtime": "0.15.0",
         "@midnight-ntwrk/dapp-connector-api": "4.0.1",
         "@midnight-ntwrk/ledger-v8": "8.0.3",
         "@midnight-ntwrk/midnight-js-contracts": "4.0.2",
@@ -23,7 +24,6 @@
         "@noble/curves": "^1.9.7",
         "@noble/hashes": "^1.8.0",
         "@scure/base": "^2.0.0",
-        "@zswap-da/contract-offer-files": "file:../../../zswap-offerfile-kernel/packages/contracts-midnight/contract-offer-files",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "three": "^0.183.2",
@@ -551,8 +551,6 @@
     "@wry/equality": ["@wry/equality@0.5.7", "", { "dependencies": { "tslib": "^2.3.0" } }, "sha512-BRFORjsTuQv5gxcXsuDXx6oGRhuVsEGwZy6LOzRRfgu+eSfxbhUQ9L9YtSEIuIjY/o7g3iWFjrc5eSY1GXP2Dw=="],
 
     "@wry/trie": ["@wry/trie@0.5.0", "", { "dependencies": { "tslib": "^2.3.0" } }, "sha512-FNoYzHawTMk/6KMQoEG5O4PuioX19UbwdQKF44yw0nLfOypfQdjtfZzo/UIJWAJ23sNIFbD1Ug9lbaDGMwbqQA=="],
-
-    "@zswap-da/contract-offer-files": ["@zswap-da/contract-offer-files@file:../../../zswap-offerfile-kernel/packages/contracts-midnight/contract-offer-files", { "dependencies": { "@midnight-ntwrk/compact-js": "2.5.0", "@midnight-ntwrk/compact-runtime": "0.15.0" } }],
 
     "abitype": ["abitype@1.1.0", "", { "peerDependencies": { "typescript": ">=5.0.4", "zod": "^3.22.0 || ^4.0.0" }, "optionalPeers": ["typescript", "zod"] }, "sha512-6Vh4HcRxNMLA0puzPjM5GBgT4aAcFGKZzSgAXvuZ27shJP6NEpielTuqbBmZILR5/xd0PizkBGy5hReKz9jl5A=="],
 

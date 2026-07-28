@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "build:contract": "bun run scripts/build-contract.ts",
+    "verify:contract": "bun run scripts/build-contract.ts --verify-only",
+    "predev": "bun run build:contract",
     "dev": "vite --port 10600 --host",
+    "prebuild": "bun run build:contract",
     "build": "tsc -b && vite build",
     "preview": "vite preview --port 10600 --host",
     "serve": "vite preview --port 10600 --host"
@@ -14,6 +18,7 @@
     "@effectstream/mip-zswap-offer": "0.2.0",
     "@effectstream/wallets": "0.101.1",
     "@midnight-ntwrk/compact-js": "2.5.0",
+    "@midnight-ntwrk/compact-runtime": "0.15.0",
     "@midnight-ntwrk/dapp-connector-api": "4.0.1",
     "@midnight-ntwrk/ledger-v8": "8.0.3",
     "@midnight-ntwrk/midnight-js-contracts": "4.0.2",
@@ -28,7 +33,6 @@
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.8.0",
     "@scure/base": "^2.0.0",
-    "@zswap-da/contract-offer-files": "file:../../../zswap-offerfile-kernel/packages/contracts-midnight/contract-offer-files",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.183.2"

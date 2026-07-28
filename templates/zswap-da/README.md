@@ -8,38 +8,32 @@ its own repo: **https://github.com/effectstream/zswap-offerfiles-kernel**.
 
 ## Running alongside the backend
 
-1. **Clone the backend as a sibling of this monorepo.** This app resolves
-   `@zswap-da/contract-offer-files` (the compiled Compact contract module) via a
-   relative `file:` dependency, so the checkout directory **must** be named
-   `zswap-offerfile-kernel` (singular — the GitHub repo is `zswap-offerfiles-kernel`,
-   so clone it into the matching directory name):
+This app builds standalone — it compiles its own Compact contract from
+`src/contract/offer-files.compact` (see the README there), so it needs the
+[Compact toolchain](https://docs.midnight.network/develop/tutorial/building/)
+on your PATH. A running backend is required at *runtime*: it serves the
+Midnight config, the ZK assets, and the batcher.
+
+1. **Clone and start the backend** (anywhere — no particular directory name or
+   location is required). It serves the API on :9999 and the batcher on :3334:
 
    ```bash
-   git clone git@github.com:effectstream/zswap-offerfiles-kernel.git zswap-offerfile-kernel
-   ```
-
-   ```
-   Code/
-   ├── effectstream/            # this monorepo
-   └── zswap-offerfile-kernel/  # backend — github.com/effectstream/zswap-offerfiles-kernel
-   ```
-
-2. **Start the backend first** (it compiles the Compact contract, which this
-   app imports, and serves the API on :9999 and the batcher on :3334):
-
-   ```bash
-   cd zswap-offerfile-kernel
+   git clone git@github.com:effectstream/zswap-offerfiles-kernel.git
+   cd zswap-offerfiles-kernel
    bun install
    bun run dev
    ```
 
-3. **Start the frontend:**
+2. **Start the frontend:**
 
    ```bash
    cd effectstream/templates/zswap-da
    bun install
    bun run dev   # vite on http://localhost:10600
    ```
+
+   Point it elsewhere with `VITE_API_BASE` / `VITE_BATCHER_URL` if the backend
+   isn't on the same host.
 
 ## How it connects
 
@@ -53,10 +47,11 @@ its own repo: **https://github.com/effectstream/zswap-offerfiles-kernel**.
   (`GET /keys/*`, `GET /zkir/*`), which serves the contract circuit keys and
   the zswap/dust primitive keys straight from disk. Nothing is staged into
   `public/` anymore.
-- **Contract JS module** — `@zswap-da/contract-offer-files` is a build-time
-  import; its compiled output (`src/managed/`) is generated when the backend
-  dev stack runs `compact compile` on startup. If the import fails to resolve,
-  start the backend once first.
+- **Contract JS module** — compiled locally from
+  `src/contract/offer-files.compact` into gitignored `src/contract/managed/`,
+  and checked against a sha256 manifest so a wrong compiler version or an
+  edited source can't silently produce bindings that mismatch the deployed
+  contract. See `src/contract/README.md`.
 - **Offer encoding** — MIP-0005 / MIP-0006 codecs come from
   `@effectstream/mip-zswap-offer` (HRP `swapoffer`).
 

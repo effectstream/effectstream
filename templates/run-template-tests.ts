@@ -40,7 +40,6 @@ export const ENABLED = [
   "projected-nft-preorder",
   "shinkai-v2",
   "zk-cardano",
-  "zswap-da",
   "batcher-validations",
   "night-bitcoin-v2",
   "hex-battle",
@@ -51,6 +50,13 @@ export const ENABLED = [
   // "minimal",         // TODO: migrate to effectstream-bun
   // "multi-chain-token-transfer", // TODO: migrate to effectstream-bun
   // "rock-paper-scissors", // TODO: migrate to effectstream-bun
+  // "zswap-da",         // frontend-only since 3fae2d91 extracted the backend to
+  //                     // github.com/effectstream/zswap-offerfiles-kernel. Can't be
+  //                     // tested in isolation: it needs that backend live on :9999
+  //                     // (Midnight config, ZK assets, batcher), and its
+  //                     // @zswap-da/contract-offer-files dep is a `file:` path into a
+  //                     // sibling checkout that doesn't exist in CI. Also has no
+  //                     // `test` script and no link.sh.
   "world-map-2d",
 ];
 
