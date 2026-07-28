@@ -69,6 +69,18 @@ export abstract class SyncState<
   public lastPage: undefined | LastPage<Page, RootPage>;
   /** Timestamp of the last successful fetch (readData completed without error). */
   public lastSuccessfulFetchMs: number = 0;
+  /**
+   * Wall-clock time of the last completed pass through the fetch loop, whatever
+   * its outcome (fetched, caught up, or errored).
+   *
+   * This — not `lastSuccessfulFetchMs` — is the hang detector. A chain that is
+   * caught up never calls `readData`, so its last-successful-fetch time is
+   * indistinguishable from that of a chain wedged inside a request that will
+   * never return. The loop still cycles in the first case and does not in the
+   * second, so a heartbeat that is stale by many polling intervals means the
+   * loop is stuck in `stateToInput`/`readData`.
+   */
+  public lastPollAtMs: number = 0;
   /** Number of consecutive errors since the last successful fetch. */
   public consecutiveErrors: number = 0;
   /** Timestamp of the most recent error, or 0 if no error has occurred. */

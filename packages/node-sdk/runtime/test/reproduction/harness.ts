@@ -458,8 +458,14 @@ function makeRunNode(
       }
     })();
 
+    // Readiness here means "the HTTP server is listening", not "the node is
+    // healthy": /health answers 503 while the node is still `starting` (no
+    // block applied yet) or `stalled`, and several tests deliberately boot a
+    // node into exactly those states.
     const up = await pollUntil(
-      () => fetch(`http://127.0.0.1:${opts.apiPort}/health`).then((r) => r.ok),
+      () =>
+        fetch(`http://127.0.0.1:${opts.apiPort}/health`)
+          .then((r) => r.status === 200 || r.status === 503),
       10_000,
     );
     if (!up) {

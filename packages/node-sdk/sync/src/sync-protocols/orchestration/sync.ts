@@ -84,6 +84,11 @@ export function* startSync(
   // spawn polling task
   yield* spawn(function* () {
     while (true) {
+      // Liveness heartbeat: stamped every pass regardless of outcome, so a
+      // stale value means the loop is wedged inside a call that never returns
+      // rather than merely idle. See SyncState.lastPollAtMs.
+      state.lastPollAtMs = Date.now();
+
       const inputResult = yield* tryYield(iState.stateToInput());
       if (inputResult.error != null) {
         state.consecutiveErrors++;
