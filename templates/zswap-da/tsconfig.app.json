@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "types": ["vite/client"],
+    "skipLibCheck": true,
+
+    /* @effectstream/wallets ships raw .ts (no .d.ts) and uses syntax this strict
+       config rejects (const enum, parameter properties). We only use the JS-wallet
+       subpath at runtime; point tsc at a loose shim while Vite (which ignores
+       tsconfig paths) bundles the real module. */
+    "baseUrl": ".",
+    "paths": {
+      "@effectstream/wallets": ["./src/shims/wallets.d.ts"],
+      "@effectstream/wallets/midnight-local": ["./src/shims/wallets-midnight-local.d.ts"]
+    },
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src"],
+  "// exclude": "Test files import bun:test (runtime-provided by `bun test`); keep them out of the app/prod build.",
+  "exclude": ["src/**/*.test.ts"]
+}
