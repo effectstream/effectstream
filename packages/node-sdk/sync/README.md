@@ -167,6 +167,31 @@ loop's `consecutiveErrors` on purpose: that counter is only cleared by a
 successful `readData`, so sharing it left an idle streaming chain reporting
 errors long after its producer recovered.
 
+## Reorg detection
+
+Forward-only sync never revisits a committed block, so a source chain that rewrites
+its history would leave the node building on blocks that no longer exist.
+`confirmationDepth` makes this rare, not impossible.
+
+Each committed block's per-source hashes are recorded in
+`effectstream.sync_protocol_block_hash` (inside the block's own transaction), and a
+per-chain task re-checks them on a cadence set by
+`EFFECTSTREAM_REORG_CHECK_INTERVAL_MS` (default 30 s), binary-searching for the fork
+point when they diverge.
+
+**Per-chain opt-in.** Only fetchers implementing `getBlockHashAt`
+(`ReorgDetectingFetcher`) can be checked — today EVM and the synthetic `test` chain.
+Others report `reorgDetectionSupported: false` on `/health`, so an unmonitored chain
+is visibly unmonitored rather than assumed safe.
+
+**Nothing is repaired automatically.** On detection the node logs at ERROR, marks
+`/health` as `degraded` (it never reads `ok` again), and writes an operator report to
+`EFFECTSTREAM_INCIDENT_PATH` (default `./incidents`) as a `.md` + `.json` pair. The
+report leads with impact: if no state was derived from the affected blocks it says so
+and tells you not to restore anything; if state was derived it enumerates what landed
+and gives the ordered rollback runbook with the SQL to run. Database snapshots write a
+`.json` manifest recording their block height so the right one can be chosen.
+
 ## Key exports
 
 - `genSyncProtocols(dbConn, syncInfo)` - Effection generator that instantiates a runtime fetcher + state pair for every protocol in `syncInfo` (from `config.syncProtocols`). Called from the runtime's process-blocks loop.

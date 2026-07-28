@@ -76,6 +76,8 @@ latitude on its exact shape.
   **Bound every RPC call** with `common/http.ts:fetchWithTimeout` (or the client
   library's own timeout) — a bare `fetch` against a blackholed endpoint hangs
   `readData` forever, which silently stalls the whole node (CLAUDE.md #4).
+  Implement `getBlockHashAt` (`common/reorg.ts:ReorgDetectingFetcher`) if the
+  chain can be asked for a past block's hash, and the chain gets reorg detection.
   Page-request helpers live in `base/page.ts`
   (`genImmediatePageRequests`/`genOnDemandPageRequests`).
 - **`sync-protocols/<chain>/Client.ts`** (new, only if it talks to a node) — the
