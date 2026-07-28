@@ -33,10 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # node_modules is excluded by .dockerignore, so this is the source tree only.
 COPY . .
 
-# Not --frozen-lockfile: `packages/effectstream-sdk/wallets/npm` is a generated
-# build output that is present in the lockfile but not in the source tree, so a
-# frozen install always reports drift. .github/Dockerfile does the same.
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # PGLite (WASM) is the default backend; the Postgres-only consistency tests
 # skip themselves unless PGLITE=false. MQTT binds fixed ports that the harness
