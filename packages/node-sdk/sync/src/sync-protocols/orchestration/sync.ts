@@ -23,14 +23,62 @@ function pollingIntervalOf(config: { syncProtocol: unknown }): number {
   return syncProtocol?.pollingInterval ?? FALLBACK_POLLING_INTERVAL_MS;
 }
 
+/** Backoff bounds for restarting a dead streaming producer. */
+const PRODUCER_MIN_BACKOFF_MS = 1_000;
+const PRODUCER_MAX_BACKOFF_MS = 30_000;
+
 export function* startSync(
   state: AllSyncProtocols,
 ): Operation<void> {
   const iState: ISyncProtocol = state as ISyncProtocol;
 
-  // spawn async task
   yield* spawn(function* () {
-    yield* iState.startAsync();
+    if (!iState.hasAsyncProducer) {
+      // Polled chain: startAsync is the base-class no-op. Run it once, as
+      // before — supervising it would mean restarting a no-op forever.
+      yield* iState.startAsync();
+      return;
+    }
+
+    // Streaming chain: all of this protocol's data arrives through the
+    // producer, so if it dies the chain goes silent and the merge blocks on its
+    // page forever. Both of its exit modes used to be unhandled — a throw tore
+    // down the enclosing scope (in production, `start()`, taking every other
+    // chain with it), and a clean return went entirely unnoticed. Supervise
+    // both. See `sync/test/start-async-supervision.test.ts`.
+    let attempt = 0;
+    while (true) {
+      const result = yield* tryYield(iState.startAsync());
+
+      if (result.error != null) {
+        state.consecutiveErrors++;
+        state.lastErrorTimestamp = Date.now();
+        log.remote(
+          ComponentNames.EFFECTSTREAM_SYNC,
+          [...state.getNamespace(), "startAsync"],
+          SeverityNumber.ERROR,
+          (l) => l(result.error),
+        );
+      } else {
+        // Returning is a failure for a producer: its stream ended. Treated the
+        // same as a throw, because the observable effect is identical — no
+        // more data.
+        log.remote(
+          ComponentNames.EFFECTSTREAM_SYNC,
+          [...state.getNamespace(), "startAsync"],
+          SeverityNumber.WARN,
+          (l) => l("producer returned: stream ended, restarting"),
+        );
+      }
+
+      state.producerRestarts++;
+      const backoff = Math.min(
+        PRODUCER_MIN_BACKOFF_MS * 2 ** attempt,
+        PRODUCER_MAX_BACKOFF_MS,
+      );
+      attempt++;
+      yield* sleep(backoff);
+    }
   });
 
   // spawn polling task

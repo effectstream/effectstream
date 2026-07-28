@@ -74,6 +74,24 @@ export abstract class SyncState<
   /** Timestamp of the most recent error, or 0 if no error has occurred. */
   public lastErrorTimestamp: number = 0;
 
+  // ── Streaming producer (see startAsync + orchestration/sync.ts) ──
+  /**
+   * Whether {@link SyncState#startAsync} runs a long-lived producer that this
+   * protocol depends on for its data (a subscription/stream), as opposed to the
+   * base-class no-op used by polled chains.
+   *
+   * `startSync` supervises and restarts the producer only when this is true.
+   * A polled chain must leave it false, or its no-op `startAsync` would be
+   * "restarted" forever.
+   */
+  public readonly hasAsyncProducer: boolean = false;
+  /**
+   * How many times the streaming producer has been restarted after dying —
+   * either by throwing or by returning (a producer that returns has ended its
+   * stream). Surfaced on `/health`; a climbing count means a flapping upstream.
+   */
+  public producerRestarts: number = 0;
+
   // ── Backpressure observability (see common/page-helpers.ts + README) ──
   /** Resolved fetch cap (`maxBufferedPages`); set on each backpressure check, 0 until the first. */
   public bufferCap: number = 0;

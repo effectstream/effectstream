@@ -1,26 +1,28 @@
 /**
- * Repro for sync/CLAUDE.md Finding #5 (unsupervised `startAsync`).
+ * Regression guard for sync/CLAUDE.md Finding #5 (unsupervised `startAsync`).
  *
- * `orchestration/sync.ts` starts the streaming producer with a bare
- * `yield* spawn(function* () { yield* iState.startAsync(); })`. There is no
- * try/catch, no restart, and no liveness check. Streaming chains (utxorpc today,
- * midnight if it moves to subscriptions) put ALL of their data on that path, so
- * its two exit modes are both unhandled:
+ * `orchestration/sync.ts` used to start the streaming producer with a bare
+ * `yield* spawn(function* () { yield* iState.startAsync(); })` — no try/catch,
+ * no restart, no liveness check. Streaming chains (utxorpc today, midnight if
+ * it moves to subscriptions) put ALL of their data on that path, so both of its
+ * exit modes were unhandled:
  *
  *   5a — the stream ENDS CLEANLY. `WatchMultiplexer.runWatcher` logs
- *        "stream ended unexpectedly" and returns; `start()` resolves; the spawned
- *        task completes normally. The chain now receives nothing, forever, while
- *        the polling loop keeps running and every health counter stays clean.
- *        The merge then blocks on that chain's page and the node stops producing
- *        blocks — with nothing anywhere reporting an error.
+ *        "stream ended unexpectedly" and returns; the spawned task completed
+ *        normally. The chain then received nothing forever while every health
+ *        counter stayed clean, and the merge blocked on its page — a total stall
+ *        with nothing reporting an error.
  *
- *   5b — the stream THROWS. The error escapes the spawned task and tears down the
- *        enclosing scope, which in production is `start()` — i.e. one flaky gRPC
- *        connection takes the whole node down, including every unrelated chain.
+ *   5b — the stream THROWS. The error escaped the spawned task and tore down the
+ *        enclosing scope, which in production is `start()`: one flaky gRPC
+ *        connection took down every unrelated chain with it.
  *
- * Both tests document CURRENT behaviour. After the fix (supervise + restart with
- * backoff, and treat a returned producer as a failure), 5a should show the
- * producer restarted and 5b should show the sibling loop still running.
+ * Now supervised — both modes are treated as failure and restarted with capped
+ * exponential backoff, counted in `producerRestarts`. A returning producer
+ * counts as failure because the observable effect is identical: no more data.
+ *
+ * Supervision is gated on `hasAsyncProducer` so polled chains, whose
+ * `startAsync` is the base-class no-op, are still run exactly once (5c).
  */
 import { expect, test } from "bun:test";
 import { type Operation, run, sleep } from "effection";
@@ -33,13 +35,18 @@ const POLL_MS = 20;
  * touches are implemented. `stateToInput` always reports "caught up", which is
  * what a streaming chain does while it waits for its producer to deliver.
  */
-function makeStreamingState(startAsyncBody: () => Operation<void>) {
+function makeStreamingState(
+  startAsyncBody: () => Operation<void>,
+  hasAsyncProducer = true,
+) {
   const counters = { startAsyncCalls: 0, pollPasses: 0 };
   const state = {
     name: "streamer",
     consecutiveErrors: 0,
     lastErrorTimestamp: 0,
     lastSuccessfulFetchMs: 0,
+    hasAsyncProducer,
+    producerRestarts: 0,
     getNamespace: () => ["streamer", "streamer"],
     *startAsync(): Operation<void> {
       counters.startAsyncCalls++;
@@ -61,7 +68,7 @@ function makeStreamingState(startAsyncBody: () => Operation<void>) {
   return { state, counters };
 }
 
-test("KNOWN-BROKEN 5a: a producer that ends cleanly is never restarted and reports nothing", async () => {
+test("5a: a producer that ends cleanly is restarted and counted", async () => {
   // The multiplexer's `for await (const event of stream)` falling through —
   // the stream closed and `runWatcher` returned.
   const { state, counters } = makeStreamingState(function* () {
@@ -70,20 +77,19 @@ test("KNOWN-BROKEN 5a: a producer that ends cleanly is never restarted and repor
 
   await run(function* () {
     yield* startSync(state as never);
-    yield* sleep(300);
+    // Long enough for the first restart (1s backoff) plus room to spare.
+    yield* sleep(1_500);
   });
 
-  // The producer ran once and was never restarted...
-  expect(counters.startAsyncCalls).toBe(1);
-  // ...the polling loop carried on, oblivious...
+  // Restarted rather than abandoned...
+  expect(counters.startAsyncCalls).toBeGreaterThan(1);
+  // ...and the restart is visible to health instead of being silent.
+  expect(state.producerRestarts).toBeGreaterThan(0);
+  // The sibling polling loop is unaffected.
   expect(counters.pollPasses).toBeGreaterThan(1);
-  // ...and not one health counter moved. This is the silent stall: from the
-  // outside the protocol looks perfectly healthy while it is receiving nothing.
-  expect(state.consecutiveErrors).toBe(0);
-  expect(state.lastErrorTimestamp).toBe(0);
 }, 30_000);
 
-test("KNOWN-BROKEN 5b: a producer that throws tears down the whole scope", async () => {
+test("5b: a producer that throws is restarted and does not kill the scope", async () => {
   const { state, counters } = makeStreamingState(function* () {
     yield* sleep(50);
     throw new Error("gRPC stream died");
@@ -92,18 +98,32 @@ test("KNOWN-BROKEN 5b: a producer that throws tears down the whole scope", async
   let rejection: unknown;
   await run(function* () {
     yield* startSync(state as never);
-    yield* sleep(300);
+    yield* sleep(1_500);
   }).catch((err) => {
     rejection = err;
   });
 
-  // The error escaped the spawned task and killed the enclosing scope. In
-  // production that scope is `start()` — every other chain dies with it.
-  expect(rejection).toBeInstanceOf(Error);
-  expect(String(rejection)).toContain("gRPC stream died");
+  // The scope survived: no error escaped to tear down `start()`.
+  expect(rejection).toBeUndefined();
+  // The throw was caught, counted as an error, and the producer restarted.
+  expect(counters.startAsyncCalls).toBeGreaterThan(1);
+  expect(state.producerRestarts).toBeGreaterThan(0);
+  expect(state.consecutiveErrors).toBeGreaterThan(0);
+  expect(state.lastErrorTimestamp).toBeGreaterThan(0);
+  // And the sibling polling loop kept running throughout.
+  expect(counters.pollPasses).toBeGreaterThan(1);
+}, 30_000);
 
-  // And the sibling polling loop is gone: its counter is frozen from here on.
-  const passesAtCrash = counters.pollPasses;
-  await new Promise((resolve) => setTimeout(resolve, 5 * POLL_MS));
-  expect(counters.pollPasses).toBe(passesAtCrash);
+test("5c: a polled chain's no-op producer is run once, not supervised", async () => {
+  const { state, counters } = makeStreamingState(function* () {}, false);
+
+  await run(function* () {
+    yield* startSync(state as never);
+    yield* sleep(1_500);
+  });
+
+  // Without this gate, every polled chain would "restart" its no-op forever.
+  expect(counters.startAsyncCalls).toBe(1);
+  expect(state.producerRestarts).toBe(0);
+  expect(counters.pollPasses).toBeGreaterThan(1);
 }, 30_000);

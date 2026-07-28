@@ -35,6 +35,9 @@ export class UtxoRpcSyncState extends SyncState<
     );
   }
 
+  /** All utxorpc data arrives via the watch stream in {@link startAsync}. */
+  public override readonly hasAsyncProducer = true;
+
   @bound
   override *startAsync(): Operation<void> {
     if (this.lastPage == null) {
