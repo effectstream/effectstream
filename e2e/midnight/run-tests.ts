@@ -348,9 +348,11 @@ async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
   );
 
   // ── TokenMint primitive: token id → minting contract registry ──────────────
-  // The primitive OWNS this table (no STM handler / migration). It's published
-  // as primitives.midnight_token_mint_view_<instance>, where the instance name
-  // "Midnight-TokenMint" is lowercased + stripped to a valid SQL name.
+  // The primitive OWNS this table (needs no STM handler / migration). It's
+  // published as primitives.midnight_token_mint_view_<instance>, where the
+  // instance name "Midnight-TokenMint" is lowercased + stripped to a valid SQL
+  // name. Owning it does not disable the STM: this suite also wires a
+  // midnightTokenMintState handler, and L4 below asserts both paths ran.
   const TOKEN_MINT_VIEW =
     "primitives.midnight_token_mint_view_" +
     "Midnight-TokenMint".toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -461,6 +463,56 @@ async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
         }
         if (row.total_minted !== minted.amount) {
           console.error(`  ${kind} total_minted ${row.total_minted} != minted ${minted.amount}`);
+          return false;
+        }
+      }
+      return true;
+    },
+  );
+
+  // L4: the STM still fires for a primitive that owns its table. The consumer's
+  // midnightTokenMintState handler writes midnight_token_mints; it must contain
+  // exactly what the owned view holds. If the owned table ever suppressed STM
+  // dispatch, this table would be empty while the view above stayed populated.
+  await assertSQL<{
+    token_type: string;
+    kind: string;
+    contract_address: string;
+    domain_sep: string;
+    total_minted: string;
+    tx_hash: string | null;
+  }>(
+    "Midnight: STM handler also populated midnight_token_mints (owned table does not suppress STM)",
+    db,
+    `SELECT token_type, kind, contract_address, domain_sep, total_minted, tx_hash
+     FROM midnight_token_mints ORDER BY token_type, kind;`,
+    (res) => res.rows.length >= 2,
+    (res) => {
+      console.log(`  STM-written token-mint count: ${res.rows.length}`);
+      const key = (r: { token_type: string; kind: string }) =>
+        `${r.token_type.replace(/^0x/, "").toLowerCase()}:${r.kind}`;
+      const viaView = new Map(mintsResult.rows.map((r) => [key(r), r]));
+      if (res.rows.length !== mintsResult.rows.length) {
+        console.error(
+          `  row-count mismatch: STM ${res.rows.length} vs view ${mintsResult.rows.length}`,
+        );
+        return false;
+      }
+      for (const row of res.rows) {
+        const viewRow = viaView.get(key(row));
+        if (!viewRow) {
+          console.error(`  STM row ${key(row)} missing from the owned view`);
+          return false;
+        }
+        if (
+          viewRow.domain_sep.replace(/^0x/, "").toLowerCase() !==
+            row.domain_sep.replace(/^0x/, "").toLowerCase() ||
+          Number(viewRow.total_minted) !== Number(row.total_minted)
+        ) {
+          console.error(
+            `  STM/view disagree for ${key(row)}: ` +
+              `total_minted ${row.total_minted} vs ${viewRow.total_minted}`,
+          );
           return false;
         }
       }

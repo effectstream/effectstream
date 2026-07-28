@@ -43,6 +43,22 @@ import {
  * accounting row is still written; useful when a consumer wants to handle the
  * data itself or skip it).
  *
+ * The owned table does NOT replace the state machine: the two paths are
+ * independent and run together. Whenever `stateMachinePrefix` is set the
+ * primitive still emits an STM input for every mint, exactly as it would
+ * without an owned table — the registry is the read model, the STM handler is
+ * where app-specific logic lives. Pass `stateMachinePrefix: undefined` to opt
+ * out explicitly (the flag is a required config key so the choice is never
+ * made by omission).
+ *
+ * Usage (STM path, in addition to the owned view):
+ *   grammar: { myPrefix: builtinGrammars.midnightTokenMint }
+ *   stm.addStateTransition("myPrefix", function* (data) {
+ *     const { rawTokenType, kind, contractAddress, domainSep, amount, txHash }
+ *       = data.parsedInput;
+ *     // amount is a decimal string (u64 mints can exceed MAX_SAFE_INTEGER)
+ *   });
+ *
  * The mint nonce is NOT part of token identity (it only randomizes coin
  * commitments) and is never public for shielded mints, so it is not recorded.
  */
@@ -74,7 +90,9 @@ export class MidnightTokenMintPrimitive extends Primitive<
   constructor(config: {
     instanceName: string;
     startBlockHeight: number;
-    stateMachinePrefix?: string;
+    // Required key (may be `undefined`) like every other primitive: owning a
+    // table is not a reason to skip the STM, so opting out has to be deliberate.
+    stateMachinePrefix: string | undefined;
     persist?: boolean;
   }) {
     super({ ...config, stateMachinePrefix: config.stateMachinePrefix });

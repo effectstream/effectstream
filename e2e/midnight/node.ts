@@ -90,10 +90,34 @@ stm.addStateTransition("midnightZswapRootState", function* (data) {
   ));
 });
 
-// MidnightTokenMint needs NO state-machine handler: the primitive owns its
-// registry table (primitives.midnight_token_mint_view_*) and populates it via
-// a trigger on primitive_accounting. This is the whole point of the refactor —
-// the registry is available with only the `.addPrimitive(...)` line in config.
+// MidnightTokenMint: the primitive owns its registry table
+// (primitives.midnight_token_mint_view_*, populated by a trigger on
+// primitive_accounting) — a consumer that only wants the registry needs
+// nothing but the `.addPrimitive(...)` line. The owned table does NOT replace
+// the state machine though: with a stateMachinePrefix configured the primitive
+// still emits an STM input per mint, and this handler runs alongside the
+// trigger, writing the consumer's own midnight_token_mints table.
+// Grammar is flat (builtinGrammars.midnightTokenMint), so parsedInput carries
+// the named fields directly. The mapping is immutable, so conflicts only
+// accumulate the running total.
+stm.addStateTransition("midnightTokenMintState", function* (data) {
+  const {
+    rawTokenType: tokenType,
+    kind,
+    contractAddress,
+    domainSep,
+    amount,
+    txHash,
+  } = data.parsedInput;
+  console.log(`[STM] midnightTokenMintState: token=${tokenType.slice(0, 16)}… kind=${kind} contract=${contractAddress.slice(0, 16)}… amount=${amount}`);
+  yield* World.promise(pool.query(
+    `INSERT INTO midnight_token_mints (block_height, token_type, kind, contract_address, domain_sep, total_minted, tx_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (token_type, kind)
+     DO UPDATE SET total_minted = midnight_token_mints.total_minted + EXCLUDED.total_minted`,
+    [data.blockHeight, tokenType, kind, contractAddress, domainSep, amount, txHash],
+  ));
+});
 
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
