@@ -1,27 +1,27 @@
 /**
- * Repro for sync/CLAUDE.md Finding #3 (unpaced fetch loop).
+ * Regression guard for sync/CLAUDE.md Finding #3 (unpaced fetch loop).
  *
- * `orchestration/sync.ts` guards all three of its `sleep`s with
- * `if ("pollingInterval" in config.syncProtocol)`. A protocol whose config
- * lacks that key therefore never sleeps — not on error, and not in the ordinary
- * "caught up" pass where `stateToInput` returns `undefined`.
+ * `orchestration/sync.ts` used to guard all three of its `sleep`s with
+ * `if ("pollingInterval" in config.syncProtocol)`, so a protocol whose config
+ * lacked that key never slept — not on error, and not in the ordinary "caught
+ * up" pass where `stateToInput` returns `undefined`.
  *
- * The Cardano/utxorpc schema is exactly that case: it is the only sync protocol
- * that does not merge `PollingSyncProtocol`, so `pollingInterval` is neither
- * declared, typed, nor defaulted (asserted below). Every config in this repo
- * happens to pass it anyway as an undeclared extra field — which is the only
- * reason Cardano sync works today. Build a config strictly from the schema and
- * the node freezes.
+ * The Cardano/utxorpc schema was exactly that case: the only sync protocol that
+ * did not merge `PollingSyncProtocol`. Every config in this repo happened to
+ * pass `pollingInterval` anyway as an undeclared extra field, which is the only
+ * reason Cardano sync worked at all; a config built strictly from the schema
+ * produced a node that froze.
  *
- * "Freezes", not "spins": the probe below shows the loop starves the event
- * loop outright — a `setTimeout` scheduled for 500 ms had still not fired after
- * 4 s of looping. Nothing else in the process runs: not the HTTP server, not
- * the other chains' fetch loops, and not the gRPC stream callbacks that would
- * advance utxorpc's own tip and let the loop make progress.
+ * "Froze", not "span": the probe showed the loop starving the event loop
+ * outright — a `setTimeout` scheduled for 500ms had still not fired after 4s of
+ * looping. Nothing else in the process runs in that state: not the HTTP server,
+ * not the other chains' fetch loops, and not the stream callbacks that would
+ * advance utxorpc's own tip and let the loop escape.
  *
- * When the fix lands (declare `pollingInterval` on the utxorpc schema and/or
- * make the sleep unconditional in `startSync`), the KNOWN-BROKEN test should
- * report `reason: "window"` like its paced counterpart.
+ * Fixed on both sides: the utxorpc schema now merges `PollingSyncProtocol`, and
+ * `startSync` sleeps unconditionally with a fallback interval so no protocol
+ * can hot-loop regardless of what its schema declares. Both halves are asserted
+ * below — the second is what makes the first non-load-bearing.
  */
 import { expect, test } from "bun:test";
 import { join } from "node:path";
@@ -67,17 +67,18 @@ async function runProbe(spec: {
   return JSON.parse(line) as ProbeResult;
 }
 
-test("root cause: the utxorpc schema does not declare pollingInterval", () => {
+test("every polling protocol declares pollingInterval, utxorpc included", () => {
   const utxorpc = schemaKeys(ConfigSyncProtocolSchemaCardanoUtxoRpcParallel);
   const evm = schemaKeys(ConfigSyncProtocolSchemaEvmParallel);
 
-  // The runtime fetch loop keys off this exact property name.
-  expect(utxorpc).not.toContain("pollingInterval");
-  // Every other polling protocol declares it — utxorpc is the outlier.
+  // The runtime fetch loop keys its sleeps off this exact property name.
+  expect(utxorpc).toContain("pollingInterval");
   expect(evm).toContain("pollingInterval");
+  // Merged in from PollingSyncProtocol along with it.
+  expect(utxorpc).toContain("requestTimeoutMs");
 });
 
-test("CONTROL: with a pollingInterval the fetch loop is paced", async () => {
+test("with a pollingInterval the fetch loop is paced", async () => {
   const result = await runProbe({
     polling: 20,
     limit: 200_000,
@@ -92,21 +93,20 @@ test("CONTROL: with a pollingInterval the fetch loop is paced", async () => {
   expect(result.iterations).toBeLessThan(200);
 }, 30_000);
 
-test("KNOWN-BROKEN: without a pollingInterval the fetch loop starves the event loop", async () => {
-  const WINDOW_MS = 500;
+test("without a pollingInterval the fetch loop still paces itself", async () => {
+  const WINDOW_MS = 1_500;
   const result = await runProbe({
     polling: null,
     limit: 200_000,
-    // Same window as the control. If the loop were merely "fast" this timer
-    // would still fire; it does not.
+    // Comfortably longer than one FALLBACK_POLLING_INTERVAL_MS (1s) so the
+    // paced loop gets at least one pass in before the window closes.
     windowMs: WINDOW_MS,
     mode: "call",
   });
 
-  // The loop burned through the iteration cap instead of ever yielding to the
-  // timer — the discriminator between "spins hot" and "starves everything".
-  expect(result.reason).toBe("limit");
-  expect(result.iterations).toBe(200_000);
-  // The 500ms timer never ran despite the process being busy for far longer.
-  expect(result.elapsedMs).toBeGreaterThan(WINDOW_MS);
+  // Before the fix this reported `reason: "limit"` with 200k iterations and a
+  // 500ms timer that never fired at all.
+  expect(result.reason).toBe("window");
+  // One pass per fallback interval — single digits over this window.
+  expect(result.iterations).toBeLessThan(10);
 }, 30_000);
