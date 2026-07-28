@@ -4,7 +4,7 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
-const CURRENT_BINARY_VERSION = "v4.2.0";
+const CURRENT_BINARY_VERSION = "v4.3.3";
 const FINAL_BINARY_NAME = "indexer-standalone";
 
 /*
