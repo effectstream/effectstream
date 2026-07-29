@@ -57,6 +57,7 @@ export function* genSyncProtocols(
         entry,
         createViemPublicClient(viemNetwork, {
           cacheTime: entry.syncProtocol.pollingInterval,
+          timeout: requestTimeoutOf(entry.syncProtocol),
         }),
       );
       const state = yield* EvmSyncState.restoreState(

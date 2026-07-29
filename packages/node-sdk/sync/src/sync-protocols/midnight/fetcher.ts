@@ -1,4 +1,5 @@
 import { BaseDataFetcher } from "../base/fetcher.ts";
+import { requestTimeoutOf } from "../common/http.ts";
 import type {
   Block,
   ConfigType,
@@ -59,6 +60,7 @@ export class MidnightFetcher extends BaseDataFetcher<
     this.client = new MidnightClient(
       indexerHttp,
       this.networkId,
+      requestTimeoutOf(config.syncProtocol),
     );
   }
 

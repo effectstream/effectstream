@@ -121,6 +121,19 @@ config, defaulting to **15 s**. It bounds a single request; retry is the fetch
 loop's job (it re-runs the same page range and counts the failure, which is what
 `/health` reports on).
 
+**Coverage.** Honoured by EVM (as the viem transport timeout), Bitcoin, NEAR,
+Avail (light-client HTTP), Midnight and Celestia. Two exceptions:
+
+- **Celestia** retries internally, so the value bounds each *attempt* rather than
+  the whole call. It still falls back to `CELESTIA_RPC_TIMEOUT_MS` when no
+  protocol-level value is set.
+- **Cardano / utxorpc** reads its data from a gRPC stream rather than
+  request/response RPCs, so the field is inert there. That path is instead
+  protected by producer supervision — a stream that dies or ends is restarted
+  with backoff (see below).
+
+NTP and the synthetic `test` chain make no network calls at all.
+
 ```ts
 .addParallel((n) => n.myChain, () => ({
   name: "myChain",
@@ -130,6 +143,29 @@ loop's job (it re-runs the same page range and counts the failure, which is what
   // ...
 }))
 ```
+
+## Producer supervision (streaming chains)
+
+Chains whose data arrives over a subscription rather than by polling (utxorpc
+today) set `hasAsyncProducer` on their `SyncState`, and `startSync` supervises
+that producer instead of spawning it bare.
+
+Both of its exit modes count as failure and trigger a restart with capped
+exponential backoff (1s → 30s), including a **clean return** — a producer that
+returns has ended its stream, and the observable effect is identical to a throw:
+no more data. Left unsupervised, a stream that simply ended left the chain silent
+forever with every health counter clean, and a stream that threw tore down the
+whole node.
+
+The backoff de-escalates: a producer that ran longer than the maximum backoff
+before dying resets the delay, so an occasional incident over a long-lived stream
+does not permanently penalise it.
+
+Restarts are counted in `producerRestarts` and failures in `producerErrors`, both
+reported per protocol on `/health`. They are tracked separately from the fetch
+loop's `consecutiveErrors` on purpose: that counter is only cleared by a
+successful `readData`, so sharing it left an idle streaming chain reporting
+errors long after its producer recovered.
 
 ## Key exports
 

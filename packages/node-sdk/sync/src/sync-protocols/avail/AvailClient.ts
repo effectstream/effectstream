@@ -45,9 +45,14 @@ export class AvailClient {
   }
 
   async getLatestBlockHeight(): Promise<number> {
-    const api = (await this.sdk).client.api;
+    // Deliberately does NOT await `this.sdk`. The height comes from the light
+    // client below; the websocket SDK was only needed by the commented-out
+    // `api.rpc.chain.getHeader()` call, and awaiting it here reintroduced an
+    // unbounded wait on the sync path — if the node's websocket never connects,
+    // this never returns and the chain stalls silently. That is the exact
+    // failure `requestTimeoutMs` exists to prevent.
     // Block from avail node is slightly above the light client
-    // const header = await api.rpc.chain.getHeader();
+    // const header = await (await this.sdk).client.api.rpc.chain.getHeader();
     const status: AvailStatus = await this.getStatus();
 
     // If the available field is present, this is the real latest block 

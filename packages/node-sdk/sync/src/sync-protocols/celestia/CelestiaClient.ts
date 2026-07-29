@@ -54,6 +54,11 @@ const CELESTIA_NODE_URL = ENV.getString(
   "http://localhost:26658",
 );
 const CELESTIA_AUTH_TOKEN = ENV.getString("CELESTIA_AUTH_TOKEN", "");
+/**
+ * Fallback per-request deadline, kept for compatibility with deployments that
+ * set it. The protocol config's `requestTimeoutMs` takes precedence — see the
+ * constructor.
+ */
 const CELESTIA_RPC_TIMEOUT_MS = parseInt(
   ENV.getString("CELESTIA_RPC_TIMEOUT_MS", "15000"),
 );
@@ -77,9 +82,18 @@ export function celestiaNamespaceToBase64(hex: string): string {
 
 export class CelestiaClient {
   private readonly rpcUrl: string;
+  /**
+   * Per-attempt deadline. Unlike the other clients this one retries internally
+   * (see `rpc` below), so this bounds each attempt rather than the whole call.
+   */
+  private readonly requestTimeoutMs: number;
 
-  constructor(rpcUrl: string = CELESTIA_NODE_URL) {
+  constructor(
+    rpcUrl: string = CELESTIA_NODE_URL,
+    requestTimeoutMs: number = CELESTIA_RPC_TIMEOUT_MS,
+  ) {
     this.rpcUrl = rpcUrl;
+    this.requestTimeoutMs = requestTimeoutMs;
   }
 
   private async rpc<T>(method: string, params: unknown[]): Promise<T | null> {
@@ -95,7 +109,7 @@ export class CelestiaClient {
           method: "POST",
           headers,
           body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-          signal: AbortSignal.timeout(CELESTIA_RPC_TIMEOUT_MS),
+          signal: AbortSignal.timeout(this.requestTimeoutMs),
         });
         const json = await res.json();
         if (json.error) {
