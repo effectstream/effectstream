@@ -75,6 +75,15 @@ const COMPUTE_BUDGET_PROGRAM_ID = new PublicKey(
   "ComputeBudget111111111111111111111111111111",
 );
 
+/**
+ * ComputeBudget instruction discriminators (the first byte of `ix.data`).
+ * Only `SetComputeUnitPrice` costs the fee payer anything beyond the base fee.
+ */
+const CB_REQUEST_HEAP_FRAME = 1;
+const CB_SET_COMPUTE_UNIT_LIMIT = 2;
+const CB_SET_COMPUTE_UNIT_PRICE = 3;
+const CB_SET_LOADED_ACCOUNTS_DATA_SIZE_LIMIT = 4;
+
 export interface SolanaBatchPayload {
   /** Base64-encoded, user-partially-signed serialized transactions */
   transactions: string[];
@@ -87,11 +96,26 @@ export interface SolanaAdapterConfig {
   batcherSecretKey: string;
   /**
    * The single program this batcher instance will sponsor. Every instruction in
-   * a submitted tx must target this program — the core security scoping: it
-   * auto-rejects System transfers, token moves, ComputeBudget priority-fee
-   * abuse, etc., since those target other programs.
+   * a submitted tx must target this program (or ComputeBudget, bounded by
+   * `maxPriorityFeeMicroLamports`) — the core security scoping: it auto-rejects
+   * System transfers, token moves, etc., since those target other programs.
    */
   targetProgramId: string;
+  /**
+   * Cap on `SetComputeUnitPrice`, in micro-lamports per compute unit.
+   *
+   * The **sponsor is the fee payer, so it pays the prioritization fee** — an
+   * uncapped price is user-controlled spend from the sponsor's balance, and a
+   * single transaction can drain it. Defaults to `0n`: any priority-fee
+   * instruction is rejected outright, which is correct for a local validator
+   * and for any chain where the batcher isn't competing for blockspace.
+   *
+   * Operators who need priority fees should raise this deliberately. Note the
+   * actual lamports spent are `price × computeUnitLimit / 1e6`, so a non-zero
+   * cap here should be chosen against the limit the program actually requests
+   * (200k CU per instruction by default, 1.4M max).
+   */
+  maxPriorityFeeMicroLamports?: bigint | number;
   /** Sync protocol name for event filtering */
   syncProtocolName?: string;
   /** Max transactions submitted per batch cycle */
@@ -122,6 +146,7 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
   private readonly targetProgramId: PublicKey;
   private readonly syncProtocolName: string;
   private readonly allowSponsorAsInstructionAccount: boolean;
+  private readonly maxPriorityFeeMicroLamports: bigint;
   public readonly maxBatchSize: number;
   private readonly logger: AdapterLogger;
 
@@ -133,6 +158,9 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
     this.maxBatchSize = config.maxBatchSize ?? 10;
     this.allowSponsorAsInstructionAccount =
       config.allowSponsorAsInstructionAccount ?? false;
+    this.maxPriorityFeeMicroLamports = BigInt(
+      config.maxPriorityFeeMicroLamports ?? 0,
+    );
     this.logger = new AdapterLogger("SolanaAdapter");
   }
 
@@ -179,11 +207,15 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
   }
 
   /**
-   * Structural safety so the sponsor cannot be drained, regardless of any
-   * operator policy layered on top:
+   * Structural safety so the sponsor cannot be drained:
    *  1. fee payer == our sponsor;
-   *  2. every instruction targets the configured program;
+   *  2. every instruction targets the configured program, or ComputeBudget
+   *     within `maxPriorityFeeMicroLamports`;
    *  3. the sponsor appears only as fee payer, never in an instruction's accounts.
+   *
+   * Volume is NOT bounded here — each accepted tx still costs the sponsor the
+   * 5000-lamport base fee, so operators must layer a rate limit (see the
+   * batcher's `RateLimitStore`) on top for any non-local deployment.
    */
   async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
     let tx: Transaction;
@@ -198,10 +230,17 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
     }
     for (const ix of tx.instructions) {
       const pid = ix.programId;
-      // Allow the sponsored program, plus ComputeBudget — wallets (e.g. Phantom)
-      // routinely inject a priority-fee ComputeBudget instruction when signing.
-      // A production operator can cap the priority fee in their validate hook.
-      if (!pid.equals(this.targetProgramId) && !pid.equals(COMPUTE_BUDGET_PROGRAM_ID)) {
+      // Wallets (e.g. Phantom) routinely inject a ComputeBudget priority-fee
+      // instruction when signing, so it can't simply be banned — but the sponsor
+      // pays that fee, so it must be bounded rather than waved through.
+      // ComputeBudget instructions carry no accounts, so the sponsor-account
+      // check below doesn't apply to them.
+      if (pid.equals(COMPUTE_BUDGET_PROGRAM_ID)) {
+        const budgetCheck = this.validateComputeBudgetIx(ix.data);
+        if (!budgetCheck.valid) return budgetCheck;
+        continue;
+      }
+      if (!pid.equals(this.targetProgramId)) {
         return {
           valid: false,
           error:
@@ -292,5 +331,45 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
 
   private deserialize(base64Tx: string): Transaction {
     return Transaction.from(Buffer.from(base64Tx, "base64"));
+  }
+
+  /**
+   * Bound what a ComputeBudget instruction can cost the sponsor. Only
+   * `SetComputeUnitPrice` moves money; the rest are size/limit hints. Unknown
+   * discriminators are rejected rather than assumed harmless, so a future
+   * ComputeBudget instruction can't slip through un-audited.
+   */
+  private validateComputeBudgetIx(data: Uint8Array): ValidationResult {
+    const buf = Buffer.from(data);
+    if (buf.length === 0) {
+      return { valid: false, error: "empty ComputeBudget instruction" };
+    }
+    switch (buf[0]) {
+      case CB_SET_COMPUTE_UNIT_PRICE: {
+        // u64 little-endian micro-lamports/CU at offset 1.
+        if (buf.length < 9) {
+          return { valid: false, error: "malformed SetComputeUnitPrice instruction" };
+        }
+        const price = buf.readBigUInt64LE(1);
+        if (price > this.maxPriorityFeeMicroLamports) {
+          return {
+            valid: false,
+            error:
+              `priority fee of ${price} micro-lamports/CU exceeds this batcher's ` +
+              `cap of ${this.maxPriorityFeeMicroLamports} (the sponsor pays it)`,
+          };
+        }
+        return { valid: true };
+      }
+      case CB_REQUEST_HEAP_FRAME:
+      case CB_SET_COMPUTE_UNIT_LIMIT:
+      case CB_SET_LOADED_ACCOUNTS_DATA_SIZE_LIMIT:
+        return { valid: true };
+      default:
+        return {
+          valid: false,
+          error: `unsupported ComputeBudget instruction (discriminator ${buf[0]})`,
+        };
+    }
   }
 }

@@ -101,6 +101,86 @@ test("SolanaAdapter.validateInput also allows a ComputeBudget instruction", asyn
   expect(res.valid).toBe(true);
 });
 
+/** A ComputeBudget SetComputeUnitPrice instruction: discriminator 3 + u64 LE. */
+function setComputeUnitPriceIx(microLamports: bigint): TransactionInstruction {
+  const data = Buffer.alloc(9);
+  data[0] = 3;
+  data.writeBigUInt64LE(microLamports, 1);
+  return new TransactionInstruction({
+    keys: [],
+    programId: new PublicKey(COMPUTE_BUDGET_ID),
+    data,
+  });
+}
+
+/** Sponsored tx carrying a priority-fee instruction alongside the real call. */
+function buildTxWithPriorityFee(user: Keypair, microLamports: bigint): string {
+  const tx = new Transaction();
+  tx.feePayer = sponsorKeypair.publicKey;
+  tx.recentBlockhash = RECENT_BLOCKHASH;
+  tx.add(setComputeUnitPriceIx(microLamports));
+  tx.add(new TransactionInstruction({
+    keys: [{ pubkey: user.publicKey, isSigner: true, isWritable: false }],
+    programId: new PublicKey(TARGET_PROGRAM_ID),
+    data: Buffer.from("memo", "utf8"),
+  }));
+  tx.partialSign(user);
+  return tx.serialize({ requireAllSignatures: false }).toString("base64");
+}
+
+test("SolanaAdapter.validateInput rejects a priority fee by default (sponsor pays it)", async () => {
+  const user = Keypair.generate();
+  const base64 = buildTxWithPriorityFee(user, 1_000_000n);
+  const res = await adapter.validateInput(inputOf(user.publicKey.toBase58(), base64));
+  expect(res.valid).toBe(false);
+  expect(res.error).toContain("priority fee");
+});
+
+test("SolanaAdapter.validateInput allows a priority fee within the configured cap", async () => {
+  const capped = new SolanaAdapter({
+    ...TEST_CONFIG,
+    maxPriorityFeeMicroLamports: 5_000n,
+  });
+  const user = Keypair.generate();
+  const res = await capped.validateInput(
+    inputOf(user.publicKey.toBase58(), buildTxWithPriorityFee(user, 5_000n)),
+  );
+  expect(res.valid).toBe(true);
+});
+
+test("SolanaAdapter.validateInput rejects a priority fee above the configured cap", async () => {
+  const capped = new SolanaAdapter({
+    ...TEST_CONFIG,
+    maxPriorityFeeMicroLamports: 5_000n,
+  });
+  const user = Keypair.generate();
+  const res = await capped.validateInput(
+    inputOf(user.publicKey.toBase58(), buildTxWithPriorityFee(user, 5_001n)),
+  );
+  expect(res.valid).toBe(false);
+});
+
+test("SolanaAdapter.validateInput rejects an unknown ComputeBudget instruction", async () => {
+  const user = Keypair.generate();
+  const tx = new Transaction();
+  tx.feePayer = sponsorKeypair.publicKey;
+  tx.recentBlockhash = RECENT_BLOCKHASH;
+  tx.add(new TransactionInstruction({
+    keys: [],
+    programId: new PublicKey(COMPUTE_BUDGET_ID),
+    data: Buffer.from([9]), // not a discriminator we've audited
+  }));
+  tx.add(new TransactionInstruction({
+    keys: [{ pubkey: user.publicKey, isSigner: true, isWritable: false }],
+    programId: new PublicKey(TARGET_PROGRAM_ID),
+    data: Buffer.from("memo", "utf8"),
+  }));
+  tx.partialSign(user);
+  const base64 = tx.serialize({ requireAllSignatures: false }).toString("base64");
+  const res = await adapter.validateInput(inputOf(user.publicKey.toBase58(), base64));
+  expect(res.valid).toBe(false);
+});
+
 test("SolanaAdapter.validateInput rejects a tx that calls a non-target program", async () => {
   const user = Keypair.generate();
   const base64 = buildSponsoredTx({
