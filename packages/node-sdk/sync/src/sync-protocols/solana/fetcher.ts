@@ -17,7 +17,7 @@ import type {
   Page,
   PrimitiveType,
 } from "./types.ts";
-import { SolanaClient } from "./SolanaClient.ts";
+import { resolveAccountKeys, SolanaClient } from "./SolanaClient.ts";
 import { extractProgramLogs } from "./program-logs.ts";
 import { call, type Operation } from "effection";
 import { bound } from "@effectstream/utils";
@@ -30,6 +30,13 @@ export class SolanaFetcher extends BaseDataFetcher<
   RootPage
 > {
   readonly client: SolanaClient;
+
+  /**
+   * Last non-null `blockTime` seen, used to fill in a block whose timestamp the
+   * RPC couldn't compute. Carried across `readData` calls so only a null on the
+   * very first block ever fetched has no fallback.
+   */
+  private lastKnownBlockTime: number | undefined;
 
   constructor(
     readonly config: ConfigType,
@@ -62,6 +69,20 @@ export class SolanaFetcher extends BaseDataFetcher<
         continue;
       }
 
+      // `blockTime` is the merge key for this chain, so it can't be null.
+      // Mapping null to 0 (the previous behaviour) sorted the block to the unix
+      // epoch and broke the monotonicity the merge relies on. Solana guarantees
+      // blockTime is non-decreasing, so reusing the last known value keeps the
+      // block in the stream, in order, in the same bucket as its predecessor.
+      const blockTime = block.blockTime ?? this.lastKnownBlockTime;
+      if (blockTime == null) {
+        console.warn(
+          `[Solana] slot ${slot} has no blockTime and no earlier block to derive one from — skipping.`,
+        );
+        continue;
+      }
+      this.lastKnownBlockTime = blockTime;
+
       const primitives = yield* this.readPrimitives(
         slot,
         block,
@@ -72,7 +93,7 @@ export class SolanaFetcher extends BaseDataFetcher<
         output: {
           slot,
           blockhash: block.blockhash,
-          blockTime: block.blockTime,
+          blockTime,
           blockHeight: block.blockHeight,
           parentSlot: block.parentSlot,
           // `meta` is null for transactions the RPC couldn't decode; keep the
@@ -125,6 +146,10 @@ export class SolanaFetcher extends BaseDataFetcher<
           err: unknown | null;
           logMessages: string[] | null;
           postBalances: number[];
+          loadedAddresses?: {
+            writable: string[];
+            readonly: string[];
+          } | null;
         } | null;
       }[];
     },
@@ -149,7 +174,13 @@ export class SolanaFetcher extends BaseDataFetcher<
       // happened. `meta == null` means the RPC couldn't decode the tx — equally
       // unusable, so skip both.
       if (!tx.meta || tx.meta.err) continue;
-      const accountKeys = tx.transaction.message.accountKeys;
+      // Balances are indexed over static keys PLUS lookup-table addresses, so a
+      // watched address pulled in via an ALT is only findable in the resolved
+      // list. Legacy transactions resolve to the static keys unchanged.
+      const accountKeys = resolveAccountKeys(
+        tx.transaction.message.accountKeys,
+        tx.meta.loadedAddresses,
+      );
       const logs = tx.meta.logMessages ?? [];
       const postBalances = tx.meta.postBalances ?? [];
       const txHash = tx.transaction.signatures[0] ?? "";

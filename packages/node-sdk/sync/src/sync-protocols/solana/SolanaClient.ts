@@ -28,8 +28,36 @@ export type SolanaTransaction = {
     logMessages: string[] | null;
     preBalances: number[];
     postBalances: number[];
+    /**
+     * Addresses a versioned (v0) transaction pulled in through an address
+     * lookup table. These are NOT in `message.accountKeys`, which carries only
+     * static keys — but `pre`/`postBalances` are indexed over the full list.
+     * See {@link resolveAccountKeys} for the ordering.
+     */
+    loadedAddresses?: {
+      writable: string[];
+      readonly: string[];
+    } | null;
   } | null;
 };
+
+/**
+ * The account list `pre`/`postBalances` are indexed against: static message
+ * keys first, then lookup-table writable addresses, then lookup-table readonly
+ * ones. Legacy transactions have no `loadedAddresses`, so this is just the
+ * static keys.
+ */
+export function resolveAccountKeys(
+  accountKeys: string[],
+  loadedAddresses?: { writable: string[]; readonly: string[] } | null,
+): string[] {
+  if (!loadedAddresses) return accountKeys;
+  return [
+    ...accountKeys,
+    ...(loadedAddresses.writable ?? []),
+    ...(loadedAddresses.readonly ?? []),
+  ];
+}
 
 export type SolanaInstruction = {
   programId: string;

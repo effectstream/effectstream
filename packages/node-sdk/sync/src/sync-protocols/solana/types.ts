@@ -40,17 +40,19 @@ export type SolanaTransactionMeta = {
 export type Output = {
   slot: number;
   blockhash: string;
-  blockTime: number | null;
+  /**
+   * Unix seconds. Non-null by construction: the fetcher resolves the RPC's
+   * nullable `blockTime` before building an Output, because a block with no
+   * timestamp cannot be placed in the time-ordered merge.
+   */
+  blockTime: number;
   blockHeight: number | null;
   parentSlot: number;
   transactions: SolanaTransactionMeta[];
   primitives: PrimitiveType[];
 };
 
-/**
- * Convert a Solana blockTime (unix seconds or null) to milliseconds.
- * Returns 0 if blockTime is null.
- */
-export function toMsTimestamp(blockTime: number | null): TimestampMs {
-  return (blockTime ?? 0) * 1000 as TimestampMs;
+/** Convert a Solana blockTime (unix seconds) to milliseconds. */
+export function toMsTimestamp(blockTime: number): TimestampMs {
+  return blockTime * 1000 as TimestampMs;
 }
