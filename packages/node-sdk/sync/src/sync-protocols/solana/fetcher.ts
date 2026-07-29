@@ -74,11 +74,13 @@ export class SolanaFetcher extends BaseDataFetcher<
           blockTime: block.blockTime,
           blockHeight: block.blockHeight,
           parentSlot: block.parentSlot,
+          // `meta` is null for transactions the RPC couldn't decode; keep the
+          // entry (it still occupies a tx index) but don't dereference it.
           transactions: (block.transactions ?? []).map((tx) => ({
-            err: tx.meta.err,
-            logMessages: tx.meta.logMessages,
-            preBalances: tx.meta.preBalances,
-            postBalances: tx.meta.postBalances,
+            err: tx.meta?.err ?? null,
+            logMessages: tx.meta?.logMessages ?? null,
+            preBalances: tx.meta?.preBalances ?? [],
+            postBalances: tx.meta?.postBalances ?? [],
           })),
           primitives,
         },
@@ -119,9 +121,10 @@ export class SolanaFetcher extends BaseDataFetcher<
           signatures: string[];
         };
         meta: {
+          err: unknown | null;
           logMessages: string[] | null;
           postBalances: number[];
-        };
+        } | null;
       }[];
     },
     primitiveEntries: Extract<
@@ -139,6 +142,12 @@ export class SolanaFetcher extends BaseDataFetcher<
       txIndex++
     ) {
       const tx = block.transactions[txIndex];
+      // A reverted transaction has no on-chain effect: its logs describe work
+      // that was rolled back and its postBalances are the pre-state. Emitting
+      // primitives for it would drive state transitions off events that never
+      // happened. `meta == null` means the RPC couldn't decode the tx — equally
+      // unusable, so skip both.
+      if (!tx.meta || tx.meta.err) continue;
       const accountKeys = tx.transaction.message.accountKeys;
       const logs = tx.meta.logMessages ?? [];
       const postBalances = tx.meta.postBalances ?? [];

@@ -19,12 +19,16 @@ export type SolanaTransaction = {
     };
     signatures: string[];
   };
+  /**
+   * Null when the RPC could not decode the transaction (e.g. a version newer
+   * than `maxSupportedTransactionVersion`). Callers must null-check.
+   */
   meta: {
     err: unknown | null;
     logMessages: string[] | null;
     preBalances: number[];
     postBalances: number[];
-  };
+  } | null;
 };
 
 export type SolanaInstruction = {
