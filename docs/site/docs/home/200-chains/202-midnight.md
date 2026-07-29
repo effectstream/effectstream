@@ -152,6 +152,30 @@ import {
 
 #### Token mints — resolving a token id to its minting contract
 
+:::warning Upgrading from `0.101.1`
+
+`0.101.1` shipped this primitive with a single opaque `payload` field. The payload is
+now **flat named fields**, so an existing integration needs two edits:
+
+1. **Grammar entry** — replace `[["payload", Type.Any()]]` with
+   `builtinGrammars.midnightTokenMint`. The primitive now emits seven values where it
+   used to emit one, so a one-field grammar entry no longer matches the input.
+2. **Handler** — read the fields directly instead of unwrapping the blob:
+   `const { rawTokenType, kind } = data.parsedInput` rather than
+   `const { payload } = data.parsedInput; payload.rawTokenType`. Watch for handlers
+   written defensively as `String(payload?.rawTokenType ?? "")` — those keep running
+   and quietly write empty strings.
+
+Anything reading `effectstream.primitive_accounting.payload` in SQL is affected the same
+way: the fields moved up one level, so `payload->'payload'->>'rawTokenType'` becomes
+`payload->>'rawTokenType'`.
+
+Also note that upgrading creates the registry table described below for existing
+integrations, since `persist` defaults to `true`. Set `persist: false` to keep the old
+behavior of recording mints without a table.
+
+:::
+
 *   **`PrimitiveTypeMidnightTokenMint`**: emits each custom token **mint** performed by a
     contract call — shielded and unshielded — as
     `{ contractAddress, domainSep, rawTokenType, kind, amount, txHash, entryPoint }`.
