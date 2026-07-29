@@ -187,8 +187,13 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
 
   /**
    * Verify the user's authorization: the partially-signed tx must carry a valid
-   * signature from at least one non-fee-payer (the user), and every present
-   * signature must verify. (The fee-payer slot is still empty here.)
+   * signature from at least one non-fee-payer (the user), every present
+   * signature must verify (the fee-payer slot is still empty here), and
+   * `input.address` must be one of those signers.
+   *
+   * That last check is what binds the submission to the claimed identity.
+   * Without it the batcher records — and rate-limits — under an address that
+   * never signed anything, so anyone can submit under someone else's name.
    */
   async verifySignature(input: DefaultBatcherInput): Promise<boolean> {
     try {
@@ -198,6 +203,16 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
       );
       if (userSigners.length === 0) return false;
       if (userSigners.some((s) => s.signature === null)) return false;
+
+      // Throws on a malformed address → caught below → rejected.
+      const claimed = new PublicKey(input.address);
+      if (!userSigners.some((s) => s.publicKey.equals(claimed))) {
+        this.logger.log(
+          `verifySignature rejected: claimed address ${input.address} did not sign`,
+        );
+        return false;
+      }
+
       // verify all present signatures; the missing fee-payer sig is allowed
       return tx.verifySignatures(false);
     } catch (e) {

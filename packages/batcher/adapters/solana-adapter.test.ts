@@ -258,6 +258,23 @@ test("SolanaAdapter.verifySignature accepts a tx with a valid user partial signa
   expect(ok).toBe(true);
 });
 
+test("SolanaAdapter.verifySignature rejects a tx signed by someone other than the claimed address", async () => {
+  const user = Keypair.generate();
+  const impostor = Keypair.generate();
+  const base64 = buildSponsoredTx({ user });
+  // Valid tx, valid signature — but submitted under an address that never signed.
+  const ok = await adapter.verifySignature(
+    inputOf(impostor.publicKey.toBase58(), base64),
+  );
+  expect(ok).toBe(false);
+});
+
+test("SolanaAdapter.verifySignature rejects a malformed claimed address", async () => {
+  const user = Keypair.generate();
+  const base64 = buildSponsoredTx({ user });
+  expect(await adapter.verifySignature(inputOf("not-a-pubkey", base64))).toBe(false);
+});
+
 test("SolanaAdapter.verifySignature rejects a tx with no user signature", async () => {
   const user = Keypair.generate();
   const base64 = buildSponsoredTx({ user, userSigns: false });
