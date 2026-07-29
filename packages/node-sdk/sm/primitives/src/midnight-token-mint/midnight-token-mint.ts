@@ -39,9 +39,10 @@ import {
  * `primitives.midnight_token_mint_view_<instance>` (maintained by a trigger on
  * effectstream.primitive_accounting), so a consumer gets the registry with
  * only an `.addPrimitive(...)` line — no state-machine handler, grammar entry,
- * or migration. Set `persist: false` in config to skip the owned table (the
- * accounting row is still written; useful when a consumer wants to handle the
- * data itself or skip it).
+ * or migration. Set `persist: false` in config to skip the owned table on a
+ * fresh database (the accounting row is still written; useful when a consumer
+ * wants to handle the data itself or skip it) — see the flag's own docs for why
+ * it does not tear down a table an earlier run already created.
  *
  * The owned table does NOT replace the state machine: the two paths are
  * independent and run together. Whenever `stateMachinePrefix` is set the
@@ -69,7 +70,15 @@ export class MidnightTokenMintPrimitive extends Primitive<
   readonly internalTypeName = PrimitiveTypeMidnightTokenMint;
   override readonly grammar = midnightTokenMintGrammar;
 
-  /** When true (default) the primitive owns + populates its registry table. */
+  /**
+   * When true (default) the primitive owns + populates its registry table.
+   *
+   * Only affects whether the DDL is emitted, and the DDL is applied once per
+   * instance behind a migration row with no down path — so flipping this to
+   * `false` on a database that already ran with `true` leaves the table and its
+   * trigger in place, still accumulating. It skips the table on a fresh
+   * database; it is not a runtime off switch.
+   */
   readonly persist: boolean;
 
   // Owned table — gated by `persist`. When disabled, no DDL is emitted, so no
@@ -95,7 +104,7 @@ export class MidnightTokenMintPrimitive extends Primitive<
     stateMachinePrefix: string | undefined;
     persist?: boolean;
   }) {
-    super({ ...config, stateMachinePrefix: config.stateMachinePrefix });
+    super(config);
     this.persist = config.persist ?? true;
   }
 

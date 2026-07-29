@@ -504,10 +504,12 @@ async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
           console.error(`  STM row ${key(row)} missing from the owned view`);
           return false;
         }
+        // total_minted is numeric(78,0) and the suite mints u64-max, so compare
+        // as BigInt — Number() would make distinct values look equal above 2^53.
         if (
           viewRow.domain_sep.replace(/^0x/, "").toLowerCase() !==
             row.domain_sep.replace(/^0x/, "").toLowerCase() ||
-          Number(viewRow.total_minted) !== Number(row.total_minted)
+          BigInt(viewRow.total_minted) !== BigInt(row.total_minted)
         ) {
           console.error(
             `  STM/view disagree for ${key(row)}: ` +

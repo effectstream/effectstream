@@ -36,9 +36,9 @@ function cleanup() {
   PrimitiveRegistry.primitives = {};
 }
 
-function getPayloadOnce(p: MidnightTokenMintPrimitive) {
+async function getPayloadOnce(p: MidnightTokenMintPrimitive) {
   let item: any;
-  run(function* () {
+  await run(function* () {
     const result = p.getPayload(123, MOCK_TX_DATA).next().value;
     if (!result || !("isBatched" in result)) {
       throw new Error("No payload generated");
@@ -100,7 +100,22 @@ test("MidnightTokenMint - hyphenated instance names are sanitized, not rejected"
   expect(ddl).not.toContain("midnight_token_mint_view_midnight-tokenmint");
 });
 
-test("MidnightTokenMint - owning a table does not suppress the STM input", () => {
+test("MidnightTokenMint - a quote in the name is escaped in the trigger literal", () => {
+  cleanup();
+  // The name is stripped for identifiers but compared as a string literal in
+  // the trigger body, where a bare `'` would emit unparseable DDL.
+  const p = new MidnightTokenMintPrimitive({
+    instanceName: "Bob's-Mints",
+    startBlockHeight: 1,
+    stateMachinePrefix: undefined,
+  });
+
+  const ddl = p.getDynamicTables("Bob's-Mints", STRATEGY)!;
+  expect(ddl).toContain("NEW.primitive_name = 'Bob''s-Mints'");
+  expect(ddl).toContain("midnight_token_mint_view_bobsmints");
+});
+
+test("MidnightTokenMint - owning a table does not suppress the STM input", async () => {
   cleanup();
   const p = new MidnightTokenMintPrimitive({
     instanceName: "tok",
@@ -112,7 +127,7 @@ test("MidnightTokenMint - owning a table does not suppress the STM input", () =>
   expect(p.getDynamicTables("tok", STRATEGY)).toBeDefined();
   expect(p.getConfig().scheduledPrefix).toBe("midnightTokenMintState");
 
-  const item = getPayloadOnce(p);
+  const item = await getPayloadOnce(p);
   expect(Array.isArray(item.stateMachinePayload)).toBe(true);
   expect(item.stateMachinePayload[0]).toBe("midnightTokenMintState");
   // Flat fields, in grammar order, so the STM handler reads them by name.
@@ -120,7 +135,7 @@ test("MidnightTokenMint - owning a table does not suppress the STM input", () =>
   expect(item.accountingPayload.amount).toBe("18446744073709551615");
 });
 
-test("MidnightTokenMint - no prefix means accounting only (opt-out is explicit)", () => {
+test("MidnightTokenMint - no prefix means accounting only (opt-out is explicit)", async () => {
   cleanup();
   const p = new MidnightTokenMintPrimitive({
     instanceName: "tok",
@@ -128,7 +143,7 @@ test("MidnightTokenMint - no prefix means accounting only (opt-out is explicit)"
     stateMachinePrefix: undefined,
   });
 
-  const item = getPayloadOnce(p);
+  const item = await getPayloadOnce(p);
   expect(item.stateMachinePayload).toBe(null);
   // The accounting row (and therefore the owned table) is still written.
   expect(item.accountingPayload.rawTokenType).toBe("cd".repeat(32));

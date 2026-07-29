@@ -29,6 +29,10 @@ export function midnightTokenMintIvm(
       `Primitive instance name "${name}" has no SQL-identifier-safe characters`,
     );
   }
+  // The name is also compared as a string literal inside the trigger body, and
+  // that use is not identifier-restricted — so escape quotes rather than strip
+  // them. Without this, a name containing `'` emits DDL that fails to parse.
+  const sqlLiteralName = name.replace(/'/g, "''");
 
   const mintsTable =
     `primitives.midnight_token_mint_intermediate_${validSQLName}`;
@@ -59,7 +63,7 @@ export function midnightTokenMintIvm(
         mint_amount numeric(78,0);
     BEGIN
         IF NEW.payload_type = '${PrimitiveTypeMidnightTokenMint}'
-           AND NEW.primitive_name = '${name}'
+           AND NEW.primitive_name = '${sqlLiteralName}'
            AND NEW.payload->>'rawTokenType' IS NOT NULL THEN
 
          mint_amount := COALESCE((NEW.payload->>'amount')::numeric(78,0), 0);
