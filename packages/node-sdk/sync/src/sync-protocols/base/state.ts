@@ -103,6 +103,27 @@ export abstract class SyncState<
    * stream). Surfaced on `/health`; a climbing count means a flapping upstream.
    */
   public producerRestarts: number = 0;
+  /**
+   * Producer failures, tracked separately from {@link consecutiveErrors}.
+   *
+   * That counter belongs to the fetch loop and is only cleared by a successful
+   * `readData`, so sharing it conflated two independent signals: an idle
+   * streaming chain would report `erroring` long after its producer recovered,
+   * and a successful poll would erase the record of a flapping producer.
+   */
+  public producerErrors: number = 0;
+  /** Wall-clock time of the last producer failure, or 0 if none. */
+  public lastProducerErrorMs: number = 0;
+
+  /**
+   * Resolved polling interval for this protocol, stamped by `startSync`.
+   *
+   * Single source of truth: `/health` derives its wedged threshold from this
+   * rather than reaching back into `fetcher.config.syncProtocol`, which it can
+   * only do through an unchecked cast that would fail silently to a default if
+   * the config shape ever moved.
+   */
+  public pollingIntervalMs: number = 0;
 
   // ── Backpressure observability (see common/page-helpers.ts + README) ──
   /** Resolved fetch cap (`maxBufferedPages`); set on each backpressure check, 0 until the first. */

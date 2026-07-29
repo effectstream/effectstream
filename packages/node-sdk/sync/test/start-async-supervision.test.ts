@@ -47,6 +47,9 @@ function makeStreamingState(
     lastSuccessfulFetchMs: 0,
     hasAsyncProducer,
     producerRestarts: 0,
+    producerErrors: 0,
+    lastProducerErrorMs: 0,
+    pollingIntervalMs: POLL_MS,
     getNamespace: () => ["streamer", "streamer"],
     *startAsync(): Operation<void> {
       counters.startAsyncCalls++;
@@ -85,6 +88,8 @@ test("5a: a producer that ends cleanly is restarted and counted", async () => {
   expect(counters.startAsyncCalls).toBeGreaterThan(1);
   // ...and the restart is visible to health instead of being silent.
   expect(state.producerRestarts).toBeGreaterThan(0);
+  // A clean return is not an *error*, so only the restart counter moves.
+  expect(state.producerErrors).toBe(0);
   // The sibling polling loop is unaffected.
   expect(counters.pollPasses).toBeGreaterThan(1);
 }, 30_000);
@@ -105,11 +110,16 @@ test("5b: a producer that throws is restarted and does not kill the scope", asyn
 
   // The scope survived: no error escaped to tear down `start()`.
   expect(rejection).toBeUndefined();
-  // The throw was caught, counted as an error, and the producer restarted.
+  // The throw was caught, counted, and the producer restarted.
   expect(counters.startAsyncCalls).toBeGreaterThan(1);
   expect(state.producerRestarts).toBeGreaterThan(0);
-  expect(state.consecutiveErrors).toBeGreaterThan(0);
-  expect(state.lastErrorTimestamp).toBeGreaterThan(0);
+  expect(state.producerErrors).toBeGreaterThan(0);
+  expect(state.lastProducerErrorMs).toBeGreaterThan(0);
+  // Counted on the PRODUCER's own tally, not the fetch loop's. Sharing
+  // `consecutiveErrors` conflated two signals: only a successful `readData`
+  // clears it, so an idle streaming chain stayed `erroring` long after its
+  // producer recovered, and a successful poll erased the record of a flap.
+  expect(state.consecutiveErrors).toBe(0);
   // And the sibling polling loop kept running throughout.
   expect(counters.pollPasses).toBeGreaterThan(1);
 }, 30_000);

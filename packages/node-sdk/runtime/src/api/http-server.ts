@@ -384,6 +384,8 @@ export const startHttpServer = function* (
     sinceLastSuccessfulFetchMs: Type.Union([Type.Number(), Type.Null()]),
     consecutiveErrors: Type.Number(),
     producerRestarts: Type.Number(),
+    producerErrors: Type.Number(),
+    sinceLastProducerErrorMs: Type.Union([Type.Number(), Type.Null()]),
     blockingMerge: Type.Boolean(),
     buffered: Type.Number(),
     bufferCap: Type.Number(),
@@ -394,7 +396,7 @@ export const startHttpServer = function* (
     db: HealthDbSchema,
     apply: Type.Object({
       blockHeight: Type.Union([Type.Number(), Type.Null()]),
-      sinceLastAppliedMs: Type.Union([Type.Number(), Type.Null()]),
+      sinceLastAppliedMs: Type.Number(),
       lagMs: Type.Union([Type.Number(), Type.Null()]),
     }),
     finalizedStream: Type.Object({

@@ -51,6 +51,10 @@ export type ProtocolHealth = {
   consecutiveErrors: number;
   /** Streaming producers only: restarts since boot. A climb means flapping. */
   producerRestarts: number;
+  /** Producer failures, counted independently of `consecutiveErrors`. */
+  producerErrors: number;
+  /** ms since the last producer failure; null if there has never been one. */
+  sinceLastProducerErrorMs: number | null;
   /**
    * True when the merge is currently waiting for THIS chain's page to advance.
    * When the node is stalled, this is the field that says where to look.
@@ -67,8 +71,11 @@ export type HealthReport = {
   db: ReturnType<typeof poolErrors.state>;
   apply: {
     blockHeight: number | null;
-    /** ms since the node last applied ANY block — the liveness signal. */
-    sinceLastAppliedMs: number | null;
+    /**
+     * ms since the node last applied ANY block — the liveness signal. Never
+     * null: before the first block it measures from process start instead.
+     */
+    sinceLastAppliedMs: number;
     /** Block-time lag. Informational: large during legitimate catch-up. */
     lagMs: number | null;
   };
@@ -87,15 +94,22 @@ export type HealthReport = {
  * bounded by `requestTimeoutMs` anyway, so a healthy loop always cycles.
  */
 const WEDGED_POLL_MULTIPLE = 20;
-/** Floor for the above, so fast-polling chains don't trip on a single hiccup. */
+/** Floor for the above, so fast-polling chains don't trip on a single hiccup.
+ *
+ * Caveat worth knowing before alerting on `wedged`: one `readData` pass fetches
+ * a whole chunk, which can be many sequential RPCs, so during deep catch-up a
+ * legitimately-progressing chain can exceed this without returning to the top of
+ * the loop and briefly read as `wedged`. Node-level status stays 200 while
+ * blocks keep applying, so this is cosmetic — but alert on the node's `status`,
+ * not on a single protocol's. */
 const WEDGED_MIN_MS = 60_000;
 
-function pollingIntervalOf(protocol: AllSyncProtocols): number {
-  const syncProtocol = (protocol as unknown as {
-    fetcher?: { config?: { syncProtocol?: { pollingInterval?: number } } };
-  }).fetcher?.config?.syncProtocol;
-  return syncProtocol?.pollingInterval ?? 1_000;
-}
+/**
+ * How long after a producer failure the chain still reports `erroring`. Twice
+ * the supervisor's max backoff, so a producer that recovers on its first or
+ * second restart clears the flag on its own.
+ */
+const PRODUCER_FLAP_WINDOW_MS = 60_000;
 
 function protocolHealth(
   protocol: AllSyncProtocols,
@@ -108,16 +122,31 @@ function protocolHealth(
     ? now - protocol.lastSuccessfulFetchMs
     : null;
 
+  // `pollingIntervalMs` is published by startSync, so this and the loop agree on
+  // one value. It is 0 until startSync stamps it; fall back until then.
   const wedgedAfterMs = Math.max(
-    WEDGED_POLL_MULTIPLE * pollingIntervalOf(protocol),
+    WEDGED_POLL_MULTIPLE * (protocol.pollingIntervalMs || 1_000),
     WEDGED_MIN_MS,
   );
+
+  const sinceLastProducerErrorMs = protocol.lastProducerErrorMs > 0
+    ? now - protocol.lastProducerErrorMs
+    : null;
 
   let status: ProtocolStatus;
   if (sinceLastPollMs != null && sinceLastPollMs > wedgedAfterMs) {
     // The loop itself stopped cycling: stuck inside a call that never returned.
     status = "wedged";
   } else if (protocol.consecutiveErrors > 0) {
+    status = "erroring";
+  } else if (
+    sinceLastProducerErrorMs != null &&
+    sinceLastProducerErrorMs < PRODUCER_FLAP_WINDOW_MS
+  ) {
+    // A producer that failed recently but has been restarted. Reported so a
+    // flapping stream is visible, and time-bounded so a single old blip does
+    // not pin the chain to `erroring` forever (which is what sharing
+    // `consecutiveErrors` used to do for an idle streaming chain).
     status = "erroring";
   } else if (protocol.lastPage == null) {
     status = "starting";
@@ -133,6 +162,8 @@ function protocolHealth(
     sinceLastSuccessfulFetchMs,
     consecutiveErrors: protocol.consecutiveErrors,
     producerRestarts: protocol.producerRestarts,
+    producerErrors: protocol.producerErrors,
+    sinceLastProducerErrorMs,
     blockingMerge: protocol.mergeWaitingForPage,
     buffered: protocol.bufferedData.size(),
     bufferCap: protocol.bufferCap,
