@@ -102,10 +102,16 @@ export async function run(options = {}) {
     reset = true,
     rpcPort = 8899,
     faucetPort = 9900,
-    // The test validator has no authentication and its faucet hands out SOL to
-    // anyone who asks, so binding 0.0.0.0 exposes both to the whole network.
-    // Default to loopback; override for container setups that genuinely need
-    // to reach it from outside.
+    // The test validator has no authentication, so binding 0.0.0.0 exposed the
+    // RPC to the whole network. Default to loopback; override for container
+    // setups that genuinely need to reach it from outside.
+    //
+    // CAVEAT: this only covers the RPC and gossip/TPU. The FAUCET ignores
+    // --bind-address and always listens on 0.0.0.0 — there is no flag to
+    // change that in Agave 4.1.2 (only the --faucet-per-request-sol-cap /
+    // --faucet-per-time-sol-cap rate limits). It hands out worthless localnet
+    // SOL, but anyone on the LAN can still reach it, so don't run this on an
+    // untrusted network.
     bindAddress = process.env.SOLANA_BIND_ADDRESS ?? '127.0.0.1',
   } = options;
 
@@ -150,19 +156,36 @@ export async function run(options = {}) {
     env: { ...process.env, COPYFILE_DISABLE: "1" },
   });
 
-  if (verbose) {
-    child.stdout.on('data', (data) => {
-      console.log(`solana-test-validator stdout: ${data}`);
-    });
-  }
-
-  child.stderr.on('data', (data) => {
-    console.error(`solana-test-validator stderr: ${data}`);
-  });
-  child.on('close', (code) => {
-    if (code !== 0) {
-      console.log(`solana-test-validator exited with code ${code}`);
+  // Keep a rolling tail of output even when quiet. The validator reports most
+  // startup failures on STDOUT, which used to be discarded unless `verbose` —
+  // so a failure surfaced as a bare "exited with code 1" with nothing to
+  // diagnose from, in CI least of all.
+  const TAIL_LINES = 40;
+  const tail = [];
+  const record = (stream) => (data) => {
+    const text = String(data);
+    if (verbose) {
+      const log = stream === 'stderr' ? console.error : console.log;
+      log(`solana-test-validator ${stream}: ${text}`);
     }
+    for (const line of text.split('\n')) {
+      if (line.trim() === '') continue;
+      tail.push(`  [${stream}] ${line}`);
+      if (tail.length > TAIL_LINES) tail.shift();
+    }
+  };
+
+  child.stdout.on('data', record('stdout'));
+  child.stderr.on('data', record('stderr'));
+
+  child.on('close', (code) => {
+    if (code === 0) return;
+    console.error(
+      `solana-test-validator exited with code ${code}.` +
+      (verbose
+        ? ''
+        : ` Last output:\n${tail.length > 0 ? tail.join('\n') : '  (no output captured)'}`),
+    );
   });
 
   return {

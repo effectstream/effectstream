@@ -40,7 +40,11 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.core == 'true' && (github.event_name == 'push' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    # 11 suites run serially and green runs already sit at 28-29 min, so a
+    # single E2E_MAX_RETRIES retry of any one suite blew the old 30-min budget —
+    # the job was killed mid-retry and reported as `cancelled`, which reads like
+    # "superseded by a newer push" rather than "timed out".
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v3
