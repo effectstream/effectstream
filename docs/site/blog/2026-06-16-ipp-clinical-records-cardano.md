@@ -19,7 +19,7 @@ anchor that records a hash of each chart on chain. It's built on Cardano with
 tooling from EffectStream for local development, and is open-source at
 [`effectstream/ipp-app`](https://github.com/effectstream/ipp-app).
 
-It is also the first *native-mobile, location-based* template in the
+It is also the first *native-mobile, location-based AR* template in the
 EffectStream series. This one is a field tool clinicians carry in their
 pocket, and also a social game, with leaderboard scoring.
 
@@ -52,8 +52,9 @@ IPP attacks exactly these gaps, and each maps to a feature:
   delegated logins to office staff to capture cases by phone.
 - **Location is first-class (GPS).** Every record geocodes, so the map shows where
   need clusters and lets you plan interventions: "send a specialist to this zone."
-- **Augmented data (AR for data).** At capture, each field shows the local / country /
-  world context; on the map, notes and areas turn patterns into plans.
+- **Location-based AR.** At capture, each field is overlaid with its local /
+  country / world context for the patient's real location; on the map, notes
+  and areas are drawn over the real geography, turning patterns into plans.
 - **Capture becomes verifiable research.** A filtered cohort is anchored to Cardano
   as a study whose dataset anyone can validate - the data finally has somewhere to
   go.
@@ -96,12 +97,15 @@ flowchart LR
 
 ## Gamification
 
-Games come in many shapes, medias and types. We are introducing a real world op-in work into a gameified leaderboard. For example, a clinician earn points for each record they capture, and the leaderboard tracks the top contributors. This is has multiple benefits:
+Games come in many shapes, media, and types. Here we bring real-world, opt-in
+work into a gamified leaderboard: a clinician earns points for each record they
+capture, and the leaderboard tracks the top contributors. This has multiple
+benefits:
 * It creates a sense of ownership and pride in the work they are doing.
 * Social proof that their work is valued and contributing to a larger cause.
-* Showcase the community and collaboration.
+* It showcases the community and collaboration.
 * You can see the data is clean, as top contributors will probably be well known and trusted.
-* Helps showing the app is alive.
+* It helps show the app is alive.
 * Keeps it fun!
 
 ![IPP iOS app - the contributor leaderboard ranking clinicians by points contributed](/img/blog/ipp-leaderboard.png)
@@ -212,11 +216,11 @@ things a filing-cabinet records system simply cannot:
   that it exists. A health service can look at a region and decide "send a
   specialist to this zone." That planning was impossible when cases lived on
   paper in separate clinics.
-- **Context at the point of care (augmented data - "AR for data").** As a
-  clinician fills a field, the app shows how this patient compares to their
+- **Context at the point of care (location-based AR).** As a clinician fills a
+  field, the app augments it live with how this patient compares to their
   *local* area, their *country*, and the *world* - so a blank field becomes a
-  field with meaning. On the map, clinicians draw notes and areas, turning raw
-  points into an intervention plan.
+  field with meaning. On the map, clinicians draw notes and areas over the real
+  geography, turning raw points into an intervention plan.
 - **Capture that becomes verifiable research.** A filtered cohort is anchored
   to Cardano as a study (one Merkle root), so the data a clinician gathers can
   finally go somewhere - a dataset a journal or co-author can validate without
@@ -230,7 +234,7 @@ things a filing-cabinet records system simply cannot:
 with clinician-drawn notes and areas - so you can see where need concentrates.*
 
 ![IPP iOS capture form - each field shows the local, country and world average beneath it](/img/blog/ipp-augmented-data.png)
-*Augmented data at capture: under each field, the app shows the average value
+*Location-based AR at capture: under each field, the app overlays the average value
 for the patient's locality, country, and the world. It is subtle but powerful -
 the clinician instantly sees how this patient compares to local norms, and
 weighing each value against its context makes data-entry errors far less likely.*
@@ -243,12 +247,13 @@ Three deliberate choices, each driven by the clinic, not the spec:
   who treat it are scarce. Without location you can only count cases; with it
   you can *route care*. Geo-location is the difference between a list and a
   plan.
-- **Why augmented data ("AR for data").** The hard part of an intake form is
-  not storing the answer - it is knowing whether the answer is unusual. Showing
-  the local / country / world average beneath each field does two things at
-  once: it gives the clinician an instant sense of the norm for that location,
-  and it cuts data-entry errors, because a value that is off compared to its
-  context makes you stop and check. The paper form could never do that.
+- **Why location-based AR.** The hard part of an intake form is not storing
+  the answer - it is knowing whether the answer is unusual. Our AR is anchored
+  to physical place through GPS rather than to a camera feed: the app overlays
+  the local / country / world average beneath each field, which does two things
+  at once - it gives the clinician an instant sense of the norm for that
+  location, and it cuts data-entry errors, because a value that is off compared
+  to its context makes you stop and check. The paper form could never do that.
 - **Why iOS.** Every clinician and non-medical professional in the pilot already
   carried an iPhone, so iOS was the fastest path to real hands-on use and the
   only platform we needed to target. The app ships signed requests, an embedded
@@ -263,7 +268,11 @@ result that mattered most.
 The form, the fields, and the priorities did not come from a spec - they came
 from doctors. We ran a closed pilot in three neighbouring cities in Chile with
 practising clinicians who needed exactly this tool and who gave us the
-requirements and hints that shaped it. The women's-health and pelvic-floor
+requirements and hints that shaped it. We chose the pilot cities with the
+clinicians themselves rather than through Discord or Twitter polls - not a
+single targeted user of this template is reachable on those platforms, so
+community interest had to be measured where this community actually is: in the
+clinics. The women's-health and pelvic-floor
 instruments in the app are theirs. We deployed it the simplest way possible - by
 hand, installing the app on each doctor's own iPhone. Every one of them already
 carried one, so iOS was the right (and only) target.
@@ -354,11 +363,11 @@ surface generalizes. The pieces worth lifting:
   ~70 questions rendered from a server-side JSON schema, so you add / reorder /
   relabel questions with no App Store release. Signed requests, an embedded web
   dashboard, and a deterministic per-account wallet come with it.
-- **GPS + augmented data (AR for data).** CoreLocation geocoding feeds a Leaflet
+- **GPS + location-based AR.** CoreLocation geocoding feeds a Leaflet
   population map with stat filters and a distance radius; at capture each field
-  shows local / country / world context, and on the map you draw notes and areas to
-  plan interventions. The whole location-plus-augmentation layer drops into any
-  field-data app.
+  is overlaid with local / country / world context, and on the map you draw notes
+  and areas to plan interventions. The whole location-plus-augmentation layer
+  drops into any field-data app.
 - **Gamification.** Points and a leaderboard as a social-regulation and incentive
   layer - reusable anywhere you need contributors to keep feeding a dataset (and,
   as the pilot showed, to surface who your paying users are).
