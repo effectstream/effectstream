@@ -1,7 +1,7 @@
 import BinWrapper from '@xhmikosr/bin-wrapper';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 
@@ -37,8 +37,45 @@ port=18334
 fallbackfee=0.00001
 `;
 
+/**
+ * Apple Silicon refuses to exec an arm64 Mach-O that carries no code signature
+ * at all — the process is SIGKILLed before `main`, with no diagnostic beyond
+ * exit 137. bitcoin.org ships `bitcoin-*-arm64-apple-darwin.tar.gz` unsigned
+ * (`codesign -dv` → "code object is not signed at all"), so an ad-hoc signature
+ * has to be applied locally before first use. Every other binary in
+ * packages/binaries/ already ships signed; this is bitcoin-core only.
+ *
+ * Not a security downgrade: an ad-hoc signature asserts nothing about origin,
+ * it just satisfies the kernel's exec requirement. The x86_64 build is equally
+ * unsigned and runs only because Rosetta is exempt from the rule.
+ */
+function adhocSignIfNeeded(binaryPath) {
+  if (process.platform !== 'darwin' || process.arch !== 'arm64') return;
+  try {
+    const check = spawnSync('codesign', ['-dv', binaryPath], { encoding: 'utf8' });
+    // "not signed at all" appears on stderr; anything already signed is left alone.
+    if (!/not signed at all/.test(check.stderr ?? '')) return;
+    const res = spawnSync('codesign', ['-s', '-', '-f', binaryPath], { encoding: 'utf8' });
+    if (res.status !== 0) {
+      console.warn(
+        `[bitcoin-core] ad-hoc signing failed (${res.stderr?.trim()}); ` +
+        `bitcoind will likely be killed on launch.`,
+      );
+    }
+  } catch (error) {
+    console.warn(`[bitcoin-core] could not ad-hoc sign bitcoind: ${error.message}`);
+  }
+}
+
 export async function run(options = {}) {
   const { config, dataDir, verbose = false } = options;
+
+  // Download first, sign second, THEN let bin.run() exec it — `bin.run()` alone
+  // would try to execute the unsigned binary and be killed.
+  if (!fs.existsSync(bin.path())) {
+    await bin.download();
+  }
+  adhocSignIfNeeded(bin.path());
 
   await bin.run(['--version']);
 
