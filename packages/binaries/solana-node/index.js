@@ -21,14 +21,25 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 //     3: solana_accounts_db::utils::create_accounts_run_and_snapshot_dirs
 //     4: solana_test_validator::TestValidator::start
 //
-// The entire e2e suite runs inside Docker (.github/Dockerfile), where io_uring
-// is unavailable, so 3.1+ cannot start in CI at all. It is NOT fixed by
-// `--security-opt seccomp=unconfined` — verified. macOS builds are unaffected
-// (io_uring is Linux-only, so the assert isn't compiled in), which is exactly
-// why this passes locally and dies in CI.
+// The entire e2e suite runs inside Docker (.github/Dockerfile), and Docker's
+// DEFAULT SECCOMP PROFILE blocks the io_uring syscalls, so 3.1+ cannot start in
+// CI as configured. macOS builds are unaffected (io_uring is Linux-only, so the
+// assert isn't compiled in) — which is exactly why 4.x passes every local check
+// and dies in CI.
 //
-// Verified in a no-io_uring linux/amd64 container:
-//   4.1.2 ✗   4.0.3 ✗   3.1.14 ✗   3.0.14 ✓   2.3.13 ✓
+// Verified: 4.1.2 ✗  4.0.3 ✗  3.1.14 ✗  3.0.14 ✓  2.3.13 ✓
+//
+// This pin is a CI-configuration constraint, NOT an upstream dead end. On a
+// kernel that supports io_uring, the block is purely seccomp:
+//   default profile      -> io_uring_setup errno=1  (EPERM)
+//   seccomp=unconfined   -> io_uring_setup OK
+// So 3.1+/4.x becomes viable by relaxing seccomp for the e2e container —
+// preferably a minimal custom profile allowing only io_uring_setup/enter/
+// register, rather than blanket `unconfined`. Docker dropped io_uring from its
+// default allowlist over a run of kernel LPE bugs, so that is a deliberate
+// trade-off to make explicitly, not a rubber stamp. See PR #815 discussion.
+// (Docker-on-Apple-Silicon is a separate matter: emulated amd64 has no io_uring
+// at all, and no seccomp setting helps there.)
 const version = '3.0.14';
 const base = `https://github.com/anza-xyz/agave/releases/download/v${version}`;
 const dest = path.join(__dirname, 'vendor');
