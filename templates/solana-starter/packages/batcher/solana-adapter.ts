@@ -41,7 +41,27 @@ export interface SolanaAdapterEnv {
   allowSponsorAsInstructionAccount?: boolean;
 }
 
-function loadBatcherSecretKey(keypairPath: string): string {
+/**
+ * Fee-payer keypairs committed to this template for local dev convenience.
+ * Their secret keys are public — anyone with the repo has them — so they must
+ * never fund anything on a real network. Keyed by public key so a copy under a
+ * different filename is still caught.
+ */
+const PUBLIC_DEV_KEYPAIRS = new Set([
+  "3oFfnPdVbZZRapZTLgZ1ZDCmdf4YjGMpzDgukoWYpXqW", // keypair/batcher-wallet.json
+]);
+
+/** True for RPC endpoints that can only be a developer's own machine. */
+function isLoopbackRpc(rpcUrl: string): boolean {
+  try {
+    const { hostname } = new URL(rpcUrl);
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function loadBatcherSecretKey(keypairPath: string, rpcUrl: string): string {
   const resolved = path.resolve(process.cwd(), keypairPath);
   if (!fs.existsSync(resolved)) {
     throw new Error(
@@ -49,22 +69,36 @@ function loadBatcherSecretKey(keypairPath: string): string {
         `Generate one with \`solana-keygen new --outfile ${keypairPath}\`.`,
     );
   }
-  // Keypair JSON is an array of 64 bytes: first 32 are the pubkey, last 32
-  // are the secret. The Solana SDK expects the full 64-byte secret key in
-  // base58.
+  // Keypair JSON is an array of 64 bytes: the first 32 are the private seed,
+  // the last 32 the public key. The Solana SDK expects the full 64-byte secret
+  // key in base58.
   const bytes = JSON.parse(fs.readFileSync(resolved, "utf-8")) as number[];
   if (bytes.length !== 64) {
     throw new Error(
       `[batcher] ${keypairPath} is ${bytes.length} bytes, expected 64. Regenerate it.`,
     );
   }
-  return bs58.encode(Uint8Array.from(bytes));
+  const secretKey = Uint8Array.from(bytes);
+
+  // Fail closed: a keypair whose secret is in the repo must not pay fees on a
+  // network where those fees are real money.
+  const pubkey = bs58.encode(secretKey.slice(32));
+  if (PUBLIC_DEV_KEYPAIRS.has(pubkey) && !isLoopbackRpc(rpcUrl)) {
+    throw new Error(
+      `[batcher] Refusing to use the committed dev keypair ${pubkey} against ` +
+        `a non-local RPC (${rpcUrl}). Its secret key is public — anyone with ` +
+        `this repo can drain it. Generate your own:\n` +
+        `  solana-keygen new --outfile ${keypairPath}`,
+    );
+  }
+
+  return bs58.encode(secretKey);
 }
 
 export function createSolanaAdapter(env: SolanaAdapterEnv): SolanaAdapter {
   const config: SolanaAdapterConfig = {
     rpcUrl: env.rpcUrl,
-    batcherSecretKey: loadBatcherSecretKey(env.batcherKeypairPath),
+    batcherSecretKey: loadBatcherSecretKey(env.batcherKeypairPath, env.rpcUrl),
     syncProtocolName: env.syncProtocolName,
     targetProgramId: env.targetProgramId,
     maxBatchSize: env.maxBatchSize,

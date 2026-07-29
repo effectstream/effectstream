@@ -41,16 +41,17 @@ function main() {
   fs.mkdirSync(BUILD_DIR, { recursive: true });
 
   const bin = resolveCargoBuildSbf();
-  // platform-tools v1.52 is the first whose bundled cargo (1.85+) supports
-  // edition2024 deps; the 1.18.x default (v1.41) can't build them.
-  const toolsVersion = process.env.SOLANA_PLATFORM_TOOLS_VERSION ?? "v1.52";
+  // No --tools-version by default: cargo-build-sbf from Agave 4.1.x bundles
+  // platform-tools v1.54, whose cargo (1.85+) handles edition2024 deps. The old
+  // v1.52 pin existed only to escape Solana 1.18.x's v1.41 default, and forcing
+  // it now would download an older toolchain than the one already shipped.
+  const toolsVersion = process.env.SOLANA_PLATFORM_TOOLS_VERSION;
   const args = [
     "--manifest-path",
     PROGRAM_MANIFEST,
     "--sbf-out-dir",
     BUILD_DIR,
-    "--tools-version",
-    toolsVersion,
+    ...(toolsVersion ? ["--tools-version", toolsVersion] : []),
   ];
   if (process.env.SKIP_FORCE_TOOLS_INSTALL !== "1") {
     args.push("--force-tools-install");

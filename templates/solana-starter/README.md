@@ -175,6 +175,28 @@ rent-paying account (`allowSponsorAsInstructionAccount`) — then co-signs as fe
 payer and submits. Ships with `batcher.dev.ts` and a local fee-payer keypair
 under `keypair/`.
 
+> **⚠️ The keypairs in this template are public.** `keypair/batcher-wallet.json`
+> and `contracts-solana/keypair/counter-program.json` are committed so local dev
+> is zero-setup and the program ID stays deterministic — which means their
+> secret keys are in the repo and anyone can drain them. They are localnet
+> throwaways.
+>
+> Before pointing this at devnet or mainnet, generate your own:
+>
+> ```bash
+> solana-keygen new --outfile packages/batcher/keypair/batcher-wallet.json
+> solana-keygen new --outfile packages/contracts-solana/keypair/counter-program.json
+> ```
+>
+> (then update `declare_id!` in `programs/counter/src/lib.rs` and `program-id.ts`
+> to the new program ID). As a backstop, the batcher **refuses to start** if the
+> committed sponsor key is used against a non-loopback RPC.
+>
+> The sponsor also pays every transaction fee it co-signs. `SolanaAdapter`
+> bounds *per-transaction* cost — scoping to one program, and rejecting priority
+> fees above `maxPriorityFeeMicroLamports` (default: none allowed) — but not
+> *volume*. Add a rate limit before exposing a funded batcher publicly.
+
 ### packages/frontend
 
 Vite + React app with Phantom wallet integration (falls back to a generated

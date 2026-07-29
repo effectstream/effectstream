@@ -43,8 +43,11 @@ async function main() {
     String(RPC_PORT),
     "--faucet-port",
     String(FAUCET_PORT),
+    // Loopback by default: the validator has no auth and its faucet gives SOL
+    // to anyone who asks. Override for container setups that need external
+    // reachability.
     "--bind-address",
-    "0.0.0.0",
+    process.env.SOLANA_BIND_ADDRESS ?? "127.0.0.1",
     "--bpf-program",
     COUNTER_PROGRAM_ID,
     PROGRAM_SO,

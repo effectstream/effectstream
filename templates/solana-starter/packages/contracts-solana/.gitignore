@@ -9,3 +9,9 @@ test-ledger/
 
 # rustfmt backups
 **/*.rs.bk
+
+# Keypairs. `keypair/counter-program.json` IS committed on purpose so the
+# program ID stays deterministic for local dev — its secret is public and it
+# must never own anything on a real network. Any OTHER keypair stays out.
+keypair/*.json
+!keypair/counter-program.json
