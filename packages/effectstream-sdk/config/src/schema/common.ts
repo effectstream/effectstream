@@ -14,6 +14,12 @@ export const PollingSyncProtocol = new ConfigSchema({
     pollingInterval: TypeboxHelpers.IntervalMs(),
   }),
   optional: Type.Object({
+    /**
+     * Intentionally has NO default, unlike its neighbour below. The effective
+     * cap is derived from the protocol's `stepSize`
+     * (`common/page-helpers.ts:bufferCapFor`), so a static default here would
+     * override that per-chain sizing. `undefined` means "derive it".
+     */
     maxBufferedPages: Type.Optional(Type.Number()),
     /**
      * Hard deadline for a single RPC request made by this protocol's client.

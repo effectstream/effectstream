@@ -67,6 +67,9 @@ async function runGroups(): Promise<number> {
       cwd: repoRoot,
       stdout: "inherit",
       stderr: "inherit",
+      // Spread order is deliberate: an ambient PGLITE=false must win, so the
+      // Postgres-backed consistency tests can be selected from the environment.
+      // PGLITE=true is only the default when nothing is set.
       env: { PGLITE: "true", ...process.env },
     });
     const code = await proc.exited;
