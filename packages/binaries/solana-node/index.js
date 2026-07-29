@@ -10,7 +10,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Agave is the maintained continuation of solana-labs/solana; the old org
 // publishes nothing past 1.18.x, which is EOL.
-const version = '4.1.2';
+//
+// ⚠️ DO NOT BUMP PAST 3.0.x WITHOUT READING THIS.
+// Agave >= 3.1 hard-asserts io_uring support on Linux and panics during init
+// where it is unavailable:
+//
+//   [INFO agave_io_uring] io_uring NOT supported: Function not implemented (os error 38)
+//   thread 'main' panicked at fs/src/dirs.rs:27:9:
+//   assertion failed: io_uring_supported()
+//     3: solana_accounts_db::utils::create_accounts_run_and_snapshot_dirs
+//     4: solana_test_validator::TestValidator::start
+//
+// The entire e2e suite runs inside Docker (.github/Dockerfile), where io_uring
+// is unavailable, so 3.1+ cannot start in CI at all. It is NOT fixed by
+// `--security-opt seccomp=unconfined` — verified. macOS builds are unaffected
+// (io_uring is Linux-only, so the assert isn't compiled in), which is exactly
+// why this passes locally and dies in CI.
+//
+// Verified in a no-io_uring linux/amd64 container:
+//   4.1.2 ✗   4.0.3 ✗   3.1.14 ✗   3.0.14 ✓   2.3.13 ✓
+const version = '3.0.14';
 const base = `https://github.com/anza-xyz/agave/releases/download/v${version}`;
 const dest = path.join(__dirname, 'vendor');
 
@@ -27,41 +46,27 @@ const bin = new BinWrapper()
 export default bin;
 
 /**
- * SHA-256 of the extracted `solana-test-validator` in each published v4.1.2
+ * SHA-256 of the extracted `solana-test-validator` in each published v3.0.14
  * asset. bin-wrapper has no integrity support and discards the archive after
  * extracting, so this verifies the binary we are about to execute rather than
  * the tarball. Regenerate on every `version` bump with:
  *
  *   shasum -a 256 packages/binaries/solana-node/vendor/bin/solana-test-validator
  *
- * NOTE: this is deliberately a SET, not a platform->digest map, because
- * bin-wrapper cannot currently select an arm64 asset at all. It filters via
- * os-filter-obj@2 -> arch@^2, and arch@2.x has no notion of arm64 — the string
- * does not appear in its source. It returns only 'x64' or 'x86': `darwin` is
- * hardcoded to 'x64' (it predates Apple Silicon), and linux goes through
- * `getconf LONG_BIT`, which reports word size rather than ISA, so arm64 Linux
- * also answers 'x64'.
- *
- * Consequence: on Apple Silicon (and arm64 Linux) the `.src(..., 'arm64')`
- * entry below is unreachable and the x86_64 build is downloaded instead,
- * running under Rosetta. Keying this map on `os.arch()` would therefore fail
- * verification on every one of those machines. Membership in the pinned set
- * still proves the binary is one of the three official builds, which is the
- * property that matters here.
- *
- * This affects every bin-wrapper@5 package in `packages/binaries/`
- * (bitcoin-core, celestia, ord, near-sandbox, solana-node); the grafana ones
- * use bin-wrapper@13 -> @xhmikosr/os-filter-obj@3 -> arch@3 and are fine.
- * near-sandbox is worse off than the rest: it declares only the native triple,
- * so nothing matches and its download throws outright on Apple Silicon — its
- * source already carries a partial workaround comment about this. The repo-wide
- * fix is forcing `arch@3` in the root `overrides`, which needs all five
- * packages re-tested and is deliberately not bundled into this PR.
+ * Deliberately matched as a SET rather than by `os.arch()`. Asset selection goes
+ * through bin-wrapper -> os-filter-obj -> arch, and the reported architecture
+ * has not always agreed with `os.arch()`: arch@2.x had no notion of arm64 at all
+ * (`darwin` was hardcoded to 'x64'), which is why every Mac used to download the
+ * x86_64 build and run it under Rosetta. The root `overrides` now force arch@3,
+ * so selection is correct today — but membership in the pinned set is immune to
+ * that class of mismatch (including deliberate emulation) while still proving
+ * the binary is one of the three official builds, which is the property that
+ * matters here.
  */
 const CHECKSUMS = {
-  'linux-x64': '493db974bc1a1eb62c413561dd9739455e5afd9abd7367fe7aff9389c0865ce2',
-  'darwin-x64': 'f8a5780576f5d0674492b668fa9781e8d908bf9570f738c2b634b693b114fecd',
-  'darwin-arm64': 'aa0fd7ccc9300a29e5bea0a4bc65b9de5a103b111bc09c654983494040e8eaf8',
+  'linux-x64': '80f3bc0e3fa6a3090e69bafbfe00b249eaa655c5874ac83aebb6acdb157140ab',
+  'darwin-x64': '2a4a5ad21f7cd50021fa55948710ee2f3559d9cccf95f7a31094e45c27023b52',
+  'darwin-arm64': 'ab00c9a189341ef61402efce1a27713bb1b0ffb941715cea56ed5aa133992fe1',
 };
 
 /**
