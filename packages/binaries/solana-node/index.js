@@ -34,16 +34,29 @@ export default bin;
  *
  *   shasum -a 256 packages/binaries/solana-node/vendor/bin/solana-test-validator
  *
- * NOTE: this is deliberately a SET, not a platform->digest map. bin-wrapper
- * picks the asset via os-filter-obj, which depends on `arch@^2`, and arch@2.x
- * hardcodes `if (process.platform === 'darwin') return 'x64'` — it predates
- * Apple Silicon. So every Mac, including arm64, downloads the x86_64 build and
- * runs it under Rosetta. Keying on `os.arch()` would therefore fail
- * verification on every Apple Silicon machine. Membership in the pinned set
+ * NOTE: this is deliberately a SET, not a platform->digest map, because
+ * bin-wrapper cannot currently select an arm64 asset at all. It filters via
+ * os-filter-obj@2 -> arch@^2, and arch@2.x has no notion of arm64 — the string
+ * does not appear in its source. It returns only 'x64' or 'x86': `darwin` is
+ * hardcoded to 'x64' (it predates Apple Silicon), and linux goes through
+ * `getconf LONG_BIT`, which reports word size rather than ISA, so arm64 Linux
+ * also answers 'x64'.
+ *
+ * Consequence: on Apple Silicon (and arm64 Linux) the `.src(..., 'arm64')`
+ * entry below is unreachable and the x86_64 build is downloaded instead,
+ * running under Rosetta. Keying this map on `os.arch()` would therefore fail
+ * verification on every one of those machines. Membership in the pinned set
  * still proves the binary is one of the three official builds, which is the
- * property that matters. (The arch bug affects every bin-wrapper package in
- * `packages/binaries/`, not just this one — fixing it repo-wide means forcing
- * `arch@3` and re-testing all of them.)
+ * property that matters here.
+ *
+ * This affects every bin-wrapper@5 package in `packages/binaries/`
+ * (bitcoin-core, celestia, ord, near-sandbox, solana-node); the grafana ones
+ * use bin-wrapper@13 -> @xhmikosr/os-filter-obj@3 -> arch@3 and are fine.
+ * near-sandbox is worse off than the rest: it declares only the native triple,
+ * so nothing matches and its download throws outright on Apple Silicon — its
+ * source already carries a partial workaround comment about this. The repo-wide
+ * fix is forcing `arch@3` in the root `overrides`, which needs all five
+ * packages re-tested and is deliberately not bundled into this PR.
  */
 const CHECKSUMS = {
   'linux-x64': '493db974bc1a1eb62c413561dd9739455e5afd9abd7367fe7aff9389c0865ce2',
