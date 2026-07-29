@@ -18,6 +18,7 @@ import type {
   PrimitiveType,
 } from "./types.ts";
 import { SolanaClient } from "./SolanaClient.ts";
+import { extractProgramLogs } from "./program-logs.ts";
 import { call, type Operation } from "effection";
 import { bound } from "@effectstream/utils";
 
@@ -181,12 +182,18 @@ export class SolanaFetcher extends BaseDataFetcher<
           continue;
         }
 
-        // ── SOLANA:ProgramLog — scrape logs for a watched programId ──
+        // ── SOLANA:ProgramLog — logs the watched programId actually emitted ──
         if (prim.programId) {
-          if (!accountKeys.includes(prim.programId)) continue;
-          // Filter by eventType if specified
+          // Source of truth is the log stream's invoke/success framing, NOT
+          // accountKeys: naming a program as an account doesn't invoke it, and
+          // a program reached through a lookup table isn't in accountKeys at
+          // all. See program-logs.ts.
+          const programLogs = extractProgramLogs(logs, prim.programId);
+          if (programLogs == null) continue;
+          // Filter by eventType if specified — against this program's own lines
+          // only, so another program can't trigger it by echoing the string.
           if (prim.eventType) {
-            const hasMatchingLog = logs.some((log) =>
+            const hasMatchingLog = programLogs.some((log) =>
               log.includes(prim.eventType!)
             );
             if (!hasMatchingLog) continue;
@@ -205,7 +212,7 @@ export class SolanaFetcher extends BaseDataFetcher<
               payload: {
                 programId: prim.programId,
                 slot,
-                logMessages: logs,
+                logMessages: programLogs,
               },
             },
           });
