@@ -15,7 +15,9 @@
     ".": "./src/mod.ts",
     "./evm-viem": "./src/evm/viem.ts",
     "./cardano-local": "./src/cardano/local.ts",
-    "./midnight-local": "./src/midnight/local.ts"
+    "./midnight-local": "./src/midnight/local.ts",
+    "./solana": "./src/solana/solana.ts",
+    "./solana-local": "./src/solana/local.ts"
   },
   "peerDependencies": {
     "@effectstream/midnight-contracts": "workspace:*",
@@ -53,7 +55,9 @@
     "@metamask/providers": "^22.1.0",
     "@midnight-ntwrk/dapp-connector-api": "4.0.1",
     "@perawallet/connect": "^1.4.2",
+    "@noble/curves": "^1.8.0",
     "@solana/web3.js": "^1.95.0",
+    "@wallet-standard/app": "^1.1.0",
     "@polkadot/api": "15.10.2",
     "@polkadot/extension-dapp": "^0.58.10",
     "@polkadot/extension-inject": "^0.58.10",
@@ -62,6 +66,7 @@
     "@types/semver": "7.7.1",
     "assert-never": "^1.4.0",
     "avail-js-sdk": "^0.4.2",
+    "bs58": "^6.0.0",
     "bech32": "^2.0.0",
     "ethers": "^6.15.0",
     "semver": "^7.7.3",
