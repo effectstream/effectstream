@@ -27,6 +27,7 @@ import { runToolingTests } from "./tooling/sandbox-launch.test.ts";
 import { runWalletTransferTest } from "./sync/wallet-transfer.test.ts";
 import { runAccountBalanceTest } from "./sync/account-balance.test.ts";
 import { runProgramLogTest } from "./sync/program-logs.test.ts";
+import { runProgramEventTests } from "./sync/program-events.test.ts";
 import { runBatcherTest } from "./sync/batcher.test.ts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
@@ -44,6 +45,7 @@ async function runSyncTests(db: Client): Promise<void> {
 
   await runAccountBalanceTest(db);
   await runProgramLogTest(db);
+  await runProgramEventTests(db);
 }
 
 async function test() {

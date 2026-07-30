@@ -7,6 +7,10 @@ import {
   PrimitiveTypeSolanaAccountBalance,
   PrimitiveTypeSolanaProgramLog,
 } from "@effectstream/sm/builtin";
+import {
+  EVENT_PREFIX,
+  TEST_EVENT_PROGRAM_ID,
+} from "@e2e/solana-contracts/program-id";
 
 /**
  * Deterministic address the AccountBalance primitive watches. Derived from a
@@ -81,6 +85,23 @@ export const config = new ConfigBuilder()
           startBlockHeight: 0,
           address: WATCHED_BALANCE_ADDRESS,
           stateMachinePrefix: "solana-account-balance",
+        }),
+      )
+      // Watch the shared e2e test program (e2e/shared/contracts/solana), loaded
+      // into the validator's genesis by its chain:start. This is the only
+      // primitive pointed at a real custom program rather than a built-in one,
+      // which is what lets program-events.test.ts assert both that genuine
+      // invocations are captured and that another program emitting the same
+      // marker string is NOT attributed here.
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelSolanaRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "SolanaTestEventLog",
+          type: PrimitiveTypeSolanaProgramLog,
+          startBlockHeight: 0,
+          programId: TEST_EVENT_PROGRAM_ID,
+          eventType: EVENT_PREFIX,
+          stateMachinePrefix: "solana-program-log",
         }),
       )
       // Watch the SPL Memo program so the sync captures txs the fee-payer

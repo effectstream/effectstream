@@ -21,6 +21,7 @@
         "@e2e/evm-contracts": "workspace:*",
         "@e2e/near-contracts": "workspace:*",
         "@e2e/solana": "workspace:*",
+        "@e2e/solana-contracts": "workspace:*",
         "@effectstream/batcher-sdk": "workspace:*",
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
@@ -401,6 +402,14 @@
         "wait-on": "*",
       },
     },
+    "e2e/shared/contracts/solana": {
+      "name": "@e2e/solana-contracts",
+      "dependencies": {
+        "@effectstream/solana-node": "workspace:*",
+        "@solana/web3.js": "^1.95.0",
+        "wait-on": "*",
+      },
+    },
     "e2e/shared/data-types": {
       "name": "@e2e/data-types",
       "version": "0.1.0",
@@ -427,6 +436,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@e2e/engine": "workspace:*",
+        "@e2e/solana-contracts": "workspace:*",
         "@effectstream/batcher-sdk": "workspace:*",
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
@@ -435,7 +445,6 @@
         "@effectstream/orchestrator": "workspace:*",
         "@effectstream/runtime": "workspace:*",
         "@effectstream/sm": "workspace:*",
-        "@effectstream/solana-node": "workspace:*",
         "@effectstream/utils": "workspace:*",
         "@sinclair/typebox": "^0.34.30",
         "@solana/web3.js": "^1.95.0",
@@ -1307,6 +1316,8 @@
     "@e2e/root": ["@e2e/root@workspace:e2e"],
 
     "@e2e/solana": ["@e2e/solana@workspace:e2e/solana"],
+
+    "@e2e/solana-contracts": ["@e2e/solana-contracts@workspace:e2e/shared/contracts/solana"],
 
     "@e2e/wallets-ui": ["@e2e/wallets-ui@workspace:e2e/wallets-ui"],
 

@@ -5,7 +5,9 @@ import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/la
 export default {
   processes: [
     ...launchPglite(),
-    ...launchSolana("@e2e/solana", { resolveFrom: import.meta.dirname! }),
+    // Validator + the shared test program, from e2e/shared/contracts/solana —
+    // the reference any template can crib from.
+    ...launchSolana("@e2e/solana-contracts", { resolveFrom: import.meta.dirname! }),
 
     // ── Sync (the node) ──────────────────────────────────────────────────
     {

@@ -6,12 +6,11 @@
   "scripts": {
     "test": "bun run run-tests.ts",
     "launcher": "bun run launcher.cli.ts",
-    "node:start": "bun run node.ts",
-    "chain:start": "bun ./node_modules/.bin/solana-node",
-    "chain:wait": "bun ./node_modules/.bin/wait-on tcp:8899"
+    "node:start": "bun run node.ts"
   },
   "dependencies": {
     "@e2e/engine": "workspace:*",
+    "@e2e/solana-contracts": "workspace:*",
     "@effectstream/concise": "workspace:*",
     "@effectstream/config": "workspace:*",
     "@effectstream/coroutine": "workspace:*",
@@ -19,7 +18,6 @@
     "@effectstream/orchestrator": "workspace:*",
     "@effectstream/runtime": "workspace:*",
     "@effectstream/sm": "workspace:*",
-    "@effectstream/solana-node": "workspace:*",
     "@effectstream/batcher-sdk": "workspace:*",
     "@effectstream/utils": "workspace:*",
     "@solana/web3.js": "^1.95.0",

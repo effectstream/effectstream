@@ -129,6 +129,11 @@ export async function run(options = {}) {
     // SOL, but anyone on the LAN can still reach it, so don't run this on an
     // untrusted network.
     bindAddress = process.env.SOLANA_BIND_ADDRESS ?? '127.0.0.1',
+    // Programs to preload into the genesis ledger, as
+    // `[{ address, soPath }, …]` -> `--bpf-program <address> <soPath>`. Callers
+    // used to spawn the binary themselves to pass this, which duplicated all the
+    // ledger/reset handling below AND skipped the checksum verification above.
+    bpfPrograms = [],
   } = options;
 
   // Download (if needed) and verify BEFORE executing anything. `bin.run()`
@@ -159,6 +164,20 @@ export async function run(options = {}) {
     '--faucet-port', String(faucetPort),
     '--bind-address', bindAddress,
   ];
+
+  for (const { address, soPath } of bpfPrograms) {
+    if (!address || !soPath) {
+      throw new Error(
+        `[solana-node] bpfPrograms entries need both 'address' and 'soPath'; got ${JSON.stringify({ address, soPath })}`,
+      );
+    }
+    if (!fs.existsSync(soPath)) {
+      throw new Error(
+        `[solana-node] program binary not found at ${soPath} (for ${address}). Build it before starting the validator.`,
+      );
+    }
+    args.push('--bpf-program', address, soPath);
+  }
 
   if (reset) {
     args.push('--reset');
