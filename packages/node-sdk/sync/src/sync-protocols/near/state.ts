@@ -11,6 +11,7 @@ import { getPage } from "@effectstream/db";
 import { NearClient } from "./NearClient.ts";
 import { applyDelay } from "../common/utils.ts";
 import { bufferAtCap } from "../common/page-helpers.ts";
+import { requestTimeoutOf } from "../common/http.ts";
 
 export class NearSyncState extends SyncState<
   Input,
@@ -134,7 +135,10 @@ export class NearSyncState extends SyncState<
       page,
       config,
       fetcher,
-      new NearClient(config.network.rpcUrl),
+      new NearClient(
+        config.network.rpcUrl,
+        requestTimeoutOf(config.syncProtocol),
+      ),
       dbConn,
     );
   }

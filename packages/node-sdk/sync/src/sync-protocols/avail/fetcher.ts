@@ -5,6 +5,7 @@ import {
 } from "@effectstream/config";
 import { BaseDataFetcher } from "../base/fetcher.ts";
 import type { DataFetched } from "../base/fetcher.ts";
+import { requestTimeoutOf } from "../common/http.ts";
 import type {
   LastPage,
   OutputAndCleanup,
@@ -38,6 +39,7 @@ export class AvailFetcher extends BaseDataFetcher<
     this.client = new AvailClient(
       config.syncProtocol.rpc,
       config.syncProtocol.lightClient,
+      requestTimeoutOf(config.syncProtocol),
     );
   }
 

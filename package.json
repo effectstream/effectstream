@@ -2,6 +2,7 @@
   "name": "effectstream",
   "version": "0.101.1",
   "private": true,
+  "license": "(MIT OR Apache-2.0)",
   "workspaces": [
     "packages/**",
     "e2e/**"
@@ -12,7 +13,6 @@
   },
   "overrides": {
     "@effect/platform": "0.96.1",
-    "@midnight-ntwrk/ledger-v8": "8.0.3",
     "arch": "3.0.0"
   },
   "devDependencies": {
@@ -21,8 +21,5 @@
     "@effectstream/grafana-loki": "workspace:*",
     "bun-types": "^1.3.11",
     "wait-on": "8.0.3"
-  },
-  "patchedDependencies": {
-    "@midnight-ntwrk/wallet-sdk-dust-wallet@3.0.0": "patches/@midnight-ntwrk%2Fwallet-sdk-dust-wallet@3.0.0.patch"
   }
 }

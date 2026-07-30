@@ -4,6 +4,7 @@ import {
 } from "@effectstream/config";
 import { BaseDataFetcher } from "../base/fetcher.ts";
 import type { DataFetched } from "../base/fetcher.ts";
+import { requestTimeoutOf } from "../common/http.ts";
 import type {
   LastPage,
   OutputAndCleanup,
@@ -39,7 +40,10 @@ export class NearFetcher extends BaseDataFetcher<
     readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
-    this.client = new NearClient(config.network.rpcUrl);
+    this.client = new NearClient(
+      config.network.rpcUrl,
+      requestTimeoutOf(config.syncProtocol),
+    );
   }
 
   @bound

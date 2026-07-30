@@ -1,7 +1,7 @@
 {
   "name": "@preorder/shared",
   "version": "1.0.0",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "exports": {
     "./app-events": "./app-events.ts"
   },

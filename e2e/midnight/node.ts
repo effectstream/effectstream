@@ -90,18 +90,25 @@ stm.addStateTransition("midnightZswapRootState", function* (data) {
   ));
 });
 
-// MidnightTokenMint: registry of token id ("color") → minting contract +
-// domain separator (payload: { txHash, contractAddress, domainSep,
-// rawTokenType, kind, amount, entryPoint }). The mapping is immutable, so
-// conflicts only accumulate the running total.
+// MidnightTokenMint: the primitive owns its registry table
+// (primitives.midnight_token_mint_view_*, populated by a trigger on
+// primitive_accounting) — a consumer that only wants the registry needs
+// nothing but the `.addPrimitive(...)` line. The owned table does NOT replace
+// the state machine though: with a stateMachinePrefix configured the primitive
+// still emits an STM input per mint, and this handler runs alongside the
+// trigger, writing the consumer's own midnight_token_mints table.
+// Grammar is flat (builtinGrammars.midnightTokenMint), so parsedInput carries
+// the named fields directly. The mapping is immutable, so conflicts only
+// accumulate the running total.
 stm.addStateTransition("midnightTokenMintState", function* (data) {
-  const { payload } = data.parsedInput;
-  const tokenType = String(payload?.rawTokenType ?? "");
-  const kind = String(payload?.kind ?? "");
-  const contractAddress = String(payload?.contractAddress ?? "");
-  const domainSep = String(payload?.domainSep ?? "");
-  const amount = String(payload?.amount ?? "0");
-  const txHash = String(payload?.txHash ?? "");
+  const {
+    rawTokenType: tokenType,
+    kind,
+    contractAddress,
+    domainSep,
+    amount,
+    txHash,
+  } = data.parsedInput;
   console.log(`[STM] midnightTokenMintState: token=${tokenType.slice(0, 16)}… kind=${kind} contract=${contractAddress.slice(0, 16)}… amount=${amount}`);
   yield* World.promise(pool.query(
     `INSERT INTO midnight_token_mints (block_height, token_type, kind, contract_address, domain_sep, total_minted, tx_hash)

@@ -1,17 +1,16 @@
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import * as Rx from "rxjs";
-import { HDWallet, Roles } from "@midnight-ntwrk/wallet-sdk-hd";
-import { UnprovenTransactionRecipe, WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
-import { ShieldedWallet } from "@midnight-ntwrk/wallet-sdk-shielded";
-import { DustWallet } from "@midnight-ntwrk/wallet-sdk-dust-wallet";
+import { HDWallet, Roles } from "@midnightntwrk/wallet-sdk-hd";
+import { UnprovenTransactionRecipe, WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
+import { ShieldedWallet } from "@midnightntwrk/wallet-sdk-shielded";
+import { DustWallet } from "@midnightntwrk/wallet-sdk-dust-wallet";
 import {
   createKeystore,
-  InMemoryTransactionHistoryStorage,
   PublicKey,
   type UnshieldedKeystore,
   UnshieldedWallet,
-} from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
+} from "@midnightntwrk/wallet-sdk-unshielded-wallet";
 import {
   DustSecretKey,
   LedgerParameters,
@@ -20,9 +19,13 @@ import {
   UnprovenTransaction,
   ZswapSecretKeys,
 } from "@midnight-ntwrk/ledger-v8";
-import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import { makeServerProvingService } from "@midnight-ntwrk/wallet-sdk-capabilities/proving";
-import { MidnightBech32m, UnshieldedAddress } from "@midnight-ntwrk/wallet-sdk-address-format";
+import {
+  InMemoryTransactionHistoryStorage,
+  NetworkId,
+  TransactionHistoryStorage,
+} from "@midnightntwrk/wallet-sdk-abstractions";
+import { makeServerProvingService } from "@midnightntwrk/wallet-sdk-capabilities/proving";
+import { MidnightBech32m, UnshieldedAddress } from "@midnightntwrk/wallet-sdk-address-format";
 import { getEnv, exit } from "@effectstream/utils/runtime";
 
 /**
@@ -141,7 +144,9 @@ export function createWalletConfiguration(
       additionalFeeOverhead: resolveDustFeeOverhead(),
       feeBlocksMargin: resolveDustFeeBlocksMargin(),
     },
-    txHistoryStorage: new InMemoryTransactionHistoryStorage(),
+    txHistoryStorage: new InMemoryTransactionHistoryStorage(
+      TransactionHistoryStorage.TransactionHistoryCommonSchema,
+    ),
   };
 }
 

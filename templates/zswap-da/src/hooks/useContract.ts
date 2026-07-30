@@ -6,7 +6,7 @@ import {
   type FoundOfferFilesContract,
   type MidnightBrowserConfig,
 } from '../services/browserContract';
-import { MidnightBech32m, UnshieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
+import { MidnightBech32m, UnshieldedAddress } from '@midnightntwrk/wallet-sdk-address-format';
 import { api } from '../services/api';
 import { enqueueMintName, removeMintName } from '../services/mintQueue';
 

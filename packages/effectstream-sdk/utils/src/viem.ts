@@ -15,6 +15,17 @@ export function truncateSelector(fullSelector: EvmSelector): Evm4ByteSelector {
   return fullSelector.slice(0, 10) as Evm4ByteSelector;
 }
 
+/** Transport-level options the caller may set per sync protocol. */
+export type ViemTransportOptions = {
+  /**
+   * Per-request deadline in ms. Without one, viem's own default applies; an
+   * endpoint that accepts the connection and never answers would otherwise
+   * hang the caller indefinitely. Sync protocols pass their
+   * `requestTimeoutMs`.
+   */
+  timeout?: number;
+};
+
 export function createViemPublicClient<
   chain extends Chain,
   transport extends Transport = HttpTransport,
@@ -27,15 +38,18 @@ export function createViemPublicClient<
       PublicClientConfig<transport, chain, accountOrAddress, rpcSchema>,
       "chain"
     >
-  >,
+  > & ViemTransportOptions,
 ): PublicClient<transport, chain, ParseAccount<accountOrAddress>, rpcSchema> {
+  // `timeout` is a transport option, not a client option; pull it out so it
+  // reaches `http()` rather than being spread onto the client config.
+  const { timeout, ...clientOverride } = override ?? {};
   return createPublicClient({
     chain,
     transport: http(chain.rpcUrls.default.http[0], {
       // batch is needed for sync protocols to be efficient. Does this ever cause issues in other scenarios?
       batch: true,
-      // TODO: transport options should come from the sync protocol configuration
+      ...(timeout != null ? { timeout } : {}),
     }),
-    ...override,
+    ...clientOverride,
   }) as any;
 }

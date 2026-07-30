@@ -233,7 +233,7 @@ Run at the project root. **Accept only:** exit code 0, no `error:` lines in stde
 
 **Common failures:**
 - `error: package "@effectstream/X" not found` → version pinned to a tag that doesn't exist on npm. Check `npm view @effectstream/orchestrator version` and re-pin.
-- `Cannot find package @midnight-ntwrk/wallet-sdk-address-format` later at runtime → add it to the **root** `package.json` (phantom dep).
+- `Cannot find package @midnightntwrk/wallet-sdk-address-format` later at runtime → add it to the **root** `package.json` (phantom dep).
 
 ### Step 2 — `bun run build:<chain>` (per chain in the template)
 
@@ -277,7 +277,7 @@ If `bun run dev` doesn't terminate on its own (which it shouldn't — it's a lon
 These are the **chain-agnostic** failure modes that have wasted the most engineering time. Each one has full context in the linked reference file — flagging them here so the agent recognizes the cryptic error when it happens.
 
 - **`Cannot find module '@my-template/database'`** at runtime, despite `bun install` succeeding → the importer's `package.json` is missing `"@my-template/database": "workspace:*"`. Bun resolves siblings through the workspace graph but only for declared deps. In Docker, also confirm the Dockerfile creates the inline workspace symlinks (Linux doesn't resolve them automatically). → `references/architecture.md`, `references/docker.md`
-- **`Cannot find module '@midnight-ntwrk/wallet-sdk-address-format'`** → it's a phantom dependency (declared by no one but required at runtime). Every template must add it to the root `package.json`. → `references/multi-env.md`
+- **`Cannot find module '@midnightntwrk/wallet-sdk-address-format'`** → it's a phantom dependency (declared by no one but required at runtime). Every template must add it to the root `package.json`. → `references/multi-env.md`
 - **`401 Invalid signature` from batcher `/send-input`** → `BatcherConfig.namespace` ≠ frontend `EffectstreamConfig.appName`. Both must equal the same string (often `""` or the template name). → `references/batcher.md`
 - **pgtyped generates empty `.queries.ts`** → script was run from the wrong working directory. Always run via `bun run build:pgtypes`. → `references/database.md`
 - **Sync node crashes with `current transaction is aborted (code 25P02)` after submitting a tx** → the `.queries.ts` byte-offset `locs` are wrong, almost always because someone hand-wrote the file. Run `bun run build:pgtypes` to regenerate. The 25P02 is a cascade error; the real error is whatever pgtyped's malformed substitution produced one statement earlier. → Core invariant §2, `references/database.md`

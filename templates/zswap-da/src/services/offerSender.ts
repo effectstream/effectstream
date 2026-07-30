@@ -18,7 +18,7 @@ import { setNetworkId, type NetworkId } from '@midnight-ntwrk/midnight-js-networ
 import {
   MidnightBech32m,
   UnshieldedAddress,
-} from '@midnight-ntwrk/wallet-sdk-address-format';
+} from '@midnightntwrk/wallet-sdk-address-format';
 import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 
 export interface OfferSenderInfo {

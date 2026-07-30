@@ -16,7 +16,7 @@
     "@electric-sql/pglite": "^0.3.10",
     "@effectstream/evm-contracts": "0.101.1",
     "@effectstream/orchestrator": "0.101.1",
-    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "@midnightntwrk/wallet-sdk-address-format": "3.1.2",
     "wait-on": "8.0.3"
   },
   "effectstream": {

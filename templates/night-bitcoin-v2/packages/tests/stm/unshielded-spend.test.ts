@@ -2,7 +2,7 @@ import type { Client } from "pg";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PreparedQuery } from "@pgtyped/runtime";
-import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
+import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 import { assert, assertSQL } from "../helpers.ts";
 import { gameStateTransitions } from "../../node/state-machine.ts";
 

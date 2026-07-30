@@ -69,7 +69,7 @@ await build({
     // fails (Lucid resolution, ledger-v8 .wasm, Node-only parseArgs), and marking
     // them `external` leaves bare ESM specifiers the browser can't resolve at load
     // time even when the code never runs (e.g. "Failed to resolve module specifier
-    // @midnight-ntwrk/wallet-sdk-shielded"). Resolve them to an empty stub instead:
+    // @midnightntwrk/wallet-sdk-shielded"). Resolve them to an empty stub instead:
     // no bare specifiers, and the dead branches see undefined imports never touched.
     {
       name: "stub-optional-wallet-deps",

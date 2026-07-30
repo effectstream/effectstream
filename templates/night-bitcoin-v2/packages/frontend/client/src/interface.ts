@@ -6,7 +6,7 @@ import { M20_DOMAIN_SEP } from "./contracts/erc20.ts";
 import * as erc7683 from "./contracts/intents.ts";
 import { extractPublicCoinAddress } from "./contracts/midnight-utils.ts";
 import { rawTokenType } from "@midnight-ntwrk/ledger-v8";
-import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
+import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 
 enum AddressType {
   MIDNIGHT = 5,

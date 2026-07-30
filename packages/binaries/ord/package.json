@@ -1,6 +1,7 @@
 {
   "name": "@effectstream/ord",
   "version": "0.101.1",
+  "license": "(MIT OR Apache-2.0)",
   "type": "module",
   "main": "./index.js",
   "bin": {

@@ -15,6 +15,7 @@ import { getPage } from "@effectstream/db";
 import { SolanaClient } from "./SolanaClient.ts";
 import { applyDelay } from "../common/utils.ts";
 import { bufferAtCap } from "../common/page-helpers.ts";
+import { requestTimeoutOf } from "../common/http.ts";
 
 export class SolanaSyncState extends SyncState<
   Input,
@@ -156,7 +157,10 @@ export class SolanaSyncState extends SyncState<
       page,
       config,
       fetcher,
-      new SolanaClient(config.network.rpcUrl),
+      new SolanaClient(
+        config.network.rpcUrl,
+        requestTimeoutOf(config.syncProtocol),
+      ),
       dbConn,
     );
   }

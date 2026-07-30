@@ -10,6 +10,7 @@ import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/c
 import { getPage } from "@effectstream/db";
 import { CelestiaClient } from "./CelestiaClient.ts";
 import { applyDelay } from "../common/utils.ts";
+import { requestTimeoutOf } from "../common/http.ts";
 import { bufferAtCap } from "../common/page-helpers.ts";
 
 export class CelestiaSyncState extends SyncState<
@@ -135,7 +136,10 @@ export class CelestiaSyncState extends SyncState<
       page,
       config,
       fetcher,
-      new CelestiaClient(config.network.rpcUrl),
+      new CelestiaClient(
+        config.network.rpcUrl,
+        requestTimeoutOf(config.syncProtocol),
+      ),
       dbConn,
     );
   }

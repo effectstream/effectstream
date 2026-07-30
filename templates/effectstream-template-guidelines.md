@@ -35,7 +35,7 @@ Currently supported chains (see `e2e/shared/contracts/*` for reference implement
 | Chain | Contract package | Compilation | Launcher |
 |-------|-----------------|-------------|----------|
 | EVM | `contracts-evm/` | Hardhat + Forge | `launchEvm` |
-| Midnight | `contracts-midnight/` | Compact compiler (`+0.30.0`) | `launchMidnight` |
+| Midnight | `contracts-midnight/` | Compact compiler (`+0.31.0`) | `launchMidnight` |
 | Bitcoin | `contracts-bitcoin/` | None (scripts only) | `launchBitcoin` |
 | Cardano | `contracts-cardano/` | None (Yaci devkit) | `launchCardano` |
 | NEAR | `contracts-near/` | Rust → WASM | `launchNear` |
@@ -1356,7 +1356,7 @@ SDK packages:         @effectstream/{package}
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
     "@effectstream/orchestrator": "<latest>",
-    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "@midnightntwrk/wallet-sdk-address-format": "3.1.0",
     "wait-on": "8.0.3"
   },
   "effectstream": {
@@ -1930,7 +1930,7 @@ RUN apt-get update && apt-get install -y \
 # Compact compiler
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
-RUN compact update 0.30.0
+RUN compact update 0.31.0
 ```
 
 ### Workspace Symlinks (Critical)
@@ -2468,44 +2468,49 @@ launchMidnight("@my-template/contracts-midnight", { cwd: path.join(root, "packag
 
 **`MIDNIGHT_STORAGE_PASSWORD` complexity requirements**: The `@midnight-ntwrk/midnight-js-level-private-state-provider` validates the password against complexity rules — it must contain at least 3 of: uppercase letters, lowercase letters, digits, special characters. A simple all-lowercase password like `yourpasswordmypassword` will fail. Use something like `YourPasswordMy1!`.
 
-**Compact compiler and runtime version alignment**: The Compact compiler version (set in the `compact compile +X.Y.Z` script) determines the output format. The `compact-runtime` npm dependency must match. If the `compact-js` SDK library expects `provableCircuits` (which was added in runtime `0.15.0`), older compiler output (e.g. `0.11.0`) will fail at deploy time with `undefined is not an object (evaluating 'Object.keys(contract.provableCircuits)')`. Pin to exact versions from the compatibility matrix:
+**Compact compiler and runtime version alignment**: The Compact compiler version (set in the `compact compile +X.Y.Z` script) determines the output format. The `compact-runtime` npm dependency must match — compiled output asserts it at import time via `checkRuntimeVersion(...)`. If the `compact-js` SDK library expects `provableCircuits` (which was added in runtime `0.15.0`), older compiler output (e.g. `0.11.0`) will fail at deploy time with `undefined is not an object (evaluating 'Object.keys(contract.provableCircuits)')`. Pin to exact versions from the compatibility matrix:
 ```json
 // contract-round-value/package.json script:
-"compact": "compact compile +0.30.0 src/counter.compact src/managed"
+"compact": "compact compile +0.31.0 src/counter.compact src/managed"
 
 // contracts-midnight/package.json dependencies (exact, no ranges):
-"@midnight-ntwrk/compact-runtime": "0.15.0",
-"@midnight-ntwrk/compact-js": "2.5.0",
-"@midnight-ntwrk/ledger-v8": "8.0.3"
+"@midnight-ntwrk/compact-runtime": "0.16.0",
+"@midnight-ntwrk/compact-js": "2.5.1",
+"@midnight-ntwrk/ledger-v8": "8.1.0"
 ```
 
 **Midnight SDK compatibility matrix**: All `@midnight-ntwrk/*` packages (compiler, runtime, wallet SDK, midnight-js, ledger, indexer) must use versions from the same compatibility set. Mismatched versions cause hard-to-debug errors like "Failed to decode ledger event payload", "Could not deserialize Ledger Event", or `provableCircuits` being undefined. Always check the official compatibility matrix before updating any Midnight dependency: https://github.com/midnightntwrk/midnight-sdk/blob/main/COMPATIBILITY.md
 
-**Pin ALL `@midnight-ntwrk/*` versions to exact values** — no `^` or `~` ranges. Midnight versions are exact for mainnet; even a minor bump can introduce incompatibilities across the SDK surface. As of 2026-04-07 the stable set is:
+**Pin ALL Midnight package versions to exact values** — no `^` or `~` ranges. Midnight versions are exact for mainnet; even a minor bump can introduce incompatibilities across the SDK surface. As of 2026-07-29 (midnight-node 1.0.0 era) the stable set is:
 
 | Package group | Version |
 |---|---|
-| Compact compiler (`compactc`) | `+0.30.0` |
-| `compact-runtime` | `0.15.0` |
-| `compact-js` | `2.5.0` |
-| `midnight-js-*` (contracts, types, utils, providers, etc.) | `4.0.4` |
-| `ledger-v8` | `8.0.3` |
+| Compact compiler (`compactc`) | `+0.31.0` |
+| `@midnight-ntwrk/compact-runtime` | `0.16.0` |
+| `@midnight-ntwrk/compact-js` | `2.5.1` |
+| `@midnight-ntwrk/midnight-js-*` (contracts, types, utils, providers, etc.) | `4.1.1` |
+| `@midnight-ntwrk/ledger-v8` | `8.1.0` |
 | `onchain-runtime` → `npm:@midnight-ntwrk/onchain-runtime-v3` | `3.0.0` |
-| `wallet-sdk-facade` | `3.0.0` |
-| `wallet-sdk-abstractions` | `2.0.0` |
-| `wallet-sdk-hd` | `3.0.1` |
-| `wallet-sdk-shielded` | `2.1.0` |
-| `wallet-sdk-dust-wallet` | `3.0.0` |
-| `wallet-sdk-unshielded-wallet` | `2.1.0` |
-| `wallet-sdk-address-format` | `3.1.0` |
-| `wallet` / `wallet-api` | `5.0.0` |
-| `dapp-connector-api` | `4.0.1` |
-| `zswap` | `4.0.0` |
-| Node (Docker) | `0.22.x` |
-| Indexer (Docker) | `4.0.x` |
-| Proof Server (Docker) | `8.0.3` |
+| `@midnightntwrk/wallet-sdk-facade` | `4.1.0` |
+| `@midnightntwrk/wallet-sdk-abstractions` | `2.1.0` |
+| `@midnightntwrk/wallet-sdk-hd` | `3.0.3` |
+| `@midnightntwrk/wallet-sdk-shielded` | `3.0.2` |
+| `@midnightntwrk/wallet-sdk-dust-wallet` | `4.2.0` |
+| `@midnightntwrk/wallet-sdk-unshielded-wallet` | `3.1.0` |
+| `@midnightntwrk/wallet-sdk-address-format` | `3.1.2` |
+| `@midnightntwrk/wallet-sdk-capabilities` | `3.3.1` |
+| `@midnight-ntwrk/dapp-connector-api` | `4.0.1` |
+| Node (binaries) | `1.0.0` |
+| Indexer (binaries) | `4.3.3` |
+| Proof Server (binaries) | `ledger-8.1.0` |
 
-Note: the old `@midnight-ntwrk/ledger` and `@midnight-ntwrk/ledger-v6` packages are deprecated. Use `@midnight-ntwrk/ledger-v8`. Similarly, `onchain-runtime-v1` is replaced by `onchain-runtime-v3`.
+Notes:
+- The wallet SDK moved npm scope from `@midnight-ntwrk/wallet-sdk-*` (hyphenated) to `@midnightntwrk/wallet-sdk-*` (no hyphen). The ledger, midnight-js, and compact packages remain on the old `@midnight-ntwrk` scope.
+- `@midnight-ntwrk/zswap` no longer exists in this stack — zswap types (`ZswapSecretKeys`, transactions, etc.) are re-exported from `@midnight-ntwrk/ledger-v8`.
+- The legacy `@midnight-ntwrk/wallet` / `wallet-api` (5.0.0) packages are replaced by the `@midnightntwrk/wallet-sdk-*` facade stack.
+- The old `@midnight-ntwrk/ledger` and `@midnight-ntwrk/ledger-v6` packages are deprecated. Use `@midnight-ntwrk/ledger-v8`. Similarly, `onchain-runtime-v1` is replaced by `onchain-runtime-v3`.
+- `@midnight-ntwrk/compact-js` must stay on `2.5.1` — `2.5.3+` switched its ledger dependency to `ledger-v9` (the node 2.0 pre-release line).
+- The tree must resolve exactly ONE copy of `@midnight-ntwrk/ledger-v8`; two copies give two `LedgerParameters` class identities and proving fails with `expected instance of LedgerParameters`. Use a root `overrides` entry if your resolver keeps a duplicate.
 
 **Compact runtime Map objects require iterator access**: Midnight Compact's `Map<K, V>` type compiles to JavaScript objects that have `member()`, `lookup()`, `isEmpty()`, `size()`, and `[Symbol.iterator]()` methods — but `Object.entries()` and `Object.keys()` return the method names as keys, not the map data. When accessing Map data in STM handlers, always iterate via `[Symbol.iterator]()` or use `member(key)` + `lookup(key)`. If you serialize Compact state to JSON (e.g., the `MidnightGenericPrimitive`'s `makeJsonSafe()` pipeline), you must detect and iterate these Maps explicitly — `JSON.stringify` will drop function values silently, producing empty `{}`.
 
@@ -2729,10 +2734,10 @@ This applies to any `bunx` call with a `/` subpath when the package is symlinked
 }
 ```
 
-**`@midnight-ntwrk/wallet-sdk-address-format` is a phantom dependency**: The `@midnight-ntwrk/midnight-js-utils` package imports `@midnight-ntwrk/wallet-sdk-address-format` at runtime but does not declare it in its own `package.json`. The dependency chain is: `@effectstream/orchestrator` → `@effectstream/db` → `@effectstream/sync` → `@midnight-ntwrk/midnight-js-indexer-public-data-provider` → `@midnight-ntwrk/midnight-js-utils` → (undeclared) `@midnight-ntwrk/wallet-sdk-address-format`. In the effectstream monorepo this works because the package gets hoisted, but standalone templates fail at runtime with `Cannot find module '@midnight-ntwrk/wallet-sdk-address-format'`. **Every template must add this to the root `package.json`**:
+**`@midnightntwrk/wallet-sdk-address-format` is a phantom dependency**: The `@midnight-ntwrk/midnight-js-utils` package imports `@midnightntwrk/wallet-sdk-address-format` at runtime but does not declare it in its own `package.json`. The dependency chain is: `@effectstream/orchestrator` → `@effectstream/db` → `@effectstream/sync` → `@midnight-ntwrk/midnight-js-indexer-public-data-provider` → `@midnight-ntwrk/midnight-js-utils` → (undeclared) `@midnightntwrk/wallet-sdk-address-format`. In the effectstream monorepo this works because the package gets hoisted, but standalone templates fail at runtime with `Cannot find module '@midnightntwrk/wallet-sdk-address-format'`. **Every template must add this to the root `package.json`**:
 ```json
 "dependencies": {
-  "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0"
+  "@midnightntwrk/wallet-sdk-address-format": "3.1.0"
 }
 ```
 

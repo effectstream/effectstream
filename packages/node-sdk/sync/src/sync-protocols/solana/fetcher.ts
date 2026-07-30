@@ -18,6 +18,7 @@ import type {
   PrimitiveType,
 } from "./types.ts";
 import { resolveAccountKeys, SolanaClient } from "./SolanaClient.ts";
+import { requestTimeoutOf } from "../common/http.ts";
 import { extractProgramLogs } from "./program-logs.ts";
 import { call, type Operation } from "effection";
 import { bound } from "@effectstream/utils";
@@ -42,7 +43,10 @@ export class SolanaFetcher extends BaseDataFetcher<
     readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
-    this.client = new SolanaClient(config.network.rpcUrl);
+    this.client = new SolanaClient(
+      config.network.rpcUrl,
+      requestTimeoutOf(config.syncProtocol),
+    );
   }
 
   @bound

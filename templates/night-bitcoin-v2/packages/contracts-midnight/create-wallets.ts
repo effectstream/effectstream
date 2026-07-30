@@ -1,5 +1,5 @@
 import { buildWalletFacade, type WalletResult } from './faucet.ts';
-import { generateRandomSeed } from '@midnight-ntwrk/wallet-sdk-hd';
+import { generateRandomSeed } from '@midnightntwrk/wallet-sdk-hd';
 import * as path from "node:path";
 import { Buffer } from "node:buffer";
 

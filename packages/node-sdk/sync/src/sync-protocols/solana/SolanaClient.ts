@@ -1,3 +1,8 @@
+import {
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  fetchWithTimeout,
+} from "../common/http.ts";
+
 // ==========================
 // Solana JSON-RPC type defs
 // ==========================
@@ -71,25 +76,36 @@ export type SolanaInstruction = {
 
 export class SolanaClient {
   private readonly rpcUrl: string;
+  /** Per-request deadline; see `sync-protocols/common/http.ts`. */
+  private readonly requestTimeoutMs: number;
 
-  constructor(rpcUrl: string) {
+  constructor(rpcUrl: string, requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
     this.rpcUrl = rpcUrl;
+    this.requestTimeoutMs = requestTimeoutMs;
   }
 
   private async rpc<T>(
     method: string,
     params: unknown[] = [],
   ): Promise<T> {
-    const res = await fetch(this.rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method,
-        params,
-      }),
-    });
+    // Bounded: a blackholed endpoint would otherwise hang readData forever,
+    // freezing block production with every health counter clean (sync
+    // CLAUDE.md finding #4).
+    const res = await fetchWithTimeout(
+      this.rpcUrl,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method,
+          params,
+        }),
+      },
+      `Solana ${method}`,
+      this.requestTimeoutMs,
+    );
 
     const json = await res.json();
     if (json.error) {

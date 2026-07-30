@@ -1,7 +1,7 @@
 {
   "name": "@rock-paper-scissors/data-types",
   "version": "0.1.0",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "exports": {
     "./localhostConfig": "./src/localhostConfig.ts",
     "./grammar": "./src/grammar.ts",

@@ -1,9 +1,9 @@
 const log = console;
 import { Buffer } from "node:buffer";
 
-import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { shieldedToken } from "@midnight-ntwrk/ledger-v8";
-import type { WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
+import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 
 import { 
     buildWalletFacade,

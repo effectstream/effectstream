@@ -69,10 +69,61 @@ export abstract class SyncState<
   public lastPage: undefined | LastPage<Page, RootPage>;
   /** Timestamp of the last successful fetch (readData completed without error). */
   public lastSuccessfulFetchMs: number = 0;
+  /**
+   * Wall-clock time of the last completed pass through the fetch loop, whatever
+   * its outcome (fetched, caught up, or errored).
+   *
+   * This — not `lastSuccessfulFetchMs` — is the hang detector. A chain that is
+   * caught up never calls `readData`, so its last-successful-fetch time is
+   * indistinguishable from that of a chain wedged inside a request that will
+   * never return. The loop still cycles in the first case and does not in the
+   * second, so a heartbeat that is stale by many polling intervals means the
+   * loop is stuck in `stateToInput`/`readData`.
+   */
+  public lastPollAtMs: number = 0;
   /** Number of consecutive errors since the last successful fetch. */
   public consecutiveErrors: number = 0;
   /** Timestamp of the most recent error, or 0 if no error has occurred. */
   public lastErrorTimestamp: number = 0;
+
+  // ── Streaming producer (see startAsync + orchestration/sync.ts) ──
+  /**
+   * Whether {@link SyncState#startAsync} runs a long-lived producer that this
+   * protocol depends on for its data (a subscription/stream), as opposed to the
+   * base-class no-op used by polled chains.
+   *
+   * `startSync` supervises and restarts the producer only when this is true.
+   * A polled chain must leave it false, or its no-op `startAsync` would be
+   * "restarted" forever.
+   */
+  public readonly hasAsyncProducer: boolean = false;
+  /**
+   * How many times the streaming producer has been restarted after dying —
+   * either by throwing or by returning (a producer that returns has ended its
+   * stream). Surfaced on `/health`; a climbing count means a flapping upstream.
+   */
+  public producerRestarts: number = 0;
+  /**
+   * Producer failures, tracked separately from {@link consecutiveErrors}.
+   *
+   * That counter belongs to the fetch loop and is only cleared by a successful
+   * `readData`, so sharing it conflated two independent signals: an idle
+   * streaming chain would report `erroring` long after its producer recovered,
+   * and a successful poll would erase the record of a flapping producer.
+   */
+  public producerErrors: number = 0;
+  /** Wall-clock time of the last producer failure, or 0 if none. */
+  public lastProducerErrorMs: number = 0;
+
+  /**
+   * Resolved polling interval for this protocol, stamped by `startSync`.
+   *
+   * Single source of truth: `/health` derives its wedged threshold from this
+   * rather than reaching back into `fetcher.config.syncProtocol`, which it can
+   * only do through an unchecked cast that would fail silently to a default if
+   * the config shape ever moved.
+   */
+  public pollingIntervalMs: number = 0;
 
   // ── Backpressure observability (see common/page-helpers.ts + README) ──
   /** Resolved fetch cap (`maxBufferedPages`); set on each backpressure check, 0 until the first. */

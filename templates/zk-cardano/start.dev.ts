@@ -13,8 +13,17 @@ export default {
       p.name === "pglite" ? { ...p, env: { ...p.env, DEBUG_PGLITE: "0" } } : p
     ),
     ...launchCardano("@zk-cardano/contracts-cardano", { cwd: path.join(root, "packages/contracts-cardano") }),
+    {
+      name: "midnight-contract-compile",
+      description: "Compile Compact contract (compact compile +0.31.0)",
+      cwd: path.join(root, "packages/contracts-midnight/contract-ballot"),
+      args: ["run", "compact"],
+      waitToExit: true,
+      critical: true,
+    },
     ...launchMidnight("@zk-cardano/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
       env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
+      dependsOn: ["midnight-contract-compile"],
     }),
 
     {

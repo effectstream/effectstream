@@ -14,7 +14,22 @@ export const PollingSyncProtocol = new ConfigSchema({
     pollingInterval: TypeboxHelpers.IntervalMs(),
   }),
   optional: Type.Object({
+    /**
+     * Intentionally has NO default, unlike its neighbour below. The effective
+     * cap is derived from the protocol's `stepSize`
+     * (`common/page-helpers.ts:bufferCapFor`), so a static default here would
+     * override that per-chain sizing. `undefined` means "derive it".
+     */
     maxBufferedPages: Type.Optional(Type.Number()),
+    /**
+     * Hard deadline for a single RPC request made by this protocol's client.
+     *
+     * `fetch` has no default timeout, so without this a blackholed endpoint
+     * hangs `readData` forever and silently stalls block production — see
+     * `@effectstream/sync` `sync-protocols/common/http.ts`. The fetch loop
+     * supplies the retry; this only bounds one attempt.
+     */
+    requestTimeoutMs: TypeboxHelpers.IntervalMs({ default: 15_000 }),
   }),
 });
 

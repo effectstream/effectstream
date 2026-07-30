@@ -170,6 +170,10 @@ export const config = new ConfigBuilder()
           name: "Midnight-TokenMint",
           type: PrimitiveTypeMidnightTokenMint,
           startBlockHeight: 1,
+          // Both paths at once: the primitive owns its registry table (persist
+          // defaults true, populated by the primitive_accounting trigger) AND
+          // still dispatches to the state machine — an owned table never
+          // suppresses STM input.
           stateMachinePrefix: "midnightTokenMintState",
           networkId: midnightNetworkConfig.id,
         }),

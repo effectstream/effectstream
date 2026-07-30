@@ -1,6 +1,7 @@
 {
   "name": "@effectstream/grafana-loki",
   "version": "0.101.1",
+  "license": "(MIT OR Apache-2.0)",
   "description": "Grafana Loki binary wrapper for EffectStream",
   "main": "index.js",
   "bin": {
