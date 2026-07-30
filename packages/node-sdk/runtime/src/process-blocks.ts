@@ -18,9 +18,11 @@ import {
   insertGameInputResult,
   isTransientPgError,
   poolErrors,
+  pruneBlockHashes,
   releaseDBMutex,
   removePages,
   saveLastBlock,
+  upsertBlockHash,
   upsertPage,
 } from "@effectstream/db";
 import { Buffer } from "node:buffer";
@@ -336,6 +338,31 @@ export function* processFinalizedBlock(
       );
     }
 
+    /* STEP 7.b: Record each source chain's block hash, for reorg detection.
+    *            Same transaction as the block, so the record and the state
+    *            derived from it commit or roll back together. Pruned to a
+    *            bounded window per protocol; that window is the deepest reorg
+    *            that can later be diagnosed.
+    *            See @effectstream/sync `reorg.ts`.
+    */
+    for (const info of value.blockInfo) {
+      if (info.blockHash == null) continue;
+      yield* until(
+        upsertBlockHash.run({
+          protocol_name: info.protocol_name,
+          block_number: info.block_number,
+          block_hash: String(info.blockHash),
+          effectstream_block_height: value.blockNumber,
+        }, dbConn),
+      );
+      yield* until(
+        pruneBlockHashes.run({
+          protocol_name: info.protocol_name,
+          block_number: info.block_number - BLOCK_HASH_RETENTION,
+        }, dbConn),
+      );
+    }
+
     /* STEP 8: Commit the transaction. */
     yield* until(dbConn.query("COMMIT"));
     // A successful COMMIT proves the DB is reachable end-to-end — reset the
@@ -381,6 +408,16 @@ export function* processFinalizedBlock(
 
 /** Caps the exponential backoff between block-retry attempts. */
 const MAX_RETRY_BACKOFF_MS = 5_000;
+
+/**
+ * How many source blocks of hash history to keep per protocol.
+ *
+ * This is the deepest reorg that can be diagnosed: below it there is no
+ * recorded hash to compare against, so the fork point cannot be located. Sized
+ * well above any plausible finality depth (Cardano's ~5, EVM's tens) while
+ * staying trivial to store — one short row per source block.
+ */
+const BLOCK_HASH_RETENTION = 10_000;
 
 /**
  * Run {@link processFinalizedBlock} against a freshly checked-out pool client,

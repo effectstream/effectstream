@@ -7,6 +7,7 @@ import {
   dumpConsistencySnapshot,
   type SnapshotDiff,
   type SnapshotOpts,
+  COMMIT_GRANULARITY_TABLES,
   SYNC_BOOKKEEPING_TABLES,
 } from "./consistency-snapshot.ts";
 
@@ -62,7 +63,14 @@ test(
           apiPort,
           coalesce,
         });
-        return await dumpConsistencySnapshot(h.pool);
+        // Everything else — including the other bookkeeping tables — must match
+        // exactly. Only the per-source-block hash history is excluded, because
+        // it records one row per block *as committed* and coalescing changes
+        // exactly that: a folded run commits once and records only its endpoint.
+        // See COMMIT_GRANULARITY_TABLES.
+        return await dumpConsistencySnapshot(h.pool, {
+          excludeTables: COMMIT_GRANULARITY_TABLES,
+        });
       } finally {
         await h.teardown();
       }

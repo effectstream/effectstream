@@ -3,6 +3,13 @@ import { sleep, spawn } from "effection";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { AllSyncProtocols, ISyncProtocol } from "../types.ts";
 import { tryYield } from "@effectstream/utils";
+import { ENV } from "@effectstream/utils/node-env";
+import {
+  detectReorg,
+  getReorgHandler,
+  isReorgDetectingFetcher,
+  type ReorgDetectingFetcher,
+} from "../common/reorg.ts";
 
 /**
  * Used when a protocol config carries no `pollingInterval`.
@@ -27,6 +34,90 @@ function pollingIntervalOf(config: { syncProtocol: unknown }): number {
 const PRODUCER_MIN_BACKOFF_MS = 1_000;
 const PRODUCER_MAX_BACKOFF_MS = 30_000;
 
+/**
+ * How often to re-verify that a chain's recorded history still matches the
+ * chain. Costs one hash lookup when history is intact, so it is cheap but not
+ * free — no reason to do it on every poll.
+ */
+const REORG_CHECK_INTERVAL_MS = parseInt(
+  ENV.getString("EFFECTSTREAM_REORG_CHECK_INTERVAL_MS", "30000"),
+  10,
+);
+
+/**
+ * Re-verify this chain's history once. Detection is best-effort: a failure here
+ * (RPC hiccup, missing block) must never break syncing, so errors are logged
+ * and swallowed.
+ *
+ * Only the FIRST detection is acted on. A reorg is not repaired automatically,
+ * so every later check would keep re-detecting the same divergence and rewrite
+ * the report on a loop.
+ */
+function* checkReorg(state: AllSyncProtocols): Operation<void> {
+  const iState = state as ISyncProtocol;
+  if (!state.reorgDetectionSupported || state.reorgDetected != null) return;
+  if (state.dbConn == null) return;
+
+  state.lastReorgCheckMs = Date.now();
+
+  const result = yield* tryYield(
+    detectReorg(
+      state.name,
+      iState.fetcher as unknown as ReorgDetectingFetcher<unknown>,
+      state.dbConn,
+      (blockNumber) => blockNumber,
+    ),
+  );
+  if (result.error != null) {
+    log.remote(
+      ComponentNames.EFFECTSTREAM_SYNC,
+      [...state.getNamespace(), "reorg"],
+      SeverityNumber.WARN,
+      (l) => l(`reorg check failed: ${String(result.error)}`),
+    );
+    return;
+  }
+  const detection = result.data;
+  if (detection == null) return;
+
+  log.remote(
+    ComponentNames.EFFECTSTREAM_SYNC,
+    [...state.getNamespace(), "reorg"],
+    SeverityNumber.ERROR,
+    (l) =>
+      l(
+        `REORG DETECTED on ${detection.protocolName}: history diverges from block ${detection.forkBlock} ` +
+          `(depth ${detection.depth}, previous head ${detection.previousHead}). ` +
+          `Recorded hash ${detection.recordedHash}, chain now reports ${detection.currentHash}. ` +
+          `State derived from the affected blocks is NOT rolled back automatically.`,
+      ),
+  );
+
+  // The runtime's handler assesses impact and writes the operator report.
+  let reportPath: string | undefined;
+  const handler = getReorgHandler();
+  if (handler != null) {
+    const reportResult = yield* tryYield(handler(detection, state.dbConn));
+    if (reportResult.error != null) {
+      log.remote(
+        ComponentNames.EFFECTSTREAM_SYNC,
+        [...state.getNamespace(), "reorg"],
+        SeverityNumber.ERROR,
+        (l) => l(`failed to write reorg report: ${String(reportResult.error)}`),
+      );
+    } else {
+      reportPath = reportResult.data;
+    }
+  }
+
+  state.reorgDetected = {
+    forkBlock: detection.forkBlock,
+    depth: detection.depth,
+    detectedAtMs: detection.detectedAtMs,
+    reportPath,
+  };
+}
+
 export function* startSync(
   state: AllSyncProtocols,
 ): Operation<void> {
@@ -35,6 +126,24 @@ export function* startSync(
   // Resolve once and publish it, so `/health` and anything else reads the same
   // value this loop paces itself with instead of re-deriving it.
   state.pollingIntervalMs = pollingIntervalOf(state.fetcher.config);
+
+  // Chains whose fetcher can answer "hash at height N" are monitored for
+  // reorgs; the rest are not, and say so on /health.
+  state.reorgDetectionSupported = isReorgDetectingFetcher(iState.fetcher);
+
+  // Reorg detection runs on its own cadence rather than inside the fetch loop.
+  // A chain sitting at its tip parks inside `getLatestPage`, which retries until
+  // the tip advances — so a fetch-loop-driven check would never fire for an idle
+  // chain, which is precisely when a reorg is waiting to be noticed. Keeping it
+  // separate also means a wedged fetch loop cannot disable detection.
+  yield* spawn(function* () {
+    if (!state.reorgDetectionSupported) return;
+    while (true) {
+      yield* sleep(REORG_CHECK_INTERVAL_MS);
+      if (state.reorgDetected != null) return; // only the first is acted on
+      yield* checkReorg(state);
+    }
+  });
 
   yield* spawn(function* () {
     if (!iState.hasAsyncProducer) {

@@ -125,6 +125,24 @@ export abstract class SyncState<
    */
   public pollingIntervalMs: number = 0;
 
+  // ── Reorg detection (see common/reorg.ts) ──
+  /**
+   * Whether this chain's fetcher implements `getBlockHashAt`, and is therefore
+   * monitored for reorgs. Reported on `/health` so an unmonitored chain is
+   * visibly unmonitored rather than silently assumed safe.
+   */
+  public reorgDetectionSupported: boolean = false;
+  /** Wall-clock time of the last reorg check, for cadence control. */
+  public lastReorgCheckMs: number = 0;
+  /** Set once a reorg has been detected; never cleared. Reported on `/health`. */
+  public reorgDetected: undefined | {
+    forkBlock: number;
+    depth: number;
+    detectedAtMs: number;
+    /** Path of the incident report written for the operator, if it was written. */
+    reportPath: string | undefined;
+  } = undefined;
+
   // ── Backpressure observability (see common/page-helpers.ts + README) ──
   /** Resolved fetch cap (`maxBufferedPages`); set on each backpressure check, 0 until the first. */
   public bufferCap: number = 0;

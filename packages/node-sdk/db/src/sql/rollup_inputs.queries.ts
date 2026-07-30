@@ -189,7 +189,7 @@ export interface IGetAllScheduledDataQuery {
   result: IGetAllScheduledDataResult;
 }
 
-const getAllScheduledDataIR: any = {"usedParamSet":{"after_id":true,"limit":true},"params":[{"name":"after_id","required":false,"transform":{"type":"scalar"},"locs":[{"a":817,"b":826},{"a":1724,"b":1733}]},{"name":"limit","required":false,"transform":{"type":"scalar"},"locs":[{"a":1835,"b":1841}]}],"statement":"(\nSELECT\n  rollup_inputs.id,\n  NULL AS future_ms_timestamp,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM effectstream.rollup_inputs\nJOIN effectstream.rollup_input_origin ON effectstream.rollup_inputs.id = effectstream.rollup_input_origin.id\nJOIN effectstream.rollup_input_future_block ON effectstream.rollup_input_future_block.id = effectstream.rollup_inputs.id\nLEFT OUTER JOIN effectstream.rollup_input_result\n  ON effectstream.rollup_input_result.id = effectstream.rollup_inputs.id\nWHERE effectstream.rollup_input_result.id IS NULL AND\n rollup_inputs.id > :after_id::INT\nORDER BY rollup_inputs.id ASC\n)\n\tUNION ALL \n(\nSELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  NULL AS \"future_block_height\",\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM effectstream.rollup_inputs\nJOIN effectstream.rollup_input_origin ON effectstream.rollup_inputs.id = effectstream.rollup_input_origin.id\nJOIN effectstream.rollup_input_future_timestamp ON effectstream.rollup_inputs.id = effectstream.rollup_input_future_timestamp.id\nLEFT OUTER JOIN effectstream.rollup_input_result\n  ON (effectstream.rollup_input_result.id = effectstream.rollup_inputs.id)\nWHERE \n effectstream.rollup_input_result.id IS NULL AND\n effectstream.rollup_inputs.id > :after_id::INT\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC\n)\nORDER BY id ASC\nLIMIT COALESCE(:limit, 999999)"};
+const getAllScheduledDataIR: any = {"usedParamSet":{"after_id":true,"limit":true},"params":[{"name":"after_id","required":false,"transform":{"type":"scalar"},"locs":[{"a":817,"b":825},{"a":1724,"b":1732}]},{"name":"limit","required":false,"transform":{"type":"scalar"},"locs":[{"a":1835,"b":1840}]}],"statement":"(\nSELECT\n  rollup_inputs.id,\n  NULL AS future_ms_timestamp,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM effectstream.rollup_inputs\nJOIN effectstream.rollup_input_origin ON effectstream.rollup_inputs.id = effectstream.rollup_input_origin.id\nJOIN effectstream.rollup_input_future_block ON effectstream.rollup_input_future_block.id = effectstream.rollup_inputs.id\nLEFT OUTER JOIN effectstream.rollup_input_result\n  ON effectstream.rollup_input_result.id = effectstream.rollup_inputs.id\nWHERE effectstream.rollup_input_result.id IS NULL AND\n rollup_inputs.id > :after_id::INT\nORDER BY rollup_inputs.id ASC\n)\n\tUNION ALL \n(\nSELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  NULL AS \"future_block_height\",\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM effectstream.rollup_inputs\nJOIN effectstream.rollup_input_origin ON effectstream.rollup_inputs.id = effectstream.rollup_input_origin.id\nJOIN effectstream.rollup_input_future_timestamp ON effectstream.rollup_inputs.id = effectstream.rollup_input_future_timestamp.id\nLEFT OUTER JOIN effectstream.rollup_input_result\n  ON (effectstream.rollup_input_result.id = effectstream.rollup_inputs.id)\nWHERE \n effectstream.rollup_input_result.id IS NULL AND\n effectstream.rollup_inputs.id > :after_id::INT\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC\n)\nORDER BY id ASC\nLIMIT COALESCE(:limit, 999999)"};
 
 /**
  * Query generated from SQL:
@@ -209,7 +209,10 @@ const getAllScheduledDataIR: any = {"usedParamSet":{"after_id":true,"limit":true
  * FROM effectstream.rollup_inputs
  * JOIN effectstream.rollup_input_origin ON effectstream.rollup_inputs.id = effectstream.rollup_input_origin.id
  * JOIN effectstream.rollup_input_future_block ON effectstream.rollup_input_future_block.id = effectstream.rollup_inputs.id
- * WHERE rollup_inputs.id > :after_id::INT
+ * LEFT OUTER JOIN effectstream.rollup_input_result
+ *   ON effectstream.rollup_input_result.id = effectstream.rollup_inputs.id
+ * WHERE effectstream.rollup_input_result.id IS NULL AND
+ *  rollup_inputs.id > :after_id::INT
  * ORDER BY rollup_inputs.id ASC
  * )
  * 	UNION ALL 
@@ -266,8 +269,11 @@ const getAllScheduledDataCountIR: any = {"usedParamSet":{},"params":[],"statemen
  *   SELECT rollup_inputs.id
  *   FROM effectstream.rollup_inputs
  *   JOIN effectstream.rollup_input_future_block ON effectstream.rollup_input_future_block.id = effectstream.rollup_inputs.id
+ *   LEFT OUTER JOIN effectstream.rollup_input_result
+ *     ON effectstream.rollup_input_result.id = effectstream.rollup_inputs.id
+ *   WHERE rollup_input_result.id IS NULL
  *   )
- *   UNION ALL 
+ *   UNION ALL
  *   (
  *   SELECT rollup_inputs.id
  *   FROM effectstream.rollup_inputs
@@ -397,11 +403,18 @@ export interface IGetEarliestScheduledBlockHeightQuery {
   result: IGetEarliestScheduledBlockHeightResult;
 }
 
-const getEarliestScheduledBlockHeightIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT MIN(rollup_input_future_block.future_block_height) AS min_block_height\nFROM effectstream.rollup_input_future_block\nLEFT OUTER JOIN effectstream.rollup_input_result\n  ON rollup_input_result.id = rollup_input_future_block.id\nWHERE rollup_input_result.id IS NULL\n  AND rollup_input_future_block.future_block_height >\n    (SELECT COALESCE(MAX(block_height), 0) FROM effectstream.effectstream_blocks)"};
+const getEarliestScheduledBlockHeightIR: any = {"usedParamSet":{},"params":[],"statement":"-- Earliest *upcoming* scheduled block (strictly above the last applied block).\n-- The `> MAX(applied)` filter is load-bearing for empty-block coalescing: it must\n-- never return a height at/below the head. A scheduled input left un-fired below\n-- the head (e.g. one that was already skipped) would otherwise become the MIN and,\n-- via the caller's `>= fromBlockNumber ? : null` fallback, collapse the coalescing\n-- boundary to NULL — disabling the guard and causing every subsequent scheduled\n-- input inside an empty run to be coalesced over (one orphan permanently breaks it).\nSELECT MIN(rollup_input_future_block.future_block_height) AS min_block_height\nFROM effectstream.rollup_input_future_block\nLEFT OUTER JOIN effectstream.rollup_input_result\n  ON rollup_input_result.id = rollup_input_future_block.id\nWHERE rollup_input_result.id IS NULL\n  AND rollup_input_future_block.future_block_height >\n    (SELECT COALESCE(MAX(block_height), 0) FROM effectstream.effectstream_blocks)"};
 
 /**
  * Query generated from SQL:
  * ```
+ * -- Earliest *upcoming* scheduled block (strictly above the last applied block).
+ * -- The `> MAX(applied)` filter is load-bearing for empty-block coalescing: it must
+ * -- never return a height at/below the head. A scheduled input left un-fired below
+ * -- the head (e.g. one that was already skipped) would otherwise become the MIN and,
+ * -- via the caller's `>= fromBlockNumber ? : null` fallback, collapse the coalescing
+ * -- boundary to NULL — disabling the guard and causing every subsequent scheduled
+ * -- input inside an empty run to be coalesced over (one orphan permanently breaks it).
  * SELECT MIN(rollup_input_future_block.future_block_height) AS min_block_height
  * FROM effectstream.rollup_input_future_block
  * LEFT OUTER JOIN effectstream.rollup_input_result

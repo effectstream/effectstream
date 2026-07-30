@@ -57,11 +57,30 @@ export class TestFetcher
   private blockOf(page: Page): Output["raw"] {
     const timestamp = BigInt(this.config.network.startTime) +
       BigInt(this.config.network.blockTimeMS) * BigInt(page);
+    // A registered fork rewrites history at and above `fromBlock`, which is the
+    // only way this chain's hashes can change (they are otherwise a pure
+    // function of the block number). See TestChainControl.setFork.
+    const fork = TestChainControl.getFork(this.config.syncProtocol.name);
+    const forked = fork != null && page >= fork.fromBlock;
     return {
       blockNumber: page,
       timestamp,
-      hash: `0x${timestamp.toString(16)}`,
+      hash: forked
+        ? `0x${timestamp.toString(16)}${fork!.nonce}`
+        : `0x${timestamp.toString(16)}`,
     };
+  }
+
+  /**
+   * Hash of the block currently at `page`. Implements the reorg-detection
+   * contract (`ReorgDetectingFetcher`); trivially available here because blocks
+   * are computed rather than fetched.
+   */
+  @bound
+  *getBlockHashAt(page: Page): Operation<string | null> {
+    const tip = TestChainControl.getTip(this.config.syncProtocol.name);
+    if (tip != null && page > tip) return null;
+    return this.blockOf(page).hash;
   }
 
   @bound

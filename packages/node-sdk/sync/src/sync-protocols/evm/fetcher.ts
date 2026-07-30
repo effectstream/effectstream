@@ -249,6 +249,27 @@ export class EvmFetcher
     return (yield* all(allOperations)).flat();
   }
 
+  /**
+   * Hash currently at `page`, or null if the chain no longer has that block.
+   * Implements the reorg-detection contract (`ReorgDetectingFetcher`).
+   *
+   * `cacheTime: 0` is essential: the client is built with a cache keyed on the
+   * polling interval, and a cached hash would compare equal to the recorded one
+   * forever, which is exactly the reorg we are trying to notice.
+   */
+  @bound
+  *getBlockHashAt(page: Page): Operation<string | null> {
+    try {
+      const block = yield* call(() =>
+        this.client.getBlock({ blockNumber: BigInt(page), cacheTime: 0 } as any)
+      );
+      return block?.hash ?? null;
+    } catch {
+      // Pruned, or beyond the current tip after a chain shortened.
+      return null;
+    }
+  }
+
   @bound
   *getLatestPage(
     knownLastPage: undefined | Page,

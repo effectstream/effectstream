@@ -202,20 +202,6 @@ const getLastNonEmptyBlockHashIR: any = {"usedParamSet":{},"params":[],"statemen
  */
 export const getLastNonEmptyBlockHash = new PreparedQuery<IGetLastNonEmptyBlockHashParams,IGetLastNonEmptyBlockHashResult>(getLastNonEmptyBlockHashIR);
 
-/** 'BlockHeightDone' parameters type */
-export interface IBlockHeightDoneParams {
-  block_hash: Buffer;
-  block_height: number;
-}
-
-/** 'BlockHeightDone' return type */
-export type IBlockHeightDoneResult = void;
-
-/** 'BlockHeightDone' query type */
-export interface IBlockHeightDoneQuery {
-  params: IBlockHeightDoneParams;
-  result: IBlockHeightDoneResult;
-}
 
 /** 'DeleteEmptyBlocks' parameters type */
 export type IDeleteEmptyBlocksParams = void;
@@ -239,6 +225,22 @@ const deleteEmptyBlocksIR: any = {"usedParamSet":{},"params":[],"statement":"DEL
  * ```
  */
 export const deleteEmptyBlocks = new PreparedQuery<IDeleteEmptyBlocksParams,IDeleteEmptyBlocksResult>(deleteEmptyBlocksIR);
+
+
+/** 'BlockHeightDone' parameters type */
+export interface IBlockHeightDoneParams {
+  block_hash: Buffer;
+  block_height: number;
+}
+
+/** 'BlockHeightDone' return type */
+export type IBlockHeightDoneResult = void;
+
+/** 'BlockHeightDone' query type */
+export interface IBlockHeightDoneQuery {
+  params: IBlockHeightDoneParams;
+  result: IBlockHeightDoneResult;
+}
 
 const blockHeightDoneIR: any = {"usedParamSet":{"block_hash":true,"block_height":true},"params":[{"name":"block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":70,"b":81}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":104,"b":117}]}],"statement":"UPDATE effectstream.effectstream_blocks\nSET\neffectstream_block_hash = :block_hash!\nWHERE block_height = :block_height!"};
 

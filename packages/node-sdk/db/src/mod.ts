@@ -48,6 +48,8 @@ export * from "./sql/rollup_inputs.queries.ts";
 export * from "./sql/accounts.queries.ts";
 export * from "./sql/events.queries.ts";
 export * from "./sql/sync-protocols/page.queries.ts";
+export * from "./sql/sync-protocols/block-hash.queries.ts";
+export * from "./sql/sync-protocols/reorg-impact.queries.ts";
 export * from "./sql/primitives.queries.ts";
 export * from "./sql/system.queries.ts";
 export * from "./sql/tables.queries.ts";

@@ -59,7 +59,9 @@ config (syncProtocols.main + syncProtocols.parallel)
    `PaginatedFetcher` (`getLatestPage`, `nextInterval`, `previousInterval`,
    `intervalFromStart`) for chunked pagination by `stepSize`, and optionally
    `PrimitiveFetcher` (`base/primitive.ts`: `readPrimitives` / `groupByPage`) to extract
-   app-relevant primitives from raw blocks.
+   app-relevant primitives from raw blocks. Optionally also `ReorgDetectingFetcher`
+   (`common/reorg.ts`: `getBlockHashAt`) — chains that implement it are monitored for
+   reorgs, chains that don't are reported as unmonitored on `/health`.
 
 2. **State** — `SyncState` subclass (`base/state.ts`). Holds `bufferedData` (a `denque`
    Deque of fetched-not-yet-merged data, `state.ts:50`), `lastPage` (high-water mark,
@@ -85,12 +87,16 @@ chains merge into root". **The main chain must be at index 0.**
 
 ## The two driving loops
 
-**`startSync(state)`** (`src/sync-protocols/orchestration/sync.ts`) spawns:
+**`startSync(state)`** (`src/sync-protocols/orchestration/sync.ts`) spawns three tasks:
 - `startAsync()` — optional background producer (websocket/gRPC subs for utxorpc; no-op
   for polled chains). **Supervised** when the state sets `hasAsyncProducer`: both a throw
   and a clean return count as failure (a producer that returns has ended its stream) and
   are restarted with capped backoff, counted in `producerRestarts`. Polled chains run
   their no-op once.
+- a **reorg check** on its own cadence (`EFFECTSTREAM_REORG_CHECK_INTERVAL_MS`, default
+  30 s). Deliberately not part of the fetch loop: a chain at its tip parks inside
+  `getLatestPage`, which retries until the tip advances, so a loop-driven check would
+  never fire for an idle chain.
 - the **polling loop**: `stateToInput()` → `readData()` → `updateState()` →
   `producerChannel.send()`. Errors are swallowed via `tryYield`, bump
   `consecutiveErrors`, log, sleep, continue. Every branch sleeps
@@ -261,7 +267,24 @@ chain with it.
 `producerRestarts`. Gated on `hasAsyncProducer` so polled chains still run their no-op
 once. Regression test: `sync/test/start-async-supervision.test.ts`.
 
-### 7. `/health` reported only database reachability (operability) — ✅ FIXED
+### 7. Reorgs were undetectable (correctness) — ✅ DETECT + WARN (no auto-repair)
+
+Forward-only sync never revisits a committed block, and the per-source block hashes on
+`ChainBlock.blockInfo` were used for events/logging then dropped, so a source chain that
+rewrote history left the node building on blocks that no longer existed — with nothing
+reported.
+
+→ Fix: `sync_protocol_block_hash` (migration 0.8.2) records those hashes inside the block's
+transaction; `common/reorg.ts:detectReorg` re-checks them on its own cadence and binary
+searches the fork point. Opt-in per chain via `ReorgDetectingFetcher` (EVM + `test`
+today); unmonitored chains say so on `/health`.
+
+**Deliberately no automatic repair.** On detection the node logs at ERROR, marks `/health`
+degraded, and writes an operator report to `EFFECTSTREAM_INCIDENT_PATH` with an impact
+assessment (nothing derived → "no action required"; state derived → what landed, plus the
+rollback runbook and SQL). Regression test: `runtime/test/reproduction/reorg.test.ts`.
+
+### 8. `/health` reported only database reachability (operability) — ✅ FIXED
 
 Every failure above leaves the database perfectly healthy, so a node that had not applied a
 block in an hour still answered `200 {"status":"ok"}`.

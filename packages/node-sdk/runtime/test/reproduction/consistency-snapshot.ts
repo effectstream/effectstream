@@ -35,11 +35,25 @@ export const VOLATILE_COLUMNS = ["effectstream_tx_hash"];
  */
 export const SYNC_BOOKKEEPING_TABLES = [
   "sync_protocol_pagination",
+  "sync_protocol_block_hash",
   "effectstream_version_history",
   "effectstream_expected_version",
   "effectstream_migration_history",
   "sync_protocol_config_snapshot",
 ];
+
+/**
+ * `sync_protocol_block_hash` records one row per source block *as committed*,
+ * so its granularity follows commit granularity: empty-block coalescing folds a
+ * run into a single transaction and therefore records only that run's endpoint.
+ * Two runs that reach the same state with coalescing on and off hold the same
+ * app state but different amounts of this diagnostic history.
+ *
+ * That is by design and accounted for — `detectReorg` reports
+ * `forkBlockLowerBound` so a gap in recorded history widens the reported
+ * affected range rather than understating it.
+ */
+export const COMMIT_GRANULARITY_TABLES = ["sync_protocol_block_hash"];
 
 export type TableFingerprint = {
   rowCount: number;

@@ -28,6 +28,8 @@ export type * from "./base/state.ts";
 export * from "./orchestration/merge.ts";
 export * from "./orchestration/sync.ts";
 
+export * from "./common/reorg.ts";
+
 export { chainPageRelation } from "./common/root.ts";
 // TODO: remove
 export type { ChainBlock } from "./common/root.ts";

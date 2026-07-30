@@ -390,6 +390,16 @@ export const startHttpServer = function* (
     buffered: Type.Number(),
     bufferCap: Type.Number(),
     paused: Type.Boolean(),
+    reorgDetectionSupported: Type.Boolean(),
+    reorgDetected: Type.Union([
+      Type.Object({
+        forkBlock: Type.Number(),
+        depth: Type.Number(),
+        detectedAtMs: Type.Number(),
+        reportPath: Type.Union([Type.String(), Type.Null()]),
+      }),
+      Type.Null(),
+    ]),
   });
   const HealthResponseSchema = Type.Object({
     status: Type.String(),
