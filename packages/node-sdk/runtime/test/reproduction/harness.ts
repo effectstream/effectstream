@@ -317,6 +317,16 @@ export type RunToHeightOpts = {
   securityNamespace?: string;
   /** Enable/disable empty-block coalescing. */
   coalesce?: boolean;
+  /**
+   * Full ConfigBuilder output, for tests that need protocols the default
+   * scenario doesn't provide. When omitted the node-runner builds the standard
+   * two-protocol scenario from `events`/`parallelStepSize`.
+   *
+   * NOTE: `tips` must then be keyed by THIS config's protocol names — a
+   * mismatch leaves the synthetic chain on its wall-clock fallback tip, which
+   * silently syncs to "now" instead of the intended height.
+   */
+  config?: any;
 };
 
 const RUNNER = join(import.meta.dir, "node-runner.ts");
@@ -342,6 +352,9 @@ function makeRunToHeight(
       apiPort: opts.apiPort,
       waitPages: opts.waitPages,
       coalesce: opts.coalesce,
+      // Forwarded so a caller can supply its own protocols; node-runner already
+      // prefers `spec.config` over the default scenario.
+      config: opts.config,
     };
     return new Promise<void>((resolve, reject) => {
       const child = spawn("bun", [RUNNER, JSON.stringify(spec)], {
