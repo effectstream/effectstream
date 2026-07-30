@@ -16,9 +16,22 @@ const ROOT = path.resolve(PKG_DIR, "..");
 const PROGRAM_SO = path.join(ROOT, "build", "counter.so");
 
 function buildProgramIfMissing() {
+  // SKIP_SOLANA_BUILD=1 means "reuse the existing .so", not "never build".
+  // It defaults to 1 in start.dev.ts / start.test.ts so repeat runs are fast,
+  // but build/ is gitignored and nothing ships a pre-compiled counter.so — so
+  // honouring the skip unconditionally made `bun run dev` and `bun run test`
+  // fail on every fresh clone: compilation skipped, then "build/counter.so is
+  // missing after build".
   if (process.env.SKIP_SOLANA_BUILD === "1") {
-    console.log("[contracts-solana] SKIP_SOLANA_BUILD=1 — skipping compilation");
-    return;
+    if (fs.existsSync(PROGRAM_SO)) {
+      console.log(
+        `[contracts-solana] SKIP_SOLANA_BUILD=1 — reusing ${path.relative(ROOT, PROGRAM_SO)}`,
+      );
+      return;
+    }
+    console.log(
+      "[contracts-solana] SKIP_SOLANA_BUILD=1 but build/counter.so is absent — compiling anyway",
+    );
   }
   // Always rebuild to keep the .so fresh; the program is tiny (~ms).
   const result = spawnSync(

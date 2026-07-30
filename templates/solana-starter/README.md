@@ -39,14 +39,17 @@ bun run dev
 
 Open the dApp at [http://localhost:5173](http://localhost:5173).
 
-By default `bun run dev` loads the pre-compiled `counter.so` that ships with
-the template (`SKIP_SOLANA_BUILD=1`), so you can run it without a Rust or
-Solana toolchain. To recompile the program from source instead:
+The counter program is compiled from source on first run. `build/` is
+gitignored, so nothing pre-compiled ships with the template — `cargo-build-sbf`
+comes from `@effectstream/solana-node` and auto-installs the Solana
+platform-tools it needs, so no global Rust or Solana toolchain is required.
+
+Later runs reuse `build/counter.so` (that is what `SKIP_SOLANA_BUILD=1`, the
+default, means). To force a recompile:
 
 ```sh
-# Requires Rust + Solana platform-tools (auto-installed by cargo-build-sbf)
-bun run build:solana
-SKIP_SOLANA_BUILD=0 bun run dev
+bun run build:solana          # compile explicitly
+SKIP_SOLANA_BUILD=0 bun run dev   # or recompile as part of `dev`
 ```
 
 ## Monorepo Development
@@ -231,7 +234,7 @@ submit → chain → STM → DB → API round-trip.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SKIP_SOLANA_BUILD` | `1` | Use the committed `counter.so` instead of recompiling |
+| `SKIP_SOLANA_BUILD` | `1` | Reuse `build/counter.so` if present; compiles it when absent |
 | `SOLANA_PLATFORM_TOOLS_VERSION` | `v1.52` | platform-tools version for `cargo-build-sbf` |
 | `SOLANA_RPC_PORT` | `8899` | Validator JSON-RPC port |
 | `SOLANA_FAUCET_PORT` | `9900` | Validator faucet port |
