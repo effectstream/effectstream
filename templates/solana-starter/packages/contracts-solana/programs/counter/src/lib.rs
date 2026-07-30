@@ -20,7 +20,7 @@ use solana_program::{
     entrypoint::ProgramResult,
     instruction::{AccountMeta, Instruction},
     msg,
-    program::invoke_signed,
+    program::{invoke, invoke_signed},
     program_error::ProgramError,
     pubkey::Pubkey,
     system_instruction,
@@ -194,19 +194,36 @@ fn create_counter_account<'a>(
 ) -> ProgramResult {
     // Rent is funded by the payer ( the batcher ), not the authority. The PDA
     // signs for its own creation via its seeds.
+    //
+    // Deliberately NOT `system_instruction::create_account`: that fails with
+    // AccountAlreadyInUse the moment the target holds any lamports, so anyone
+    // could permanently brick a user's counter by sending 1 lamport to
+    // find_counter_address(program, victim) before their first increment. The
+    // transfer + allocate + assign sequence below is the standard, griefing-
+    // resistant way to initialise a PDA: it tops the balance up to rent-exempt
+    // rather than assuming the account is empty.
     let rent = solana_program::rent::Rent::get()?;
-    let lamports = rent.minimum_balance(COUNTER_LEN);
+    let required = rent.minimum_balance(COUNTER_LEN);
+    let current = counter.lamports();
+    let signer_seeds: &[&[u8]] = &[COUNTER_SEED, authority_key.as_ref(), &[bump]];
+
+    if current < required {
+        invoke(
+            &system_instruction::transfer(payer.key, counter.key, required - current),
+            &[payer.clone(), counter.clone(), system_program.clone()],
+        )?;
+    }
 
     invoke_signed(
-        &system_instruction::create_account(
-            payer.key,
-            counter.key,
-            lamports,
-            COUNTER_LEN as u64,
-            &crate::ID,
-        ),
-        &[payer.clone(), counter.clone(), system_program.clone()],
-        &[&[COUNTER_SEED, authority_key.as_ref(), &[bump]]],
+        &system_instruction::allocate(counter.key, COUNTER_LEN as u64),
+        &[counter.clone(), system_program.clone()],
+        &[signer_seeds],
+    )?;
+
+    invoke_signed(
+        &system_instruction::assign(counter.key, &crate::ID),
+        &[counter.clone(), system_program.clone()],
+        &[signer_seeds],
     )?;
 
     // Initialize to zero.

@@ -958,6 +958,7 @@
         "@polkadot/extension-inject": "^0.58.10",
         "@polkadot/util": "^13.4.3",
         "@polkadot/util-crypto": "^13.4.3",
+        "@solana/web3.js": "^1.95.0",
         "@types/semver": "7.7.1",
         "@wallet-standard/app": "^1.1.0",
         "assert-never": "^1.4.0",

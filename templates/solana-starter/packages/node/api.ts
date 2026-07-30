@@ -36,7 +36,11 @@ export const apiRouter: StartConfigApiRouter = async function (
   server.get<{ Querystring: { limit?: string } }>(
     "/api/counter-events",
     async (request, reply) => {
-      const limit = Math.min(Math.max(Number(request.query.limit ?? "50"), 1), 500);
+      // `?limit=abc` -> NaN, which used to reach Postgres and 500. Fall back.
+      const requested = Number(request.query.limit ?? "50");
+      const limit = Number.isFinite(requested)
+        ? Math.min(Math.max(Math.trunc(requested), 1), 500)
+        : 50;
       const result = await runPreparedQuery(
         getRecentEvents.run({ limit }, dbConn),
         "/api/counter-events",

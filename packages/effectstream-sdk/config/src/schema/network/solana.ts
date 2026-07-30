@@ -14,7 +14,9 @@ export const ConfigNetworkSchemaSolana = new ConfigSchema({
   }),
   optional: Type.Object({
     wsUrl: Type.String({
-      description: "Solana WebSocket URL (e.g. ws://localhost:8900)",
+      description:
+        "Solana WebSocket URL (e.g. ws://localhost:8900). Reserved: the RPC " +
+        "sync protocol polls over HTTP and does not read this yet.",
     }),
     networkId: Type.Union(
       [

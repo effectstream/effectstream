@@ -295,8 +295,20 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
   async estimateBatchFee(
     data: SolanaBatchPayload,
   ): Promise<string | bigint> {
-    // 5000 lamports per signature; each sponsored tx has >= 1 signature.
-    return BigInt(5000 * data.transactions.length);
+    // 5000 lamports per SIGNATURE, not per transaction: a sponsored tx always
+    // carries at least two (the user's and the sponsor's fee-payer slot), so
+    // counting transactions underestimated the sponsor's cost by ~2x. Count the
+    // real signature slots, falling back to 2 for anything undecodable.
+    let lamports = 0n;
+    for (const txBase64 of data.transactions) {
+      if (!txBase64) continue;
+      try {
+        lamports += BigInt(5000 * this.deserialize(txBase64).signatures.length);
+      } catch {
+        lamports += 10_000n;
+      }
+    }
+    return lamports;
   }
 
   /**
@@ -312,12 +324,24 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
       if (!txBase64) continue;
       const tx = this.deserialize(txBase64);
       tx.partialSign(this.sponsor); // fills the fee-payer signature slot
-      const sig = await this.connection.sendRawTransaction(tx.serialize(), {
-        skipPreflight: false,
-        preflightCommitment: "confirmed",
-      });
-      signatures.push(sig);
-      this.logger.log(`Sponsored + submitted Solana tx: ${sig}`);
+      try {
+        const sig = await this.connection.sendRawTransaction(tx.serialize(), {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+        });
+        signatures.push(sig);
+        this.logger.log(`Sponsored + submitted Solana tx: ${sig}`);
+      } catch (e) {
+        // Don't abort the loop: these are independent transactions, and throwing
+        // here used to discard the signatures of everything already submitted,
+        // leaving them on-chain but unreported (so unconfirmable and liable to
+        // be resubmitted). Log, keep going, and surface a failure only if the
+        // whole batch failed.
+        this.logger.log(`Failed to submit a sponsored Solana tx: ${String(e)}`);
+      }
+    }
+    if (signatures.length === 0) {
+      throw new Error("[Solana] no transaction in the batch could be submitted");
     }
     return signatures[signatures.length - 1] ?? "";
   }

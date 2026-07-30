@@ -1,10 +1,36 @@
 import { describe, expect, test } from "bun:test";
 import { AddressType } from "@effectstream/utils";
-import bs58 from "bs58";
+import {
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 import { SolanaProvider, type SolanaApi } from "./solana.ts";
 import type { ActiveConnection } from "../IProvider.ts";
 
 const ADDRESS = "5FHwkrdxntdK24hgQU8qgBjn35Y1zwhz1GZwCkP2UJnM";
+
+/** Deterministic signer so assertions can look for its signature. */
+const USER = Keypair.fromSeed(new Uint8Array(32).fill(5));
+const SPONSOR = Keypair.fromSeed(new Uint8Array(32).fill(6));
+const BLOCKHASH = Keypair.generate().publicKey.toBase58();
+
+/** A real, unsigned legacy transaction in the shape the batcher expects. */
+function buildUnsignedTx(): { tx: Transaction; base64: string } {
+  const tx = new Transaction();
+  tx.feePayer = SPONSOR.publicKey;
+  tx.recentBlockhash = BLOCKHASH;
+  tx.add(SystemProgram.transfer({
+    fromPubkey: USER.publicKey,
+    toPubkey: new PublicKey(ADDRESS),
+    lamports: 1,
+  }));
+  return {
+    tx,
+    base64: tx.serialize({ requireAllSignatures: false }).toString("base64"),
+  };
+}
 
 function mockConnection(
   overrides: Partial<SolanaApi> = {},
@@ -29,31 +55,64 @@ describe("SolanaProvider", () => {
     expect(address).toBe(ADDRESS);
   });
 
-  test("signTransaction round-trips base64, matching the batcher contract", async () => {
-    // Bytes that decode differently under base58 vs base64, so a regression to
-    // base58 fails this rather than passing by coincidence.
-    const original = new Uint8Array([1, 2, 3, 250, 255, 0, 128, 64]);
-    const txBase64 = Buffer.from(original).toString("base64");
+  test("signTransaction hands the wallet a Transaction OBJECT, not raw bytes", async () => {
+    // The regression this guards: passing raw bytes works for the Wallet
+    // Standard bridge but breaks every injected wallet (Phantom, Backpack,
+    // Solflare), which expect a web3.js Transaction and return a signed one.
+    // The previous mock echoed bytes back, so it could not distinguish the two.
+    const { tx, base64 } = buildUnsignedTx();
 
-    // Mock wallet "signs" by echoing back the decoded bytes unchanged
+    let received: unknown = null;
     const conn = mockConnection({
-      signTransaction: async (tx: unknown) => tx as Uint8Array,
+      signTransaction: async (t: unknown) => {
+        received = t;
+        (t as Transaction).partialSign(USER);
+        return t;
+      },
     });
-    const provider = new SolanaProvider(conn, ADDRESS);
 
-    const signed = await provider.signTransaction(txBase64);
+    const signed = await new SolanaProvider(conn, ADDRESS)
+      .signTransaction(base64);
 
-    // Must be base64-decodable back to the original bytes — this is what
-    // SolanaAdapter.deserialize() will do with it.
-    expect(Array.from(new Uint8Array(Buffer.from(signed, "base64"))))
-      .toEqual(Array.from(original));
+    expect(received).not.toBeInstanceOf(Uint8Array);
+    expect(typeof (received as any)?.serialize).toBe("function");
+    expect((received as Transaction).instructions.length)
+      .toBe(tx.instructions.length);
 
-    // And explicitly NOT base58: decoding it that way must not yield the input.
-    let asBase58: Uint8Array | null = null;
-    try { asBase58 = bs58.decode(signed); } catch { /* not valid base58 at all */ }
-    if (asBase58) {
-      expect(Array.from(asBase58)).not.toEqual(Array.from(original));
-    }
+    // The result must be base64 that SolanaAdapter.deserialize() can parse,
+    // carrying the signature the wallet just added.
+    const parsed = Transaction.from(Buffer.from(signed, "base64"));
+    expect(parsed.signatures.some(
+      (s) => s.publicKey.equals(USER.publicKey) && s.signature !== null,
+    )).toBe(true);
+  });
+
+  test("signTransaction also accepts a wallet that returns raw bytes", async () => {
+    // The Wallet Standard bridge returns serialized bytes rather than an object.
+    const { base64 } = buildUnsignedTx();
+    const conn = mockConnection({
+      signTransaction: async (t: unknown) => {
+        const signedTx = t as Transaction;
+        signedTx.partialSign(USER);
+        return new Uint8Array(
+          signedTx.serialize({ requireAllSignatures: false }),
+        );
+      },
+    });
+
+    const signed = await new SolanaProvider(conn, ADDRESS)
+      .signTransaction(base64);
+    expect(() => Transaction.from(Buffer.from(signed, "base64"))).not.toThrow();
+  });
+
+  test("signTransaction rejects an unrecognised wallet result", async () => {
+    const { base64 } = buildUnsignedTx();
+    const conn = mockConnection({
+      signTransaction: async () => "not-a-transaction" as unknown,
+    });
+    await expect(
+      new SolanaProvider(conn, ADDRESS).signTransaction(base64),
+    ).rejects.toThrow(/unrecognised signTransaction result/);
   });
 
   test("signTransaction throws when the wallet lacks signTransaction", async () => {

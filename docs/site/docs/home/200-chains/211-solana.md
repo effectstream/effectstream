@@ -70,7 +70,7 @@ Captures the log lines a watched program emitted, per transaction.
       startBlockHeight: 0,
       programId: "8veT8XVnBxG6kmq27CrCgznCtVHLJsBAqGHZrodKaRJ6",
       // eventType: "EFFECTSTREAM_COUNTER",  // optional substring filter
-      scheduledPrefix: "solana-program-log",
+      stateMachinePrefix: "solana-program-log",
     }),
   )
 )
@@ -100,7 +100,7 @@ Tracks a watched address's lamport balance as of each transaction that touches i
       type: PrimitiveTypeSolanaAccountBalance,
       startBlockHeight: 0,
       address: "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
-      scheduledPrefix: "solana-account-balance",
+      stateMachinePrefix: "solana-account-balance",
     }),
   )
 )
@@ -118,7 +118,7 @@ Neither primitive emits for a transaction whose `meta.err` is set. A failed tran
 
 The gasless flow, end to end:
 
-1. The client builds a transaction and sets `feePayer` to the batcher's **sponsor** public key (`GET /account-address` on the batcher, or `adapter.getAccountAddress()`).
+1. The client builds a transaction and sets `feePayer` to the batcher's **sponsor** public key (`adapter.getAccountAddress()`).
 2. The user partially signs it and POSTs the **base64** serialization to the batcher.
 3. The batcher validates it, adds the fee-payer signature, and submits.
 4. The result is read back by the sync primitives above — the batcher writes no blob of its own.
@@ -129,7 +129,7 @@ import { SolanaAdapter } from "@effectstream/batcher-sdk";
 const adapter = new SolanaAdapter({
   rpcUrl: "https://api.mainnet-beta.solana.com",
   batcherSecretKey: "…",                  // base58, 64-byte secret key; hold securely
-  targetProgramId: "YourProgram1111111111111111111111111111111",
+  targetProgramId: "AKnL4NNf3DGWZJS6cPknBuEGnVsV4A4m5tgebLHaRSZ9", // your program
   syncProtocolName: "parallelSolanaRPC",
   // maxBatchSize: 10,                    // transactions per cycle
   // allowSponsorAsInstructionAccount: false,

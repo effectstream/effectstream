@@ -93,9 +93,13 @@ export class SolanaClient {
 
     const json = await res.json();
     if (json.error) {
-      throw new Error(
+      const err = new Error(
         `[Solana] RPC error [${method}]: ${json.error.message ?? JSON.stringify(json.error)}`,
-      );
+      ) as Error & { rpcCode?: number };
+      // Preserve the JSON-RPC code so callers can branch on it instead of
+      // pattern-matching human-readable messages.
+      err.rpcCode = typeof json.error.code === "number" ? json.error.code : undefined;
+      throw err;
     }
     return json.result as T;
   }
@@ -121,35 +125,18 @@ export class SolanaClient {
         },
       ]);
     } catch (e) {
-      // Slot was skipped (no block produced) — return null
-      if (
-        e instanceof Error &&
-        e.message.includes("was skipped")
-      ) {
-        return null;
-      }
+      // A skipped slot is normal on Solana: no block was produced. Branch on the
+      // JSON-RPC code rather than the message text —
+      //   -32007 SLOT_SKIPPED, -32009 LONG_TERM_STORAGE_SLOT_SKIPPED.
+      // Deliberately NOT -32004 (block not available yet): that is a transient
+      // "ask again" and must keep throwing so the fetcher retries rather than
+      // treating the slot as permanently empty.
+      const code = (e as { rpcCode?: number }).rpcCode;
+      if (code === -32007 || code === -32009) return null;
+      // Fall back to the message for RPCs that omit or remap the code.
+      if (e instanceof Error && e.message.includes("was skipped")) return null;
       throw e;
     }
   }
 
-  async getAccountInfo(
-    address: string,
-  ): Promise<{ lamports: number } | null> {
-    return this.rpc<{ lamports: number } | null>(
-      "getAccountInfo",
-      [
-        address,
-        { commitment: "confirmed", encoding: "base64" },
-      ],
-    );
-  }
-
-  async getBalance(
-    address: string,
-  ): Promise<number> {
-    return this.rpc<number>("getBalance", [
-      address,
-      { commitment: "confirmed" },
-    ]);
-  }
 }

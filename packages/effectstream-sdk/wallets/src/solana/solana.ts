@@ -11,6 +11,7 @@ import {
 } from "../IProvider.ts";
 import { getWindow } from "../windows.ts";
 import { getWallets } from "@wallet-standard/app";
+import { Transaction } from "@solana/web3.js";
 import bs58 from "bs58";
 
 // Wallet Standard feature names. Wallets like MetaMask expose Solana support
@@ -233,10 +234,41 @@ export class SolanaProvider implements IProvider<SolanaApi> {
     if (!this.connection.api.signTransaction) {
       throw new Error("Wallet does not support signTransaction");
     }
-    const tx = new Uint8Array(Buffer.from(txBase64, "base64"));
+    // Pass a web3.js `Transaction`, not raw bytes. The injected wallets this
+    // connector lists first (Phantom, Backpack, Solflare) take a Transaction
+    // object and hand back a signed Transaction — raw bytes make them throw or
+    // return garbage. `WalletStandardSolanaApi` below already accepts either and
+    // branches on `.serialize`, so the object form works for both paths.
+    //
+    // Legacy transactions only, matching what SolanaAdapter accepts
+    // (`Transaction.from`); a versioned tx throws here and is rejected there.
+    const tx = Transaction.from(Buffer.from(txBase64, "base64"));
     const signed = await this.connection.api.signTransaction(tx);
-    return Buffer.from(signed as Uint8Array).toString("base64");
+    return serializeSignedTx(signed);
   }
+}
+
+/**
+ * Normalise whatever a wallet returns from `signTransaction` to base64 — the
+ * encoding `SolanaBatchPayload.transactions` expects. Injected wallets return a
+ * Transaction-like object; the Wallet Standard bridge returns raw bytes.
+ * `requireAllSignatures: false` because the fee payer (the batcher's sponsor)
+ * signs later.
+ */
+function serializeSignedTx(signed: unknown): string {
+  if (signed != null && typeof (signed as any).serialize === "function") {
+    const bytes: Uint8Array = (signed as any).serialize({
+      requireAllSignatures: false,
+      verifySignatures: false,
+    });
+    return Buffer.from(bytes).toString("base64");
+  }
+  if (signed instanceof Uint8Array) {
+    return Buffer.from(signed).toString("base64");
+  }
+  throw new Error(
+    "Wallet returned an unrecognised signTransaction result (expected a Transaction or bytes)",
+  );
 }
 
 /** True if a Wallet Standard wallet can connect + sign Solana messages. */

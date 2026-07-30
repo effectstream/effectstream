@@ -33,7 +33,8 @@ frontend / client                batcher (fee-payer)            solana-test-vali
 bun install
 
 # Launch the full stack (PGLite, validator + counter program, sync node,
-# batcher, frontend). Uses the committed counter.so — no Rust required.
+# batcher, frontend). Compiles counter.so on first run via the vendored
+# cargo-build-sbf — no global Rust or Solana toolchain needed.
 bun run dev
 ```
 
@@ -155,9 +156,9 @@ Sync node, state machine, config, API, and dev tooling. Key files:
 
 The on-chain counter program. Contains the Rust source
 (`programs/counter/src/lib.rs`), the build script (`scripts/build.ts`, via the
-vendored `cargo-build-sbf`), the committed `build/counter.so`, the fixed
-program keypair, and client-side instruction builders (`instructions.ts`) that
-mirror the program's wire format.
+vendored `cargo-build-sbf`), the compiled `build/counter.so` (gitignored —
+produced on first run), the fixed program keypair, and client-side instruction
+builders (`instructions.ts`) that mirror the program's wire format.
 
 ### packages/database
 

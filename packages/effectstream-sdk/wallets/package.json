@@ -29,13 +29,27 @@
     "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "^2.1.0"
   },
   "peerDependenciesMeta": {
-    "@effectstream/midnight-contracts": { "optional": true },
-    "@lucid-evolution/lucid": { "optional": true },
-    "@lucid-evolution/provider": { "optional": true },
-    "@lucid-evolution/utils": { "optional": true },
-    "@midnight-ntwrk/ledger-v8": { "optional": true },
-    "@midnight-ntwrk/wallet-sdk-hd": { "optional": true },
-    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": { "optional": true }
+    "@effectstream/midnight-contracts": {
+      "optional": true
+    },
+    "@lucid-evolution/lucid": {
+      "optional": true
+    },
+    "@lucid-evolution/provider": {
+      "optional": true
+    },
+    "@lucid-evolution/utils": {
+      "optional": true
+    },
+    "@midnight-ntwrk/ledger-v8": {
+      "optional": true
+    },
+    "@midnight-ntwrk/wallet-sdk-hd": {
+      "optional": true
+    },
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@effectstream/midnight-contracts": "workspace:*",
@@ -47,11 +61,11 @@
     "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "2.1.0"
   },
   "dependencies": {
+    "@aurowallet/mina-provider": "^1.0.12",
     "@effectstream/concise": "workspace:*",
     "@effectstream/crypto": "workspace:*",
     "@effectstream/event-client": "workspace:*",
     "@effectstream/utils": "workspace:*",
-    "@aurowallet/mina-provider": "^1.0.12",
     "@metamask/providers": "^22.1.0",
     "@midnight-ntwrk/dapp-connector-api": "4.0.1",
     "@noble/curves": "^1.8.0",
@@ -61,6 +75,7 @@
     "@polkadot/extension-inject": "^0.58.10",
     "@polkadot/util": "^13.4.3",
     "@polkadot/util-crypto": "^13.4.3",
+    "@solana/web3.js": "^1.95.0",
     "@types/semver": "7.7.1",
     "@wallet-standard/app": "^1.1.0",
     "assert-never": "^1.4.0",

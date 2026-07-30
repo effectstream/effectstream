@@ -27,7 +27,8 @@ export default {
   processes: [
     ...launchPglite(),
 
-    // Defaults to the committed .so (SKIP_SOLANA_BUILD=1); set =0 to recompile.
+    // SKIP_SOLANA_BUILD=1 (default) reuses build/counter.so when present and
+    // compiles it when absent; set =0 to force a recompile every boot.
     {
       name: "build-counter",
       description: "Build the Solana counter program (.so)",

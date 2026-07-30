@@ -32,16 +32,18 @@ stm.addStateTransition("solana-program-log", function* (data) {
     const previous = yield* World.resolve(getCounterByAuthority, {
       authority,
     });
-    const priorValue = previous.length > 0 ? Number(previous[0].value) : 0;
+    // bigint throughout: the on-chain counter is a u64, so Number() would stop
+    // indexing (parseCounterLog rejects unsafe integers) past 2^53.
+    const priorValue = previous.length > 0 ? BigInt(previous[0].value) : 0n;
     const delta = value - priorValue;
     const kind: "increment" | "reset" =
-      value === 0 && priorValue !== 0 ? "reset" : "increment";
+      value === 0n && priorValue !== 0n ? "reset" : "increment";
 
     yield* World.resolve(
       upsertCounterState,
       {
         authority,
-        value: BigInt(value),
+        value,
         slot: BigInt(slot),
         block_height: blockHeight,
       },
@@ -51,11 +53,11 @@ stm.addStateTransition("solana-program-log", function* (data) {
       insertCounterEvent,
       {
         authority,
-        value: BigInt(value),
+        value,
         slot: BigInt(slot),
         block_height: blockHeight,
         kind,
-        delta: BigInt(delta),
+        delta,
       },
     );
   }
@@ -73,9 +75,14 @@ function parseCounterLog(
   const parts = line.split("|"); // [PREFIX, authority, value, slot]
   if (parts.length !== 4) return null;
   const authority = parts[1];
-  const value = Number(parts[2]);
+  let value: bigint;
+  try {
+    value = BigInt(parts[2]); // u64 on chain — must not go through Number()
+  } catch {
+    return null;
+  }
   const slot = Number(parts[3]);
-  if (!Number.isSafeInteger(value) || !Number.isSafeInteger(slot)) return null;
+  if (!Number.isSafeInteger(slot)) return null;
   return { authority, value, slot };
 }
 

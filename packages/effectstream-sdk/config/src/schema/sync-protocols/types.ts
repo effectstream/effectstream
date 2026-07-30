@@ -52,6 +52,19 @@ type BasePrimitive = {
   name: string;
   type: `${string}:${string}`;
   startBlockHeight: number;
+  /**
+   * Grammar prefix used to route this primitive's payload into the state
+   * machine. Omit it and the primitive still writes accounting rows, but
+   * `stateMachinePayload` is null and the STM never sees the event.
+   *
+   * NOTE: `runtime/src/main.ts` spreads the primitive config straight into the
+   * `Primitive` constructor, which reads `stateMachinePrefix` — so that is the
+   * name that actually works. `scheduledPrefix` is kept because existing
+   * configs and docs use it, but setting ONLY `scheduledPrefix` silently
+   * disables state-machine delivery. Prefer `stateMachinePrefix`.
+   */
+  stateMachinePrefix?: string;
+  /** @deprecated Type-level only — the runtime reads `stateMachinePrefix`. */
   scheduledPrefix?: string;
   /** When true, fetcher returns block info for ALL blocks in range, not just those with primitives. Default: false */
   getAllBlockHeaders?: boolean;

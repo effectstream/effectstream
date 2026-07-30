@@ -57,10 +57,12 @@ export async function runBatcherTest(db: Client): Promise<void> {
 
   // User builds + partially signs a Memo tx with the sponsor as fee payer.
   const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  // Unique per run, so the "synced" assertion below can pin to THIS transaction.
+  const memoText = `gasless-action-${Date.now()}`;
   const memoIx = new TransactionInstruction({
     keys: [{ pubkey: user.publicKey, isSigner: true, isWritable: false }],
     programId: memoProgram,
-    data: Buffer.from(`gasless-action-${Date.now()}`, "utf8"),
+    data: Buffer.from(memoText, "utf8"),
   });
   const tx = new Transaction();
   tx.feePayer = sponsor;
@@ -77,11 +79,17 @@ export async function runBatcherTest(db: Client): Promise<void> {
     return res.ok;
   });
 
-  // The sync picked up the sponsored Memo write (poll until sync catches up).
+  // The sync picked up THIS sponsored Memo write (poll until sync catches up).
+  // Filtered on the unique memo text: an unfiltered COUNT(*) over Memo rows is
+  // satisfied by any earlier test's memo (program-events.test.ts writes one), so
+  // it would pass even if every batcher-sponsored tx were dropped by the sync.
   await assertSQL<{ count: number }>(
     "Batcher: sponsored Memo tx synced into solana_log_events",
     db,
-    `SELECT COUNT(*)::int AS count FROM solana_log_events WHERE program_id = '${MEMO_PROGRAM_ID}';`,
+    `SELECT COUNT(*)::int AS count
+       FROM solana_log_events
+      WHERE program_id = '${MEMO_PROGRAM_ID}'
+        AND log_messages::text LIKE '%${memoText}%';`,
     (res) => (res.rows[0]?.count ?? 0) >= 1,
     (res) => (res.rows[0]?.count ?? 0) >= 1,
   );
@@ -108,7 +116,11 @@ export async function runBatcherTest(db: Client): Promise<void> {
     badTx.partialSign(user);
     const badB64 = badTx.serialize({ requireAllSignatures: false }).toString("base64");
     const res = await postInput(user.publicKey.toBase58(), badB64, "n/a");
-    return !res.ok; // structural validation rejects it
+    // Assert on the reason, not just !ok: any 5xx (a crashed batcher, say) would
+    // satisfy a bare !res.ok and hide a broken scoping check.
+    if (res.status !== 400) return false;
+    const body = await res.text();
+    return body.includes("only sponsors");
   });
 
   console.log("Solana batcher tests passed.\n");
