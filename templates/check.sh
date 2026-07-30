@@ -145,13 +145,13 @@ if COMPACT_OUTPUT=$(compact --version 2>/dev/null); then
 
     # Check if compact compile is working
     echo "Checking compact compile..."
-    if COMPACT_COMPILE_OUTPUT=$(compact compile +0.27.0 --version 2>/dev/null); then
+    if COMPACT_COMPILE_OUTPUT=$(compact compile +0.31.0 --version 2>/dev/null); then
         COMPACT_COMPILE_VERSION=$(echo "$COMPACT_COMPILE_OUTPUT" | head -n1)
         print_success "compact compile is working (version: $COMPACT_COMPILE_VERSION)"
-        if [ "$COMPACT_COMPILE_VERSION" = "0.27.0" ]; then
-            print_success "compact version 0.27.0 is installed"
+        if [ "$COMPACT_COMPILE_VERSION" = "0.31.0" ]; then
+            print_success "compact version 0.31.0 is installed"
         else
-            print_error "compact version $COMPACT_COMPILE_VERSION is installed but version 0.27.0 is required. Please update compact."
+            print_error "compact version $COMPACT_COMPILE_VERSION is installed but version 0.31.0 is required. Please update compact."
             echo "🌐 https://github.com/midnightntwrk/compact/releases"
         fi
     else
