@@ -50,9 +50,12 @@ export abstract class Primitive<
   // maintained `pg_ivm` view (when the extension is available) and a plain
   // SQL view fallback (when it isn't). All other DDL — intermediate table,
   // trigger function, trigger — is identical across strategies.
+  // May return `undefined` to emit no DDL — e.g. a primitive can gate its
+  // owned table behind a config flag. `getDynamicTables` already surfaces
+  // `string | undefined`, and `createDynamicTables` skips on undefined.
   dynamicTables:
     | undefined
-    | ((name: string, strategy: MaterializedViewStrategy) => string) =
+    | ((name: string, strategy: MaterializedViewStrategy) => string | undefined) =
       undefined;
   getIntermediatePrefix(): string[] {
     return [];
