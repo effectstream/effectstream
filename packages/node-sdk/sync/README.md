@@ -2,12 +2,12 @@
 
 The blockchain-sync service inside an EffectStream node. Reads finalized
 blocks from every chain you've configured (EVM, Bitcoin, Cardano, Midnight,
-Avail, Celestia, NEAR…), normalizes them into a single rollup ordering,
+Avail, Celestia, NEAR, Solana…), normalizes them into a single rollup ordering,
 and stages the inputs the state machine consumes.
 
 - Blockchain-sync service: reads finalized blocks from every configured chain.
 - Normalises into a single rollup ordering and stages inputs for the state machine.
-- Drop-in fetchers: EVM, Bitcoin, Cardano UTXO-RPC, Midnight, Avail, Celestia, NEAR, NTP.
+- Drop-in fetchers: EVM, Bitcoin, Cardano UTXO-RPC, Midnight, Avail, Celestia, NEAR, Solana, NTP.
 - `genSyncProtocols(config)` is what the runtime calls during boot.
 
 ## Install
@@ -87,7 +87,7 @@ re-engages. A chain that is merely tip-limited (caught up, not gated by the merg
 `buffering.test.ts` 1c (skip-ahead) and 1d (density).
 
 **Scope.** The guard runs in **every** chain's `stateToInput`, so all sync chains are
-covered: EVM, NTP, Bitcoin, Avail, Celestia, NEAR, Midnight, Cardano (UTXO-RPC), and
+covered: EVM, NTP, Bitcoin, Avail, Celestia, NEAR, Solana, Midnight, Cardano (UTXO-RPC), and
 the synthetic `test` chain. Two notes:
 - **Cardano (UTXO-RPC)** has no `stepSize` (it streams one block per pass), so the cap
   falls back to a default chunk size of 1000 (⇒ default cap 4000); set `maxBufferedPages`
@@ -116,7 +116,7 @@ as `buf` pins to `cap`.
 
 Per-chain `Fetcher` / `SyncState` classes (`EvmFetcher`,
 `BitcoinFetcher`, `MidnightFetcher`, `AvailFetcher`, `UtxoRpcFetcher`,
-`NtpFetcher`, `CelestiaFetcher`, `NearFetcher`, and matching `*SyncState`
+`NtpFetcher`, `CelestiaFetcher`, `NearFetcher`, `SolanaFetcher`, and matching `*SyncState`
 classes) are exported but are internal to the factory wiring -
 application code drives them through `genSyncProtocols` rather than
 instantiating them directly. Reach for them only if you're writing a

@@ -24,6 +24,12 @@ bun add @effectstream/batcher-sdk
 npm install @effectstream/batcher-sdk
 ```
 
+> **Midnight fee wallets:** if you run the Midnight adapter, see
+> [DUST_SYNC_PATCH.md](https://github.com/effectstream/effectstream/blob/main/packages/batcher/DUST_SYNC_PATCH.md). The dust wallet's sync batching is
+> hard-coded for browser responsiveness in the pinned SDK version; a small,
+> non-transitive patch is required to apply the batcher's backend tuning and
+> reduce its memory footprint. You must re-apply it in your own project.
+
 ## Standalone usage
 
 A minimal end-to-end example using `FileStorage`, the EffectstreamL2 adapter, and the bundled HTTP server.
@@ -86,7 +92,7 @@ curl -X POST http://localhost:3334/batch-input \
   }'
 ```
 
-`signature` is required for the EVM and Cardano adapters. Adapters that override `verifySignature` (Midnight, for example) accept inputs without it but must implement their own check.
+`signature` is required for the EVM and Cardano adapters. Adapters that override `verifySignature` (Midnight and Solana, for example) accept inputs without it but must implement their own check - the Solana adapter verifies the Ed25519 signatures carried inside the submitted transaction and requires the claimed address to be one of its signers.
 
 ### Batching criteria
 
@@ -124,7 +130,7 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 - `createNewBatcher(config, storage)`: build a batcher instance.
 - `BatcherConfig`: configuration type. See `pollingIntervalMs`, `adapters`, `defaultTarget`, `batchingCriteria`, `confirmationLevel`, `enableHttpServer`, `port`, `enableEventSystem`, `namespace`, `batchBuilding`.
 - `FileStorage(dir)`: default JSONL storage.
-- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `BitcoinAdapter`.
+- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `BitcoinAdapter`, `NearAdapter`, `SolanaAdapter`.
 - Batcher operations: `runBatcher`, `batchInput`, `addStateTransition`, `gracefulShutdownOp`, `getPublicConfig`, `getBatchingStatus`.
 - HTTP endpoints (when enabled): `POST /batch-input`, `GET /status`, `GET /health`, `POST /force-process`.
 

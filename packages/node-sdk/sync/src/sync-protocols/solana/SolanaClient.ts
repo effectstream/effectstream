@@ -132,17 +132,6 @@ export class SolanaClient {
     }
   }
 
-  async getBlocks(
-    startSlot: number,
-    endSlot: number,
-  ): Promise<(number | null)[]> {
-    return this.rpc<(number | null)[]>("getBlocks", [
-      startSlot,
-      endSlot,
-      { commitment: "confirmed" },
-    ]);
-  }
-
   async getAccountInfo(
     address: string,
   ): Promise<{ lamports: number } | null> {

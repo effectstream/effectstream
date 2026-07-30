@@ -218,21 +218,24 @@ export class SolanaProvider implements IProvider<SolanaApi> {
   }
 
   /**
-   * Sign a partial transaction for the batcher (dust sponsor flow).
-   * The transaction should have a dummy fee payer; the batcher or
-   * capacity exchange server will replace it.
+   * Sign a partial transaction for the batcher (fee-payer sponsor flow). The
+   * transaction's fee payer should already be the batcher's sponsor; the batcher
+   * adds that signature and submits.
    *
-   * Encoding is base58 on both sides to match the batcher's
-   * `SolanaBatchPayload.transactions` contract and the CES `balanceTx`
-   * round-trip (which feed `sendRawTransaction`).
+   * **base64 on both sides**, matching `SolanaBatchPayload.transactions` in
+   * `@effectstream/batcher-sdk` — the adapter deserialises with
+   * `Transaction.from(Buffer.from(tx, "base64"))`, and both the e2e suite and
+   * the solana-starter frontend post base64. This used to be base58 while
+   * claiming in its own docblock to match the batcher contract, which it did
+   * not: the adapter would have decoded garbage and rejected every transaction.
    */
-  async signTransaction(txBase58: string): Promise<string> {
+  async signTransaction(txBase64: string): Promise<string> {
     if (!this.connection.api.signTransaction) {
       throw new Error("Wallet does not support signTransaction");
     }
-    const tx = bs58.decode(txBase58);
+    const tx = new Uint8Array(Buffer.from(txBase64, "base64"));
     const signed = await this.connection.api.signTransaction(tx);
-    return bs58.encode(signed as Uint8Array);
+    return Buffer.from(signed as Uint8Array).toString("base64");
   }
 }
 

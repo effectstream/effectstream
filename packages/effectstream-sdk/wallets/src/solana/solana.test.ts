@@ -29,10 +29,11 @@ describe("SolanaProvider", () => {
     expect(address).toBe(ADDRESS);
   });
 
-  test("signTransaction round-trips base58 (not base64)", async () => {
-    // Bytes that differ when decoded as base58 vs base64
+  test("signTransaction round-trips base64, matching the batcher contract", async () => {
+    // Bytes that decode differently under base58 vs base64, so a regression to
+    // base58 fails this rather than passing by coincidence.
     const original = new Uint8Array([1, 2, 3, 250, 255, 0, 128, 64]);
-    const txBase58 = bs58.encode(original);
+    const txBase64 = Buffer.from(original).toString("base64");
 
     // Mock wallet "signs" by echoing back the decoded bytes unchanged
     const conn = mockConnection({
@@ -40,11 +41,19 @@ describe("SolanaProvider", () => {
     });
     const provider = new SolanaProvider(conn, ADDRESS);
 
-    const signed = await provider.signTransaction(txBase58);
+    const signed = await provider.signTransaction(txBase64);
 
-    // The output must be base58-decodable back to the original bytes
-    const decoded = bs58.decode(signed);
-    expect(Array.from(decoded)).toEqual(Array.from(original));
+    // Must be base64-decodable back to the original bytes — this is what
+    // SolanaAdapter.deserialize() will do with it.
+    expect(Array.from(new Uint8Array(Buffer.from(signed, "base64"))))
+      .toEqual(Array.from(original));
+
+    // And explicitly NOT base58: decoding it that way must not yield the input.
+    let asBase58: Uint8Array | null = null;
+    try { asBase58 = bs58.decode(signed); } catch { /* not valid base58 at all */ }
+    if (asBase58) {
+      expect(Array.from(asBase58)).not.toEqual(Array.from(original));
+    }
   });
 
   test("signTransaction throws when the wallet lacks signTransaction", async () => {

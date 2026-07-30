@@ -67,6 +67,8 @@ A key advantage of built-in primitives is that many come with automatic database
 | **`PrimitiveTypeNEARIntent`** | NEAR | Monitors the NEAR Intents Verifier (`intents.near`) for DIP-4 `token_diff` settlement events. Supports filtering by token ID and account ID patterns. |
 | **`PrimitiveTypeNEARGeneric`** | NEAR | Monitors any contract for arbitrary NEP-297 structured events. |
 | **`PrimitiveTypeNEARAccountWatch`** | NEAR | Monitors all transactions targeting a specific NEAR account. |
+| **`PrimitiveTypeSolanaProgramLog`** | Solana | Captures the log lines a watched program emitted, scoped by the `invoke`/`success` framing so only genuine invocations fire. |
+| **`PrimitiveTypeSolanaAccountBalance`** | Solana | Tracks a watched address's lamport balance from each transaction's `postBalances`, resolving lookup-table addresses. |
 
 ## Custom Primitives
 

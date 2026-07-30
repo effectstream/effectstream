@@ -122,7 +122,8 @@ type CelestiaPrimitive = BasePrimitive & {
   namespace: string;
 };
 
-type NearPrimitive = BasePrimitive & {  /** NEAR account ID of the contract to watch (e.g., "intents.near") */
+type NearPrimitive = BasePrimitive & {
+  /** NEAR account ID of the contract to watch (e.g., "intents.near") */
   contractId: string;
   /** NEP-297 event standard field filter (e.g., "nep141", "dip4") */
   eventStandard?: string;

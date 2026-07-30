@@ -116,9 +116,26 @@ export class SolanaFetcher extends BaseDataFetcher<
           `[Solana] Could not fetch any blocks from ${data.from} to ${data.to} and no previous page was found.`,
         );
       }
+      // Advance the page even though nothing was found. `stateToInput` derives
+      // `from` from `lastPage.own`, so a page that never moves re-requests the
+      // same window forever — a range of entirely skipped slots (a Solana
+      // outage, or any leaderless stretch) would stall the fetcher permanently
+      // with no recovery once blocks resume. This is the "Page != Data"
+      // invariant in the package CLAUDE.md: pages track scan progress, not
+      // content.
+      //
+      // The root timestamp is carried over unchanged: no block means no new
+      // time to report, and the merge requires root to be non-decreasing.
+      //
+      // NOTE: near/fetcher.ts:94 has the identical stall — it's the pattern this
+      // was copied from. Not fixed here to keep this PR scoped to Solana.
       return {
         output: [],
-        lastPage,
+        lastPage: {
+          ...lastPage,
+          own: Number(data.to) as Page,
+          ownBlockNumber: Number(data.to) as Page,
+        },
       };
     }
 

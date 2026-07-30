@@ -115,6 +115,7 @@ export {
   NearGenericPrimitive,
   NearAccountWatchPrimitive,
   SolanaProgramLogPrimitive,
+  SolanaAccountBalancePrimitive,
   CardanoMintBurnPrimitive,
   CardanoTransferPrimitive,
   CardanoPoolDelegationPrimitive,

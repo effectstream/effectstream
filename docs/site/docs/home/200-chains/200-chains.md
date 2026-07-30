@@ -12,7 +12,8 @@ EffectStream is chain-agnostic. It can connect to, monitor, and write to multipl
 *   [**Algorand**](./208-algorand.md): Pure Proof-of-Stake blockchain.
 *   [**Celestia**](./209-celestia.md): Modular Data Availability (DA) layer for blob storage.
 *   [**NEAR**](./210-near.md): NEAR Protocol - sharded PoS chain with NEP token standards and DIP-4 cross-chain intents.
-*   [**Contracts**](./211-contracts.md): First-party Solidity and Aiken contracts shipped with EffectStream.
+*   [**Solana**](./211-solana.md): High-throughput PoS chain - program-log and lamport-balance sync, plus a gasless fee-payer-sponsor batcher.
+*   [**Contracts**](./212-contracts.md): First-party Solidity and Aiken contracts shipped with EffectStream.
 
 Each chain integration can contain up to 4 parts:
 1.  **Read (Sync Service)**: Configuring the node to listen for specific events or state changes.
@@ -35,6 +36,7 @@ Each chain integration can contain up to 4 parts:
 | [**Algorand**](./208-algorand.md) | ⚠️ | ⚠️ | ⚠️ | ✅ |
 | [**Celestia**](./209-celestia.md) | ✅ | ✅ | ✅ | ⚠️ |
 | [**NEAR**](./210-near.md) | ✅ | ✅ | ✅ | ⚠️ |
+| [**Solana**](./211-solana.md) | ✅ | ✅ | ✅ | ✅ |
 
 > ✅ **Available** | ⚠️ **Partial or not built-in**
 
