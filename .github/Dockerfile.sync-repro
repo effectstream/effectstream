@@ -1,0 +1,47 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# sync-repro test image
+# ══════════════════════════════════════════════════════════════════════════════
+# A deliberately small image for the `sync-repro` e2e suite. Unlike
+# .github/Dockerfile (which builds foundry, the Midnight compact compiler, solc
+# and Playwright Chromium because it runs the whole e2e matrix), this suite
+# needs none of that: it starts no chains, uses no orchestrator, and its
+# database is in-process PGLite.
+#
+# The reason to containerise it at all is isolation. The reproduction harness
+# binds a PGLite gateway port and an API port per node; running in a container
+# gives those their own network namespace so the suite can run while other test
+# suites are using the same ports on the host.
+#
+# Build + run:
+#   bun run e2e/sync-repro/run-tests.ts --docker
+# or directly:
+#   docker build -t effectstream-sync-repro -f .github/Dockerfile.sync-repro .
+#   docker run --rm effectstream-sync-repro
+FROM oven/bun:1.3.10-debian
+
+WORKDIR /app
+
+# Node is needed by postinstall scripts during `bun install` (core-js and
+# friends shell out to `node`), even though nothing here runs under Node.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# node_modules is excluded by .dockerignore, so this is the source tree only.
+COPY . .
+
+RUN bun install --frozen-lockfile
+
+# PGLite (WASM) is the default backend; the Postgres-only consistency tests
+# skip themselves unless PGLITE=false. MQTT binds fixed ports that the harness
+# never frees, so it stays off.
+ENV PGLITE=true
+ENV MQTT_BROKER=false
+ENV EFFECTSTREAM_STDOUT=true
+ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
+
+# --in-container stops run-tests.ts from recursing back into docker.
+CMD ["bun", "run", "e2e/sync-repro/run-tests.ts", "--in-container"]

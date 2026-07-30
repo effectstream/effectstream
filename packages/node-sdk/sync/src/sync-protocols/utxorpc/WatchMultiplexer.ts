@@ -31,6 +31,21 @@ export class WatchMultiplexer {
   private highestConfirmedHeight: number | undefined = undefined;
   private lowestIncompleteHeight: number = 0;
   private slotOriginTimestamp: bigint | undefined = undefined;
+  /**
+   * Incremented by every {@link start} call so events from a previous
+   * generation's streams can be identified and dropped.
+   *
+   * `start` can now be called more than once: `startSync` supervises the
+   * producer and restarts it when the stream dies. All multiplexer state lives
+   * on this instance, and the gRPC streams of the previous generation are not
+   * cancellable from here — a `Promise.all` rejection from ONE watcher aborts
+   * `start` while its siblings keep streaming. Without this guard a restart
+   * would run two live streams per predicate into the same `pendingBlocks`,
+   * pushing each matched tx twice. Duplicate primitives in a block mean
+   * duplicate scheduled STF inputs, i.e. non-deterministic state — the exact
+   * failure the whole pipeline is built to avoid.
+   */
+  private generation = 0;
 
   constructor(
     private readonly clientOptions: ClientBuilderOptions,
@@ -88,14 +103,39 @@ export class WatchMultiplexer {
       }
     }
 
+    const generation = ++this.generation;
+
+    // Drop half-assembled work from the previous generation. A block is only
+    // completed once EVERY watcher has passed it, so at the moment a stream
+    // died some heights had been seen by some watchers and not others. The new
+    // stream re-delivers those heights from the resume point, and merging the
+    // two views would double their txs. Heights below `lowestIncompleteHeight`
+    // are already completed and are never revisited, so this discards exactly
+    // the in-flight window.
+    if (generation > 1) {
+      for (const [, watcher] of this.watchers) {
+        for (const [height] of watcher.pendingBlocks) {
+          if (height >= this.lowestIncompleteHeight) {
+            watcher.pendingBlocks.delete(height);
+          }
+        }
+        watcher.highestSeenHeight = Math.max(
+          this.lowestIncompleteHeight - 1,
+          0,
+        );
+      }
+    }
+
     const intersect = point ? [point] : [];
     const promises: Promise<void>[] = [];
     for (const [key, watcher] of this.watchers) {
       const watchClient = new CardanoWatchClient(this.clientOptions);
-      promises.push(this.runWatcher(key, watcher, watchClient, intersect));
+      promises.push(this.runWatcher(key, watcher, watchClient, intersect, generation));
     }
 
-    console.log(`[WatchMultiplexer] Started ${this.watchers.size} watcher(s)`);
+    console.log(
+      `[WatchMultiplexer] Started ${this.watchers.size} watcher(s) (generation ${generation})`,
+    );
     await Promise.all(promises);
   }
 
@@ -104,9 +144,19 @@ export class WatchMultiplexer {
     watcher: WatcherState,
     watchClient: CardanoWatchClient,
     intersect: ChainPoint[],
+    generation: number,
   ): Promise<void> {
     const stream = watchClient.watchTxByPredicate(watcher.sdkPredicate, intersect);
     for await (const event of stream) {
+      // A superseded generation must contribute nothing. Breaking here also
+      // closes the underlying stream via the async iterator's return path,
+      // which is the only way to stop it from this side.
+      if (generation !== this.generation) {
+        console.warn(
+          `[WatchMultiplexer] Watcher "${key}" from generation ${generation} superseded by ${this.generation}; closing`,
+        );
+        return;
+      }
       this.handleEvent(key, watcher, event);
     }
     console.warn(`[WatchMultiplexer] Watcher "${key}" stream ended unexpectedly`);

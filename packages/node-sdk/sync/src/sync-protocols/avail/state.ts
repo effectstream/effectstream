@@ -11,6 +11,7 @@ import { getPage } from "@effectstream/db";
 import { AvailClient } from "./AvailClient.ts";
 import { applyDelay } from "../common/utils.ts";
 import { bufferAtCap } from "../common/page-helpers.ts";
+import { requestTimeoutOf } from "../common/http.ts";
 
 export class AvailSyncState extends SyncState<
   Input,
@@ -138,6 +139,7 @@ export class AvailSyncState extends SyncState<
       new AvailClient(
         config.syncProtocol.rpc,
         config.syncProtocol.lightClient,
+        requestTimeoutOf(config.syncProtocol),
       ),
       dbConn,
     );

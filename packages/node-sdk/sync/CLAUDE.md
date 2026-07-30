@@ -69,8 +69,10 @@ config (syncProtocols.main + syncProtocols.parallel)
    - `toRootPage()` — map a block → millisecond timestamp (the **merge key**)
    - `toRootOutput()` — **main only** — produce a root `ChainBlock`
    - `mergeDatum()` — **parallel only** — fold this chain's data into the root
-   - `updateState()` (`state.ts:109`) — push outputs to the Deque, wake CondVars, and
-     persist the page (`upsertPage`, `state.ts:132`).
+   - `updateState()` — push outputs to the Deque and wake the CondVars. It does **not**
+     persist anything: `lastPage` is in-memory only, because the fetch loop runs ahead of
+     commits and its chunk-end page is not a safe resume point. The runtime is the sole
+     writer of the persisted resume marker (design idea #5).
 
 3. **types.ts** — `Input` / `Output` / `Page` aliases (+ a `Client.ts` per chain where an
    RPC client is needed).
@@ -84,12 +86,16 @@ chains merge into root". **The main chain must be at index 0.**
 ## The two driving loops
 
 **`startSync(state)`** (`src/sync-protocols/orchestration/sync.ts`) spawns:
-- `startAsync()` — optional background producer (websocket subs for utxorpc/midnight;
-  no-op for NTP/EVM).
+- `startAsync()` — optional background producer (websocket/gRPC subs for utxorpc; no-op
+  for polled chains). **Supervised** when the state sets `hasAsyncProducer`: both a throw
+  and a clean return count as failure (a producer that returns has ended its stream) and
+  are restarted with capped backoff, counted in `producerRestarts`. Polled chains run
+  their no-op once.
 - the **polling loop**: `stateToInput()` → `readData()` → `updateState()` →
-  `producerChannel.send()` (`sync.ts:70`). Errors are swallowed via `tryYield`, bump
-  `consecutiveErrors`, log, sleep `pollingInterval`, continue. The loop only sleeps when
-  `stateToInput` returns `undefined` (caught up); while behind it fetches chunks
+  `producerChannel.send()`. Errors are swallowed via `tryYield`, bump
+  `consecutiveErrors`, log, sleep, continue. Every branch sleeps
+  `pollingInterval` (falling back to 1 s if a config somehow lacks one) — a pass that
+  neither fetches nor sleeps starves the whole event loop. While behind it fetches chunks
   back-to-back.
 
 **`startMerge(syncProtocols, finalizedBlockStream)`** (`orchestration/merge.ts`) loops; per
@@ -214,15 +220,73 @@ catch-up.
 catch-up blocks into fewer transactions while preserving steady-state semantics and the
 block-hash chain.
 
-> This PR adds the synthetic `test` chain (`src/sync-protocols/test/`) and an
-> in-process harness (`packages/node-sdk/runtime/test/reproduction/`, in the
-> runtime package because it boots the full `start()`, which sync must not depend
-> on). `sanity.test.ts` proves the chain syncs, processes a configured event, and
-> survives a restart. See `docs/ADDING-A-SYNC-PROTOCOL.md` for how to add a chain
-> (with `test` as the worked example).
+### 4. No RPC timeouts — a hung fetch stalled the node silently (correctness) — ✅ FIXED
+
+`fetch` has no default timeout. Bitcoin, NEAR and Avail used it bare, so a blackholed
+endpoint (dropped LB backend, half-open socket) hung `readData` forever. That is the worst
+shape of failure here: the fetch loop never reaches its `catch`, so `consecutiveErrors`
+stays 0 and `lastSuccessfulFetchMs` freezes while the merge blocks on that chain's page.
+Block production stopped and nothing reported it.
+
+→ Fix: `common/http.ts:fetchWithTimeout` (AbortSignal.timeout) on every client, configured
+per protocol by `requestTimeoutMs` on `PollingSyncProtocol` (default 15 s). Timeout-only,
+no internal retry — the fetch loop already retries the same page range idempotently, and
+retrying inside the client would hide the failure from the health endpoint. Regression
+test: `sync/test/rpc-timeout.test.ts` (each client vs a blackholed socket).
+
+### 5. An unpaced fetch loop starved the event loop (correctness) — ✅ FIXED
+
+`startSync` guarded its sleeps with `if ("pollingInterval" in config.syncProtocol)`, and
+the Cardano/utxorpc schema was the only sync protocol not merging `PollingSyncProtocol` —
+so that property was undeclared, untyped and undefaulted while the loop keyed its pacing
+off it. Cardano worked only because every config passed it anyway as an undeclared extra
+field; a config built strictly from the schema froze the node.
+
+Froze rather than span: a pass that neither fetches nor sleeps never yields to the
+macrotask queue. Measured 200k iterations in ~4 s while a 500 ms `setTimeout` never fired
+once — no HTTP server, no other chain's fetch loop, and for a streaming chain none of the
+callbacks that would let it escape.
+
+→ Fix: utxorpc merges `PollingSyncProtocol` like every other protocol, **and** the sleep is
+unconditional with a 1 s fallback. Regression test: `sync/test/poll-loop-spin.test.ts`.
+
+### 6. The streaming producer was unsupervised (correctness) — ✅ FIXED
+
+`startAsync` was spawned bare. A stream that **ended cleanly** left the chain receiving
+nothing forever with every health counter clean — a total, silent, unrecoverable stall. A
+stream that **threw** tore down the enclosing scope, i.e. `start()`, taking every unrelated
+chain with it.
+
+→ Fix: both treated as failure and restarted with capped backoff, counted in
+`producerRestarts`. Gated on `hasAsyncProducer` so polled chains still run their no-op
+once. Regression test: `sync/test/start-async-supervision.test.ts`.
+
+### 7. `/health` reported only database reachability (operability) — ✅ FIXED
+
+Every failure above leaves the database perfectly healthy, so a node that had not applied a
+block in an hour still answered `200 {"status":"ok"}`.
+
+→ Fix: `runtime/src/api/health.ts` reports per-protocol state — most of which `SyncState`
+already tracked and never exposed — keyed on wall-clock time since the last *applied*
+block rather than block-time lag (a node replaying history is legitimately far behind in
+block time while healthy). `blockingMerge` names the chain the merge is waiting on. 503 is
+reserved for `db-unreachable` / `stalled` / `starting`; a chain erroring while blocks still
+flow is `degraded` + 200. Regression test: `runtime/test/reproduction/health.test.ts`.
+
+---
+
+> The synthetic `test` chain (`src/sync-protocols/test/`) and the in-process harness
+> (`packages/node-sdk/runtime/test/reproduction/`, in the runtime package because it boots
+> the full `start()`, which sync must not depend on) back all of these. `sanity.test.ts`
+> proves the chain syncs, processes a configured event, and survives a restart. See
+> `docs/ADDING-A-SYNC-PROTOCOL.md` for how to add a chain (with `test` as the worked
+> example).
 >
-> Deterministic reproductions of #1/#2/#3 and their fixes land alongside each fix:
-> **#2 → block-accurate resume is DONE** (`consistency.test.ts`); **#1 → fetch
-> backpressure is DONE** (`buffering.test.ts`, incl. 1c/1d for the merge-demand
-> exemption). Still in follow-up PRs: #3 → opt-in empty-block commit batching during
-> catch-up.
+> Every finding above has a deterministic reproduction that was written to fail first.
+> Run them all, isolated from other suites, with:
+>
+> ```
+> bun run e2e/sync-repro/run-tests.ts --docker
+> ```
+>
+> Still open: #3 → opt-in empty-block commit batching during catch-up.

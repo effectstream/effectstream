@@ -2,6 +2,7 @@ import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
 import { appliedBlockStatus } from "./apply-status.ts";
 import { finalizedStreamStatus } from "./stream-status.ts";
+import { buildHealthReport, healthHttpStatus } from "./health.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
 import { run, until } from "effection";
@@ -159,6 +160,8 @@ function* registerOpenApiDocumentation(
 export const startHttpServer = function* (
   dbConn: Pool,
   syncProtocols: AllSyncProtocols[],
+  /** How long without applying a block counts as stalled on `/health`. */
+  stallThresholdMs: number,
   apiRouter?: StartConfigApiRouter,
   grammar?: GrammarDefinition,
 ) {
@@ -373,9 +376,35 @@ export const startHttpServer = function* (
     sustainedDurationMs: Type.Number(),
     sustained: Type.Boolean(),
   });
+  const HealthProtocolSchema = Type.Object({
+    name: Type.String(),
+    status: Type.String(),
+    ownBlockNumber: Type.Union([Type.Number(), Type.Null()]),
+    sinceLastPollMs: Type.Union([Type.Number(), Type.Null()]),
+    sinceLastSuccessfulFetchMs: Type.Union([Type.Number(), Type.Null()]),
+    consecutiveErrors: Type.Number(),
+    producerRestarts: Type.Number(),
+    producerErrors: Type.Number(),
+    sinceLastProducerErrorMs: Type.Union([Type.Number(), Type.Null()]),
+    blockingMerge: Type.Boolean(),
+    buffered: Type.Number(),
+    bufferCap: Type.Number(),
+    paused: Type.Boolean(),
+  });
   const HealthResponseSchema = Type.Object({
     status: Type.String(),
     db: HealthDbSchema,
+    apply: Type.Object({
+      blockHeight: Type.Union([Type.Number(), Type.Null()]),
+      sinceLastAppliedMs: Type.Number(),
+      lagMs: Type.Union([Type.Number(), Type.Null()]),
+    }),
+    finalizedStream: Type.Object({
+      produced: Type.Number(),
+      consumed: Type.Number(),
+      inFlight: Type.Number(),
+    }),
+    protocols: Type.Array(HealthProtocolSchema),
   });
   server.get("/health", {
     schema: {
@@ -386,10 +415,10 @@ export const startHttpServer = function* (
       },
     },
   }, (_req, reply) => {
-    const db = poolErrors.state();
-    return reply
-      .status(db.sustained ? 503 : 200)
-      .send({ status: db.sustained ? "db-unreachable" : "ok", db });
+    // Reports sync liveness, not just database reachability — a stalled merge
+    // leaves the database perfectly healthy. See ./health.ts.
+    const report = buildHealthReport(syncProtocols, stallThresholdMs);
+    return reply.status(healthHttpStatus(report.status)).send(report);
   });
 
   server.get("/addresses", {

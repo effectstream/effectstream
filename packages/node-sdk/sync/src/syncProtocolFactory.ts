@@ -33,6 +33,7 @@ import { NearFetcher } from "./sync-protocols/near/fetcher.ts";
 import { NearSyncState } from "./sync-protocols/near/state.ts";
 import { TestFetcher } from "./sync-protocols/test/fetcher.ts";
 import { TestSyncState } from "./sync-protocols/test/state.ts";
+import { requestTimeoutOf } from "./sync-protocols/common/http.ts";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -56,6 +57,7 @@ export function* genSyncProtocols(
         entry,
         createViemPublicClient(viemNetwork, {
           cacheTime: entry.syncProtocol.pollingInterval,
+          timeout: requestTimeoutOf(entry.syncProtocol),
         }),
       );
       const state = yield* EvmSyncState.restoreState(
@@ -123,6 +125,7 @@ export function* genSyncProtocols(
         url: entry.network.rpcUrl,
         username: entry.network.rpcAuth?.username ?? null,
         password: entry.network.rpcAuth?.password ?? null,
+        requestTimeoutMs: requestTimeoutOf(entry.syncProtocol),
       });
       const fetcher = new BitcoinFetcher(entry, rpcClient);
       const state = yield* BitcoinSyncState.restoreState(
