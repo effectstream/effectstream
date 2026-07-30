@@ -213,7 +213,7 @@ Midnight Compact contracts compile to a subdirectory that itself is a workspace 
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
     "@effectstream/orchestrator": "<latest>",
-    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "@midnightntwrk/wallet-sdk-address-format": "3.1.0",
     "wait-on": "8.0.3"
   },
   "effectstream": {
@@ -226,7 +226,7 @@ Notes:
 
 - `effectstream.default` tells the CLI which start file to use when `bunx orchestrator start` is run without arguments.
 - `wait-on` must be a **direct root dependency** — the `launchPglite()` helper invokes `./node_modules/.bin/wait-on tcp:5432` and Bun only hoists binaries from direct deps.
-- `@midnight-ntwrk/wallet-sdk-address-format` is a **phantom dependency** required by `@effectstream/db` transitively but not declared anywhere in the chain. Every template needs it at the root or runtime fails with `Cannot find module`.
+- `@midnightntwrk/wallet-sdk-address-format` is a **phantom dependency** required by `@effectstream/db` transitively but not declared anywhere in the chain. Every template needs it at the root or runtime fails with `Cannot find module`.
 - Include `build:midnight` / `build:evm` only for chains the template actually uses.
 
 ## `link.sh` — advanced, opt-in only

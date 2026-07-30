@@ -90,24 +90,27 @@ export function* start(config: StartConfig): Operation<void> {
     new EventBroker("effectstream-engine").createServer();
   }
 
-  yield* spawn(function* () {
-    yield* startHttpServer(
-      dbConn,
-      syncProtocols,
-      config.apiRouter,
-      config.grammar,
-    );
-  });
-
   // 20× main clock block time (NTP if present, else protocol 0).
   // Falls back to 60 s so coalescing is not silently disabled for chains that
   // don't expose a blockTimeMS on their network config (e.g. Midnight-as-main).
+  // Computed before the HTTP server starts because /health uses the same
+  // threshold to decide whether the node counts as stalled.
   const ntpConfig = syncInfo.find(s => s.networkType === ConfigNetworkType.NTP);
   const clockBlockTimeMS =
     (ntpConfig?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS ??
     (syncInfo[0]?.network as { blockTimeMS?: number } | undefined)?.blockTimeMS;
   const lagThresholdMs = ENV.EFFECTSTREAM_LAG_THRESHOLD_MS ??
     (clockBlockTimeMS != null ? clockBlockTimeMS * 20 : 60_000);
+
+  yield* spawn(function* () {
+    yield* startHttpServer(
+      dbConn,
+      syncProtocols,
+      lagThresholdMs,
+      config.apiRouter,
+      config.grammar,
+    );
+  });
 
   // Bounded hand-off queue between the merge and the apply loop. Backpressure caps
   // the in-memory queue so deep catch-up can't grow it toward the whole backlog

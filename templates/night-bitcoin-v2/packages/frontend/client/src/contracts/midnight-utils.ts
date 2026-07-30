@@ -10,7 +10,7 @@ import {
 } from "@midnight-ntwrk/midnight-js-types";
 import { getPublicStates, type PublicContractStates } from "@midnight-ntwrk/midnight-js-contracts";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
+import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 
 const fromHex = (hex: string): Uint8Array => {
   const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex;

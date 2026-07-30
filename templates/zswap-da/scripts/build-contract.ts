@@ -28,8 +28,15 @@ const SOURCE = path.join(CONTRACT_DIR, "offer-files.compact");
 const OUT_DIR = path.join(CONTRACT_DIR, "managed");
 const MANIFEST = path.join(CONTRACT_DIR, "manifest.json");
 
-/** Compiler version pin. Changing this changes every output hash. */
-const COMPILER_VERSION = "0.30.0";
+/**
+ * Compiler version pin. Changing this changes every output hash.
+ *
+ * Must stay in step with @midnight-ntwrk/compact-runtime in package.json — the
+ * generated module calls checkRuntimeVersion() against it at import time. Both
+ * track the node 1.0.0 stack (compiler 0.31.0 / runtime 0.16.0), matching the
+ * other Midnight templates in this repo.
+ */
+const COMPILER_VERSION = "0.31.0";
 
 interface Manifest {
   source: string;

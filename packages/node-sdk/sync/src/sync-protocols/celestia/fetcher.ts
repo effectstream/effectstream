@@ -2,6 +2,7 @@ import {
   ConfigSyncProtocolType,
   type PrimitiveEntry,
 } from "@effectstream/config";
+import { requestTimeoutOf } from "../common/http.ts";
 import { BaseDataFetcher } from "../base/fetcher.ts";
 import type { DataFetched } from "../base/fetcher.ts";
 import type {
@@ -37,7 +38,10 @@ export class CelestiaFetcher extends BaseDataFetcher<
     readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
-    this.client = new CelestiaClient(config.network.rpcUrl);
+    this.client = new CelestiaClient(
+      config.network.rpcUrl,
+      requestTimeoutOf(config.syncProtocol),
+    );
   }
 
   @bound

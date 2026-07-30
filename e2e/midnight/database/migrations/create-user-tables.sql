@@ -29,11 +29,12 @@ CREATE TABLE IF NOT EXISTS midnight_zswap_roots (
   tx_hash TEXT
 );
 
--- Token-mint registry: token id ("color") → the contract + domain separator
--- that minted it. The mapping columns are immutable (token_type is a pure
--- function of (domain_sep, contract_address)); total_minted accumulates
--- across mints; tx_hash/block_height keep first-mint provenance. kind is in
--- the key because shielded and unshielded share the derivation formula.
+-- Token-mint registry, consumer copy. The primitive also owns its own registry
+-- internally (primitives.midnight_token_mint_view_*, created + populated by the
+-- SDK via a trigger on primitive_accounting), so this table is NOT required to
+-- get the data. It exists to prove the other half: owning a table does not
+-- suppress the state machine — the STM handler still fires for every mint and
+-- writes here, independently of the owned view.
 CREATE TABLE IF NOT EXISTS midnight_token_mints (
   id SERIAL PRIMARY KEY,
   token_type TEXT NOT NULL,

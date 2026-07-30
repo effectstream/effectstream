@@ -12,7 +12,7 @@
 
 import * as Rx from "rxjs";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import {
   buildWalletFacade,
   waitForDustFunds,

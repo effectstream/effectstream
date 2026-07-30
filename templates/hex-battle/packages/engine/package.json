@@ -1,7 +1,7 @@
 {
   "name": "@hex-battle/engine",
   "version": "0.1.0",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": {

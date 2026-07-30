@@ -10,7 +10,7 @@ if (globalThis.process?.versions?.bun) {
     process.exit(1);
   });
 }
-import { ShieldedWallet } from "@midnight-ntwrk/wallet-sdk-shielded";
+import { ShieldedWallet } from "@midnightntwrk/wallet-sdk-shielded";
 import {
   DustSecretKey,
   LedgerParameters,
@@ -22,19 +22,22 @@ const log = console;
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import * as Rx from "rxjs";
-import { HDWallet, Roles } from "@midnight-ntwrk/wallet-sdk-hd";
-import { type DefaultConfiguration, WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
-import { DustWallet } from "@midnight-ntwrk/wallet-sdk-dust-wallet";
+import { HDWallet, Roles } from "@midnightntwrk/wallet-sdk-hd";
+import { type DefaultConfiguration, WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
+import { DustWallet } from "@midnightntwrk/wallet-sdk-dust-wallet";
 import {
   UnshieldedWallet,
   createKeystore,
   PublicKey,
-  InMemoryTransactionHistoryStorage,
   type UnshieldedKeystore,
-} from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
-import { type ShieldedWalletState } from "@midnight-ntwrk/wallet-sdk-shielded";
-import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
+} from "@midnightntwrk/wallet-sdk-unshielded-wallet";
+import { type ShieldedWalletState } from "@midnightntwrk/wallet-sdk-shielded";
+import {
+  InMemoryTransactionHistoryStorage,
+  NetworkId,
+  TransactionHistoryStorage,
+} from "@midnightntwrk/wallet-sdk-abstractions";
+import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 import * as path from "node:path";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { CONSTANTS } from "./constants.ts";
@@ -813,7 +816,9 @@ function createWalletConfiguration(
     provingServerUrl: new URL(networkUrls.proofServer),
     relayURL: new URL(networkUrls.node.replace("http", "ws")),
     networkId: networkId,
-    txHistoryStorage: new InMemoryTransactionHistoryStorage(),
+    txHistoryStorage: new InMemoryTransactionHistoryStorage(
+      TransactionHistoryStorage.TransactionHistoryCommonSchema,
+    ),
     costParameters: {
       additionalFeeOverhead: CONSTANTS.DUST_FEE_OVERHEAD,
       feeBlocksMargin: CONSTANTS.DUST_FEE_BLOCKS_MARGIN,
@@ -839,9 +844,7 @@ function buildShieldedWallet(config: DefaultConfiguration, seed: Uint8Array) {
  * rather than in a worker — spacing 0 would starve other work during the
  * initial catch-up sync.
  *
- * NOTE: `batchUpdates` is only honoured by `wallet-sdk-dust-wallet >= 4.0.0`.
- * On the currently-pinned 3.0.0 these values are ignored unless the package is
- * patched (see patches/). Plumbing them here is harmless on 3.0.0.
+ * NOTE: `batchUpdates` requires `wallet-sdk-dust-wallet >= 4.0.0`.
  */
 function resolveDustBatchUpdates(): {
   size: number;
@@ -889,7 +892,9 @@ function buildUnshieldedWallet(
 ) {
   return UnshieldedWallet({
     ...config,
-    txHistoryStorage: new InMemoryTransactionHistoryStorage(),
+    txHistoryStorage: new InMemoryTransactionHistoryStorage(
+      TransactionHistoryStorage.TransactionHistoryCommonSchema,
+    ),
   } as any).startWithPublicKey(PublicKey.fromKeyStore(keystore));
 }
 

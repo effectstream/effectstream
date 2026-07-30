@@ -1,7 +1,7 @@
 {
   "name": "@multi-chain-transfer/evm-contracts",
   "version": "0.3.22",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "type": "module",
   "exports": {
     ".": "./mod.ts",

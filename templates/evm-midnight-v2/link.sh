@@ -81,7 +81,7 @@ link_pkg "effectstream" "utils"                    "$P/effectstream-sdk/utils"
 link_pkg "effectstream" "wallets"                  "$P/effectstream-sdk/wallets"
 
 # Single @midnight-ntwrk WASM tree from monorepo root (see ../../package.json overrides).
-MIDNIGHT_WASM_PKGS="compact-runtime compact-js onchain-runtime-v3 onchain-runtime-v2 ledger-v8 zswap"
+MIDNIGHT_WASM_PKGS="compact-runtime compact-js onchain-runtime-v3 onchain-runtime-v2 ledger-v8"
 
 link_midnight_wasm_from_monorepo() {
   local dest_nm="$1"
@@ -113,8 +113,7 @@ drop_template_wasm_bun_copies() {
     "@midnight-ntwrk+onchain-runtime-v3@" \
     "@midnight-ntwrk+onchain-runtime-v2@" \
     "@midnight-ntwrk+onchain-runtime@" \
-    "@midnight-ntwrk+ledger-v8@" \
-    "@midnight-ntwrk+zswap@"; do
+    "@midnight-ntwrk+ledger-v8@"; do
     for entry in "$bun_dir"/${prefix}*; do
       [ -e "$entry" ] || continue
       rm -rf "$entry"

@@ -36,7 +36,7 @@ import type {
 import {
   MidnightBech32m,
   ShieldedAddress,
-} from "@midnight-ntwrk/wallet-sdk-address-format";
+} from "@midnightntwrk/wallet-sdk-address-format";
 
 // ── Workspace ─────────────────────────────────────────────────────────────
 import {

@@ -1,3 +1,5 @@
+import { DEFAULT_REQUEST_TIMEOUT_MS, fetchWithTimeout } from "../common/http.ts";
+
 // ============================
 // NEAR JSON-RPC type responses
 // ============================
@@ -107,17 +109,25 @@ export function parseNep297Log(log: string): Nep297Event | null {
 
 export class NearClient {
   private readonly rpcUrl: string;
+  /** Per-request deadline; see `sync-protocols/common/http.ts`. */
+  private readonly requestTimeoutMs: number;
 
-  constructor(rpcUrl: string) {
+  constructor(rpcUrl: string, requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
     this.rpcUrl = rpcUrl;
+    this.requestTimeoutMs = requestTimeoutMs;
   }
 
   private async rpc<T>(method: string, params: Record<string, unknown>): Promise<T> {
-    const res = await fetch(this.rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    });
+    const res = await fetchWithTimeout(
+      this.rpcUrl,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      },
+      `NEAR ${method}`,
+      this.requestTimeoutMs,
+    );
 
     const json = await res.json();
     if (json.error) {

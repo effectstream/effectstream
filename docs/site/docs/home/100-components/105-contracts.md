@@ -42,7 +42,7 @@ This example shows a simple counter contract. The `increment` circuit is a priva
 
 ```rust
 // File: /contracts/midnight/src/main.rs
-pragma language_version 0.16;
+pragma language_version >= 0.18.0;
 
 import CompactStandardLibrary;
 

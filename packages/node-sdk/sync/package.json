@@ -1,7 +1,7 @@
 {
   "name": "@effectstream/sync",
   "version": "0.101.1",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",
@@ -17,8 +17,8 @@
     "@effectstream/db": "workspace:*",
     "@effectstream/log": "workspace:*",
     "@effectstream/utils": "workspace:*",
-    "@midnight-ntwrk/ledger-v8": "8.0.3",
-    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.4",
+    "@midnight-ntwrk/ledger-v8": "8.1.0",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.1.1",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v3@3.0.0",
     "effection": "3.5.0",
     "graphql-ws": "^6.0.6",

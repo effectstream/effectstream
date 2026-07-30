@@ -38,7 +38,9 @@ import { PrimitiveTypeEVMERC721 } from "@effectstream/sm/builtin";
   )
 ```
 
-A key advantage of built-in primitives is that many come with automatic database integration. For example, the `PrimitiveTypeEVMERC721` primitive will automatically create and maintain a dynamic table in your database that tracks the current owner of every token ID, which you can then easily query from your API. Learn more in the [Database section](./109-database.md).
+A key advantage of built-in primitives is that many come with automatic database integration. For example, the `PrimitiveTypeEVMERC721` primitive creates a table in your database and keeps it up to date with the current owner of every token ID, which you can then easily query from your API. Learn more in the [Database section](./109-database.md).
+
+A primitive that maintains a table for you **still triggers your state machine** — the two are independent. The table is created and populated whether or not you write a handler, and whenever you set a `stateMachinePrefix` the primitive also emits one input per on-chain event for the matching STF. Think of the table as the read model and the STF as where your app-specific logic goes; use either, or both. Pass `stateMachinePrefix: undefined` when you only want the table.
 
 ### Available Built-in Primitives
 
@@ -53,6 +55,7 @@ A key advantage of built-in primitives is that many come with automatic database
 | **`PrimitiveTypeMidnightUnshieldedSpend`** | Midnight | Emits each unshielded UTXO spend as an `(owner, intentHash, outputIndex)` triple. |
 | **`PrimitiveTypeMidnightUnshieldedCreate`** | Midnight | Emits each unshielded UTXO **created** on chain (regular **and** system transactions) — the existence counterpart of `UnshieldedSpend`. |
 | **`PrimitiveTypeMidnightZswapRoot`** | Midnight | Emits the zswap coin-commitment Merkle tree **root** as it advances (the latest `zswapMerkleTreeRoot` per block). |
+| **`PrimitiveTypeMidnightTokenMint`** | Midnight | Emits each custom token **mint** (shielded and unshielded) and maintains a registry table mapping a token id ("color") back to the contract that minted it. |
 | **`PrimitiveTypeAvailGeneric`** | Avail | Listens for generic data blobs submitted to a specific application ID on the Avail DA layer. |
 | **`PrimitiveTypeCardanoDelayedAsset`** | Cardano | Tracks creation and spending of native asset UTxOs with a real-time view of unspent holdings. |
 | **`PrimitiveTypeCardanoMintBurn`** | Cardano | Captures native token mint and burn events with transaction metadata and participant addresses. |

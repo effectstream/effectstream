@@ -1,7 +1,7 @@
 {
   "name": "@multi-chain-transfer/database",
   "version": "0.3.22",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "exports": "./src/mod.ts",
   "scripts": {
     "_pgtyped:my-sql": "bunx @paimaexample/db/db-wait && bunx @paimaexample/db/apply-migrations && bun run sql-to-ts.ts && pgtyped -c ./pgtypedconfig.json",

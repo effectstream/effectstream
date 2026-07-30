@@ -8,7 +8,7 @@
         "@effectstream/orchestrator": "0.101.1",
         "@electric-sql/pglite": "^0.3.14",
         "@fastify/http-proxy": "^11.4.4",
-        "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+        "@midnightntwrk/wallet-sdk-address-format": "3.1.2",
         "buffer": "^6.0.3",
         "libsodium-sumo": "0.7.16",
         "libsodium-wrappers-sumo": "0.7.16",
@@ -576,6 +576,8 @@
     "@midnight-ntwrk/zkir-v2": ["@midnight-ntwrk/zkir-v2@2.1.0", "", {}, "sha512-UDMujjzCt0SA89uqOFWUL4LZTkxVAS8JjvOaYMAgxlSrWfN7m5th1R1qGlpDJuSH39rbWt6WwtuK3k08Mta6LA=="],
 
     "@midnight-ntwrk/zswap": ["@midnight-ntwrk/zswap@4.0.0", "", {}, "sha512-yKfzp4M/wUkqxUJv1D2SizojYdWYnF3FDeKaxPehLPOFC4BrR9KnLZsNR2Y/occ8a4yFDtQXf7bN1QvK5k7Grw=="],
+
+    "@midnightntwrk/wallet-sdk-address-format": ["@midnightntwrk/wallet-sdk-address-format@3.1.2", "", { "dependencies": { "@midnight-ntwrk/ledger-v8": "^8.1.0", "@scure/base": "^2.0.0", "@subsquid/scale-codec": "^4.0.1" } }, "sha512-1eXt4eazKoT6C88/yy++fpxIBhF0o6iSqplc6DuCzNL0uePn7Opg0hiTIap2oEmC25XVXmzPhUa0xiWJzv3TIw=="],
 
     "@msgpackr-extract/msgpackr-extract-darwin-arm64": ["@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.3", "", { "os": "darwin", "cpu": "arm64" }, "sha512-QZHtlVgbAdy2zAqNA9Gu1UpIuI8Xvsd1v8ic6B2pZmeFnFcMWiPLfWXh7TVw4eGEZ/C9TH281KwhVoeQUKbyjw=="],
 

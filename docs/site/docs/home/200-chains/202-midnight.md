@@ -89,7 +89,7 @@ A Midnight contract defines private state transitions (`circuits`) and can choos
 
 **Example (`main.rs`):**
 ```rust
-pragma language_version 0.16;
+pragma language_version >= 0.18.0;
 
 import CompactStandardLibrary;
 
@@ -148,6 +148,91 @@ import {
     networkId: midnightNetworkConfig.id,
   }),
 )
+```
+
+#### Token mints — resolving a token id to its minting contract
+
+:::warning Upgrading from `0.101.1`
+
+`0.101.1` shipped this primitive with a single opaque `payload` field. The payload is
+now **flat named fields**, so an existing integration needs two edits:
+
+1. **Grammar entry** — replace `[["payload", Type.Any()]]` with
+   `builtinGrammars.midnightTokenMint`. The primitive now emits seven values where it
+   used to emit one, so a one-field grammar entry no longer matches the input.
+2. **Handler** — read the fields directly instead of unwrapping the blob:
+   `const { rawTokenType, kind } = data.parsedInput` rather than
+   `const { payload } = data.parsedInput; payload.rawTokenType`. Watch for handlers
+   written defensively as `String(payload?.rawTokenType ?? "")` — those keep running
+   and quietly write empty strings.
+
+Anything reading `effectstream.primitive_accounting.payload` in SQL is affected the same
+way: the fields moved up one level, so `payload->'payload'->>'rawTokenType'` becomes
+`payload->>'rawTokenType'`.
+
+Also note that upgrading creates the registry table described below for existing
+integrations, since `persist` defaults to `true`. Set `persist: false` to keep the old
+behavior of recording mints without a table.
+
+:::
+
+*   **`PrimitiveTypeMidnightTokenMint`**: emits each custom token **mint** performed by a
+    contract call — shielded and unshielded — as
+    `{ contractAddress, domainSep, rawTokenType, kind, amount, txHash, entryPoint }`.
+    `rawTokenType` is the wallet-visible token id ("color"), derived on chain as
+    `rawTokenType(domainSep, contractAddress)`; `kind` is `"shielded"` or `"unshielded"`,
+    and `amount` is a decimal **string** because a `u64` mint can exceed
+    `Number.MAX_SAFE_INTEGER`. The mint nonce is not part of token identity (it only
+    randomizes coin commitments) and is never public for shielded mints, so it is not
+    reported.
+
+Unlike the primitives above, this one also keeps the registry for you. Configuring it
+creates `primitives.midnight_token_mint_view_<name>` and keeps it up to date: one row per
+`(token_type, kind)` carrying the minting `contract_address` and `domain_sep`, an
+accumulating `total_minted`, and the `tx_hash`/`block_height` of the first mint. This is
+the mapping a wallet cannot give you — it resolves a token id you can see in a balance
+back to the contract that created it. See
+[Primitive Tables](../100-components/109-database.md#primitive-tables) for how `<name>` is
+derived from the primitive's `name`.
+
+```ts
+import { PrimitiveTypeMidnightTokenMint } from "@effectstream/sm/builtin";
+
+.addPrimitive(
+  (syncProtocols) => syncProtocols.parallelMidnight,
+  () => ({
+    name: "Midnight-TokenMint",
+    type: PrimitiveTypeMidnightTokenMint,
+    startBlockHeight: 1,
+    // Optional: also run an STF for every mint. The registry table is filled
+    // either way — pass `undefined` if you only want the table.
+    stateMachinePrefix: "midnight-token-mint",
+    networkId: midnightNetworkConfig.id,
+  }),
+)
+```
+
+Two config knobs are specific to this primitive:
+
+*   `persist` (default `true`) — set it to `false` to skip creating the registry table on a
+    fresh database. Mint events are still recorded, so you can consolidate them yourself
+    in an STF.
+*   `stateMachinePrefix` — independent of `persist`. Setting it emits one state-machine
+    input per mint **in addition to** maintaining the table; the grammar is exported as
+    `builtinGrammars.midnightTokenMint`, so your handler reads the payload's named fields
+    directly:
+
+```ts
+import { builtinGrammars } from "@effectstream/sm/grammar";
+
+export const grammar = {
+  "midnight-token-mint": builtinGrammars.midnightTokenMint,
+} as const satisfies GrammarDefinition;
+
+stm.addStateTransition("midnight-token-mint", function* (data) {
+  const { rawTokenType, kind, contractAddress, amount } = data.parsedInput;
+  // ... your own logic; the registry table is maintained regardless
+});
 ```
 
 ## 2. Batcher Adapters (Write)

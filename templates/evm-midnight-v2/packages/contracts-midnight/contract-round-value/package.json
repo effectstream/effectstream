@@ -6,7 +6,7 @@
     "./contract": "./src/managed/contract/index.js"
   },
   "scripts": {
-    "compact": "compact compile +0.30.0 src/counter.compact src/managed",
+    "compact": "compact compile +0.31.0 src/counter.compact src/managed",
     "contract:compile": "bun run compact"
   },
   "dependencies": {

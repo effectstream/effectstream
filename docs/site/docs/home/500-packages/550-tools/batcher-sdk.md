@@ -24,6 +24,11 @@ bun add @effectstream/batcher-sdk
 npm install @effectstream/batcher-sdk
 ```
 
+> **Midnight fee wallets:** the batcher tunes the dust wallet's sync batching
+> for backend throughput via the `batchUpdates` config (supported natively by
+> `@midnightntwrk/wallet-sdk-dust-wallet` >= 4.0.0). Override with the
+> `MIDNIGHT_DUST_SYNC_BATCH_{SIZE,TIMEOUT_MS,SPACING_MS}` env vars.
+
 ## Standalone usage
 
 A minimal end-to-end example using `FileStorage`, the EffectstreamL2 adapter, and the bundled HTTP server.

@@ -1,4 +1,5 @@
 import { SDK } from "avail-js-sdk";
+import { DEFAULT_REQUEST_TIMEOUT_MS, fetchWithTimeout } from "../common/http.ts";
 import type {
   AvailBlock,
   AvailBlockDataItem,
@@ -12,13 +13,25 @@ const AVAIL_NODE_DEFAULT_URL = "ws://localhost:9955/ws";
 export class AvailClient {
   private readonly url: string;
   private readonly sdk: Promise<SDK>;
-  constructor(nodeUrl: string, lightClientUrl: string) {
+  /** Per-request deadline for light-client HTTP; see `common/http.ts`. */
+  private readonly requestTimeoutMs: number;
+  constructor(
+    nodeUrl: string,
+    lightClientUrl: string,
+    requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  ) {
     this.url = lightClientUrl ?? AVAIL_CLIENT_DEFAULT_URL;
     this.sdk = SDK.New(nodeUrl ?? AVAIL_NODE_DEFAULT_URL);
+    this.requestTimeoutMs = requestTimeoutMs;
   }
 
   async getStatus(): Promise<AvailStatus> {
-    const response = await fetch(`${this.url}/v2/status`);
+    const response = await fetchWithTimeout(
+      `${this.url}/v2/status`,
+      {},
+      "Avail v2/status",
+      this.requestTimeoutMs,
+    );
     if (!response.ok) {
       throw new Error(
         `Failed to get status from light client, status: ${response.status}`,
@@ -32,9 +45,14 @@ export class AvailClient {
   }
 
   async getLatestBlockHeight(): Promise<number> {
-    const api = (await this.sdk).client.api;
+    // Deliberately does NOT await `this.sdk`. The height comes from the light
+    // client below; the websocket SDK was only needed by the commented-out
+    // `api.rpc.chain.getHeader()` call, and awaiting it here reintroduced an
+    // unbounded wait on the sync path — if the node's websocket never connects,
+    // this never returns and the chain stalls silently. That is the exact
+    // failure `requestTimeoutMs` exists to prevent.
     // Block from avail node is slightly above the light client
-    // const header = await api.rpc.chain.getHeader();
+    // const header = await (await this.sdk).client.api.rpc.chain.getHeader();
     const status: AvailStatus = await this.getStatus();
 
     // If the available field is present, this is the real latest block 
@@ -80,7 +98,12 @@ export class AvailClient {
       }
     }
 
-    const response = await fetch(`${this.url}/v2/blocks/${height}/header`);
+    const response = await fetchWithTimeout(
+      `${this.url}/v2/blocks/${height}/header`,
+      {},
+      `Avail v2/blocks/${height}/header`,
+      this.requestTimeoutMs,
+    );
     if (!response.ok) {
       throw new Error(
         `Failed to get block header from height ${height}, status: ${response.status}`,
@@ -103,7 +126,12 @@ export class AvailClient {
       return { block_number: height, data_transactions: [] }
     }
 
-    const response = await fetch(`${this.url}/v2/blocks/${height}/data`);
+    const response = await fetchWithTimeout(
+      `${this.url}/v2/blocks/${height}/data`,
+      {},
+      `Avail v2/blocks/${height}/data`,
+      this.requestTimeoutMs,
+    );
     if (!response.ok) {
       throw new Error(
         `Failed to get block data from height ${height}, status: ${response.status}`,

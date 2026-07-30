@@ -1,7 +1,11 @@
 import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
 import { ConfigSyncProtocolType } from "../types.ts";
-import { NameField, StartStopChainPoint } from "../../common.ts";
+import {
+  NameField,
+  PollingSyncProtocol,
+  StartStopChainPoint,
+} from "../../common.ts";
 import {
   CommonResponseParallelSyncProtocol,
   type ConfigSyncProtocolCommonResponse,
@@ -75,9 +79,23 @@ export type UtxorpcTxPredicate = Static<typeof UtxorpcTxPredicate>;
 // Base schema
 // ===========
 
+// `PollingSyncProtocol` is merged in for `pollingInterval` (plus
+// `maxBufferedPages` and `requestTimeoutMs`), exactly as every other polling
+// protocol does. utxorpc used to be the sole exception, which made
+// `pollingInterval` undeclared and untyped even though the runtime fetch loop
+// keys its sleeps off that property name — so a config built strictly from
+// this schema produced a node that starved its own event loop on the first
+// "caught up" pass and never recovered. See
+// `sync/test/poll-loop-spin.test.ts`.
 export const ConfigSyncProtocolSchemaCardanoUtxoRpcBase = NameField
   .cloneMerge(
     StartStopChainPoint,
+  ).cloneMerge(
+    // Supplies pollingInterval (required) + maxBufferedPages/requestTimeoutMs.
+    // The backpressure cap matters here because utxorpc has no stepSize, so the
+    // defaults apply — see "Backpressure (`maxBufferedPages`)" in the
+    // @effectstream/sync README.
+    PollingSyncProtocol,
   ).cloneMerge({
     required: Type.Object({
       name: Type.String(),
@@ -85,9 +103,6 @@ export const ConfigSyncProtocolSchemaCardanoUtxoRpcBase = NameField
     }),
     optional: Type.Object({
       headers: Type.Record(Type.String(), Type.String()),
-      // Fetch-backpressure cap (utxorpc has no stepSize → defaults apply). See the
-      // "Backpressure (`maxBufferedPages`)" section in @effectstream/sync's README.
-      maxBufferedPages: Type.Optional(Type.Number()),
     }),
   });
 

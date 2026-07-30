@@ -73,6 +73,9 @@ latitude on its exact shape.
   `readData` (+ `PaginatedFetcher`: `getLatestPage`/`nextInterval`/
   `previousInterval`/`intervalFromStart`, and `PrimitiveFetcher` if it emits
   primitives). `lastPage.own`/`ownBlockNumber` = the **chunk end** (`data.to`).
+  **Bound every RPC call** with `common/http.ts:fetchWithTimeout` (or the client
+  library's own timeout) — a bare `fetch` against a blackholed endpoint hangs
+  `readData` forever, which silently stalls the whole node (CLAUDE.md #4).
   Page-request helpers live in `base/page.ts`
   (`genImmediatePageRequests`/`genOnDemandPageRequests`).
 - **`sync-protocols/<chain>/Client.ts`** (new, only if it talks to a node) — the
@@ -120,19 +123,23 @@ rows and optional scheduled STF inputs.
 
 - **One network → many sync protocols** is allowed (Cardano, `test`). `FlipObject`
   unions them, so `addMain`/`addParallel` narrow correctly.
-- **Resume is currently chunk-granular** (a known issue — CLAUDE.md finding #2):
-  on restart a chain resumes from the *end* of its oldest retained page chunk,
-  which can silently skip an un-committed tail. A block-accurate-resume fix is
-  planned; until then, avoid relying on exact restart positions mid-chunk.
+- **Resume is block-accurate** (CLAUDE.md finding #2, fixed): the runtime is the
+  sole writer of the persisted marker, written inside the block's transaction.
+  Your `state.ts` must implement `outputToLastPage`; `updateState` must not
+  persist anything.
+- **Declare `pollingInterval`** by merging `PollingSyncProtocol` into your schema.
+  It is not optional in practice — the fetch loop paces itself with it, and a
+  protocol without one used to starve the entire event loop (CLAUDE.md #5).
+- **Set `hasAsyncProducer = true`** on the state if your chain's data arrives via
+  `startAsync` rather than polling, so the producer is supervised and restarted
+  (CLAUDE.md #6).
 - **Merge boundary gate**: a parallel chain only merges into a root block at
   timestamp `T` once its own page is *strictly* past `T`. If the main clock runs
   to the same height as a parallel chain's fetched tip, the merge stalls at that
   boundary — keep the main clock at/behind the parallel tips.
-- **`finalizedBlockStream` is unbuffered**: a message sent with no active
-  subscriber is dropped. The merge is spawned before the consumer loop
-  subscribes, so a very fast producer could in principle drop early blocks
-  (RPC-paced chains don't hit this); a subscribe-before-spawn hardening is a
-  planned follow-up.
+- **`finalizedBlockStream` subscribes before the merge is spawned**
+  (`runtime/src/finalized-stream.ts`), because an effection channel drops sends
+  with no active subscriber.
 - **`isPresync`** is currently ~always false (`genInputRange` TODO) — the
   historical-presync path may not trigger as intended.
 

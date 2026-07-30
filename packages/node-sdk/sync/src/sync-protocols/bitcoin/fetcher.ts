@@ -27,6 +27,7 @@ import type {
   BitcoinTxId,
 } from "@effectstream/utils";
 import { blockNumberRelation } from "../common/utils.ts";
+import { DEFAULT_REQUEST_TIMEOUT_MS, fetchWithTimeout } from "../common/http.ts";
 import type { ConfigType } from "./types.ts";
 
 const SATOSHIS_PER_BTC = 100_000_000;
@@ -457,6 +458,8 @@ type BitcoinRpcClientOptions = {
   url: string;
   username?: string | null;
   password?: string | null;
+  /** Per-request deadline; defaults to {@link DEFAULT_REQUEST_TIMEOUT_MS}. */
+  requestTimeoutMs?: number;
 };
 
 type BitcoinRpcRequest = {
@@ -515,16 +518,21 @@ export class BitcoinRpcClient {
   private async call<TResult>(
     request: BitcoinRpcRequest,
   ): Promise<TResult> {
-    const response = await fetch(this.options.url, {
-      method: "POST",
-      headers: this.buildHeaders(),
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: ++this.nextId,
-        method: request.method,
-        params: request.params ?? [],
-      }),
-    });
+    const response = await fetchWithTimeout(
+      this.options.url,
+      {
+        method: "POST",
+        headers: this.buildHeaders(),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: ++this.nextId,
+          method: request.method,
+          params: request.params ?? [],
+        }),
+      },
+      `Bitcoin ${request.method}`,
+      this.options.requestTimeoutMs,
+    );
     if (!response.ok) {
       const body = await response.text();
       throw new Error(

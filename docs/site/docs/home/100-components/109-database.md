@@ -78,9 +78,9 @@ console.log(data);
 ...
 ```
 
-## Primitives Dynamic Tables
+## Primitive Tables
 
-If you have primitives as ERC20, ERC721, ERC1155 for example - these will automatically aggregate the data for you and expose them in dynamic tables. 
+If you have primitives as ERC20, ERC721, ERC1155 for example - these will automatically aggregate the data for you and expose them in tables you can query.
 
 For example `ERC20's` primitives will create a table called:  
 `erc20_balances_view_<YOUR_PRIMITIVE_NAME>`  
@@ -92,5 +92,32 @@ This table will contain rows with `wallet address`, `token count`.
 | 0x1111  | 0      |
 | 0xdead  | 590    |
 | 0xbeaf  | 201    |
+
+### Table naming
+
+The `<YOUR_PRIMITIVE_NAME>` suffix is the primitive's configured `name`, lowercased,
+with every character other than a letter, a digit, or `_` removed — because the name
+becomes part of a SQL identifier. So a primitive named `Midnight-TokenMint` publishes
+its table as `midnight_token_mint_view_midnighttokenmint`.
+
+One table is created per configured primitive **instance**, not per token, address, or
+event: the entities the primitive tracks are the rows.
+
+### Midnight token mints
+
+The `PrimitiveTypeMidnightTokenMint` primitive creates
+`midnight_token_mint_view_<YOUR_PRIMITIVE_NAME>`, the registry that maps a
+wallet-visible token id ("color") back to the contract that minted it — the mapping a
+wallet cannot give you. One row per `(token_type, kind)`, where `kind` is `shielded` or
+`unshielded`:
+
+| token_type | kind | contract_address | domain_sep | total_minted | tx_hash | block_height |
+| ---------- | ---- | ---------------- | ---------- | ------------ | ------- | ------------ |
+| `cd12…`    | shielded | `0200ab…`    | `ab34…`    | 1000         | `ef56…` | 42           |
+| `9f77…`    | unshielded | `0200ab…`  | `7c81…`    | 250          | `ef56…` | 42           |
+
+`total_minted` accumulates across every mint of that token, while `tx_hash` and
+`block_height` keep the provenance of the **first** mint. Set `persist: false` on the
+primitive to skip creating the table on a fresh database.
 
 More info in available in [Chains](../200-chains/200-chains.md)

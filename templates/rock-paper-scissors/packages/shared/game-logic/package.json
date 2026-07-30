@@ -1,7 +1,7 @@
 {
   "name": "@rock-paper-scissors/game-logic",
   "version": "0.1.0",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "exports": {
     ".": "./src/mod.ts"
   },

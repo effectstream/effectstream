@@ -13,8 +13,17 @@ export default {
       p.name === "pglite" ? { ...p, env: { ...p.env, DEBUG_PGLITE: "0" } } : p
     ),
     ...launchEvm("@evm-midnight/contracts-evm", { cwd: path.join(root, "packages/contracts-evm") }),
+    {
+      name: "midnight-contract-compile",
+      description: "Compile Compact contract (compact compile +0.31.0)",
+      cwd: path.join(root, "packages/contracts-midnight/contract-round-value"),
+      args: ["run", "compact"],
+      waitToExit: true,
+      critical: true,
+    },
     ...launchMidnight("@evm-midnight/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
           env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
+          dependsOn: ["midnight-contract-compile"],
     }),
 
     {

@@ -1,7 +1,7 @@
 {
   "name": "@effectstream/sm",
   "version": "0.101.1",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",

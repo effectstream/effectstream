@@ -73,7 +73,7 @@ export type MidnightLocalApi = {
   /**
    * Full Midnight `WalletFacade`. Populated only when `networkUrls` was passed
    * to `connectFromSeed`. Cast to
-   * `import("@midnight-ntwrk/wallet-sdk-facade").WalletFacade` for typed
+   * `import("@midnightntwrk/wallet-sdk-facade").WalletFacade` for typed
    * access. Carries `submitTransaction`, `balanceFinalizedTransaction`,
    * `balanceUnboundTransaction`, `balanceUnprovenTransaction`, `signRecipe`,
    * `signUnprovenTransaction`, `state()`, `waitForSyncedState()`, etc.
@@ -328,28 +328,28 @@ export class MidnightLocalProvider implements IProvider<MidnightApi> {
 }
 
 async function loadKeystoreDeps(): Promise<{
-  hdMod: typeof import("@midnight-ntwrk/wallet-sdk-hd");
-  keystoreMod: typeof import("@midnight-ntwrk/wallet-sdk-unshielded-wallet");
+  hdMod: typeof import("@midnightntwrk/wallet-sdk-hd");
+  keystoreMod: typeof import("@midnightntwrk/wallet-sdk-unshielded-wallet");
 }> {
-  const hdMod = await import("@midnight-ntwrk/wallet-sdk-hd").catch(() => {
+  const hdMod = await import("@midnightntwrk/wallet-sdk-hd").catch(() => {
     throw new Error(
-      "@midnight-ntwrk/wallet-sdk-hd is required for WalletMode.MidnightLocal.",
+      "@midnightntwrk/wallet-sdk-hd is required for WalletMode.MidnightLocal.",
     );
   });
   const keystoreMod = await import(
-    "@midnight-ntwrk/wallet-sdk-unshielded-wallet"
+    "@midnightntwrk/wallet-sdk-unshielded-wallet"
   ).catch(() => {
     throw new Error(
-      "@midnight-ntwrk/wallet-sdk-unshielded-wallet is required for WalletMode.MidnightLocal.",
+      "@midnightntwrk/wallet-sdk-unshielded-wallet is required for WalletMode.MidnightLocal.",
     );
   });
   return { hdMod, keystoreMod };
 }
 
 function deriveUnshieldedSeed(
-  hdMod: typeof import("@midnight-ntwrk/wallet-sdk-hd"),
+  hdMod: typeof import("@midnightntwrk/wallet-sdk-hd"),
   seedHex: string,
-  role: import("@midnight-ntwrk/wallet-sdk-hd").Role,
+  role: import("@midnightntwrk/wallet-sdk-hd").Role,
 ): Uint8Array {
   const seedBuffer = Buffer.from(seedHex, "hex");
   const hdResult = hdMod.HDWallet.fromSeed(seedBuffer);

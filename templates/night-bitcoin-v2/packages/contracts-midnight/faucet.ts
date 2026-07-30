@@ -1,16 +1,16 @@
 const log = { info: console.log, warn: console.warn, error: console.error };
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import * as Rx from "rxjs";
-import { WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
+import { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 import {
   shieldedToken,
   nativeToken,
 } from "@midnight-ntwrk/ledger-v8";
-import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import {
   MidnightBech32m,
   UnshieldedAddress,
-} from "@midnight-ntwrk/wallet-sdk-address-format";
+} from "@midnightntwrk/wallet-sdk-address-format";
 import {
   buildWalletFacade as sdkBuildWalletFacade,
   getInitialShieldedState as sdkGetInitialShieldedState,
