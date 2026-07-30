@@ -20,8 +20,17 @@ import type {
 import { resolveAccountKeys, SolanaClient } from "./SolanaClient.ts";
 import { requestTimeoutOf } from "../common/http.ts";
 import { extractProgramLogs } from "./program-logs.ts";
-import { call, type Operation } from "effection";
+import { call, sleep, type Operation } from "effection";
 import { bound } from "@effectstream/utils";
+
+/**
+ * Attempts per slot before `readData` reports partial progress and lets the
+ * fetch loop retry the range. Small on purpose — the outer loop is the real
+ * retry mechanism; see `getBlockWithRetry`.
+ */
+const BLOCK_FETCH_ATTEMPTS = 3;
+/** Linear backoff between those attempts (250ms, then 500ms). */
+const BLOCK_FETCH_RETRY_DELAY_MS = 250;
 
 export class SolanaFetcher extends BaseDataFetcher<
   Input,
@@ -63,10 +72,24 @@ export class SolanaFetcher extends BaseDataFetcher<
       }`,
     );
 
+    // Highest slot we have positively resolved — either read a block for, or had
+    // the RPC confirm was skipped. The page may never advance past this, or we
+    // would silently step over a slot we never actually read.
+    let scannedThrough: number | undefined;
+    let fetchFailure: { slot: number; error: unknown } | undefined;
+
     for (let slot = Number(data.from); slot <= Number(data.to); slot++) {
-      const block = yield* call(() =>
-        this.client.getBlock(slot)
-      );
+      let block;
+      try {
+        block = yield* this.getBlockWithRetry(slot);
+      } catch (error) {
+        // Keep the blocks already gathered rather than discarding the chunk:
+        // everything below `slot` is resolved, so we report progress up to
+        // there and the next poll resumes exactly at the failed slot.
+        fetchFailure = { slot, error };
+        break;
+      }
+      scannedThrough = slot;
 
       // Skipped slots (no block produced) are skipped gracefully
       if (!block) {
@@ -114,6 +137,23 @@ export class SolanaFetcher extends BaseDataFetcher<
       });
     }
 
+    if (fetchFailure != null) {
+      console.warn(
+        `[Solana] slot ${fetchFailure.slot} could not be fetched after ` +
+          `${BLOCK_FETCH_ATTEMPTS} attempts: ${String(fetchFailure.error)}. ` +
+          `Keeping ${outputs.length} block(s) up to slot ${scannedThrough ?? "-"}; ` +
+          `the next poll resumes at ${fetchFailure.slot}.`,
+      );
+      if (scannedThrough == null) {
+        // Nothing at all was resolved, so there is no progress to report and
+        // nothing to advance to. Throw: the fetch loop counts it in
+        // `consecutiveErrors`, leaves `lastSuccessfulFetchMs` alone and retries
+        // this exact range after `pollingInterval`. That is what keeps a
+        // genuinely unreachable RPC visible to /health instead of looking idle.
+        throw fetchFailure.error;
+      }
+    }
+
     if (outputs.length === 0) {
       if (!lastPage) {
         throw new Error(
@@ -133,25 +173,66 @@ export class SolanaFetcher extends BaseDataFetcher<
       //
       // NOTE: near/fetcher.ts:94 has the identical stall — it's the pattern this
       // was copied from. Not fixed here to keep this PR scoped to Solana.
+      //
+      // `scannedThrough`, not `data.to`: if a fetch failed part-way we must not
+      // advance over the slot we never read.
       return {
         output: [],
         lastPage: {
           ...lastPage,
-          own: Number(data.to) as Page,
-          ownBlockNumber: Number(data.to) as Page,
+          own: scannedThrough as Page,
+          ownBlockNumber: scannedThrough as Page,
         },
       };
     }
 
     const lastOutput = outputs[outputs.length - 1].output;
+    // Page to the highest RESOLVED slot rather than the last one that carried
+    // data: trailing skipped slots were positively confirmed empty, so
+    // re-scanning them next poll is wasted work. On a clean full scan this is
+    // `data.to`, matching bitcoin/evm. The root timestamp still comes from the
+    // newest block we actually have, which is what the merge gates on.
+    const page = (scannedThrough ?? lastOutput.slot) as Page;
     return {
       output: outputs,
       lastPage: {
-        ownBlockNumber: lastOutput.slot,
-        own: lastOutput.slot as Page,
+        ownBlockNumber: page,
+        own: page,
         root: rootConversion.toRootPage(lastOutput),
       },
     };
+  }
+
+  /**
+   * `getBlock` with a few immediate retries, so a transient RPC blip does not
+   * cost the whole chunk.
+   *
+   * Deliberately BOUNDED. Retrying here forever would look like "we always get
+   * the block eventually", but it recreates the exact failure the request
+   * timeout was added to kill (sync CLAUDE.md finding #4): `readData` would
+   * never return, so the fetch loop never reaches its `catch`,
+   * `consecutiveErrors` stays 0, `lastSuccessfulFetchMs` freezes, and /health
+   * reports a happy node that has silently stopped producing blocks.
+   *
+   * Unbounded retry still happens — one level up, where it is observable. The
+   * fetch loop re-requests the same range every `pollingInterval` indefinitely,
+   * and page ranges are idempotent, so no slot is ever skipped. This helper only
+   * decides how much we retry *before* handing that decision back.
+   */
+  @bound
+  *getBlockWithRetry(slot: number) {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= BLOCK_FETCH_ATTEMPTS; attempt++) {
+      try {
+        return yield* call(() => this.client.getBlock(slot));
+      } catch (error) {
+        lastError = error;
+        if (attempt < BLOCK_FETCH_ATTEMPTS) {
+          yield* sleep(BLOCK_FETCH_RETRY_DELAY_MS * attempt);
+        }
+      }
+    }
+    throw lastError;
   }
 
   @bound
