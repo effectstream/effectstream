@@ -8,8 +8,13 @@ const root = path.resolve(import.meta.dirname!, "../..");
 // Same dependency wiring as start.dev.ts: build-counter must finish before
 // the validator runs so chain-start.ts has a counter.so to pass via
 // --bpf-program.
+// `cwd`, not `resolveFrom`: resolveFrom goes through
+// require.resolve(pkg, { paths }), which cannot see this template's own
+// workspace packages once @effectstream/orchestrator is installed from npm
+// rather than symlinked by link.sh — they are not linked into node_modules.
+// Every other template passes an explicit path for the same reason.
 const solanaProcesses = launchSolana("@solana-starter/node", {
-  resolveFrom: root,
+  cwd: path.join(root, "packages/node"),
 });
 const idx = solanaProcesses.findIndex((p) => p.name === SolanaNames.SOLANA_VALIDATOR);
 if (idx >= 0) {

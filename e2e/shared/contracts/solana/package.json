@@ -8,7 +8,7 @@
   },
   "scripts": {
     "chain:start": "bun run chain-start.ts",
-    "chain:wait": "bun ./node_modules/.bin/wait-on tcp:8899"
+    "chain:wait": "bun ./node_modules/.bin/wait-on http-get://127.0.0.1:${SOLANA_RPC_PORT:-8899}/health"
   },
   "dependencies": {
     "@effectstream/solana-node": "workspace:*",

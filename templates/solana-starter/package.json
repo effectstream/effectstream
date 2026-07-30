@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
-    "@effectstream/orchestrator": "0.101.1",
+    "@effectstream/orchestrator": "0.102.0",
     "wait-on": "8.0.3"
   },
   "effectstream": {
