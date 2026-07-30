@@ -17,6 +17,7 @@ export enum ConfigSyncProtocolType {
   BITCOIN_RPC_PARALLEL = "bitcoin-rpc-parallel",
   CELESTIA_PARALLEL = "celestia-rpc-parallel",
   NEAR_RPC_PARALLEL = "near-rpc-parallel",
+  SOLANA_RPC_PARALLEL = "solana-rpc-parallel",
   /** Synthetic test chain acting as the main clock (see ConfigNetworkType.TEST). */
   TEST_MAIN = "test-main",
   /** Synthetic test chain acting as a parallel data source that emits configured events. */
@@ -34,6 +35,7 @@ export const SyncProtocolToNetwork = {
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: ConfigNetworkType.BITCOIN,
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: ConfigNetworkType.CELESTIA,
   [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]: ConfigNetworkType.NEAR,
+  [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]: ConfigNetworkType.SOLANA,
   [ConfigSyncProtocolType.TEST_MAIN]: ConfigNetworkType.TEST,
   [ConfigSyncProtocolType.TEST_PARALLEL]: ConfigNetworkType.TEST,
 } satisfies Record<ConfigSyncProtocolType, ConfigNetworkType>;
@@ -50,6 +52,19 @@ type BasePrimitive = {
   name: string;
   type: `${string}:${string}`;
   startBlockHeight: number;
+  /**
+   * Grammar prefix used to route this primitive's payload into the state
+   * machine. Omit it and the primitive still writes accounting rows, but
+   * `stateMachinePayload` is null and the STM never sees the event.
+   *
+   * NOTE: `runtime/src/main.ts` spreads the primitive config straight into the
+   * `Primitive` constructor, which reads `stateMachinePrefix` — so that is the
+   * name that actually works. `scheduledPrefix` is kept because existing
+   * configs and docs use it, but setting ONLY `scheduledPrefix` silently
+   * disables state-machine delivery. Prefer `stateMachinePrefix`.
+   */
+  stateMachinePrefix?: string;
+  /** @deprecated Type-level only — the runtime reads `stateMachinePrefix`. */
   scheduledPrefix?: string;
   /** When true, fetcher returns block info for ALL blocks in range, not just those with primitives. Default: false */
   getAllBlockHeaders?: boolean;
@@ -135,6 +150,15 @@ type NearPrimitive = BasePrimitive & {
 
 type NtpMainPrimitive = BasePrimitive & {};
 
+type SolanaPrimitive = BasePrimitive & {
+  /** Program ID to watch for logs (SOLANA:ProgramLog primitive). */
+  programId?: string;
+  /** Optional event type label used to filter log lines. */
+  eventType?: string;
+  /** Account address to watch for balance changes (SOLANA:AccountBalance primitive). */
+  address?: string;
+}
+
 type TestMainPrimitive = BasePrimitive & {};
 type TestParallelPrimitive = BasePrimitive & {};
 
@@ -171,6 +195,7 @@ export type ProtocolPrimitiveMap = {
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitive;
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: CelestiaPrimitive;
   [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]: NearPrimitive;
+  [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]: SolanaPrimitive;
   [ConfigSyncProtocolType.TEST_MAIN]: TestMainPrimitive;
   [ConfigSyncProtocolType.TEST_PARALLEL]: TestParallelPrimitive;
 };

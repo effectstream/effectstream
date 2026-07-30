@@ -1,0 +1,27 @@
+[package]
+name = "test_event"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Minimal Solana program emitting a structured log event, for effectstream e2e tests"
+resolver = "2"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+solana-program = "1.18.26"
+
+[package.metadata.solana]
+program-id = "7v54NWdBtkjuAFJrLGsS2SXnuk8nKam81mZJeeYxVFi9"
+
+# Force lockfile format v3 — cargo-build-sbf invokes cargo in a way that rejects
+# the v4 format newer Rust toolchains generate by default.
+[lockfile]
+version = 3
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+overflow-checks = true

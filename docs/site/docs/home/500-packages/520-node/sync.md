@@ -10,12 +10,12 @@ sidebar_label: "sync"
 
 The blockchain-sync service inside an EffectStream node. Reads finalized
 blocks from every chain you've configured (EVM, Bitcoin, Cardano, Midnight,
-Avail, Celestia, NEAR…), normalizes them into a single rollup ordering,
+Avail, Celestia, NEAR, Solana…), normalizes them into a single rollup ordering,
 and stages the inputs the state machine consumes.
 
 - Blockchain-sync service: reads finalized blocks from every configured chain.
 - Normalises into a single rollup ordering and stages inputs for the state machine.
-- Drop-in fetchers: EVM, Bitcoin, Cardano UTXO-RPC, Midnight, Avail, Celestia, NEAR, NTP.
+- Drop-in fetchers: EVM, Bitcoin, Cardano UTXO-RPC, Midnight, Avail, Celestia, NEAR, Solana, NTP.
 - `genSyncProtocols(config)` is what the runtime calls during boot.
 
 ## Install
@@ -95,7 +95,7 @@ re-engages. A chain that is merely tip-limited (caught up, not gated by the merg
 `buffering.test.ts` 1c (skip-ahead) and 1d (density).
 
 **Scope.** The guard runs in **every** chain's `stateToInput`, so all sync chains are
-covered: EVM, NTP, Bitcoin, Avail, Celestia, NEAR, Midnight, Cardano (UTXO-RPC), and
+covered: EVM, NTP, Bitcoin, Avail, Celestia, NEAR, Solana, Midnight, Cardano (UTXO-RPC), and
 the synthetic `test` chain. Two notes:
 - **Cardano (UTXO-RPC)** has no `stepSize` (it streams one block per pass), so the cap
   falls back to a default chunk size of 1000 (⇒ default cap 4000); set `maxBufferedPages`
@@ -116,6 +116,65 @@ was never needed in that run. Steady-state these sit at `0`; during a real deep
 catch-up (or under the perf harness's `PERF_APPLY_DELAY_MS` drain throttle) they climb
 as `buf` pins to `cap`.
 
+## Request timeouts (`requestTimeoutMs`)
+
+`fetch` has no default timeout, so an RPC endpoint that accepts the connection and
+then never answers - a load balancer that dropped its backend, a socket left
+half-open by a NAT rebind - would hang the fetch indefinitely. That is worse than
+an error: the fetch loop never reaches its `catch`, so no error is counted, while
+the merge blocks on that chain's page and block production stops.
+
+**Config.** `requestTimeoutMs` is an optional field on every polling sync-protocol
+config, defaulting to **15 s**. It bounds a single request; retry is the fetch
+loop's job (it re-runs the same page range and counts the failure, which is what
+`/health` reports on).
+
+**Coverage.** Honoured by EVM (as the viem transport timeout), Bitcoin, NEAR,
+Avail (light-client HTTP), Midnight and Celestia. Two exceptions:
+
+- **Celestia** retries internally, so the value bounds each *attempt* rather than
+  the whole call. It still falls back to `CELESTIA_RPC_TIMEOUT_MS` when no
+  protocol-level value is set.
+- **Cardano / utxorpc** reads its data from a gRPC stream rather than
+  request/response RPCs, so the field is inert there. That path is instead
+  protected by producer supervision - a stream that dies or ends is restarted
+  with backoff (see below).
+
+NTP and the synthetic `test` chain make no network calls at all.
+
+```ts
+.addParallel((n) => n.myChain, () => ({
+  name: "myChain",
+  type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+  pollingInterval: 1000,
+  requestTimeoutMs: 30_000, // slow archive node
+  // ...
+}))
+```
+
+## Producer supervision (streaming chains)
+
+Chains whose data arrives over a subscription rather than by polling (utxorpc
+today) set `hasAsyncProducer` on their `SyncState`, and `startSync` supervises
+that producer instead of spawning it bare.
+
+Both of its exit modes count as failure and trigger a restart with capped
+exponential backoff (1s → 30s), including a **clean return** - a producer that
+returns has ended its stream, and the observable effect is identical to a throw:
+no more data. Left unsupervised, a stream that simply ended left the chain silent
+forever with every health counter clean, and a stream that threw tore down the
+whole node.
+
+The backoff de-escalates: a producer that ran longer than the maximum backoff
+before dying resets the delay, so an occasional incident over a long-lived stream
+does not permanently penalise it.
+
+Restarts are counted in `producerRestarts` and failures in `producerErrors`, both
+reported per protocol on `/health`. They are tracked separately from the fetch
+loop's `consecutiveErrors` on purpose: that counter is only cleared by a
+successful `readData`, so sharing it left an idle streaming chain reporting
+errors long after its producer recovered.
+
 ## Key exports
 
 - `genSyncProtocols(dbConn, syncInfo)` - Effection generator that instantiates a runtime fetcher + state pair for every protocol in `syncInfo` (from `config.syncProtocols`). Called from the runtime's process-blocks loop.
@@ -124,7 +183,7 @@ as `buf` pins to `cap`.
 
 Per-chain `Fetcher` / `SyncState` classes (`EvmFetcher`,
 `BitcoinFetcher`, `MidnightFetcher`, `AvailFetcher`, `UtxoRpcFetcher`,
-`NtpFetcher`, `CelestiaFetcher`, `NearFetcher`, and matching `*SyncState`
+`NtpFetcher`, `CelestiaFetcher`, `NearFetcher`, `SolanaFetcher`, and matching `*SyncState`
 classes) are exported but are internal to the factory wiring -
 application code drives them through `genSyncProtocols` rather than
 instantiating them directly. Reach for them only if you're writing a

@@ -91,7 +91,7 @@ curl -X POST http://localhost:3334/batch-input \
   }'
 ```
 
-`signature` is required for the EVM and Cardano adapters. Adapters that override `verifySignature` (Midnight, for example) accept inputs without it but must implement their own check.
+`signature` is required for the EVM and Cardano adapters. Adapters that override `verifySignature` (Midnight and Solana, for example) accept inputs without it but must implement their own check - the Solana adapter verifies the Ed25519 signatures carried inside the submitted transaction and requires the claimed address to be one of its signers.
 
 ### Batching criteria
 
@@ -129,7 +129,7 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 - `createNewBatcher(config, storage)`: build a batcher instance.
 - `BatcherConfig`: configuration type. See `pollingIntervalMs`, `adapters`, `defaultTarget`, `batchingCriteria`, `confirmationLevel`, `enableHttpServer`, `port`, `enableEventSystem`, `namespace`, `batchBuilding`.
 - `FileStorage(dir)`: default JSONL storage.
-- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `BitcoinAdapter`.
+- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `BitcoinAdapter`, `NearAdapter`, `SolanaAdapter`.
 - Batcher operations: `runBatcher`, `batchInput`, `addStateTransition`, `gracefulShutdownOp`, `getPublicConfig`, `getBatchingStatus`.
 - HTTP endpoints (when enabled): `POST /batch-input`, `GET /status`, `GET /health`, `POST /force-process`.
 

@@ -35,6 +35,7 @@ import {
   verifyCardanoByronAddress,
   verifyCardanoShelleyAddress,
 } from "./validators/cardano.ts";
+import { verifySolanaAddress } from "./validators/solana.ts";
 
 export type MaybeStaticDecode<T extends never | TSchema> = T extends TSchema
   ? StaticDecode<T>
@@ -54,6 +55,7 @@ export enum AddressType {
   AVAIL = 6,
   POLKADOT = 7,
   NEAR = 8,
+  SOLANA = 9,
 }
 
 function tryDecode<T>(
@@ -99,6 +101,7 @@ FormatRegistry.Set("bs58check", (val) => tryDecode(val, bs58check.decode));
 FormatRegistry.Set("bech32", (val) =>
   // note: increase max bech32 limit since some cryptocurrencies need it
   tryDecode(val, (val) => bech32.decode(val, Number.MAX_SAFE_INTEGER / 2)));
+FormatRegistry.Set("solana-address", (val) => tryDecode(val, verifySolanaAddress));
 
 function forceLowercase<T extends TString | TRegExp>(schema: T): TTransform<T> {
   return Type.Transform(schema)
@@ -241,6 +244,12 @@ export const TypeboxHelpers = {
     // NEAR account IDs: named (a-z0-9._-) up to 64 chars, or implicit (64 hex chars)
     Address: Type.Unsafe<Nominal.NearAddress>(Type.String()),
   },
+  Solana: {
+    // Solana addresses are base58-encoded 32-byte Ed25519 public keys
+    Address: Type.Unsafe<Nominal.SolanaAddress>(
+      Type.String({ format: "solana-address" }),
+    ),
+  },
   Caip2: Type.Unsafe<Nominal.Caip2>(Type.String()),
   WalletAddress: () =>
     Type.Union(AddressTypebox as Mutable<typeof AddressTypebox>),
@@ -298,6 +307,7 @@ export const AddressValidator = {
   [AddressType.MIDNIGHT]: TypeboxHelpers.Midnight.Address,
   [AddressType.POLKADOT]: TypeboxHelpers.Polkadot.Address,
   [AddressType.NEAR]: TypeboxHelpers.Near.Address,
+  [AddressType.SOLANA]: TypeboxHelpers.Solana.Address,
 } as const satisfies Record<AddressType, TSchema>;
 
 export const AddressTypebox = [
@@ -340,6 +350,10 @@ export const AddressTypebox = [
   Type.Object({
     type: Type.Literal(AddressType.NEAR),
     address: TypeboxHelpers.Near.Address,
+  }),
+  Type.Object({
+    type: Type.Literal(AddressType.SOLANA),
+    address: TypeboxHelpers.Solana.Address,
   }),
 ] as const;
 true satisfies Satisfies<

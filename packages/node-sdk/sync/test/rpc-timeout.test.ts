@@ -27,6 +27,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import net from "node:net";
 import { BitcoinRpcClient } from "../src/sync-protocols/bitcoin/fetcher.ts";
 import { NearClient } from "../src/sync-protocols/near/NearClient.ts";
+import { SolanaClient } from "../src/sync-protocols/solana/SolanaClient.ts";
 import { AvailClient } from "../src/sync-protocols/avail/AvailClient.ts";
 import { MidnightClient } from "../src/sync-protocols/midnight/MidnightClient.ts";
 
@@ -103,6 +104,14 @@ test("NEAR RPC rejects on a blackholed endpoint", async () => {
     client.getBlock({ finality: "final" }),
     OBSERVE_MS,
   );
+
+  expect(settlement).toBe("rejected");
+}, OBSERVE_MS + 5_000);
+
+test("Solana RPC rejects on a blackholed endpoint", async () => {
+  const client = new SolanaClient(`http://127.0.0.1:${port}`, CLIENT_TIMEOUT_MS);
+
+  const settlement = await settlementWithin(client.getSlot(), OBSERVE_MS);
 
   expect(settlement).toBe("rejected");
 }, OBSERVE_MS + 5_000);

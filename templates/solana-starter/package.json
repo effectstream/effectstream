@@ -1,0 +1,19 @@
+{
+  "name": "solana-starter",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "NODE_ENV=development bunx orchestrator start",
+    "build:solana": "bun run --filter @solana-starter/contracts-solana build",
+    "build:pgtypes": "bun run --filter @solana-starter/database pgtyped:update",
+    "test": "bun run packages/tests/run-tests.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@effectstream/orchestrator": "0.101.1",
+    "wait-on": "8.0.3"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
+  }
+}

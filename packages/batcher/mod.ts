@@ -55,6 +55,13 @@ export type {
   CelestiaNetwork,
 } from "./adapters/celestia-adapter.ts";
 
+export { SolanaAdapter, CapacityExchangeClient } from "./adapters/solana-adapter.ts";
+export type {
+  SolanaAdapterConfig,
+  SolanaBatchPayload,
+} from "./adapters/solana-adapter.ts";
+
+
 // Rate limiting
 export type {
   RateLimitStore,
