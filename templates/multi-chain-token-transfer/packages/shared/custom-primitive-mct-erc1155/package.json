@@ -1,7 +1,7 @@
 {
   "name": "@multi-chain-transfer/custom-primitive-mct-erc1155",
   "version": "0.0.1",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "exports": {
     "./erc1155-primitive": "./erc1155-primitive.ts",
     "./erc1155-grammar": "./erc1155-grammar.ts"

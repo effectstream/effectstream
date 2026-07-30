@@ -1,7 +1,7 @@
 {
   "name": "@preorder/database",
   "version": "1.0.0",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "exports": "./mod.ts",
   "scripts": {
     "pgtyped:update": "bun run ./node_modules/@effectstream/db/scripts/pgtyped-update.ts"

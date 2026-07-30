@@ -1,7 +1,7 @@
 {
   "name": "@hex-battle/database",
   "version": "0.1.0",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "exports": "./src/mod.ts",
   "scripts": {
     "pgtyped:update": "bun run ./node_modules/@effectstream/db/scripts/pgtyped-update.ts"

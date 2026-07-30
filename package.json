@@ -2,6 +2,7 @@
   "name": "effectstream",
   "version": "0.101.1",
   "private": true,
+  "license": "(MIT OR Apache-2.0)",
   "workspaces": [
     "packages/**",
     "e2e/**"
@@ -11,7 +12,8 @@
     "test:e2e": "cd e2e && bun run runner.ts"
   },
   "overrides": {
-    "@effect/platform": "0.96.1"
+    "@effect/platform": "0.96.1",
+    "arch": "3.0.0"
   },
   "devDependencies": {
     "@effectstream/db": "workspace:*",
