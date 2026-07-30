@@ -14,8 +14,8 @@
     "blockchain"
   ],
   "type": "commonjs",
-  "author": "Paima Studios",
-  "license": "ISC",
+  "author": "Midnight Foundation",
+  "license": "(MIT OR Apache-2.0)",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
     "type": "git",

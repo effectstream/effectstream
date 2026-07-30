@@ -1,7 +1,7 @@
 {
   "name": "@evm-midnight/contracts-evm",
   "version": "1.0.0",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "type": "module",
   "exports": {
     ".": "./mod.ts",

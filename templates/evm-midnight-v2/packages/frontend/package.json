@@ -1,7 +1,7 @@
 {
   "name": "@evm-midnight/frontend",
   "version": "1.0.0",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "exports": {
     ".": "./server/main.ts"
   },
