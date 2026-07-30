@@ -13,16 +13,16 @@
   },
   "exports": "./src/mod.ts",
   "peerDependencies": {
-    "@midnight-ntwrk/ledger-v8": "^8.0.3",
-    "@midnight-ntwrk/wallet-sdk-address-format": "^3.1.0"
+    "@midnight-ntwrk/ledger-v8": "^8.1.0",
+    "@midnightntwrk/wallet-sdk-address-format": "^3.1.2"
   },
   "peerDependenciesMeta": {
     "@midnight-ntwrk/ledger-v8": { "optional": true },
-    "@midnight-ntwrk/wallet-sdk-address-format": { "optional": true }
+    "@midnightntwrk/wallet-sdk-address-format": { "optional": true }
   },
   "devDependencies": {
-    "@midnight-ntwrk/ledger-v8": "8.0.3",
-    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0"
+    "@midnight-ntwrk/ledger-v8": "8.1.0",
+    "@midnightntwrk/wallet-sdk-address-format": "3.1.2"
   },
   "dependencies": {
     "@cardano-foundation/cardano-verify-datasignature": "1.0.11",

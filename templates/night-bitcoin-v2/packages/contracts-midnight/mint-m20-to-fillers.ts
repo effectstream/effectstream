@@ -13,8 +13,8 @@ import {
 } from "@midnight-ntwrk/midnight-js-contracts";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
+import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
+import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 import {
   buildWalletFacade,
   getInitialShieldedState,

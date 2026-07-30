@@ -11,7 +11,7 @@ bun install                          # Install deps
 bun run dev                          # Full stack: PGLite + Hardhat + Midnight + sync + batcher + frontend
 bun run start:mainnet                # Mainnet: Arbitrum One + Midnight mainnet (requires env vars)
 bun run test                         # E2E tests (packages/tests/run-tests.ts)
-bun run build:midnight               # Compile Compact contract (+0.30.0)
+bun run build:midnight               # Compile Compact contract (+0.31.0)
 bun run build:evm                    # Compile Solidity + generate TS bindings
 ```
 
@@ -32,7 +32,7 @@ Bun monorepo with flat `packages/*` layout. All `@effectstream/*` deps are from 
 | `packages/database/` | `@evm-midnight/database` | SQL migrations, pgtyped queries |
 | `packages/contracts-evm/` | `@evm-midnight/contracts-evm` | Solidity contracts, Hardhat, Ignition deploy |
 | `packages/contracts-midnight/` | `@evm-midnight/contracts-midnight` | Midnight infra scripts, contract deploy |
-| `packages/contracts-midnight/contract-round-value/` | `@evm-midnight/midnight-contract` | Compact contract source + compiled output |
+| `packages/contracts-midnight/contract-round-value/` | `@evm-midnight/midnight-contract` | Compact contract source (compiled output in `src/managed/` is gitignored — built by `start.dev.ts` / `build:midnight`) |
 | `packages/batcher/` | `@evm-midnight/batcher` | TX batcher (EVM + Midnight adapters) |
 | `packages/frontend/` | `@evm-midnight/frontend` | React + Vite + Midnight wallet + Fastify server |
 | `packages/tests/` | `@evm-midnight/tests` | E2E test suite |
@@ -47,15 +47,15 @@ Bun monorepo with flat `packages/*` layout. All `@effectstream/*` deps are from 
 
 ## Midnight SDK versions
 
-All `@midnight-ntwrk/*` dependencies must be pinned to exact versions from the compatibility matrix:
+All Midnight dependencies must be pinned to exact versions from the compatibility matrix:
 https://github.com/midnightntwrk/midnight-sdk/blob/main/COMPATIBILITY.md
 
-Never use `^` or `~` ranges. Current stable set (as of 2026-04-07):
-- Compact compiler `+0.30.0`, compact-runtime `0.15.0`, compact-js `2.5.0`
-- midnight-js-* `4.0.4`, ledger-v8 `8.0.3`, onchain-runtime-v3 `3.0.0`
-- wallet-sdk-facade `3.0.0`, wallet-sdk-hd `3.0.1`, wallet `5.0.0`
+Never use `^` or `~` ranges. Current stable set (midnight-node 1.0.0 era, as of 2026-07-29):
+- Compact compiler `+0.31.0`, compact-runtime `0.16.0`, compact-js `2.5.1` (do NOT bump compact-js to 2.5.3+ — it targets ledger-v9)
+- midnight-js-* `4.1.1`, ledger-v8 `8.1.0`, onchain-runtime-v3 `3.0.0`
+- Wallet SDK moved scope to `@midnightntwrk/*` (no hyphen): wallet-sdk-facade `4.1.0`, wallet-sdk-hd `3.0.3`, wallet-sdk-dust-wallet `4.2.0`, wallet-sdk-shielded `3.0.2`, wallet-sdk-unshielded-wallet `3.1.0`, wallet-sdk-address-format `3.1.2`, wallet-sdk-abstractions `2.1.0`
 
-The old `@midnight-ntwrk/ledger`, `ledger-v6`, and `onchain-runtime-v1` packages are deprecated.
+The old `@midnight-ntwrk/ledger`, `ledger-v6`, `onchain-runtime-v1`, `zswap`, and `wallet`/`wallet-api` packages are deprecated/removed — zswap types are re-exported from `ledger-v8`.
 
 ## Midnight wallet SDK (v3/v4 API)
 

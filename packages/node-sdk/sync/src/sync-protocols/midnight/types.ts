@@ -35,7 +35,7 @@ export type CommonFunnelArgs = {
 // Graphql Block
 // =============
 
-// Interfaces approximated from GraphQL schema served by indexer v1.3.1
+// Interfaces approximated from GraphQL schema served by indexer v4.3.3 (/api/v3)
 
 interface ContractCallOrDeploy {
   address: MidnightAddress;

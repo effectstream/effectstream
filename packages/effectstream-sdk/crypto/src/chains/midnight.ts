@@ -52,7 +52,7 @@ export class MidnightCrypto implements IVerify {
 
       const [ledgerMod, addrMod] = await Promise.all([
         import("@midnight-ntwrk/ledger-v8"),
-        import("@midnight-ntwrk/wallet-sdk-address-format"),
+        import("@midnightntwrk/wallet-sdk-address-format"),
       ]);
 
       // The verifying key must derive to the address being verified —

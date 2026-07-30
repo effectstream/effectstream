@@ -12,7 +12,7 @@ import { deployContract } from "@midnight-ntwrk/midnight-js-contracts";
 import type { PrivateStateId } from "@midnight-ntwrk/midnight-js-types";
 import { CompiledContract, type Witnesses, type Contract } from "@midnight-ntwrk/compact-js";
 import type { SigningKey } from "@midnight-ntwrk/ledger-v8";
-import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import * as path from "node:path";
 
 const log = console;

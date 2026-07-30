@@ -26,8 +26,6 @@ import {
   type UnboundTransaction,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
-import type { Resource } from "@midnight-ntwrk/wallet";
-import type { Wallet } from "@midnight-ntwrk/wallet-api";
 import * as Rx from "rxjs";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
@@ -51,18 +49,18 @@ import {
   type FinalizedTransaction,
 } from "@midnight-ntwrk/ledger-v8";
 
-import { HDWallet, Roles } from "@midnight-ntwrk/wallet-sdk-hd";
-import { type DefaultConfiguration, WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
-import { ShieldedWallet } from "@midnight-ntwrk/wallet-sdk-shielded";
-import { DustWallet } from "@midnight-ntwrk/wallet-sdk-dust-wallet";
+import { HDWallet, Roles } from "@midnightntwrk/wallet-sdk-hd";
+import { type DefaultConfiguration, WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
+import { ShieldedWallet } from "@midnightntwrk/wallet-sdk-shielded";
+import { DustWallet } from "@midnightntwrk/wallet-sdk-dust-wallet";
 import {
   UnshieldedWallet,
   createKeystore,
   PublicKey,
   InMemoryTransactionHistoryStorage,
   type UnshieldedKeystore,
-} from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
-import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+} from "@midnightntwrk/wallet-sdk-unshielded-wallet";
+import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { Buffer } from "buffer";
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
@@ -349,7 +347,7 @@ let globalProviders: BallotProviders | null = null;
 let globalBallotContract: DeployedBallotContract | null = null;
 
 export const connectMidnightWallet = async (): Promise<{
-  wallet: Wallet & Resource;
+  wallet: WalletFacade;
   providers: BallotProviders;
   address: string;
 }> => {

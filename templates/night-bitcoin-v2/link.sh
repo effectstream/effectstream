@@ -119,7 +119,7 @@ link_pkg "effectstream" "wallets"                   "$P/effectstream-sdk/wallets
 # copy. Only symlink WASM packages (not the whole @midnight-ntwrk tree — that would
 # overwrite e.g. wallet-sdk-address-format@3.1.0 with an older transitive copy).
 # WASM modules: instanceof checks fail if Bun loads two physical copies (CostModel, etc.).
-MIDNIGHT_WASM_PKGS="compact-runtime compact-js onchain-runtime-v3 onchain-runtime-v2 ledger-v8 zswap"
+MIDNIGHT_WASM_PKGS="compact-runtime compact-js onchain-runtime-v3 onchain-runtime-v2 ledger-v8"
 
 link_midnight_wasm_from_monorepo() {
   local dest_nm="$1"
@@ -154,8 +154,7 @@ drop_template_wasm_bun_copies() {
     "@midnight-ntwrk+onchain-runtime-v3@" \
     "@midnight-ntwrk+onchain-runtime-v2@" \
     "@midnight-ntwrk+onchain-runtime@" \
-    "@midnight-ntwrk+ledger-v8@" \
-    "@midnight-ntwrk+zswap@"; do
+    "@midnight-ntwrk+ledger-v8@"; do
     for entry in "$bun_dir"/${prefix}*; do
       [ -e "$entry" ] || continue
       rm -rf "$entry"

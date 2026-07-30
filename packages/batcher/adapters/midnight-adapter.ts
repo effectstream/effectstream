@@ -56,7 +56,7 @@ import {
   type WalletResult,
 } from "@effectstream/midnight-contracts";
 import * as Rx from "rxjs";
-import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import type { NetworkId as WalletNetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { Buffer } from "node:buffer";
 import { AdapterLogger } from "./adapter-logger.ts";

@@ -21,7 +21,7 @@ import { transferFunds } from "@night-bitcoin/contracts-bitcoin/transfer-funds";
 import { transferFunds as transferFundsMidnight } from "@night-bitcoin/contracts-midnight/transfer-funds";
 import { resolve } from "node:path";
 import { readFileSync } from "node:fs";
-import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
+import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 import { grammar } from "./grammar.ts";
 
 // Convert a Midnight bech32m unshielded address (`mn_addr_*`) to its raw 32-byte
