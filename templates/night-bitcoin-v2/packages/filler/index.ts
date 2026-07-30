@@ -53,7 +53,7 @@ import * as ecpair from "ecpair";
 import * as tinysecp from "tiny-secp256k1";
 import * as bip32 from "bip32";
 // Midnight address parsing
-import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
+import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 
 const ECPair = ecpair.ECPairFactory(tinysecp);
 const BIP32 = bip32.BIP32Factory(tinysecp);
