@@ -1,7 +1,7 @@
 {
   "name": "@world-map-2d/node",
   "version": "0.1.0",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "exports": "./main.dev.ts",
   "scripts": {
     "check": "echo 'check'"

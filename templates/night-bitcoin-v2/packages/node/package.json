@@ -2,7 +2,7 @@
   "name": "@night-bitcoin/node",
   "version": "0.4.0",
   "private": true,
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "exports": {
     ".": "./main.dev.ts"
   },

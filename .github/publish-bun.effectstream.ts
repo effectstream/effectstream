@@ -2,7 +2,7 @@
 
 import { $ } from "bun";
 import { resolve, join, relative } from "path";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, copyFileSync, unlinkSync } from "fs";
 import { Glob } from "bun";
 
 // This script lives in `.github/`; the monorepo root is one level up. Everything
@@ -262,6 +262,12 @@ if (import.meta.main) {
     pristine.set(fp, readFileSync(fp, "utf-8"));
   }
 
+  // License files staged into each package dir for the tarball (Step 2d);
+  // removed again by restore(). Declared here so restore() can see them even
+  // if we bail out before the staging step runs.
+  const LICENSE_FILES = ["LICENSE-MIT", "LICENSE-APACHE"];
+  const stagedLicenses: string[] = [];
+
   let restored = false;
   function restore() {
     if (restored) return;
@@ -272,8 +278,14 @@ if (import.meta.main) {
       // file's exact original formatting (and metadata/deps) is preserved.
       writeFileSync(fp, setVersionInText(pristine.get(fp)!, version));
     }
+    for (const fp of stagedLicenses) {
+      try {
+        unlinkSync(fp);
+      } catch {}
+    }
     console.log(
-      `\nRestored ${packageDirs.length} package.json files (version-only; deps & metadata reverted)`,
+      `\nRestored ${packageDirs.length} package.json files (version-only; deps & metadata reverted)` +
+        (stagedLicenses.length ? ` and removed ${stagedLicenses.length} staged license files` : ""),
     );
   }
   process.on("exit", restore);
@@ -319,6 +331,15 @@ if (import.meta.main) {
       pkg.description = PACKAGE_DESCRIPTIONS[name];
     }
 
+    // Packages with a `files` allowlist would otherwise exclude the license
+    // files staged in Step 2d (npm/bun only auto-include a file literally
+    // named LICENSE/LICENCE, not LICENSE-MIT/LICENSE-APACHE).
+    if (Array.isArray(pkg.files)) {
+      for (const lf of LICENSE_FILES) {
+        if (!pkg.files.includes(lf)) pkg.files.push(lf);
+      }
+    }
+
     writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + "\n");
   }
 
@@ -356,6 +377,33 @@ if (import.meta.main) {
   }
 
   console.log(`  Patched ${patched} package.json files\n`);
+
+  // --- Step 2d: Stage license files into each package ---
+  // The published tarball should carry the actual license text, not just the
+  // SPDX expression in package.json. Copy the root LICENSE-MIT/LICENSE-APACHE
+  // into every package dir; restore() deletes the copies after publishing.
+  // A package that already ships its own license file keeps it untouched.
+
+  console.log(`Staging ${LICENSE_FILES.join(", ")} into each package...`);
+
+  for (const lf of LICENSE_FILES) {
+    if (!existsSync(join(ROOT, lf))) {
+      console.error(`\n❌ Missing ${lf} at repo root`);
+      printFlags();
+      process.exit(1);
+    }
+  }
+
+  for (const { dir } of packageDirs) {
+    for (const lf of LICENSE_FILES) {
+      const dest = join(dir, lf);
+      if (existsSync(dest)) continue;
+      copyFileSync(join(ROOT, lf), dest);
+      stagedLicenses.push(dest);
+    }
+  }
+
+  console.log(`  Staged ${stagedLicenses.length} license files\n`);
 
   // --- Step 3: Build packages that need it ---
 
