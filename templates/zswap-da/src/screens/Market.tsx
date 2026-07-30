@@ -430,7 +430,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                     {!summary.preview && (
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button className="zs-btn" style={{ padding: '11px 14px', fontSize: 13.5, flex: '0 0 auto' }} onClick={() => { setActive({}); setHover(null); }}>Clear</button>
-                        <button className="zs-btn zs-btn--primary" style={{ flex: 1, justifyContent: 'center', padding: '11px', fontSize: 14 }} onClick={takeDepth}><Icon.bolt /> <span>{`Take offer · ${nActive} level${nActive > 1 ? 's' : ''}`}</span></button>
+                        <button className="zs-btn zs-btn--primary" style={{ flex: 1, justifyContent: 'center', padding: '11px', fontSize: 14 }} onClick={takeDepth} disabled={st.takePreparing}><Icon.bolt /> <span>{st.takePreparing ? 'Loading offers…' : `Take offer · ${nActive} level${nActive > 1 ? 's' : ''}`}</span></button>
                       </div>
                     )}
                   </div>

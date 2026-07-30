@@ -1,7 +1,48 @@
 // src/services/api.ts
-import type { KnownToken, ZSwapOffer } from '../types';
+import type { KnownToken, OfferDetail, OfferStatusLookup, ZSwapOffer } from '../types';
 import { API_BASE, BATCHER_URL, BATCHER_TARGET } from '../config';
 import { dlog, timed } from '../debug';
+
+/**
+ * Error carrying the node API's machine-readable code.
+ *
+ * The node returns `{error, reason}` with a truthful status: 400 for
+ * validation, 404 for unknown resources, 409 for duplicates, 429 for rate
+ * limits, 500 `{error:"INTERNAL"}` for real faults. (It previously collapsed
+ * validation failures into 500 `{ok:false}` — don't match on `ok` anymore.)
+ */
+export class ApiError extends Error {
+  readonly code: string;
+  readonly status: number;
+  /** Extra fields the endpoint attached, e.g. offer_hash on DUPLICATE_OFFER. */
+  readonly data: Record<string, any>;
+  constructor(status: number, body: any, fallback: string) {
+    super(body?.reason ?? body?.message ?? body?.error ?? fallback);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = body?.error ?? `HTTP_${status}`;
+    this.data = body && typeof body === 'object' ? body : {};
+  }
+}
+
+/** Parse a node API response, throwing ApiError with the code on failure. */
+async function parse<T>(res: Response, fallback: string): Promise<T> {
+  let body: any = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* non-JSON (proxy error page, 414, gateway timeout) — body stays null */
+  }
+  if (!res.ok) throw new ApiError(res.status, body, fallback);
+  return body as T;
+}
+
+/** 64 lowercase hex chars. Guards the :hash path params client-side. */
+const isOfferHash = (h: unknown): h is string =>
+  typeof h === 'string' && /^[0-9a-f]{64}$/i.test(h);
+
+/** POST /api/zswap/status accepts at most 50 blobs per batched request. */
+const STATUS_BATCH_MAX = 50;
 
 export interface Quote {
   from_token: string;
@@ -17,8 +58,9 @@ export interface Quote {
   to_usd: number | null;
 }
 
-export interface ChartDepthRow { price: number; amt: number; total: number }
-export interface ChartDepth { mid: number; asks: ChartDepthRow[]; bids: ChartDepthRow[]; maxTotal: number; spread: number }
+// NOTE: there is no /api/chart/depth endpoint — the node serves only
+// /api/chart/{stats,history}. The order book's depth view is derived
+// client-side from the open offers (see screens/Market.tsx).
 export interface ChartStats { base: string; quote: string; last: number; change24: number; high: number; low: number; volume_base: number; volume_quote: number }
 export interface ChartHistoryRow { price: number; amt: number; up: boolean; at: string }
 
@@ -87,20 +129,25 @@ export const api = {
     return res.json();
   },
 
-  // blob is the bech32m `swapoffer1…` string produced by MIP-0005 encodeOffer().
-  submitSwapOffer: async (blob: string) => {
+  /**
+   * blob is the bech32m `swapoffer1…` string produced by MIP-0005 encodeOffer().
+   * Resolves to `{success, offer_hash, blob, result}` — persist `offer_hash`
+   * with the local trade record and poll status by it thereafter.
+   *
+   * Throws ApiError with code `DUPLICATE_OFFER` (409) when the byte-identical
+   * offer is already indexed, open or archived. That error carries the existing
+   * offer's `offer_hash` and `status` in `.data` — treat it as "already exists"
+   * rather than a failure; the node rejects it before paying a Celestia fee.
+   */
+  submitSwapOffer: async (
+    blob: string,
+  ): Promise<{ success: boolean; offer_hash: string; blob: string; result: unknown }> => {
     const res = await fetch(`${API_BASE}/api/zswap/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blob }),
     });
-    const data = await res.json();
-    if (!res.ok) {
-      const err = new Error(data.reason ?? data.message ?? JSON.stringify(data)) as Error & { code?: string };
-      err.code = data.error;
-      throw err;
-    }
-    return data;
+    return parse(res, 'Failed to submit offer');
   },
 
   // ROOT_UNKNOWN is transient: the maker proves against a real chain root, but
@@ -130,11 +177,39 @@ export const api = {
     }
   },
 
+  /** Order book. Blob-free — rows carry `offer_hash`, not the blob. */
   getZSwaps: async (params: Record<string, string>): Promise<ZSwapOffer[]> => {
     const searchParams = new URLSearchParams(params);
     const res = await fetch(`${API_BASE}/api/zswaps?${searchParams.toString()}`);
-    if (!res.ok) throw new Error('Failed to fetch ZSwaps');
-    return res.json();
+    return parse(res, 'Failed to fetch ZSwaps');
+  },
+
+  /**
+   * Full offer including its blob, by content hash — the only endpoint that
+   * returns a blob. Archived offers still resolve, with their final status.
+   * Fetch lazily on selection; never prefetch for a whole page of the book.
+   *
+   * Throws ApiError `INVALID_HASH` (400) or `NOT_FOUND` (404).
+   */
+  getOfferByHash: async (hash: string): Promise<OfferDetail> => {
+    if (!isOfferHash(hash)) {
+      throw new ApiError(400, { error: 'INVALID_HASH', reason: `not a 64-hex offer hash: ${hash}` }, 'Invalid offer hash');
+    }
+    const res = await fetch(`${API_BASE}/api/zswaps/${hash}`);
+    return parse(res, 'Failed to fetch offer');
+  },
+
+  /** Lightweight status probe by content hash. Preferred when you have it. */
+  getOfferStatusByHash: async (hash: string): Promise<OfferStatusLookup> => {
+    if (!isOfferHash(hash)) return 'not_found';
+    try {
+      const res = await fetch(`${API_BASE}/api/zswaps/${hash}/status`);
+      if (res.status === 404) return 'not_found';
+      const data = await parse<{ offer_hash: string; status: OfferStatusLookup }>(res, 'Failed to fetch status');
+      return data.status ?? 'not_found';
+    } catch {
+      return 'not_found';
+    }
   },
 
   getEventsUrl: () => `${API_BASE}/api/events`,
@@ -150,18 +225,22 @@ export const api = {
     const p = new URLSearchParams({ from_token: fromToken, to_token: toToken, from_amount: fromAmount });
     if (toAmount != null && toAmount !== '') p.set('to_amount', toAmount);
     const res = await fetch(`${API_BASE}/api/quote?${p.toString()}`);
-    if (!res.ok) throw new Error('Failed to fetch quote');
-    return res.json();
+    // The node no longer fabricates a rate for tokens it doesn't know:
+    // 404 UNKNOWN_TOKEN (not in /api/known-tokens), 400 VALIDATION (malformed
+    // color). Give both a message a user can act on.
+    if (res.status === 404 || res.status === 400) {
+      const body = await res.json().catch(() => null);
+      if (body?.error === 'UNKNOWN_TOKEN') {
+        throw new ApiError(res.status, body, `Token not registered: ${body.token ?? toToken}`);
+      }
+      throw new ApiError(res.status, body, 'That token pair is not quotable');
+    }
+    return parse(res, 'Failed to fetch quote');
   },
 
   getChartStats: async (base: string, quote: string): Promise<ChartStats> => {
     const res = await fetch(`${API_BASE}/api/chart/stats?base=${base}&quote=${quote}`);
     if (!res.ok) throw new Error('Failed to fetch stats');
-    return res.json();
-  },
-  getChartDepth: async (base: string, quote: string): Promise<ChartDepth> => {
-    const res = await fetch(`${API_BASE}/api/chart/depth?base=${base}&quote=${quote}`);
-    if (!res.ok) throw new Error('Failed to fetch depth');
     return res.json();
   },
   getChartHistory: async (base: string, quote: string): Promise<ChartHistoryRow[]> => {
@@ -206,24 +285,39 @@ export const api = {
   },
 
   /**
-   * Lookup the server-side status for a list of offer blobs.
-   * Returns a map of blob → 'open' | 'completed' | 'expired' | 'not_found'.
-   * Used for startup-only My Trades reconciliation.
+   * Server-side status for a list of offer blobs, as blob → status.
+   *
+   * POST, batched. The GET-with-blob variant still exists server-side but 414s
+   * at nginx for any real offer — blobs are 16-25 KB, far past query-string
+   * limits. Prefer getOfferStatusByHash when the hash is known; this exists for
+   * My-Trades startup reconciliation of records that predate hash storage.
    */
-  fetchTradeStatuses: async (blobs: string[]): Promise<Record<string, string>> => {
+  fetchTradeStatuses: async (blobs: string[]): Promise<Record<string, OfferStatusLookup | 'unknown'>> => {
     if (blobs.length === 0) return {};
-    const results = await Promise.all(
-      blobs.map(async (blob): Promise<[string, string]> => {
-        try {
-          const res = await fetch(`${API_BASE}/api/zswap/status?blob=${encodeURIComponent(blob)}`);
-          if (!res.ok) return [blob, 'unknown'];
-          const data = await res.json();
-          return [blob, data.status ?? 'unknown'];
-        } catch {
-          return [blob, 'unknown'];
-        }
-      }),
-    );
-    return Object.fromEntries(results);
+    const out: Record<string, OfferStatusLookup | 'unknown'> = {};
+    for (let i = 0; i < blobs.length; i += STATUS_BATCH_MAX) {
+      const chunk = blobs.slice(i, i + STATUS_BATCH_MAX);
+      try {
+        const res = await fetch(`${API_BASE}/api/zswap/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blobs: chunk }),
+        });
+        const data = await parse<{ statuses: { blob?: string; offer_hash?: string; status: OfferStatusLookup }[] }>(
+          res,
+          'Failed to fetch statuses',
+        );
+        // Responses come back in input order; index positionally rather than by
+        // the echoed blob so a server that omits it still reconciles.
+        chunk.forEach((blob, idx) => {
+          out[blob] = data.statuses?.[idx]?.status ?? 'unknown';
+        });
+      } catch {
+        // Best-effort: an unreachable node leaves these 'unknown' and the
+        // caller keeps whatever local status it already had.
+        for (const blob of chunk) out[blob] = 'unknown';
+      }
+    }
+    return out;
   },
 };

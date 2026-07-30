@@ -18,6 +18,10 @@ export interface MyTrade {
   status: 'not_public' | 'open' | 'completed' | 'expired' | 'cancelled';
   shielded: boolean;
   blob?: string;
+  /** Content hash from `POST /api/zswap/submit` — the cross-node offer identity
+   *  and the key for all subsequent status polling. Absent on records created
+   *  before content addressing, which fall back to blob-based status lookup. */
+  offerHash?: string;
 }
 
 const KEY = 'zswap-da:my-trades';
@@ -55,6 +59,7 @@ export function addTrade(t: Omit<MyTrade, 'id' | 'at'> & { id?: string; at?: num
     status: t.status,
     shielded: t.shielded,
     blob: t.blob,
+    offerHash: t.offerHash,
   };
   write([rec, ...read()]);
   return rec;

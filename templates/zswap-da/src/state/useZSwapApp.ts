@@ -48,6 +48,13 @@ export interface Order {
   impliedRate: number;
   ttl: number | null;
   ttlMax: number | null;
+  /** Content hash — the stable cross-node identity. `null` for legacy rows
+   *  indexed before content addressing; those can't be fetched or taken. */
+  offerHash: string | null;
+  /** Blob length reported by the list, for display only. The blob itself is
+   *  fetched on selection via `GET /api/zswaps/:hash` — the order book is
+   *  blob-free, so `blob` is only set once loadOfferBlob() has run. */
+  blobChars?: number;
   blob?: string;
   multiGive: boolean;
   multiWant: boolean;
@@ -84,7 +91,8 @@ function toOrder(offer: ZSwapOffer, knownTokens: KnownToken[]): Order | null {
     impliedRate: amtFrom > 0 ? amtTo / amtFrom : 0,
     ttl: null,
     ttlMax: null,
-    blob: offer.transaction_hex,
+    offerHash: offer.offer_hash ?? null,
+    blobChars: offer.blob_chars,
     multiGive: (offer.gives?.length ?? 0) > 1,
     multiWant: (offer.wants?.length ?? 0) > 1,
     isMine: false,
@@ -155,8 +163,13 @@ export interface ZSwapApp {
   takeOffer: (blob: string) => Promise<void>;
   // shared take-confirm dialog (driven by any screen, rendered once in App)
   pendingConfirm: ConfirmPayload | null;
-  requestTake: (o: Order) => void;
-  requestTakeMany: (orders: Order[]) => void;
+  /** Async: the offer's blob is fetched on selection (the book is blob-free). */
+  requestTake: (o: Order) => Promise<void>;
+  requestTakeMany: (orders: Order[]) => Promise<void>;
+  /** True while blobs are being fetched for a selection, before the confirm
+   *  dialog opens. Used to disable take controls so the round trip isn't
+   *  silent. */
+  takePreparing: boolean;
   /** Reason an offer blob can't be taken with the current balances, else null. */
   takerShortfall: (blob: string) => string | null;
   closeConfirm: () => void;
@@ -232,26 +245,60 @@ export function useZSwapApp(): ZSwapApp {
     [wstate?.unshieldedAddress],
   );
 
+  // Blobs fetched on demand from GET /api/zswaps/:hash, keyed by offer_hash.
+  // The order book is blob-free, so this fills in only for offers the user has
+  // actually selected — never prefetched for a whole page.
+  const [blobByHash, setBlobByHash] = useState<Record<string, string>>({});
+
+  /**
+   * Resolve one offer's blob, from cache or the API. Returns null when the row
+   * is a legacy one with no hash, or the offer is gone (404 NOT_FOUND — it was
+   * consumed between the page render and the click).
+   */
+  const loadOfferBlob = useCallback(
+    async (hash: string | null): Promise<string | null> => {
+      if (!hash) return null;
+      const cached = blobByHash[hash];
+      if (cached) return cached;
+      try {
+        const detail = await timed(`loadOfferBlob: GET /api/zswaps/${hash.slice(0, 12)}…`, () =>
+          api.getOfferByHash(hash),
+        );
+        setBlobByHash((m) => (m[hash] ? m : { ...m, [hash]: detail.blob }));
+        return detail.blob;
+      } catch (e: any) {
+        dlog('loadOfferBlob: failed', { hash, code: e?.code, message: e?.message });
+        return null;
+      }
+    },
+    [blobByHash],
+  );
+
   // Map offers → order rows. We KEEP the connected wallet's own offers (they are
   // real open liquidity and affect the market — hiding them makes it look like
   // your orders don't exist), but flag them `isMine` so the UI can mark them and
-  // keep them non-takeable. Ownership: shielded offers are anonymous on-chain, so
-  // we use (a) a local record of offers we created (isMyOffer) and (b) an
-  // unshielded-owner match (isOwnOffer).
+  // keep them non-takeable.
+  //
+  // Ownership: shielded offers are anonymous on-chain, so the primary signal is
+  // a local record of what this browser created — now keyed by offer_hash, which
+  // is what the blob-free list carries. The unshielded-sender match needs the
+  // blob, so it can only run for offers whose blob we've already fetched; the
+  // authoritative check happens at selection time in requestTake(), where the
+  // blob is always loaded.
   const orders = useMemo<Order[]>(() => {
     return (zapi.offers ?? [])
-      .map((o) => {
+      .map((o): Order | null => {
         const order = toOrder(o, knownTokens);
         if (!order) return null;
-        let mine = isMyOffer(o.transaction_hex);
-        if (!mine && selfUnshieldedHex && o.transaction_hex) {
-          const info = parseOfferSender(o.transaction_hex, NETWORK_ID as any);
-          mine = isOwnOffer(info, selfUnshieldedHex);
+        const blob = order.offerHash ? blobByHash[order.offerHash] : undefined;
+        let mine = isMyOffer(order.offerHash) || isMyOffer(blob);
+        if (!mine && selfUnshieldedHex && blob) {
+          mine = isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex);
         }
-        return { ...order, isMine: mine };
+        return { ...order, blob, isMine: mine };
       })
       .filter((o): o is Order => o !== null);
-  }, [zapi.offers, knownTokens, selfUnshieldedHex]);
+  }, [zapi.offers, knownTokens, selfUnshieldedHex, blobByHash]);
 
   const toast = useCallback((msg: string, kind?: 'ok' | string) => {
     const id = Math.random().toString(36).slice(2);
@@ -377,24 +424,52 @@ export function useZSwapApp(): ZSwapApp {
       opts?.onStatus?.('Building offer in wallet…');
       const blob = await w.buildOfferBlob(cfg.networkId, gives, wants);
       opts?.onStatus?.('Posting to Celestia…');
-      await api.submitSwapOfferRetrying(blob, {
-        onWait: (n, total) => {
-          opts?.onStatus?.(`Waiting for chain to sync root… (${n}/${total})`);
-          if (n === 1 || n % 5 === 0) toast('Waiting for the chain to sync your offer root…');
-        },
-      });
-      addMyOffer(blob);
+
+      // The node rejects a byte-identical resubmission with 409 DUPLICATE_OFFER
+      // (before paying a Celestia fee). That isn't a failure from the user's
+      // point of view — the offer exists — so adopt the existing offer's hash
+      // and status instead of surfacing an error.
+      let offerHash: string | null = null;
+      let duplicateStatus: string | null = null;
+      try {
+        const submitted = await api.submitSwapOfferRetrying(blob, {
+          onWait: (n, total) => {
+            opts?.onStatus?.(`Waiting for chain to sync root… (${n}/${total})`);
+            if (n === 1 || n % 5 === 0) toast('Waiting for the chain to sync your offer root…');
+          },
+        });
+        offerHash = submitted?.offer_hash ?? null;
+      } catch (e: any) {
+        if (e?.code !== 'DUPLICATE_OFFER') throw e;
+        offerHash = e.data?.offer_hash ?? null;
+        duplicateStatus = e.data?.status ?? null;
+        dlog('createOffer: duplicate offer', { offerHash, status: duplicateStatus });
+      }
+
+      addMyOffer(offerHash ?? blob);
       const give = gives[0];
       const want = wants[0];
       addTrade({
         kind: 'create',
         give: { sym: findTokenName(give.color, knownTokens) ?? shortToken(give.color), amt: Number(give.amount) },
         get: { sym: findTokenName(want.color, knownTokens) ?? shortToken(want.color), amt: Number(want.amount) },
-        status: 'not_public',
+        // A duplicate is already indexed, so skip 'not_public' and take the
+        // server's word for where it is in its lifecycle.
+        status:
+          duplicateStatus === 'completed' ? 'completed'
+          : duplicateStatus === 'expired' ? 'expired'
+          : duplicateStatus === 'open' ? 'open'
+          : 'not_public',
         shielded: give.kind === 'shielded' && want.kind === 'shielded',
         blob,
+        offerHash: offerHash ?? undefined,
       });
-      toast('Offer created', 'ok');
+      toast(
+        duplicateStatus
+          ? `This offer was already posted (${duplicateStatus})`
+          : 'Offer created',
+        duplicateStatus ? undefined : 'ok',
+      );
       zapi.fetchOffers();
       refreshBalances();
     },
@@ -471,13 +546,38 @@ export function useZSwapApp(): ZSwapApp {
   );
 
   const [pendingConfirm, setPendingConfirm] = useState<ConfirmPayload | null>(null);
+  // Selecting an offer now costs a GET /api/zswaps/:hash per offer. Expose that
+  // as a pending flag so the screens can disable their take controls instead of
+  // appearing frozen between click and confirm dialog.
+  const [takePreparing, setTakePreparing] = useState(false);
   const requestTake = useCallback(
-    (o: Order) => {
-      if (!o.blob) {
-        toast('This offer has no settle blob — cannot take.');
+    async (o: Order) => {
+      if (!o.offerHash) {
+        // Legacy row indexed before content addressing — the node can't serve
+        // its blob by hash, so there's nothing to settle from.
+        toast('This offer predates content addressing and can no longer be taken.');
         return;
       }
-      const blob = o.blob;
+      // Selection is where the blob gets fetched — the order book itself is
+      // blob-free, so nothing was prefetched for the rest of the page.
+      setTakePreparing(true);
+      let blob: string | null;
+      try {
+        blob = await loadOfferBlob(o.offerHash);
+      } finally {
+        setTakePreparing(false);
+      }
+      if (!blob) {
+        toast('This offer is no longer available — it may have just been taken.');
+        zapi.fetchOffers();
+        return;
+      }
+      // The list can't tell whether an unshielded offer is ours (that needs the
+      // blob). Now that we have it, check before letting the user take it.
+      if (selfUnshieldedHex && isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex)) {
+        toast("That's your own offer — you can't take it.");
+        return;
+      }
       // Taker pays what the order WANTS (o.to / amtTo) and receives what it
       // GIVES (o.from / amtFrom).
       setPendingConfirm({
@@ -495,46 +595,80 @@ export function useZSwapApp(): ZSwapApp {
             status: 'completed',
             shielded: false,
             blob,
+            offerHash: o.offerHash ?? undefined,
           });
         },
       });
     },
-    [toast, takeOffer, takerShortfall],
+    [toast, takeOffer, takerShortfall, loadOfferBlob, selfUnshieldedHex, zapi],
   );
 
   // Take one or more order-book offers in a single confirm dialog. Filters out
   // your own offers (you can't take them) and blobs we can't settle; aggregates
   // the pay/receive across the selection; settles each via the batcher in turn.
   const requestTakeMany = useCallback(
-    (orders: Order[]) => {
-      // Only real bech32m offers (swapoffer1…) can be settled. Seeded demo
-      // liquidity carries a placeholder blob and must be skipped with a clear
-      // message rather than a cryptic decode error.
-      const isReal = (b?: string) => !!b && /^swapoffer1/i.test(b);
-      const takeable = orders.filter((o) => isReal(o.blob) && !o.isMine);
-      if (takeable.length === 0) {
+    async (orders: Order[]) => {
+      if (!tradeWallet?.canTransact) {
+        toast('Use the browser wallet (Lace) to take offers.');
+        return;
+      }
+      const candidates = orders.filter((o) => !o.isMine && o.offerHash);
+      if (candidates.length === 0) {
         if (orders.some((o) => o.isMine)) {
           setConnectOpen(true);
           return;
         }
-        const seeded = orders.some((o) => o.blob && !isReal(o.blob) && !o.isMine);
         toast(
-          seeded ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (swapoffer1…) offer to test taking."
+          orders.some((o) => !o.offerHash)
+            ? 'These offers predate content addressing and can no longer be taken.'
             : 'No live offer to take here.',
         );
         return;
       }
-      if (!tradeWallet?.canTransact) {
-        toast('Use the browser wallet (Lace) to take offers.');
+
+      // Fetch the blobs for the SELECTION only — bounded by what the user
+      // picked, never the whole book. Offers that 404 here were consumed
+      // between render and click.
+      setTakePreparing(true);
+      let resolved: { o: Order; blob: string | null }[];
+      try {
+        resolved = await Promise.all(
+          candidates.map(async (o) => ({ o, blob: await loadOfferBlob(o.offerHash) })),
+        );
+      } finally {
+        setTakePreparing(false);
+      }
+      // Only real bech32m offers (swapoffer1…) can be settled. Seeded demo
+      // liquidity carries a placeholder blob and must be skipped with a clear
+      // message rather than a cryptic decode error.
+      const isReal = (b: string | null) => !!b && /^swapoffer1/i.test(b);
+      const takeable = resolved
+        .filter((r): r is { o: Order; blob: string } => isReal(r.blob))
+        // The list can't detect unshielded ownership without the blob; now that
+        // we have it, drop anything that turns out to be ours.
+        .filter(({ blob }) =>
+          !selfUnshieldedHex || !isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex))
+        .map(({ o, blob }) => ({ ...o, blob }));
+
+      if (takeable.length === 0) {
+        const vanished = resolved.some((r) => r.blob === null);
+        toast(
+          vanished
+            ? 'Those offers are no longer available — they may have just been taken.'
+            : resolved.some((r) => r.blob && !isReal(r.blob))
+              ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (swapoffer1…) offer to test taking."
+              : 'No live offer to take here.',
+        );
+        if (vanished) zapi.fetchOffers();
         return;
       }
       const n = takeable.length;
       const payAmt = takeable.reduce((s, o) => s + o.amtTo, 0);
       const recvAmt = takeable.reduce((s, o) => s + o.amtFrom, 0);
       // Settle each selected offer via the batcher, in book order.
-      const settle = (orders: Order[]) => async () => {
+      const settle = (orders: (Order & { blob: string })[]) => async () => {
         for (const o of orders) {
-          await takeOffer(o.blob!);
+          await takeOffer(o.blob);
           addTrade({
             kind: 'take',
             give: { sym: o.to, amt: o.amtTo },
@@ -542,6 +676,7 @@ export function useZSwapApp(): ZSwapApp {
             status: 'completed',
             shielded: false,
             blob: o.blob,
+            offerHash: o.offerHash ?? undefined,
           });
         }
       };
@@ -551,7 +686,7 @@ export function useZSwapApp(): ZSwapApp {
       // user can take part instead of nothing.
       const blocked = shortfallMessage(
         batchTakerShortfalls(
-          takeable.map((o) => o.blob!),
+          takeable.map((o) => o.blob),
           wstate?.shieldedBalances,
           wstate?.unshieldedBalances,
           NETWORK_ID as any,
@@ -561,7 +696,7 @@ export function useZSwapApp(): ZSwapApp {
       const okIdx = blocked
         ? new Set(
             affordableIndices(
-              takeable.map((o) => parseTakerLegs(o.blob!, NETWORK_ID as any)?.pays ?? []),
+              takeable.map((o) => parseTakerLegs(o.blob, NETWORK_ID as any)?.pays ?? []),
               wstate?.shieldedBalances,
               wstate?.unshieldedBalances,
             ),
@@ -587,7 +722,7 @@ export function useZSwapApp(): ZSwapApp {
         onConfirm: settle(takeable),
       });
     },
-    [toast, takeOffer, tradeWallet, addTrade, wstate, knownTokens],
+    [toast, takeOffer, tradeWallet, wstate, knownTokens, loadOfferBlob, selfUnshieldedHex, zapi],
   );
   const closeConfirm = useCallback(() => setPendingConfirm(null), []);
 
@@ -628,44 +763,61 @@ export function useZSwapApp(): ZSwapApp {
   const clearTrade = useCallback((id: string) => removeTrade(id), []);
   const clearAllTrades = useCallback(() => clearTrades(), []);
 
-  // Live order-book reconciliation: watch the blob set in each poll cycle.
-  //   not_public → open    when the blob first appears in the live book
-  //   open       → completed  when a previously-seen blob disappears from the book
-  const seenBlobs = useRef<Set<string>>(new Set());
+  // Live order-book reconciliation: watch the offer_hash set in each poll cycle.
+  //   not_public → open       when the hash first appears in the live book
+  //   open       → completed  when a previously-seen hash disappears from it
+  // Keyed on offer_hash now that the book is blob-free; trades recorded before
+  // content addressing have no hash and are reconciled at startup instead.
+  const seenHashes = useRef<Set<string>>(new Set());
   useEffect(() => {
     const offers = zapi.offers ?? [];
-    const live = new Set(offers.map((o) => o.transaction_hex).filter(Boolean) as string[]);
+    const live = new Set(offers.map((o) => o.offer_hash).filter(Boolean) as string[]);
     for (const t of listTrades()) {
-      if (t.kind !== 'create' || !t.blob) continue;
-      if (t.status === 'not_public' && live.has(t.blob)) {
-        seenBlobs.current.add(t.blob);
+      if (t.kind !== 'create' || !t.offerHash) continue;
+      if (t.status === 'not_public' && live.has(t.offerHash)) {
+        seenHashes.current.add(t.offerHash);
         updateTradeStatus(t.id, 'open');
-      } else if (t.status === 'open' && seenBlobs.current.has(t.blob) && !live.has(t.blob)) {
+      } else if (t.status === 'open' && seenHashes.current.has(t.offerHash) && !live.has(t.offerHash)) {
         updateTradeStatus(t.id, 'completed');
       } else {
-        // Track any live blob regardless of status so we detect future removal.
-        if (live.has(t.blob)) seenBlobs.current.add(t.blob);
+        // Track any live hash regardless of status so we detect future removal.
+        if (live.has(t.offerHash)) seenHashes.current.add(t.offerHash);
       }
     }
   }, [zapi.offers]);
 
   // Startup-only reconciliation: on first mount, ask the server for the
   // definitive status of every non-terminal created trade.
+  //
+  // Trades carrying an offer_hash use the cheap per-hash probe. Older records
+  // only stored the blob, so those go through the batched POST — the GET
+  // ?blob= form 414s at nginx for any real (16-25 KB) offer.
   useEffect(() => {
-    const blobs = listTrades()
-      .filter((t) => t.kind === 'create' && t.blob && t.status !== 'cancelled')
-      .map((t) => t.blob!);
-    if (blobs.length === 0) return;
-    api.fetchTradeStatuses(blobs).then((statusMap) => {
-      for (const t of listTrades()) {
-        if (t.kind !== 'create' || !t.blob) continue;
-        const srv = statusMap[t.blob];
-        if (!srv || srv === 'unknown') continue;
-        if (srv === 'completed' && t.status !== 'completed') updateTradeStatus(t.id, 'completed');
-        else if (srv === 'expired' && t.status !== 'expired') updateTradeStatus(t.id, 'expired');
-        else if (srv === 'open' && t.status === 'not_public') updateTradeStatus(t.id, 'open');
-      }
-    }).catch(() => { /* startup reconcile is best-effort */ });
+    const pending = listTrades().filter(
+      (t) => t.kind === 'create' && t.status !== 'cancelled' && (t.offerHash || t.blob),
+    );
+    if (pending.length === 0) return;
+
+    const apply = (t: MyTrade, srv: string | undefined) => {
+      if (!srv || srv === 'unknown' || srv === 'not_found') return;
+      if (srv === 'completed' && t.status !== 'completed') updateTradeStatus(t.id, 'completed');
+      else if (srv === 'expired' && t.status !== 'expired') updateTradeStatus(t.id, 'expired');
+      else if (srv === 'open' && t.status === 'not_public') updateTradeStatus(t.id, 'open');
+    };
+
+    const byHash = pending.filter((t) => t.offerHash);
+    const byBlob = pending.filter((t) => !t.offerHash && t.blob);
+
+    Promise.all([
+      Promise.all(
+        byHash.map(async (t) => apply(t, await api.getOfferStatusByHash(t.offerHash!))),
+      ),
+      byBlob.length > 0
+        ? api.fetchTradeStatuses(byBlob.map((t) => t.blob!)).then((statusMap) => {
+            for (const t of byBlob) apply(t, statusMap[t.blob!]);
+          })
+        : Promise.resolve(),
+    ]).catch(() => { /* startup reconcile is best-effort */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -717,6 +869,7 @@ export function useZSwapApp(): ZSwapApp {
     pendingConfirm,
     requestTake,
     requestTakeMany,
+    takePreparing,
     takerShortfall,
     closeConfirm,
     myTrades,
