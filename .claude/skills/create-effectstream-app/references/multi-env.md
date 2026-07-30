@@ -104,13 +104,13 @@ try {
 
 ## Phantom dependency every template needs
 
-`@midnight-ntwrk/midnight-js-utils` imports `@midnight-ntwrk/wallet-sdk-address-format` at runtime but does **not** declare it in its own `package.json`. The chain is: `@effectstream/orchestrator` → `@effectstream/db` → `@effectstream/sync` → `@midnight-ntwrk/midnight-js-indexer-public-data-provider` → `@midnight-ntwrk/midnight-js-utils` → (undeclared) `@midnight-ntwrk/wallet-sdk-address-format`.
+`@midnight-ntwrk/midnight-js-utils` imports `@midnightntwrk/wallet-sdk-address-format` at runtime but does **not** declare it in its own `package.json`. The chain is: `@effectstream/orchestrator` → `@effectstream/db` → `@effectstream/sync` → `@midnight-ntwrk/midnight-js-indexer-public-data-provider` → `@midnight-ntwrk/midnight-js-utils` → (undeclared) `@midnightntwrk/wallet-sdk-address-format`.
 
-In the engine monorepo this works because the package is hoisted. Standalone templates fail at runtime with `Cannot find module '@midnight-ntwrk/wallet-sdk-address-format'`. **Every template** (even non-Midnight ones) must add it to the root `package.json`:
+In the engine monorepo this works because the package is hoisted. Standalone templates fail at runtime with `Cannot find module '@midnightntwrk/wallet-sdk-address-format'`. **Every template** (even non-Midnight ones) must add it to the root `package.json`:
 
 ```json
 "dependencies": {
-  "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0"
+  "@midnightntwrk/wallet-sdk-address-format": "3.1.0"
 }
 ```
 

@@ -89,7 +89,7 @@ A Midnight contract defines private state transitions (`circuits`) and can choos
 
 **Example (`main.rs`):**
 ```rust
-pragma language_version 0.16;
+pragma language_version >= 0.18.0;
 
 import CompactStandardLibrary;
 
