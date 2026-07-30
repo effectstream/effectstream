@@ -1,4 +1,4 @@
-import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { Buffer } from "node:buffer";
 import { getEnv } from "@effectstream/utils/runtime";
 

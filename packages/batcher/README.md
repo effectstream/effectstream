@@ -16,11 +16,10 @@ bun add @effectstream/batcher-sdk
 npm install @effectstream/batcher-sdk
 ```
 
-> **Midnight fee wallets:** if you run the Midnight adapter, see
-> [DUST_SYNC_PATCH.md](./DUST_SYNC_PATCH.md). The dust wallet's sync batching is
-> hard-coded for browser responsiveness in the pinned SDK version; a small,
-> non-transitive patch is required to apply the batcher's backend tuning and
-> reduce its memory footprint. You must re-apply it in your own project.
+> **Midnight fee wallets:** the batcher tunes the dust wallet's sync batching
+> for backend throughput via the `batchUpdates` config (supported natively by
+> `@midnightntwrk/wallet-sdk-dust-wallet` >= 4.0.0). Override with the
+> `MIDNIGHT_DUST_SYNC_BATCH_{SIZE,TIMEOUT_MS,SPACING_MS}` env vars.
 
 ## Standalone usage
 

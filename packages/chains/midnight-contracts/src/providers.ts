@@ -9,9 +9,9 @@ import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-p
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import type { WalletProvider, MidnightProvider, MidnightProviders, UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
-import type { WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
+import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 import type { NetworkUrls } from "./types.ts";
-import type { UnshieldedKeystore } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
+import type { UnshieldedKeystore } from "@midnightntwrk/wallet-sdk-unshielded-wallet";
 import { CONSTANTS } from "./constants.ts";
 // import { Contract } from "@midnight-ntwrk/compact-js";
 import { getEnv } from "@effectstream/utils/runtime";

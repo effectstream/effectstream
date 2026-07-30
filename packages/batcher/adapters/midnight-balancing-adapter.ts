@@ -29,7 +29,7 @@ import type {
 import type { DefaultBatcherInput } from "../core/types.ts";
 import {
   type FinalizedTransaction,
-  Transaction as LedgerV6Transaction,
+  Transaction as LedgerTransaction,
   type UnprovenTransaction,
 } from "@midnight-ntwrk/ledger-v8";
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
@@ -40,7 +40,7 @@ import type {
 import type {
   BalancingRecipe,
   ShieldedTokenTransfer,
-} from "@midnight-ntwrk/wallet-sdk-facade";
+} from "@midnightntwrk/wallet-sdk-facade";
 import {
   getInitialDustState,
   getInitialShieldedState,
@@ -55,7 +55,7 @@ import {
 import * as Rx from "rxjs";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import type { NetworkId as WalletNetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { AdapterLogger } from "./adapter-logger.ts";
 import { WorkerPool } from "./worker-pool.ts";
 
@@ -569,7 +569,7 @@ export class MidnightBalancingAdapter
 
     if (txStage === "unbound") {
       return {
-        tx: LedgerV6Transaction.deserialize(
+        tx: LedgerTransaction.deserialize(
           "signature" as const,
           "proof" as const,
           "pre-binding" as const,
@@ -581,7 +581,7 @@ export class MidnightBalancingAdapter
     }
     if (txStage === "finalized") {
       return {
-        tx: LedgerV6Transaction.deserialize(
+        tx: LedgerTransaction.deserialize(
           "signature" as const,
           "proof" as const,
           "binding" as const,
@@ -593,7 +593,7 @@ export class MidnightBalancingAdapter
     }
     if (txStage === "unproven") {
       return {
-        tx: LedgerV6Transaction.deserialize(
+        tx: LedgerTransaction.deserialize(
           "signature" as const,
           "pre-proof" as const,
           "pre-binding" as const,
@@ -606,7 +606,7 @@ export class MidnightBalancingAdapter
     // Auto-detect: try unbound first, fall back to unproven
     try {
       return {
-        tx: LedgerV6Transaction.deserialize(
+        tx: LedgerTransaction.deserialize(
           "signature" as const,
           "proof" as const,
           "pre-binding" as const,
@@ -617,7 +617,7 @@ export class MidnightBalancingAdapter
       };
     } catch {
       return {
-        tx: LedgerV6Transaction.deserialize(
+        tx: LedgerTransaction.deserialize(
           "signature" as const,
           "pre-proof" as const,
           "pre-binding" as const,

@@ -12,7 +12,7 @@ import dotenv from "dotenv";
 import { parseArgs } from "node:util";
 import { shieldedToken } from "@midnight-ntwrk/ledger-v8";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import * as Rx from "rxjs";
 import type { NetworkUrls } from "./types.ts";
 import { midnightNetworkConfig } from "./midnight-env.ts";

@@ -1,6 +1,6 @@
 import type { ZswapSecretKeys, DustSecretKey } from "@midnight-ntwrk/ledger-v8";
-import type { WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
-import type { UnshieldedKeystore } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
+import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
+import type { UnshieldedKeystore } from "@midnightntwrk/wallet-sdk-unshielded-wallet";
 
 // ============================================================================
 // Types
