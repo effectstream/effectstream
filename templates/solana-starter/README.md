@@ -40,13 +40,14 @@ bun run dev
 
 Open the dApp at [http://localhost:5173](http://localhost:5173).
 
-The counter program is compiled from source on first run. `build/` is
-gitignored, so nothing pre-compiled ships with the template — `cargo-build-sbf`
-comes from `@effectstream/solana-node` and auto-installs the Solana
-platform-tools it needs, so no global Rust or Solana toolchain is required.
+`build/counter.so` is committed, so `bun run dev` needs no Rust or Solana
+toolchain — that is what `SKIP_SOLANA_BUILD=1`, the default, means: reuse the
+shipped binary. (The same convention as the NEAR test contract's committed
+`.wasm`; it also keeps CI off a multi-hundred-megabyte toolchain download.)
 
-Later runs reuse `build/counter.so` (that is what `SKIP_SOLANA_BUILD=1`, the
-default, means). To force a recompile:
+After editing `programs/counter/src/lib.rs` you must rebuild and commit the
+result. `cargo-build-sbf` comes from `@effectstream/solana-node` and
+auto-installs the platform-tools it needs, so still no global toolchain:
 
 ```sh
 bun run build:solana          # compile explicitly
@@ -55,10 +56,14 @@ SKIP_SOLANA_BUILD=0 bun run dev   # or recompile as part of `dev`
 
 ## Monorepo Development
 
-When developing inside the Effectstream monorepo, use `link.sh` instead of
-`bun install`. It installs npm dependencies and then symlinks all
-`@effectstream/*` packages (and the unpublished `@effectstream/solana-node`
-binary wrapper) to their local monorepo sources:
+`bun install` is all you need to run the template — every `@effectstream/*`
+package it uses, including the `@effectstream/solana-node` binary wrapper, is
+published to npm.
+
+Use `link.sh` only when developing **against unreleased engine changes** inside
+the Effectstream monorepo: it installs npm dependencies and then repoints all
+`@effectstream/*` packages at their local monorepo sources, so the template
+exercises your working tree instead of the published release:
 
 ```sh
 ./link.sh

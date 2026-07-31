@@ -44,6 +44,7 @@ export const ENABLED = [
   "batcher-validations",
   "night-bitcoin-v2",
   "hex-battle",
+  "solana-starter",
   // "chess-v2",        // TODO: migrate to effectstream-bun
   // "chess",           // TODO: migrate to effectstream-bun
   // "dice",            // TODO: migrate to effectstream-bun
