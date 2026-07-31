@@ -62,6 +62,7 @@ import {
 import {
   InMemoryTransactionHistoryStorage,
   NetworkId,
+  TransactionHistoryStorage,
 } from "@midnightntwrk/wallet-sdk-abstractions";
 import { Buffer } from "buffer";
 
@@ -139,7 +140,9 @@ function createWalletConfiguration(
     costParameters: {
       feeBlocksMargin: DUST_FEE_BLOCKS_MARGIN,
     },
-    txHistoryStorage: new InMemoryTransactionHistoryStorage(),
+    txHistoryStorage: new InMemoryTransactionHistoryStorage(
+      TransactionHistoryStorage.TransactionHistoryCommonSchema,
+    ),
   };
 }
 
