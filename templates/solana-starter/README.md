@@ -40,13 +40,14 @@ bun run dev
 
 Open the dApp at [http://localhost:5173](http://localhost:5173).
 
-The counter program is compiled from source on first run. `build/` is
-gitignored, so nothing pre-compiled ships with the template — `cargo-build-sbf`
-comes from `@effectstream/solana-node` and auto-installs the Solana
-platform-tools it needs, so no global Rust or Solana toolchain is required.
+`build/counter.so` is committed, so `bun run dev` needs no Rust or Solana
+toolchain — that is what `SKIP_SOLANA_BUILD=1`, the default, means: reuse the
+shipped binary. (The same convention as the NEAR test contract's committed
+`.wasm`; it also keeps CI off a multi-hundred-megabyte toolchain download.)
 
-Later runs reuse `build/counter.so` (that is what `SKIP_SOLANA_BUILD=1`, the
-default, means). To force a recompile:
+After editing `programs/counter/src/lib.rs` you must rebuild and commit the
+result. `cargo-build-sbf` comes from `@effectstream/solana-node` and
+auto-installs the platform-tools it needs, so still no global toolchain:
 
 ```sh
 bun run build:solana          # compile explicitly

@@ -69,11 +69,28 @@ function main() {
     },
   });
 
+  if (result.error != null || result.status == null) {
+    // spawnSync couldn't run it at all (status is undefined, not a number).
+    // Almost always: the vendored toolchain isn't on disk yet. It lives in
+    // @effectstream/solana-node's vendor/ dir, which is only populated when the
+    // validator binary downloads — i.e. when chain:start runs, AFTER this. CI
+    // hit exactly this and reported only "exited with status undefined".
+    console.error(
+      `[contracts-solana] could not execute ${bin}\n` +
+        `  ${result.error ?? "spawn failed"}\n` +
+        `\nbuild/counter.so is committed, so the normal path never needs this:\n` +
+        `run with SKIP_SOLANA_BUILD=1 (the default via start.dev.ts) to reuse it.\n` +
+        `To genuinely rebuild, start the validator once so\n` +
+        `@effectstream/solana-node downloads its vendored cargo-build-sbf, or put\n` +
+        `one on PATH.`,
+    );
+    process.exit(1);
+  }
   if (result.status !== 0) {
     console.error(
       `[contracts-solana] cargo-build-sbf exited with status ${result.status}`,
     );
-    process.exit(typeof result.status === "number" ? result.status : 1);
+    process.exit(result.status);
   }
 
   // The output is `<program_name>.so`. cargo-build-sbf names it after the
