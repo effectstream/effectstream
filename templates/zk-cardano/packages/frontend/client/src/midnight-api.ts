@@ -57,10 +57,12 @@ import {
   UnshieldedWallet,
   createKeystore,
   PublicKey,
-  InMemoryTransactionHistoryStorage,
   type UnshieldedKeystore,
 } from "@midnightntwrk/wallet-sdk-unshielded-wallet";
-import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
+import {
+  InMemoryTransactionHistoryStorage,
+  NetworkId,
+} from "@midnightntwrk/wallet-sdk-abstractions";
 import { Buffer } from "buffer";
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
