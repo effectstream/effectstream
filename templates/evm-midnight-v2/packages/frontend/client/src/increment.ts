@@ -59,10 +59,13 @@ import {
   UnshieldedWallet,
   createKeystore,
   PublicKey,
-  InMemoryTransactionHistoryStorage,
   type UnshieldedKeystore,
 } from "@midnightntwrk/wallet-sdk-unshielded-wallet";
-import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
+import {
+  InMemoryTransactionHistoryStorage,
+  NetworkId,
+  TransactionHistoryStorage,
+} from "@midnightntwrk/wallet-sdk-abstractions";
 import { Buffer } from "buffer";
 
 // ============================================================================
@@ -174,7 +177,9 @@ export function createWalletConfiguration(
     costParameters: {
       feeBlocksMargin: DUST_FEE_BLOCKS_MARGIN,
     },
-    txHistoryStorage: new InMemoryTransactionHistoryStorage(),
+    txHistoryStorage: new InMemoryTransactionHistoryStorage(
+      TransactionHistoryStorage.TransactionHistoryCommonSchema,
+    ),
   };
 }
 
