@@ -157,6 +157,11 @@ export interface ZSwapApp {
   // order book (your own offers excluded)
   orders: Order[];
   ordersLoading: boolean;
+  /** True while the book has further keyset pages to fetch. */
+  hasMoreOrders: boolean;
+  /** Append the next page. Explicit click-to-load — the book does not
+   *  auto-paginate, so a deep book never silently fans out into many requests. */
+  loadMoreOrders: () => void;
   knownTokens: KnownToken[];
   refetchOffers: () => void;
   refetchTokens: () => void;
@@ -887,6 +892,8 @@ export function useZSwapApp(): ZSwapApp {
     localWalletAvailable: network === LOCAL_WALLET_NETWORK,
     orders,
     ordersLoading: zapi.loading,
+    hasMoreOrders: zapi.hasMore,
+    loadMoreOrders: zapi.loadMore,
     knownTokens,
     refetchOffers: zapi.fetchOffers,
     refetchTokens,

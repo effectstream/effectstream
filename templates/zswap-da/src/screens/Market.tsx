@@ -401,7 +401,19 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
             </div>
 
             {!realDepth ? (
-              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>{st.ordersLoading ? 'Loading order book…' : 'No open orders for this pair yet.'}</div>
+              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>
+                {st.ordersLoading ? 'Loading order book…' : 'No open orders for this pair yet.'}
+                {/* Pages span all pairs, so this pair's orders may simply be on
+                    a later page — offer the control here too, not only under a
+                    populated ladder. */}
+                {!st.ordersLoading && st.hasMoreOrders && (
+                  <div style={{ marginTop: 14 }}>
+                    <button className="zs-btn" onClick={() => st.loadMoreOrders()} style={{ fontSize: 12.5, padding: '7px 14px' }}>
+                      Load more offers
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 {view !== 'bids' && asks.map((r, i) => <Row key={'a' + i} r={r} side="ask" idx={i} />)}
@@ -412,6 +424,23 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                 </div>
 
                 {view !== 'asks' && bids.map((r, i) => <Row key={'b' + i} r={r} side="bid" idx={i} />)}
+
+                {/* The book is keyset-paginated and does NOT auto-paginate: a
+                    deep book would otherwise fan out into many requests against
+                    a 60 req/min budget. One page per click, explicitly. Pages
+                    span all pairs, so a page may add nothing to this ladder. */}
+                {st.hasMoreOrders && (
+                  <div style={{ padding: '10px 12px', borderTop: '1px solid var(--line-2)', textAlign: 'center' }}>
+                    <button
+                      className="zs-btn"
+                      onClick={() => st.loadMoreOrders()}
+                      disabled={st.ordersLoading}
+                      style={{ fontSize: 12.5, padding: '7px 14px' }}
+                    >
+                      {st.ordersLoading ? 'Loading…' : 'Load more offers'}
+                    </button>
+                  </div>
+                )}
 
                 {summary ? (
                   <div style={{ padding: '14px 16px', borderTop: '1px solid var(--line)', background: summary.preview ? 'var(--surface-2)' : 'var(--accent-soft)' }}>

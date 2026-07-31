@@ -28,17 +28,36 @@ function offerName(t: MyTrade) {
 function StatusBadge({ status }: { status: MyTrade['status'] }) {
   // Keyed on MyTradeStatus (not `string`) so renaming a status is a type error
   // here rather than a silent fallback to the "Not public" badge.
-  const map: Record<MyTrade['status'], { c: string; bg: string; label: string }> = {
-    not_public: { c: 'var(--ink-3)', bg: 'var(--surface-2)', label: 'Not public' },
-    live:       { c: 'var(--pos)', bg: 'var(--pos-soft)', label: 'Live' },
-    consumed:   { c: 'var(--accent)', bg: 'var(--accent-soft)', label: 'Filled' },
-    // Maker spent the inputs elsewhere — distinct from a fill, and definitive
-    // (settlement is atomic, so a partial/multi-tx spend can only be a cancel).
-    cancelled:  { c: 'var(--ink-3)', bg: 'var(--surface-3)', label: 'Cancelled' },
-    expired:    { c: 'var(--warn)', bg: 'var(--warn-soft)', label: 'Expired' },
+  const map: Record<MyTrade['status'], { c: string; bg: string; label: string; hint?: string }> = {
+    not_public: {
+      c: 'var(--ink-3)', bg: 'var(--surface-2)', label: 'Not public',
+      hint: 'Posted to Celestia, not yet visible in the order book. This usually takes seconds to about a minute.',
+    },
+    live: {
+      c: 'var(--pos)', bg: 'var(--pos-soft)', label: 'Live',
+      hint: 'On the order book and takeable.',
+    },
+    // "Filled" is INFERRED, not proven. The node classifies an archived offer as
+    // a fill when every input nullifier was observed spent and they all share
+    // one transaction hash. That is consistent with a settlement but does not
+    // prove one: a maker who spends all of the offer's inputs in a single
+    // unrelated transaction looks identical. It can also flip while the indexer
+    // is still catching up on nullifiers. Say so rather than implying certainty.
+    consumed: {
+      c: 'var(--accent)', bg: 'var(--accent-soft)', label: 'Filled',
+      hint: 'Inferred, not guaranteed: every input was spent in a single transaction, which is what a settlement looks like. A maker spending all the same inputs in one unrelated transaction is indistinguishable. Check the settlement on-chain if it matters.',
+    },
+    cancelled: {
+      c: 'var(--ink-3)', bg: 'var(--surface-3)', label: 'Cancelled',
+      hint: "The offer's inputs were spent across different transactions, or only partly — so the maker spent the coins elsewhere rather than the offer being taken.",
+    },
+    expired: {
+      c: 'var(--warn)', bg: 'var(--warn-soft)', label: 'Expired',
+      hint: 'The offer’s time-to-live elapsed before anyone took it.',
+    },
   };
   const s = map[status] ?? map.not_public;
-  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: s.c, background: s.bg, borderRadius: 'var(--r-pill)', padding: '4px 10px', whiteSpace: 'nowrap' }}><Icon.dot /> {s.label}</span>;
+  return <span title={s.hint} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: s.c, background: s.bg, borderRadius: 'var(--r-pill)', padding: '4px 10px', whiteSpace: 'nowrap', cursor: s.hint ? 'help' : undefined }}><Icon.dot /> {s.label}</span>;
 }
 
 function Cell({ amt, sym, accent }: { amt: number; sym: string; accent?: boolean }) {
