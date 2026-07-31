@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import nodePolyfills from "vite-plugin-node-stdlib-browser";
+import wasm from "vite-plugin-wasm";
 import path from "node:path";
 
 export default defineConfig({
@@ -36,5 +37,6 @@ export default defineConfig({
   plugins: [
     react(),
     nodePolyfills(),
+    wasm(),
   ],
 });
