@@ -49,7 +49,7 @@ export const ENABLED = [
   // "chess",           // TODO: migrate to effectstream-bun
   // "dice",            // TODO: migrate to effectstream-bun
   // "evm-midnight",    // TODO: migrate to effectstream-bun
-  // "minimal",         // TODO: migrate to effectstream-bun
+  "minimal",
   // "multi-chain-token-transfer", // TODO: migrate to effectstream-bun
   // "rock-paper-scissors", // TODO: migrate to effectstream-bun
   "world-map-2d",
