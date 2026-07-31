@@ -46,7 +46,7 @@ bun run scripts/build-contract.ts --update-manifest
 ```
 
 Then redeploy the contract in the backend repo and make sure
-`GET /api/midnight/config` reports the new address. Updating the manifest alone
+`GET /v1/midnight/config` reports the new address. Updating the manifest alone
 just means this app confidently builds bindings for a contract nobody is
 running.
 

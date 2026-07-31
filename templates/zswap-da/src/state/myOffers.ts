@@ -2,7 +2,7 @@
 // (you can't take your own offer). Shielded offers are anonymous on-chain, so
 // the only reliable "mine" signal for them is what we created locally.
 //
-// Keyed by `offer_hash` (hex sha256 of the raw MIP-0005 transaction bytes),
+// Keyed by `offerId` (hex sha256 of the raw MIP-0005 transaction bytes),
 // which is what the blob-free order book now carries. Entries written by older
 // builds were keyed by the full bech32m blob; those are kept and still match, so
 // trades made before this migration don't lose their "mine" marking.
@@ -30,8 +30,8 @@ function persist(s: Set<string>): void {
 }
 
 /**
- * Record an offer this browser created. Pass the `offer_hash` returned by
- * `POST /api/zswap/submit`; the blob is also accepted so legacy callers and
+ * Record an offer this browser created. Pass the `offerId` returned by
+ * `POST /v1/offers`; the blob is also accepted so legacy callers and
  * pre-migration records keep working.
  */
 export function addMyOffer(key: string | null | undefined): void {

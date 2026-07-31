@@ -1,6 +1,6 @@
 // Place Order — ported from the mock's swap.jsx SwapPanel, wired to reality:
 //  - tokens come from the known-tokens registry (TokenPicker)
-//  - rate / market / discount / sponsorship / USD come from GET /api/quote
+//  - rate / market / discount / sponsorship / USD come from GET /v1/quote
 //  - "Create order" builds a real maker offer (st.createOffer → makeIntent +
 //    encodeOffer + submit) and records it locally so it's excluded from books
 //

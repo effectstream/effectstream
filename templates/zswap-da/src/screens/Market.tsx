@@ -1,7 +1,7 @@
 // Order book tab — pair header + 24h stats + depth book (asks/bids, click-to-
 // select range → Take) + trade history. Pair discovery AND the order-book ladder
 // (price / amount / total) are built from REAL open offers (st.orders); only the
-// 24h stats + trade history still come from the backend GET /api/chart/** routes.
+// 24h stats + trade history still come from the backend GET /v1/chart/** routes.
 // Selecting price levels and pressing "Take" settles the underlying real offers
 // via the shared confirm dialog (st.requestTakeMany); your own offers are
 // skipped (you can't take your own ZSwap).
@@ -89,7 +89,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
     return () => document.removeEventListener('pointerdown', off);
   }, []);
 
-  // Pairs from /api/pairs (pair_stats projection + live open count). Includes
+  // Pairs from /v1/pairs (pair_stats projection + live open count). Includes
   // pairs with no current open orders as long as they have trade history.
   // Refreshed every 30 s so the list stays reasonably current.
   const [apiPairs, setApiPairs] = useState<PairInfo[]>([]);
@@ -101,7 +101,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
-  // Name-resolve the color pairs from /api/pairs and merge with live orders to
+  // Name-resolve the color pairs from /v1/pairs and merge with live orders to
   // mark "mine". Falls back to the live order set for pairs not yet in pair_stats.
   const liquidPairs = useMemo(() => {
     const nameOf = (color: string) =>

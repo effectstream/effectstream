@@ -39,7 +39,7 @@ export function useContract(connectedApi: ConnectedAPI | null) {
     setLoading(true);
     setError(null);
     const promise = (async () => {
-      console.log('[useContract] fetching /api/midnight/config');
+      console.log('[useContract] fetching /v1/midnight/config');
       const cfg = await api.getMidnightConfig();
       setConfig(cfg);
       const walletStatus = await connectedApi.getConnectionStatus();

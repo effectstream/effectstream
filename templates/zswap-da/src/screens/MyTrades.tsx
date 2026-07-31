@@ -26,12 +26,16 @@ function offerName(t: MyTrade) {
 }
 
 function StatusBadge({ status }: { status: MyTrade['status'] }) {
-  const map: Record<string, { c: string; bg: string; label: string }> = {
+  // Keyed on MyTradeStatus (not `string`) so renaming a status is a type error
+  // here rather than a silent fallback to the "Not public" badge.
+  const map: Record<MyTrade['status'], { c: string; bg: string; label: string }> = {
     not_public: { c: 'var(--ink-3)', bg: 'var(--surface-2)', label: 'Not public' },
-    open:       { c: 'var(--pos)', bg: 'var(--pos-soft)', label: 'Open' },
-    completed:  { c: 'var(--accent)', bg: 'var(--accent-soft)', label: 'Completed' },
-    expired:    { c: 'var(--warn)', bg: 'var(--warn-soft)', label: 'Expired' },
+    live:       { c: 'var(--pos)', bg: 'var(--pos-soft)', label: 'Live' },
+    consumed:   { c: 'var(--accent)', bg: 'var(--accent-soft)', label: 'Filled' },
+    // Maker spent the inputs elsewhere — distinct from a fill, and definitive
+    // (settlement is atomic, so a partial/multi-tx spend can only be a cancel).
     cancelled:  { c: 'var(--ink-3)', bg: 'var(--surface-3)', label: 'Cancelled' },
+    expired:    { c: 'var(--warn)', bg: 'var(--warn-soft)', label: 'Expired' },
   };
   const s = map[status] ?? map.not_public;
   return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: s.c, background: s.bg, borderRadius: 'var(--r-pill)', padding: '4px 10px', whiteSpace: 'nowrap' }}><Icon.dot /> {s.label}</span>;
@@ -49,7 +53,7 @@ function Cell({ amt, sym, accent }: { amt: number; sym: string; accent?: boolean
 
 export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
   const trades = st.myTrades;
-  const [filter, setFilter] = useState<'all' | 'open' | 'completed' | 'expired'>('all');
+  const [filter, setFilter] = useState<'all' | 'live' | 'consumed' | 'cancelled' | 'expired'>('all');
   const [viewing, setViewing] = useState<MyTrade | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [dump, setDump] = useState('');
@@ -59,12 +63,16 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
 
   const counts = {
     all: trades.length,
-    open: trades.filter((t) => t.status === 'open' || t.status === 'not_public').length,
-    completed: trades.filter((t) => t.status === 'completed').length,
+    live: trades.filter((t) => t.status === 'live' || t.status === 'not_public').length,
+    // The node now distinguishes a genuine fill (all inputs spent in ONE
+    // settlement tx) from a cancel (the maker spent the coins elsewhere).
+    // The old API lumped both into "completed"; keep them apart here.
+    consumed: trades.filter((t) => t.status === 'consumed').length,
+    cancelled: trades.filter((t) => t.status === 'cancelled').length,
     expired: trades.filter((t) => t.status === 'expired').length,
   };
   const rows = filter === 'all' ? trades
-    : filter === 'open' ? trades.filter((t) => t.status === 'open' || t.status === 'not_public')
+    : filter === 'live' ? trades.filter((t) => t.status === 'live' || t.status === 'not_public')
     : trades.filter((t) => t.status === filter);
 
   const doImport = async () => {
@@ -83,7 +91,7 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
 
   const filterSeg = (
     <div className="zs-seg" style={{ background: 'var(--bg-tint)' }}>
-      {([['all', 'All'], ['open', 'Open'], ['completed', 'Completed'], ['expired', 'Expired']] as const).map(([id, lbl]) => (
+      {([['all', 'All'], ['live', 'Live'], ['consumed', 'Filled'], ['cancelled', 'Cancelled'], ['expired', 'Expired']] as const).map(([id, lbl]) => (
         <button key={id} className="zs-nav-tab" aria-selected={filter === id} onClick={() => setFilter(id)}
           style={filter === id ? { background: 'var(--surface)', color: 'var(--ink)', boxShadow: '0 1px 3px rgba(10,12,20,.08)' } : { background: 'transparent', color: 'var(--ink-2)' }}>
           {lbl} <span className="zs-num" style={{ color: 'var(--ink-3)', fontWeight: 600 }}>{counts[id]}</span>
