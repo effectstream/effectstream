@@ -21,6 +21,23 @@ import type { KnownToken } from '../types';
 import type { OfferLeg } from '../services/makerOffer';
 import type { ZSwapApp } from '../state/useZSwapApp';
 
+/**
+ * Parse a typed amount into exact integer base units.
+ *
+ * Returns null for anything that isn't a whole non-negative number — including
+ * decimals, which the ledger has no notion of. Rejecting them here beats
+ * `BigInt(1.5)` throwing a bare RangeError from inside the submit path.
+ */
+function parseUnits(raw: string): bigint | null {
+  const s = raw.trim().replace(/[,_\s]/g, '');
+  if (!/^\d+$/.test(s)) return null;
+  try {
+    return BigInt(s);
+  } catch {
+    return null;
+  }
+}
+
 const intize = (v: string) => v.replace(/[^0-9]/g, '');
 
 function RateInline({ value }: { value: number }) {
@@ -88,20 +105,31 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestPayPicker]);
 
-  const pay = Number(payAmt) || 0;
-  const recv = Number(recvAmt) || 0;
+  // Amounts are parsed straight from the input STRING to bigint. Going via
+  // Number() first would silently round anything past 2^53 (a double's exact
+  // integer range) and the BigInt() afterwards would faithfully preserve the
+  // corrupted value — so the wallet would build an offer for an amount the user
+  // never typed. Ledger amounts are u128 integer base units, so a plain decimal
+  // string is the whole grammar.
+  const payBig = parseUnits(payAmt);
+  const recvBig = parseUnits(recvAmt);
   const bothSel = !!(from && to);
   const sameKind = from && to ? from.kind === to.kind : true;
   const bothShielded = !!(from && to && from.kind === 'shielded' && to.kind === 'shielded');
 
+  // Canonical decimal strings — the quote endpoint takes strings, so the whole
+  // path stays exact with no double round-trip.
+  const payStr = payBig?.toString() ?? '';
+  const recvStr = recvBig?.toString() ?? '';
+
   // Debounced quote. recvDep keeps auto-mode from looping on its own recv writes.
-  const recvDep = autoPrice ? '' : String(recv);
+  const recvDep = autoPrice ? '' : recvStr;
   useEffect(() => {
-    if (!from || !to || pay <= 0 || !sameKind) { setQuote(null); return; }
+    if (!from || !to || payBig === null || payBig <= 0n || !sameKind) { setQuote(null); return; }
     let cancelled = false;
     const id = setTimeout(async () => {
       try {
-        const qres = await api.getQuote(from.token_color, to.token_color, String(pay), autoPrice ? undefined : (recv > 0 ? String(recv) : undefined));
+        const qres = await api.getQuote(from.token_color, to.token_color, payStr, autoPrice ? undefined : (recvBig && recvBig > 0n ? recvStr : undefined));
         if (cancelled) return;
         setQuote(qres);
         if (autoPrice) setRecvAmt(qres.suggested_to_amount);
@@ -111,7 +139,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     }, 300);
     return () => { cancelled = true; clearTimeout(id); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from?.token_color, to?.token_color, pay, autoPrice, sameKind, recvDep]);
+  }, [from?.token_color, to?.token_color, payStr, autoPrice, sameKind, recvDep]);
 
   const doSwitch = () => {
     setFrom(to); setTo(from);
@@ -122,15 +150,17 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     setError(null);
     if (!from || !to) return;
     if (!sameKind) { setError('Both tokens must be the same privacy kind (all shielded or all unshielded).'); return; }
-    if (pay <= 0 || recv <= 0) { setError('Enter both amounts.'); return; }
+    if (payAmt.trim() !== '' && payBig === null) { setError('Amounts are whole base units — no decimals or separators.'); return; }
+    if (recvAmt.trim() !== '' && recvBig === null) { setError('Amounts are whole base units — no decimals or separators.'); return; }
+    if (payBig === null || recvBig === null || payBig <= 0n || recvBig <= 0n) { setError('Enter both amounts.'); return; }
     setPosting(true);
     let phase = 'Building offer in wallet…';
     const onStatus = (s: string) => { phase = s; setPostStatus(s); log.info('[create-offer]', s); };
     onStatus(phase);
     try {
-      const gives: OfferLeg[] = [{ kind: from.kind, color: from.token_color, amount: BigInt(pay) }];
-      const wants: OfferLeg[] = [{ kind: to.kind, color: to.token_color, amount: BigInt(recv) }];
-      log.info('[create-offer] start', { pay, recv, from: from.name, to: to.name, kind: from.kind, fromColor: from.token_color, toColor: to.token_color });
+      const gives: OfferLeg[] = [{ kind: from.kind, color: from.token_color, amount: payBig }];
+      const wants: OfferLeg[] = [{ kind: to.kind, color: to.token_color, amount: recvBig }];
+      log.info('[create-offer] start', { pay: payBig.toString(), recv: recvBig.toString(), from: from.name, to: to.name, kind: from.kind, fromColor: from.token_color, toColor: to.token_color });
       // Bound the whole flow so a hung wallet/proof step can't sit on "Creating…"
       // forever — surface a clear, retryable error naming the phase it stuck on.
       await Promise.race([
@@ -151,9 +181,13 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     }
   };
 
-  // Maker can only offer to pay tokens it holds.
+  // Maker can only offer to pay tokens it holds. Compared in bigint: balances
+  // are raw integer strings, so Number() on either side could round two
+  // distinct amounts onto the same double and let an unaffordable offer through
+  // this gate. (createOffer re-checks authoritatively in bigint regardless.)
   const payBalance = balanceFor(st, from);
-  const insufficientPay = !!from && pay > 0 && Number(payBalance ?? 0) < pay;
+  const payBalanceBig = parseUnits(String(payBalance ?? '0')) ?? 0n;
+  const insufficientPay = !!from && payBig !== null && payBig > 0n && payBalanceBig < payBig;
 
   // primary button state machine (mirrors the mock)
   let label = 'Connect wallet';
@@ -163,8 +197,10 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     if (!st.canTrade) { label = 'Use the browser wallet (Lace) to create offers'; disabled = true; action = () => {}; }
     else if (!bothSel) { label = 'Select tokens'; disabled = true; action = () => {}; }
     else if (!sameKind) { label = 'Tokens must share privacy kind'; disabled = true; action = () => {}; }
-    else if (pay <= 0) { label = 'Enter the amount you pay'; disabled = true; action = () => {}; }
-    else if (recv <= 0) { label = 'Enter the amount you want'; disabled = true; action = () => {}; }
+    else if (payAmt.trim() !== '' && payBig === null) { label = 'Whole base units only'; disabled = true; action = () => {}; }
+    else if (recvAmt.trim() !== '' && recvBig === null) { label = 'Whole base units only'; disabled = true; action = () => {}; }
+    else if (payBig === null || payBig <= 0n) { label = 'Enter the amount you pay'; disabled = true; action = () => {}; }
+    else if (recvBig === null || recvBig <= 0n) { label = 'Enter the amount you want'; disabled = true; action = () => {}; }
     else if (insufficientPay) { label = `Insufficient ${from!.name}`; disabled = true; action = () => {}; }
     else if (posting) { label = postStatus || 'Creating…'; disabled = true; action = () => {}; }
     else if (quote && !quote.sponsored) { label = 'Create offer file'; action = post; }
@@ -192,7 +228,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
               {!compact && <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{autoPrice ? '· balances at the best fillable price' : '· set your own price'}</span>}
             </label>
 
-            {pay > 0 && recv > 0 && quote && (
+            {payBig !== null && payBig > 0n && recvBig !== null && recvBig > 0n && quote && (
               <>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '4px 14px', fontSize: 13 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}><Icon.shield style={{ color: 'var(--accent)', flex: '0 0 auto' }} /> Your rate · 1 {from!.name} = <RateInline value={quote.implied_rate ?? 0} /> {to!.name}</span>
@@ -220,7 +256,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
 
         <button className={'zs-btn zs-btn--block' + (!disabled ? ' zs-btn--primary' : '')} onClick={action} disabled={disabled}
           style={{ marginTop: 8, padding: compact ? 13 : undefined, fontSize: compact ? 15 : undefined, opacity: disabled ? 0.5 : 1, cursor: disabled ? 'default' : 'pointer', background: disabled ? 'var(--surface-2)' : undefined, color: disabled ? 'var(--ink-3)' : undefined, boxShadow: disabled ? 'none' : undefined }}>
-          {st.wallet && bothShielded && pay > 0 && recv > 0 && <Icon.shield />} {label}
+          {st.wallet && bothShielded && payBig !== null && payBig > 0n && recvBig !== null && recvBig > 0n && <Icon.shield />} {label}
         </button>
 
         {error && <div style={{ fontSize: 12.5, color: 'var(--neg)', lineHeight: 1.45, wordBreak: 'break-word', marginTop: 4 }}>{error}</div>}
