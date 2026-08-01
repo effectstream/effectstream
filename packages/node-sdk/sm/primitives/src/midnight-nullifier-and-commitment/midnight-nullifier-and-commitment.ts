@@ -16,28 +16,40 @@ import type {
   ProtocolPrimitiveMap,
 } from "@effectstream/config";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
-import { PrimitiveTypeMidnightNullifier } from "../builtin.ts";
-import { midnightNullifierGrammar } from "./midnight-nullifier-grammar.ts";
+import { PrimitiveTypeMidnightNullifierAndCommitment } from "../builtin.ts";
+import { midnightNullifierAndCommitmentGrammar } from "./midnight-nullifier-and-commitment-grammar.ts";
+
+/** Which zswap ledger event kinds the primitive emits. */
+export type MidnightZswapCapture = "nullifiers" | "commitments" | "both";
 
 /**
- * MidnightNullifierPrimitive
+ * MidnightNullifierAndCommitmentPrimitive
  *
- * Watches all ZswapInput (nullifier-spend) events on the Midnight shielded
- * ledger.  One state-machine input is emitted per nullifier event observed in
- * a block, regardless of which contract produced it.
+ * Watches ZswapInput (nullifier-spend) and ZswapOutput (commitment-create)
+ * events on the Midnight shielded ledger.  Both event kinds arrive in the
+ * same indexer field (`zswapLedgerEvents`), so tracking both costs no extra
+ * indexer queries.  One state-machine input is emitted per event observed in
+ * a block, regardless of which contract produced it.  The `capture` option
+ * selects which kinds are emitted (default: both).
  *
  * Usage:
  *   stm.addStateTransition("myPrefix", function* (data) {
  *     const { payload } = data.parsedInput;
- *     // payload = { nullifier, txHash, eventId, logicalSegment }
+ *     if (payload.kind === "nullifier") {
+ *       // { kind, nullifier, txHash, eventId, logicalSegment, contract? }
+ *     } else {
+ *       // { kind, commitment, mtIndex, txHash, eventId, logicalSegment, contract? }
+ *     }
  *   });
  */
-export class MidnightNullifierPrimitive extends Primitive<
+export class MidnightNullifierAndCommitmentPrimitive extends Primitive<
   ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
-  typeof midnightNullifierGrammar
+  typeof midnightNullifierAndCommitmentGrammar
 > {
-  readonly internalTypeName = PrimitiveTypeMidnightNullifier;
-  override readonly grammar = midnightNullifierGrammar;
+  readonly internalTypeName = PrimitiveTypeMidnightNullifierAndCommitment;
+  override readonly grammar = midnightNullifierAndCommitmentGrammar;
+
+  readonly capture: MidnightZswapCapture;
 
   override dynamicTables = undefined;
   override getIntermediatePrefix(): string[] {
@@ -51,8 +63,11 @@ export class MidnightNullifierPrimitive extends Primitive<
     instanceName: string;
     startBlockHeight: number;
     stateMachinePrefix: string;
+    /** Which zswap event kinds to emit. Default: "both". */
+    capture?: MidnightZswapCapture;
   }) {
     super(config);
+    this.capture = config.capture ?? "both";
   }
 
   override *getPayload(
@@ -65,12 +80,19 @@ export class MidnightNullifierPrimitive extends Primitive<
     data: {
       fromAddressAndType: AddressAndType;
       stateMachinePayload:
-        | StaticDecode<CommandTuple<string, typeof midnightNullifierGrammar>>
+        | StaticDecode<
+          CommandTuple<string, typeof midnightNullifierAndCommitmentGrammar>
+        >
         | null;
-      accountingPayload: ParamToData<typeof midnightNullifierGrammar>;
+      accountingPayload: ParamToData<
+        typeof midnightNullifierAndCommitmentGrammar
+      >;
     }[];
   }> {
-    const payload = primitiveTransactionData.output.payload;
+    // The sync-protocol payload map types Midnight payloads as Record<string, any>;
+    // the fetcher's fetchZswapEvents builds exactly the grammar's payload shape.
+    const payload = primitiveTransactionData.output
+      .payload as ParamToData<typeof this.grammar>["payload"];
 
     const accountingPayload: ParamToData<typeof this.grammar> = {
       payload,
@@ -109,6 +131,7 @@ export class MidnightNullifierPrimitive extends Primitive<
       type: this.internalTypeName,
       startBlockHeight: this.startBlockHeight,
       scheduledPrefix: this.stateMachinePrefix ?? "",
+      capture: this.capture,
     } as const;
   }
 }

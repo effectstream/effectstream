@@ -1,7 +1,7 @@
 // list of built-in primitives
 // this list is exposed to the effectstream-sdk modules via the @effectstream/sm/builtin module
 export const PrimitiveTypeMidnightGeneric = "Midnight:Generic" as const;
-export const PrimitiveTypeMidnightNullifier = "Midnight:Nullifier" as const;
+export const PrimitiveTypeMidnightNullifierAndCommitment = "Midnight:NullifierAndCommitment" as const;
 export const PrimitiveTypeMidnightUnshieldedSpend = "Midnight:UnshieldedSpend" as const;
 export const PrimitiveTypeMidnightUnshieldedCreate = "Midnight:UnshieldedCreate" as const;
 export const PrimitiveTypeMidnightZswapRoot = "Midnight:ZswapRoot" as const;
@@ -38,7 +38,7 @@ export const PrimitiveTypeSolanaAccountBalance = "SOLANA:AccountBalance" as cons
 
 type BuiltInPrimitives =
     typeof PrimitiveTypeMidnightGeneric |
-    typeof PrimitiveTypeMidnightNullifier |
+    typeof PrimitiveTypeMidnightNullifierAndCommitment |
     typeof PrimitiveTypeMidnightUnshieldedSpend |
     typeof PrimitiveTypeMidnightUnshieldedCreate |
     typeof PrimitiveTypeMidnightZswapRoot |

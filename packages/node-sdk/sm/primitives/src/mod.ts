@@ -1,6 +1,6 @@
 import {
   PrimitiveTypeMidnightGeneric,
-  PrimitiveTypeMidnightNullifier,
+  PrimitiveTypeMidnightNullifierAndCommitment,
   PrimitiveTypeMidnightUnshieldedSpend,
   PrimitiveTypeMidnightUnshieldedCreate,
   PrimitiveTypeMidnightZswapRoot,
@@ -30,7 +30,8 @@ import {
 } from "./builtin.ts";
 
 import { MidnightGenericPrimitive } from "./midnight-generic/midnight-genetic.ts";
-import { MidnightNullifierPrimitive } from "./midnight-nullifier/midnight-nullifier.ts";
+import { MidnightNullifierAndCommitmentPrimitive } from "./midnight-nullifier-and-commitment/midnight-nullifier-and-commitment.ts";
+export type { MidnightZswapCapture } from "./midnight-nullifier-and-commitment/midnight-nullifier-and-commitment.ts";
 import { MidnightUnshieldedSpendPrimitive } from "./midnight-unshielded-spend/midnight-unshielded-spend.ts";
 import { MidnightUnshieldedCreatePrimitive } from "./midnight-unshielded-create/midnight-unshielded-create.ts";
 import { MidnightZswapRootPrimitive } from "./midnight-zswap-root/midnight-zswap-root.ts";
@@ -60,7 +61,7 @@ import { CardanoProjectedNftPrimitive } from "./cardano-projected-nft/projected-
 
 const builtInPrimitivesMap = {
   [PrimitiveTypeMidnightGeneric]: MidnightGenericPrimitive,
-  [PrimitiveTypeMidnightNullifier]: MidnightNullifierPrimitive,
+  [PrimitiveTypeMidnightNullifierAndCommitment]: MidnightNullifierAndCommitmentPrimitive,
   [PrimitiveTypeMidnightUnshieldedSpend]: MidnightUnshieldedSpendPrimitive,
   [PrimitiveTypeMidnightUnshieldedCreate]: MidnightUnshieldedCreatePrimitive,
   [PrimitiveTypeMidnightZswapRoot]: MidnightZswapRootPrimitive,
@@ -95,7 +96,7 @@ export {
 
   // Built-in Primitives
   MidnightGenericPrimitive,
-  MidnightNullifierPrimitive,
+  MidnightNullifierAndCommitmentPrimitive,
   MidnightUnshieldedSpendPrimitive,
   MidnightUnshieldedCreatePrimitive,
   MidnightZswapRootPrimitive,

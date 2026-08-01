@@ -101,6 +101,12 @@ type MidnightPrimitive = BasePrimitive & {
     ledger: (data: StateValue) => Record<string, any>;
   };
   /**
+   * For Midnight:NullifierAndCommitment — which zswap ledger event kinds to
+   * emit. Both kinds arrive in the same indexer response either way.
+   * Default: "both".
+   */
+  capture?: "nullifiers" | "commitments" | "both";
+  /**
    * Parses ledger fields defined in `ledgerSchema` from the raw Midnight StateValue.
    * Present only when the primitive is constructed with a `ledgerSchema`.
    */

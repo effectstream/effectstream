@@ -51,7 +51,7 @@ A primitive that maintains a table for you **still triggers your state machine**
 | **`PrimitiveTypeEVMERC721`** | EVM | Tracks `Transfer` events for an ERC721 NFT and maintains ownership tables. |
 | **`PrimitiveTypeEVMERC1155`**| EVM | Tracks `TransferSingle` and `TransferBatch` events for an ERC1155 token. |
 | **`PrimitiveTypeMidnightGeneric`**| Midnight | Monitors the public `ledger` state of a Midnight ZK contract for changes. |
-| **`PrimitiveTypeMidnightNullifier`** | Midnight | Emits each shielded coin nullifier (spend) as it is consumed on chain. |
+| **`PrimitiveTypeMidnightNullifierAndCommitment`** | Midnight | Emits each shielded coin nullifier (spend) and/or commitment (create) as they occur on chain; filter with `capture`. |
 | **`PrimitiveTypeMidnightUnshieldedSpend`** | Midnight | Emits each unshielded UTXO spend as an `(owner, intentHash, outputIndex)` triple. |
 | **`PrimitiveTypeMidnightUnshieldedCreate`** | Midnight | Emits each unshielded UTXO **created** on chain (regular **and** system transactions) — the existence counterpart of `UnshieldedSpend`. |
 | **`PrimitiveTypeMidnightZswapRoot`** | Midnight | Emits the zswap coin-commitment Merkle tree **root** as it advances (the latest `zswapMerkleTreeRoot` per block). |

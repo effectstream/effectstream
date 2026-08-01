@@ -1176,7 +1176,7 @@ Every app requires exactly one `addMain` (the NTP clock) and one or more `addPar
 | `PrimitiveTypeEVMERC20` | `builtinGrammars.evmErc20` | EVM | ERC-20 Transfer events |
 | `PrimitiveTypeEVMERC1155` | `builtinGrammars.evmErc1155` | EVM | ERC-1155 TransferSingle events |
 | `PrimitiveTypeMidnightGeneric` | `builtinGrammars.midnightGeneric` | Midnight | Generic ledger contract state |
-| `PrimitiveTypeMidnightNullifier` | — | Midnight | Nullifier tracking |
+| `PrimitiveTypeMidnightNullifierAndCommitment` | — | Midnight | Shielded nullifier (spend) + commitment (create) tracking |
 | `PrimitiveTypeBitcoinAddress` | `builtinGrammars.bitcoinAddress` | Bitcoin | Watch address transactions |
 | `PrimitiveTypeUtxorpcGeneric` | `builtinGrammars.utxorpcGeneric` | Cardano | Generic UTXO events |
 | `PrimitiveTypeCardanoMintBurn` | `builtinGrammars.cardanoMintBurn` | Cardano | Mint/burn certificate events |

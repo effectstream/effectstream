@@ -12,6 +12,14 @@ CREATE TABLE IF NOT EXISTS midnight_nullifiers (
   tx_hash TEXT
 );
 
+CREATE TABLE IF NOT EXISTS midnight_commitments (
+  id SERIAL PRIMARY KEY,
+  block_height INTEGER NOT NULL,
+  commitment TEXT NOT NULL UNIQUE,
+  mt_index TEXT NOT NULL,
+  tx_hash TEXT
+);
+
 CREATE TABLE IF NOT EXISTS midnight_unshielded_creates (
   id SERIAL PRIMARY KEY,
   block_height INTEGER NOT NULL,
