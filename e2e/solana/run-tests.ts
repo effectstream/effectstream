@@ -28,6 +28,10 @@ import { runWalletTransferTest } from "./sync/wallet-transfer.test.ts";
 import { runAccountBalanceTest } from "./sync/account-balance.test.ts";
 import { runProgramLogTest } from "./sync/program-logs.test.ts";
 import { runProgramEventTests } from "./sync/program-events.test.ts";
+import {
+  runTokenAccountSetup,
+  runTokenAccountTest,
+} from "./sync/token-account.test.ts";
 import { runBatcherTest } from "./sync/batcher.test.ts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
@@ -46,6 +50,7 @@ async function runSyncTests(db: Client): Promise<void> {
   await runAccountBalanceTest(db);
   await runProgramLogTest(db);
   await runProgramEventTests(db);
+  await runTokenAccountTest(db);
 }
 
 async function test() {
@@ -65,6 +70,9 @@ async function test() {
 
     await runToolingTests();
     await runWalletTransferTest();
+    // Must run before the sync assertions: it produces the on-chain token activity
+    // the SOLANA:TokenAccount primitive reads, and the validator is already up.
+    await runTokenAccountSetup();
 
     await waitForProcess("sync");
     await waitForHealth();

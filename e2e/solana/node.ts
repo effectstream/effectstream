@@ -42,6 +42,18 @@ stm.addStateTransition("solana-account-balance", function* (data) {
   ));
 });
 
+stm.addStateTransition("solana-token-account", function* (data) {
+  const { slot, tokenAccount, mint, owner, amount, decimals } = data.parsedInput;
+  console.log(
+    `[STM] solana-token-account: slot=${slot} account=${tokenAccount} mint=${mint} owner=${owner} amount=${amount}`,
+  );
+
+  yield* World.promise(pool.query(
+    "INSERT INTO solana_token_events (slot, token_account, mint, owner, amount, decimals) VALUES ($1, $2, $3, $4, $5, $6)",
+    [slot, tokenAccount, mint, owner, amount, decimals],
+  ));
+});
+
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,
