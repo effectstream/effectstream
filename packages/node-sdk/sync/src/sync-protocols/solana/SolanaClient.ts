@@ -43,7 +43,37 @@ export type SolanaTransaction = {
       writable: string[];
       readonly: string[];
     } | null;
+    /**
+     * SPL token balances after the transaction, one record per (token account,
+     * mint) pair it touched. Returned by `getBlock` with
+     * `transactionDetails: "full"`; absent on transactions that touched no token
+     * account, and on validators old enough not to report them.
+     *
+     * `accountIndex` indexes the SAME resolved list as `pre`/`postBalances` — see
+     * {@link resolveAccountKeys} — so a token account reached through a lookup
+     * table is only findable after resolution.
+     */
+    postTokenBalances?: SolanaTokenBalance[] | null;
+    /** Pre-state counterpart of {@link postTokenBalances}. */
+    preTokenBalances?: SolanaTokenBalance[] | null;
   } | null;
+};
+
+export type SolanaTokenBalance = {
+  /** Index into the resolved account list, NOT into `message.accountKeys` alone. */
+  accountIndex: number;
+  mint: string;
+  /** Optional: older validators omit it. */
+  owner?: string;
+  /** The owning token program, i.e. SPL Token or Token-2022. Optional for the same reason. */
+  programId?: string;
+  uiTokenAmount: {
+    /** Raw u64 in base units, as a string. */
+    amount: string;
+    decimals: number;
+    uiAmount: number | null;
+    uiAmountString?: string;
+  };
 };
 
 /**

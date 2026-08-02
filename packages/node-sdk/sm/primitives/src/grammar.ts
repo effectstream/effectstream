@@ -17,6 +17,7 @@ import { nearGenericGrammar } from "./near-generic/near-generic-grammar.ts";
 import { nearAccountWatchGrammar } from "./near-account-watch/near-account-watch-grammar.ts";
 import { solanaProgramLogGrammar } from "./solana-program-log/solana-program-log-grammar.ts";
 import { solanaAccountBalanceGrammar } from "./solana-account-balance/solana-account-balance-grammar.ts";
+import { solanaTokenAccountGrammar } from "./solana-token-account/solana-token-account-grammar.ts";
 import { mintBurnGrammar } from "./cardano-mint-burn/mint-burn-grammar.ts";
 import { transferGrammar } from "./cardano-transfer/transfer-grammar.ts";
 import { poolDelegationGrammar } from "./cardano-pool-delegation/pool-delegation-grammar.ts";
@@ -42,6 +43,7 @@ export const builtinGrammars = {
   nearAccountWatch: nearAccountWatchGrammar,
   solanaProgramLog: solanaProgramLogGrammar,
   solanaAccountBalance: solanaAccountBalanceGrammar,
+  solanaTokenAccount: solanaTokenAccountGrammar,
   cardanoMintBurn: mintBurnGrammar,
   cardanoTransfer: transferGrammar,
   cardanoPoolDelegation: poolDelegationGrammar,

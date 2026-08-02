@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import {
+  SOLANA_PRIMITIVE_ACCOUNT_BALANCE,
+  SOLANA_PRIMITIVE_PROGRAM_LOG,
+  SOLANA_PRIMITIVE_TOKEN_ACCOUNT,
+} from "@effectstream/config";
 import { SolanaFetcher } from "./fetcher.ts";
 import type { ConfigType } from "./types.ts";
 
@@ -33,13 +38,25 @@ function run(fetcher: SolanaFetcher, slot: number, block: any, entries: any[]) {
   return step.value as any[];
 }
 
+// `type` is what readPrimitives dispatches on. These fixtures used to omit it,
+// which the old field-truthy dispatch tolerated — real configs always carry it,
+// because `Primitive.getConfig()` sets it and runtime/src/main.ts substitutes its
+// output for the raw config entry.
 const programLogEntry = {
   syncProtocol: "parallelSolanaRPC",
-  primitive: { name: "WatchedLog", programId: WATCHED_PROGRAM },
+  primitive: {
+    name: "WatchedLog",
+    type: SOLANA_PRIMITIVE_PROGRAM_LOG,
+    programId: WATCHED_PROGRAM,
+  },
 };
 const balanceEntry = {
   syncProtocol: "parallelSolanaRPC",
-  primitive: { name: "WatchedBalance", address: WATCHED_ADDRESS },
+  primitive: {
+    name: "WatchedBalance",
+    type: SOLANA_PRIMITIVE_ACCOUNT_BALANCE,
+    address: WATCHED_ADDRESS,
+  },
 };
 
 /** A transaction that genuinely invoked the watched program. */
@@ -136,7 +153,12 @@ test("eventType filters against the program's OWN lines only", () => {
   });
   const entry = {
     syncProtocol: "parallelSolanaRPC",
-    primitive: { name: "WatchedLog", programId: WATCHED_PROGRAM, eventType: "MARKER" },
+    primitive: {
+      name: "WatchedLog",
+      type: SOLANA_PRIMITIVE_PROGRAM_LOG,
+      programId: WATCHED_PROGRAM,
+      eventType: "MARKER",
+    },
   };
   expect(run(makeFetcher(), 42, { transactions: [tx] }, [entry])).toEqual([]);
 });
@@ -185,4 +207,229 @@ test("dispatches both primitive kinds from one transaction", () => {
 
 test("returns nothing when no primitives are configured", () => {
   expect(run(makeFetcher(), 42, { transactions: [invokingTx()] }, [])).toEqual([]);
+});
+
+// ───────────────────────── SOLANA:TokenAccount ─────────────────────────
+
+const MINT = "Mint111111111111111111111111111111111111111";
+const OTHER_MINT = "0therMint11111111111111111111111111111111";
+const TOKEN_ACCOUNT = "Tok111111111111111111111111111111111111111";
+const OWNER = "0wner11111111111111111111111111111111111111";
+const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+
+const tokenEntry = {
+  syncProtocol: "parallelSolanaRPC",
+  primitive: {
+    name: "WatchedToken",
+    type: SOLANA_PRIMITIVE_TOKEN_ACCOUNT,
+    mint: MINT,
+  },
+};
+
+/** `meta.postTokenBalances` record shape, per the JSON-RPC `getBlock` response. */
+function tokenBalance(overrides: Record<string, unknown> = {}) {
+  return {
+    accountIndex: 0,
+    mint: MINT,
+    owner: OWNER,
+    programId: TOKEN_PROGRAM,
+    uiTokenAmount: {
+      amount: "1500000000",
+      decimals: 9,
+      uiAmount: 1.5,
+      uiAmountString: "1.5",
+    },
+    ...overrides,
+  };
+}
+
+/** A successful transaction carrying token balances. */
+function tokenTx(
+  balances: Record<string, unknown>[],
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    transaction: {
+      message: { accountKeys: [TOKEN_ACCOUNT, WATCHED_PROGRAM] },
+      signatures: ["sig-tok"],
+    },
+    meta: {
+      err: null,
+      logMessages: [],
+      postBalances: [0, 0],
+      postTokenBalances: balances,
+      ...overrides,
+    },
+  };
+}
+
+test("TokenAccount emits the post balance for a watched mint", () => {
+  const out = run(makeFetcher(), 11, { transactions: [tokenTx([tokenBalance()])] }, [
+    tokenEntry,
+  ]);
+  expect(out.length).toBe(1);
+  expect(out[0].primitive).toBe("WatchedToken");
+  expect(out[0].output.payloadType).toBe("solana:token-balance");
+  expect(out[0].output.payload).toEqual({
+    tokenAccount: TOKEN_ACCOUNT,
+    mint: MINT,
+    owner: OWNER,
+    // Raw u64 as a string: 1.5 tokens at 9 decimals does not survive a JS number
+    // once amounts get large, so the grammar carries the base units.
+    amount: "1500000000",
+    decimals: 9,
+    slot: 11,
+  });
+});
+
+test("TokenAccount resolves lookup-table token accounts (security fix B3)", () => {
+  // `accountIndex` indexes the resolved list — static keys, then ALT writable, then
+  // ALT readonly — so a token account reached through an ALT is at an index past
+  // the end of message.accountKeys. Without resolution this reads undefined and
+  // drops the balance silently.
+  // Two static keys (indices 0-1), then ALT writable (2), then ALT readonly (3),
+  // so the watched token account sits at index 3 — past the end of accountKeys.
+  const tx = tokenTx([tokenBalance({ accountIndex: 3 })], {
+    loadedAddresses: {
+      writable: ["W1111111111111111111111111111111111111111111"],
+      readonly: [TOKEN_ACCOUNT],
+    },
+  });
+  tx.transaction.message.accountKeys = [OTHER_PROGRAM, WATCHED_PROGRAM];
+  const out = run(makeFetcher(), 12, { transactions: [tx] }, [tokenEntry]);
+  expect(out.length).toBe(1);
+  expect(out[0].output.payload.tokenAccount).toBe(TOKEN_ACCOUNT);
+});
+
+test("TokenAccount SKIPS a reverted transaction (security fix B2)", () => {
+  const tx = tokenTx([tokenBalance()], { err: { InstructionError: [0, "Custom"] } });
+  expect(run(makeFetcher(), 13, { transactions: [tx] }, [tokenEntry])).toEqual([]);
+});
+
+test("TokenAccount ignores balances for a different mint", () => {
+  const tx = tokenTx([tokenBalance({ mint: OTHER_MINT })]);
+  expect(run(makeFetcher(), 14, { transactions: [tx] }, [tokenEntry])).toEqual([]);
+});
+
+test("TokenAccount narrows by owner", () => {
+  const entry = {
+    syncProtocol: "parallelSolanaRPC",
+    primitive: {
+      name: "WatchedToken",
+      type: SOLANA_PRIMITIVE_TOKEN_ACCOUNT,
+      mint: MINT,
+      owner: OWNER,
+    },
+  };
+  expect(
+    run(makeFetcher(), 15, { transactions: [tokenTx([tokenBalance()])] }, [entry]),
+  ).toHaveLength(1);
+  expect(
+    run(
+      makeFetcher(),
+      15,
+      { transactions: [tokenTx([tokenBalance({ owner: "someone-else" })])] },
+      [entry],
+    ),
+  ).toEqual([]);
+});
+
+test("TokenAccount narrows by tokenProgramId, separating Token-2022", () => {
+  const entry = {
+    syncProtocol: "parallelSolanaRPC",
+    primitive: {
+      name: "WatchedToken",
+      type: SOLANA_PRIMITIVE_TOKEN_ACCOUNT,
+      mint: MINT,
+      tokenProgramId: TOKEN_2022_PROGRAM,
+    },
+  };
+  // Same mint, classic SPL Token program — must not match a Token-2022 filter.
+  expect(
+    run(makeFetcher(), 16, { transactions: [tokenTx([tokenBalance()])] }, [entry]),
+  ).toEqual([]);
+  expect(
+    run(
+      makeFetcher(),
+      16,
+      { transactions: [tokenTx([tokenBalance({ programId: TOKEN_2022_PROGRAM })])] },
+      [entry],
+    ),
+  ).toHaveLength(1);
+});
+
+test("TokenAccount narrows by tokenAccount", () => {
+  const entry = {
+    syncProtocol: "parallelSolanaRPC",
+    primitive: {
+      name: "WatchedToken",
+      type: SOLANA_PRIMITIVE_TOKEN_ACCOUNT,
+      tokenAccount: TOKEN_ACCOUNT,
+    },
+  };
+  expect(
+    run(makeFetcher(), 17, { transactions: [tokenTx([tokenBalance()])] }, [entry]),
+  ).toHaveLength(1);
+  // accountIndex 1 resolves to WATCHED_PROGRAM, not the watched token account.
+  expect(
+    run(
+      makeFetcher(),
+      17,
+      { transactions: [tokenTx([tokenBalance({ accountIndex: 1 })])] },
+      [entry],
+    ),
+  ).toEqual([]);
+});
+
+test("TokenAccount emits one primitive per matching balance record", () => {
+  const tx = tokenTx([
+    tokenBalance(),
+    tokenBalance({ accountIndex: 1, owner: "second-owner" }),
+    tokenBalance({ mint: OTHER_MINT, accountIndex: 1 }),
+  ]);
+  const out = run(makeFetcher(), 18, { transactions: [tx] }, [tokenEntry]);
+  expect(out.length).toBe(2);
+  expect(out.map((p) => p.output.payload.owner)).toEqual([OWNER, "second-owner"]);
+});
+
+test("TokenAccount tolerates a transaction with no token balances", () => {
+  expect(run(makeFetcher(), 19, { transactions: [invokingTx()] }, [tokenEntry]))
+    .toEqual([]);
+});
+
+test("a TokenAccount entry is never treated as an AccountBalance", () => {
+  // The regression the type dispatch exists for. `SolanaPrimitive` is a flat bag of
+  // optionals, so a config can set `address` on a TokenAccount entry — under the old
+  // field-truthy dispatch (`if (prim.address)` first) that emitted a lamport-balance
+  // event under the token primitive's name.
+  const entry = {
+    syncProtocol: "parallelSolanaRPC",
+    primitive: {
+      name: "WatchedToken",
+      type: SOLANA_PRIMITIVE_TOKEN_ACCOUNT,
+      mint: MINT,
+      address: TOKEN_ACCOUNT,
+    },
+  };
+  const out = run(makeFetcher(), 20, { transactions: [tokenTx([tokenBalance()])] }, [
+    entry,
+  ]);
+  expect(out.length).toBe(1);
+  expect(out[0].output.payloadType).toBe("solana:token-balance");
+  expect(out[0].output.payload).not.toHaveProperty("lamports");
+});
+
+test("an unsupported primitive type is ignored rather than misrouted", () => {
+  const entry = {
+    syncProtocol: "parallelSolanaRPC",
+    primitive: {
+      name: "FromTheFuture",
+      type: "SOLANA:NotImplementedYet",
+      address: WATCHED_ADDRESS,
+      programId: WATCHED_PROGRAM,
+    },
+  };
+  expect(run(makeFetcher(), 21, { transactions: [invokingTx()] }, [entry]))
+    .toEqual([]);
 });

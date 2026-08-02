@@ -1,6 +1,9 @@
 import {
   ConfigSyncProtocolType,
   type PrimitiveEntry,
+  SOLANA_PRIMITIVE_ACCOUNT_BALANCE,
+  SOLANA_PRIMITIVE_PROGRAM_LOG,
+  SOLANA_PRIMITIVE_TOKEN_ACCOUNT,
 } from "@effectstream/config";
 import { BaseDataFetcher } from "../base/fetcher.ts";
 import type { DataFetched } from "../base/fetcher.ts";
@@ -17,7 +20,11 @@ import type {
   Page,
   PrimitiveType,
 } from "./types.ts";
-import { resolveAccountKeys, SolanaClient } from "./SolanaClient.ts";
+import {
+  resolveAccountKeys,
+  SolanaClient,
+  type SolanaTokenBalance,
+} from "./SolanaClient.ts";
 import { requestTimeoutOf } from "../common/http.ts";
 import { extractProgramLogs } from "./program-logs.ts";
 import { call, sleep, type Operation } from "effection";
@@ -47,6 +54,19 @@ export class SolanaFetcher extends BaseDataFetcher<
    * very first block ever fetched has no fallback.
    */
   private lastKnownBlockTime: number | undefined;
+
+  /**
+   * Messages already logged by `warnOnce`. `readPrimitives` runs per transaction,
+   * so a misconfigured primitive would otherwise emit an identical line thousands
+   * of times during catch-up and bury everything else.
+   */
+  private readonly warnedOnce = new Set<string>();
+
+  private warnOnce(message: string): void {
+    if (this.warnedOnce.has(message)) return;
+    this.warnedOnce.add(message);
+    console.warn(message);
+  }
 
   constructor(
     readonly config: ConfigType,
@@ -252,6 +272,7 @@ export class SolanaFetcher extends BaseDataFetcher<
             writable: string[];
             readonly: string[];
           } | null;
+          postTokenBalances?: SolanaTokenBalance[] | null;
         } | null;
       }[];
     },
@@ -290,65 +311,142 @@ export class SolanaFetcher extends BaseDataFetcher<
       for (const entry of primitiveEntries) {
         const prim = entry.primitive;
 
-        // ── SOLANA:AccountBalance — watch an address's lamport balance ──
-        if (prim.address) {
-          const idx = accountKeys.indexOf(prim.address);
-          if (idx === -1) continue;
-          allPrimitives.push({
-            syncProtocol: {
-              name: entry.syncProtocol,
-              blockNumber: slot,
-              transactionHash: txHash,
-              contractAddress: prim.address,
-              logIndex: txIndex,
-            },
-            primitive: prim.name,
-            output: {
-              payloadType: "solana:balance",
-              payload: {
-                address: prim.address,
-                lamports: postBalances[idx] ?? 0,
-                slot,
+        // Dispatch on `prim.type`, NOT on which optional fields happen to be set.
+        // `SolanaPrimitive` is a flat bag of optionals, so field-truthy dispatch
+        // fails two ways once a third primitive exists: a TokenAccount entry
+        // matches no field branch and silently emits nothing, and any field it
+        // shares with an earlier branch (`address` being the natural name for a
+        // token account) routes it into that branch instead. Neither is a type
+        // error. `type` is always populated at runtime because
+        // `Primitive.getConfig()` sets it and runtime/src/main.ts replaces the
+        // config entry with its output.
+        switch (prim.type) {
+          // ── SOLANA:AccountBalance — watch an address's lamport balance ──
+          case SOLANA_PRIMITIVE_ACCOUNT_BALANCE: {
+            if (!prim.address) continue;
+            const idx = accountKeys.indexOf(prim.address);
+            if (idx === -1) continue;
+            allPrimitives.push({
+              syncProtocol: {
+                name: entry.syncProtocol,
+                blockNumber: slot,
+                transactionHash: txHash,
+                contractAddress: prim.address,
+                logIndex: txIndex,
               },
-            },
-          });
-          continue;
-        }
-
-        // ── SOLANA:ProgramLog — logs the watched programId actually emitted ──
-        if (prim.programId) {
-          // Source of truth is the log stream's invoke/success framing, NOT
-          // accountKeys: naming a program as an account doesn't invoke it, and
-          // a program reached through a lookup table isn't in accountKeys at
-          // all. See program-logs.ts.
-          const programLogs = extractProgramLogs(logs, prim.programId);
-          if (programLogs == null) continue;
-          // Filter by eventType if specified — against this program's own lines
-          // only, so another program can't trigger it by echoing the string.
-          if (prim.eventType) {
-            const hasMatchingLog = programLogs.some((log) =>
-              log.includes(prim.eventType!)
-            );
-            if (!hasMatchingLog) continue;
+              primitive: prim.name,
+              output: {
+                payloadType: "solana:balance",
+                payload: {
+                  address: prim.address,
+                  lamports: postBalances[idx] ?? 0,
+                  slot,
+                },
+              },
+            });
+            continue;
           }
-          allPrimitives.push({
-            syncProtocol: {
-              name: entry.syncProtocol,
-              blockNumber: slot,
-              transactionHash: txHash,
-              contractAddress: prim.programId,
-              logIndex: txIndex,
-            },
-            primitive: prim.name,
-            output: {
-              payloadType: "solana:transaction",
-              payload: {
-                programId: prim.programId,
-                slot,
-                logMessages: programLogs,
+
+          // ── SOLANA:ProgramLog — logs the watched programId actually emitted ──
+          case SOLANA_PRIMITIVE_PROGRAM_LOG: {
+            if (!prim.programId) continue;
+            // Source of truth is the log stream's invoke/success framing, NOT
+            // accountKeys: naming a program as an account doesn't invoke it, and
+            // a program reached through a lookup table isn't in accountKeys at
+            // all. See program-logs.ts.
+            const programLogs = extractProgramLogs(logs, prim.programId);
+            if (programLogs == null) continue;
+            // Filter by eventType if specified — against this program's own lines
+            // only, so another program can't trigger it by echoing the string.
+            if (prim.eventType) {
+              const hasMatchingLog = programLogs.some((log) =>
+                log.includes(prim.eventType!)
+              );
+              if (!hasMatchingLog) continue;
+            }
+            allPrimitives.push({
+              syncProtocol: {
+                name: entry.syncProtocol,
+                blockNumber: slot,
+                transactionHash: txHash,
+                contractAddress: prim.programId,
+                logIndex: txIndex,
               },
-            },
-          });
+              primitive: prim.name,
+              output: {
+                payloadType: "solana:transaction",
+                payload: {
+                  programId: prim.programId,
+                  slot,
+                  logMessages: programLogs,
+                },
+              },
+            });
+            continue;
+          }
+
+          // ── SOLANA:TokenAccount — SPL balance of a watched token account ──
+          case SOLANA_PRIMITIVE_TOKEN_ACCOUNT: {
+            // An entry with no filter would match every token balance on chain.
+            // The primitive constructor rejects that, so reaching here means a
+            // hand-built config bypassed it.
+            if (!prim.mint && !prim.owner && !prim.tokenAccount) {
+              this.warnOnce(
+                `[Solana] primitive "${prim.name}" is ${SOLANA_PRIMITIVE_TOKEN_ACCOUNT} with no ` +
+                  `mint, owner or tokenAccount — it would match every token balance, so it is skipped.`,
+              );
+              continue;
+            }
+            for (const bal of tx.meta.postTokenBalances ?? []) {
+              if (prim.mint && bal.mint !== prim.mint) continue;
+              if (prim.owner && bal.owner !== prim.owner) continue;
+              if (prim.tokenProgramId && bal.programId !== prim.tokenProgramId) {
+                continue;
+              }
+              // `accountIndex` indexes the RESOLVED list, same as postBalances, so
+              // a token account pulled in via a lookup table is only findable here
+              // (security fix B3 applied to token balances).
+              const tokenAccount = accountKeys[bal.accountIndex];
+              if (tokenAccount == null) continue;
+              if (prim.tokenAccount && tokenAccount !== prim.tokenAccount) {
+                continue;
+              }
+              allPrimitives.push({
+                syncProtocol: {
+                  name: entry.syncProtocol,
+                  blockNumber: slot,
+                  transactionHash: txHash,
+                  contractAddress: bal.mint,
+                  logIndex: txIndex,
+                },
+                primitive: prim.name,
+                output: {
+                  payloadType: "solana:token-balance",
+                  payload: {
+                    tokenAccount,
+                    mint: bal.mint,
+                    owner: bal.owner ?? "",
+                    amount: bal.uiTokenAmount.amount,
+                    decimals: bal.uiTokenAmount.decimals,
+                    slot,
+                  },
+                },
+              });
+            }
+            continue;
+          }
+
+          default:
+            // A Solana sync protocol carrying a primitive type this fetcher does
+            // not implement produced nothing and said nothing before. Warn once
+            // per type rather than per transaction, which would be thousands of
+            // identical lines during catch-up.
+            this.warnOnce(
+              `[Solana] primitive "${prim.name}" has unsupported type "${prim.type}" — ignored. ` +
+                `Supported: ${SOLANA_PRIMITIVE_ACCOUNT_BALANCE}, ${SOLANA_PRIMITIVE_PROGRAM_LOG}, ` +
+                `${SOLANA_PRIMITIVE_TOKEN_ACCOUNT}.`,
+            );
+            continue;
         }
       }
     }

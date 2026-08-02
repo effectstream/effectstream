@@ -45,12 +45,13 @@ Block ordering uses `blockTime`, which Solana guarantees is monotonically non-de
 
 ### Primitives
 
-Two built-in primitives cover the Solana surface.
+Three built-in primitives cover the Solana surface.
 
 ```ts
 import {
   PrimitiveTypeSolanaProgramLog,
   PrimitiveTypeSolanaAccountBalance,
+  PrimitiveTypeSolanaTokenAccount,
 } from "@effectstream/sm/builtin";
 ```
 
@@ -108,8 +109,40 @@ Tracks a watched address's lamport balance as of each transaction that touches i
 
 Payload: `{ address, lamports, slot }`. Lookup-table addresses are resolved, so an address pulled in via an ALT is still matched.
 
+#### Token Account (`PrimitiveTypeSolanaTokenAccount`)
+
+Tracks an SPL token balance as of each transaction that touches it, read from the transaction's `meta.postTokenBalances`.
+
+```ts
+.buildPrimitives(builder =>
+  builder.addPrimitive(
+    (sp) => sp.parallelSolanaRPC,
+    () => ({
+      name: "PlayerTokens",
+      type: PrimitiveTypeSolanaTokenAccount,
+      startBlockHeight: 0,
+      mint: "2KW2XRd9kwqet15Aha2oK3tYvd3nWbTFH1MBiRAv1BE1",
+      owner: "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+      stateMachinePrefix: "solana-token-account",
+    }),
+  )
+)
+```
+
+Payload: `{ tokenAccount, mint, owner, amount, decimals, slot }`.
+
+At least one of `mint`, `owner` or `tokenAccount` is required — without a filter the primitive would match every token balance on chain, so the constructor rejects it. Combine them to narrow further. `tokenProgramId` optionally pins the primitive to classic SPL Token or to Token-2022; omit it to accept both.
+
+`amount` is the raw u64 in base units, carried as a **string**. A u64 does not survive a JavaScript number, and at the top of its range it also exceeds PostgreSQL's signed `BIGINT` — store it as `TEXT` and pair it with `decimals` to render a display value.
+
+Balance records carry an `accountIndex` into the same resolved account list as `postBalances`, so a token account reached through an address lookup table is matched correctly here too.
+
+:::caution Closing a token account produces no event
+This reports post-state balances only, matching Account Balance. A token account that is **closed** appears in `preTokenBalances` and is absent from `postTokenBalances`, so closure emits nothing rather than a zero balance. If your state machine needs to observe accounts going away, track it from the owning program's logs instead.
+:::
+
 :::note Reverted transactions are skipped
-Neither primitive emits for a transaction whose `meta.err` is set. A failed transaction's logs describe work that was rolled back and its `postBalances` are the pre-state, so neither is a fact about chain state.
+No primitive emits for a transaction whose `meta.err` is set. A failed transaction's logs describe work that was rolled back and its `postBalances` are the pre-state, so neither is a fact about chain state.
 :::
 
 ## 2. Batcher (Write)

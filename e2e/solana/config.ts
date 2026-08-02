@@ -6,6 +6,7 @@ import {
 import {
   PrimitiveTypeSolanaAccountBalance,
   PrimitiveTypeSolanaProgramLog,
+  PrimitiveTypeSolanaTokenAccount,
 } from "@effectstream/sm/builtin";
 import {
   EVENT_PREFIX,
@@ -19,6 +20,29 @@ import {
  */
 export const WATCHED_BALANCE_ADDRESS =
   "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB";
+
+/**
+ * The SPL mint the TokenAccount primitive watches, and the wallet that holds it.
+ *
+ * A static config cannot name a mint generated at runtime, so both are derived from
+ * fixed seeds the same way WATCHED_BALANCE_ADDRESS is:
+ *   mint  = Keypair.fromSeed(Uint8Array(32).fill(8))
+ *   owner = Keypair.fromSeed(Uint8Array(32).fill(9))
+ * `token-account.test.ts` recreates the same keypairs and asserts these match, so a
+ * changed seed fails loudly instead of silently watching the wrong mint.
+ *
+ * Localnet only, and they hold nothing but worthless test SOL — but the seeds are
+ * public, so never reuse them anywhere real.
+ */
+export const WATCHED_MINT = "2KW2XRd9kwqet15Aha2oK3tYvd3nWbTFH1MBiRAv1BE1";
+export const WATCHED_TOKEN_OWNER =
+  "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf";
+/** Associated token account for (WATCHED_TOKEN_OWNER, WATCHED_MINT). */
+export const WATCHED_TOKEN_ACCOUNT =
+  "8taZEqZDH5zq6hbgwFdBhbNpHNVvCzgKJi4LtnrRDNhR";
+/** Decimals the mint is created with, and the amount minted to the owner. */
+export const WATCHED_MINT_DECIMALS = 6;
+export const MINTED_AMOUNT = "2500000";
 
 export const config = new ConfigBuilder()
   .setNamespace(
@@ -102,6 +126,20 @@ export const config = new ConfigBuilder()
           programId: TEST_EVENT_PROGRAM_ID,
           eventType: EVENT_PREFIX,
           stateMachinePrefix: "solana-program-log",
+        }),
+      )
+      // Watch the SPL token balance of one wallet's ATA for one mint. Narrowed by
+      // both mint and owner so an unrelated token account for the same mint (the
+      // mint authority's own, say) does not land in the same table.
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelSolanaRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "SolanaTokenAccount",
+          type: PrimitiveTypeSolanaTokenAccount,
+          startBlockHeight: 0,
+          mint: WATCHED_MINT,
+          owner: WATCHED_TOKEN_OWNER,
+          stateMachinePrefix: "solana-token-account",
         }),
       )
       // Watch the SPL Memo program so the sync captures txs the fee-payer
