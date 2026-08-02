@@ -1,3 +1,10 @@
+---
+title: "Tarochi (case study)"
+description: "A production on-chain game built with Effectstream. Not a template in this repository."
+sidebar_label: "Tarochi (case study)"
+sidebar_position: 20
+---
+
 # Tarochi (Game)
 
 **Tarochi** is an online decentralized, on-chain, autonomous, Web3 game developed entirely with `EffectStream`.

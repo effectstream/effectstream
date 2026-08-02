@@ -145,7 +145,7 @@ export default {
 | `ports` | `[26657, 26658]` | Consensus and bridge RPC ports, freed before launch. |
 | `home` | `"/tmp/celestia-home"` | Celestia home directory, wiped on each start. |
 
-> NOTE: To use this setup you need a `contracts-celestia` package in your project. A working implementation is provided in the `zswap-da` template.
+> NOTE: To use this setup you need a `contracts-celestia` package in your project providing the scripts below. The reference implementation is [`e2e/shared/contracts/celestia`](https://github.com/effectstream/effectstream/tree/main/e2e/shared/contracts/celestia).
 
 The contracts package needs these tasks in its `package.json`:
 

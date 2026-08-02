@@ -1,165 +1,198 @@
 ---
-draft: true
+title: "World Map 2D"
+description: "A 10×10 tile world where the map lives in database rows, so grammar bounds and a foreign key do all the validation and each transition is one SQL write."
+sidebar_label: "World Map 2D"
+sidebar_position: 9
 ---
 
-# World Map 2D (Open World Game)
+<!-- Generated from templates/world-map-2d/README.md by docs/site/scripts/sync-template-readmes.ts. Do not edit directly. -->
 
-* **Path**: `/templates/world-map-2d`
-* **Highlights**: A 2D open-world exploration game showcasing spatial game state, movement mechanics, and world interaction using EffectStream's L2.
+> Template: **[`templates/world-map-2d`](https://github.com/effectstream/effectstream/tree/main/templates/world-map-2d)**
 
-The `world-map-2d` template demonstrates how to build an open-world game where players can explore a 2D grid-based world. It's an excellent example for games requiring spatial state management, player movement, and location-based interactions, all processed deterministically through an EffectStream L2 contract on an EVM chain.
+Players join a shared grid, walk around it, and bump a per-cell visit counter. Every action is
+an on-chain input to an Effectstream L2 contract on a local Hardhat chain; the sync node replays
+those inputs deterministically into two Postgres tables, and a plain HTML page renders the grid
+from the node's REST API.
 
-Screenshot of running application:
+It is the smallest complete example of *spatial* state — position that must stay inside a world,
+and world cells that accumulate history. Read it if you are building tile movement, territory,
+location-gated actions, or anything else where "where is this player" is part of consensus state.
 
-![Docker Setup Running](./1206-gameplay.png)
+![Gameplay](./world-map-2d-gameplay.png)
 
-## Core Concept: Grid-Based Open World
+## What this template shows
 
-The goal of this template is to demonstrate an open-world game where players move freely across a 10×10 grid and interact with specific locations. The game state tracks both individual player positions and aggregate world statistics.
+**The map is data, not code.** The 10×10 world is not a constant in the state machine; it is 100
+rows inserted by the migration in `packages/database/src/migrations/database.sql`, and player
+positions point at those rows through a composite foreign key:
 
-*   **Player State**: Each player has an (x, y) position on the grid that updates as they move.
-*   **World State**: A 10×10 grid where each cell tracks how many times it has been visited.
-*   **Player Actions**: All actions (joining the world, moving, incrementing counters) are submitted to a `EffectStream L2 Contract` on an EVM chain.
-*   **Backend Logic**: The state machine processes these inputs to update positions, validate movements, and maintain world statistics.
+```sql
+CREATE TABLE global_world_state (
+  x INTEGER NOT NULL,
+  y INTEGER NOT NULL,
+  can_visit BOOLEAN NOT NULL,
+  counter INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (x, y)
+);
 
-This template serves as a foundation for:
-*   Tile-based exploration games
-*   Location-based multiplayer experiences
-*   Spatial puzzle games
-*   Territory control mechanics
+CREATE TABLE global_user_state (
+  wallet TEXT NOT NULL PRIMARY KEY,
+  x INTEGER NOT NULL,
+  y INTEGER NOT NULL,
+  FOREIGN KEY (x, y) REFERENCES global_world_state (x, y)
+);
+```
 
-## Quick Start
+**So validation is declarative, and the transitions are one line each.** Coordinate bounds are
+enforced by TypeBox in `packages/node/grammar.ts` (`Type.Number({ minimum: 0, maximum: 9 })`), so
+an out-of-range input never reaches a transition. Cell existence is enforced by the foreign key.
+What is left in `packages/node/state-machine.ts` is a single `World.resolve` per action — no
+guards, no lookups, no branching:
 
-```sh
-# Install dependencies
-bun i
+```typescript
+stm.addStateTransition("submitMove", function* (data) {
+  const { signerAddress: wallet, parsedInput } = data;
+  const { x, y } = parsedInput;
+  yield* World.resolve(updateUserGlobalPosition, { wallet, x, y });
+});
+```
 
-# Start the EffectStream Node (compiles contracts and starts the full local stack)
+Reshaping the world — a bigger grid, holes, cells flagged `can_visit = FALSE` — is a migration
+edit plus a grammar bound. The state machine does not change.
+
+**And it shows where that stops.** The adjacency rule players actually feel lives in the browser:
+`inrange()` in `packages/frontend/index.html` only draws *move* / *+1* buttons on orthogonally
+neighbouring cells. Nothing on chain enforces it — the grammar accepts any in-bounds `(x, y)`, so
+a hand-crafted transaction can teleport. That is the honest lesson of the template: rules you want
+enforced belong in the grammar, the schema, or the transition; a rule in the UI is only an
+affordance.
+
+## Effectstream features used
+
+| Feature | Where | Used for |
+| --- | --- | --- |
+| TypeBox grammar (`@effectstream/concise`) | `packages/node/grammar.ts` | Declares `joinWorld` / `submitMove` / `submitIncrement` and bounds both coordinates to `0..9`. |
+| `@effectstream/sm` `Stm` state machine | `packages/node/state-machine.ts` | Routes each parsed input to a generator transition. |
+| `@effectstream/coroutine` `World.resolve` | `packages/node/state-machine.ts` | Queues the pgtyped query + params as the transition's only effect. |
+| EVM sync via `PrimitiveTypeEVMEffectstreamL2` | `packages/node/config.dev.ts` | Turns `effectstreamSubmitGameInput` calls on `MyEffectstreamL2` into grammar inputs. |
+| NTP main sync protocol | `packages/node/config.dev.ts` | `ConfigSyncProtocolType.NTP_MAIN` with `blockTimeMS: 1000` drives the block clock; the EVM RPC protocol is attached as a parallel chain. |
+| Effectstream L2 contract (`@effectstream/evm-contracts`) | `packages/contracts-evm/src/contracts/MyEffectstreamL2.sol` | The on-chain mailbox; deployed with Hardhat Ignition. |
+| DB migrations (`migrationTable`) | `packages/database/src/migration-order.ts` | Applies `database.sql`, which creates both tables *and* seeds all 100 world cells. |
+| pgtyped typed queries | `packages/database/src/sql/` | `.sql` files compiled to `*.queries.ts`; the node imports the generated query objects by name. |
+| `runPreparedQuery` (`@effectstream/db`) | `packages/node/api.ts` | Serializes reads behind the PGLite mutex (a no-op against a real Postgres). |
+| Custom Fastify API router (`StartConfigApiRouter`) | `packages/node/api.ts` | Adds `GET /user_stats` and `GET /world_stats` to the node's HTTP server. |
+| `@effectstream/wallets` | `packages/frontend/index.js` | `walletLogin` in both `EvmInjected` (MetaMask) and `EvmViem` (local private key) modes, plus `sendTransaction`. |
+| Orchestrator (`@effectstream/orchestrator`) | `start.dev.ts` | Boots PGLite, Hardhat + contract deploy, the sync node, and the frontend in dependency order. |
+
+## Quick start
+
+Prerequisites:
+
+- **[Bun](https://bun.sh)** — the runtime for everything here.
+- **Node.js** — Hardhat and the frontend's `esbuild.js` run under Node (`"build": "node esbuild.js"`).
+- **[Foundry](https://www.getfoundry.sh/)** — `forge` must be on your `PATH`; `launchEvm` checks
+  for it up front and refuses to start without it.
+- **Chrome or Chromium** — only for the browser tests (`CHROME_PATH` overrides detection).
+
+```bash
+bun install
 bun run dev
 ```
 
-### Frontend Setup
+`bun run dev` runs `bunx orchestrator start`, which picks up `start.dev.ts` from the
+`effectstream.default` field in `package.json` and brings up the whole stack — including the
+frontend build and server, so no second terminal is needed.
 
-In a separate terminal:
+| Service | URL |
+| --- | --- |
+| Frontend | http://localhost:10599 |
+| Sync node API | http://localhost:9999 |
+| Hardhat JSON-RPC | http://localhost:8545 (WebSocket on 8546) |
+| PGLite (Postgres wire protocol) | `postgres://postgres:postgres@localhost:5432/postgres` |
+| Orchestrator control API | http://localhost:4747 |
 
-```sh
-cd packages/frontend
-bun i
-bun run build       # Build the frontend bundle
-bun run serve       # Serve on http://127.0.0.1:10599
+On the page, **Connect Local Wallet (dev)** signs with Hardhat account #0 through
+`WalletMode.EvmViem` — no browser extension required, which is also what makes the headless
+end-to-end test possible. **Connect Browser Wallet** uses `WalletMode.EvmInjected`; for that,
+point MetaMask at `http://localhost:8545` (chain ID `31337`) and import a Hardhat key:
+
+```
+0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
-Or from the repository root:
-```sh
-bun run --cwd packages/frontend dev
+> ⚠️ That key is baked into Hardhat and publicly known. Local development only — never send real
+> funds to it or reuse it on a live network.
+
+The deployed contract charges `fee: 0` (see `packages/contracts-evm/deploy.ts`), so submitting an
+input costs gas only.
+
+### Docker
+
+The `Dockerfile` builds the entire stack — Bun, Node, Foundry, a pre-cached solc 0.8.30, the
+compiled contracts — into one image, whose `CMD` is
+`bunx orchestrator start --config start.dev.ts`: the same stack `bun run dev` gives you. It is
+architecture-aware (it selects the arm64 or amd64 Foundry build), so it runs natively on Apple
+Silicon.
+
+```bash
+docker build -f Dockerfile . -t world-map-2d
+docker run -p 9999:9999 -p 10599:10599 world-map-2d
 ```
 
-Then open http://127.0.0.1:10599 in your browser.
+The image declares `EXPOSE 8545 8546 9999 10599`; publish `8545` as well if you want to attach a
+browser wallet to the container's chain. To run the test suite inside the image:
 
-### Using Test Accounts
-
-For development, import Hardhat's test account into MetaMask:
-
-1. Open MetaMask → Click account icon → **Import Account**
-2. Select **Private Key** and paste:
-   ```
-   0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-   ```
-3. This gives you access to Account #0 with **10,000 ETH** on your local network
-4. Make sure MetaMask is connected to **Localhost 8545** (Chain ID: 31337)
-
-⚠️ **Never use this private key on a real network** - it's publicly known and only for local development.
-
-## Docker Setup
-
-You can run the entire stack (EVM node, EffectStream backend, and frontend) in a single Docker container:
-
-### Building the Docker Image
-
-```sh
-# For macOS
-DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build -t world-map-2d-sample -f Dockerfile .
-
-# For Linux
-docker build -t world-map-2d-sample -f Dockerfile .
+```bash
+docker run world-map-2d bun run test
 ```
 
-This will:
-- Install all dependencies (Bun, Node.js, Foundry)
-- Build the EVM contracts
-- Build the frontend bundle
-- Set up the launch script
+![Docker](./world-map-2d-docker.png)
 
-### Running the Container
+## Project structure
 
-```sh
-# For macOS
-DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run -p 10599:10599 -p 8545:8545 -p 8546:8546 -p 9999:9999 world-map-2d-sample
-
-# For Linux
-docker run -p 10599:10599 -p 8545:8545 -p 8546:8546 -p 9999:9999 world-map-2d-sample
+```
+world-map-2d/
+├── start.dev.ts                       # Orchestrator config: PGLite + Hardhat + sync + frontend
+├── Dockerfile                         # Single-container build of the whole stack
+├── link.sh                            # Symlink local @effectstream/* packages (monorepo dev)
+└── packages/
+    ├── contracts-evm/                 # MyEffectstreamL2 + Hardhat/Foundry/Ignition setup
+    │   ├── src/contracts/MyEffectstreamL2.sol
+    │   ├── ignition/modules/effectstreamL2.ts
+    │   ├── deploy.ts                  # Ignition deployment (owner + fee parameters)
+    │   ├── hardhat.config.ts
+    │   └── foundry.toml
+    ├── database/                      # Schema + pgtyped queries
+    │   ├── src/migrations/database.sql # Two tables and the 100 seeded world cells
+    │   ├── src/sql/{select,insert,update}.sql
+    │   ├── src/migration-order.ts     # Exports migrationTable
+    │   └── src/mod.ts
+    ├── node/                          # Sync node
+    │   ├── main.dev.ts                # Entry point: init + start
+    │   ├── config.dev.ts              # Networks, sync protocols, EVM primitive
+    │   ├── grammar.ts                 # Input grammar
+    │   ├── state-machine.ts           # Three transitions
+    │   └── api.ts                     # /user_stats and /world_stats
+    ├── frontend/                      # Vanilla HTML/JS client
+    │   ├── index.js                   # Wallet + API bindings exposed as window.worldMap2D
+    │   ├── index.html                 # Grid rendering and click handlers
+    │   ├── style.css
+    │   ├── esbuild.js                 # Bundles index.js -> dist/min.js, copies html + css
+    │   └── server.ts                  # Fastify static server on port 10599
+    └── tests/                         # Three-phase integration suite
+        ├── run-tests.ts               # Runner: boots the stack, then phases A/B/C
+        ├── start.test.ts              # Orchestrator config used by the tests
+        ├── infra/{chain-ready,deploy}.test.ts
+        ├── stm/{actions,api}.test.ts
+        └── frontend/{build-smoke,render,interactions,e2e}.test.ts
 ```
 
-The container exposes:
-- **Port 10599**: Frontend (http://localhost:10599)
-- **Port 8545**: Local EVM node (Hardhat)
-- **Port 9999**: EffectStream backend API
-- **Port 8546**: Hardhat WebSocket
+## How it works
 
-Once the container is running, you'll see the EffectStream node start up and the frontend will be available at http://localhost:10599.
+### Grammar
 
-![Docker Setup Running](./1206-docker.png)
-
-### Debugging Docker Issues
-
-To inspect the running container:
-```sh
-# View logs
-docker logs <container-id>
-
-# Open a shell inside the container
-docker exec -it <container-id> /bin/bash
-
-# Verify files exist
-docker run --rm world-map-2d-sample ls -la /app/.docker-scripts/
-docker run --rm world-map-2d-sample ls -la /app/packages/frontend/
-```
-
-## The Components in Action
-
-When you run `bun run dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
-*   **Hardhat EVM Node**: A local EVM blockchain running on port 8545.
-*   **Development Services**: The development database, log collector, TUI, and the Explorer.
-*   **EffectStream Node**: Backend service on port 9999 to sync the chain and process game logic.
-*   **Frontend**: A simple HTML/JavaScript interface on port 10599 for player interaction.
-
-## On-Chain Logic
-
-The world-map-2d template uses a `EffectStream L2 Contract` deployed on the local EVM chain. This contract acts as an input mailbox - players submit formatted strings representing their actions, and EffectStream processes these inputs to update game state.
-
-The contract is deployed at `0x5FbDB2315678afecb367f032d93F642f64180aa3` (local Hardhat deployment).
-
-```solidity
-// Simplified example of what the EffectstreamL2Contract does
-contract EffectstreamL2Contract {
-    event EffectstreamGameInteraction(address indexed userAddress, bytes data, uint256 value);
-
-    function effectstreamSubmitGameInput(bytes calldata data) public payable {
-        // Validates and stores the input
-        emit EffectstreamGameInteraction(msg.sender, data, msg.value);
-    }
-}
-```
-
-EffectStream monitors the `EffectstreamGameInteraction` event to receive player inputs.
-
-## The State Machine (`state-machine.ts`)
-
-The State Machine contains the core game logic. It uses **generator functions** with `yield*` for structured effects, following the new EffectStream architecture pattern.
-
-### Grammar Definition
-
-The input grammar is defined using TypeBox schemas in `packages/node/grammar.ts`:
+Three commands, with the world's dimensions expressed as TypeBox bounds
+(`packages/node/grammar.ts`):
 
 ```typescript
 export const grammar = {
@@ -175,443 +208,231 @@ export const grammar = {
 } as const satisfies GrammarDefinition;
 ```
 
-### State Transitions
+On the wire an input is a JSON array — `["joinWorld"]`, `["submitMove", 3, 4]`,
+`["submitIncrement", 5, 5]` — hex-encoded into the contract call.
 
-#### `joinWorld`
-Triggered when a player joins the world for the first time. Creates a user record and places them at the origin (0, 0).
+### State machine
+
+`packages/node/state-machine.ts` is the whole of the game logic:
 
 ```typescript
+const stm = new Stm<typeof grammar, {}>(grammar);
+
 stm.addStateTransition("joinWorld", function* (data) {
-  const { blockHeight, parsedInput, randomGenerator, signerAddress: user } = data;
-
-  const result = yield* World.promise<SQLUpdate>(
-    joinWorld(user!, blockHeight, { input: "joinWorld", ...parsedInput }, randomGenerator)
-  );
-
-  yield* printSQLQuery(result);
-  yield* World.resolve(result[0], result[1]);
+  const { signerAddress: wallet } = data;
+  yield* World.resolve(createGlobalUserState, { wallet, x: 0, y: 0 });
 });
-```
 
-The `joinWorld` transition function in `packages/node/state-machine.ts`:
-```typescript
-export const joinWorld = async (
-  player: WalletAddress,
-  blockHeight: number,
-  input: JoinWorldInput,
-  randomnessGenerator: Prando
-): Promise<SQLUpdate> => {
-  return persistNewUser(player);
-};
-
-function persistNewUser(wallet: WalletAddress): SQLUpdate {
-  const params = { wallet, x: 0, y: 0 };
-  return [createGlobalUserState, params];
-}
-```
-
-#### `submitMove`
-Allows players to move to any valid position on the 10×10 grid.
-
-```typescript
 stm.addStateTransition("submitMove", function* (data) {
-  const { blockHeight, parsedInput, randomGenerator, signerAddress: user } = data;
-
-  const result = yield* World.promise<SQLUpdate>(
-    submitMove(user!, blockHeight, { input: "submitMove", ...parsedInput }, randomGenerator)
-  );
-
-  yield* printSQLQuery(result);
-  yield* World.resolve(result[0], result[1]);
+  const { signerAddress: wallet, parsedInput } = data;
+  const { x, y } = parsedInput;
+  yield* World.resolve(updateUserGlobalPosition, { wallet, x, y });
 });
-```
 
-The move transition function:
-```typescript
-export const submitMove = async (
-  player: WalletAddress,
-  blockHeight: number,
-  input: SubmitMoveInput,
-  randomnessGenerator: Prando
-): Promise<SQLUpdate> => {
-  return persistUserPosition(player, input.x, input.y);
-};
-
-function persistUserPosition(
-  wallet: WalletAddress,
-  x: number,
-  y: number
-): SQLUpdate {
-  const params = { x, y, wallet };
-  return [updateUserGlobalPosition, params];
-}
-```
-
-Note: In this implementation, validation happens at the grammar level (TypeBox ensures `0 ≤ x ≤ 9` and `0 ≤ y ≤ 9` for the 10×10 grid). Additional validation could be added here if needed.
-
-#### `submitIncrement`
-Increments a counter at a specific world location, tracking how many times each cell has been visited.
-
-```typescript
 stm.addStateTransition("submitIncrement", function* (data) {
-  const { blockHeight, parsedInput, randomGenerator, signerAddress: user } = data;
-
-  const result = yield* World.promise<SQLUpdate>(
-    submitIncrement(user!, blockHeight, { input: "submitIncrement", ...parsedInput }, randomGenerator)
-  );
-
-  yield* printSQLQuery(result);
-  yield* World.resolve(result[0], result[1]);
+  const { parsedInput } = data;
+  const { x, y } = parsedInput;
+  yield* World.resolve(updateWorldStateCounter, { x, y });
 });
 ```
 
-The increment transition function:
+`World.resolve` takes a pgtyped query object and its parameters, so a transition describes an
+update rather than executing one — that is what keeps replay deterministic. `joinWorld` uses
+`ON CONFLICT (wallet) DO NOTHING`, so re-joining is idempotent, and `submitIncrement` needs no
+signer at all: bumping a cell's counter is world state, not player state.
+
+`main.dev.ts` wires these together with the config, the migrations, and the API router:
+
 ```typescript
-export const submitIncrement = async (
-  player: WalletAddress,
-  blockHeight: number,
-  input: SubmitIncrementInput,
-  randomnessGenerator: Prando
-): Promise<SQLUpdate> => {
-  return persistWorldCount(input.x, input.y);
-};
+yield* start({
+  appName: "world-map-2d",
+  appVersion: "1.0.0",
+  syncInfo: toSyncProtocolWithNetwork(config),
+  gameStateTransitions,
+  migrations: migrationTable,
+  apiRouter,
+  grammar,
+});
+```
 
-function persistWorldCount(x: number, y: number): SQLUpdate {
-  const params = { x, y };
-  return [updateWorldStateCounter, params];
+### Contracts
+
+`packages/contracts-evm/src/contracts/MyEffectstreamL2.sol` is the stock L2 mailbox with nothing
+added:
+
+```solidity
+contract MyEffectstreamL2 is EffectstreamL2Contract {
+    constructor(address _owner, uint256 _fee) EffectstreamL2Contract(_owner, _fee) {}
 }
 ```
 
-## Database Schema
+Hardhat Ignition deploys it as `EffectstreamL2Module#MyEffectstreamL2`, and `config.dev.ts` reads
+the address back out of the generated bindings rather than hardcoding it:
 
-The database has two main tables defined in `packages/database/src/migrations/database.sql`:
-
-### `global_user_state`
-Stores each player's current position in the world.
-
-```sql
-CREATE TABLE global_user_state (
-  wallet TEXT NOT NULL PRIMARY KEY,
-  x INTEGER NOT NULL,
-  y INTEGER NOT NULL
-);
+```typescript
+contractAddress:
+  contractAddressesEvmMain()
+    .chain31337["EffectstreamL2Module#MyEffectstreamL2"],
+paimaL2Grammar: grammar,
 ```
 
-### `global_world_state`
-Tracks statistics for each cell in the 10×10 grid.
+The primitive is `PrimitiveTypeEVMEffectstreamL2` on the `mainEvmRPC` sync protocol
+(`EVM_RPC_PARALLEL`, 500 ms polling, confirmation depth 1), running in parallel with an
+`NTP_MAIN` clock at one block per second.
 
-```sql
-CREATE TABLE global_world_state (
-  x INTEGER NOT NULL,
-  y INTEGER NOT NULL,
-  counter INTEGER NOT NULL DEFAULT 0,
-  can_visit BOOLEAN NOT NULL DEFAULT TRUE,
-  PRIMARY KEY (x, y)
-);
-```
+### API
 
-The world state is pre-populated with all 100 cells (0-9 in both x and y) during initialization.
+`packages/node/api.ts` registers two read endpoints on the node's Fastify server:
 
-### Type-Safe Queries
-
-The template uses **pgtyped** to generate TypeScript types from SQL queries. Query files are in `packages/database/src/sql/`:
-
-**select.sql**:
-```sql
-/* @name getUserStats */
-SELECT * FROM global_user_state
-WHERE wallet = :wallet;
-
-/* @name getAllWorldStats */
-SELECT * FROM global_world_state
-WHERE can_visit = TRUE;
-```
-
-**insert.sql**:
-```sql
-/* @name createGlobalUserState */
-INSERT INTO global_user_state (wallet, x, y)
-VALUES (:wallet!, :x!, :y!);
-
-/* @name createGlobalWorldState */
-INSERT INTO global_world_state (x, y, counter, can_visit)
-VALUES (:x!, :y!, :counter!, :can_visit!);
-```
-
-**update.sql**:
-```sql
-/* @name updateUserGlobalPosition */
-UPDATE global_user_state
-SET x = :x!, y = :y!
-WHERE wallet = :wallet!;
-
-/* @name updateWorldStateCounter */
-UPDATE global_world_state
-SET counter = counter + 1
-WHERE x = :x! AND y = :y!;
-```
-
-To regenerate types after modifying SQL files:
-```sh
-cd packages/database
-npm install
-npx pgtyped -c ./pgtypedconfig.json
-```
-
-## API Endpoints
-
-The backend server runs on **port 9999** and provides REST endpoints defined in `packages/node/api.ts`.
-
-All database queries are wrapped in `runPreparedQuery` from `@effectstream/db`. This is required because PGlite (the in-memory database) only allows single-threaded access. The `runPreparedQuery` function uses a semaphore to coordinate access to the single database connection across multiple processes.
-
-### GET `/user_stats?wallet=<address>`
-
-Fetches the current position of a player.
-
-**Query Parameters**:
-| Parameter | Type   | Required | Description                    |
-| :-------- | :----- | :------- | :----------------------------- |
-| `wallet`  | string | Yes      | The wallet address of the user |
-
-**Example Request**:
-```bash
-curl "http://localhost:9999/user_stats?wallet=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-```
-
-**Example Response**:
-```json
-{
-  "wallet_address": "0xf39fd6e51aad88f6f4ce6ab8827279cffb92266",
-  "x": 5,
-  "y": 3
-}
-```
-
-Returns `null` if the user hasn't joined the world yet.
-
-**Implementation**:
 ```typescript
 server.get("/user_stats", async (request, reply) => {
   const { wallet } = request.query as { wallet: string };
   if (!wallet) {
     return reply.code(400).send({ error: "wallet parameter required" });
   }
-
-  try {
-    const [userStats] = await runPreparedQuery(
-      getUserStats.run({ wallet }, dbConn),
-      "getUserStats"
-    );
-    return reply.send(userStats || null);
-  } catch (error) {
-    console.error("Error fetching user stats:", error);
-    return reply.code(500).send({ error: "Internal server error" });
-  }
+  const [userStats] = await runPreparedQuery(
+    getUserStats.run({ wallet }, dbConn),
+    "getUserStats"
+  );
+  return reply.send(userStats || null);
 });
 ```
 
-### GET `/world_stats`
-
-Fetches all world cell statistics (100 cells in the 10×10 grid).
-
-**Example Request**:
 ```bash
+curl "http://localhost:9999/user_stats?wallet=0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
 curl "http://localhost:9999/world_stats"
 ```
 
-**Example Response**:
-```json
-[
-  { "x": 0, "y": 0, "counter": 5, "can_visit": true },
-  { "x": 0, "y": 1, "counter": 2, "can_visit": true },
-  { "x": 0, "y": 2, "counter": 0, "can_visit": true },
-  ...
-]
+`/user_stats` returns the `global_user_state` row (`wallet`, `x`, `y`) or `null` for a wallet that
+has not joined. Wallet addresses are stored lowercase, so query with a lowercased address.
+`/world_stats` returns every `can_visit = TRUE` cell — all 100 of them — each with `x`, `y`,
+`counter` and `can_visit`. Both reads go through `runPreparedQuery`, which takes the PGLite mutex
+while a query is in flight; against a real Postgres it passes straight through.
+
+### Database
+
+Queries live as annotated SQL and are compiled by pgtyped into `*.queries.ts`, which
+`packages/database/src/mod.ts` re-exports. The three the node uses:
+
+```sql
+/* @name getAllWorldStats */
+SELECT * FROM global_world_state
+WHERE can_visit = TRUE
+;
+
+/* @name updateWorldStateCounter */
+UPDATE global_world_state
+SET counter = counter + 1
+WHERE can_visit = TRUE
+AND x = :x!
+AND y = :y!
+;
 ```
 
-**Implementation**:
-```typescript
-server.get("/world_stats", async (request, reply) => {
-  try {
-    const worldStats = await runPreparedQuery(
-      getAllWorldStats.run(undefined, dbConn),
-      "getAllWorldStats"
-    );
-    return reply.send(worldStats);
-  } catch (error) {
-    console.error("Error fetching world stats:", error);
-    return reply.code(500).send({ error: "Internal server error" });
-  }
-});
+Note that the increment query re-checks `can_visit`, so flipping a cell off in the data disables
+it without touching TypeScript. Never hand-edit the generated `*.queries.ts`; after changing any
+`.sql` file, regenerate:
+
+```bash
+bun run build:pgtypes
 ```
 
-## Frontend Architecture
+(That runs `pgtyped:update` in `packages/database`, which reads the connection settings from
+`packages/database/pgtypedconfig.json` — `postgres:postgres@localhost:5432`, i.e. the running dev
+database.)
 
-The frontend uses a simple HTML/JavaScript approach with wallet integration via `@effectstream/wallets`.
+### Frontend
 
-### Wallet Middleware
-
-The frontend includes a middleware layer (`index.js`) that bridges the HTML interface to the EffectStream wallet API:
+`packages/frontend/index.js` is the only module the page loads; it exposes wallet and fetch
+helpers on `window.worldMap2D`, and `index.html` does the rendering. Actions are submitted with
+`sendTransaction` at the `"wait-receipt"` confirmation level:
 
 ```javascript
-import { EffectstreamConfig, sendTransaction, walletLogin, WalletMode } from "@effectstream/wallets";
-import { hardhat } from "viem/chains";
-
-const effectstreamConfig = new EffectstreamConfig(
-  "world-map-2d",
-  "mainEvmRPC",
-  "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  hardhat,
-  undefined,
-  undefined,
-  false,
-);
-
-const endpoints = {
-  async userWalletLogin({ mode, preferBatchedMode }) {
-    const result = await walletLogin({
-      mode: mode || WalletMode.EvmInjected,
-      chain: effectstreamConfig.effectstreamL2Chain,
-      preferBatchedMode: preferBatchedMode ?? false,
-    });
-    if (!result.success) throw new Error("Wallet login failed");
-    wallet = result.result;
-    return wallet;
-  },
-
-  async joinWorld() {
-    const result = await sendTransaction(wallet, ["joinWorld"], effectstreamConfig);
-    return result;
-  },
-
-  async submitMoves(x, y) {
-    const result = await sendTransaction(wallet, ["submitMove", x, y], effectstreamConfig);
-    return result;
-  },
-
-  async submitIncrement(x, y) {
-    const result = await sendTransaction(wallet, ["submitIncrement", x, y], effectstreamConfig);
-    return result;
-  },
-};
-
-window.worldMap2D = endpoints;
-```
-
-This middleware is bundled using esbuild into `dist/min.js`, which the HTML page loads.
-
-### Building the Frontend
-
-The frontend uses esbuild with Node.js polyfills for browser compatibility:
-
-```javascript
-import { nodeModulesPolyfillPlugin } from "esbuild-plugins-node-modules-polyfill";
-import { build } from "esbuild";
-
-build({
-  entryPoints: ["./index.js"],
-  bundle: true,
-  outfile: "dist/min.js",
-  sourcemap: true,
-  plugins: [
-    nodeModulesPolyfillPlugin({
-      globals: { process: true, Buffer: true },
-    }),
-  ],
-});
-```
-
-## Architecture Highlights
-
-### Generator Function Pattern
-
-State transitions use **generator functions** with `yield*` for structured effects, following EffectStream's coroutine-based architecture:
-
-```typescript
-function* (data) {
-  // 1. Call transition function (returns a Promise<SQLUpdate>)
-  const result = yield* World.promise<SQLUpdate>(
-    transitionFunction(...)
+async function submitMove(x, y) {
+  if (!wallet) throw new Error("Connect a wallet first");
+  return await sendTransaction(
+    wallet,
+    ["submitMove", x, y],
+    effectstreamConfig,
+    "wait-receipt",
   );
-
-  // 2. Apply the SQL update
-  yield* World.resolve(result[0], result[1]);
 }
 ```
 
-This pattern ensures:
-- **Deterministic execution**: All side effects are managed by the EffectStream runtime
-- **Testability**: Transition functions return SQL update descriptions rather than executing queries directly
-- **Simplicity**: Each transition returns a single update operation
+The source comment explains the choice: `"wait-receipt"` confirms the chain has the transaction,
+while indexing and the database write land a beat later — the page re-renders on a timer rather
+than subscribing to the MQTT stream. `esbuild.js` bundles this to `dist/min.js` and copies
+`index.html` and `style.css` alongside it; `server.ts` serves `dist/` with `@fastify/static` on
+port 10599. (Both are run for you by the `frontend-build` and `frontend-server` orchestrator
+processes.) The bundler stubs out `@lucid-evolution/*` and `@midnight-ntwrk/*` — optional peer
+dependencies of `@effectstream/wallets` that this EVM-only template never reaches.
 
-### Separation of Concerns
+## Configuration
 
-The template follows a clean architecture:
+The template targets the local Hardhat chain and has no `.env`. Networks are declared inline in
+`packages/node/config.dev.ts` via `addViemNetwork({ ...hardhat, name: "evmMain" })`, and the
+security namespace is `world-map-2d-node`.
 
-1. **Grammar** (`packages/node/grammar.ts`): Input validation using TypeBox
-2. **State Machine** (`packages/node/state-machine.ts`): Generator-based transitions that queue SQL updates
-3. **Database** (`packages/database`): Type-safe queries with pgtyped
-4. **API** (`packages/node/api.ts`): REST endpoints for the frontend
-5. **Frontend** (`packages/frontend`): Simple HTML/JS interface
-6. **Contracts** (`packages/contracts-evm`): The EVM L2 contract and its deployment
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `NODE_ENV` | set to `development` by `bun run dev` | Development mode for the orchestrator and node. |
+| `PGLITE` | `true` (set by `start.dev.ts` for the sync process) | Use embedded PGLite; `false` makes the orchestrator wait for an external Postgres instead of starting one. |
+| `DB_PORT` | `5432` | Port of that external Postgres, and the port the test runner connects to. |
+| `EFFECTSTREAM_API_PORT` | `9999` | Node HTTP API port. |
+| `ENABLE_DEV_AND_DEBUG_ENDPOINTS` | unset (`true` under `packages/tests/start.test.ts`) | Exposes the node's debug endpoints. |
+| `CHROME_PATH` | autodetected | Browser binary for the Playwright-driven tests. |
 
-## Use Cases and Extensions
+To point the node at a real EVM network, replace the `hardhat` chain in `config.dev.ts` with the
+target chain and set `startBlockHeight` on the `mainEvmRPC` protocol and the primitive; then
+update the contract address in `packages/frontend/index.js`, which is currently pinned to the
+deterministic local Ignition address `0x5FbDB2315678afecb367f032d93F642f64180aa3`.
 
-This template can be extended for various game types:
+Other root scripts:
 
-### Exploration Games
-- Add items or collectibles at specific locations
-- Implement fog of war (cells revealed as players visit them)
-- Create quest markers and waypoints
-
-### Territory Control
-- Allow players to claim cells
-- Implement resource gathering per cell
-- Add building/construction mechanics
-
-### Multiplayer Interactions
-- Show other players in the same cell
-- Implement chat or trading at shared locations
-- Add PvP zones or safe zones
-
-### Puzzle Games
-- Create movement-based puzzles
-- Implement pressure plates or switches
-- Add teleportation mechanics between cells
-
-## Troubleshooting
-
-### Port Conflicts
-If ports 8545, 9999, or 10599 are already in use:
-```sh
-# Check what's using the ports
-lsof -i :8545
-lsof -i :9999
-lsof -i :10599
-
-# Kill processes if needed
-kill -9 <PID>
+```bash
+bun run build:evm       # compile contracts and regenerate the TypeScript bindings
+bun run build:pgtypes   # regenerate pgtyped query types
+bun run check           # typecheck the node package
 ```
 
-### Frontend Bundle Outdated
-If you modify `index.js`:
-```sh
-cd packages/frontend
-bun esbuild.js  # Regenerate dist/min.js
+If you are working inside the Effectstream monorepo and want your local `@effectstream/*` sources
+instead of the published `0.102.0` packages, run `./link.sh` in place of `bun install`.
+
+## Testing
+
+```bash
+bun run test
 ```
 
-### Database Query Types Out of Sync
-If you modify SQL files, regenerate types:
-```sh
-cd packages/database
-npm install
-npx pgtyped -c ./pgtypedconfig.json
-```
+`packages/tests/run-tests.ts` starts its own orchestrator from `packages/tests/start.test.ts`,
+waits on the control API, and runs three phases:
 
-## Learn More
+- **Phase A — infrastructure**: the chain answers `eth_chainId` with `31337` on port 8545, and
+  `MyEffectstreamL2` deploys to a well-formed address.
+- **Phase B — state machine, database, API**: submits `["joinWorld"]`, `["submitMove", 3, 4]` and
+  `["submitIncrement", 5, 5]` straight to `effectstreamSubmitGameInput` with viem (there is no
+  batcher here), then polls Postgres until `global_user_state` shows the wallet at `(0,0)` and
+  then `(3,4)`, and `global_world_state` at `(5,5)` has a higher counter than before. It then
+  checks both REST endpoints report the same values. The increment assertion is written as a
+  delta, not an absolute, so repeated runs against a warm database stay green.
+- **Phase C — frontend**: the esbuild bundle builds cleanly, the served page renders, its
+  interactions work, and a headless Chromium drives the full flow — connect the local `EvmViem`
+  wallet, render the grid at the current position, click a *move* button, watch the cell repaint.
 
-- [EffectStream State Machine Guide](../200-state-machine/index.md)
-- [Multi-Chain Primitives](../300-primitives/index.md)
-- [Process Orchestrator](../100-components/106-processes.md)
-- [Chess Template](./1203-chess.md) - For turn-based game patterns
-- [EVM-Midnight Template](./1201-evm-midnight.md) - For multi-chain examples
+The runner tears the stack down in a `finally` block and exits non-zero if any assertion failed.
+
+## Where to go next
+
+- [Grammar](https://effectstream.github.io/docs/home/components/grammar) — how input schemas are
+  declared and parsed, and what else you can express in a bound.
+- [State machine](https://effectstream.github.io/docs/home/components/state-machine) — the
+  transition model this template keeps deliberately thin.
+- [Database](https://effectstream.github.io/docs/home/components/database) — migrations and the
+  pgtyped workflow behind `build:pgtypes`.
+- [Effectstream L2 contract](https://effectstream.github.io/docs/home/components/l2-contract) —
+  what `effectstreamSubmitGameInput` does on chain.
+- [`hex-battle`](https://github.com/effectstream/effectstream/tree/v-next/templates/hex-battle) —
+  the next step up for grid games: hex coordinates, lobbies, simultaneous hidden moves, and rules
+  in a shared engine package rather than in the schema.
+- [`minimal`](https://github.com/effectstream/effectstream/tree/v-next/templates/minimal) — the
+  same EVM stack with a single action, if this one has more moving parts than you want.

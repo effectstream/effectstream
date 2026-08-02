@@ -1,204 +1,248 @@
 ---
+title: "Rock Paper Scissors Wars"
+description: "A best-of-N Rock Paper Scissors game where both players commit moves for the same round and the node resolves them deterministically, with timeout forfeits."
+sidebar_label: "Rock Paper Scissors Wars"
+sidebar_position: 10
 draft: true
 ---
 
-# Rock Paper Scissors Wars (Turn-Based Multiplayer)
+<!-- Generated from templates/rock-paper-scissors/README.md by docs/site/scripts/sync-template-readmes.ts. Do not edit directly. -->
 
-* **Path**: `/templates/rock-paper-scissors`
-* **Highlights**: A turn-based multiplayer Rock Paper Scissors game showcasing lobby systems, round-based gameplay, and competitive match mechanics using EffectStream's L2.
+> Template: **[`templates/rock-paper-scissors`](https://github.com/effectstream/effectstream/tree/main/templates/rock-paper-scissors)**
 
-The `rock-paper-scissors` template demonstrates how to build a competitive multiplayer game with lobby management, turn-based rounds, and player statistics. It's an excellent example for games requiring matchmaking, simultaneous hidden moves, and game state progression, all processed deterministically through an EffectStream L2 contract on an EVM chain.
+Two players meet in a lobby and play a fixed number of rounds. Each round both of them
+submit a move independently — neither submission reveals anything to the other, because the
+round is only resolved once the *second* move lands in the same block stream. If a player
+walks away, a scheduled "zombie" input closes the round out and hands the win to whoever
+did play. All of that lives in the state machine; the browser never decides anything.
 
-![Rock Paper Scissors Lobby System](./1207-rock-paper-scissors.png)
+This is the template to read if you are building any game with **simultaneous, independent
+turns** — card battles, tactics games, betting rounds — where the interesting problem is
+not the rules themselves but *when* it is safe to evaluate them. It is also a compact
+example of a Paima Effectstream node: a TypeBox grammar, a `PaimaSTM` with six transitions,
+pgtyped SQL, a Fastify API and a Phaser frontend, all in one Bun workspace.
 
-## Core Concept: Turn-Based Combat with Lobbies
+![The Rock Paper Scissors lobby screen](./rock-paper-scissors-lobby.png)
 
-The goal of this template is to demonstrate a competitive multiplayer game where players create or join lobbies, play best-of-N matches, and track their win/loss records. The game implements classic Rock Paper Scissors rules with a robust lobby and round management system.
+## What this template shows
 
-*   **Lobby System**: Players create lobbies with configurable round counts, round lengths, and visibility settings.
-*   **Round-Based Gameplay**: Each match consists of multiple rounds where both players submit moves simultaneously.
-*   **Hidden Moves**: Moves are committed but not revealed until both players submit their choices for a round.
-*   **Automatic Execution**: When both players submit moves, the round is automatically resolved using deterministic game logic.
-*   **Zombie Rounds**: If a player fails to submit a move within the time limit, they automatically forfeit the round.
-*   **Player Statistics**: Track wins, losses, and ties across all completed matches.
+**Simultaneous hidden moves, resolved by arrival order.** A move is not a state transition
+that resolves a round — it is an insert into `match_moves`. Only when
+`submittedMoves` sees that its own move is the second one for that round does it resolve
+anything, in the same transition, atomically
+(`packages/client/node/src/state-machine/v1/transition.ts`):
 
-This template serves as a foundation for:
-*   Turn-based strategy games
-*   Card battle games
-*   Competitive puzzle games
-*   Any game requiring simultaneous hidden moves
-
-## Quick Start
-
-```sh
-# Install dependencies
-bun i
-
-# Start the EffectStream Node (compiles contracts, builds the frontend, and starts the full local stack)
-bun run dev
-```
-
-The game will be available at:
-- **Frontend**: http://localhost:8080
-- **API**: http://localhost:9999
-- **Explorer**: http://localhost:10590
-- **Blockchain**: http://localhost:8545
-
-### Using Test Accounts
-
-For development, import Hardhat's test accounts into MetaMask:
-
-1. Open MetaMask → Click account icon → **Import Account**
-2. Select **Private Key** and paste one of these:
-   ```
-   # Account #0 (10,000 ETH)
-   0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-
-   # Account #1 (10,000 ETH) - for testing multiplayer
-   0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
-   ```
-3. Make sure MetaMask is connected to **Localhost 8545** (Chain ID: 31337)
-
-⚠️ **Never use these private keys on a real network** - they're publicly known and only for local development.
-
-## Docker Setup
-
-You can run the entire stack in a single Docker container:
-
-### Building the Docker Image
-
-```sh
-# For macOS
-DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build -t rock-paper-scissors -f Dockerfile .
-
-# For Linux
-docker build -t rock-paper-scissors -f Dockerfile .
-```
-
-### Running the Container
-
-```sh
-# For macOS
-DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run -p 8080:8080 -p 8545:8545 -p 9999:9999 rock-paper-scissors
-
-# For Linux
-docker run -p 8080:8080 -p 8545:8545 -p 9999:9999 rock-paper-scissors
-```
-
-The container exposes:
-- **Port 8080**: Frontend
-- **Port 8545**: Local EVM node (Hardhat)
-- **Port 9999**: EffectStream backend API
-
-## The Components in Action
-
-When you run `bun run dev`, the [Process Orchestrator](../100-components/106-processes.md) sets up:
-*   **Hardhat EVM Node**: Local blockchain on port 8545
-*   **Development Services**: Database, log collector, TUI, and Explorer
-*   **EffectStream Node**: Backend service on port 9999
-*   **Frontend**: Phaser.js game interface on port 8080
-
-## On-Chain Logic
-
-The template uses a `EffectStream L2 Contract` deployed on the local EVM chain at `0x5FbDB2315678afecb367f032d93F642f64180aa3`. Players submit formatted input strings, and EffectStream processes them to update game state.
-
-```solidity
-// The EffectstreamL2Contract acts as an input mailbox
-contract EffectstreamL2 {
-    event EffectStreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
-
-    function submitInput(bytes calldata input) external payable {
-        emit EffectStreamGameInteraction(msg.sender, input, nonce);
-    }
+```ts
+const allMoves = [...cachedMoves, { wallet: player, move_rps: input.move_rps }];
+if (allMoves.length === 2) {
+  const roundExecutionUpdates = executeRound(blockHeight, lobby, allMoves, round, randomnessGenerator);
+  return [moveUpdate, ...roundExecutionUpdates];
 }
+return [moveUpdate];
 ```
 
-EffectStream monitors the `EffectStreamGameInteraction` event to receive and process player inputs.
+There is no commit-reveal ceremony and no second round-trip. The first player's move is
+already in the database, but the second player has no way to read it and then change their
+own — by the time the row is visible, the round that used it has already been executed by
+the same transition that made it visible.
 
-## The State Machine (`state-machine.ts`)
+**Zombie rounds turn absence into a move.** The engine has a fourth action beyond rock,
+paper and scissors: `DID_NOT_PLAY` (`-`). `zombieRound` reruns exactly the same
+`executeRound` path with whatever moves exist, and `RockPaperScissors.endRound()` converts
+every still-`PENDING` slot to `-`. Because `match()` treats `-` as losing to anything and
+tying with itself, a timeout needs no special-case scoring rules at all — it is the ordinary
+round resolution applied to an incomplete round.
 
-The State Machine implements all game logic using **generator functions** with `yield*` for structured effects.
+**One engine, one source of truth for the rules.**
+`packages/shared/game-logic/src/rock-paper-scissor.ts` is a plain TypeScript class with no
+database, no framework and no I/O: you hand it a state string, call `inputMove` /
+`endRound`, and ask it `roundWinner`, `didGameEnd`, `endGameResults`. The node imports it
+through the `@rock-paper-scissors/game-logic` workspace package, and the frontend bundles
+the *same* source file — `packages/frontend/esbuild.js` aliases the package name straight at
+it:
 
-### Grammar Definition
+```js
+alias: {
+  '@rock-paper-scissors/game-logic': '../shared/game-logic/src/mod.ts',
+},
+```
 
-Input grammar is defined using TypeBox schemas in `packages/shared/data-types/src/grammar.ts`:
+so the browser's move enums, its `TickEvent` shape and its round-replay logic
+(`packages/shared/game-logic/src/tick.ts`) cannot drift away from the rules the node
+enforces. The package also carries `genrateRandomMove(random)`, the deterministic move
+generator intended for the practice/AI opponent, in the same file as the rules it plays by.
 
-```typescript
+**The whole match is one string.** `latest_match_state` is not JSON — it is two characters
+per round, player one then player two, drawn from `{R, P, S, -, *}`:
+
+```
+ Round   1   2   3   4
+ Player  1 2 1 2 1 2 1 2
+ Example R S - S - - * *
+ Winner   P1  P2   T   pending
+```
+
+`buildInitialState(rounds)` just fills an array of `2 * rounds` `PENDING` characters, a move
+is a single character assignment, and the entire scoreboard is recomputed from the string in
+`updateInternalState()`. That is why the early-finish rule is cheap: `gameRounds = rounds -
+ties`, and a player has clinched once their wins exceed `Math.floor(gameRounds / 2)`.
+
+## Effectstream features used
+
+| Feature | Where | Used for |
+| --- | --- | --- |
+| `PaimaSTM` state machine (`@paimaexample/sm`) | `packages/client/node/src/state-machine.ts` | Six transitions: lobby create/join/close, move submission, zombie timeout, stats |
+| Coroutine effects (`@paimaexample/coroutine`) | `packages/client/node/src/state-machine.ts` | `World.resolve` to read/write state, `World.promise` to call the async transition helpers |
+| TypeBox grammar (`@paimaexample/concise`) | `packages/shared/data-types/src/grammar.ts` | Typed, bounded on-chain input encoding (`GrammarDefinition`) |
+| `ConfigBuilder` + `PrimitiveTypeEVMPaimaL2` (`@paimaexample/config`, `@paimaexample/sm/builtin`) | `packages/shared/data-types/src/localhostConfig.ts` | NTP main sync protocol + parallel EVM RPC sync reading the L2 contract |
+| Deterministic randomness (`@paimaexample/crypto` `Prando`) | `packages/client/node/src/state-machine/v1/transition.ts` | `randomnessGenerator.nextString(12)` generates lobby IDs identically on every node |
+| Migrations + pgtyped (`@paimaexample/db`) | `packages/client/database/` | `database.sql` schema, typed prepared queries in `src/sql/*.queries.ts` |
+| Fastify API router (`StartConfigApiRouter` from `@paimaexample/runtime`) | `packages/client/node/src/api.ts` | Read-only REST over lobbies, rounds, moves and stats |
+| Process orchestrator (`@paimaexample/orchestrator`) | `packages/client/node/scripts/start.ts` | Hardhat, PGlite, log collector, TUI, explorer, frontend install/build/serve |
+| Effectstream L2 contract (`@paimaexample/evm-contracts`) | `packages/shared/contracts/evm/src/contracts/MyPaimaL2Contract.sol` | Input mailbox; `MyPaimaL2Contract` just extends `PaimaL2Contract` |
+| Wallet connect + submit (`@paimaexample/wallets`) | `packages/frontend/paimaMiddleware.src.js` | `walletLogin` and `sendTransaction` with grammar-shaped argument arrays |
+| Explorer (`@paimaexample/explorer`) | `packages/client/node/scripts/start.ts` | Block/state explorer on port 10590 |
+
+## Quick start
+
+> [!WARNING]
+> This template still depends on the unpublished `@paimaexample/*` packages and **cannot be
+> installed as-is**. It is kept as a reference implementation until it is migrated to
+> `@effectstream/*`. The walkthrough below still describes how it works.
+
+Prerequisites, beyond [Bun](https://bun.sh):
+
+- **Foundry** — `bun run build:evm` runs `forge build` before the Hardhat compile.
+- **Node.js** — the Phaser frontend installs and builds with `npm`/`esbuild`, not Bun.
+- **Docker** (optional) — only for the containerised run below.
+
+```sh
+# Install workspace dependencies
+bun install
+
+# Compile and deploy the EVM contracts (writes build/contractAddressesEvmMain.ts)
+bun run build:evm
+
+# Start everything: Hardhat, PGlite, the node, the explorer and the frontend
+bun run dev
+
+# Typecheck the node package
+bun run check
+```
+
+`bun run dev` also installs, builds and serves the frontend for you — those are three of
+the custom orchestrator processes in `packages/client/node/scripts/start.ts`.
+
+| Service | URL |
+| --- | --- |
+| Frontend (Phaser) | http://localhost:8080 |
+| Node API | http://localhost:9999 |
+| Explorer | http://localhost:10590 |
+| Hardhat EVM RPC | http://localhost:8545 |
+
+To run the whole stack in one container:
+
+```sh
+# macOS
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build -t rock-paper-scissors -f Dockerfile .
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run -p 8080:8080 -p 8545:8545 -p 9999:9999 -p 10590:10590 rock-paper-scissors
+
+# Linux
+docker build -t rock-paper-scissors -f Dockerfile .
+docker run -p 8080:8080 -p 8545:8545 -p 9999:9999 -p 10590:10590 rock-paper-scissors
+```
+
+The image sets `EFFECTSTREAM_STDOUT=true`, which makes `packages/client/node/scripts/start.ts` disable tmux, the
+TUI and the log collector and write plain logs to stdout.
+
+## Project structure
+
+```
+rock-paper-scissors/
+├── packages/
+│   ├── client/
+│   │   ├── database/                        # @rock-paper-scissors/db
+│   │   │   ├── src/migrations/database.sql  # Schema: lobbies, rounds, match_moves, stats
+│   │   │   ├── src/sql/*.sql                # Hand-written queries
+│   │   │   └── src/sql/*.queries.ts         # pgtyped-generated typed clients
+│   │   └── node/                            # @rock-paper-scissors/node
+│   │       ├── src/main.ts                  # Entry point: init + start(...)
+│   │       ├── src/state-machine.ts         # PaimaSTM transition registration
+│   │       ├── src/state-machine/v1/
+│   │       │   └── transition.ts            # Async transition helpers returning SQLUpdate[]
+│   │       ├── src/api.ts                   # Fastify read API
+│   │       └── scripts/start.ts             # Orchestrator config for `bun run dev`
+│   ├── frontend/                            # @rock-paper-scissors/frontend
+│   │   ├── src/scenes/                      # Phaser scenes: Start, Wallet, Lobby, Game
+│   │   ├── paimaMiddleware.src.js           # Wallet login + sendTransaction + REST calls
+│   │   ├── esbuild.js                       # Bundles middleware and game; aliases game-logic
+│   │   └── public/                          # Static assets served on :8080
+│   └── shared/
+│       ├── contracts/evm/                   # @rock-paper-scissors/evm-contracts
+│       │   ├── src/contracts/MyPaimaL2Contract.sol
+│       │   ├── ignition/modules/paimaL2.ts  # Deployment module
+│       │   └── deploy.ts                    # Ignition deploy driver
+│       ├── data-types/                      # @rock-paper-scissors/data-types
+│       │   ├── src/grammar.ts               # TypeBox grammar
+│       │   └── src/localhostConfig.ts       # Networks, sync protocols, primitives
+│       └── game-logic/                      # @rock-paper-scissors/game-logic
+│           ├── src/rock-paper-scissor.ts    # The rules engine
+│           ├── src/tick.ts                  # Round-executor tick for frontend replay
+│           └── src/types.ts                 # RPSActions, GameResult, TickEvent
+├── Dockerfile
+├── patch.sh                                 # No-op stub, kept for the Docker build
+└── package.json                             # Bun workspace root
+```
+
+## How it works
+
+### Grammar
+
+`packages/shared/data-types/src/grammar.ts` defines every accepted input. Note that the
+bounds are part of the type, so an out-of-range round or a malformed move never reaches a
+transition:
+
+```ts
+const LobbyID = Type.String({ minLength: 12, maxLength: 12 });
+const RPSMove = Type.Union([Type.Literal("R"), Type.Literal("P"), Type.Literal("S")]);
+
 export const grammar = {
   createdLobby: [
-    ["numOfRounds", Type.Number({ minimum: 1, maximum: 9 })],
-    ["roundLength", Type.Number({ minimum: 1 })],
-    ["isHidden", ParsableBoolean],
-    ["isPractice", ParsableBoolean],
+    ["numOfRounds", Type.Number({ minimum: 3, maximum: 1000 })],
+    ["roundLength", Type.Number({ minimum: 1, maximum: 10000 })],
+    ["isHidden", Type.Optional(Type.Boolean())],
+    ["isPractice", Type.Optional(Type.Boolean())],
   ],
-  joinedLobby: [["lobbyID", Type.String()]],
-  closedLobby: [["lobbyID", Type.String()]],
+  joinedLobby: [["lobbyID", LobbyID]],
+  closedLobby: [["lobbyID", LobbyID]],
   submittedMoves: [
-    ["lobbyID", Type.String()],
-    ["roundNumber", Type.Number({ minimum: 1, maximum: 9 })],
-    ["move_rps", Type.String()],
+    ["lobbyID", LobbyID],
+    ["roundNumber", Type.Number({ minimum: 1, maximum: 1000 })],
+    ["move_rps", RPSMove],
+  ],
+  zombieScheduledData: [["lobbyID", LobbyID]],
+  userScheduledData: [
+    ["user", Type.String()],
+    ["result", MatchResult],
   ],
 } as const satisfies GrammarDefinition;
 ```
 
-### State Transitions
+The same grammar object is passed to `start(...)` in `main.ts` *and* attached to the EVM
+primitive as `paimaL2Grammar` in `localhostConfig.ts`, so encoding and decoding are defined
+once.
 
-#### `createdLobby`
-Creates a new game lobby with specified settings.
+### State machine
 
-```typescript
-stm.addStateTransition("createdLobby", function* (data) {
-  const { blockHeight, parsedInput, randomGenerator, signerAddress: user } = data;
+`packages/client/node/src/state-machine.ts` registers one generator per grammar key on a
+`PaimaSTM`. The generators do the I/O — reading state with `World.resolve`, calling an async
+helper with `World.promise`, then applying each returned `[query, params]` pair — while the
+helpers in `state-machine/v1/transition.ts` stay pure functions of their arguments:
 
-  const result = yield* World.promise<SQLUpdate>(
-    createdLobby(
-      user!,
-      blockHeight,
-      { input: "createdLobby", ...parsedInput },
-      randomGenerator
-    )
-  );
-
-  yield* World.resolve(result[0], result[1]);
-});
-```
-
-The transition function generates a unique lobby ID and initializes match state:
-
-```typescript
-export async function createdLobby(
-  player: WalletAddress,
-  blockHeight: number,
-  input: CreatedLobbyInput,
-  randomnessGenerator: Prando
-): Promise<SQLUpdate> {
-  const lobby_id = randomnessGenerator.nextString(12);
-  const initialMatchState = RockPaperScissors.buildInitialState(input.numOfRounds);
-
-  return [createLobby, {
-    lobby_id,
-    num_of_rounds: input.numOfRounds,
-    round_length: input.roundLength,
-    round_winner: "",
-    created_at: new Date(),
-    creation_block_height: blockHeight,
-    hidden: input.isHidden,
-    practice: input.isPractice,
-    lobby_creator: player,
-    lobby_state: "open",
-    latest_match_state: initialMatchState,
-  }];
-}
-```
-
-#### `joinedLobby`
-Allows a second player to join an open lobby, starting the match.
-
-```typescript
+```ts
 stm.addStateTransition("joinedLobby", function* (data) {
   const { blockHeight, parsedInput, signerAddress: user } = data;
 
-  // Query the lobby first
   const lobby = yield* World.resolve(getLobbyById, { lobby_id: parsedInput.lobbyID });
   const lobbyData = lobby && lobby.length > 0 ? lobby[0] : null;
 
@@ -206,477 +250,277 @@ stm.addStateTransition("joinedLobby", function* (data) {
     joinedLobby(user!, blockHeight, { input: "joinedLobby", ...parsedInput }, lobbyData)
   );
 
-  // Execute all SQL updates
   for (const result of results) {
     yield* World.resolve(result[0], result[1]);
   }
 });
 ```
 
-The join logic validates the lobby and creates the first round:
+Every helper returns `[]` when validation fails, which is how invalid inputs are rejected:
+the transition simply produces no writes. `gameStateTransitions` at the bottom of the file
+is the version router — both branches currently call `stm.processInput(input)`, and it is
+there as the seam for adding a `v2/` transition set later.
 
-```typescript
-export async function joinedLobby(
-  player: WalletAddress,
-  blockHeight: number,
-  input: JoinedLobbyInput,
-  lobby: IGetLobbyByIdResult | null
-): Promise<SQLUpdate[]> {
-  if (!lobby) return [];
+#### `createdLobby`
 
-  // Validate lobby can be joined
-  if (lobby.player_two || lobby.lobby_state !== "open" || lobby.lobby_creator === player) {
-    return [];
-  }
+Derives a 12-character lobby ID from the block's deterministic randomness, builds the
+all-pending match state, and inserts the lobby as `open`:
 
-  const updates: SQLUpdate[] = [];
-
-  // Update lobby with player two
-  updates.push([updateLobbyPlayerTwo, { player_two: player, lobby_id: input.lobbyID }]);
-
-  // Create round 1
-  updates.push([createRound, {
-    lobby_id: input.lobbyID,
-    round_within_match: 1,
-    starting_block_height: blockHeight,
-  }]);
-
-  // Initialize user stats for both players
-  updates.push([createUserStats, { wallet: lobby.lobby_creator }]);
-  updates.push([createUserStats, { wallet: player }]);
-
-  return updates;
-}
+```ts
+const lobby_id = randomnessGenerator.nextString(12);
+const initialMatchState = RockPaperScissors.buildInitialState(input.numOfRounds);
 ```
+
+`isHidden` keeps the lobby out of `/open_lobbies`; `isPractice` suppresses the
+`final_match_state` row at the end so practice games do not pollute results.
+
+#### `joinedLobby`
+
+Rejects the join if the lobby already has a second player, is not `open`, or if the joiner
+is the creator. Otherwise it emits four writes: set `player_two` (the
+`updateLobbyPlayerTwo` query also flips `lobby_state` to `'active'` in the same statement),
+create round 1, and upsert a `global_user_state` row for each player. Inserting the round is
+what sets `lobbies.current_round`, via the `update_current_round` trigger.
+
+#### `closedLobby`
+
+The escape hatch for an unanswered challenge: only the creator, only while the lobby is
+still `open` and has no `player_two`, sets `lobby_state = 'closed'`.
 
 #### `submittedMoves`
-Handles move submission and automatic round execution when both players have submitted.
 
-```typescript
-stm.addStateTransition("submittedMoves", function* (data) {
-  const { blockHeight, parsedInput, randomGenerator, signerAddress: user } = data;
+Validation runs against the engine rather than against ad-hoc conditions —
+`validateSubmittedMoves` checks the lobby is `active`, the signer is one of the two players
+and the round is the current one, then delegates to `rps.isValidMove(...)`, which enforces
+that the game has not ended, that the player has not already moved this round, and that no
+earlier round is still pending. Then the move is cached and, if it completes the pair, the
+round executes immediately (see the excerpt at the top of this file).
 
-  // Query current game state
-  const lobby = yield* World.resolve(getLobbyById, { lobby_id: parsedInput.lobbyID });
-  const lobbyData = lobby && lobby.length > 0 ? lobby[0] : null;
+#### `executeRound`
 
-  const round = yield* World.resolve(getRoundData, {
-    lobby_id: parsedInput.lobbyID,
-    round: parsedInput.roundNumber
-  });
-  const roundData = round && round.length > 0 ? round[0] : null;
+The shared resolution path, called by both `submittedMoves` and `zombieRound`:
 
-  const cachedMoves = yield* World.resolve(getCachedMoves, {
-    lobby_id: parsedInput.lobbyID,
-    round: parsedInput.roundNumber,
-  });
-
-  const results = yield* World.promise<SQLUpdate[]>(
-    submittedMoves(user!, blockHeight, { input: "submittedMoves", ...parsedInput },
-                   lobbyData, roundData, cachedMoves || [], randomGenerator)
-  );
-
-  for (const result of results) {
-    yield* World.resolve(result[0], result[1]);
-  }
+```ts
+const rps = new RockPaperScissors(lobby.latest_match_state as RPSSummary);
+moves.forEach((move) => {
+  const isPlayerOne = move.wallet === lobby.lobby_creator;
+  rps.inputMove(isPlayerOne, move.move_rps as RPSActions, round.round_within_match);
 });
+rps.endRound(round.round_within_match);
 ```
 
-The move submission logic caches moves and automatically executes the round when both players have submitted:
-
-```typescript
-export async function submittedMoves(
-  player: WalletAddress,
-  blockHeight: number,
-  input: SubmittedMovesInput,
-  lobby: IGetLobbyByIdResult | null,
-  round: IGetRoundDataResult | null,
-  cachedMoves: IGetCachedMovesResult[],
-  randomnessGenerator: Prando
-): Promise<SQLUpdate[]> {
-  if (!lobby || !round) return [];
-  if (!validateSubmittedMoves(lobby, round, input, player)) return [];
-
-  // Cache the move
-  const moveUpdate: SQLUpdate = [createMove, {
-    lobby_id: input.lobbyID,
-    wallet: player,
-    round: input.roundNumber,
-    move_rps: input.move_rps,
-  }];
-
-  // Check if both players have submitted
-  const allMoves = [...cachedMoves, { wallet: player, move_rps: input.move_rps }];
-  if (allMoves.length === 2) {
-    // Execute the round automatically
-    const roundExecutionUpdates = executeRound(blockHeight, lobby, allMoves, round, randomnessGenerator);
-    return [moveUpdate, ...roundExecutionUpdates];
-  }
-
-  return [moveUpdate];
-}
-```
+It appends `"1"`, `"2"` or `"T"` to `lobbies.round_winner` (a running per-round summary),
+writes back the new match-state string, stamps `rounds.execution_block_height`, and then
+either creates the next round or — when `rps.didGameEnd()` — finishes the lobby and writes
+`final_match_state` for non-practice games.
 
 #### `zombieScheduledData`
-Handles round timeouts, automatically forfeiting rounds for inactive players.
 
-```typescript
-export async function zombieRound(
-  blockHeight: number,
-  input: ZombieScheduledDataInput,
-  lobby: IGetLobbyByIdResult | null,
-  round: IGetRoundDataResult | null,
-  moves: IGetCachedMovesResult[],
-  randomnessGenerator: Prando
-): Promise<SQLUpdate[]> {
-  if (!lobby || lobby.lobby_state !== 'active') return [];
-  if (!round || moves.length >= 2) return [];
+The timeout path. It looks up the lobby's `current_round` and its cached moves, bails out
+if the lobby is not `active`, the round is missing, or both moves are already in (meaning
+the round resolved on its own), and otherwise calls `executeRound` with the incomplete move
+set:
 
-  // Execute round with missing moves marked as "did not play"
-  return executeRound(blockHeight, lobby, moves, round, randomnessGenerator);
+```ts
+if (moves.length >= 2) {
+  return [];
+}
+// Mark missing moves as "did not play" and execute the round
+return executeRound(blockHeight, lobby, moves, round, randomnessGenerator);
+```
+
+`lobbies.round_length` is stored for this purpose, but note that **nothing in this template
+currently emits the `zombieScheduledData` input** — the transition is fully implemented and
+the grammar accepts it, but scheduling it after `round_length` has to be wired up before
+timeouts fire on their own.
+
+#### `userScheduledData`
+
+Turns a `'w' | 't' | 'l'` result into an increment on `global_user_state`. Two caveats worth
+knowing before you copy it: nothing emits this input either (`executeRound` writes
+`final_match_state` but does not schedule the stat updates), and the helper builds its
+parameter object with `wins_increment` / `losses_increment` / `ties_increment` while the
+generated query in `packages/client/database/src/sql/update.queries.ts` expects `wins` / `losses` / `ties`.
+
+### Game engine
+
+`packages/shared/game-logic/src/rock-paper-scissor.ts` holds the rules, including the
+`DID_NOT_PLAY` case that makes zombie rounds work:
+
+```ts
+private match(firstAction: RPSActionsStates, secondAction: RPSActionsStates): MatchResult {
+  if (firstAction === secondAction) return RockPaperScissors.Tie;
+
+  if (firstAction === RPSExtendedStates.DID_NOT_PLAY) return RockPaperScissors.SecondWin;
+  if (secondAction === RPSExtendedStates.DID_NOT_PLAY) return RockPaperScissors.FirstWin;
+
+  if (firstAction === RPSActions.ROCK && secondAction === RPSActions.SCISSORS)
+    return RockPaperScissors.FirstWin;
+  // ...
 }
 ```
 
-## Game Logic Engine
+`updateInternalState()` re-scans the whole state string after every mutation, stopping at
+the first `PENDING` slot, and recomputes wins, ties and whether the game is over. Ties do
+not count toward the majority — the clinch threshold is over half of the *decided* rounds.
 
-The core Rock Paper Scissors logic is implemented in `packages/shared/game-logic/src/rock-paper-scissor.ts` as a standalone, deterministic game engine:
+`packages/shared/game-logic/src/tick.ts` wraps the engine as a round executor: `processTick` replays one round's moves
+and returns a `TickEvent` (`move1`, `move2`, `winner`) for the frontend to animate.
 
-```typescript
-export class RockPaperScissors {
-  state: RPSSummary;
+### Database
 
-  constructor(initialState: RPSSummary) {
-    this.state = initialState;
-  }
+Five tables plus the engine-owned `block_heights`, in
+`packages/client/database/src/migrations/database.sql`:
 
-  static buildInitialState(numRounds: number): RPSSummary {
-    const rounds: RPSRound[] = Array(numRounds).fill(null).map(() => ({
-      p1Move: RPSMoveResult.PENDING,
-      p2Move: RPSMoveResult.PENDING,
-    }));
-    return { rounds };
-  }
+| Table | Holds |
+| --- | --- |
+| `lobbies` | Settings, `lobby_state` (`open`/`active`/`finished`/`closed`), `current_round`, `round_winner`, `latest_match_state` |
+| `rounds` | One row per round with `starting_block_height` and, once resolved, `execution_block_height` |
+| `match_moves` | Cached per-player moves, `move_rps` constrained to the `rock_paper_scissors` enum |
+| `final_match_state` | Completed non-practice matches, `win`/`tie`/`loss` per player plus the final move string |
+| `global_user_state` | Per-wallet `wins` / `losses` / `ties` |
 
-  inputMove(isPlayerOne: boolean, move: RPSActions, roundNumber: number): void {
-    const round = this.state.rounds[roundNumber - 1];
-    if (isPlayerOne) {
-      round.p1Move = move;
-    } else {
-      round.p2Move = move;
-    }
-  }
-
-  roundWinner(roundNumber: number): [GameResult, string] {
-    const round = this.state.rounds[roundNumber - 1];
-    const p1 = round.p1Move;
-    const p2 = round.p2Move;
-
-    // Determine winner based on RPS rules
-    if (p1 === RPSActions.ROCK && p2 === RPSActions.SCISSORS) return [GameResult.WIN, "rock beats scissors"];
-    if (p1 === RPSActions.SCISSORS && p2 === RPSActions.PAPER) return [GameResult.WIN, "scissors beats paper"];
-    if (p1 === RPSActions.PAPER && p2 === RPSActions.ROCK) return [GameResult.WIN, "paper beats rock"];
-    // ... additional logic for ties and losses
-  }
-
-  didGameEnd(): boolean {
-    // Check if all rounds are complete or a player has won majority
-    const p1Wins = this.state.rounds.filter(r =>
-      r.p1Move !== RPSMoveResult.PENDING && this.roundWinner(r).result === GameResult.WIN
-    ).length;
-    const p2Wins = this.state.rounds.filter(r =>
-      r.p2Move !== RPSMoveResult.PENDING && this.roundWinner(r).result === GameResult.LOSS
-    ).length;
-
-    const majorityNeeded = Math.ceil(this.state.rounds.length / 2);
-    return p1Wins >= majorityNeeded || p2Wins >= majorityNeeded;
-  }
-}
-```
-
-## Database Schema
-
-The database has five main tables defined in `packages/client/database/src/migrations/database.sql`:
-
-### `lobbies`
-Stores lobby metadata and match state.
+`current_round` is maintained by the database rather than by the state machine:
 
 ```sql
-CREATE TABLE lobbies (
-  lobby_id TEXT NOT NULL PRIMARY KEY,
-  num_of_rounds INTEGER NOT NULL,
-  round_length INTEGER NOT NULL,
-  round_winner TEXT NOT NULL DEFAULT '',
-  created_at TIMESTAMP NOT NULL,
-  creation_block_height INTEGER NOT NULL,
-  hidden BOOLEAN NOT NULL DEFAULT FALSE,
-  practice BOOLEAN NOT NULL DEFAULT FALSE,
-  lobby_creator TEXT NOT NULL,
-  player_two TEXT,
-  lobby_state TEXT NOT NULL DEFAULT 'open',
-  latest_match_state TEXT NOT NULL,
-  current_round INTEGER NOT NULL DEFAULT 0
-);
+CREATE TRIGGER update_current_round
+AFTER INSERT ON rounds
+FOR EACH ROW
+EXECUTE FUNCTION update_lobby_round();
 ```
 
-### `rounds`
-Tracks individual rounds within matches.
-
-```sql
-CREATE TABLE rounds (
-  lobby_id TEXT NOT NULL,
-  round_within_match INTEGER NOT NULL,
-  starting_block_height INTEGER NOT NULL,
-  execution_block_height INTEGER,
-  PRIMARY KEY (lobby_id, round_within_match)
-);
-```
-
-### `match_moves`
-Caches submitted moves before round execution.
-
-```sql
-CREATE TABLE match_moves (
-  lobby_id TEXT NOT NULL,
-  wallet TEXT NOT NULL,
-  round INTEGER NOT NULL,
-  move_rps TEXT NOT NULL,
-  PRIMARY KEY (lobby_id, wallet, round)
-);
-```
-
-### `global_user_state`
-Tracks player statistics.
-
-```sql
-CREATE TABLE global_user_state (
-  wallet TEXT NOT NULL PRIMARY KEY,
-  wins INTEGER NOT NULL DEFAULT 0,
-  losses INTEGER NOT NULL DEFAULT 0,
-  ties INTEGER NOT NULL DEFAULT 0
-);
-```
-
-### `final_match_state`
-Records completed match results.
-
-```sql
-CREATE TABLE final_match_state (
-  lobby_id TEXT NOT NULL PRIMARY KEY,
-  player_one_wallet TEXT NOT NULL,
-  player_one_result TEXT NOT NULL,
-  player_two_wallet TEXT NOT NULL,
-  player_two_result TEXT NOT NULL,
-  total_time INTEGER NOT NULL,
-  game_moves TEXT NOT NULL
-);
-```
-
-### Type-Safe Queries
-
-The template uses **pgtyped** to generate TypeScript types from SQL queries. To regenerate types after modifying SQL files:
+Queries live as annotated SQL in `src/sql/{select,insert,update}.sql` and are compiled to
+typed clients in the matching `*.queries.ts`. Regenerate them after editing any `.sql` file:
 
 ```sh
 bun run --cwd packages/client/database pgtyped:update
 ```
 
-**Important**: Always run `bun run --cwd packages/client/database pgtyped:update` after converting functions from synchronous to async, as the type definitions need to be regenerated.
+### API
 
-## API Endpoints
+`packages/client/node/src/api.ts` registers read-only Fastify routes on port 9999. Several
+paths are duplicated because the Phaser frontend and the underscore-style routes grew
+apart; both spellings are live.
 
-The backend server runs on **port 9999** and provides REST endpoints defined in `packages/client/node/src/api.ts`.
-
-### GET `/lobby/:lobbyId`
-Fetches details for a specific lobby.
-
-**Example Request**:
-```bash
-curl "http://localhost:9999/lobby/abc123xyz456"
-```
-
-### GET `/lobbies/open`
-Lists all open lobbies available to join.
-
-**Query Parameters**:
-| Parameter | Type   | Default | Description           |
-| :-------- | :----- | :------ | :-------------------- |
-| `page`    | number | 0       | Page number (0-based) |
-| `count`   | number | 10      | Items per page        |
-
-### GET `/lobbies/active`
-Lists all currently active matches.
-
-### GET `/user/:wallet/stats`
-Fetches player statistics.
-
-**Example Response**:
-```json
-{
-  "wallet": "0xf39fd6e51aad88f6f4ce6ab8827279cffb92266",
-  "wins": 5,
-  "losses": 2,
-  "ties": 1
-}
-```
-
-### GET `/lobby/:lobbyId/result`
-Gets final match results for a completed game.
-
-### GET `/lobby/:lobbyId/moves`
-Retrieves all moves submitted across all rounds.
-
-## Frontend Architecture
-
-The frontend uses **Phaser.js** for game rendering and UI, with wallet integration via `@paimaexample/wallets`.
-
-### Wallet Middleware
-
-The middleware layer (`paimaMiddleware.src.js`) bridges Phaser to the EffectStream wallet API:
-
-```javascript
-import { EffectStreamConfig, sendTransaction, walletLogin, WalletMode } from "@paimaexample/wallets";
-import { hardhat } from "viem/chains";
-
-const effectstreamConfig = new EffectStreamConfig(
-  "rock-paper-scissors",
-  "mainEvmRPC",
-  "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  hardhat,
-  undefined,
-  undefined,
-  false,
-);
-
-window.paimaMiddleware = {
-  async userWalletLogin({ mode, preferBatchedMode }) {
-    const result = await walletLogin({
-      mode: mode || WalletMode.EvmInjected,
-      chain: effectstreamConfig.effectstreamL2Chain,
-      preferBatchedMode: preferBatchedMode ?? false,
-    });
-    if (!result.success) throw new Error("Wallet login failed");
-    return result.result;
-  },
-
-  async createLobby(numOfRounds, roundLength, isHidden, isPractice) {
-    return await sendTransaction(
-      wallet,
-      ["createdLobby", numOfRounds, roundLength, isHidden, isPractice],
-      effectstreamConfig
-    );
-  },
-
-  async joinLobby(lobbyId) {
-    return await sendTransaction(wallet, ["joinedLobby", lobbyId], effectstreamConfig);
-  },
-
-  async submitMove(lobbyId, roundNumber, move) {
-    return await sendTransaction(
-      wallet,
-      ["submittedMoves", lobbyId, roundNumber, move],
-      effectstreamConfig
-    );
-  },
-};
-```
-
-### Building the Frontend
-
-The frontend uses esbuild with Phaser and Node.js polyfills:
+| Route | Returns |
+| --- | --- |
+| `GET /lobby/:lobbyId` | One lobby row, or `null` |
+| `GET /lobby/:lobbyId/rounds` | All rounds, ascending |
+| `GET /lobby/:lobbyId/round/:round` | One round row |
+| `GET /lobby/:lobbyId/round/:round/moves` | Cached moves for that round |
+| `GET /lobby/:lobbyId/moves` | Cached moves across every round of the lobby |
+| `GET /lobby/:lobbyId/final`, `GET /lobby/:lobbyId/result` | `final_match_state` row |
+| `GET /open_lobbies`, `GET /lobbies/open` | Non-hidden `open` lobbies; `?page=` and `?count=` (default `0` / `10`) |
+| `GET /lobbies/active` | `active` lobbies, same pagination |
+| `GET /user_lobbies?wallet=` | That wallet's `open`/`active`/`finished` lobbies |
+| `GET /user_stats?wallet=`, `GET /user/:walletAddress/stats` | Stats row, or a zeroed one if the wallet is unknown |
 
 ```sh
-cd packages/frontend
-npm install
-node esbuild.js  # Generates paimaMiddleware.js
+curl "http://localhost:9999/lobbies/open?page=0&count=5"
+curl "http://localhost:9999/user_stats?wallet=0xf39F..."
 ```
 
-## Architecture Highlights
+### Contract and sync
 
-### Generator Function Pattern with Async Transitions
+`MyPaimaL2Contract.sol` is nine lines: it extends `PaimaL2Contract` from
+`@paimaexample/evm-contracts` and forwards `(owner, fee)`. All the input-mailbox behaviour
+is inherited. `deploy.ts` deploys it through Hardhat Ignition with `fee: 0`, and the
+generated `build/contractAddressesEvmMain.ts` is what `localhostConfig.ts` reads:
 
-State transitions use **generator functions** with `yield*` combined with **async transition functions**:
+```ts
+.addPrimitive(
+  (syncProtocols) => syncProtocols.mainEvmRPC,
+  (network, deployments, syncProtocol) => ({
+    name: "RockPaperScissors_PaimaL2",
+    type: PrimitiveTypeEVMPaimaL2,
+    startBlockHeight: 0,
+    contractAddress:
+      contractAddressesEvmMain().chain31337["PaimaL2ContractModule#MyPaimaL2Contract"],
+    paimaL2Grammar: grammar,
+  }),
+)
+```
 
-```typescript
-// State machine uses generators
-function* (data) {
-  // 1. Call async transition function
-  const result = yield* World.promise<SQLUpdate>(
-    async transitionFunction(...)
+The config uses an **NTP main** sync protocol with a 1000 ms block time as the clock, and
+attaches the Hardhat chain as a **parallel** `EVM_RPC_PARALLEL` protocol — so block
+production does not stall when the local chain is idle.
+
+### Frontend
+
+Phaser 3, four scenes (`Start` → `Wallet` → `Lobby` → `Game`), bundled by
+`packages/frontend/esbuild.js` into `public/dist/bundle.js` and served by `http-server` on
+port 8080. `paimaMiddleware.src.js` is bundled separately and is the only place that talks
+to a wallet or the chain; it builds grammar-shaped argument arrays and hands them to
+`sendTransaction`:
+
+```js
+async submitMoves(lobbyId, roundNumber, move) {
+  const result = await sendTransaction(
+    wallet,
+    ["submittedMoves", lobbyId, roundNumber, move],
+    paimaEngineConfig
   );
-
-  // 2. Apply the SQL update
-  yield* World.resolve(result[0], result[1]);
-}
-
-// Transition functions are async
-export async function transitionFunction(...): Promise<SQLUpdate> {
-  return [preparedQuery, params];
+  return result;
 }
 ```
 
-This pattern ensures:
-- **Deterministic execution**: EffectStream manages all side effects
-- **Testability**: Transition functions return SQL descriptions
-- **Type safety**: pgtyped generates types for all queries
-- **Async support**: Transition functions can be async for flexibility
+`Lobby.ts` offers "New Battle" (`createLobby(3, 60, false, false)`) and "AI Battle"
+(`createLobby(3, 60, false, true)` — a practice lobby), plus join/reconnect buttons built
+from `/open_lobbies` and `/user_lobbies`. `Game.ts` polls `/lobby/:lobbyId` every two
+seconds and, whenever `current_round` advances, replays the round that just finished for
+the win/lose banner.
 
-### Separation of Concerns
+Two rough edges in the frontend, if you are reading it as a reference: `Game.ts` calls
+`mw.getRoundExecutor(...)`, which `paimaMiddleware.src.js` does not currently export, and it
+renders a countdown from `lobbyInfo.round_ends_in_blocks`, which is not a column the API
+returns.
 
-1. **Grammar** (`packages/shared/data-types`): TypeBox validation
-2. **Game Logic** (`packages/shared/game-logic`): Pure, deterministic game rules
-3. **Transition Functions** (`packages/client/node/src/state-machine/v1/transition.ts`): Async functions returning SQL updates
-4. **State Machine** (`packages/client/node/src/state-machine.ts`): Generator-based orchestration
-5. **Database** (`packages/client/database`): Type-safe queries with pgtyped
-6. **API** (`packages/client/node/src/api.ts`): REST endpoints
-7. **Frontend** (`packages/frontend`): Phaser.js game interface
+## Configuration
 
-## Use Cases and Extensions
+The template is wired for the local stack and reads very little from the environment:
 
-This template can be extended for various game types:
+| Variable | Set by | Effect |
+| --- | --- | --- |
+| `PAIMA_API_PORT` | `packages/client/node/package.json` (`dev` script, `9999`) | Port the Fastify API binds to |
+| `NODE_ENV` | `dev` script (`development`) | Runtime mode |
+| `EFFECTSTREAM_STDOUT` | `Dockerfile` | Disables tmux, TUI and the log collector; logs to stdout |
+| `RUN_IN_DOCKER` | `Dockerfile` | Marks the containerised run |
 
-### Card Games
-- Replace RPS with card battle mechanics
-- Add deck building and card drawing
-- Implement mana or energy systems
+Everything else is code. To point the node at a real network, edit
+`packages/shared/data-types/src/localhostConfig.ts`: replace the `hardhat` viem chain in
+`addViemNetwork`, set `chainUri` and a real `startBlockHeight` on the `mainEvmRPC` sync
+protocol, and give the primitive the deployed contract address instead of reading
+`contractAddressesEvmMain()`. The frontend needs the matching change in
+`packages/frontend/paimaMiddleware.src.js`, where the chain and the L2 address
+(`0x5FbDB2315678afecb367f032d93F642f64180aa3`, the standard first Hardhat deployment) are
+hard-coded, along with the `http://localhost:9999` API base used by every `fetch` call.
 
-### Turn-Based Strategy
-- Extend to grid-based tactical combat
-- Add unit types and abilities
-- Implement fog of war and line of sight
+`packages/shared/contracts/evm/deploy.ts` hard-codes the deployment owner and `fee: 0`;
+change both before deploying anywhere real.
 
-### Puzzle Battles
-- Replace moves with puzzle solutions
-- Add combo systems
-- Implement time-based scoring
+## Testing
 
-### Tournament Systems
-- Add bracket tournaments
-- Implement ranked matchmaking
-- Create seasonal leaderboards
+This template has no automated tests — it is excluded from the repository's template test
+runner (`templates/run-template-tests.ts` lists `rock-paper-scissors` commented out,
+pending migration). The checks available today are:
 
-## Troubleshooting
-
-### Port Conflicts
 ```sh
-lsof -i :8545  # Check EVM node port
-lsof -i :9999  # Check API port
-lsof -i :8080  # Check frontend port
+# Typecheck the node package (tsc --noEmit over src/main.ts)
+bun run check
+
+# Full manual run: contracts, node, API, explorer and frontend
+bun run build:evm && bun run dev
 ```
 
-### Frontend Bundle Outdated
-```sh
-cd packages/frontend
-node esbuild.js  # Regenerate bundle
-```
+A good manual smoke test is to open http://localhost:8080 in two browser profiles with
+different Hardhat accounts, create a battle in one, join it from the other, and watch
+`curl http://localhost:9999/lobby/<id>` — `latest_match_state` should go from `******` to a
+resolved string one round at a time.
 
-### Database Query Types Out of Sync
-After modifying SQL files or converting functions to async:
-```sh
-bun run --cwd packages/client/database pgtyped:update
-```
+## Where to go next
 
-### Lobby Not Creating
-Check that:
-1. MetaMask is connected to Localhost 8545
-2. You have test ETH in your account
-3. The EffectStream node is running (`bun run dev`)
-4. Check browser console for errors
+- [State machine](https://effectstream.github.io/docs/home/components/state-machine) — how transitions, `World` effects and version routing work in general.
+- [Grammar](https://effectstream.github.io/docs/home/components/grammar) — the input encoding this template's TypeBox schemas compile to.
+- [Randomness](https://effectstream.github.io/docs/home/components/randomness) — why `Prando` lobby IDs are safe to generate inside a transition.
+- [Chess template](https://effectstream.github.io/docs/home/templates/chess) — the same lobby/round/zombie shape, on the current `@effectstream/*` layout and with a batcher, frontend and test suite.
+- [`hex-battle`](https://github.com/effectstream/effectstream/tree/v-next/templates/hex-battle) — simultaneous hidden moves plus a working practice AI, already migrated off `@paimaexample/*`.
