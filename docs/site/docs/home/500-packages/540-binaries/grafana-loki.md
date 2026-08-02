@@ -13,7 +13,7 @@ log-aggregation backend EffectStream nodes ship structured logs to in
 local development. Installs a pinned binary into
 `node_modules/.bin/grafana-loki`.
 
-- Pinned Grafana Loki binary, the local log backend for `@effectstream/log` output.
+- Pinned Grafana Loki binary (3.5.8), the local log backend for `@effectstream/log` output.
 - One-command start via `bunx grafana-loki -config.file=loki.yaml`.
 - Pairs with `@effectstream/grafana-alloy` so traces and logs land in one place.
 - Component-tagged logs queryable from a local Grafana out of the box.

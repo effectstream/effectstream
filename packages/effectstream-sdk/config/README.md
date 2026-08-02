@@ -65,7 +65,9 @@ What app code typically imports:
 - `ConfigNetworkType`, `ConfigSyncProtocolType` - enums for the network and sync-protocol kinds (EVM, Cardano, Midnight, Bitcoin, Avail, NEAR, Algorand, Mina, Polkadot, NTP variants). The most-imported symbols from this package by far.
 - `withEffectstreamStaticConfig(config)` - Effection generator that publishes the built config to the runtime context.
 - `toSyncProtocolWithNetwork(...)` - joins a sync protocol with its source network config; used by app code when wiring custom primitives.
-- `getViemNetwork(networkName)` - generator that returns a viem `Chain` from the active config.
+- `getViemNetwork(network)` - generator that returns a viem `Chain`. Takes the EVM **network config object** (a `ConfigNetworkEvm`), not a network name.
+- `getPrimitivesForSyncProtocol(...)` - the primitives registered against a given sync protocol.
+- `onlyOnce`, `onlyValue`, `onlyNotError` - small helpers for narrowing config lookups that may return zero, many, or error results.
 
 Per-section builders (`NetworkBuilder`, `DeployedAddressBuilder`,
 `SyncProtocolBuilder`, `PrimitiveBuilder`, `SecurityNamespaceBuilder`)
@@ -76,6 +78,24 @@ rather than importing them directly.
 Runtime-side context types (`PaimaStaticConfigContext`,
 `usePaimaStaticConfig`) are reserved for the runtime's own internals
 and aren't typically imported by app code.
+
+## The schema layer
+
+Underneath the builders sits a large TypeBox schema surface — roughly 130
+exports — that defines and validates the shape of a configuration. App code
+rarely imports from it directly, because `ConfigBuilder` produces
+already-validated config, but it is the authority on what fields each network
+and sync protocol accepts:
+
+- `ConfigSchema` - the wrapper class the per-section schemas are built from, with `required` / `optional` halves and helpers like `allProperties()` and `cloneMerge()`.
+- `ConfigNetworkSchema*` - one per network kind, e.g. `ConfigNetworkSchemaMidnight` (whose `networkId` is a string such as `"undeployed"`), `ConfigNetworkSchemaEvm`, `ConfigNetworkSchemaCardano`. Each pairs with a `ConfigNetwork*` static type.
+- `ConfigSyncProtocolSchema*` - one per protocol, carrying that protocol's polling, block-range and endpoint fields.
+- `CommonResponse*` - the payload shapes primitives deliver to the state machine.
+- `LedgerSchema` / `LedgerPrimitiveType` - the ledger-field types usable in primitive definitions.
+
+If you are writing a custom primitive or network integration and need to know
+exactly which fields are accepted, read the schema for that kind in
+`src/schema/` — it is the source of truth the builders validate against.
 
 ## Examples
 

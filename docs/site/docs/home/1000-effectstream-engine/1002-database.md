@@ -20,16 +20,45 @@ The process of defining and evolving your database schema is managed through a r
 
 ### Creating Migration Files
 
-All your SQL migration files should be placed in the `/packages/node-sdk/db/migrations/system-down-v-x.x.x.sql` directory.
+Your migrations live in **your own** `database` package — conventionally `packages/database/migrations/` — and you hand them to the engine through the `migrations` field of `start(...)`. Do not put them in `packages/node-sdk/db/migrations/`; that directory holds the engine's internal `system-up-v-*.sql` / `system-down-v-*.sql` files, which build the `effectstream` schema and are not a place for application tables.
 
-**Example (`system-down-v-x.x.x.sql`):**
+**1. Write the SQL** (`packages/database/migrations/000-init.sql`) — create your tables in the `public` schema:
+
 ```sql
-CREATE TABLE effectstream.system_table (
+CREATE TABLE inputs_log (
   id SERIAL PRIMARY KEY,
-  block_height INTEGER NOT NULL,
-  ...other fields...
+  signer TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  block_height INTEGER NOT NULL
 );
 ```
+
+**2. Declare the order** (`packages/database/migration-order.ts`) — each entry pairs a name with the SQL text:
+
+```ts
+import type { DBMigrations } from "@effectstream/runtime";
+import initSql from "./migrations/000-init.sql" with { type: "text" };
+
+export const migrationTable: DBMigrations[] = [
+  { name: "000-init.sql", sql: initSql },
+];
+```
+
+**3. Pass it to `start(...)`** from your node entry point (`packages/node/main.{env}.ts`):
+
+```ts
+import { migrationTable } from "@my-app/database";
+
+yield* start({
+  appName: "my-app",
+  appVersion: "1.0.0",
+  syncInfo: toSyncProtocolWithNetwork(config),
+  migrations: migrationTable,
+  // …grammar, gameStateTransitions, apiRouter
+});
+```
+
+The engine applies any migration it has not run yet, in array order, during startup. See [`templates/minimal/packages/database/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal/packages/database) for the complete working example.
 ### Type-Safe Queries with `pgtyped`
 
 EffectStream uses `pgtyped` to bridge the gap between your SQL database and your TypeScript code. It automatically generates fully type-safe TypeScript functions directly from your raw SQL queries, eliminating an entire class of bugs and providing excellent editor autocompletion.

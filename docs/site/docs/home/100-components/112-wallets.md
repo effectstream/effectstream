@@ -14,14 +14,17 @@ This table is a EffectStream numeric representation of wallet address type. Norm
 
 | Address Type | Number |
 | ------------ | ------ |
-| EVM          | 0 
-| Cardano      | 1  
-| Substrate    | 2
-| Algorand     | 3 
-| Mina         | 4
-| Midnight     | 5
-| Avail        | 6
-| Polkadot     | 7
+| None         | -1     |
+| EVM          | 0      |
+| Cardano      | 1      |
+| Substrate    | 2      |
+| Algorand     | 3      |
+| Mina         | 4      |
+| Midnight     | 5      |
+| Avail        | 6      |
+| Polkadot     | 7      |
+| NEAR         | 8      |
+| Solana       | 9      |
 
 ## Connecting a Wallet in Your Frontend
 
@@ -63,6 +66,7 @@ The `WalletMode` enum allows you to support a broad range of ecosystems, enablin
 | **`Mina`** | Mina | Connects to the Auro wallet for the Mina Protocol. |
 | **`AvailJs`** | Avail | Connects to wallets for the Avail network. |
 | **`Midnight`** | Midnight | Connects to Lace Wallet |
+| **`Solana`** | Solana | Connects to Solana wallets, e.g. Phantom. Exposed on the `@effectstream/wallets/solana` subpath, with an in-browser local variant on `@effectstream/wallets/solana-local`. |
 | **`CardanoLocal`** | Cardano | In-browser local wallet: a BIP-39 key-pair generated and managed by the library. No extension required. |
 | **`MidnightLocal`** | Midnight | In-browser local wallet from a generated hex seed. No extension required. |
 | **`EvmViem`** | EVM | In-browser local wallet from a viem `0x` private key. No extension required. |
@@ -153,7 +157,7 @@ const result = await sendBatcherTransaction(walletClient, conciseInput, effectst
 
 For specific, high-stakes actions, or if your dApp doesn't use a Batcher, you can use the wallet to send traditional on-chain transactions.
 
-*   **Direct EffectStream L2 Contract Interaction**: Call the `submitInput` function on the `EffectstreamL2Contract` to send a game move directly.
+*   **Direct EffectStream L2 Contract Interaction**: Call the `effectstreamSubmitGameInput` function on the `EffectstreamL2Contract` to send a game move directly.
 This can be done using the `sendSelfSequencedTransaction` function.
 ```ts
 const result = await sendSelfSequencedTransaction(walletClient, conciseInput, effectstreamConfig);

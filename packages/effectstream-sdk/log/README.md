@@ -72,11 +72,21 @@ powers the orchestrator's per-component log views.
 - `log.remote(...)`: console + OpenTelemetry log record. Same signature as `local`.
 - `log.remoteForce(...)` is `remote` without level filtering.
 - `log.formatMessage(...)` - the formatter used internally; useful for custom transports.
-- `defaultOtelSetup(opts)`: one-call OpenTelemetry SDK setup with sensible defaults.
+- `defaultOtelSetup(name, version)`: one-call OpenTelemetry SDK setup with sensible defaults. Takes two positional strings, not an options object.
 - `attachTransport(transport)` registers a custom tslog transport (e.g. ship logs to a file).
 - `SeverityNumber`: re-export of OpenTelemetry severity levels.
 - `ComponentNames`: string-enum constants used to tag logs by component.
+- `LaunchableComponents`: the subset of `ComponentNames` the orchestrator can launch (`ComponentNames` is this plus the secondary components).
 - `Namespace`: `string | string[]` for log namespacing.
+
+## Environment variables
+
+Two variables change this package's behaviour:
+
+| Name | Effect |
+| --- | --- |
+| `EFFECTSTREAM_LOG_LEVEL` | Minimum severity to emit, matched case-insensitively against the OpenTelemetry `SeverityNumber` names (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`). Defaults to `INFO`; an unrecognised value falls back to `INFO` rather than erroring. |
+| `EFFECTSTREAM_ORCHESTRATOR` | Set by the orchestrator when it launches a process. When present, both the local and remote loggers switch to the orchestrator's structured transport so the TUI can group output per component, instead of writing formatted lines and OpenTelemetry records. |
 
 ## Examples
 

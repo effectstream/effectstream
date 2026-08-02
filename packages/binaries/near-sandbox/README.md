@@ -6,7 +6,7 @@ NEAR chain for local development. Installs a pinned version into
 `node_modules/.bin/near-sandbox` so the orchestrator can boot it
 without each developer fetching it separately.
 
-- Pinned NEAR sandbox binary, a single-node NEAR chain for local dev.
+- Pinned NEAR sandbox binary (nearcore 2.10.7), a single-node NEAR chain for local dev.
 - `init` then `run`, both via `bunx`.
 - Consumed by `@effectstream/sync`'s `NearFetcher`.
 - Used by the orchestrator's NEAR step for end-to-end local testing.

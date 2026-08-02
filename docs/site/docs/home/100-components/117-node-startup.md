@@ -4,7 +4,7 @@ Once configured your [chains](./101-sync-service.md), defined your [grammar](./1
 
 > We will be using the /templates/evm-midnight-v2 as example
 
-`start(...)` Is the main entry point, located at `/packages/client/node/src/main.ts` in the template project. This file acts as the central launch system of your EffectStream Node, importing all the different components of your application and passing them to the EffectStream Runtime.
+`start(...)` Is the main entry point, located at `packages/node/main.{env}.ts` in the template project (e.g. `main.dev.ts` for local development and `main.mainnet.ts` for production). This file acts as the central launch system of your EffectStream Node, importing all the different components of your application and passing them to the EffectStream Runtime.
 
 ### EffectStream `start(...)`
 
@@ -15,7 +15,7 @@ Let's break down a typical `main.ts` or `main.{env}.ts` file:
 ```ts
 import { main, suspend } from "effection";
 import { init, start } from "@effectstream/runtime";
-import { toSyncProtocolWithNetwork, withEffectStreamStaticConfig } from "@effectstream/config";
+import { toSyncProtocolWithNetwork, withEffectstreamStaticConfig } from "@effectstream/config";
 
 // 1. Import all the core pieces of your application
 // Project Defined Components
@@ -35,7 +35,7 @@ main(function* () {
   console.log("Starting EffectStream Node");
 
   // 3. Load your static configuration into the runtime's context
-  yield* withEffectStreamStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
 
     // 4. Start the EffectStream with all your application's components
     yield* start({

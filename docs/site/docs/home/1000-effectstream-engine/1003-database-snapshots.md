@@ -4,9 +4,9 @@ EffectStream supports automated database snapshots using **`pg_dump`**. Snapshot
 
 ## How it works
 
-Snapshots are triggered by **wall-clock time** - once the configured interval (default: 1 hour) has elapsed since the last snapshot, the next processed block triggers a new one.
+Snapshots are triggered purely by **wall-clock time**, independently of block production. The runtime runs a dedicated loop that sleeps for the configured interval (default: 1 hour), fires a snapshot, and then sleeps again — so an idle chain still produces snapshots, and a busy one does not produce extra ones.
 
-The runtime spawns `pg_dump` as a **background task** using Effection's `spawn()`, so the sync loop continues processing blocks while the dump runs. A guard flag prevents overlapping dumps - if `pg_dump` is still running when the next interval elapses, it waits until the current dump finishes.
+The loop runs as a **background task**, so the sync loop keeps processing blocks while `pg_dump` runs. Overlapping dumps are impossible by construction rather than by a guard flag: the loop awaits each `pg_dump` to completion before starting its next sleep, so the interval is measured between the *end* of one dump and the start of the next. A failed dump is logged and the loop continues.
 
 Because `pg_dump` uses PostgreSQL's **MVCC**, it takes a consistent snapshot at the moment the command starts. Normal operations - `SELECT`, `INSERT`, `UPDATE`, `DELETE` - continue uninterrupted. Only DDL statements (`DROP TABLE`, `ALTER TABLE`, `TRUNCATE`) are briefly blocked.
 

@@ -43,11 +43,15 @@ interface BlockchainAdapter<TOutput> {
   getSyncProtocolName?(): string;
   isReady(): boolean;
   getBlockNumber(): Promise<bigint>;
-  
-  // Optional batch size constraint (in bytes)
-  maxBatchSize?: number;
+
+  // Rate limiting
+  getRateLimitKeyStrategy?(): RateLimitKeyStrategy;
 }
 ```
+
+:::note `maxBatchSize` is not part of the interface
+The shipped adapters expose a `maxBatchSize` property (an optional batch size constraint in bytes, taken as a constructor argument), and the batch-building examples below read `this.maxBatchSize`. It is a convention the adapters share, not a member of `BlockchainAdapter` — your own adapter is free to omit it, in which case use `options?.maxSize` alone.
+:::
 
 ### Generic Type Parameter: `TOutput`
 
@@ -191,7 +195,7 @@ If your blockchain accepts any input format and validation happens on-chain, you
 verifySignature?(input: DefaultBatcherInput): boolean | Promise<boolean>
 ```
 
-**Default Behavior:** If not implemented, the batcher uses EVM signature verification via `CryptoManager.Evm().verifySignature()`.
+**Default Behavior:** If not implemented, the batcher verifies the signature using the crypto manager for the input's own address type — `CryptoManager.getCryptoManager(input.addressType)` — so it is not EVM-only. The default path requires `input.signature` to be present and throws if it is missing.
 
 **When to Override:**
 - Your blockchain doesn't use traditional signatures (e.g., Midnight uses circuit-based proofs)

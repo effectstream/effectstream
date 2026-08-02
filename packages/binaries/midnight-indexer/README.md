@@ -2,6 +2,7 @@
 
 NPM wrapper that runs the [Midnight](https://midnight.network) Indexer either as a Docker container or as a native binary. Boots alongside `@effectstream/npm-midnight-node` and `@effectstream/npm-midnight-proof-server` to give Effectstream a local indexer to consume.
 
+- Pinned Midnight indexer v4.3.3.
 - Docker or binary mode, with platform-aware defaults (macOS arm64 and Linux can use either; Windows is Docker-only).
 - One env var to set: `APP__INFRA__SECRET`. Everything else has a default that works against the local Midnight stack.
 - Used by the orchestrator's Midnight step; sits in front of `MidnightFetcher` on the sync side.
@@ -73,7 +74,7 @@ A few common failures and where to look:
 End-to-end Midnight startup is exercised by the templates that target Midnight:
 
 - [`templates/evm-midnight-v2/`](https://github.com/effectstream/effectstream/tree/main/templates/evm-midnight-v2)
-- [`templates/night-bitcoin/`](https://github.com/effectstream/effectstream/tree/main/templates/night-bitcoin)
+- [`templates/night-bitcoin-v2/`](https://github.com/effectstream/effectstream/tree/main/templates/night-bitcoin-v2)
 - [`templates/zswap-da/`](https://github.com/effectstream/effectstream/tree/main/templates/zswap-da)
 
 ## Links

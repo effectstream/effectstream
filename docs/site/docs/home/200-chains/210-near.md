@@ -70,7 +70,7 @@ Capture any NEP-297 event from a contract by `standard` + `event` strings. Use t
       contractId: "test.near",
       eventStandard: "test",
       eventType: "test_event",
-      scheduledPrefix: "near-generic",
+      stateMachinePrefix: "near-generic",
     }),
   )
 )
@@ -91,7 +91,7 @@ Captures DIP-4 `token_diff` settlement events emitted by a NEAR Intents Verifier
       type: PrimitiveTypeNEARIntent,
       startBlockHeight: 0,
       contractId: "intents.near",
-      scheduledPrefix: "intent-settled",
+      stateMachinePrefix: "intent-settled",
       // Optional filters:
       // filterTokenIds: ["nep245:game.near:*"],
       // filterAccountIds: ["*.game.near"],
@@ -115,7 +115,7 @@ Captures **every FunctionCall** made to a target contract, regardless of whether
       type: PrimitiveTypeNEARAccountWatch,
       startBlockHeight: 0,
       contractId: "test.near",
-      scheduledPrefix: "near-account-watch",
+      stateMachinePrefix: "near-account-watch",
     }),
   )
 )
@@ -139,7 +139,7 @@ Tracks `ft_transfer` events emitted by NEP-141 fungible token contracts. Maintai
       contractId: "wrap.near",
       eventStandard: "nep141",
       eventType: "ft_transfer",
-      scheduledPrefix: "nep141-transfer",
+      stateMachinePrefix: "nep141-transfer",
     }),
   )
 )
@@ -162,7 +162,7 @@ Tracks `nft_transfer` events from NEP-171 NFT contracts. Maintains IVM tables `p
       contractId: "nft.near",
       eventStandard: "nep171",
       eventType: "nft_transfer",
-      scheduledPrefix: "nep171-transfer",
+      stateMachinePrefix: "nep171-transfer",
     }),
   )
 )
@@ -183,7 +183,7 @@ Tracks `mt_transfer` events from NEP-245 multi-token contracts (semi-fungible: e
       contractId: "game.near",
       eventStandard: "nep245",
       eventType: "mt_transfer",
-      scheduledPrefix: "nep245-transfer",
+      stateMachinePrefix: "nep245-transfer",
     }),
   )
 )
@@ -241,7 +241,7 @@ There is **no `WalletMode.NEAR` yet** - browser wallet connection (e.g. MyNearWa
 
 ## 4. Cryptography (Verify)
 
-NEAR account IDs are recognized as `AddressType.NEAR`. There is **no built-in `CryptoManager` case for NEAR** at present (the chain set with built-in verifiers is EVM, Cardano, Polkadot, Algorand, Mina, Midnight - see `packages/effectstream-sdk/crypto/src/chains/`). If you need to verify NEAR signatures inside a state transition function, use [`near-api-js`](https://github.com/near/near-api-js) directly or import the Ed25519 primitives from `@noble/ed25519` and verify against the account's public key.
+NEAR account IDs are recognized as `AddressType.NEAR`. There is **no built-in `CryptoManager` case for NEAR** at present (the chain set with built-in verifiers is EVM, Cardano, Polkadot, Algorand, Mina, Midnight, Solana - see `packages/effectstream-sdk/crypto/src/chains/`). If you need to verify NEAR signatures inside a state transition function, use [`near-api-js`](https://github.com/near/near-api-js) directly or import the Ed25519 primitives from `@noble/ed25519` and verify against the account's public key.
 
 ## 5. Orchestration
 

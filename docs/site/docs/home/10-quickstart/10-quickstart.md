@@ -131,18 +131,18 @@ graph TD
     H --> K;
 ```
 
-The `start(...)` function launches the node. It's located in `/packages/node/src/main.ts`, and receives as inputs the node configuration.
+The `start(...)` function launches the node. It's located in `packages/node/main.dev.ts` (and `main.mainnet.ts` for production), and receives as inputs the node configuration.
 
 ```ts
 main(function* () {
   yield* init();
 
-  yield* withEffectStreamStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
     yield* start({
       appName: "My-dApp",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(localhostConfig),
-      stateTransitions,
+      gameStateTransitions,
       migrations,
       apiRouter,
       grammar,
@@ -187,7 +187,7 @@ stm.addStateTransition("create", function* (data) {
 });
 ```
 
-If the contract [EffectStream L2 Event](../100-components/104-l2-contract.md) function `submitGameInput` is called with payload `["create", "0x1234"]`, this creates a row in your `games` table, with id = `0x1234`
+If the contract [EffectStream L2 Event](../100-components/104-l2-contract.md) function `effectstreamSubmitGameInput` is called with payload `["create", "0x1234"]`, this creates a row in your `games` table, with id = `0x1234`
 
 Now your application can read the database and use the created "game" from the table.
 
@@ -219,11 +219,17 @@ More about the [API](../100-components/103-api.md)
 
 The Sync Service is the bridge between the blockchain world and your application's logic. You configure this service using the `ConfigBuilder` to define **Primitives**. A primitive is a specific listener for on-chain events, such as a token transfer or an interaction with your [EffectStream L2 contract](../100-components/104-l2-contract.md).
 
-When a primitive detects an event, it uses a `scheduledPrefix` to trigger the corresponding State Transition Function (STF) in your [state machine](../100-components/102-state-machine.md). This setup allows your application to react to events from multiple chains in a deterministic way.
+When a primitive detects an event, it uses a `stateMachinePrefix` to trigger the corresponding State Transition Function (STF) in your [state machine](../100-components/102-state-machine.md). This setup allows your application to react to events from multiple chains in a deterministic way.
+
+:::warning
+Use `stateMachinePrefix`, not the deprecated `scheduledPrefix`. The runtime reads `stateMachinePrefix` when constructing the primitive; a primitive configured with only `scheduledPrefix` still writes accounting rows but **never delivers an input to the state machine**, and it fails silently — no error, just STFs that never fire.
+:::
 
 A example minimal configuration looks like this:
 
 ```ts
+import { PrimitiveTypeEVMERC721 } from "@effectstream/sm/builtin";
+
 export const localhostConfig = new ConfigBuilder()
   // Define which chains to connect to
   .buildNetworks(builder =>
@@ -251,11 +257,11 @@ export const localhostConfig = new ConfigBuilder()
         (syncProtocols) => syncProtocols.evmchain,
         (network, deployments, syncProtocol) => ({
           name: "Track-ERC721",
-          type: ConfigPrimitiveType.EvmRpcERC721,
+          type: PrimitiveTypeEVMERC721,
           contractAddress: "0x...",
           abi: getEvmEvent(erc722.abi, "Transfer(...)"),
           // This prefix triggers the 'transfer-assets' STF
-          scheduledPrefix: "transfer-assets",
+          stateMachinePrefix: "transfer-assets",
         })
     )
   )
@@ -280,9 +286,9 @@ contract Erc20Dev is ERC20 {
 }
 ```
 
-While any contract works, EffectStream provides the specialized **`EffectStream L2Contract`**, which acts as a highly efficient "mailbox" for your game. Instead of deploying complex on-chain logic, you send simple, formatted strings (e.g., `["attack","p1", "m7"]`) to its `submitInput` function. This saves gas, increases flexibility, and enables the **Batcher** for a cross-chain, gasless user experience.
+While any contract works, EffectStream provides the specialized **`EffectstreamL2Contract`**, which acts as a highly efficient "mailbox" for your game. Instead of deploying complex on-chain logic, you send simple, formatted strings (e.g., `["attack","p1", "m7"]`) to its `effectstreamSubmitGameInput` function. This saves gas, increases flexibility, and enables the **Batcher** for a cross-chain, gasless user experience.
 
-You connect a contract event to your State Machine by defining a **Primitive** in your chain configuration, which links the event to a `scheduledPrefix` that triggers your game logic.
+You connect a contract event to your State Machine by defining a **Primitive** in your chain configuration, which links the event to a `stateMachinePrefix` that triggers your game logic.
 
 Learn more about [Contracts](../100-components/105-contracts.md)
 More about [EffectStream L2](../100-components/104-l2-contract.md)
@@ -291,7 +297,7 @@ More about [EffectStream L2](../100-components/104-l2-contract.md)
 
 Developing a multi-chain dApp requires running many services at once. The **Process Orchestrator** is a powerful tool that automates your entire local development setup.
 
-When you run `bun run dev`, the orchestrator defined in the `orchestrator.ts` file at the `/templates/evm-midnight-v2/` example launches your complete environment in the correct order.
+When you run `bun run dev`, the orchestrator defined in the `start.dev.ts` file at the `/templates/evm-midnight-v2/` example launches your complete environment in the correct order.
 
 This includes:
 
@@ -302,16 +308,39 @@ This includes:
 By handling all this infrastructure automatically, the orchestrator makes local development a simple, one-command process. Once the environment is ready, it starts the main **EffectStream Sync Service**, which begins syncing data and running your state machine.
 
 ```ts
-const config = Value.Parse(OrchestratorConfig, {
-  processes: {
-    // Launch Dev DB & Collector
-    [ComponentNames.EFFECTSTREAM_PGLITE]: true,
-    [ComponentNames.COLLECTOR]: true,
-  },
+// start.dev.ts
+import path from "node:path";
+import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
+import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
+import { launchEvm, EvmNames } from "@effectstream/orchestrator/launch-evm";
+import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 
-  processesToLaunch: [startEvm, startMidnight],
-});
-await start(config);
+const root = import.meta.dirname!;
+
+export default {
+  processes: [
+    // Development database
+    ...launchPglite(),
+    // Local chains, contract deploys and generated bindings
+    ...launchEvm("@evm-midnight/contracts-evm", {
+      cwd: path.join(root, "packages/contracts-evm"),
+    }),
+    ...launchMidnight("@evm-midnight/contracts-midnight", {
+      cwd: path.join(root, "packages/contracts-midnight"),
+    }),
+    // The sync engine, once everything it needs is ready
+    {
+      name: "sync",
+      args: ["run", "packages/node/main.dev.ts"],
+      env: { PGLITE: "true" },
+      dependsOn: [
+        DbNames.PGLITE_WAIT,
+        EvmNames.GENERATE_MOD,
+        MidnightNames.CONTRACT_DEPLOY,
+      ],
+    },
+  ],
+} satisfies OrchestratorConfig;
 ```
 
 More about [Processes Orchestrator](../100-components/106-processes.md)

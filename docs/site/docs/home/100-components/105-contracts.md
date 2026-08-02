@@ -74,11 +74,11 @@ The templates also include scripts for deploying these contracts to local develo
 
 While EffectStream can listen to any contract, it also provides a specialized contract called `EffectstreamL2Contract`. This contract serves as a highly efficient, generic "mailbox" for submitting game-specific inputs directly to the state machine.
 
-Instead of defining dozens of specific functions on-chain (e.g., `attack(uint monsterId)`, `useItem(uint itemId)`), you send a single transaction to the `EffectstreamL2Contract`'s `submitInput` function with a concise, string-based payload.
+Instead of defining dozens of specific functions on-chain (e.g., `attack(uint monsterId)`, `useItem(uint itemId)`), you send a single transaction to the `EffectstreamL2Contract`'s `effectstreamSubmitGameInput` function with a concise, string-based payload.
 
 **Example:**
 *   **Without L2 Contract:** `myGameContract.attack(123)`
-*   **With L2 Contract:** `effectstreamL2Contract.submitInput("attack|123")`
+*   **With L2 Contract:** `effectstreamL2Contract.effectstreamSubmitGameInput("attack|123")`
 
 This approach has significant advantages:
 *   **Gas Efficiency**: It reduces on-chain logic to a minimum, saving gas.
@@ -99,22 +99,24 @@ The `@effectstream/evm-contracts` package includes a variety of useful contracts
 
 ### Connecting Contracts to the State Machine
 
-Once your contract is compiled and deployed, the final step is to tell the **Sync Service** to monitor it. This is done by adding a **Primitive** to your chain configuration. The primitive specifies the contract's address, the event to listen for (via its ABI), and the `scheduledPrefix` that will trigger your STF.
+Once your contract is compiled and deployed, the final step is to tell the **Sync Service** to monitor it. This is done by adding a **Primitive** to your chain configuration. The primitive specifies the contract's address, the event to listen for (via its ABI), and the `stateMachinePrefix` that will trigger your STF.
 
 ```ts
 // In your chain config file...
+import { PrimitiveTypeEVMERC20 } from "@effectstream/sm/builtin";
+
 .buildPrimitives(builder =>
     builder.addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "My_ERC20_Token",
-          type: ConfigPrimitiveType.EvmRpcERC20,
+          type: PrimitiveTypeEVMERC20,
           contractAddress: "0x...", // The address of your deployed Erc20Dev contract
           abi: getEvmEvent(
             erc20dev.abi, // The ABI from your compiled contract
             "Transfer(address,address,uint256)" // The specific event signature
           ),
-          scheduledPrefix: 'transfer_merc', // Triggers the 'transfer_merc' STF
+          stateMachinePrefix: 'transfer_merc', // Triggers the 'transfer_merc' STF
         })
     )
 )
@@ -129,7 +131,7 @@ This is the most important contract for interacting with the EffectStream's stat
 
 | Contract | Description |
 | :--- | :--- |
-| **`EffectstreamL2Contract`** | The central "mailbox" for your application. This contract provides the `submitInput` function, which is the most gas-efficient and flexible way to send game moves and actions from the on-chain world to your state machine. It serves as the primary entry point for user interactions and the Batcher service. |
+| **`EffectstreamL2Contract`** | The central "mailbox" for your application. This contract provides the `effectstreamSubmitGameInput` function, which is the most gas-efficient and flexible way to send game moves and actions from the on-chain world to your state machine. It serves as the primary entry point for user interactions and the Batcher service. |
 
 #### Standard Token Contracts
 These are standard implementations of the most common token types, based on the battle-tested OpenZeppelin library.

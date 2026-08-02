@@ -1,462 +1,364 @@
 ---
-draft: true
+title: "Night Bitcoin — Intent-Based Cross-Chain Swaps"
+description: "Trustless BTC ↔ Midnight swaps with no bridge: users publish ERC-7683 intents, competing fillers settle both legs, and the node arbitrates."
+sidebar_label: "Night Bitcoin — Intent-Based Cross-Chain Swaps"
+sidebar_position: 6
 ---
 
-# Night-Bitcoin (Intents Swap)
+<!-- Generated from templates/night-bitcoin-v2/README.md by docs/site/scripts/sync-template-readmes.ts. Do not edit directly. -->
 
--   **Location**: `/templates/night-bitcoin-v2`
--   **Highlights**: Bitcoin & Midnight Interoperability, ERC-7683 Cross-Chain Intents, Solver/Filler Architecture.
+> Template: **[`templates/night-bitcoin-v2`](https://github.com/effectstream/effectstream/tree/main/templates/night-bitcoin-v2)**
 
-The `night-bitcoin` template demonstrates a cutting-edge pattern in Web3: **Intent-Based Cross-Chain Swaps**. It utilizes EffectStream to orchestrate trades between a UTXO-based chain (Bitcoin) and a ZK-privacy chain (Midnight) without a traditional bridge, relying instead on a network of "Fillers" (Solvers) and an intent standard.
+Bridges are the standard way to move value between chains, and they are also the
+standard way to lose it: a bridge is a contract holding both sides' funds, and its
+security is the security of whoever controls it. This template shows the alternative.
+A user publishes an *intent* — a declaration of what they will give and what they want
+— to an [ERC-7683](https://eips.ethereum.org/EIPS/eip-7683) contract on Midnight. A
+market of competing **fillers** (solvers) quotes the trade, and the winner delivers the
+counter-asset out of its own inventory. No pooled custody, no wrapped assets, no
+canonical bridge contract.
 
-![Night Bitcoin UI](./1205-ui.png)
+What makes that safe is the arbiter. An Effectstream node syncs Bitcoin and Midnight
+into one ordered stream, records the intent and the payment as they land, and
+only pairs them once both are on-chain. If you are building anything that has to settle
+against two chains that cannot talk to each other — swaps, cross-chain payments,
+solver networks — this is the pattern to copy.
 
-### dApp Video:
+![The dApp](./intent-swap-ui.png)
 
-<iframe src="https://drive.google.com/file/d/19rIhqAVBCfjxZrk25xnKU08ffVaCc7RZ/preview" width="640" height="480" allow="autoplay"></iframe>
+## What this template shows
 
-## Quick Start
+**The intent/filler model, and why it needs no bridge.** A swap here is three
+independent facts, each observable on its own chain:
 
-**Prerequisites**:
-*   A Midnight Wallet supporting undeployed networks (e.g., Lace Midnight Preview).
-*   A Bitcoin Wallet supporting Regtest (e.g., Sparrow Wallet).
+1. The user's intent, written to the ERC-7683 contract on Midnight
+   (`packages/contracts-midnight/erc7683/src/erc7683.compact`).
+2. The user's payment — BTC to a watched address, or an M20 unshielded UTXO spend on
+   Midnight.
+3. The filler's payout to the user, submitted through the filler's own batcher.
 
-```sh
-# Clone the repository
-git clone https://github.com/effectstream/effectstream.git
-cd effectstream/templates/night-bitcoin
+Nobody holds a shared pool. The user pays, the filler pays, and the only thing that
+connects the two is a node that has *independently indexed both chains* and can
+therefore assert "the payment for this order id exists". A filler that takes a payment
+without delivering is simply never credited; a user who declares an intent and never
+pays never triggers a payout. The trust assumption shrinks from "the bridge is honest"
+to "the indexed chain state is what it says it is".
 
-# Install packages
-bun i
-
-# Launch EffectStream Node (compiles contracts and starts the full local stack)
-bun run dev
-```
-
-**Terminal:**
-
-![Terminal](./1205-terminal.png)
-
-Once the `sync`process starts, open [http://localhost:10599](http://localhost:10599)
-
-## Concepts
-
-### Core Concept: Intent flow overview
-
-Instead of executing a direct transaction to swap tokens, users sign an **Intent**-a message declaring *what* they want (e.g., "I offer 1 BTC to receive at least 1000 M20 on Midnight").
-
-> Note Fillers and Solvers are the same in this example.
-
-1.  **Request Quote**: The user requests quotes from off-chain Fillers.
-2.  **Create Intent**: The user selects the best quote and creates an Intent on the Midnight chain (using the ERC-7683 standard contract).
-3.  **Payment**: The user sends the source funds (BTC) to the verifier nodes/escrow.
-4.  **Verification**: The verifier nodes monitor the blockchains. When it detects the Intent on Midnight *and* the Payment on Bitcoin, it matches them.
-5.  **Filler Execution**: The Fillers read the Intent and provides the liquidity, sending the funds to the user.
-6.  **Resolution**: The Verifier Nodes validates the trade and triggers the release of funds to the user and the Fillers.
-
-### Core Concepts: EffectStream Mapping
-
-* The Verifier Nodes -> is implemented an EffectStream State Machine.
-* The Fillers -> is implemented as a EffectStream Batcher.
-* ERC-7683 Contract -> Midnight Contract
-
-
-Once the process starts, open [http://localhost:10599](http://localhost:10599).
-
-### Background Concepts: The ERC-7683 Standard
-
-This template leverages **ERC-7683**, a standard interface for cross-chain trade execution systems.
-
-**The Problem**
-Intent-based systems abstract away the complexity of bridges for users, but they often suffer from fragmented liquidity and isolated networks of "fillers" (solvers). Each protocol usually builds its own proprietary `order` format, making it difficult for fillers to support multiple chains and dApps efficiently.
-
-**The Solution**
-ERC-7683 establishes a framework for specifying cross-chain actions. By standardizing the `order` structure and the settlement interfaces, it allows diverse systems to share infrastructure.
-
-**In Night-Bitcoin**
-We utilize this standard to define the "Swap Intent" on the Midnight chain. Even though one side of the transaction occurs on Bitcoin (which is non-EVM), the **Midnight contract** acts as the `OriginSettler` defined in the spec. In this example, we take a simplified approach to the settlement interfaces and resolutions.
-
-## Architecture Overview
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Fillers
-    participant Midnight (ERC-7683)
-    participant Bitcoin
-    participant EffectStream Node
-
-    User->>Fillers: Request Quote (BTC -> M20)
-    Fillers->>User: Return Quotes (Price + Fee)
-    User->>Midnight (ERC-7683): Submit Intent (Initialize)
-    User->>Bitcoin: Send BTC Payment (Lock in Escrow)
-    
-    par Sync & Match
-        Bitcoin-->>EffectStream Node: Detect Transaction
-        Midnight (ERC-7683)-->>EffectStream Node: Detect Intent Created
-    end
-
-    EffectStream Node->>EffectStream Node: Match Payment to Intent
-    EffectStream Node--)Fillers: Broadcast Verification (BTC Secured)
-    
-    par Fulfillment
-        Fillers->>User: Payout M20 (on Midnight)
-        Fillers->>Midnight (ERC-7683): Call Resolve (Submit Proof)
-    end
-
-    Midnight (ERC-7683)-->>EffectStream Node: Detect Resolve Event
-    
-    Note over EffectStream Node, Bitcoin: Settlement
-    EffectStream Node->>Fillers: Release BTC (on Bitcoin)
-```
-
-## The Components in Action
-
-### 1. On-Chain Logic
-
-#### Midnight (Compact)
-The template uses two main contracts located in `packages/shared/contracts/midnight-contracts`:
-*   **`erc7683.compact`**: Implements the standard for Cross-Chain Intents. It stores the `Intent` struct containing details like `maxSpent`, `minReceived`, and other standard fields.
-*   **`unshielded-erc20.compact`**: Openzepplin Standard ERC20 Unshielded "M20" token used for swapping against Bitcoin.
-
-#### Bitcoin
-There are no smart contracts on Bitcoin. Instead, the engine tracks specific addresses and transaction inputs/outputs using the Bitcoin RPC.
-
-### 2. Chain Configuration (`localhostConfig.ts`)
-
-The `localhostConfig` connects the engine to a local Bitcoin Regtest node and a local Midnight node.
-
-#### Midnight Configuration
-
-This block configures the connection to the local Midnight node, the Indexer sync protocol, and the primitives that monitor the public state of the ZK contracts.
+**Where the filler lives.** `packages/filler/index.ts` is one filler process. The
+orchestrator launches three of them (`Alpha Liquidity`, `Omega Swap`, `Quantum Pools`
+— see `fillerDefinitions` in `start.dev.ts`), each with its own port and its own
+Bitcoin + Midnight wallets, so the local stack behaves like a competitive market rather
+than a single privileged relayer. Each filler is an *active agent*, not a price feed:
+it embeds its own `@effectstream/batcher-sdk` batcher with a `BitcoinAdapter` and a
+`MidnightAdapter`, so when it wins an order it signs and submits the payout itself.
 
 ```ts
-// 1. Network Definition
-.addNetwork({
-  name: "midnight",
-  type: ConfigNetworkType.MIDNIGHT,
-  genesisHash: "0x0000...0001",
-  networkId: 0, // 0 = Undeployed/Local
-  nodeUrl: "http://127.0.0.1:9944",
-})
-
-// 2. Sync Protocol (via Indexer)
-.addParallel(
-  (networks) => networks.midnight,
-  (network, deployments) => ({
-    name: "parallelMidnight",
-    type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
-    pollingInterval: 1000,
-    indexer: "http://127.0.0.1:8088/api/v1/graphql",
-  })
-)
-
-// 3. Primitives (Contract State Listeners)
-.addPrimitive(
-  (syncProtocols) => syncProtocols.parallelMidnight,
-  (network, deployments, syncProtocol) => ({
-    name: "MidnightContractState-ERC7683",
-    type: PrimitiveTypeMidnightGeneric,
-    contractAddress: readMidnightContract("erc7683", "contract-erc7683.json").contractAddress,
-    stateMachinePrefix: "midnightContractStateERC7683",
-    contract: { ledger: Erc7683Contract.ledger },
-  })
-)
-.addPrimitive(
-  (syncProtocols) => syncProtocols.parallelMidnight,
-  (network, deployments, syncProtocol) => ({
-    name: "MidnightContractState-ERC20",
-    type: PrimitiveTypeMidnightGeneric,
-    contractAddress: readMidnightContract("unshielded-erc20", "contract-unshielded-erc20.json").contractAddress,
-    stateMachinePrefix: "midnightContractStateERC20",
-    contract: { ledger: UnshieldedErc20Contract.ledger },
-  })
-)
-```
-
-#### Bitcoin Configuration
-
-This block configures the connection to the local Bitcoin Core node (Regtest), the RPC sync protocol, and the primitive that watches specific UTXOs.
-
-```ts
-// 1. Network Definition
-.addNetwork({
-  name: "bitcoin",
-  type: ConfigNetworkType.BITCOIN,
-  rpcUrl: "http://127.0.0.1:18443",
-  rpcAuth: {
-    username: "dev",
-    password: "devpassword",
-  },
-  network: "regtest",
-})
-
-// 2. Sync Protocol (via RPC)
-.addParallel(
-  (networks) => networks.bitcoin,
-  (network, deployments) => ({
-    name: "parallelBitcoin",
-    type: ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL,
-    rpcUrl: "http://127.0.0.1:18443",
-    pollingInterval: 10_000,
-    confirmationDepth: 0, // 0 for faster dev on regtest
-  })
-)
-
-// 3. Primitive (Address Watcher)
-.addPrimitive(
-  (syncProtocols) => syncProtocols.parallelBitcoin,
-  (network, deployments, syncProtocol) => ({
-    name: "BitcoinAddress",
-    type: PrimitiveTypeBitcoinAddress,
-    startBlockHeight: 101,
-    // The Escrow/System wallet address to watch for payments
-    watchAddress: "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03",
-    stateMachinePrefix: "bitcoin-transaction",
-  })
-)
-```
-
-### 3. The State Machine (`state-machine.ts`)
-
-The logic is driven by three main `State Transition Functions`:
-This implements a simplified the Verifier/Settlement layer.
-
-#### `bitcoin-transaction`
-Triggered when funds move on the watched `Bitcoin address`.
-*   Records the transfer in the `transfers` database table.
-*   Calls `checkAndTransferFunds` to see if this payment matches a known Intent from Midnight.
-
-#### `midnightContractStateERC7683`
-Triggered when the Midnight `Intent` contract state changes.
-*   Decodes the `Intent` struct from the public ledger.
-*   Records the intent in the `intents` database table.
-*   Calls `checkAndTransferFunds` to see if the payment for this intent has already arrived.
-
-#### `checkAndTransferFunds` (Internal Helper)
-This is the core settlement logic, it is called if a new `Intent` is created or a new `BTC Payment` or `Midnight M20 Payment`.
-
-1.  It queries the database to find a `transfers` record and an `intents` record that match (based on amounts and tokens).
-2.  If matched, it updates the status to `Resolved`.
-3.  Notifies the Fillers that the `Intent` has been matched and the `BTC Payment` has been secured.
-4.  It triggers the settlement payouts (sending M20 to the User and BTC to the Filler).
-
-> NOTE: In complete implementation step (3) would require the Filler to again check if the `Intent` is valid, and then provide liquidity and mark and `resolve` the intent, and then the `Verifier Nodes` would work as the `Settler` to release the funds to the filler.
-
-### 4. Fillers (`packages/filler`)
-
-The template includes a standalone service that simulates a market of Liquidity Providers. Unlike simple market makers, these Fillers are **active agents** that integrate an embedded **Batcher** to automate the settlement process.
-
-*   **Location**: `packages/filler`.
-*   **Orchestration**: The orchestrator launches multiple instances (Alpha Liquidity, Omega Swap, etc.) on different ports to simulate a competitive market.
-*   **Embedded Batcher**: Each Filler initializes its own Batcher instance connected to both Bitcoin and Midnight adapters. This allows the Filler to programmatically sign and submit transactions to either chain without manual intervention.
-*   **API Endpoints**:
-    *   `POST /api/quote`: Used by the Frontend to request competitive exchange rates and fees before creating an Intent.
-    *   `POST /api/notify-filler-intent-payment`: Used by the EffectStream Node (State Machine) to notify the Filler that a user's payment has been verified. Upon receiving this webhook, the Filler automatically queues a transaction via its internal Batcher to pay the user the requested tokens (M20 or BTC).
-
-#### Embedded Batcher Setup
-Each filler initializes its own EffectStream Batcher instance. This allows the filler to programmatically execute transactions on both Bitcoin and Midnight using its own unique wallet seeds.
-
-```typescript
 // packages/filler/index.ts
-
-// 1. Build the Batcher setup with the filler's specific credentials
-const batcherSetup = buildBatcherSetup({
-  fillerName: FILLER_NAME,
-  midnightSeed: FILLER_BATCHER_DEFAULTS.midnightSeed, // Unique seed per filler
-  bitcoin: { ...FILLER_BATCHER_DEFAULTS.bitcoin },
-  // ...
-});
-
-// 2. Initialize the Batcher with dual adapters
-const batcher = createNewBatcher(batcherSetup.config, batcherSetup.storage);
-
-batcher
-  .addBlockchainAdapter("midnight", batcherSetup.adapters.midnight, { 
-    criteriaType: "size", maxBatchSize: 1 // Execute immediately
-  })
-  .addBlockchainAdapter("bitcoin", batcherSetup.adapters.bitcoin, {
-    criteriaType: "hybrid", timeWindowMs: 1000
-  })
-  .setDefaultTarget("midnight");
-```
-
-#### Quote Generation Endpoint
-The filler provides a standard API for the frontend to fetch competitive rates.
-
-```typescript
-// packages/filler/index.ts
-
 server.post("/api/quote", async (request, reply) => {
   const { orderId, fromToken, toToken, fromAmount } = request.body;
 
-  // Calculate custom rate and fee
+  const basisPoints = 10; // 0.01% * 10 = 0.1% => 10 basis points
   const conversionRate = getConversion(fromAmount, fromToken, toToken);
   const fee = (basisPoints * conversionRate) / 10000;
+  ...
+```
 
-  // Return the signed quote structure
-  reply.send({
-    orderId,
-    filler: FILLER_NAME,
-    toAmount: conversionRate - fee,
-    fee,
-    // ...
-  });
+**Two ways of observing a payment.** BTC arrives as a transaction to a watched address,
+picked up by `PrimitiveTypeBitcoinAddress`. M20 does *not* arrive as a contract event —
+the user's transfer goes through the balancing batcher as a native unshielded UTXO
+move, which fires no contract state change at all. The template therefore also runs
+`PrimitiveTypeMidnightUnshieldedSpend`, which observes raw unshielded spends on
+Midnight's ledger, and synthesises a matching `transfers` row. Both paths converge on
+the same `checkAndTransferFunds` matcher in `packages/node/state-machine.ts`.
+
+> This is a demo settlement, deliberately simplified. `erc7683.compact` defines
+> `validate_initialize`, `resolve` and `validate_resolve` circuits, but the flow here
+> only calls `initialize`: the state machine plays escrow-and-arbiter and drives the
+> payout directly. A production build would have the filler call `resolve` and the node
+> act purely as the settler.
+
+## Effectstream features used
+
+| Feature | Where | Used for |
+| --- | --- | --- |
+| `@effectstream/sm` state machine | `packages/node/state-machine.ts` | Matching intents to payments and driving settlement |
+| Grammar (`@effectstream/concise`, `builtinGrammars`) | `packages/node/grammar.ts` | Typed inputs for the four primitives |
+| NTP main sync protocol (`ConfigSyncProtocolType.NTP_MAIN`) | `packages/node/config.dev.ts` | A single ordered timeline for two chains that share no clock |
+| Midnight contract state via `PrimitiveTypeMidnightGeneric` | `packages/node/config.dev.ts` | Reading the ERC-7683 and M20 ledgers |
+| Midnight unshielded spends via `PrimitiveTypeMidnightUnshieldedSpend` | `packages/node/config.dev.ts` | Observing native UTXO moves that fire no contract event |
+| Bitcoin RPC sync via `PrimitiveTypeBitcoinAddress` | `packages/node/config.dev.ts` | Watching the system deposit address on regtest |
+| Custom API routes (`StartConfigApiRouter`) | `packages/node/api.ts` | Quote fan-out, intent lookup, readiness, dev faucet |
+| Batcher `MidnightBalancingAdapter` (`@effectstream/batcher-sdk`) | `packages/batcher/batcher.dev.ts` | Fee-sponsored ("dust-free") Midnight transfers for users |
+| Batcher `BitcoinAdapter` + `MidnightAdapter` | `packages/filler/index.ts` | Each filler submits its own payouts on either chain |
+| Migrations + pgtyped queries (`@effectstream/db`) | `packages/database/` | The `intents` / `transfers` / `quotes` clearinghouse |
+| Wallet connect (`@effectstream/wallets`) | `packages/frontend/client/src/interface.ts` | Midnight (Lace) login for signing intents |
+| Orchestrator (`@effectstream/orchestrator`) | `start.dev.ts` | Bringing up both chains, three fillers, batcher and frontend |
+
+## Quick start
+
+**Prerequisites**
+
+- [Bun](https://bun.sh).
+- The **Compact compiler**, on your `PATH`. The contract packages compile with
+  `compact compile +0.31.0` (see `packages/contracts-midnight/erc7683/package.json`),
+  so install the toolchain and pin that release:
+
+  ```sh
+  curl --proto '=https' --tlsv1.2 -LsSf \
+    https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+  compact update 0.31.0
+  ```
+
+- `openssl`, used by the indexer launch script to generate a secret.
+- A **Midnight wallet that supports the `undeployed` network** (Lace Midnight preview)
+  to sign intents in the dApp.
+- No Docker, and no manually installed chain binaries: Bitcoin Core and the Midnight
+  node, indexer and proof server are pulled in as npm packages
+  (`@effectstream/bitcoin-core`, `@effectstream/npm-midnight-node`,
+  `@effectstream/npm-midnight-indexer`, `@effectstream/npm-midnight-proof-server`).
+
+**Run it**
+
+```sh
+bun i
+bun run dev
+```
+
+> [!NOTE]
+> The first `bun run dev` compiles the two Compact contracts before anything else can
+> start, which takes several minutes with no visible progress. That is not a hang —
+> watch the `midnight-contract` process in the orchestrator output.
+
+![Orchestrator output](./intent-swap-terminal.png)
+
+Once the `sync` process is up, open [http://localhost:10599](http://localhost:10599).
+
+| Service | URL |
+| --- | --- |
+| Frontend (dApp) | http://localhost:10599 |
+| Sync node HTTP API | http://localhost:9999 |
+| Balancing batcher | http://localhost:3334 |
+| Filler — Alpha Liquidity | http://localhost:16101 |
+| Filler — Omega Swap | http://localhost:16102 |
+| Filler — Quantum Pools | http://localhost:16103 |
+| Orchestrator API | http://localhost:4747 |
+| Midnight node RPC | http://127.0.0.1:9944 |
+| Midnight indexer | http://127.0.0.1:8088 |
+| Midnight proof server | http://127.0.0.1:6300 |
+| Bitcoin Core RPC (regtest) | http://127.0.0.1:18443 |
+| PGlite (Postgres) | `localhost:5432` |
+
+Other scripts:
+
+```sh
+bun run test             # full test suite (boots its own stack)
+bun run build:midnight   # compile the Compact contracts only
+bun run build:pgtypes    # regenerate pgtyped query types
+bun run start:frontend   # Vite dev server for the frontend alone
+bun run start:mainnet    # packages/node/main.mainnet.ts (see Configuration)
+```
+
+When working inside the Effectstream monorepo, run `./link.sh` instead of `bun i` — it
+installs dependencies and then symlinks every `@effectstream/*` package to its local
+source.
+
+## Project structure
+
+```
+packages/
+  batcher/               Balancing batcher — MidnightBalancingAdapter on :3334
+  contracts-bitcoin/     Regtest helpers: wallet creation, faucet, transfers, block waits
+  contracts-midnight/    Midnight node/indexer/proof-server scripts and contract deployment
+    erc7683/             ERC-7683 intent contract (Compact source + generated bindings)
+    unshielded-erc20/    "M20" unshielded fungible token (Compact source + bindings)
+    indexer-standalone/  Standalone indexer config
+  database/              000-init.sql migration and pgtyped queries
+  filler/                One solver process: quote API, payout webhook, embedded batcher
+  frontend/              React dApp (client/) served by a Fastify static server (server/)
+  node/                  Sync node: config, grammar, state machine, API
+  tests/                 infra / stm / frontend test phases
+```
+
+## How it works
+
+A BTC → M20 swap, end to end:
+
+1. **Quote.** The dApp posts to `POST /api/get-quotes` on the sync node. That route
+   fans the request out to all three fillers' `POST /api/quote` endpoints, writes every
+   returned quote to the `quotes` table, and hands the array back. The user picks one.
+2. **Intent declared.** The dApp calls `initialize` on the ERC-7683 contract via the
+   user's Midnight wallet (`packages/frontend/client/src/contracts/intents.ts`),
+   recording `maxSpent_*` (what the user gives), `minReceived_*` (what they want), the
+   deadlines, and the chain ids. Nothing has moved yet.
+3. **Payment.** The user sends BTC to the watched system address
+   `bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03`. (In the M20 → BTC direction, the
+   dApp instead calls `m20_transferFrom`, routed through the balancing batcher so the
+   user pays no Midnight fees.)
+4. **Both chains observed.** `parallelMidnight` picks up the contract state change and
+   `parallelBitcoin` picks up the transaction; both are ordered onto the `mainNtp`
+   timeline. The state machine writes an `intents` row and a `transfers` row.
+5. **Match.** Whichever arrives second triggers `checkAndTransferFunds`, which looks up
+   the counterpart by order id / amount / token / chain id. If either half is missing,
+   it logs and returns — a half-finished swap is simply not settled.
+6. **Filler picks it up.** On a match, the node marks the transfer used and the intent
+   resolved, then POSTs to the winning filler's
+   `/api/notify-filler-intent-payment`. The filler queues the payout on its embedded
+   batcher: a Bitcoin transfer, or a `mint_unshielded` circuit call for M20.
+7. **Filler is made whole.** The node releases the user's side to the filler's wallet
+   (`transferFunds` on Bitcoin, `transferFunds` on Midnight).
+
+### Grammar
+
+Four inputs, one per primitive. Two use `builtinGrammars`; the unshielded-spend payload
+is passed through as-is because its shape comes from the indexer.
+
+```ts
+// packages/node/grammar.ts
+export const grammar = {
+  "bitcoin-transaction": builtinGrammars.bitcoinAddress,
+  "midnightContractStateERC20": builtinGrammars.midnightGeneric,
+  "midnightContractStateERC7683": builtinGrammars.midnightGeneric,
+  "midnight-unshielded-spend": [["payload", Type.Any()]],
+} as const satisfies GrammarDefinition;
+```
+
+Each key matches a `stateMachinePrefix` in `packages/node/config.dev.ts`, which is what
+binds a primitive to its transition.
+
+### State machine
+
+`packages/node/state-machine.ts` registers one transition per grammar key. The
+ERC-7683 handler decodes the intent out of the Compact ledger — Compact stores
+`Bytes<N>` fields NUL-padded, and older payloads arrive as an object-of-bytes rather
+than hex, so `decodePaddedString` handles both — inserts it, and immediately tries to
+match:
+
+```ts
+// packages/node/state-machine.ts
+yield* World.resolve(insertIntent, { ... });
+
+yield* checkAndTransferFunds({
+  type: "intent-received",
+  orderId: parsedPayload.lastIntentEvent.orderId as string,
 });
 ```
 
-#### Automated Settlement Execution
-When the EffectStream Node verifies the user's payment, it notifies the filler that provided the quote. The filler then uses its embedded batcher to automatically send the counter-assets to the user.
+The Bitcoin handler is the mirror image: insert the transfer, then call
+`checkAndTransferFunds({ type: "transfer-received", ... })`. Settlement is symmetric,
+so the swap completes regardless of which leg lands first.
 
-```typescript
-// packages/filler/index.ts
+The unshielded-spend handler is the interesting one. A spend event carries only
+`{ owner, intentHash, outputIndex, txHash }` — no amount, no recipient — so it is used
+as a *signal* rather than a record: find the latest open M20 intent, look up the
+winning filler's unshielded address, and synthesise the `transfers` row the matcher
+expects. The template documents this simplification in place (it assumes at most one
+outstanding M20 intent at a time).
 
-server.post("/api/notify-filler-intent-payment", async (request, reply) => {
-  const { orderId, toAddress, amount, token } = request.body;
-  
-  // Programmatically trigger the Batcher to send funds
-  if (token === "btc") {
-    await batcher.batchInput({
-      address: "filler-btc-wallet", 
-      input: JSON.stringify({
-         type: "transfer",
-         toAddress: toAddress,
-         amount: Math.floor(amount)
-      }),
-      target: "bitcoin" // Route to Bitcoin Adapter
-    });
-  } 
-  else if (token === "m20") {
-     await batcher.batchInput({
-        address: "filler-midnight-wallet",
-        addressType: AddressType.MIDNIGHT,
-        input: JSON.stringify({
-           type: "transfer",
-           toAddress: toAddress,
-           amount: Math.floor(amount)
-        }),
-        target: "midnight" // Route to Midnight Adapter
-     });
-  }
-  
-  reply.send({ status: "processing", orderId });
-});
+Payouts run outside the state machine, in `setTimeout(..., 0)`, so that network I/O to
+the fillers never sits inside a deterministic transition.
+
+### API
+
+`packages/node/api.ts` registers the routes the dApp uses. `GET /health` comes from the
+runtime itself.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /health` | Runtime liveness (`{ status: "ok" }`) |
+| `GET /api/intents?orderId=…` | One intent by order id, or `404` |
+| `POST /api/get-quotes` | Fan out to all fillers, persist quotes, return the array |
+| `GET /api/check-processes` | `LOADING` / `FILLERS-NOT-READY` / `READY` |
+| `GET /api/faucet/btc?address=…` | **Development only.** Fund a regtest address |
+
+`/api/check-processes` is worth a look: it does not just ask the orchestrator whether
+the filler processes exist, it probes each filler's `/api/health` directly, because a
+running process does not mean `listen()` has resolved while the wallet is still
+syncing.
+
+`POST /api/get-quotes` also rejects BTC amounts at or below the 546-sat dust limit up
+front, so a doomed swap fails with a readable message instead of a chain-level error.
+
+The fillers expose their own small API: `GET /api/health`, `POST /api/quote`, and
+`POST /api/notify-filler-intent-payment`.
+
+### Database
+
+`packages/database/migrations/000-init.sql` creates three tables and
+`packages/database/sql/queries.sql` holds the pgtyped queries over them.
+
+| Table | Role |
+| --- | --- |
+| `intents` | The authoritative ERC-7683 order state, unique on `order_id`, with `resolved_by` naming the winning filler |
+| `transfers` | A unified ledger of raw movements on both chains, with a `used` flag that stops one deposit satisfying two orders |
+| `quotes` | Audit trail of the off-chain quoting round, unique on `(order_id, filler)` |
+
+The `used` boolean is the whole double-spend defence on the app side: matching sets it
+in the same transition that marks the intent resolved.
+
+## Configuration
+
+Dev defaults live in code and need no environment setup. The variables that exist:
+
+| Variable | Default | Read by |
+| --- | --- | --- |
+| `EFFECTSTREAM_API_PORT` | `9999` | Sync node HTTP API |
+| `PGLITE` | set to `true` for the `sync` process | Use embedded PGlite instead of external Postgres |
+| `ORCHESTRATOR_PORT` | `4747` | `/api/check-processes` proxy target |
+| `BATCHER_PORT` | `3334` | `packages/batcher/config.ts` |
+| `BATCHER_WALLET_SEED` | built-in dev seeds | `packages/batcher/config.ts` |
+| `BATCHER_POLLING_INTERVAL_MS` | `250` | `packages/batcher/config.ts` |
+| `BATCHER_STORAGE_DIR` | `packages/batcher-data` | `packages/batcher/config.ts` |
+| `MIDNIGHT_STORAGE_PASSWORD` | set by `start.dev.ts` | Midnight node storage |
+
+Frontend endpoints are Vite variables in `packages/frontend/.env.dev`
+(`VITE_API_URL`, `VITE_BATCHER_URL`, `VITE_MIDNIGHT_*`), consumed at build time by
+`--mode dev`.
+
+**Mainnet is not wired up.** `packages/node/config.mainnet.ts` and `main.mainnet.ts`
+are stubs, and both say so at the top of the file. The mainnet config already validates
+the variables it will need — `BITCOIN_RPC_URL`, `BITCOIN_RPC_USER`,
+`BITCOIN_RPC_PASS`, `BITCOIN_START_BLOCK`, `MIDNIGHT_START_BLOCK`, `SYSTEM_WALLET_BTC`,
+optional `NTP_START_TIME` — and throws if they are missing, but the Midnight network id
+is still the local one and the deposit-address flow is regtest-shaped. Treat
+`bun run start:mainnet` as a skeleton, not a deployment path.
+
+## Testing
+
+```sh
+bun run test
 ```
 
-### 5. Database Schema
+`packages/tests/run-tests.ts` boots its own orchestrator stack from
+`packages/tests/start.test.ts`, runs three phases, prints a summary and tears the stack
+down again:
 
-The database acts as the central clearinghouse state for the application. It persists the competitive quotes from fillers, tracks raw asset movements across Bitcoin and Midnight, and maintains the authoritative state of the ERC-7683 Intents.
+- **Phase A — infrastructure.** Bitcoin regtest reaches block > 100, the Midnight node
+  and indexer answer, the Compact contracts deploy, and the filler wallets are created
+  on both chains.
+- **Phase B — state machine, database, API.** The migration has applied and the three
+  tables accept inserts (`stm/intents.test.ts`); `getLatestOpenIntentByToken` picks the
+  right row (`stm/queries.test.ts`); the `midnight-unshielded-spend` transition is
+  driven through the real `gameStateTransitions` generator with a fabricated input and
+  must produce the synthetic transfer and resolve the intent
+  (`stm/unshielded-spend.test.ts`); and every API route returns the right shape and
+  status, including the sub-dust rejection (`stm/api.test.ts`).
+- **Phase C — frontend.** The Vite build succeeds and the app renders under
+  `playwright-core`.
 
-*   **`intents`**: Stores ERC-7683 Intent data (Order ID, deadlines, assets involved).
-*   **`transfers`**: Stores raw on-chain transfers detected (Chain ID, Amount, Token).
-*   **`quotes`**: Stores the quotes provided by fillers for audit trails.
+Driving a full cross-chain intent end to end needs live wallets, so it is out of scope
+for this suite; Phase B verifies the schema and API contract the flow depends on.
 
-#### 1. `intents` Table
+## Where to go next
 
-**Purpose**: Stores the authoritative state of every ERC-7683 Intent created on the Midnight chain. This table mirrors the `ResolvedCrossChainOrder` struct defined in the standard.
-
-
-| Field | Type | Usage & Description |
-| :--- | :--- | :--- |
-| `order_id` | `TEXT` | **Unique Key**. The global identifier for the swap order, derived from the user's signature/intent hash. |
-| `status` | `TEXT` | Tracks the lifecycle: `'0'` (Open/Initialized), `'3'` (Resolved/Closed). Updated by the State Machine upon settlement. |
-| `user_address` | `TEXT` | The Midnight address of the user initiating the swap. |
-| `max_spent_token` | `TEXT` | The asset the user is selling (e.g., "btc"). |
-| `max_spent_amount` | `TEXT` | The amount the user must deposit to the escrow address (e.g., Satoshis). |
-| `min_received_token` | `TEXT` | The asset the user expects to receive (e.g., "m20"). |
-| `min_received_amount` | `TEXT` | The guaranteed amount the user will receive on the destination chain. |
-| `origin_data` | `TEXT` | Additional data defined by the Origin chain (Midnight), often containing target wallet info for the Fillers. |
-| `created_at` | `TIMESTAMP` | Timestamp of when the intent was created. |
-| `origin_chain_id` | `TEXT` | The chain ID of the origin chain (e.g., "1" for Bitcoin, "9999" for Midnight). |
-| `open_deadline` | `TEXT` | The deadline for the user to open the intent. |
-| `fill_deadline` | `TEXT` | The deadline for the filler to fill the intent. |
-| `max_spent_recipient` | `TEXT` | The recipient address of the user. |
-| `max_spent_chain_id` | `TEXT` | The chain ID of the origin chain (e.g., "1" for Bitcoin, "9999" for Midnight). |
-| `min_received_recipient` | `TEXT` | The recipient address of the user. |
-| `min_received_chain_id` | `TEXT` | The chain ID of the destination chain (e.g., "9999" for Midnight). |
-| `destination_chain_id` | `TEXT` | The chain ID of the destination chain (e.g., "9999" for Midnight). |
-| `destination_settler` | `TEXT` | The address of the destination settler. |
-| `resolved_by` | `TEXT` | Populated during settlement. Stores the ID of the Filler who successfully claimed and executed this order. |
-
----
-
-#### 2. `transfers` Table
-
-**Purpose**: A unified ledger of **raw asset movements** detected on *both* Bitcoin and Midnight. The State Machine scans this table to find payments that match open intents.
-
-| Field | Type | Usage & Description |
-| :--- | :--- | :--- |
-| `id` | `SERIAL` | The unique identifier for the transfer. |
-| `chain_id` | `TEXT` | Distinguishes the network source: `'1'` for Bitcoin, `'9999'` for Midnight. |
-| `token` | `TEXT` | The asset symbol (e.g., "btc", "m20"). |
-| `amount` | `NUMERIC` | The raw value transferred. |
-| `created_at` | `TIMESTAMP` | Timestamp of when the transfer was created. |
-| `to_address` | `TEXT` | The recipient address. For valid swaps, this must match the System/Escrow address monitored by EffectStream. |
-| `from_address` | `TEXT` | The sender's address. |
-| `used` | `BOOLEAN` | **Critical Field**. Acts as a semaphore. When the State Machine matches a transfer to an intent, it sets this to `TRUE` to prevent the same deposit from satisfying multiple orders. |
-
----
-
-#### 3. `quotes` Table
-
-**Purpose**: An audit trail of the off-chain negotiation phase. It records the offers provided by Fillers *before* the Intent was created on-chain.
-
-| Field | Type | Usage & Description |
-| :--- | :--- | :--- |
-| `id` | `SERIAL` | The unique identifier for the quote. |
-| `order_id` | `TEXT` | Links this quote to the finalized Intent in the `intents` table. |
-| `filler` | `TEXT` | The name or ID of the Filler providing the quote (e.g., "Alpha Liquidity"). |
-| `from_token` | `TEXT` | The asset the user is selling (e.g., "btc"). |
-| `from_amount` | `NUMERIC` | The amount the user must deposit to the escrow address |
-| `to_token` | `TEXT` | The asset the user expects to receive (e.g., "m20"). |
-| `to_amount` | `NUMERIC` | The amount the Filler offered to pay the user (Price). |
-| `fee` | `NUMERIC` | The service fee charged by the filler. |
-| `created_at` | `TIMESTAMP` | Timestamp of when the quote was generated via the API. |
-
----
-
-#### Settlement Logic Flow
-
-The State Machine uses these tables to perform atomic settlement:
-
-1.  **Ingestion**:
-    *   `intents` is populated by the `midnightContractStateERC7683` primitive when a user submits an intent.
-    *   `transfers` is populated by the `BitcoinAddress` primitive when BTC arrives.
-2.  **Matching (State Machine)**:
-    *   It queries for an **`intent`** where `status = '0'`.
-    *   It queries for a **`transfer`** where `amount >= intent.max_spent_amount` AND `token == intent.max_spent_token` AND `used = FALSE`.
-3.  **Resolution**:
-    *   If a match is found, it locks the transfer (`UPDATE transfers SET used = TRUE`).
-    *   It marks the intent as resolved (`UPDATE intents SET status = '3'`).
-    *   It looks up the winning `quote` using the `order_id` to determine which Filler to pay.
-
-### 6. API (`api.ts`)
-
-The API layer aggregates data for the Frontend:
-*   `POST /api/get-quotes`: Proxies requests to the active Filler services to get the best price for the user.
-*   `GET /api/intents`: Returns the status of a specific Order ID.
-*   `GET /api/faucet/btc` & `/api/faucet/dust`: Development endpoints to fund test wallets.
-
-## Frontend Integration
-
-The frontend (`packages/frontend/dApp`) is a React application that:
-1.  Connects to a **Midnight Wallet** (Lace) to sign Intents.
-2.  Connects to a **Bitcoin Wallet** (via manual address entry for this demo) to send payments.
-3.  Interacts with the **Fillers** to fetch quotes.
-4.  Monitors the **EffectStream API** to track the status of the swap.
-
-```tsx
-// Example: Creating an intent on Midnight
-const intentConfig = {
-  user: midnightWallet.addr,
-  orderId: selectedQuote.orderId,
-  maxSpent_token: "btc",
-  minReceived_token: "m20",
-  // ...
-};
-const intentResult = await interface.createIntent(
-    midnightWallet.contract.erc7683, 
-    midnightWallet.addr, 
-    intentConfig
-);
-```
+- [Primitives](https://effectstream.github.io/docs/home/components/primitives) — how
+  the four listeners in `config.dev.ts` turn chain events into typed inputs.
+- [State machine](https://effectstream.github.io/docs/home/components/state-machine) —
+  the determinism rules that dictate why payouts run outside the transitions here.
+- [Bitcoin](https://effectstream.github.io/docs/home/chains/bitcoin) — regtest setup,
+  address watching, and the Bitcoin batcher adapter.
+- [Midnight](https://effectstream.github.io/docs/home/chains/midnight) — Compact
+  contracts, the indexer, and shielded vs unshielded addresses.
+- [Batcher overview](https://effectstream.github.io/docs/home/components/batcher/overview)
+  — adapters, batching criteria, and the balancing adapter this template uses twice.
+- [EVM-Midnight template](https://effectstream.github.io/docs/home/templates/evm-midnight)
+  — the sibling template for a simpler two-chain sync without the solver market.

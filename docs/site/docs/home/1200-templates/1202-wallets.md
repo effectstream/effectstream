@@ -1,3 +1,10 @@
+---
+title: "Wallet integrations"
+description: "Every supported wallet mode, demonstrated by the e2e/wallets-ui app."
+sidebar_label: "Wallet integrations"
+sidebar_position: 19
+---
+
 # Web Wallets
 
 *   Location: `/e2e/wallets-ui/`
@@ -48,7 +55,7 @@ The demo is a standalone React + Vite application. Its interface is divided into
 
 ## Code Deep Dive: `App.tsx`
 
-The entire logic is contained within `/e2e/e2e-wallets/client/src/App.tsx`. Let's break down the key parts.
+The entire logic is contained within `e2e/wallets-ui/client/src/App.tsx`. Let's break down the key parts.
 
 ### 1. Configuration
 

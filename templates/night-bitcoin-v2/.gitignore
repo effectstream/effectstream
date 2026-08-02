@@ -1,2 +1,4 @@
 node_modules
 logs
+# Batcher runtime storage (created on first run)
+packages/batcher-data
