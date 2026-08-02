@@ -12,9 +12,9 @@ A pinned [`ord`](https://github.com/ordinals/ord) binary, packaged for
 npm. Installing this drops a versioned `ord` CLI into
 `node_modules/.bin` for EffectStream's Bitcoin / Ordinals dev workflows.
 
-- Pinned `ord` CLI for Bitcoin / Ordinals dev workflows.
+- Pinned `ord` CLI (v0.23.3) for Bitcoin / Ordinals dev workflows.
 - Pairs with `@effectstream/bitcoin-core` for an `ord`-indexed view of local regtest.
-- Linux / macOS, x64 and arm64.
+- Prebuilt binaries: Linux x64, macOS arm64, macOS x64. Upstream publishes no Linux arm64 build.
 - Used by Ordinals-aware templates and E2E tests.
 
 ## Install

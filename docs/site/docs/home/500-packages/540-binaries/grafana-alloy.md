@@ -13,7 +13,7 @@ OpenTelemetry-compatible collector EffectStream nodes ship traces, logs,
 and metrics to during local development. Installs a pinned binary into
 `node_modules/.bin/grafana-alloy`.
 
-- Pinned Grafana Alloy binary, the OTel collector Effectstream nodes ship to in local dev.
+- Pinned Grafana Alloy binary (1.11.3), the OTel collector Effectstream nodes ship to in local dev.
 - One-command start via `bunx grafana-alloy run config.alloy`.
 - Pairs with `@effectstream/grafana-loki` for logs.
 - Drop-in: point your own collector at the same OTLP endpoint in production.

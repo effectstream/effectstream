@@ -85,7 +85,7 @@ inferred at call sites rather than imported directly.
 
 Subpath exports:
 
-- `@effectstream/sm/builtin`: `PrimitiveTypeERC20`, `PrimitiveTypeERC721`, `PrimitiveTypeERC1155`, `PrimitiveTypeCardanoTransfer`, `PrimitiveTypeMidnightGeneric`, and 20+ more chain-specific event tags.
+- `@effectstream/sm/builtin`: `PrimitiveTypeEVMERC20`, `PrimitiveTypeEVMERC721`, `PrimitiveTypeEVMERC1155`, `PrimitiveTypeEVMEffectstreamL2`, `PrimitiveTypeCardanoTransfer`, `PrimitiveTypeMidnightGeneric`, `PrimitiveTypeUtxorpcGeneric`, and 20+ more chain-specific event tags.
 - `@effectstream/sm/grammar`: the underlying grammar/parsing utilities, also re-exported from `@effectstream/concise`.
 
 ## Examples

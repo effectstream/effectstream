@@ -14,7 +14,7 @@ cluster for local development. Downloads a pinned build into
 `vendor/bin/solana-test-validator` on first use so the orchestrator can boot it
 without each developer installing the Solana CLI.
 
-- Pinned Agave release, verified by SHA-256 before it is ever executed.
+- Pinned Agave release (3.0.14), verified by SHA-256 before it is ever executed.
 - Exposes a `solana-node` bin plus a programmatic `run()`.
 - Consumed by `@effectstream/sync`'s `SolanaFetcher` via JSON-RPC on `:8899`.
 - Used by the orchestrator's `launchSolana` step for end-to-end local testing.

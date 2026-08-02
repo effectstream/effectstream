@@ -13,7 +13,7 @@ NPM wrapper that downloads and runs the
 version on first invocation and exposes a `npm-midnight-node` CLI for
 the EffectStream orchestrator and templates.
 
-- Pinned Midnight node binary, downloaded on first run.
+- Pinned Midnight node binary (1.0.0), downloaded on first run.
 - `--dev` for a local node; `--clean-binaries` / `--only-clean` to manage the cache.
 - Consumed by `@effectstream/sync`'s `MidnightFetcher`.
 - Templates: `evm-midnight-v2`, `night-bitcoin`, `zswap-da`, `zk-cardano`.
