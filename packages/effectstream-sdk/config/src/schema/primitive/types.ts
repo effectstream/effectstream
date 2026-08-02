@@ -90,9 +90,21 @@ type SolanaAccountBalancePayload = {
   slot: number;
 };
 
+type SolanaTokenBalancePayload = {
+  tokenAccount: string;
+  mint: string;
+  /** Empty string when the RPC's balance record omitted the owner. */
+  owner: string;
+  /** Raw u64 in base units — a u64 does not survive a JS number. */
+  amount: string;
+  decimals: number;
+  slot: number;
+};
+
 type SolanaPrimitivePayload =
   | SolanaProgramLogPayload
-  | SolanaAccountBalancePayload;
+  | SolanaAccountBalancePayload
+  | SolanaTokenBalancePayload;
 
 interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.NTP_MAIN]: NtpPrimitivePayload;
