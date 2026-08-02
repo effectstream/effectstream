@@ -7,7 +7,7 @@ import {
 } from "@effectstream/config";
 
 export const PrimitiveTypeMidnightGeneric = "Midnight:Generic" as const;
-export const PrimitiveTypeMidnightNullifier = "Midnight:Nullifier" as const;
+export const PrimitiveTypeMidnightNullifierAndCommitment = "Midnight:NullifierAndCommitment" as const;
 export const PrimitiveTypeMidnightUnshieldedSpend = "Midnight:UnshieldedSpend" as const;
 export const PrimitiveTypeMidnightUnshieldedCreate = "Midnight:UnshieldedCreate" as const;
 export const PrimitiveTypeMidnightZswapRoot = "Midnight:ZswapRoot" as const;
@@ -53,7 +53,7 @@ export const PrimitiveTypeSolanaTokenAccount = SOLANA_PRIMITIVE_TOKEN_ACCOUNT;
 
 type BuiltInPrimitives =
     typeof PrimitiveTypeMidnightGeneric |
-    typeof PrimitiveTypeMidnightNullifier |
+    typeof PrimitiveTypeMidnightNullifierAndCommitment |
     typeof PrimitiveTypeMidnightUnshieldedSpend |
     typeof PrimitiveTypeMidnightUnshieldedCreate |
     typeof PrimitiveTypeMidnightZswapRoot |

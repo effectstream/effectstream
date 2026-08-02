@@ -895,10 +895,37 @@ export async function triggerNullifiers(
 
   // Also test initSwap nullifiers
   console.log("\nTesting initSwap + balanceUnprovenTransaction nullifiers...");
+  await performZswap(walletResult, "genesis-post-transfer");
 
+  await walletResult.wallet.stop();
+}
+
+/** Outcome of a submitted zswap, with the exact zswap ledger event values it must produce. */
+export interface ZswapResult {
+  /** Wallet-reported transaction id (NOT the ledger event tx hash). */
+  txId: string;
+  /** Nullifiers of every shielded input in the swap tx, hex (no 0x), lowercase. */
+  expectedNullifiers: string[];
+  /** Commitments of every shielded output in the swap tx, hex (no 0x), lowercase. */
+  expectedCommitments: string[];
+}
+
+const normalizeEventHex = (hex: string): string =>
+  (hex.startsWith("0x") ? hex.slice(2) : hex).toLowerCase();
+
+/**
+ * Perform a zswap: initSwap creates a shielded swap offer,
+ * balanceUnprovenTransaction completes it with the same wallet, and the
+ * resulting transaction is signed, finalized and submitted.
+ * Returns the tx id plus the exact nullifiers/commitments the chain must emit.
+ */
+async function performZswap(
+  walletResult: Awaited<ReturnType<typeof buildWalletFacade>>,
+  logLabel: string,
+): Promise<ZswapResult> {
   await syncAndWaitForFunds(walletResult.wallet, {
     waitNonZero: true,
-    logLabel: "genesis-post-transfer",
+    logLabel,
     timeoutMs: 120_000,
   });
 
@@ -939,10 +966,57 @@ export async function triggerNullifiers(
     (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
   );
   const finalizedSwapTx = await walletResult.wallet.finalizeTransaction(signedSwapTx);
-  const swapTxId = await walletResult.wallet.submitTransaction(finalizedSwapTx);
-  console.log(`Swap submitted, txId: ${swapTxId} — swap nullifiers should be spent on-chain`);
 
-  await walletResult.wallet.stop();
+  // Read the exact nullifiers/commitments off the finalized tx: the ledger
+  // emits one ZswapInput event per input (its nullifier) and one ZswapOutput
+  // event per output (its commitment) when the tx is applied.
+  const expectedNullifiers: string[] = [];
+  const expectedCommitments: string[] = [];
+  const offers = [
+    finalizedSwapTx.guaranteedOffer,
+    ...(finalizedSwapTx.fallibleOffer?.values() ?? []),
+  ];
+  for (const offer of offers) {
+    if (!offer) continue;
+    for (const input of offer.inputs) {
+      expectedNullifiers.push(normalizeEventHex(input.nullifier));
+    }
+    for (const output of offer.outputs) {
+      expectedCommitments.push(normalizeEventHex(output.commitment));
+    }
+  }
+
+  const swapTxId = await walletResult.wallet.submitTransaction(finalizedSwapTx);
+  console.log(
+    `Swap submitted, txId: ${swapTxId} — expecting ` +
+      `${expectedNullifiers.length} nullifier(s) ${JSON.stringify(expectedNullifiers)} and ` +
+      `${expectedCommitments.length} commitment(s) ${JSON.stringify(expectedCommitments)} on-chain`,
+  );
+  return { txId: String(swapTxId), expectedNullifiers, expectedCommitments };
+}
+
+/**
+ * Run a standalone zswap with the genesis wallet.  Used by the e2e suite to
+ * verify the Midnight:NullifierAndCommitment primitive captures the swap's
+ * zswap ledger events.  Returns the tx id and the exact expected
+ * nullifiers/commitments.
+ */
+export async function triggerZswap(
+  networkUrls: Required<Config>,
+  networkId: NetworkId.NetworkId,
+): Promise<ZswapResult> {
+  console.log("\n--- Triggering zswap (initSwap + balance + submit) ---\n");
+
+  setNetworkId(networkId);
+
+  const GENESIS_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
+  const walletResult = await buildWalletFacade(networkUrls, GENESIS_SEED, networkId);
+  console.log("Genesis wallet built, waiting for funds...");
+  try {
+    return await performZswap(walletResult, "genesis-zswap");
+  } finally {
+    await walletResult.wallet.stop();
+  }
 }
 
 export async function triggerUnshieldedCreates(

@@ -126,7 +126,7 @@ activity (no contract address needed) — each emits a state-machine input under
 its `stateMachinePrefix`. They underpin the `zswap-da` template's offer-liveness
 checks (is a coin spent? does a UTXO exist? is a Merkle root real and recent?):
 
-*   **`PrimitiveTypeMidnightNullifier`**: emits each shielded coin **nullifier** as it is consumed (a spend). Payload `{ nullifier, txHash, eventId, logicalSegment }`.
+*   **`PrimitiveTypeMidnightNullifierAndCommitment`**: emits each shielded coin **nullifier** as it is consumed (a spend) and each coin **commitment** as it is created. Both arrive in the same indexer response, so tracking both adds no extra indexer load; the optional `capture` config (`"nullifiers" | "commitments" | "both"`, default `"both"`) filters which kinds are emitted. Payload is a discriminated union on `kind`: `{ kind: "nullifier", nullifier, txHash, eventId, logicalSegment, contract? }` or `{ kind: "commitment", commitment, mtIndex, txHash, eventId, logicalSegment, contract? }` (`mtIndex` is the commitment's zswap Merkle-tree index as a decimal string).
 *   **`PrimitiveTypeMidnightUnshieldedSpend`**: emits each **unshielded UTXO spend** as `{ owner, intentHash, outputIndex, txHash }`.
 *   **`PrimitiveTypeMidnightUnshieldedCreate`**: emits each **unshielded UTXO creation** (regular **and** system transactions — rewards/bridge mint UTXOs) as `{ owner, intentHash, outputIndex, txHash }`. The existence counterpart of `UnshieldedSpend`.
 *   **`PrimitiveTypeMidnightZswapRoot`**: emits the zswap coin-commitment Merkle tree **root** as it advances (the last `RegularTransaction.zswapMerkleTreeRoot` of each block) as `{ root, txHash }`.

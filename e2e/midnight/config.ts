@@ -10,7 +10,7 @@ import {
 } from "@effectstream/config";
 import {
   PrimitiveTypeMidnightGeneric,
-  PrimitiveTypeMidnightNullifier,
+  PrimitiveTypeMidnightNullifierAndCommitment,
   PrimitiveTypeMidnightUnshieldedCreate,
   PrimitiveTypeMidnightZswapRoot,
   PrimitiveTypeMidnightTokenMint,
@@ -136,10 +136,11 @@ export const config = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelMidnight,
         (network, deployments, syncProtocol) => ({
-          name: "Midnight-Nullifier",
-          type: PrimitiveTypeMidnightNullifier,
+          name: "Midnight-NullifierAndCommitment",
+          type: PrimitiveTypeMidnightNullifierAndCommitment,
           startBlockHeight: 1,
-          stateMachinePrefix: "midnightNullifierState",
+          stateMachinePrefix: "midnightZswapEventState",
+          // capture: "both" is the default; set "nullifiers" or "commitments" to filter
           networkId: midnightNetworkConfig.id,
         }),
       )

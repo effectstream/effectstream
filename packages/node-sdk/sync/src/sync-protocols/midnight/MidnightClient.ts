@@ -54,7 +54,7 @@ export interface MidnightGqlBlockState {
 export interface BlockFetchOptions {
   /** Include contractActions in the transaction fields (needed for MidnightGenericPrimitive). Default: true */
   contractActions?: boolean;
-  /** Include zswapLedgerEvents in the transaction fields (needed for MidnightNullifierPrimitive). Default: true */
+  /** Include zswapLedgerEvents in the transaction fields (needed for MidnightNullifierAndCommitmentPrimitive). Default: true */
   zswapLedgerEvents?: boolean;
   /** Include unshieldedSpentOutputs (needed for MidnightUnshieldedSpendPrimitive). Default: false */
   unshieldedSpentOutputs?: boolean;
