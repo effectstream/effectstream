@@ -30,11 +30,19 @@ export interface MidnightGqlBlockState {
         intentHash:  string;
         outputIndex: number;
         owner:       string;
+        /** u128 value as a decimal string */
+        value:       string;
+        /** hex-encoded serialized token type */
+        tokenType:   string;
       }[];
       unshieldedCreatedOutputs?: {
         intentHash:  string;
         outputIndex: number;
         owner:       string;
+        /** u128 value as a decimal string */
+        value:       string;
+        /** hex-encoded serialized token type */
+        tokenType:   string;
       }[];
       // Present only on RegularTransaction (selected via inline fragment): the
       // coin-commitment Merkle tree root after this transaction.
@@ -150,10 +158,10 @@ export class MidnightClient {
       ? `zswapLedgerEvents { id raw maxId }`
       : "";
     const unshieldedSpentField = unshieldedSpentOutputs
-      ? `unshieldedSpentOutputs { intentHash outputIndex owner }`
+      ? `unshieldedSpentOutputs { intentHash outputIndex owner value tokenType }`
       : "";
     const unshieldedCreatedField = unshieldedCreatedOutputs
-      ? `unshieldedCreatedOutputs { intentHash outputIndex owner }`
+      ? `unshieldedCreatedOutputs { intentHash outputIndex owner value tokenType }`
       : "";
     // zswapMerkleTreeRoot lives on RegularTransaction, not the Transaction
     // interface, so it must be selected through an inline fragment.

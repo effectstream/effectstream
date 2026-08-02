@@ -12,6 +12,7 @@ import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeMidnightNullifierAndCommitment,
   PrimitiveTypeMidnightUnshieldedCreate,
+  PrimitiveTypeMidnightUnshieldedSpend,
   PrimitiveTypeMidnightZswapRoot,
   PrimitiveTypeMidnightTokenMint,
 } from "@effectstream/sm/builtin";
@@ -151,6 +152,16 @@ export const config = new ConfigBuilder()
           type: PrimitiveTypeMidnightUnshieldedCreate,
           startBlockHeight: 1,
           stateMachinePrefix: "midnightUnshieldedCreateState",
+          networkId: midnightNetworkConfig.id,
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelMidnight,
+        (network, deployments, syncProtocol) => ({
+          name: "Midnight-UnshieldedSpend",
+          type: PrimitiveTypeMidnightUnshieldedSpend,
+          startBlockHeight: 1,
+          stateMachinePrefix: "midnightUnshieldedSpendState",
           networkId: midnightNetworkConfig.id,
         }),
       )
