@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import nodePolyfills from "vite-plugin-node-stdlib-browser";
+import wasm from "vite-plugin-wasm";
 
 export default defineConfig({
   root: path.resolve(import.meta.dirname!, "client"),
@@ -61,5 +62,6 @@ export default defineConfig({
         "node:fs": "memfs",
       },
     }),
+    wasm(),
   ],
 });
