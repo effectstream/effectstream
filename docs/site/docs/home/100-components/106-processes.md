@@ -2,7 +2,7 @@
 
 Developing a multi-chain dApp is complex. It often requires running multiple local blockchains, indexers, deploying contracts, and managing various services simultaneously. Doing this manually is tedious, error-prone, and slows down development.
 
-The **Process Orchestrator** is a powerful tool built into EffectStream that solves this problem. It automates the setup of your entire local development environment. When you run `bun run dev` in the `/templates/evm-midnight-v2/` example, the orchestrator reads a configuration file (`orchestrator.ts`) and launches all the necessary processes-from blockchains and databases to the batcher and frontend server-in the correct order.
+The **Process Orchestrator** is a tool built into EffectStream that solves this problem. It automates the setup of your entire local development environment. When you run `bun run dev` in the `/templates/evm-midnight-v2/` example, the orchestrator reads a configuration file (`start.dev.ts`) and launches all the necessary processes — from blockchains and databases to the batcher and frontend server — in dependency order.
 
 Its main goal is to create a complete, "mini-production" environment on your machine, so you can focus on building your dApp, not on managing infrastructure.
 
@@ -10,86 +10,104 @@ Its main goal is to create a complete, "mini-production" environment on your mac
 
 The orchestrator is the main entry point for your development environment. When started, it performs the following steps:
 
-1.  **Reads `start.{env}.ts`**: It loads your configuration, which defines all the processes to run.
-2.  **Launches Dependencies**: It starts foundational services like local blockchains (EVM, Midnight, etc.) and the development database. It can be configured to wait for each process to be ready before proceeding to the next step.
-3.  **Deploys Contracts**: Once the chains are running, it executes your deployment scripts.
-4.  **Starts EffectStream Services**: It launches core EffectStream services like the Batcher and the log collector.
-5.  **Starts the Sync Service**: Once the entire environment is successfully set up, the orchestrator starts the main **EffectStream Sync Service**. The Sync Service then loads its own configuration (`config.{env}.ts`) and begins the actual process of syncing blockchain data and running your state machine.
+1.  **Loads your config**: a TypeScript file that default-exports an `OrchestratorConfig` (conventionally `start.dev.ts`).
+2.  **Launches dependencies**: it starts foundational services like local blockchains (EVM, Midnight, etc.) and the development database, respecting the `dependsOn` graph and waiting for processes marked `waitToExit` to finish.
+3.  **Deploys contracts**: once the chains are running, it executes your deployment scripts.
+4.  **Starts EffectStream services**: it launches services like the batcher and the frontend.
+5.  **Starts the Sync Service**: the process conventionally named `sync` runs your node entry point, which loads its own configuration (`config.{env}.ts`) and begins syncing blockchain data and running your state machine.
+
+:::note
+The orchestrator logs a warning if your config has no process named `sync`, since that is the process that starts the Effectstream sync engine.
+:::
+
+### Where the config lives
+
+The CLI resolves the config file in this order:
+
+1.  An explicit path — `orchestrator start ./start.dev.ts` or `-c, --config <path>`.
+2.  The `effectstream.default` field in your `package.json`.
+3.  Auto-detection of `orchestrator.config.ts`, `orchestrator.config.js`, or `orchestrator.config.json` in the current directory.
+
+The templates use option 2:
+
+```json
+{
+  "scripts": {
+    "dev": "NODE_ENV=development bunx orchestrator start"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
+  }
+}
+```
 
 ### Configuring the Orchestrator (`start.{env}.ts`)
 
-Your entire development environment is defined in a single configuration object. Let's break down its main components.
-
-#### 1. Built-in EffectStream Services (`processes`)
-
-This section is a set of boolean flags to enable or disable core EffectStream development services.
+The config is a plain object with a single required field, `processes` — an ordered array of process definitions. Export it as the module default:
 
 ```ts
-const config = Value.Parse(OrchestratorConfig, {
-  processes: {
-    // Starts an in-memory PostgreSQL database for development.
-    [ComponentNames.EFFECTSTREAM_PGLITE]: true,
+import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 
-    // Starts a local OpenTelemetry collector to aggregate logs.
-    [ComponentNames.COLLECTOR]: true,
-  },
-  // ...
-});
+export default {
+  processes: [
+    /* ... */
+  ],
+} satisfies OrchestratorConfig;
 ```
 
-#### 2. Custom Process Groups (`processesToLaunch`)
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `processes` | `ProcessConfig[]` | Ordered list of processes to manage. |
+| `apiPort` | `number` (optional) | Port for the orchestrator HTTP API used by `status`/`restart`/`stop`. Defaults to `4747`; override with `--port`. |
 
-This is where you define the custom tasks needed to set up your specific dApp environment. It's an array of process "groups," where each group can contain one or more sequential steps.
+#### The `ProcessConfig` shape
 
-This is commonly used to:
-*   Start a local blockchain.
-*   Wait for the chain to be ready.
-*   Deploy your smart contracts.
-*   Build and run a frontend application.
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `name` | `string` | Unique name for this process. |
+| `args` | `string[]` | Arguments passed to the command. |
+| `description` | `string` | Human-readable description, shown in `status` output. |
+| `command` | `string` | Executable to run. Defaults to `"bun"`. |
+| `dependsOn` | `string[]` | Names of processes that must complete/start before this one. |
+| `stopProcessAtPort` | `number[]` | Ports freed (killing any occupier) before launch; also used for port-based liveness detection in `status`. |
+| `waitToExit` | `boolean` | If `true`, dependents wait for this process to **exit**. If `false` (default), dependents start as soon as it launches. |
+| `type` | `"system-dependency" \| "secondary"` | `system-dependency` (default): failure triggers shutdown. `secondary`: failure is logged, orchestrator keeps running. |
+| `env` | `Record<string, string>` | Extra environment variables. |
+| `cwd` | `string` | Working directory. Defaults to `process.cwd()`. |
+| `critical` | `boolean` | If `true` (default), a non-zero exit triggers full shutdown. |
+| `link` | `string` | URL shown in `status` output (e.g. a UI endpoint). |
+| `autoStart` | `boolean` | If `false`, the process is skipped on a normal `start` and only runs when requested via `--only`. Defaults to `true`. |
 
-> IMPORTANT: Example EVM / Midnight / Cardano / Avail examples are available in the @effectstream/orchestrator package
+#### Built-in chain launchers
 
-```
-import { launchAvail } from "@effectstream/orchestrator/start-avail";
-import { launchCardano } from "@effectstream/orchestrator/start-cardano";
-import { launchEvm } from "@effectstream/orchestrator/start-evm";
-import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
-```
-
-But you can write your own, here is an example of a reusable launcher function for an EVM chain. Notice how it defines a sequence of processes.
+Rather than hand-writing the process groups for each chain, import a launcher. Each returns a `ProcessConfig[]` that you spread into `processes`:
 
 ```ts
-// This function returns a configuration object for a process group.
-export const launchEvm = (packageName: string) => [
-  {
-    stopProcessAtPort: [8545, 8546],
-    name: ComponentNames.HARDHAT,
-    args: ["task", "-f", packageName, "chain:start"],
-    waitToExit: false,
-    logs: "otel-compatible",
-    type: "system-dependency",
-    dependsOn: [],
-  },
-  {
-    name: ComponentNames.HARDHAT_WAIT,
-    args: ["task", "-f", packageName, "chain:wait"],
-    dependsOn: [ComponentNames.HARDHAT],
-  },
-  {
-    name: ComponentNames.DEPLOY_EVM_CONTRACTS,
-    args: ["task", "-f", packageName, "deploy"],
-    type: "system-dependency",
-    dependsOn: [ComponentNames.HARDHAT_WAIT],
-  },
-];
+import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
+import { launchEvm, EvmNames } from "@effectstream/orchestrator/launch-evm";
+import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
+import { launchCardano, CardanoNames } from "@effectstream/orchestrator/launch-cardano";
+import { launchAvail, AvailNames } from "@effectstream/orchestrator/launch-avail";
+import { launchBitcoin, BitcoinNames } from "@effectstream/orchestrator/launch-bitcoin";
+import { launchCelestia, CelestiaNames } from "@effectstream/orchestrator/launch-celestia";
+import { launchNear, NearNames } from "@effectstream/orchestrator/launch-near";
 ```
 
-This demonstrates the key property of `waitToExit`, which allows you to define dependencies between steps.
+Chain launchers take the workspace package name and a location used to resolve that package's directory:
 
-### Custom Processes 
+```ts
+launchEvm("@evm-midnight/contracts-evm", { cwd: path.join(root, "packages/contracts-evm") })
+```
 
-Custom processes can be defined using the `command`, `args`, and `cwd` properties.
-For example, to run a program called `my-program.js` in the `/my-project` directory, you can use the following configuration:
+Each launcher also exports a `*Names` constant with the names of the processes it creates, so you can depend on them without hardcoding strings:
+
+```ts
+dependsOn: [DbNames.PGLITE_WAIT, EvmNames.GENERATE_MOD, MidnightNames.CONTRACT_DEPLOY]
+```
+
+### Custom Processes
+
+Any process not covered by a launcher is written directly. To run `my-program.js` in `/my-project`:
 
 ```ts
 {
@@ -103,47 +121,101 @@ For example, to run a program called `my-program.js` in the `/my-project` direct
 
 ### Full Example Walkthrough
 
-Let's look at the complete `start.ts` example. It sets up a complex, multi-chain environment.
+This is the `start.dev.ts` from `templates/evm-midnight-v2`, which sets up a complete EVM + Midnight environment:
 
 ```ts
-// This file is the entry point for `bun run dev`
-import { OrchestratorConfig, start } from "@effectstream/orchestrator";
-// ... other imports
+import path from "node:path";
+import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
+import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
+import { launchEvm, EvmNames } from "@effectstream/orchestrator/launch-evm";
+import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 
-const config = Value.Parse(OrchestratorConfig, {
-  // Section 1: Enable built-in services
-  processes: {
-    [ComponentNames.EFFECTSTREAM_PGLITE]: true, // Use the dev database
-    [ComponentNames.COLLECTOR]: true,   // Use the log collector
-  },
+const root = import.meta.dirname!;
+const midnightDeps = [MidnightNames.CONTRACT_DEPLOY];
 
-  // Section 2: Define custom launch sequences
-  processesToLaunch: [
-    // Group A: Launch EVM, wait, and deploy contracts
-    ...launchEvm("@e2e/evm-contracts"),
+export default {
+  processes: [
+    // Development database
+    ...launchPglite(),
 
-    // Group B: Launch Cardano stack
-    ...launchCardano("@e2e/cardano-contracts"),
+    // EVM chain: start Hardhat, wait, compile, deploy, generate bindings
+    ...launchEvm("@evm-midnight/contracts-evm", {
+      cwd: path.join(root, "packages/contracts-evm"),
+    }),
 
-    // Group C: Launch Midnight stack
-    ...launchMidnight("@e2e/midnight-contracts"),
-
-    // Group D: Build and serve the frontend explorer
-    //          Manually defined process. 
+    // Compile the Compact contract before the Midnight stack needs it
     {
-      name: "build explorer",
-      args: ["task", "-f", "@effectstream/explorer", "build"],
+      name: "midnight-contract-compile",
+      description: "Compile Compact contract",
+      cwd: path.join(root, "packages/contracts-midnight/contract-round-value"),
+      args: ["run", "compact"],
+      waitToExit: true,
+      critical: true,
+    },
+
+    // Midnight stack, gated on the compile step above
+    ...launchMidnight(
+      "@evm-midnight/contracts-midnight",
+      { cwd: path.join(root, "packages/contracts-midnight") },
+      {
+        env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
+        dependsOn: ["midnight-contract-compile"],
+      },
+    ),
+
+    // The sync engine — starts once the DB, EVM bindings and Midnight are ready
+    {
+      name: "sync",
+      description: "EVM-Midnight sync node",
+      args: ["run", "packages/node/main.dev.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      env: { PGLITE: "true" },
+      dependsOn: [DbNames.PGLITE_WAIT, EvmNames.GENERATE_MOD, ...midnightDeps],
+    },
+
+    {
+      name: "batcher",
+      description: "Transaction batcher (EVM + Midnight)",
+      args: ["run", "packages/batcher/batcher.dev.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:3334",
+      stopProcessAtPort: [3334],
+      dependsOn: [EvmNames.GENERATE_MOD, ...midnightDeps],
+    },
+
+    // Build the frontend, then serve it
+    {
+      name: "frontend-build",
+      description: "Build frontend",
+      cwd: path.join(root, "packages/frontend"),
+      args: ["run", "build"],
       waitToExit: true, // Wait for the build to finish...
+      type: "system-dependency",
+      critical: true,
+      dependsOn: [EvmNames.GENERATE_MOD, ...midnightDeps],
     },
     {
-      name: "serve explorer",
-      args: ["task", "-f", "@effectstream/explorer", "server:start"],
+      name: "frontend-server",
+      description: "Serve frontend",
+      cwd: path.join(root, "packages/frontend"),
+      args: ["run", "serve"],
       waitToExit: false, // ...then start the server and let it run.
-      dependsOn: ["build explorer"],
+      type: "system-dependency",
+      critical: true,
+      link: "http://localhost:10599",
+      stopProcessAtPort: [10599],
+      dependsOn: ["frontend-build"],
     },
   ],
-});
+} satisfies OrchestratorConfig;
+```
 
-// Start the entire process
-await start(config);
+### Running it
+
+See the [orchestrator package reference](../500-packages/550-tools/orchestrator.md) for the full CLI — commands (`start`, `status`, `logs`, `restart`, `stop`, …) and flags such as `--background`, `--only`, `--except`, and `--serial`.
+
+```bash
+bun run dev
 ```
