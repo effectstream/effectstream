@@ -52,8 +52,8 @@ A primitive that maintains a table for you **still triggers your state machine**
 | **`PrimitiveTypeEVMERC1155`**| EVM | Tracks `TransferSingle` and `TransferBatch` events for an ERC1155 token. |
 | **`PrimitiveTypeMidnightGeneric`**| Midnight | Monitors the public `ledger` state of a Midnight ZK contract for changes. |
 | **`PrimitiveTypeMidnightNullifierAndCommitment`** | Midnight | Emits each shielded coin nullifier (spend) and/or commitment (create) as they occur on chain; filter with `capture`. |
-| **`PrimitiveTypeMidnightUnshieldedSpend`** | Midnight | Emits each unshielded UTXO spend as an `(owner, intentHash, outputIndex)` triple. |
-| **`PrimitiveTypeMidnightUnshieldedCreate`** | Midnight | Emits each unshielded UTXO **created** on chain (regular **and** system transactions) — the existence counterpart of `UnshieldedSpend`. |
+| **`PrimitiveTypeMidnightUnshieldedSpend`** | Midnight | Emits each unshielded UTXO spend, identified by `(intentHash, outputIndex)`, with its `owner`, `value` and `tokenType`. |
+| **`PrimitiveTypeMidnightUnshieldedCreate`** | Midnight | Emits each unshielded UTXO **created** on chain (regular **and** system transactions), with the same payload — the existence counterpart of `UnshieldedSpend`. |
 | **`PrimitiveTypeMidnightZswapRoot`** | Midnight | Emits the zswap coin-commitment Merkle tree **root** as it advances (the latest `zswapMerkleTreeRoot` per block). |
 | **`PrimitiveTypeMidnightTokenMint`** | Midnight | Emits each custom token **mint** (shielded and unshielded) and maintains a registry table mapping a token id ("color") back to the contract that minted it. |
 | **`PrimitiveTypeAvailGeneric`** | Avail | Listens for generic data blobs submitted to a specific application ID on the Avail DA layer. |

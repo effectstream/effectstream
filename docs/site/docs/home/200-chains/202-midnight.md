@@ -128,8 +128,10 @@ its `stateMachinePrefix`. They underpin the `zswap-da` template's offer-liveness
 checks (is a coin spent? does a UTXO exist? is a Merkle root real and recent?):
 
 *   **`PrimitiveTypeMidnightNullifierAndCommitment`**: emits each shielded coin **nullifier** as it is consumed (a spend) and each coin **commitment** as it is created. Both arrive in the same indexer response, so tracking both adds no extra indexer load; the optional `capture` config (`"nullifiers" | "commitments" | "both"`, default `"both"`) filters which kinds are emitted. Payload is a discriminated union on `kind`: `{ kind: "nullifier", nullifier, txHash, eventId, logicalSegment, contract? }` or `{ kind: "commitment", commitment, mtIndex, txHash, eventId, logicalSegment, contract? }` (`mtIndex` is the commitment's zswap Merkle-tree index as a decimal string).
-*   **`PrimitiveTypeMidnightUnshieldedSpend`**: emits each **unshielded UTXO spend** as `{ owner, intentHash, outputIndex, txHash }`.
-*   **`PrimitiveTypeMidnightUnshieldedCreate`**: emits each **unshielded UTXO creation** (regular **and** system transactions — rewards/bridge mint UTXOs) as `{ owner, intentHash, outputIndex, txHash }`. The existence counterpart of `UnshieldedSpend`.
+*   **`PrimitiveTypeMidnightUnshieldedSpend`**: emits each **unshielded UTXO spend** as `{ owner, intentHash, outputIndex, value, tokenType, txHash }`.
+*   **`PrimitiveTypeMidnightUnshieldedCreate`**: emits each **unshielded UTXO creation** (regular **and** system transactions — rewards/bridge mint UTXOs) with the same payload shape. The existence counterpart of `UnshieldedSpend`.
+
+Unshielded UTXOs have no nullifier or commitment analog, so the canonical identity of a spend or create is the `(intentHash, outputIndex)` pair of the UTXO's creating intent — `intentHash` is the intent that **created** the UTXO, not the one spending it. `owner` is a Bech32m address, `value` a u128 as a decimal string, and `tokenType` a hex-encoded serialized token type; both amounts are public, which is what makes them observable here at all.
 *   **`PrimitiveTypeMidnightZswapRoot`**: emits the zswap coin-commitment Merkle tree **root** as it advances (the last `RegularTransaction.zswapMerkleTreeRoot` of each block) as `{ root, txHash }`.
 
 ```ts
