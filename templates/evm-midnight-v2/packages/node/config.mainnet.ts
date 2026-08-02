@@ -137,7 +137,6 @@ export const config = new ConfigBuilder()
           delayMs: 60000,
           stepSize: 2,
           indexer: midnightNetworkConfig.indexer,
-          indexerWs: midnightNetworkConfig.indexerWS,
         }),
       )
   )
