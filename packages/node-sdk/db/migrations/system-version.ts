@@ -11,7 +11,8 @@ import {
 } from "@effectstream/db";
 type VERSION = `${number}.${number}.${number}`;
 type VERSION_NUMBER = [number, number, number];
-// NOTE This must match the version of the root deno.json
+// NOTE Hardcoded on purpose: the engine cannot read a package manifest at
+// runtime. Bump this by hand when adding a migration for a new version.
 export const EFFECTSTREAM_ENGINE_VERSION: VERSION = "0.8.1";
 
 export { applyMigrations } from "../scripts/apply-migrations.ts";

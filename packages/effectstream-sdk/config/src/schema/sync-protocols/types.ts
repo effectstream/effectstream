@@ -156,6 +156,19 @@ type NearPrimitive = BasePrimitive & {
 
 type NtpMainPrimitive = BasePrimitive & {};
 
+/**
+ * The `type` discriminators for the built-in Solana primitives.
+ *
+ * These live here rather than in `@effectstream/sm/builtin` (which re-exports them
+ * under their `PrimitiveType*` names, so every existing import site is unchanged)
+ * because `SolanaFetcher.readPrimitives` needs them to dispatch, and
+ * `@effectstream/sync` does not depend on `@effectstream/sm`. Keeping one copy next
+ * to the `SolanaPrimitive` type they discriminate is what stops the two from drifting.
+ */
+export const SOLANA_PRIMITIVE_PROGRAM_LOG = "SOLANA:ProgramLog" as const;
+export const SOLANA_PRIMITIVE_ACCOUNT_BALANCE = "SOLANA:AccountBalance" as const;
+export const SOLANA_PRIMITIVE_TOKEN_ACCOUNT = "SOLANA:TokenAccount" as const;
+
 type SolanaPrimitive = BasePrimitive & {
   /** Program ID to watch for logs (SOLANA:ProgramLog primitive). */
   programId?: string;
@@ -163,6 +176,23 @@ type SolanaPrimitive = BasePrimitive & {
   eventType?: string;
   /** Account address to watch for balance changes (SOLANA:AccountBalance primitive). */
   address?: string;
+  /**
+   * SPL mint to watch token balances for (SOLANA:TokenAccount primitive).
+   *
+   * At least one of `mint`, `owner` or `tokenAccount` must be set, otherwise the
+   * primitive would match every token balance in every transaction. The fetcher
+   * treats an entry with none of the three as a misconfiguration and warns.
+   */
+  mint?: string;
+  /** Narrow SOLANA:TokenAccount to balances owned by this wallet address. */
+  owner?: string;
+  /** Narrow SOLANA:TokenAccount to one specific token account (usually an ATA). */
+  tokenAccount?: string;
+  /**
+   * Narrow SOLANA:TokenAccount to a single token program, i.e. classic SPL Token
+   * vs Token-2022. Omit to accept both.
+   */
+  tokenProgramId?: string;
 }
 
 type TestMainPrimitive = BasePrimitive & {};

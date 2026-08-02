@@ -20,6 +20,7 @@
     "@effectstream/sm": "workspace:*",
     "@effectstream/batcher-sdk": "workspace:*",
     "@effectstream/utils": "workspace:*",
+    "@solana/spl-token": "^0.4.9",
     "@solana/web3.js": "^1.95.0",
     "bs58": "^6.0.0",
     "@sinclair/typebox": "^0.34.30",

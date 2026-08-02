@@ -10,6 +10,7 @@
 import {
   anyError,
   printSummary,
+  recordCrash,
   assert,
   assertSQL,
   assertChainReady,
@@ -169,6 +170,7 @@ async function test() {
     // 7. Summary
     printSummary();
   } catch (e) {
+    recordCrash();
     printSummary();
     console.error(e);
   } finally {

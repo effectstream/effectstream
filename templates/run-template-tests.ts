@@ -40,7 +40,10 @@ export const ENABLED = [
   "projected-nft-preorder",
   "shinkai-v2",
   "zk-cardano",
-  "zswap-da",
+  // "zswap-da",       // TODO: under active development — package.json depends on
+  //                   // @zswap-da/contract-offer-files via a file: path outside the
+  //                   // repo, and there is no `test` script yet, so `bun run test`
+  //                   // can never pass. Re-enable once both are sorted.
   "batcher-validations",
   "night-bitcoin-v2",
   "hex-battle",

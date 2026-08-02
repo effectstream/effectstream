@@ -72,6 +72,7 @@ A primitive that maintains a table for you **still triggers your state machine**
 | **`PrimitiveTypeNEARAccountWatch`** | NEAR | Monitors all transactions targeting a specific NEAR account. |
 | **`PrimitiveTypeSolanaProgramLog`** | Solana | Captures the log lines a watched program emitted, scoped by the `invoke`/`success` framing so only genuine invocations fire. |
 | **`PrimitiveTypeSolanaAccountBalance`** | Solana | Tracks a watched address's lamport balance from each transaction's `postBalances`, resolving lookup-table addresses. |
+| **`PrimitiveTypeSolanaTokenAccount`** | Solana | Tracks an SPL token balance from each transaction's `postTokenBalances`, filtered by mint, owner and/or token account. |
 
 ## Custom Primitives
 

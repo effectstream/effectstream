@@ -11,6 +11,7 @@
 import {
   anyError,
   printSummary,
+  recordCrash,
   startInfrastructure,
   stopInfrastructure,
   waitForOrchestrator,
@@ -383,6 +384,7 @@ async function test() {
     // 8. Summary
     printSummary();
   } catch (e) {
+    recordCrash();
     printSummary();
     console.error(e);
   } finally {

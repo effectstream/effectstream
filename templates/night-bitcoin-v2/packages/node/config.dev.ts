@@ -90,7 +90,6 @@ export const config = new ConfigBuilder()
           pollingInterval: 1000,
           delayMs: 18000,
           indexer: midnightNetworkConfig.indexer,
-          indexerWS: midnightNetworkConfig.indexerWS,
         }),
       )
       .addParallel(
