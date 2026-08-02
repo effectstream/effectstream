@@ -11,6 +11,7 @@ import {
   anyError,
   newSharedState,
   printSummary,
+  recordCrash,
   waitForBlock,
   type SharedState,
 } from "@e2e/engine";
@@ -199,6 +200,7 @@ async function test() {
     // 6. Summary
     printSummary();
   } catch (e) {
+    recordCrash();
     printSummary();
     console.error(e);
   } finally {

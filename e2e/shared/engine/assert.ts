@@ -15,15 +15,36 @@ const testResults = {
   skipped: 0,
 };
 
+let suiteCrashed = false;
+
+/**
+ * Call from a suite's top-level catch. An exception thrown OUTSIDE an
+ * assertion (infrastructure that died mid-run, a phase that threw between
+ * asserts) is never counted in testResults, so without this flag anyError()
+ * stays false whenever the tests that did run all passed — and the suite
+ * would exit 0 despite having crashed.
+ */
+export function recordCrash(): void {
+  suiteCrashed = true;
+}
+
 export function printSummary() {
   console.log(`\n\n[Summary]`);
   console.log(`  ${testResults.passed} tests passed`);
   console.log(`  ${testResults.failed} tests failed`);
   console.log(`  ${testResults.skipped} tests skipped`);
+  if (isRunning) {
+    console.log(`  1 test crashed before completing`);
+  }
+  if (suiteCrashed) {
+    console.log(`  [CRASH] suite aborted by an uncaught error`);
+  }
 }
 
 export function anyError(): boolean {
-  return testResults.count === 0 || testResults.failed > 0;
+  // isRunning: a test called startTest() but crashed before recording a
+  // result (e.g. the DB connection died inside assertSQL) — count it as failed.
+  return suiteCrashed || isRunning || testResults.count === 0 || testResults.failed > 0;
 }
 
 export function hasPassedTests(): boolean {

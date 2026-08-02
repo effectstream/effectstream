@@ -20,6 +20,7 @@ import {
   anyError,
   assertSQL,
   printSummary,
+  recordCrash,
   startInfrastructure,
   stopInfrastructure,
   waitForOrchestrator,
@@ -96,6 +97,7 @@ async function test() {
     // 6. Summary
     printSummary();
   } catch (e) {
+    recordCrash();
     printSummary();
     console.error(e);
   } finally {
