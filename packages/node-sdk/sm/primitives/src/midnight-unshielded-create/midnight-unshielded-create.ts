@@ -77,7 +77,10 @@ export class MidnightUnshieldedCreatePrimitive extends Primitive<
       accountingPayload: ParamToData<typeof midnightUnshieldedCreateGrammar>;
     }[];
   }> {
-    const payload = primitiveTransactionData.output.payload;
+    // The sync-protocol payload map types Midnight payloads as Record<string, any>;
+    // the fetcher's fetchUnshieldedCreates builds exactly the grammar's payload shape.
+    const payload = primitiveTransactionData.output
+      .payload as ParamToData<typeof this.grammar>["payload"];
 
     const accountingPayload: ParamToData<typeof this.grammar> = {
       payload,

@@ -69,19 +69,42 @@ stm.addStateTransition("midnightZswapEventState", function* (data) {
 });
 
 // MidnightUnshieldedCreate: writes unshielded UTXO creation events to
-// midnight_unshielded_creates (payload: { owner, intentHash, outputIndex, txHash }).
+// midnight_unshielded_creates
+// (payload: { owner, intentHash, outputIndex, value, tokenType, txHash }).
 stm.addStateTransition("midnightUnshieldedCreateState", function* (data) {
   const { payload } = data.parsedInput;
   const owner = String(payload?.owner ?? "");
   const intentHash = String(payload?.intentHash ?? "");
   const outputIndex = Number(payload?.outputIndex ?? -1);
+  const value = String(payload?.value ?? "");
+  const tokenType = String(payload?.tokenType ?? "");
   const txHash = String(payload?.txHash ?? "");
-  console.log(`[STM] midnightUnshieldedCreateState: owner=${owner.slice(0, 16)}… intentHash=${intentHash.slice(0, 16)}… outputIndex=${outputIndex}`);
+  console.log(`[STM] midnightUnshieldedCreateState: owner=${owner.slice(0, 16)}… intentHash=${intentHash.slice(0, 16)}… outputIndex=${outputIndex} value=${value}`);
   yield* World.promise(pool.query(
-    `INSERT INTO midnight_unshielded_creates (block_height, owner, intent_hash, output_index, tx_hash)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO midnight_unshielded_creates (block_height, owner, intent_hash, output_index, value, token_type, tx_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (owner, intent_hash, output_index) DO NOTHING`,
-    [data.blockHeight, owner, intentHash, outputIndex, txHash],
+    [data.blockHeight, owner, intentHash, outputIndex, value, tokenType, txHash],
+  ));
+});
+
+// MidnightUnshieldedSpend: writes unshielded UTXO spends to
+// midnight_unshielded_spends. (intentHash, outputIndex) identifies the spent
+// UTXO by its CREATING intent — the unshielded analog of a nullifier.
+stm.addStateTransition("midnightUnshieldedSpendState", function* (data) {
+  const { payload } = data.parsedInput;
+  const owner = String(payload?.owner ?? "");
+  const intentHash = String(payload?.intentHash ?? "");
+  const outputIndex = Number(payload?.outputIndex ?? -1);
+  const value = String(payload?.value ?? "");
+  const tokenType = String(payload?.tokenType ?? "");
+  const txHash = String(payload?.txHash ?? "");
+  console.log(`[STM] midnightUnshieldedSpendState: owner=${owner.slice(0, 16)}… intentHash=${intentHash.slice(0, 16)}… outputIndex=${outputIndex} value=${value}`);
+  yield* World.promise(pool.query(
+    `INSERT INTO midnight_unshielded_spends (block_height, owner, intent_hash, output_index, value, token_type, tx_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (intent_hash, output_index) DO NOTHING`,
+    [data.blockHeight, owner, intentHash, outputIndex, value, tokenType, txHash],
   ));
 });
 

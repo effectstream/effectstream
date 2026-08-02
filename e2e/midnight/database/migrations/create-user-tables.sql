@@ -26,8 +26,25 @@ CREATE TABLE IF NOT EXISTS midnight_unshielded_creates (
   owner TEXT NOT NULL,
   intent_hash TEXT NOT NULL,
   output_index INTEGER NOT NULL,
+  value TEXT,
+  token_type TEXT,
   tx_hash TEXT,
   UNIQUE (owner, intent_hash, output_index)
+);
+
+-- Unshielded UTXO spends. (intent_hash, output_index) references the UTXO's
+-- CREATING intent — the canonical UTXO identity (there is no nullifier for
+-- unshielded), so it joins 1:1 against midnight_unshielded_creates.
+CREATE TABLE IF NOT EXISTS midnight_unshielded_spends (
+  id SERIAL PRIMARY KEY,
+  block_height INTEGER NOT NULL,
+  owner TEXT NOT NULL,
+  intent_hash TEXT NOT NULL,
+  output_index INTEGER NOT NULL,
+  value TEXT,
+  token_type TEXT,
+  tx_hash TEXT,
+  UNIQUE (intent_hash, output_index)
 );
 
 CREATE TABLE IF NOT EXISTS midnight_zswap_roots (
