@@ -164,7 +164,7 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 - `createNewBatcher(config, storage)`: build a batcher instance.
 - `BatcherConfig`: configuration type. See `pollingIntervalMs`, `adapters`, `defaultTarget`, `batchingCriteria`, `confirmationLevel`, `enableHttpServer`, `port`, `enableEventSystem`, `namespace`, `batchBuilding`.
 - `FileStorage(dir)`: default JSONL storage.
-- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`. (`NearAdapter` and `NearIntentAdapter` exist under `adapters/` but are not currently re-exported from the package root.)
+- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`, `NearAdapter`, `NearIntentAdapter`.
 - Batcher operations: `runBatcher`, `batchInput`, `addStateTransition`, `gracefulShutdownOp`, `getPublicConfig`, `getBatchingStatus`.
 - Rate limiting: `RateLimiter`, `InMemoryRateLimitStore`, and the `RateLimitStore` / `RateLimitKeyStrategy` / `RateLimitCheckResult` types. See [Rate limiting](#rate-limiting).
 - `DatabaseStorage`: a `BatcherStorage` shell that is **not implemented yet** - its methods throw. Use `FileStorage` or your own implementation.

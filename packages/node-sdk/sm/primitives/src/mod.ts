@@ -1,6 +1,6 @@
 import {
   PrimitiveTypeMidnightGeneric,
-  PrimitiveTypeMidnightNullifier,
+  PrimitiveTypeMidnightNullifierAndCommitment,
   PrimitiveTypeMidnightUnshieldedSpend,
   PrimitiveTypeMidnightUnshieldedCreate,
   PrimitiveTypeMidnightZswapRoot,
@@ -21,6 +21,7 @@ import {
   PrimitiveTypeNEARAccountWatch,
   PrimitiveTypeSolanaProgramLog,
   PrimitiveTypeSolanaAccountBalance,
+  PrimitiveTypeSolanaTokenAccount,
   PrimitiveTypeCardanoMintBurn,
   PrimitiveTypeCardanoTransfer,
   PrimitiveTypeCardanoPoolDelegation,
@@ -30,7 +31,8 @@ import {
 } from "./builtin.ts";
 
 import { MidnightGenericPrimitive } from "./midnight-generic/midnight-genetic.ts";
-import { MidnightNullifierPrimitive } from "./midnight-nullifier/midnight-nullifier.ts";
+import { MidnightNullifierAndCommitmentPrimitive } from "./midnight-nullifier-and-commitment/midnight-nullifier-and-commitment.ts";
+export type { MidnightZswapCapture } from "./midnight-nullifier-and-commitment/midnight-nullifier-and-commitment.ts";
 import { MidnightUnshieldedSpendPrimitive } from "./midnight-unshielded-spend/midnight-unshielded-spend.ts";
 import { MidnightUnshieldedCreatePrimitive } from "./midnight-unshielded-create/midnight-unshielded-create.ts";
 import { MidnightZswapRootPrimitive } from "./midnight-zswap-root/midnight-zswap-root.ts";
@@ -51,6 +53,7 @@ import { NearGenericPrimitive } from "./near-generic/near-generic-primitive.ts";
 import { NearAccountWatchPrimitive } from "./near-account-watch/near-account-watch-primitive.ts";
 import { SolanaProgramLogPrimitive } from "./solana-program-log/solana-program-log-primitive.ts";
 import { SolanaAccountBalancePrimitive } from "./solana-account-balance/solana-account-balance-primitive.ts";
+import { SolanaTokenAccountPrimitive } from "./solana-token-account/solana-token-account-primitive.ts";
 import { CardanoMintBurnPrimitive } from "./cardano-mint-burn/mint-burn-primitive.ts";
 import { CardanoTransferPrimitive } from "./cardano-transfer/transfer-primitive.ts";
 import { CardanoPoolDelegationPrimitive } from "./cardano-pool-delegation/pool-delegation-primitive.ts";
@@ -60,7 +63,7 @@ import { CardanoProjectedNftPrimitive } from "./cardano-projected-nft/projected-
 
 const builtInPrimitivesMap = {
   [PrimitiveTypeMidnightGeneric]: MidnightGenericPrimitive,
-  [PrimitiveTypeMidnightNullifier]: MidnightNullifierPrimitive,
+  [PrimitiveTypeMidnightNullifierAndCommitment]: MidnightNullifierAndCommitmentPrimitive,
   [PrimitiveTypeMidnightUnshieldedSpend]: MidnightUnshieldedSpendPrimitive,
   [PrimitiveTypeMidnightUnshieldedCreate]: MidnightUnshieldedCreatePrimitive,
   [PrimitiveTypeMidnightZswapRoot]: MidnightZswapRootPrimitive,
@@ -81,6 +84,7 @@ const builtInPrimitivesMap = {
   [PrimitiveTypeNEARAccountWatch]: NearAccountWatchPrimitive,
   [PrimitiveTypeSolanaProgramLog]: SolanaProgramLogPrimitive,
   [PrimitiveTypeSolanaAccountBalance]: SolanaAccountBalancePrimitive,
+  [PrimitiveTypeSolanaTokenAccount]: SolanaTokenAccountPrimitive,
   [PrimitiveTypeCardanoMintBurn]: CardanoMintBurnPrimitive,
   [PrimitiveTypeCardanoTransfer]: CardanoTransferPrimitive,
   [PrimitiveTypeCardanoPoolDelegation]: CardanoPoolDelegationPrimitive,
@@ -95,7 +99,7 @@ export {
 
   // Built-in Primitives
   MidnightGenericPrimitive,
-  MidnightNullifierPrimitive,
+  MidnightNullifierAndCommitmentPrimitive,
   MidnightUnshieldedSpendPrimitive,
   MidnightUnshieldedCreatePrimitive,
   MidnightZswapRootPrimitive,
@@ -116,6 +120,7 @@ export {
   NearAccountWatchPrimitive,
   SolanaProgramLogPrimitive,
   SolanaAccountBalancePrimitive,
+  SolanaTokenAccountPrimitive,
   CardanoMintBurnPrimitive,
   CardanoTransferPrimitive,
   CardanoPoolDelegationPrimitive,

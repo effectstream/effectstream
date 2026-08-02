@@ -19,7 +19,7 @@ import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
 import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
-import { decodeZswapInputEvent } from "./zswap-decoder.ts";
+import { decodeZswapEvent } from "./zswap-decoder.ts";
 import { decodeTokenMints } from "./mint-decoder.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
@@ -78,14 +78,14 @@ export class MidnightFetcher extends BaseDataFetcher<
     const blockFetchOptions: BlockFetchOptions = {
       contractActions: this.config.primitives.some(
         (p) =>
-          p.primitive.type !== "Midnight:Nullifier" &&
+          p.primitive.type !== "Midnight:NullifierAndCommitment" &&
           p.primitive.type !== "Midnight:UnshieldedSpend" &&
           p.primitive.type !== "Midnight:UnshieldedCreate" &&
           p.primitive.type !== "Midnight:ZswapRoot" &&
           p.primitive.type !== "Midnight:TokenMint",
       ),
       zswapLedgerEvents: this.config.primitives.some(
-        (p) => p.primitive.type === "Midnight:Nullifier",
+        (p) => p.primitive.type === "Midnight:NullifierAndCommitment",
       ),
       unshieldedSpentOutputs: this.config.primitives.some(
         (p) => p.primitive.type === "Midnight:UnshieldedSpend",
@@ -183,8 +183,8 @@ export class MidnightFetcher extends BaseDataFetcher<
     const syncResults: PrimitiveType[] = [];
 
     for (const primitiveEntry of primitiveEntries) {
-      if (primitiveEntry.primitive.type === "Midnight:Nullifier") {
-        syncResults.push(...this.fetchNullifiers(height, primitiveEntry, block));
+      if (primitiveEntry.primitive.type === "Midnight:NullifierAndCommitment") {
+        syncResults.push(...this.fetchZswapEvents(height, primitiveEntry, block));
       } else if (primitiveEntry.primitive.type === "Midnight:UnshieldedSpend") {
         syncResults.push(...this.fetchUnshieldedSpends(height, primitiveEntry, block));
       } else if (primitiveEntry.primitive.type === "Midnight:UnshieldedCreate") {
@@ -205,16 +205,19 @@ export class MidnightFetcher extends BaseDataFetcher<
   }
 
   @bound
-  fetchNullifiers(
+  fetchZswapEvents(
     height: number,
     primitiveEntry: PrimitiveEntryType,
     block: MidnightGqlBlockState,
   ): PrimitiveType[] {
+    const capture = primitiveEntry.primitive.capture ?? "both";
     const results: PrimitiveType[] = [];
     for (const tx of block.block.transactions) {
       for (const event of tx.zswapLedgerEvents ?? []) {
-        const decoded = decodeZswapInputEvent(event.raw);
+        const decoded = decodeZswapEvent(event.raw);
         if (!decoded) continue;
+        if (decoded.kind === "nullifier" && capture === "commitments") continue;
+        if (decoded.kind === "commitment" && capture === "nullifiers") continue;
         results.push({
           syncProtocol: {
             name: primitiveEntry.syncProtocol,
@@ -224,12 +227,10 @@ export class MidnightFetcher extends BaseDataFetcher<
           },
           primitive: primitiveEntry.primitive.name,
           output: {
-            payloadType: "midnight-nullifier",
+            payloadType: `midnight-${decoded.kind}`,
             payload: {
-              nullifier: decoded.nullifier,
-              txHash: decoded.txHash,
+              ...decoded,
               eventId: event.id,
-              logicalSegment: decoded.logicalSegment,
             },
           },
         });

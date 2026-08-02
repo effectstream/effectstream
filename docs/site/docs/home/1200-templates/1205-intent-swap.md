@@ -148,7 +148,6 @@ This block configures the connection to the local Midnight node, the Indexer syn
     type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
     pollingInterval: 1000,
     indexer: "http://127.0.0.1:8088/api/v1/graphql",
-    indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
   })
 )
 

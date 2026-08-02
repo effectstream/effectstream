@@ -45,12 +45,23 @@ stm.addStateTransition("eip20ContractState", function* (data) {
   ));
 });
 
-// MidnightNullifier: writes nullifier events to midnight_nullifiers
-stm.addStateTransition("midnightNullifierState", function* (data) {
+// MidnightNullifierAndCommitment: routes zswap events by kind —
+// nullifiers to midnight_nullifiers, commitments to midnight_commitments
+stm.addStateTransition("midnightZswapEventState", function* (data) {
   const { payload } = data.parsedInput;
-  const nullifier = payload?.nullifier ?? JSON.stringify(payload);
   const txHash = payload?.txHash ?? "";
-  console.log(`[STM] midnightNullifierState: nullifier=${nullifier} txHash=${txHash}`);
+  if (payload?.kind === "commitment") {
+    const commitment = payload?.commitment ?? JSON.stringify(payload);
+    const mtIndex = payload?.mtIndex ?? "";
+    console.log(`[STM] midnightZswapEventState: commitment=${commitment} mtIndex=${mtIndex} txHash=${txHash}`);
+    yield* World.promise(pool.query(
+      "INSERT INTO midnight_commitments (block_height, commitment, mt_index, tx_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (commitment) DO NOTHING",
+      [data.blockHeight, commitment, mtIndex, txHash],
+    ));
+    return;
+  }
+  const nullifier = payload?.nullifier ?? JSON.stringify(payload);
+  console.log(`[STM] midnightZswapEventState: nullifier=${nullifier} txHash=${txHash}`);
   yield* World.promise(pool.query(
     "INSERT INTO midnight_nullifiers (block_height, nullifier, tx_hash) VALUES ($1, $2, $3) ON CONFLICT (nullifier) DO NOTHING",
     [data.blockHeight, nullifier, txHash],

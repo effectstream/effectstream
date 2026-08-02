@@ -96,7 +96,6 @@ export const config = new ConfigBuilder()
           startBlockHeight: 1,
           pollingInterval: 1000,
           indexer: midnightNetworkConfig.indexer,
-          indexerWs: midnightNetworkConfig.indexerWS,
         }),
       )
   )

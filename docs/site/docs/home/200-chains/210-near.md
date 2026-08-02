@@ -193,16 +193,12 @@ Tracks `mt_transfer` events from NEP-245 multi-token contracts (semi-fungible: e
 
 Two adapters ship for NEAR. Both sign locally with an Ed25519 private key (no `near-api-js` runtime dependency) and submit via JSON-RPC.
 
-:::warning Not yet exported
-Unlike the EVM, Midnight, Bitcoin, Celestia and Solana adapters, the NEAR adapters are **not currently re-exported** from `@effectstream/batcher-sdk`, and the package publishes no `/adapters` subpath — its `exports` map has only the package root. The classes live at `packages/batcher/adapters/near-adapter.ts` and `near-intent-adapter.ts`, so today they are reachable only from a checkout of the repo, not from the published package. The snippets below show the intended usage.
-:::
-
 ### Generic FunctionCall: `NearAdapter`
 
 Batches application inputs and submits them as `FunctionCall` actions to a target contract method.
 
 ```ts
-import { NearAdapter } from "../../packages/batcher/adapters/near-adapter.ts";
+import { NearAdapter } from "@effectstream/batcher-sdk";
 
 const adapter = new NearAdapter({
   rpcUrl: "https://rpc.mainnet.near.org",
@@ -223,7 +219,7 @@ const adapter = new NearAdapter({
 Submits DIP-4 cross-chain intent messages to the NEAR Intents protocol.
 
 ```ts
-import { NearIntentAdapter } from "../../packages/batcher/adapters/near-intent-adapter.ts";
+import { NearIntentAdapter } from "@effectstream/batcher-sdk";
 
 const intentAdapter = new NearIntentAdapter({
   rpcUrl: "https://rpc.mainnet.near.org",
