@@ -250,7 +250,14 @@ function ensureCluster(): Promise<Cluster> {
     // Write our owner marker AFTER initdb — it refuses a non-empty data dir, so
     // this must not exist beforehand. Read later by cleanupOrphanedClusters.
     writeFileSync(join(dataDir, "repro-owner.pid"), String(process.pid));
-    appendFileSync(join(dataDir, "postgresql.conf"), `\nport = ${port}\n`);
+    // Pin the socket dir to our own data dir: Debian/Ubuntu packages default
+    // unix_socket_directories to /var/run/postgresql, which is owned by the
+    // postgres user, so a cluster booted by anyone else dies at startup with
+    // "could not create lock file ...: Permission denied".
+    appendFileSync(
+      join(dataDir, "postgresql.conf"),
+      `\nport = ${port}\nunix_socket_directories = '${dataDir}'\n`,
+    );
     execFileSync(join(bin, "pg_ctl"), [
       "-D", dataDir,
       "-l", join(dataDir, "server.log"),

@@ -6,6 +6,7 @@
 import {
   anyError,
   printSummary,
+  recordCrash,
   newSharedState,
   startInfrastructure,
   stopInfrastructure,
@@ -76,6 +77,7 @@ async function test() {
 
     printSummary();
   } catch (e) {
+    recordCrash();
     printSummary();
     console.error(e);
   } finally {

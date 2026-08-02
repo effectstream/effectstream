@@ -36,6 +36,7 @@ Sync protocol: `SOLANA_RPC_PARALLEL`. Polls slot by slot; **skipped slots are no
 |---|---|---|
 | `PrimitiveTypeSolanaProgramLog` | `programId` (+ optional `eventType` substring) | `{ programId, slot, logMessages }` |
 | `PrimitiveTypeSolanaAccountBalance` | `address` | `{ address, lamports, slot }` |
+| `PrimitiveTypeSolanaTokenAccount` | at least one of `mint` / `owner` / `tokenAccount` (+ optional `tokenProgramId`) | `{ tokenAccount, mint, owner, amount, decimals, slot }` |
 
 Program-log attribution keys off the log stream's `invoke`/`success` framing, not `accountKeys` — a program merely referenced as an account is not treated as invoked, and only its own log lines are forwarded. Reverted transactions are skipped.
 
