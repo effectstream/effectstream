@@ -30,7 +30,6 @@ export const ConfigSyncProtocolSchemaMidnightBase = NameField.cloneMerge(
     // note: node URL and proof server are not needed for read-only use
   }),
   optional: Type.Object({
-    indexerWS: TypeboxHelpers.Nullable(Type.String(), { default: null }),
     stepSize: Type.Number({ default: 10 }),
     paginationLimit: Type.Number({ default: 50 }),
   }),

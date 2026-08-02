@@ -75,7 +75,6 @@ The protocol type `MIDNIGHT_PARALLEL` connects to the Midnight Indexer (GraphQL)
     startBlockHeight: 1,
     pollingInterval: 1000,
     indexer: "http://127.0.0.1:8088/api/v1/graphql",
-    indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
   })
 )
 ```
