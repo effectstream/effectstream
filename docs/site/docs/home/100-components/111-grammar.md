@@ -11,7 +11,7 @@ EffectStream uses a structured **JSON array format** for all inputs.
 
 ## Defining Your Grammar 
 
-In `/templates/evm-examples/` example `grammar.ts`
+See `templates/minimal/packages/node/grammar.ts` for a minimal example, or `templates/evm-midnight-v2/packages/node/grammar.ts` for a multi-chain one.
 
 You define your application's grammar in a single `grammar.ts` file. This is a TypeScript object where each key represents a command's **prefix**, and the value defines the structure of its expected arguments.
 
@@ -78,9 +78,9 @@ These commands provide a flexible L2 Account Abstraction system, allowing multip
 *   **`&createAccount`**: Creates a new EffectStream Account, with the sender becoming the primary wallet.
     *   **Structure**: `["&createAccount"]`
 *   **`&linkAddress`**: Links a new wallet to an existing account, requiring signatures from both the primary and new wallets.
-    *   **Structure**: `["&linkAddress", account_id, signature_from_primary, primary_address_type, new_address, signature_from_new_address, signature_from_new_address, is_new_primary]`
+    *   **Structure**: `["&linkAddress", account_id, signature_from_primary, primary_address_type, new_address, signature_from_new_address, new_address_type, is_new_primary]`
 *   **`&unlinkAddress`**: Removes a wallet from an account.
-    *   **Structure**: `["&unlinkAddress", account_id, signature_from_primary, primary_address_type, address_to_unlink, new_primary_if_needed]`
+    *   **Structure**: `["&unlinkAddress", account_id, signature_from_primary, primary_address_type, target_address, target_address_type, new_primary_address, new_primary_address_type]`
 
 ## Creating Inputs on the Frontend
 
@@ -95,5 +95,5 @@ const payload = JSON.stringify(move);
 
 // 3. Submit the payload to the EffectstreamL2Contract
 // (The frontend SDKs will handle this for you)
-await effectstreamL2Contract.submitInput(payload);
+await effectstreamL2Contract.effectstreamSubmitGameInput(payload);
 ```

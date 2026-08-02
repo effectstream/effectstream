@@ -33,7 +33,7 @@ stm.addStateTransition(
   },
 );
 ```
-If the contract [EffectStream L2 Event](../100-components/104-l2-contract.md) function `submitGameInput` is called with payload `["create", "0x1234"]`, this creates a row in your `games` table, with id = `0x1234`
+If the contract [EffectStream L2 Event](../100-components/104-l2-contract.md) function `effectstreamSubmitGameInput` is called with payload `["create", "0x1234"]`, this creates a row in your `games` table, with id = `0x1234`
 
 Now your application can read the database and use the created "game" from the table.
 
@@ -102,24 +102,26 @@ To do so, we can follow these steps:
     ```
     More instructions about [contracts options](../100-components/105-contracts.md).
 
-2. Add the [scheduled prefix](../100-components/101-sync-service.md) that will be called.
+2. Add the [state machine prefix](../100-components/101-sync-service.md) that will be called.
 
     ```ts
+    import { PrimitiveTypeEVMERC20 } from "@effectstream/sm/builtin";
+
     builder.addPrimitive(
           (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
           (network, deployments, syncProtocol) => ({
             name: "My_ERC20_Token",
-            type: ConfigPrimitiveType.EvmRpcERC20,
+            type: PrimitiveTypeEVMERC20,
             startBlockHeight: 0,
             contractAddress: contractAddressesEvmMain()
               .chain31337["EffectStreamErc20DevModule#EffectStreamErc20Dev"],
             abi: getEvmEvent(erc20dev.abi, "Transfer(address,address,uint256)"),
-            scheduledPrefix: 'transfer_merc', // <- SCHEDULED PREFIX 
+            stateMachinePrefix: 'transfer_merc', // <- STATE MACHINE PREFIX
           }),
         )
     ```
     This will allow to track the event.  
-    More instruction about [scheduled prefixes and sync-service options](../100-components/101-sync-service.md)
+    More instruction about [state machine prefixes and sync-service options](../100-components/101-sync-service.md)
 
 
 3. Add the corresponding [grammar](./111-grammar.md)
