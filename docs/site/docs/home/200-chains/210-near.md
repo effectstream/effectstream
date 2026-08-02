@@ -198,7 +198,7 @@ Two adapters ship for NEAR. Both sign locally with an Ed25519 private key (no `n
 Batches application inputs and submits them as `FunctionCall` actions to a target contract method.
 
 ```ts
-import { NearAdapter } from "@effectstream/batcher-sdk/adapters";
+import { NearAdapter } from "@effectstream/batcher-sdk";
 
 const adapter = new NearAdapter({
   rpcUrl: "https://rpc.mainnet.near.org",
@@ -219,7 +219,7 @@ const adapter = new NearAdapter({
 Submits DIP-4 cross-chain intent messages to the NEAR Intents protocol.
 
 ```ts
-import { NearIntentAdapter } from "@effectstream/batcher-sdk/adapters";
+import { NearIntentAdapter } from "@effectstream/batcher-sdk";
 
 const intentAdapter = new NearIntentAdapter({
   rpcUrl: "https://rpc.mainnet.near.org",

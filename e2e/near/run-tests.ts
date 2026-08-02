@@ -40,6 +40,7 @@ import { runAccountWatchTest } from "./sync/account-watch.test.ts";
 import { runNep141Test } from "./sync/nep141.test.ts";
 import { runNep171Test } from "./sync/nep171.test.ts";
 import { runNep245Test } from "./sync/nep245.test.ts";
+import { runBatcherTest } from "./sync/batcher.test.ts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 
@@ -83,6 +84,9 @@ async function test() {
 
     // 3. Run tooling tests
     await runToolingTests();
+
+    // 3b. Batcher adapter tests (offline logic; no batcher service needed)
+    await runBatcherTest();
 
     // 4. Wait for sync node to be healthy
     await waitForProcess("sync");
