@@ -128,8 +128,8 @@ its `stateMachinePrefix`. They underpin the `zswap-da` template's offer-liveness
 checks (is a coin spent? does a UTXO exist? is a Merkle root real and recent?):
 
 *   **`PrimitiveTypeMidnightNullifier`**: emits each shielded coin **nullifier** as it is consumed (a spend). Payload `{ nullifier, txHash, eventId, logicalSegment }`.
-*   **`PrimitiveTypeMidnightUnshieldedSpend`**: emits each **unshielded UTXO spend** as `{ owner, intentHash, outputIndex, txHash }`.
-*   **`PrimitiveTypeMidnightUnshieldedCreate`**: emits each **unshielded UTXO creation** (regular **and** system transactions — rewards/bridge mint UTXOs) as `{ owner, intentHash, outputIndex, txHash }`. The existence counterpart of `UnshieldedSpend`.
+*   **`PrimitiveTypeMidnightUnshieldedSpend`**: emits each **unshielded UTXO spend** as `{ owner, intentHash, outputIndex, value, tokenType, txHash }`. See [Unshielded UTXO tracking](#unshielded-utxo-tracking--unshieldedspend--unshieldedcreate) below.
+*   **`PrimitiveTypeMidnightUnshieldedCreate`**: emits each **unshielded UTXO creation** (regular **and** system transactions — rewards/bridge mint UTXOs) as `{ owner, intentHash, outputIndex, value, tokenType, txHash }`. The existence counterpart of `UnshieldedSpend`.
 *   **`PrimitiveTypeMidnightZswapRoot`**: emits the zswap coin-commitment Merkle tree **root** as it advances (the last `RegularTransaction.zswapMerkleTreeRoot` of each block) as `{ root, txHash }`.
 
 ```ts
@@ -149,6 +149,101 @@ import {
   }),
 )
 ```
+
+#### Unshielded UTXO tracking — `UnshieldedSpend` / `UnshieldedCreate`
+
+Unshielded (transparent) tokens on Midnight are plain UTXOs — unlike shielded
+zswap coins there is **no nullifier and no commitment**. The ledger identifies
+every unshielded UTXO by one deterministic, public pair:
+
+> **`(intentHash, outputIndex)` of the intent that *created* it.**
+
+A spend does not get its own mark: the ledger removes the UTXO from its set,
+and the spend is reported under the *same* `(intentHash, outputIndex)` the
+UTXO was created with. This makes the two primitives a natural join:
+
+```sql
+-- lifecycle of one UTXO: its creation row and (if consumed) its spend row
+SELECT c.*, s.tx_hash AS spent_in
+FROM   unshielded_creates c
+LEFT JOIN unshielded_spends s
+  ON  (s.intent_hash, s.output_index) = (c.intent_hash, c.output_index);
+```
+
+##### Payload reference
+
+Both primitives emit the same shape (one state-machine input per UTXO):
+
+| Field | Type | Meaning |
+|---|---|---|
+| `owner` | `string` | Bech32m address (`mn_addr…`) — the UTXO's owner, on **both** creates and spends |
+| `intentHash` | `string` (hex) | Hash of the **creating** intent — the UTXO's identity, *not* the transaction hash |
+| `outputIndex` | `number` | Position in the creating intent's (sorted) output list |
+| `value` | `string` | u128 amount as a decimal string |
+| `tokenType` | `string` (hex) | Serialized token type (all-zeros = native NIGHT) |
+| `txHash` | `string` | The transaction this event was observed in: the *creating* tx for creates, the *spending* tx for spends |
+
+##### `intentHash` is not the transaction hash
+
+A Midnight transaction is a bag of **intents** (potentially unbalanced partial
+transactions, merged before submission). `intentHash` is computed per
+`(intent, segment)`, so:
+
+*   one transaction can carry **several distinct intent hashes** — e.g. an
+    atomic swap is an *offer intent* (declares unshielded token deltas) merged
+    with a counterparty's *balancing intent*;
+*   two UTXOs created by the same transaction can have different `intentHash`
+    values (one per intent), while sharing `txHash`;
+*   system transactions (block rewards, bridge mints) derive a special intent
+    hash — `UnshieldedCreate` still reports them.
+
+Track offer settlement by joining spends to creates on the identity pair, or
+reconstruct per-token **deltas** for a transaction by summing
+`spends − creates` grouped by `tokenType` over its `txHash`.
+
+##### Configuration
+
+No contract address is needed — the primitives observe the whole ledger:
+
+```ts
+import {
+  PrimitiveTypeMidnightUnshieldedCreate,
+  PrimitiveTypeMidnightUnshieldedSpend,
+} from "@effectstream/sm/builtin";
+
+.addPrimitive(
+  (syncProtocols) => syncProtocols.parallelMidnight,
+  () => ({
+    name: "Midnight-UnshieldedSpend",
+    type: PrimitiveTypeMidnightUnshieldedSpend,
+    startBlockHeight: 1,
+    stateMachinePrefix: "unshielded-spend",
+    networkId: midnightNetworkConfig.id,
+  }),
+)
+```
+
+and a matching STF:
+
+```ts
+stm.addStateTransition("unshielded-spend", function* (data) {
+  const { owner, intentHash, outputIndex, value, tokenType, txHash } =
+    data.parsedInput.payload;
+  // e.g. mark the (intentHash, outputIndex) UTXO as consumed
+});
+```
+
+:::info Indexer cost
+`value` and `tokenType` ride on the **same** indexer query the primitives
+already issue — enabling them adds fields to an existing selection, not extra
+requests.
+:::
+
+The e2e suite exercises the full flow with a real unshielded swap — an
+`initSwap` offer intent completed by a separate balancing intent — asserting
+the exact `(intentHash, outputIndex, value)` marks read off the submitted
+transaction land in both tables (`e2e/midnight/run-tests.ts`, tests
+"unshielded swap spends/creates captured").
 
 #### Token mints — resolving a token id to its minting contract
 
