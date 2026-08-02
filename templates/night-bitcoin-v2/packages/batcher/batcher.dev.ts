@@ -24,7 +24,11 @@ const adapter = new MidnightBalancingAdapter(walletSeed, {
 const config: BatcherConfig<DefaultBatcherInput> = {
   pollingIntervalMs: batcherConfig.pollingIntervalMs,
   enableHttpServer: true,
-  namespace: "",
+  // Must match the node's setSecurityNamespace(...) and the frontend's
+  // EffectstreamConfig namespace (both "night-bitcoin"). Batched signatures are
+  // re-verified against only the configured namespace, so a mismatch here makes
+  // every batched input fail verification and be silently dropped.
+  namespace: "night-bitcoin",
   confirmationLevel: "wait-receipt",
   enableEventSystem: false,
   port: batcherConfig.port,
