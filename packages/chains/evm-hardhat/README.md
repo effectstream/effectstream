@@ -29,10 +29,20 @@ The EVM tooling is split deliberately:
 ### `./json-rpc-server` - JSON-RPC façade over a Hardhat node
 
 ```typescript
-import { startJsonRpcServer } from "@effectstream/evm-hardhat/json-rpc-server";
+import { JsonRpcServerImplementation } from "@effectstream/evm-hardhat/json-rpc-server";
 
-await startJsonRpcServer({ port: 8545 });
+const server = new JsonRpcServerImplementation(
+  { hostname: "127.0.0.1", port: 8545, provider },
+  (msg) => console.log(msg),
+);
+
+const { address, port } = await server.listen();
+await server.waitUntilClosed();
 ```
+
+The config takes a `hostname`, a `port`, and an `EthereumProvider`; the second
+constructor argument is a log callback. `listen()`, `waitUntilClosed()` and
+`close()` make up the `JsonRpcServer` interface.
 
 Exposes the JSON-RPC endpoints templates' frontends and indexers expect
 during local dev.
@@ -40,13 +50,19 @@ during local dev.
 ### `./hardhat-config-builder` - opinionated Hardhat config
 
 ```typescript
-import { buildHardhatConfig } from "@effectstream/evm-hardhat/hardhat-config-builder";
+import { createHardhatConfig } from "@effectstream/evm-hardhat/hardhat-config-builder";
 
-export default buildHardhatConfig({
-  solidity: "0.8.24",
-  contractsRoot: "./contracts",
+export default createHardhatConfig({
+  sourcesDir: "./contracts",
+  artifactsDir: "./build/artifacts",
+  cacheDir: "./build/cache",
+  // solidityVersion defaults to "0.8.30"
 });
 ```
+
+`sourcesDir`, `artifactsDir` and `cacheDir` are required. Optional fields cover
+`networks`, `useDefaultNetworks`, `defaultNetworkOptions`, `tasks`, and
+`solidityVersion`.
 
 ### `./deploy` & `./addresses`
 

@@ -59,7 +59,7 @@ state machine, and the batcher pulls something from here.
 
 Address types and validators:
 
-- `AddressType` - enum of chain identifiers (EVM, CARDANO, SUBSTRATE, ALGORAND, MINA, MIDNIGHT, AVAIL, POLKADOT, NEAR).
+- `AddressType` - enum of chain identifiers (EVM, CARDANO, SUBSTRATE, ALGORAND, MINA, MIDNIGHT, AVAIL, POLKADOT, NEAR, SOLANA), plus `NONE` for unattributed inputs.
 - `AddressValidator` - `Record<AddressType, TSchema>` of TypeBox validators, one per chain.
 - `AddressAndType` - tagged-union shape for `{ type, address }` pairs.
 
@@ -95,9 +95,10 @@ Concurrency (Effection-based):
 
 Subpath entries:
 
-- `@effectstream/utils/node-env` - `dotenv`-aware env loader, for Node-only callers.
+- `@effectstream/utils/node-env` - `dotenv`-aware env loader exposing the typed `ENV` object, for Node-only callers. Every registered variable is listed in the [environment variables reference](https://effectstream.github.io/docs/home/components/environment-variables).
 - `@effectstream/utils/runtime` - Effection runtime helpers.
 - `@effectstream/utils/runtime-spawn` - child-process spawn helpers built on Effection.
+- `@effectstream/utils/fs` - promise-based filesystem helpers used by the orchestrator and binary wrappers: `makeTempDir`, `mkdirRecursive`, `writeTextFile`, `setFileTimes`, `remove`, and directory listing via `DirEntry`.
 
 ## Examples
 

@@ -1,10 +1,10 @@
 # @effectstream/crypto
 
 Multi-chain signature verification - one API that verifies wallet signatures
-from EVM, Cardano, Polkadot, Algorand, Mina, and Midnight. Also includes the
+from EVM, Cardano, Polkadot, Algorand, Mina, Midnight, and Solana. Also includes the
 `Prando` seeded RNG used for on-chain-derived randomness.
 
-- Multi-chain signature verification: EVM, Cardano, Polkadot, Algorand, Mina, Midnight.
+- Multi-chain signature verification: EVM, Cardano, Polkadot, Algorand, Mina, Midnight, Solana.
 - Bundles the `Prando` seeded RNG for on-chain-derived randomness.
 - Used by the batcher to verify user-submitted input signatures.
 - Only depends on `@effectstream/utils`; safe to use standalone.
@@ -68,7 +68,7 @@ machine uses to derive randomness from on-chain hashes
 
 ## Key exports
 
-- `CryptoManager` - chain-aware factory. `CryptoManager.getCryptoManager(addressType)` returns an `IVerify`. Per-chain accessors: `CryptoManager.Evm()`, `.Cardano()`, `.Polkadot()`, `.Algorand()`, `.Mina()`, `.Midnight()`.
+- `CryptoManager` - chain-aware factory. `CryptoManager.getCryptoManager(addressType)` returns an `IVerify`. Per-chain accessors: `CryptoManager.Evm()`, `.Cardano()`, `.Polkadot()`, `.Algorand()`, `.Mina()`, `.Midnight()`, `.Solana()`.
 - `IVerify` - common interface: `verifyAddress`, `verifySignature`, `decodeAddress`.
 - `Prando` - seeded deterministic RNG. `next()`, `nextInt(lo, hi)`, `nextString(n)`, `reset()`.
 - `generateEffectstreamBlockHash` - block-hash helper used by the EffectStream runtime.

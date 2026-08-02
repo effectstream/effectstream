@@ -81,17 +81,52 @@ defaults.
 ## CLI reference
 
 ```
-orchestrator start   [config]    Start processes (daemonised, exposes HTTP API)
-orchestrator status              Show process status
-orchestrator restart <name>      Restart a named process
-orchestrator stop    [name]      Stop a named process, or all
-orchestrator list    [config]    List processes without starting
-orchestrator silence <name...>   Suppress terminal output for named processes
-orchestrator unsilence <name...> Resume terminal output
-orchestrator logs   [name...]    Follow background daemon log files
+orchestrator start   [config|name...]  Start all processes, or specific ones by name
+orchestrator status                    Show process status
+orchestrator restart <name>            Restart a named process
+orchestrator stop    [name]            Stop a named process, or all
+orchestrator list    [config]          List processes without starting
+orchestrator silence [name...]         Suppress terminal output (no args = show list)
+orchestrator unsilence <name...>       Resume terminal output
+orchestrator logs   [name...]          Follow background daemon log files (like tail -f)
+```
 
-Global flags:
-  --port <n>        Orchestrator API port (default: 4747)
+**Global options**
+
+| Flag | Description |
+| --- | --- |
+| `-c, --config <path>` | Config file. Auto-detected from the daemon, `package.json`'s `effectstream.default`, or `orchestrator.config.ts` when omitted. |
+| `-h, --help` | Print help. |
+
+**Options for `start`**
+
+| Flag | Description |
+| --- | --- |
+| `-b, --background` | Run as a detached background daemon; logs go to files. Required before `status`, `logs` and `restart` can talk to a daemon. |
+| `-p, --port <n>` | Orchestrator API port (default: `4747`). |
+| `-o, --only <p1,p2,…>` | Run only these processes, plus their dependencies. |
+| `-e, --except <p1,p2,…>` | Skip these processes. |
+| `-s, --serial` | Launch processes one at a time instead of in parallel waves. |
+| `--no-deps` | Launch only the named processes, skipping dependency resolution. |
+| `--log-dir <path>` | Log directory when using `-b` (default: `.orchestrator-logs`). |
+| `--no-api` | Disable the HTTP API server. |
+| `--silence <p1,p2,…>` | Suppress terminal output for these processes. |
+
+**Options for `status`**
+
+| Flag | Description |
+| --- | --- |
+| `-f, --follow` | Continuously refresh the status table, at a 1s interval. |
+
+**Examples**
+
+```bash
+orchestrator start hardhat deploy-evm-contracts
+orchestrator start --only=midnight-node,midnight-indexer
+orchestrator start --except=avail-client
+orchestrator start --silence=midnight-node,bitcoin-core
+orchestrator restart midnight-node
+orchestrator stop batcher
 ```
 
 ## Inside EffectStream
