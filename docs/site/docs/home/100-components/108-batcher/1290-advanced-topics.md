@@ -194,6 +194,10 @@ curl http://localhost:3334/queue-stats
 
 Immediately trigger batch processing for all targets, bypassing batching criteria.
 
+:::warning Gated behind an environment variable
+This route and `DELETE /clear-inputs` are only registered when `ENABLE_DEV_AND_DEBUG_ENDPOINTS` is set. Without it the batcher returns 404 for both — they are absent, not merely unauthorized.
+:::
+
 **Use Cases:**
 - Testing and debugging
 - Manual batch submission during off-peak hours

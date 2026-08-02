@@ -157,18 +157,18 @@ confirmationLevel: {
 ```
 
 **When is it used?**
-- HTTP API calls to `/batch-input` that don't specify a `confirmationLevel` field
+- HTTP API calls to `/send-input` that don't specify a `confirmationLevel` field
 - The `batchInput()` method's second parameter overrides this default
 
 **Example HTTP API Request:**
 ```bash
 # Uses the global confirmationLevel default
-curl -X POST http://localhost:3334/batch-input \
+curl -X POST http://localhost:3334/send-input \
   -H "Content-Type: application/json" \
   -d '{"data": {...}}'
 
 # Explicitly overrides the default
-curl -X POST http://localhost:3334/batch-input \
+curl -X POST http://localhost:3334/send-input \
   -H "Content-Type: application/json" \
   -d '{"data": {...}, "confirmationLevel": "no-wait"}'
 ```
@@ -226,7 +226,7 @@ There are **two different `maxBatchSize` settings** that serve different purpose
    - **Purpose**: Triggers batch processing when input count reaches threshold
    - **Example**: `maxBatchSize: 50` means "process batch when 50 inputs are queued"
 
-2. **Adapter's `maxBatchSize`** (in BlockchainAdapter)
+2. **Adapter's `maxBatchSize`** (a constructor argument on the individual adapters, not a member of the `BlockchainAdapter` interface)
    - **Unit**: Bytes
    - **Purpose**: Limits the serialized batch payload size during `buildBatchData()`
    - **Example**: `maxBatchSize: 10000` means "stop adding inputs to batch when it reaches 10KB"
@@ -417,7 +417,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload> 
 
 ## DefaultBatcherInput
 
-The **`DefaultBatcherInput`** is the standard JSON object structure expected by the batcher's `/batch-input` API and `batchInput()` method. It acts as a "common envelope" containing essential fields for batching.
+The **`DefaultBatcherInput`** is the standard JSON object structure expected by the batcher's `/send-input` API and `batchInput()` method. It acts as a "common envelope" containing essential fields for batching.
 
 **Type Definition:**
 ```typescript
