@@ -976,6 +976,170 @@ export async function triggerUnshieldedCreates(
   await walletResult.wallet.stop();
 }
 
+/** One expected unshielded spend: the exact identity of the consumed UTXO. */
+export interface ExpectedUnshieldedSpend {
+  /** Hash of the intent that CREATED the spent UTXO, hex (no 0x), lowercase. */
+  intentHash: string;
+  /** Output index within the creating intent's offer. */
+  outputIndex: number;
+  /** u128 value, decimal string. */
+  value: string;
+  /** Token type, hex (no 0x), lowercase. */
+  tokenType: string;
+}
+
+/** Outcome of a submitted unshielded swap, with the exact marks it must produce. */
+export interface UnshieldedSwapResult {
+  /** Wallet-reported transaction id (NOT the ledger event tx hash). */
+  txId: string;
+  /** Exact identities of every unshielded UTXO the swap consumes. */
+  expectedSpends: ExpectedUnshieldedSpend[];
+  /** Decimal value of every unshielded UTXO the swap creates. */
+  expectedCreateValues: string[];
+  /**
+   * intentHash candidates for the created UTXOs: for every intent in the
+   * merged tx, its hash at its own segment and at segment 0 (guaranteed
+   * offers execute in segment 0).
+   */
+  candidateIntentHashes: string[];
+  /** Token types seen on the swap's outputs, hex (no 0x), lowercase. */
+  expectedCreateTokenTypes: string[];
+}
+
+const normalizeUnshieldedHex = (hex: string): string =>
+  (hex.startsWith("0x") ? hex.slice(2) : hex).toLowerCase();
+
+/**
+ * Perform an unshielded swap: initSwap declares an intent with unshielded
+ * token deltas (an open offer — inputs it gives, outputs it wants), which is
+ * then COMPLETED by a separate balancing intent produced via
+ * balanceFinalizedTransaction and merged into the submitted transaction.
+ *
+ * There are no nullifiers/commitments for unshielded tokens: the canonical
+ * mark of a spend/create is the (intentHash, outputIndex) pair of the UTXO's
+ * creating intent. The expected marks are read off the final merged
+ * transaction's intents before submission.
+ */
+export async function triggerUnshieldedSwap(
+  networkUrls: Required<Config>,
+  networkId: NetworkId.NetworkId,
+): Promise<UnshieldedSwapResult> {
+  console.log("\n--- Triggering unshielded swap (initSwap + balanceFinalizedTransaction) ---\n");
+
+  setNetworkId(networkId);
+
+  const GENESIS_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
+  const walletResult = await buildWalletFacade(networkUrls, GENESIS_SEED, networkId);
+  console.log("Genesis wallet built, waiting for funds...");
+
+  try {
+    await syncAndWaitForFunds(walletResult.wallet, {
+      waitNonZero: true,
+      logLabel: "genesis-unshielded-swap",
+      timeoutMs: 120_000,
+    });
+
+    // Fees are paid in dust; a swap submitted without spendable dust is
+    // rejected by the node (Invalid Transaction: Custom error: 168). The dust
+    // observable is a lagging projection (other txs pay fees while it reads
+    // 0), so this wait is advisory: log the balance, then attempt the swap.
+    try {
+      const dustBalance = await waitForDustFunds(walletResult.wallet, {
+        waitNonZero: true,
+        timeoutMs: 60_000,
+      });
+      console.log(`Dust balance before unshielded swap: ${dustBalance}`);
+    } catch (e) {
+      console.warn(`Dust balance not observed non-zero before swap (continuing): ${e}`);
+    }
+
+    const tokenId = await resolveUnshieldedTokenId(walletResult.wallet);
+    const receiverAddress = MidnightBech32m.parse(walletResult.unshieldedAddress)
+      .decode(UnshieldedAddress, walletResult.networkId);
+    const ttl = () => new Date(Date.now() + TTL_DURATION_MS);
+    const secretKeys = {
+      shieldedSecretKeys: walletResult.walletZswapSecretKeys,
+      dustSecretKey: walletResult.walletDustSecretKey,
+    };
+    const signSegment = (payload: Uint8Array) =>
+      walletResult.unshieldedKeystore.signData(payload);
+
+    // OFFER: want 1n of the token back, give 1n of the token — an intent with
+    // unshielded deltas that another intent must complete.
+    console.log(`Creating unshielded swap offer via initSwap (token: ${tokenId})...`);
+    const offerRecipe = await walletResult.wallet.initSwap(
+      { unshielded: { [tokenId]: 1n } },
+      [{
+        type: "unshielded",
+        outputs: [{ type: tokenId, amount: 1n, receiverAddress }],
+      }],
+      secretKeys,
+      { ttl: ttl() },
+    );
+    const signedOffer = await walletResult.wallet.signRecipe(offerRecipe, signSegment);
+    const finalizedOffer = await walletResult.wallet.finalizeRecipe(signedOffer);
+    console.log("Unshielded swap offer finalized");
+
+    // COMPLETE: a separate balancing intent at a fresh segment (preserves the
+    // offer intent's hash), merged into one transaction.
+    const balancedRecipe = await walletResult.wallet.balanceFinalizedTransaction(
+      finalizedOffer,
+      secretKeys,
+      { ttl: ttl() },
+    );
+    const signedBalanced = await walletResult.wallet.signRecipe(balancedRecipe, signSegment);
+    const finalTx = await walletResult.wallet.finalizeRecipe(signedBalanced);
+    console.log("Unshielded swap balanced (separate intent) and finalized");
+
+    // Read the exact expected marks off the merged transaction's intents.
+    const expectedSpends: ExpectedUnshieldedSpend[] = [];
+    const expectedCreateValues: string[] = [];
+    const expectedCreateTokenTypes: string[] = [];
+    const candidateIntentHashes = new Set<string>();
+    for (const [segmentId, intent] of finalTx.intents ?? new Map()) {
+      candidateIntentHashes.add(normalizeUnshieldedHex(intent.intentHash(segmentId)));
+      candidateIntentHashes.add(normalizeUnshieldedHex(intent.intentHash(0)));
+      for (
+        const offer of [
+          intent.guaranteedUnshieldedOffer,
+          intent.fallibleUnshieldedOffer,
+        ]
+      ) {
+        if (!offer) continue;
+        for (const spend of offer.inputs) {
+          expectedSpends.push({
+            intentHash: normalizeUnshieldedHex(spend.intentHash),
+            outputIndex: spend.outputNo,
+            value: spend.value.toString(),
+            tokenType: normalizeUnshieldedHex(spend.type),
+          });
+        }
+        for (const output of offer.outputs) {
+          expectedCreateValues.push(output.value.toString());
+          expectedCreateTokenTypes.push(normalizeUnshieldedHex(output.type));
+        }
+      }
+    }
+
+    const txId = await walletResult.wallet.submitTransaction(finalTx);
+    console.log(
+      `Unshielded swap submitted, txId: ${txId} — expecting ` +
+        `${expectedSpends.length} spend(s) ${JSON.stringify(expectedSpends)} and ` +
+        `${expectedCreateValues.length} create(s) with values ${JSON.stringify(expectedCreateValues)} ` +
+        `across intents ${JSON.stringify([...candidateIntentHashes])}`,
+    );
+    return {
+      txId: String(txId),
+      expectedSpends,
+      expectedCreateValues,
+      expectedCreateTokenTypes,
+      candidateIntentHashes: [...candidateIntentHashes],
+    };
+  } finally {
+    await walletResult.wallet.stop();
+  }
+}
+
 if (import.meta.main) {
   const midnightAddress = getEnv("MIDNIGHT_ADDRESS");
   if (!midnightAddress) {
