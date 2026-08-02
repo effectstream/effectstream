@@ -339,7 +339,7 @@ export async function zombieRound(
 
 ## Game Logic Engine
 
-The core Rock Paper Scissors logic is implemented in `packages/shared/game-logic/src/index.ts` as a standalone, deterministic game engine:
+The core Rock Paper Scissors logic is implemented in `packages/shared/game-logic/src/rock-paper-scissor.ts` as a standalone, deterministic game engine:
 
 ```typescript
 export class RockPaperScissors {
