@@ -9,7 +9,9 @@
   ],
   "scripts": {
     "test:code": "bun test ./packages",
-    "test:e2e": "cd e2e && bun run runner.ts"
+    "test:e2e": "cd e2e && bun run runner.ts",
+    "assets:generate": "bun scripts/generate-assets.ts",
+    "assets:check": "bun scripts/generate-assets.ts --check"
   },
   "overrides": {
     "@effect/platform": "0.96.1",

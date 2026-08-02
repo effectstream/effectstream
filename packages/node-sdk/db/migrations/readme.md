@@ -17,21 +17,30 @@ E.g.,
 
 ### Version
 
-Package Version is the System Version.\
-Version in root `deno.json` must be kept in sync with `system-version.ts`, as we
-cannot read this file from the executing engine.
+`EFFECTSTREAM_ENGINE_VERSION` in `system-version.ts` is the System Version - it
+decides which migrations get applied. It is hardcoded there because the engine
+cannot read a package manifest at runtime, so it must be bumped by hand whenever
+a migration for a new version is added.
 
-### Deno JSR
+### `assets.ts`
 
-At the time JSR requires to bundle assets in TS. This is automatically applied
-when the Pgtyped is called
+The `.sql` files in this directory are not readable at runtime once the package
+is published, so they are inlined into `assets.ts` as base64. **`assets.ts` is
+generated - never edit it by hand.** After adding or changing a `.sql` file,
+list it in `../assets-config.json` (if new) and regenerate from the repo root:
 
+```bash
+bun run assets:generate
 ```
-deno task pgtyped:update
+
+To verify the bundle matches the `.sql` sources without rewriting it:
+
+```bash
+bun run assets:check
 ```
 
-generate assets.ts from packages/node-sdk/db directory
-
-```
-rm ./migrations/assets.ts && deno run --allow-read jsr:@codemonument/asset-builder --import-file assets-config.json  >> ./migrations/assets.ts
-```
+The generator is [`scripts/generate-assets.ts`](../../../../scripts/generate-assets.ts).
+It replaced `deno run jsr:@codemonument/asset-builder`, whose current versions
+emit an import of `jsr:@std/encoding` that Bun cannot resolve. `assets:check`
+also runs in CI, and `test/assets-bundle.test.ts` asserts each bundled entry
+still matches its `.sql` file.
