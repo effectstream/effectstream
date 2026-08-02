@@ -10,10 +10,10 @@ This is intentional. It means:
 
 - You can pick any one `@effectstream/*` version, and every other `@effectstream/*` package you pull in will resolve to the exact same version.
 - Compatibility between packages is a single version check, not an N×N matrix.
-- "Package A wants `@effectstream/foo@0.100.13` and package B wants `0.100.14`" diamond-dependency situations cannot happen.
+- "Package A wants `@effectstream/foo@0.102.13` and package B wants `0.102.14`" diamond-dependency situations cannot happen.
 - When you upgrade, upgrade the whole set in lockstep.
 
-The current shared version is whatever you see in any `packages/*/package.json` (`0.100.x` series at time of writing).
+The current shared version is whatever you see in any `packages/*/package.json` (`0.102.x` series at time of writing).
 
 ## Versioning your own application
 
@@ -71,6 +71,7 @@ All 38 packages publish under the `@effectstream/*` npm scope.
 - `@effectstream/npm-midnight-node`
 - `@effectstream/npm-midnight-proof-server`
 - `@effectstream/ord`
+- `@effectstream/solana-node`
 
 ### Tools
 
