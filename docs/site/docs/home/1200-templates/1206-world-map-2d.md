@@ -46,7 +46,7 @@ In a separate terminal:
 cd packages/frontend
 bun i
 bun run build       # Build the frontend bundle
-bun run serve       # Serve on http://127.0.0.1:8080
+bun run serve       # Serve on http://127.0.0.1:10599
 ```
 
 Or from the repository root:
@@ -54,7 +54,7 @@ Or from the repository root:
 bun run --cwd packages/frontend dev
 ```
 
-Then open http://127.0.0.1:8080 in your browser.
+Then open http://127.0.0.1:10599 in your browser.
 
 ### Using Test Accounts
 
@@ -94,19 +94,19 @@ This will:
 
 ```sh
 # For macOS
-DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run -p 8080:8080 -p 8545:8545 -p 9999:9999 -p 3334:3334 world-map-2d-sample
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run -p 10599:10599 -p 8545:8545 -p 8546:8546 -p 9999:9999 world-map-2d-sample
 
 # For Linux
-docker run -p 8080:8080 -p 8545:8545 -p 9999:9999 -p 3334:3334 world-map-2d-sample
+docker run -p 10599:10599 -p 8545:8545 -p 8546:8546 -p 9999:9999 world-map-2d-sample
 ```
 
 The container exposes:
-- **Port 8080**: Frontend (http://localhost:8080)
+- **Port 10599**: Frontend (http://localhost:10599)
 - **Port 8545**: Local EVM node (Hardhat)
 - **Port 9999**: EffectStream backend API
-- **Port 3334**: Explorer
+- **Port 8546**: Hardhat WebSocket
 
-Once the container is running, you'll see the EffectStream node start up and the frontend will be available at http://localhost:8080.
+Once the container is running, you'll see the EffectStream node start up and the frontend will be available at http://localhost:10599.
 
 ![Docker Setup Running](./1206-docker.png)
 
@@ -131,7 +131,7 @@ When you run `bun run dev` for this template, the [Process Orchestrator](../100-
 *   **Hardhat EVM Node**: A local EVM blockchain running on port 8545.
 *   **Development Services**: The development database, log collector, TUI, and the Explorer.
 *   **EffectStream Node**: Backend service on port 9999 to sync the chain and process game logic.
-*   **Frontend**: A simple HTML/JavaScript interface on port 8080 for player interaction.
+*   **Frontend**: A simple HTML/JavaScript interface on port 10599 for player interaction.
 
 ## On-Chain Logic
 
@@ -141,17 +141,17 @@ The contract is deployed at `0x5FbDB2315678afecb367f032d93F642f64180aa3` (local 
 
 ```solidity
 // Simplified example of what the EffectstreamL2Contract does
-contract EffectstreamL2 {
-    event EffectStreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
+contract EffectstreamL2Contract {
+    event EffectstreamGameInteraction(address indexed userAddress, bytes data, uint256 value);
 
-    function submitInput(bytes calldata input) external payable {
+    function effectstreamSubmitGameInput(bytes calldata data) public payable {
         // Validates and stores the input
-        emit EffectStreamGameInteraction(msg.sender, input, nonce);
+        emit EffectstreamGameInteraction(msg.sender, data, msg.value);
     }
 }
 ```
 
-EffectStream monitors the `EffectStreamGameInteraction` event to receive player inputs.
+EffectStream monitors the `EffectstreamGameInteraction` event to receive player inputs.
 
 ## The State Machine (`state-machine.ts`)
 
@@ -159,7 +159,7 @@ The State Machine contains the core game logic. It uses **generator functions** 
 
 ### Grammar Definition
 
-The input grammar is defined using TypeBox schemas in `packages/shared/data-types/src/grammar.ts`:
+The input grammar is defined using TypeBox schemas in `packages/node/grammar.ts`:
 
 ```typescript
 export const grammar = {
@@ -193,7 +193,7 @@ stm.addStateTransition("joinWorld", function* (data) {
 });
 ```
 
-The `joinWorld` transition function in `packages/client/node/src/state-machine/v1/transition.ts`:
+The `joinWorld` transition function in `packages/node/state-machine.ts`:
 ```typescript
 export const joinWorld = async (
   player: WalletAddress,
@@ -284,7 +284,7 @@ function persistWorldCount(x: number, y: number): SQLUpdate {
 
 ## Database Schema
 
-The database has two main tables defined in `packages/client/database/src/migrations/database.sql`:
+The database has two main tables defined in `packages/database/src/migrations/database.sql`:
 
 ### `global_user_state`
 Stores each player's current position in the world.
@@ -314,7 +314,7 @@ The world state is pre-populated with all 100 cells (0-9 in both x and y) during
 
 ### Type-Safe Queries
 
-The template uses **pgtyped** to generate TypeScript types from SQL queries. Query files are in `packages/client/database/src/sql/`:
+The template uses **pgtyped** to generate TypeScript types from SQL queries. Query files are in `packages/database/src/sql/`:
 
 **select.sql**:
 ```sql
@@ -353,16 +353,16 @@ WHERE x = :x! AND y = :y!;
 
 To regenerate types after modifying SQL files:
 ```sh
-cd packages/client/database
+cd packages/database
 npm install
 npx pgtyped -c ./pgtypedconfig.json
 ```
 
 ## API Endpoints
 
-The backend server runs on **port 9999** and provides REST endpoints defined in `packages/client/node/src/api.ts`.
+The backend server runs on **port 9999** and provides REST endpoints defined in `packages/node/api.ts`.
 
-All database queries are wrapped in `runPreparedQuery` from `@paimaexample/db`. This is required because PGlite (the in-memory database) only allows single-threaded access. The `runPreparedQuery` function uses a semaphore to coordinate access to the single database connection across multiple processes.
+All database queries are wrapped in `runPreparedQuery` from `@effectstream/db`. This is required because PGlite (the in-memory database) only allows single-threaded access. The `runPreparedQuery` function uses a semaphore to coordinate access to the single database connection across multiple processes.
 
 ### GET `/user_stats?wallet=<address>`
 
@@ -447,17 +447,17 @@ server.get("/world_stats", async (request, reply) => {
 
 ## Frontend Architecture
 
-The frontend uses a simple HTML/JavaScript approach with wallet integration via `@paimaexample/wallets`.
+The frontend uses a simple HTML/JavaScript approach with wallet integration via `@effectstream/wallets`.
 
 ### Wallet Middleware
 
-The frontend includes a middleware layer (`paimaMiddleware.src.js`) that bridges the HTML interface to the EffectStream wallet API:
+The frontend includes a middleware layer (`index.js`) that bridges the HTML interface to the EffectStream wallet API:
 
 ```javascript
-import { EffectStreamConfig, sendTransaction, walletLogin, WalletMode } from "@paimaexample/wallets";
+import { EffectstreamConfig, sendTransaction, walletLogin, WalletMode } from "@effectstream/wallets";
 import { hardhat } from "viem/chains";
 
-const effectstreamConfig = new EffectStreamConfig(
+const effectstreamConfig = new EffectstreamConfig(
   "world-map-2d",
   "mainEvmRPC",
   "0x5FbDB2315678afecb367f032d93F642f64180aa3",
@@ -495,10 +495,10 @@ const endpoints = {
   },
 };
 
-window.paimaMiddleware = endpoints;
+window.worldMap2D = endpoints;
 ```
 
-This middleware is bundled using esbuild into `paimaMiddleware.js` which the HTML page loads.
+This middleware is bundled using esbuild into `dist/min.js`, which the HTML page loads.
 
 ### Building the Frontend
 
@@ -509,9 +509,9 @@ import { nodeModulesPolyfillPlugin } from "esbuild-plugins-node-modules-polyfill
 import { build } from "esbuild";
 
 build({
-  entryPoints: ["./paimaMiddleware.src.js"],
+  entryPoints: ["./index.js"],
   bundle: true,
-  outfile: "paimaMiddleware.js",
+  outfile: "dist/min.js",
   sourcemap: true,
   plugins: [
     nodeModulesPolyfillPlugin({
@@ -548,12 +548,12 @@ This pattern ensures:
 
 The template follows a clean architecture:
 
-1. **Grammar** (`packages/shared/data-types`): Input validation using TypeBox
-2. **Transition Functions** (`packages/client/node/src/state-machine/v1/transition.ts`): Async functions that return SQL updates
-3. **State Machine** (`packages/client/node/src/state-machine.ts`): Orchestrates transitions with EffectStream using generator functions
-4. **Database** (`packages/client/database`): Type-safe queries with pgtyped
-5. **API** (`packages/client/node/src/api.ts`): REST endpoints for the frontend
-6. **Frontend** (`packages/frontend`): Simple HTML/JS interface
+1. **Grammar** (`packages/node/grammar.ts`): Input validation using TypeBox
+2. **State Machine** (`packages/node/state-machine.ts`): Generator-based transitions that queue SQL updates
+3. **Database** (`packages/database`): Type-safe queries with pgtyped
+4. **API** (`packages/node/api.ts`): REST endpoints for the frontend
+5. **Frontend** (`packages/frontend`): Simple HTML/JS interface
+6. **Contracts** (`packages/contracts-evm`): The EVM L2 contract and its deployment
 
 ## Use Cases and Extensions
 
@@ -582,28 +582,28 @@ This template can be extended for various game types:
 ## Troubleshooting
 
 ### Port Conflicts
-If ports 8545, 9999, or 8080 are already in use:
+If ports 8545, 9999, or 10599 are already in use:
 ```sh
 # Check what's using the ports
 lsof -i :8545
 lsof -i :9999
-lsof -i :8080
+lsof -i :10599
 
 # Kill processes if needed
 kill -9 <PID>
 ```
 
 ### Frontend Bundle Outdated
-If you modify `paimaMiddleware.src.js`:
+If you modify `index.js`:
 ```sh
 cd packages/frontend
-node esbuild.js  # Regenerate paimaMiddleware.js
+bun esbuild.js  # Regenerate dist/min.js
 ```
 
 ### Database Query Types Out of Sync
 If you modify SQL files, regenerate types:
 ```sh
-cd packages/client/database
+cd packages/database
 npm install
 npx pgtyped -c ./pgtypedconfig.json
 ```

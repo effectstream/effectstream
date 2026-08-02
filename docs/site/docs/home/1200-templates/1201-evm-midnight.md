@@ -52,7 +52,7 @@ When you run `bun run dev` for this template, the [Process Orchestrator](../100-
 The EVM side is a standard, minimal `Erc721Dev` contract. Its only job is to manage the minting and transferring of Tokens. EffectStream will monitor its `Transfer` event to track ownership.
 
 ```solidity
-// In packages/shared/contracts/evm/src/contracts/ERC721Dev.sol
+// In packages/contracts-evm/src/contracts/ERC721Dev.sol
 pragma solidity ^0.8.20;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -68,12 +68,12 @@ contract Erc721Dev is ERC721 {
 
 ### 2. The Midnight Contract (`counter.compact`)
 
-The Midnight contract is where the logic for updating metadata lives. Its `addPropertyToTokenID` circuit accepts four private inputs, which in this template are repurposed to represent the EVM contract address, the Token's token ID, and a key-value pair for the new property.
+The Midnight contract is where the logic for updating metadata lives. Its `increment` circuit accepts four private inputs, which in this template are repurposed to represent the EVM contract address, the Token's token ID, and a key-value pair for the new property.
 
 When a user executes this circuit, the transaction updates the contract's public `ledger`, revealing the new property without disclosing the private inputs used in the computation.
 
 ```rust
-// In packages/shared/contracts/midnight/contract-round-value/src/counter.compact
+// In packages/contracts-midnight/contract-round-value/src/counter.compact
 pragma language_version >= 0.17;
 
 import CompactStandardLibrary;
@@ -86,13 +86,13 @@ export ledger property_name: Bytes<32>;
 export ledger value: Bytes<32>;
 
 // This is the private state transition.
-export circuit addPropertyToTokenID(
+export circuit increment(
   contract_address_: Bytes<64>, 
   token_id_: Bytes<64>, 
   property_name_: Bytes<32>,
   value_: Bytes<32>,
 ): [] {
-  round.addPropertyToTokenID(1);
+  round.increment(1);
   // The 'disclose' keyword makes the private input public
   // by writing it to the corresponding ledger variable.
   contract_address = disclose(contract_address_);
@@ -110,7 +110,7 @@ The State Machine has two key State Transition Functions (STFs) that listen for 
 This STF is triggered whenever an ERC721 `Transfer` event occurs on the EVM chain. Its job is to keep track of existing Tokens and the current owner.
 
 ```ts
-// In packages/client/node/src/state-machine.ts
+// In packages/node/state-machine.ts
 stm.addStateTransition(
   "transfer-assets",
   function* (data) {
@@ -149,7 +149,7 @@ DO UPDATE SET
 This STF is triggered whenever the public `ledger` of the Midnight contract changes. Its job is to take the new metadata revealed by the ZK transaction and link it to the corresponding Token in the database.
 
 ```ts
-// In packages/client/node/src/state-machine.ts
+// In packages/node/state-machine.ts
 stm.addStateTransition(
   "midnightContractState",
   function* (data) {

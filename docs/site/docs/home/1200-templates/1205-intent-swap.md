@@ -24,7 +24,7 @@ The `night-bitcoin` template demonstrates a cutting-edge pattern in Web3: **Inte
 ```sh
 # Clone the repository
 git clone https://github.com/effectstream/effectstream.git
-cd effectstream/templates/night-bitcoin
+cd effectstream/templates/night-bitcoin-v2
 
 # Install packages
 bun i
@@ -115,7 +115,7 @@ sequenceDiagram
 ### 1. On-Chain Logic
 
 #### Midnight (Compact)
-The template uses two main contracts located in `packages/shared/contracts/midnight-contracts`:
+The template uses two main contracts located in `packages/contracts-midnight`:
 *   **`erc7683.compact`**: Implements the standard for Cross-Chain Intents. It stores the `Intent` struct containing details like `maxSpent`, `minReceived`, and other standard fields.
 *   **`unshielded-erc20.compact`**: Openzepplin Standard ERC20 Unshielded "M20" token used for swapping against Bitcoin.
 
@@ -436,11 +436,11 @@ The State Machine uses these tables to perform atomic settlement:
 The API layer aggregates data for the Frontend:
 *   `POST /api/get-quotes`: Proxies requests to the active Filler services to get the best price for the user.
 *   `GET /api/intents`: Returns the status of a specific Order ID.
-*   `GET /api/faucet/btc` & `/api/faucet/dust`: Development endpoints to fund test wallets.
+*   `GET /api/faucet/btc` & `/api/faucet/nights`: Development endpoints to fund test wallets.
 
 ## Frontend Integration
 
-The frontend (`packages/frontend/dApp`) is a React application that:
+The frontend (`packages/frontend/client`) is a React application that:
 1.  Connects to a **Midnight Wallet** (Lace) to sign Intents.
 2.  Connects to a **Bitcoin Wallet** (via manual address entry for this demo) to send payments.
 3.  Interacts with the **Fillers** to fetch quotes.

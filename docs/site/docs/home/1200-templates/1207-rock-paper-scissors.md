@@ -9,7 +9,7 @@ draft: true
 
 The `rock-paper-scissors` template demonstrates how to build a competitive multiplayer game with lobby management, turn-based rounds, and player statistics. It's an excellent example for games requiring matchmaking, simultaneous hidden moves, and game state progression, all processed deterministically through an EffectStream L2 contract on an EVM chain.
 
-![Rock Paper Scissors Lobby System](./1207-rock-paper-scissors.md)
+![Rock Paper Scissors Lobby System](./1207-rock-paper-scissors.png)
 
 ## Core Concept: Turn-Based Combat with Lobbies
 

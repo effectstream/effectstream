@@ -22,7 +22,11 @@ We will not deep-dive into the game loop design, but rather focus on important a
 
 Tarochi was built using **[GameMaker](https://gamemaker.io/)**, a beginner-to-advanced friendly tool for creating 2D experiences. While renowned for its intuitive interface, GameMaker's reliance on its proprietary GameMaker Language (GML) has historically made it difficult to integrate with the JavaScript-heavy world of Web3.
 
-To bridge this gap, EffectStream provides a template and adapter for GameMaker, allowing developers to connect their GML code to JavaScript. This enables the use of EffectStream's state machine framework for on-chain game logic while leveraging GameMaker for UI and multi-platform support (desktop, mobile, consoles, and browsers).
+To bridge this gap, Tarochi used a custom adapter connecting its GML code to JavaScript. This enabled the use of EffectStream's state machine framework for on-chain game logic while leveraging GameMaker for UI and multi-platform support (desktop, mobile, consoles, and browsers).
+
+:::note Case study, not a shipped template
+This page documents how an existing game was built. There is **no GameMaker template in this repository** — the adapter described below is Tarochi's own. For templates you can start from, see the [templates section](./1201-evm-midnight.md).
+:::
 
 <iframe width="100%" height="440" src="https://www.youtube.com/embed/ePhIU1Hla-g?si=OTpnPs_MsNBS-sjZ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
@@ -30,7 +34,7 @@ To bridge this gap, EffectStream provides a template and adapter for GameMaker, 
 
 Nearly all Web3 tools are written in or compatible with JavaScript, primarily because crypto wallets are most commonly used as browser extensions. GameMaker's ability to compile games to HTML5 makes it a viable choice for web-based dApps.
 
-Our GameMaker template introduces a custom-built adapter that allows GML code to call JavaScript functions and receive callbacks from them. This enables a GameMaker application to handle everything from wallet connections to direct interactions with EffectStream and other Web3 libraries.
+Tarochi's adapter allows GML code to call JavaScript functions and receive callbacks from them. This enables a GameMaker application to handle everything from wallet connections to direct interactions with EffectStream and other Web3 libraries.
 
 ![](./1250-gm.png)
 
