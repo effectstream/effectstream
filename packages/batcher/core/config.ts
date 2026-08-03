@@ -120,18 +120,30 @@ export type ConfirmationLevel =
   | "wait-receipt"
   | "wait-effectstream-processed";
 
+/**
+ * Rate limiting for `POST /send-input`.
+ *
+ * Omitting `rateLimit` entirely does NOT disable it. The server falls back to
+ * {@link DEFAULT_CONFIG_VALUES}.rateLimit, so every batcher is limited by
+ * default. Keep the numbers below in step with that constant, which is the one
+ * the running server actually reads.
+ */
 export interface RateLimitConfig {
-  /** Maximum number of requests per window. Default: 100 */
+  /** Maximum number of requests per window. Default: 1000 */
   maxRequests: number;
-  /** Window size in milliseconds. Default: 60000 (1 minute) */
+  /** Window size in milliseconds. Default: 86400000 (24 hours) */
   windowMs: number;
   /** Custom store implementation (in-memory by default) */
   store?: RateLimitStore;
 }
 
 const RateLimitConfigSchema = Type.Object({
-  maxRequests: Type.Number({ minimum: 1, default: 100 }),
-  windowMs: Type.Number({ minimum: 1000, default: 60000 }),
+  // These must match DEFAULT_CONFIG_VALUES.rateLimit. They are reachable by a
+  // different path (`Value.Cast` filling a partial `rateLimit` object) than the
+  // server-side fallback, so two different sets of numbers here would mean the
+  // effective limit depended on whether the key was absent or half-filled.
+  maxRequests: Type.Number({ minimum: 1, default: 1000 }),
+  windowMs: Type.Number({ minimum: 1000, default: 86400000 }),
   store: Type.Optional(Type.Any()),
 }, { additionalProperties: false });
 

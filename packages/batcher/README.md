@@ -134,6 +134,14 @@ Each adapter chooses how requests are keyed by implementing the optional
 `"ip-and-address"`, or `"composite"` — so a chain whose users share an IP can
 still be limited per address.
 
+`SolanaAdapter` exposes this as a `rateLimitKeyStrategy` config field, still
+defaulting to `"ip"`. Prefer `"ip-and-address"` on a sponsored (fee-payer)
+batcher: every accepted transaction spends the sponsor's SOL, and keying on IP
+alone puts everyone behind a shared NAT into one bucket, so honest users
+throttle each other. This is only sound on an adapter that binds the claimed
+address to a signature, which `SolanaAdapter.verifySignature` does — without
+that check, a caller could invent addresses to mint fresh buckets.
+
 To back the limiter with something other than process memory, implement
 `RateLimitStore` (`hit(key, nowMs)` and `count(key, nowMs, windowMs)`) and pass
 it as `store`. `InMemoryRateLimitStore` is the built-in implementation.

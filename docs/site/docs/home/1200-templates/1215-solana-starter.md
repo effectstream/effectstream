@@ -394,8 +394,23 @@ with `solana program deploy` instead of the validator's `--bpf-program` preload 
 >
 > The sponsor also pays every transaction fee it co-signs. `SolanaAdapter` bounds
 > *per-transaction* cost — scoping to one program, and rejecting priority fees above
-> `maxPriorityFeeMicroLamports` — but not *volume*. Add a rate limit before exposing a
-> funded batcher publicly.
+> `maxPriorityFeeMicroLamports`. *Volume* is bounded by the batcher's rate limit
+> instead, which `packages/batcher/batcher.dev.ts` sets explicitly.
+>
+> Those dev values are a short window (100k requests per minute) so local testing
+> is not locked out for a day. **They are not a production posture.** Before
+> exposing a funded batcher, size `maxRequests` against what you are willing to
+> spend — at 5000 lamports per transaction, 100k requests is about 0.5 SOL of base
+> fees per window. Note that removing the `rateLimit` block does not turn limiting
+> off, it falls back to 1000 requests per 24 hours.
+>
+> Requests are keyed per IP, the SDK default, so everyone behind a shared NAT
+> draws down one bucket. `SolanaAdapter` accepts
+> `rateLimitKeyStrategy: "ip-and-address"` to give each wallet its own budget as
+> well, but that option postdates the `0.102.0` this template pins — set it in
+> `packages/batcher/solana-adapter.ts` after bumping. Swap
+> `InMemoryRateLimitStore` for a Redis or Postgres backed `RateLimitStore` if you
+> run more than one batcher process, since in-memory counts are per process.
 
 ## Testing
 

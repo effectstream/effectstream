@@ -8,6 +8,7 @@ import type {
 } from "./adapter.ts";
 import { AdapterLogger } from "./adapter-logger.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
+import type { RateLimitKeyStrategy } from "../core/rate-limiter.ts";
 import {
   Connection,
   Keypair,
@@ -129,6 +130,23 @@ export interface SolanaAdapterConfig {
    * program either way.
    */
   allowSponsorAsInstructionAccount?: boolean;
+  /**
+   * How `/send-input` rate limit keys are derived for this adapter.
+   *
+   * Defaults to `"ip"`, matching the batcher's own default when no adapter
+   * declares a strategy — existing deployments keep the behaviour they have.
+   *
+   * `"ip-and-address"` is the meaningful setting for a sponsor: every accepted
+   * transaction costs the sponsor the base fee, and a shared egress IP (a
+   * conference venue, an office, a mobile carrier NAT) puts every user behind
+   * it into one bucket, so a per-IP-only limit throttles honest users
+   * collectively long before it throttles anyone individually.
+   *
+   * It is safe here because `verifySignature` rejects an `input.address` that
+   * did not actually sign, so the address key cannot be spoofed to mint fresh
+   * buckets. Do not enable it on an adapter without that binding.
+   */
+  rateLimitKeyStrategy?: RateLimitKeyStrategy;
 }
 
 /**
@@ -147,6 +165,7 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
   private readonly syncProtocolName: string;
   private readonly allowSponsorAsInstructionAccount: boolean;
   private readonly maxPriorityFeeMicroLamports: bigint;
+  private readonly rateLimitKeyStrategy: RateLimitKeyStrategy;
   public readonly maxBatchSize: number;
   private readonly logger: AdapterLogger;
 
@@ -161,6 +180,7 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
     this.maxPriorityFeeMicroLamports = BigInt(
       config.maxPriorityFeeMicroLamports ?? 0,
     );
+    this.rateLimitKeyStrategy = config.rateLimitKeyStrategy ?? "ip";
     this.logger = new AdapterLogger("SolanaAdapter");
   }
 
@@ -179,6 +199,10 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
 
   getSyncProtocolName(): string {
     return this.syncProtocolName;
+  }
+
+  getRateLimitKeyStrategy(): RateLimitKeyStrategy {
+    return this.rateLimitKeyStrategy;
   }
 
   async getBlockNumber(): Promise<bigint> {

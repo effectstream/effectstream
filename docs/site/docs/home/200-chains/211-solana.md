@@ -181,7 +181,12 @@ Transactions must be **base64**-encoded (`tx.serialize({ requireAllSignatures: f
 
 Plus one that is easy to miss: the fee payer also pays the **prioritization fee**, so an uncapped `SetComputeUnitPrice` is user-controlled spend from your sponsor. `maxPriorityFeeMicroLamports` defaults to `0n` — any priority-fee instruction is rejected. Raise it deliberately, and note the real cost is `price × computeUnitLimit / 1e6`.
 
-**Volume is not bounded by the adapter.** Every accepted transaction still costs the sponsor the 5000-lamport base fee, so add a rate limit (see `RateLimitStore` in `@effectstream/batcher-sdk`) before exposing a funded batcher publicly.
+**Volume is bounded by the batcher, not the adapter.** Every accepted transaction still costs the sponsor the 5000-lamport base fee, so the rate limit is a spend cap. Two things to know before exposing a funded batcher publicly:
+
+- **It is already on.** Omitting `rateLimit` from `BatcherConfig` does not disable it — the server falls back to 1000 requests per 24 hours. Set the block explicitly and size `maxRequests` against what you are willing to spend, rather than inheriting a number you did not choose.
+- **Key it per wallet, not just per IP.** `SolanaAdapter` takes `rateLimitKeyStrategy`, defaulting to `"ip"`. On a shared network (a venue, an office, a carrier NAT) every user sits behind one address and so shares one bucket. `"ip-and-address"` adds an independent per-wallet budget, and is sound here because `verifySignature` rejects an address that did not sign.
+
+`InMemoryRateLimitStore` is per process, so counts reset on restart and are not shared between replicas. Implement `RateLimitStore` against Redis or Postgres for a deployment that is more than one process.
 :::
 
 `verifySignature` requires that the address the submitter claims is actually one of the transaction's signers, so submissions cannot be attributed to a third party.

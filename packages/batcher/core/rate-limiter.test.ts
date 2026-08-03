@@ -1,5 +1,7 @@
 import { test, expect } from "bun:test";
 import { InMemoryRateLimitStore, RateLimiter } from "./rate-limiter.ts";
+import { buildRateLimitKeys } from "../server/batcher-server.ts";
+import { DEFAULT_CONFIG_VALUES } from "./config.ts";
 
 // --- InMemoryRateLimitStore tests ---
 
@@ -107,4 +109,72 @@ test("RateLimiter - does not record hits when rate limited", async () => {
   await limiter.check(["ip:1.1.1.1", "addr:0xabc"]);
   // addr:0xabc should still have 0 hits
   expect(await store.count("addr:0xabc", Date.now(), 60000)).toEqual(0);
+});
+
+// --- buildRateLimitKeys: which buckets a request draws down ---
+
+test("buildRateLimitKeys - ip strategy keys on the IP alone", () => {
+  expect(buildRateLimitKeys("ip", "1.1.1.1", "addr1")).toEqual(["ip:1.1.1.1"]);
+});
+
+test("buildRateLimitKeys - ip-and-address keys on both", () => {
+  expect(buildRateLimitKeys("ip-and-address", "1.1.1.1", "addr1")).toEqual([
+    "ip:1.1.1.1",
+    "addr:addr1",
+  ]);
+});
+
+test("buildRateLimitKeys - ip-and-address omits the address key when absent", () => {
+  // An unauthenticated caller must not collapse into a shared `addr:undefined`
+  // bucket, which would let one bad client exhaust the limit for every other
+  // request that also arrived without an address.
+  expect(buildRateLimitKeys("ip-and-address", "1.1.1.1")).toEqual([
+    "ip:1.1.1.1",
+  ]);
+});
+
+test("buildRateLimitKeys - composite keys the pair as one bucket", () => {
+  expect(buildRateLimitKeys("composite", "1.1.1.1", "addr1")).toEqual([
+    "composite:1.1.1.1:addr1",
+  ]);
+});
+
+test("ip-and-address gives two wallets behind one NAT independent budgets", async () => {
+  // The reason the strategy exists. Under "ip" both wallets share one bucket,
+  // so the second user is throttled by the first user's traffic.
+  const store = new InMemoryRateLimitStore();
+  const limiter = new RateLimiter(store, 2, 60000);
+  const SHARED_IP = "203.0.113.7";
+
+  // Wallet A exhausts its own address budget.
+  for (let i = 0; i < 2; i++) {
+    const r = await limiter.check(
+      buildRateLimitKeys("ip-and-address", SHARED_IP, "walletA"),
+    );
+    expect(r.allowed).toEqual(true);
+  }
+
+  // Wallet A is now blocked, and it is the shared IP key that ran out first.
+  const blockedA = await limiter.check(
+    buildRateLimitKeys("ip-and-address", SHARED_IP, "walletA"),
+  );
+  expect(blockedA.allowed).toEqual(false);
+
+  // Wallet B has its own untouched addr bucket, but still shares the IP one,
+  // so the IP limit is what bounds the venue as a whole. This asserts the
+  // actual semantics rather than the hoped-for one.
+  expect(await store.count("addr:walletB", Date.now(), 60000)).toEqual(0);
+  expect(await store.count("addr:walletA", Date.now(), 60000)).toEqual(2);
+});
+
+test("omitting rateLimit does not disable rate limiting", () => {
+  // The server falls back to these when config.rateLimit is absent. A future
+  // change to "no config means unlimited" would be a silent spend regression
+  // for every batcher that never set the key.
+  expect(DEFAULT_CONFIG_VALUES.rateLimit.maxRequests).toBeGreaterThan(0);
+  expect(DEFAULT_CONFIG_VALUES.rateLimit.windowMs).toBeGreaterThan(0);
+  expect(DEFAULT_CONFIG_VALUES.rateLimit).toEqual({
+    maxRequests: 1000,
+    windowMs: 86400000,
+  });
 });

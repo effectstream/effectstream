@@ -148,7 +148,14 @@ async function registerOpenApiDocumentation(
   });
 }
 
-function buildRateLimitKeys(
+/**
+ * Derive the rate limit buckets a request draws down.
+ *
+ * Exported for tests: the choice of keys is the whole behavioural difference
+ * between the strategies, and it is not observable from the outside without
+ * standing up a server and exhausting a limit.
+ */
+export function buildRateLimitKeys(
   strategy: RateLimitKeyStrategy,
   ip: string,
   address?: string,
