@@ -39,15 +39,35 @@ export function getRuntime(): {runtime: Runtime, environment: RuntimeEnvironment
 
 /**
  * Helpers for common process operations.
+ *
+ * These are node-only by nature, but this module is reachable from BROWSER
+ * bundles: `AddressType` is a value export of this package, so importing it
+ * (as @effectstream/wallets' IProvider does) pulls the barrel, and the barrel
+ * re-exports config.ts — which calls getEnv() at module top level. An
+ * unguarded `process` there is a hard `ReferenceError: process is not defined`
+ * at import time, before any app code runs.
+ *
+ * `getEnv` therefore degrades to `undefined` in a browser (an unset variable
+ * is the truthful answer there). The mutating/process-control helpers below
+ * still throw, because silently doing nothing would hide a real porting bug.
  */
 
-/** Get environment variable. */
+const hasProcess = (): boolean =>
+  typeof process !== "undefined" && process != null;
+
+/** Get environment variable. Returns undefined where there is no process. */
 export function getEnv(key: string): string | undefined {
-  return process.env[key];
+  if (!hasProcess()) return undefined;
+  return process.env?.[key];
 }
 
 /** Set environment variable. */
 export function setEnv(key: string, value: string): void {
+  if (!hasProcess()) {
+    throw new Error(
+      `setEnv(${key}) is not available in this runtime — there is no process to mutate.`,
+    );
+  }
   process.env[key] = value;
 }
 
