@@ -18,9 +18,12 @@ export {
     getInitialDustState,
     waitForDustFunds,
     waitForDustFundsWithRetry,
-    saveDustState,
-    loadDustState,
 } from "./get-wallet-info.ts";
+// Disk-backed dust persistence lives in its own node-only module so the
+// browser-reachable ./wallet-info subpath carries no node:fs. This barrel is
+// node-only anyway (deploy.ts imports node:fs/promises), so a static
+// re-export here is fine and keeps the public API unchanged.
+export { saveDustState, loadDustState } from "./dust-state.ts";
 export type {
     WalletSyncMode,
     DustSyncWithRetryOptions,
