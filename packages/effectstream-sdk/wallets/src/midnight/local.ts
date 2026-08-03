@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { AddressType, type MidnightAddress } from "@effectstream/utils";
+import { AddressType, type MidnightAddress } from "@effectstream/utils/types";
 import type {
   ActiveConnection,
   AddressAndType,
@@ -63,7 +63,26 @@ export type MidnightLocalApi = {
     data: string,
     options: { encoding: "text" | "hex"; keyType: "unshielded" },
   ) => Promise<{ data: string; signature: string; verifyingKey: string }>;
-  getShieldedAddresses: () => Promise<{ shieldedAddress: string }>;
+  /**
+   * Shielded keys, in the same SHAPE as the dapp-connector-api's
+   * `getShieldedAddresses()` so a consumer can branch on encoding rather than
+   * on structure.
+   *
+   * Encoding still differs by design: these are HEX
+   * (`ShieldedAddress.{coin,encryption}PublicKeyString()` return
+   * `.data.toString('hex')`), whereas Lace returns bech32m. Do not run these
+   * through `parseCoinPublicKeyToHex` / `parseEncPublicKeyToHex`.
+   *
+   * Both keys matter for contract calls that pay the caller: the coin public
+   * key is the output recipient, and the ciphertext is keyed off the
+   * encryption public key. Supplying only one means the wallet never finds the
+   * coin it was just sent.
+   */
+  getShieldedAddresses: () => Promise<{
+    shieldedAddress: string;
+    shieldedCoinPublicKey: string;
+    shieldedEncryptionPublicKey: string;
+  }>;
   /** The derived seed, exposed so tests can persist/reuse the wallet. */
   seed: string;
   /** Public verifying key for the unshielded signing role (hex). */
@@ -83,6 +102,13 @@ export type MidnightLocalApi = {
   dustAddress?: string;
   /** Hex-encoded shielded coin public key. Populated only in facade mode. */
   shieldedAddress?: string;
+  /**
+   * Hex-encoded shielded ENCRYPTION public key. Populated only in facade mode.
+   * Needed alongside `shieldedAddress` by anything that builds a shielded
+   * output for this wallet (e.g. a contract mint) — without it the ciphertext
+   * is keyed to the wrong recipient and the coin is never discovered.
+   */
+  shieldedEncryptionPublicKey?: string;
   /**
    * Escape hatch: the entire `WalletResult` returned by
    * `@effectstream/midnight-contracts.buildWalletFacade`. Exposes the raw
@@ -199,9 +225,17 @@ export class MidnightLocalConnector {
     // of `@effectstream/wallets`.
     const contractsMod = await import(
       "@effectstream/midnight-contracts/wallet-info"
-    ).catch(() => {
+    ).catch((cause: unknown) => {
+      // Preserve the underlying reason. A missing peer dep is only ONE way this
+      // import fails — it also rejects when the module resolves but cannot load,
+      // e.g. in a browser bundle where `./wallet-info` drags in node:fs. Naming
+      // only the peer-dep case sends people to reinstall a package they already
+      // have.
       throw new Error(
-        "@effectstream/midnight-contracts is required when `networkUrls` is passed to MidnightLocal.connectFromSeed. Install it as a peer dependency.",
+        "Could not load @effectstream/midnight-contracts/wallet-info, needed when `networkUrls` is passed to MidnightLocal.connectFromSeed. " +
+          "Either it is not installed (add it as a peer dependency), or it failed to load in this runtime — see `cause`. " +
+          `Underlying error: ${cause instanceof Error ? cause.message : String(cause)}`,
+        { cause },
       );
     });
     const { hdMod, keystoreMod } = await loadKeystoreDeps();
@@ -237,6 +271,13 @@ export class MidnightLocalConnector {
       walletResult.wallet.shielded,
     );
     const shieldedAddress = initialShielded.address.coinPublicKeyString();
+    // The encryption key sits right next to the coin key on the same address
+    // object. It used to be dropped here, which forced every consumer that
+    // builds a shielded output for this wallet (a contract mint, say) to
+    // re-derive it by calling getInitialShieldedState again from
+    // @effectstream/midnight-contracts.
+    const shieldedEncryptionPublicKey =
+      initialShielded.address.encryptionPublicKeyString();
 
     const api: MidnightLocalApi = {
       signData: async (data, options) => {
@@ -251,13 +292,21 @@ export class MidnightLocalConnector {
           verifyingKey,
         };
       },
-      getShieldedAddresses: async () => ({ shieldedAddress }),
+      // `shieldedAddress` is repeated as `shieldedCoinPublicKey` so the shape
+      // matches the dapp-connector-api's — locally the "address" IS the coin
+      // public key, so they are the same value under both names.
+      getShieldedAddresses: async () => ({
+        shieldedAddress,
+        shieldedCoinPublicKey: shieldedAddress,
+        shieldedEncryptionPublicKey,
+      }),
       seed,
       verifyingKey,
       unshieldedAddress: walletResult.unshieldedAddress,
       walletFacade: walletResult.wallet,
       dustAddress: walletResult.dustAddress,
       shieldedAddress,
+      shieldedEncryptionPublicKey,
       walletResult,
     };
 
