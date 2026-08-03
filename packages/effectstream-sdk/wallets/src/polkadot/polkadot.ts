@@ -2,7 +2,7 @@ import type {
   InjectedExtension,
   InjectedWindowProvider,
 } from "@polkadot/extension-inject/types";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 import {
   type IConnector,
   type IInjectedConnector,

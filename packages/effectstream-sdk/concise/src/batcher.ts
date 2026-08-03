@@ -4,7 +4,7 @@ import {
   type TimestampMsStr,
   TypeboxHelpers,
   type WalletAddress,
-} from "@effectstream/utils";
+} from "@effectstream/utils/types";
 import { CryptoManager } from "@effectstream/crypto";
 import {
   BatcherGrammar,

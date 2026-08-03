@@ -1,4 +1,4 @@
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 
 
 export type WalletOption = {

@@ -9,7 +9,7 @@ import { viemLoginWrapper } from "./evm/wrapper-viem.ts";
 import { minaLoginWrapper } from "./mina/wrapper.ts";
 import { availJsLoginWrapper } from "./avail/wrapper.ts";
 import { WalletMode } from "./utils.ts";
-import type { Result } from "@effectstream/utils";
+import type { Result } from "@effectstream/utils/types";
 import type { Wallet } from "./types.ts";
 import type { LoginInfo } from "./wallet-modes.ts";
 // import { assertNever } from "assert-never";

@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { generateEffectstreamBlockHash } from "./effectstream-hash.ts";
-import type { BlockHash, EffectstreamBlockHash } from "@effectstream/utils";
+import type { BlockHash, EffectstreamBlockHash } from "@effectstream/utils/types";
 
 test("generateEffectstreamBlockHash - generates hash correctly", () => {
   const mockBlock = {

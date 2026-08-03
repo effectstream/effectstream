@@ -1,5 +1,5 @@
 import { bech32 } from "bech32";
-import { hexStringToUint8Array, AddressType } from "@effectstream/utils";
+import { hexStringToUint8Array, AddressType } from "@effectstream/utils/types";
 import { 
   type IConnector, 
   type IInjectedConnector, 

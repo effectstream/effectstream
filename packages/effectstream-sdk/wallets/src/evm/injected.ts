@@ -1,5 +1,5 @@
 import type { MetaMaskInpageProvider } from "@metamask/providers";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 import {
   type ActiveConnection,
   type AddressAndType,

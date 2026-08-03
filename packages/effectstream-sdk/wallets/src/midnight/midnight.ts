@@ -1,4 +1,4 @@
-import { AddressType, type MidnightAddress } from "@effectstream/utils";
+import { AddressType, type MidnightAddress } from "@effectstream/utils/types";
 import type {
   ConnectedAPI,
   InitialAPI,

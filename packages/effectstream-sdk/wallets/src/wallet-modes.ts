@@ -1,5 +1,5 @@
 import type { ApiPromise } from "avail-js-sdk";
-import type { Result } from "@effectstream/utils";
+import type { Result } from "@effectstream/utils/types";
 import type { AlgorandApi } from "./algorand/algorand.ts";
 import type { CardanoApi } from "./cardano/cardano.ts";
 import type { CardanoLocalNetwork } from "./cardano/local.ts";
@@ -19,7 +19,7 @@ import {
   type InjectionPreference,
   WalletMode,
 } from "./utils.ts";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 import { formatError } from "./helpers/format-error.ts";
 import type { MidnightApi } from "./midnight/midnight.ts";
 import type {} from "./midnight/local.ts";

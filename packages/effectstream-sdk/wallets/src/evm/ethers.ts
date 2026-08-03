@@ -6,7 +6,7 @@ import type {
 } from "ethers";
 
 import { Buffer } from "node:buffer";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 import type {
   ActiveConnection,
   AddressAndType,

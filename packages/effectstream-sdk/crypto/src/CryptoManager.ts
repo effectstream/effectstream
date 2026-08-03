@@ -4,7 +4,7 @@ import { EvmCrypto } from "./chains/evm.ts";
 import { PolkadotCrypto } from "./chains/polkadot.ts";
 import { MinaCrypto } from "./chains/mina.ts";
 import { MidnightCrypto } from "./chains/midnight.ts";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 import { IVerify } from "./IVerify.ts";
 
 export class CryptoManager {

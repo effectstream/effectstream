@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { accountMessages } from "./delegate.ts";
-import type { WalletAddress } from "@effectstream/utils";
+import type { WalletAddress } from "@effectstream/utils/types";
 
 const MOCK_ADDRESS = "0x1234567890123456789012345678901234567890" as WalletAddress;
 const MOCK_ADDRESS_2 = "0x0987654321098765432109876543210987654321" as WalletAddress;

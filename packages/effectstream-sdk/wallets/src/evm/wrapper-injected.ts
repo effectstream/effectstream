@@ -1,4 +1,4 @@
-import type { Result } from "@effectstream/utils";
+import type { Result } from "@effectstream/utils/types";
 import type { IProvider } from "../IProvider.ts";
 import type { ApiForMode, WalletMode } from "../utils.ts";
 import { connectInjected, type LoginInfoMap } from "../wallet-modes.ts";
