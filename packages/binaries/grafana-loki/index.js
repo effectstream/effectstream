@@ -4,6 +4,8 @@ import BinWrapper from '@xhmikosr/bin-wrapper';
 import { spawn } from 'node:child_process';
 import process from 'node:process';
 import fs from 'node:fs';
+import { verifyBinaryChecksum } from '@effectstream/binary-checksum';
+import { CHECKSUMS } from './checksums.js';
 
 console.log(`Starting Grafana Loki on ${platform()} ${arch()}`);
 
@@ -58,6 +60,22 @@ const bin = new BinWrapper()
 
 
 async function runBinary(args = []) {
+	// Download and verify BEFORE `bin.run`. `bin.run()` resolves the binary and
+	// then executes it (the `.version()` constraint above makes it exec
+	// `--version` to check), so calling it first would run an unverified binary
+	// and leave the integrity check with nothing left to protect.
+	if (!fs.existsSync(bin.path())) {
+		await bin.download();
+	}
+	const flavour = verifyBinaryChecksum({
+		binaryPath: bin.path(),
+		checksums: CHECKSUMS,
+		packageName: 'grafana-loki',
+		skipEnvVar: 'GRAFANA_LOKI_SKIP_CHECKSUM',
+		version,
+	});
+	console.log(`[grafana-loki] verified loki v${version} (${flavour})`);
+
 	// Check if the binary is installed working.
 	await bin.run(['--version']);
 
