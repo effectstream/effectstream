@@ -18,6 +18,7 @@
     "vite": "^6.2.0",
     "@vitejs/plugin-react": "^4.3.0",
     "vite-plugin-node-stdlib-browser": "^0.2.1",
+    "vite-plugin-wasm": "^3.5.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.5.0"
