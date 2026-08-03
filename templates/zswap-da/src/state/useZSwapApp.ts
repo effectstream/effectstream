@@ -225,8 +225,8 @@ export function useZSwapApp(): ZSwapApp {
   useEffect(() => subscribeTrades(() => setMyTrades([...listTrades()])), []);
 
   // The active wallet's transaction capability (mint/create/take). Injected
-  // (Lace) is implemented; local (JS facade) is a portable stub. Every
-  // transaction below routes through this seam.
+  // (Lace) goes through the dapp-connector; local (JS facade) through the
+  // wallet facade's own APIs. Every transaction below routes through this seam.
   const tradeWallet = useMemo<TradeWallet | null>(() => {
     if (connected?.kind === 'injected' && connected.connectedApi) {
       return makeInjectedTradeWallet(connected.connectedApi, {
@@ -234,8 +234,8 @@ export function useZSwapApp(): ZSwapApp {
         mintUnshielded: contract.mintUnshielded,
       });
     }
-    if (connected?.kind === 'local') {
-      return makeLocalTradeWallet({
+    if (connected?.kind === 'local' && connected.localApi) {
+      return makeLocalTradeWallet(connected.localApi, {
         mintShielded: contract.mintShielded,
         mintUnshielded: contract.mintUnshielded,
       });

@@ -57,29 +57,32 @@ export function makeInjectedTradeWallet(connectedApi: ConnectedAPI, mint: MintFn
   };
 }
 
-export const LOCAL_WALLET_OFFERS_NOT_WIRED =
-  'Creating and taking offers is not wired for the JS wallet yet — connect Lace for that. Minting works here.';
-
 /**
- * Built-in JS (facade) wallet.
+ * Built-in JS (facade) wallet — full capability.
  *
- * Mint is REAL: it runs the same contract-call path as Lace, with the facade
- * balancing and sealing behind ContractWallet. Offers still throw, because
- * buildMakerOfferBlob/proveAndSubmitOffer are written against Lace's
- * makeIntent/balanceSealedTransaction and have no facade equivalent here yet.
+ * Mint runs the same contract-call path as Lace, with the facade balancing and
+ * sealing behind ContractWallet. Offers go through the facade's own swap API
+ * (services/localTradeOffers.ts): initSwap/signRecipe for the maker,
+ * balanceFinalizedTransaction + merge for the taker — no makeIntent needed.
  */
-export function makeLocalTradeWallet(mint: MintFns): TradeWallet {
-  const noOffers = async (): Promise<never> => {
-    throw new Error(LOCAL_WALLET_OFFERS_NOT_WIRED);
-  };
+export function makeLocalTradeWallet(localApi: unknown, mint: MintFns): TradeWallet {
   return {
     kind: 'local',
     canMint: true,
-    canTrade: false,
-    unsupportedReason: LOCAL_WALLET_OFFERS_NOT_WIRED,
+    canTrade: true,
     mintShielded: mint.mintShielded,
     mintUnshielded: mint.mintUnshielded,
-    buildOfferBlob: noOffers,
-    settleOffer: noOffers,
+    buildOfferBlob: async (networkId, gives, wants) => {
+      const { buildMakerOfferBlobLocal } = await import('../services/localTradeOffers');
+      return buildMakerOfferBlobLocal(localApi as never, networkId, gives, wants);
+    },
+    settleOffer: async (config, blob) => {
+      dlog('tradeWallet.settleOffer → settleOfferLocal (JS wallet facade)', {
+        networkId: config.networkId,
+        blobLen: blob.length,
+      });
+      const { settleOfferLocal } = await import('../services/localTradeOffers');
+      return settleOfferLocal(localApi as never, config, blob);
+    },
   };
 }
