@@ -19,7 +19,8 @@ import { useTokens } from '../hooks/useTokens';
 import { useContract, type BrowserMintResult } from '../hooks/useContract';
 import { useMintReconciler } from '../hooks/useMintReconciler';
 import { type OfferLeg } from '../services/makerOffer';
-import { makeInjectedTradeWallet, makeLocalTradeWalletStub, type TradeWallet } from './tradeWallet';
+import { makeInjectedTradeWallet, makeLocalTradeWallet, type TradeWallet } from './tradeWallet';
+import { injectedContractWallet, localContractWallet, type ContractWallet } from '../services/contractWallet';
 import { api } from '../services/api';
 import { addMyOffer } from './myOffers';
 import type { ConfirmPayload } from '../ui/ConfirmModal';
@@ -207,7 +208,18 @@ export function useZSwapApp(): ZSwapApp {
   const [network, setNetwork] = useState(DISPLAY_NETWORK);
   const zapi = useZSwapAPI();
   const { knownTokens, refetchTokens } = useTokens();
-  const contract = useContract(connected?.connectedApi ?? null);
+  // Contract (mint) wallet adapter — BOTH wallets can drive the contract: Lace
+  // through the dapp-connector, the built-in JS wallet through the facade.
+  const contractWallet = useMemo<ContractWallet | null>(() => {
+    if (connected?.kind === 'injected' && connected.connectedApi) {
+      return injectedContractWallet(connected.connectedApi);
+    }
+    if (connected?.kind === 'local' && connected.localApi) {
+      return localContractWallet(connected.localApi);
+    }
+    return null;
+  }, [connected]);
+  const contract = useContract(contractWallet);
   const [mintTick, setMintTick] = useState(0);
   const [myTrades, setMyTrades] = useState<MyTrade[]>(() => listTrades());
   useEffect(() => subscribeTrades(() => setMyTrades([...listTrades()])), []);
@@ -222,13 +234,18 @@ export function useZSwapApp(): ZSwapApp {
         mintUnshielded: contract.mintUnshielded,
       });
     }
-    if (connected?.kind === 'local') return makeLocalTradeWalletStub(connected.localApi);
+    if (connected?.kind === 'local') {
+      return makeLocalTradeWallet({
+        mintShielded: contract.mintShielded,
+        mintUnshielded: contract.mintUnshielded,
+      });
+    }
     return null;
   }, [connected, contract.mintShielded, contract.mintUnshielded]);
 
   const requireWallet = useCallback((): TradeWallet => {
     if (!tradeWallet) throw new Error('Connect a wallet first.');
-    if (!tradeWallet.canTransact) throw new Error(tradeWallet.unsupportedReason ?? 'This wallet cannot transact yet.');
+    if (!tradeWallet.canTrade) throw new Error(tradeWallet.unsupportedReason ?? 'This wallet cannot trade yet.');
     return tradeWallet;
   }, [tradeWallet]);
 
@@ -499,7 +516,7 @@ export function useZSwapApp(): ZSwapApp {
     async (blob: string) => {
       dlog('takeOffer: enter', { blobLen: blob.length, blobHead: blob.slice(0, 24) });
       const w = requireWallet();
-      dlog('takeOffer: wallet', { kind: w.kind, canTransact: w.canTransact });
+      dlog('takeOffer: wallet', { kind: w.kind, canTrade: w.canTrade });
 
       // Authoritative balance guard: every take path funnels here, so block once
       // on fresh balances (a missing input coin makes Lace's makeIntent hang).
@@ -625,7 +642,7 @@ export function useZSwapApp(): ZSwapApp {
   // the pay/receive across the selection; settles each via the batcher in turn.
   const requestTakeMany = useCallback(
     async (orders: Order[]) => {
-      if (!tradeWallet?.canTransact) {
+      if (!tradeWallet?.canTrade) {
         toast('Use the browser wallet (Lace) to take offers.');
         return;
       }
@@ -898,12 +915,12 @@ export function useZSwapApp(): ZSwapApp {
     refetchOffers: zapi.fetchOffers,
     refetchTokens,
     selfUnshieldedHex,
-    canMint: !!tradeWallet?.canTransact,
+    canMint: !!tradeWallet?.canMint && !!contractWallet,
     contractBusy: contract.loading,
     mintShielded,
     mintUnshielded,
     onMinted,
-    canTrade: !!tradeWallet?.canTransact,
+    canTrade: !!tradeWallet?.canTrade,
     createOffer,
     takeOffer,
     pendingConfirm,

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "zswap-da",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "templates/zswap-da", "dev"],
+      "port": 10600
+    }
+  ]
+}
