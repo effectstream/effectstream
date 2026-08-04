@@ -35,8 +35,8 @@ Optional but commonly expected:
   "scripts": {
     "build:hardhat": "bun run swap:remappings:hardhat && bun ./node_modules/.bin/hardhat compile",
     "build:forge": "bun run swap:remappings:forge && forge build",
-    "hardhat:start": "...",
-    "hardhat:wait": "...",
+    "chain:start": "...",
+    "chain:wait": "...",
     "deploy": "...",
     "build:mod": "(bun run deploy:standalone || true) && bun -e 'await import(\"@effectstream/evm-hardhat/builder\")'",
     "swap:remappings:forge": "bun ./node_modules/@effectstream/evm-hardhat/src/remappings/remappings-forge.ts --depth=0",
@@ -159,7 +159,7 @@ The orchestrator's `generate-evm-mod` step (and `bun run build:evm`) writes `pac
 
 `@effectstream/evm-hardhat/builder` reads exclusively from `build/artifacts/forge/`, not `build/artifacts/hardhat/`. So **Foundry must be installed and `forge build` must run** before the builder can generate `build/mod.ts` with ABI exports.
 
-The orchestrator's `launchEvm` only runs `build:hardhat` (for deployment). Either pre-build forge artifacts or have `build:hardhat` also trigger `build:forge`. Without forge artifacts, `build/mod.ts` will be `export {}` and frontend imports like `erc721dev` will fail.
+The orchestrator's `launchEvm` runs both `build:hardhat` (for deployment) and `build:forge` (both are in its REQUIRED_SCRIPTS), and it hard-errors at launch if `forge` is not on PATH. Without forge artifacts, `build/mod.ts` will be `export {}` and frontend imports like `erc721dev` will fail.
 
 ### Remappings depth MUST be `--depth=0`
 

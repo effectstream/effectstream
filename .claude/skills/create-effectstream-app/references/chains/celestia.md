@@ -1,6 +1,6 @@
 # Celestia
 
-`packages/contracts-celestia/` — Celestia DA layer config + bridge funding. The `launchCelestia` helper (added in engine `0.100.16`) handles the four-process boot chain.
+`packages/contracts-celestia/` — Celestia DA layer config + bridge funding. The `launchCelestia` helper (present as of engine `0.102.0`) handles the four-process boot chain.
 
 > **See also (concept docs).**
 > - Celestia chain overview: `docs/site/docs/home/200-chains/209-celestia.md`
@@ -99,7 +99,7 @@ const blobObj = { namespace, data, share_version: 0 };
 const txConfig = { fee: 2000, gasLimit: 100000 };  // devnet values
 ```
 
-Namespace is base64-encoded 29 bytes: 1 version byte `0x00` + 28-byte ID, right-aligned. The canonical encoding helper is `CelestiaClient.celestiaNamespaceToBase64` in `packages/batcher/adapters/celestia-adapter.ts`. Lifting that snippet into the Phase B test is the simplest path.
+Namespace is base64-encoded 29 bytes: 1 version byte `0x00` + 28-byte ID, right-aligned. The canonical encoding helper is the exported `celestiaNamespaceToBase64` function in `packages/node-sdk/sync/src/sync-protocols/celestia/CelestiaClient.ts` (the batcher adapter keeps its own private copy). Lifting that snippet into the Phase B test is the simplest path.
 
 ## Frontend / wallet integration
 

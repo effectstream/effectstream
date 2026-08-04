@@ -29,7 +29,7 @@ After the structural migration, **everything in SKILL.md and the other reference
 
 ## Migrating from `@paimaexample/*` Templates
 
-All existing templates (chess, dice, minimal, rock-paper-scissors, multi-chain-token-transfer, night-bitcoin, world-map-2d, evm-midnight) use the old `@paimaexample/*` SDK with a nested directory structure.
+Three templates still use the old `@paimaexample/*` SDK with a nested directory structure: **dice, rock-paper-scissors, multi-chain-token-transfer**. `world-map-2d` and `minimal` are already migrated to `@effectstream/*` (0.102.0); chess, night-bitcoin, and evm-midnight exist only as migrated `-v2` templates (`chess-v2`, `night-bitcoin-v2`, `evm-midnight-v2`).
 
 ### Step 1: Package namespace rename
 

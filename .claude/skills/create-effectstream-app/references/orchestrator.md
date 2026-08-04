@@ -5,9 +5,9 @@
 > **See also (concept docs).**
 > - Orchestrator processes concept + CLI reference (`start`, `status`, `restart`, `stop`, `list`, `silence/unsilence`, `logs`): `docs/site/docs/home/500-packages/550-tools/orchestrator.md`
 > - High-level "what is the process orchestrator": `docs/site/docs/home/100-components/106-processes.md`
-> - **`DISABLE_*` env vars** (`DISABLE_EVM`, `DISABLE_MIDNIGHT`, `DISABLE_BITCOIN`, `DISABLE_CARDANO`, `DISABLE_NEAR`, `DISABLE_AVAIL`, `DISABLE_CELESTIA`) for skipping optional chains in dev — see the orchestrator doc.
+> - **`DISABLE_*` env vars** (`DISABLE_EVM`, `DISABLE_MIDNIGHT`, …) are read ONLY by the engine repo's `e2e/runner.ts` to skip test suites — the orchestrator itself does not read them, and templates do not implement them. To skip processes in dev, use `--only` / `--except`.
 > - **Daemon mode**: `bunx orchestrator start --background` runs the orchestrator as a detached daemon and exposes the full HTTP API on port 4747. The follow-up commands `status`, `restart <name>`, `logs <name>`, and `stop` all require the daemon to be running first. For interactive use (single terminal, foreground TUI) drop `--background`. README quick-starts should default to foreground; CI / containerized dev rigs should use daemon mode.
-> - **Always run `bunx orchestrator stop` before relaunching** or before running tests — clears stale ports from the previous run. The skill bakes this into the canonical `build:pgtypes` script for the same reason.
+> - **Always run `bunx orchestrator stop` before relaunching** or before running tests — clears stale ports from the previous run.
 
 ## Minimal example (EVM only)
 
@@ -79,12 +79,14 @@ Each launcher returns a `ProcessConfig[]` and exports named constants for `depen
 | Launcher | Import | Names export | Required package scripts |
 |---|---|---|---|
 | `launchPglite()` | `@effectstream/orchestrator/launch-pglite` | `DbNames` | (none — uses engine's PGLite) |
-| `launchEvm(pkg, loc)` | `@effectstream/orchestrator/launch-evm` | `EvmNames` | `build:hardhat`, `hardhat:start`, `hardhat:wait`, `deploy`, `build:mod` |
+| `launchEvm(pkg, loc)` | `@effectstream/orchestrator/launch-evm` | `EvmNames` | `chain:start`, `chain:wait`, `build:hardhat`, `build:forge`, `deploy` |
 | `launchMidnight(pkg, loc, opts?)` | `@effectstream/orchestrator/launch-midnight` | `MidnightNames` | `midnight-node:{start,wait}`, `midnight-indexer:{start,wait}`, `midnight-proof-server:{start,wait}`, `midnight-contract:deploy` |
-| `launchBitcoin(pkg, loc)` | `@effectstream/orchestrator/launch-bitcoin` | `BitcoinNames` | `chain:start`, `chain:wait`, `mine-blocks`, `wait-for-block` |
-| `launchCardano(pkg, loc)` | `@effectstream/orchestrator/launch-cardano` | `CardanoNames` | `yaci-devkit:{start,wait}`, `dolos:*`, `cardano:submit-tx` |
+| `launchBitcoin(pkg, loc)` | `@effectstream/orchestrator/launch-bitcoin` | `BitcoinNames` | `chain:start`, `chain:wait`, `generate:blocks`, `wait-for-block` |
+| `launchCardano(pkg, loc)` | `@effectstream/orchestrator/launch-cardano` | `CardanoNames` | `devkit:start`, `devkit:wait`, `dolos:fill-template`, `dolos:start`, `dolos:wait`, `cardano-submit-tx` |
 | `launchNear(pkg, loc)` | `@effectstream/orchestrator/launch-near` | `NearNames` | `chain:start`, `chain:wait` |
-| `launchAvail(pkg, loc)` | `@effectstream/orchestrator/launch-avail` | `AvailNames` | `avail-node:start`, `avail-light-client:*` |
+| `launchAvail(pkg, loc)` | `@effectstream/orchestrator/launch-avail` | `AvailNames` | `avail-node:start`, `avail-node:wait`, `avail-light-client:deploy`, `avail-light-client:wait` |
+
+(EVM mod generation is not a package script — the launcher runs `@effectstream/evm-hardhat/builder` inline for `EvmNames.GENERATE_MOD`.)
 
 ## The `cwd` vs `resolveFrom` rule (critical)
 
@@ -201,6 +203,16 @@ Keep `CARDANO_SUBMIT_TX` in `start.test.ts` if tests need pre-funded delegation.
 ```
 
 The CLI reads `package.json`'s `effectstream.default` to find the start file. To target a different file ad-hoc: `bunx orchestrator start start.test.ts`.
+
+### CLI flags that matter for scaffolded apps
+
+- `-c, --config <path>` — explicit config file (otherwise auto-detected from daemon state, `package.json`, or `orchestrator.config.ts`)
+- `-b, --background` — detached daemon; logs to `.orchestrator-logs/`, HTTP API on `-p, --port` (default 4747)
+- `-o, --only <p1,p2,...>` — run only these processes plus their dependencies. This is also how `autoStart: false` processes get run — they're skipped on a normal `start` and only launch when named via `--only`
+- `-e, --except <p1,p2,...>` — skip these processes
+- `-s, --serial` — launch one at a time instead of in parallel waves
+
+`bunx orchestrator start hardhat deploy-evm-contracts` (positional names) also starts a subset.
 
 Mainnet does **not** use the orchestrator (no local infra to manage):
 ```json

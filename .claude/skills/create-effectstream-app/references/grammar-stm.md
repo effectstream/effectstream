@@ -4,7 +4,7 @@ This file covers the `packages/node/` core: `grammar.ts`, `state-machine.ts`, `a
 
 > **See also (concept docs).** For the "what is" and "why" — these are authoritative:
 > - State machine concept + STF determinism: `docs/site/docs/home/100-components/102-state-machine.md`, `docs/site/docs/home/500-packages/520-node/sm.md`
-> - Grammar concept incl. built-in `&`-prefixed system commands (RESERVED — do not shadow with custom keys) and the `mapPrimitivesToGrammar` helper: `docs/site/docs/home/100-components/111-grammar.md`
+> - Grammar concept incl. built-in `&`-prefixed system commands (RESERVED — do not shadow with custom keys): `docs/site/docs/home/100-components/111-grammar.md`
 > - Built-in primitives catalog (full payload field tables per chain): `docs/site/docs/home/100-components/118-primitives.md`
 > - API surface incl. built-in `/health`, `/block-heights`, `/addresses`, `/scheduled-data`, `/tables/:name`, `/primitives/:name`, `/rpc/evm`, `/grammar`, OpenAPI `/documentation`: `docs/site/docs/home/100-components/103-api.md`
 > - Node startup + `init` + `start` + `withEffectstreamStaticConfig`: `docs/site/docs/home/100-components/117-node-startup.md`, `docs/site/docs/home/500-packages/520-node/runtime.md`
@@ -35,7 +35,7 @@ export const grammar = {
 } as const satisfies GrammarDefinition;
 ```
 
-**Wire format.** When submitting via `effectstreamSubmitGameInput` (or through the batcher), the JSON payload is `["grammarKey", value1, value2, ...]`. The first element must be the exact grammar object key (e.g. `"createRoom"`, not a short alias `"c"`); subsequent values must use proper JS types matching the Typebox schema. `"4"` (string) when the schema expects `Type.Number()` will fail parsing.
+**Wire format.** When submitting via `effectstreamSubmitGameInput` (or through the batcher), the JSON payload is `["grammarKey", value1, value2, ...]`. The first element must be the exact grammar object key (e.g. `"createRoom"`, not a short alias `"c"`); subsequent values should use proper JS types matching the Typebox schema. (Parsing runs TypeBox `Value.Parse`, whose Convert step coerces near-misses like `"4"` → `4` for `Type.Number()` — but don't lean on coercion; send the real types.)
 
 > **`&`-prefixed keys are reserved for engine system commands** — `&B` (batched inputs), `&createAccount`, `&linkAddress`, `&unlinkAddress`. Never declare a custom grammar key that starts with `&`; it will collide with the engine. See `docs/site/docs/home/100-components/104-l2-contract.md`, `docs/site/docs/home/100-components/111-grammar.md`, and `docs/site/docs/home/100-components/116-accounts.md`.
 
@@ -44,12 +44,13 @@ export const grammar = {
 | Grammar key | Chain | Use |
 |---|---|---|
 | `evmErc20` | EVM | ERC-20 Transfer events (`{ from, to, value }`) |
-| `evmErc721` | EVM | ERC-721 Transfer events (`{ from, to, tokenId }`) |
-| `evmErc1155` | EVM | ERC-1155 TransferSingle (`{ from, to, tokenId, amount }`) |
+| `evmErc721` | EVM | ERC-721 Transfer events (`{ from, to, tokenId, isBurn }`) |
+| `evmErc1155` | EVM | ERC-1155 TransferSingle/TransferBatch (`{ type, from, to, tokenId, amount, isMint, isBurn, operator }`) |
 | `midnightGeneric` | Midnight | Generic ledger contract state (`{ payload }`) |
+| `midnightTokenMint` | Midnight | Token mint/burn events (`{ contractAddress, domainSep, rawTokenType, kind, amount, txHash, entryPoint }`) |
 | `bitcoinAddress` | Bitcoin | Address transaction events |
 | `utxorpcGeneric` | Cardano | Generic UTXO events |
-| `cardanoMintBurn` | Cardano | Mint/burn (`{ policy, asset, quantity }`) |
+| `cardanoMintBurn` | Cardano | Mint/burn (`{ txId, metadata, assets, inputAddresses, outputAddresses }`) |
 | `cardanoTransfer` | Cardano | ADA/token transfers |
 | `cardanoPoolDelegation` | Cardano | Stake delegation certs (`{ address, pool, epoch }`) |
 | `cardanoDelayedAsset` | Cardano | Delayed asset claims |
@@ -62,6 +63,9 @@ export const grammar = {
 | `nearIntent` | NEAR | DIP-4 intent events |
 | `nearGeneric` | NEAR | NEP-297 generic events |
 | `nearAccountWatch` | NEAR | Function call tracking |
+| `solanaProgramLog` | Solana | Program log messages (`{ slot, programId, logMessages }`) |
+| `solanaAccountBalance` | Solana | Account lamport balance changes (`{ address, lamports, slot }`) |
+| `solanaTokenAccount` | Solana | SPL token account state (`{ tokenAccount, mint, owner, amount, decimals, slot }`) |
 
 ## 2. State Machine (`state-machine.ts`)
 
@@ -284,12 +288,14 @@ main(function* () {
 | `appName` | Yes | Application identifier |
 | `appVersion` | Yes | Semantic version (`"1.0.0"`) |
 | `syncInfo` | Yes | From `toSyncProtocolWithNetwork(config)` |
-| `gameStateTransitions` | Yes | The STM router function |
-| `migrations` | Yes | SQL migration table |
-| `grammar` | Yes | Grammar definition |
+| `gameStateTransitions` | No¹ | The STM router function |
+| `migrations` | No¹ | SQL migration table |
+| `grammar` | No¹ | Grammar definition |
 | `apiRouter` | No | Fastify route registration |
 | `userDefinedPrimitives` | No | Custom primitive constructors (see §7) |
 | `snapshotConfig` | No | Periodic DB snapshot settings |
+
+¹ Optional in the `StartConfig` type (`packages/node-sdk/runtime/src/types.ts`), but a real app is inert without them — always provide all three.
 
 ## 6. Config (`config.dev.ts`)
 
@@ -351,7 +357,7 @@ export const config = new ConfigBuilder()
       type: PrimitiveTypeEVMEffectstreamL2,
       startBlockHeight: 0,
       contractAddress: contractAddressesEvmMain().chain31337["MyPaimaL2Module#MyPaimaL2"],
-      stateMachinePrefix: "",
+      // no stateMachinePrefix — the L2 primitive ignores it (grammar key comes from the payload)
     }))
     .addPrimitive((s) => s.parallelEvmRPC, () => ({
       name: "MyERC721",
@@ -364,7 +370,7 @@ export const config = new ConfigBuilder()
   .build();
 ```
 
-> **`PrimitiveTypeEVMEffectstreamL2` — add only when needed.** This is an EVM-specific tool: a contract + scanner that lets users send arbitrary messages (concise/game inputs) to the backend via `effectstreamSubmitGameInput` or the batcher. It adds an extra contract to scan, which is expensive — so only include it when the template has standalone user actions that don't originate from events already emitted by other contracts (ERC20 transfers, Midnight state changes, etc.). When it IS needed and missing, the failure is silent: no error, no crash, just empty query results. The L2 primitive reads `EffectstreamGameInteraction` events from the L2 contract and routes them to the state machine via the grammar. Chain-event primitives (ERC20, ERC721, Midnight, etc.) handle their own event types but do NOT read L2 game inputs. `stateMachinePrefix` must be `""` (empty string) — the grammar key is encoded inside the JSON payload, not derived from the prefix.
+> **`PrimitiveTypeEVMEffectstreamL2` — add only when needed.** This is an EVM-specific tool: a contract + scanner that lets users send arbitrary messages (concise/game inputs) to the backend via `effectstreamSubmitGameInput` or the batcher. It adds an extra contract to scan, which is expensive — so only include it when the template has standalone user actions that don't originate from events already emitted by other contracts (ERC20 transfers, Midnight state changes, etc.). When it IS needed and missing, the failure is silent: no error, no crash, just empty query results. The L2 primitive reads `EffectstreamGameInteraction` events from the L2 contract and routes them to the state machine via the grammar. Chain-event primitives (ERC20, ERC721, Midnight, etc.) handle their own event types but do NOT read L2 game inputs. Omit `stateMachinePrefix` on the L2 primitive — its constructor hardcodes it to `undefined` and ignores anything you pass; the grammar key is encoded inside the JSON payload, not derived from the prefix.
 
 ### Networks (`ConfigNetworkType`)
 
@@ -390,11 +396,11 @@ Common sync-protocol fields: `startBlockHeight`, `pollingInterval`, `confirmatio
 
 ### ⚠️ Silent killer: `stateMachinePrefix` vs `scheduledPrefix`
 
-The `ConfigBuilder.addPrimitive(...)` TypeScript schema exposes the field as **`scheduledPrefix`**. The built-in primitive constructors (`Nep141Primitive`, `Erc20Primitive`, `BitcoinPrimitive`, …) read the field as **`stateMachinePrefix`** (per `packages/node-sdk/sm/primitives/Primitive.ts:37` — `this.stateMachinePrefix = config.stateMachinePrefix`). The engine's runtime spreads `primitiveConfig` straight into the constructor without renaming, so whichever name you write in `addPrimitive(...)` is the only one the constructor sees.
+The `ConfigBuilder.addPrimitive(...)` TypeScript schema exposes **`stateMachinePrefix?: string`** as the documented field, and keeps **`scheduledPrefix?: string`** only as an `@deprecated`, type-level-only alias for old configs (`packages/effectstream-sdk/config/src/schema/sync-protocols/types.ts`, `BasePrimitive`). The built-in primitive constructors (`Nep141Primitive`, `Erc20Primitive`, `BitcoinAddressPrimitive`, …) read only **`stateMachinePrefix`** (per `packages/node-sdk/sm/primitives/Primitive.ts:38` — `this.stateMachinePrefix = config.stateMachinePrefix`). The engine's runtime spreads `primitiveConfig` straight into the constructor without renaming, so `scheduledPrefix` never reaches the runtime.
 
-**The bug:** if you only set `scheduledPrefix` (because that's what TypeScript completes), the constructor's `stateMachinePrefix` is `undefined`. The primitive then writes to `effectstream.primitive_accounting` (and any chain-specific IVM tables it ships with) but **never schedules an STM input**. User STM transitions silently never fire — no error, no crash, just empty `public.*` tables. The engine's own `e2e/` tests don't catch this because they only assert against `primitive_accounting` and IVM tables.
+**The bug:** if you only set `scheduledPrefix` (copied from an old config, or picked from autocomplete), the constructor's `stateMachinePrefix` is `undefined`. The primitive then writes to `effectstream.primitive_accounting` (and any chain-specific IVM tables it ships with) but **never schedules an STM input**. User STM transitions silently never fire — no error, no crash, just empty `public.*` tables. The engine's own `e2e/` tests don't catch this because they only assert against `primitive_accounting` and IVM tables.
 
-**Workaround until the engine reconciles the names**: set BOTH keys to the same value:
+**The fix**: always use `stateMachinePrefix` (it typechecks directly — no cast needed) and never write `scheduledPrefix` in new code:
 
 ```ts
 .addPrimitive((s) => s.parallelEvmRPC, () => ({
@@ -402,12 +408,8 @@ The `ConfigBuilder.addPrimitive(...)` TypeScript schema exposes the field as **`
   type: PrimitiveTypeEVMERC721,
   contractAddress: addresses.chain31337["…"],
   startBlockHeight: 0,
-  // Cast to `any` because TypeScript only knows about `scheduledPrefix`.
-  // The constructor reads `stateMachinePrefix`; the output payload uses
-  // `scheduledPrefix`. They MUST match.
-  stateMachinePrefix: "nftTransfer",
-  scheduledPrefix: "nftTransfer",
-} as any))
+  stateMachinePrefix: "nftTransfer", // NOT scheduledPrefix — that name is a deprecated no-op
+}))
 ```
 
 The symptom of getting it wrong is identical to the symptom of forgetting `PrimitiveTypeEVMEffectstreamL2` (Core invariant §9) — silent empty results. Always assertSQL against the user-side table (not just `primitive_accounting`) in Phase B tests to surface this immediately.
@@ -419,12 +421,16 @@ The symptom of getting it wrong is identical to the symptom of forgetting `Primi
 | `PrimitiveTypeEVMEffectstreamL2` | Your grammar | EVM | Parses `effectstreamSubmitGameInput` calls |
 | `PrimitiveTypeEVMERC721` / `EVMERC20` / `EVMERC1155` | `builtinGrammars.evm*` | EVM | Token transfer events |
 | `PrimitiveTypeMidnightGeneric` | `builtinGrammars.midnightGeneric` | Midnight | Generic ledger state |
-| `PrimitiveTypeMidnightNullifier` | — | Midnight | Nullifier tracking |
+| `PrimitiveTypeMidnightNullifierAndCommitment` | — | Midnight | Zswap nullifier + commitment tracking |
+| `PrimitiveTypeMidnightUnshieldedSpend` / `MidnightUnshieldedCreate` | — | Midnight | Unshielded UTXO spends/creates (payload incl. `value`, `tokenType`) |
+| `PrimitiveTypeMidnightZswapRoot` | — | Midnight | Zswap Merkle-root tracking |
+| `PrimitiveTypeMidnightTokenMint` | `builtinGrammars.midnightTokenMint` | Midnight | Token mint/burn events |
 | `PrimitiveTypeBitcoinAddress` | `builtinGrammars.bitcoinAddress` | Bitcoin | Watch address transactions |
 | `PrimitiveTypeUtxorpcGeneric` | `builtinGrammars.utxorpcGeneric` | Cardano | Generic UTXO events |
 | `PrimitiveTypeCardanoMintBurn` / `CardanoTransfer` / `CardanoPoolDelegation` / `CardanoDelayedAsset` / `CardanoProjectedNFT` | respective `builtinGrammars.*` | Cardano | Five Cardano-specific event types |
 | `PrimitiveTypeAvailGeneric` / `CelestiaGeneric` | respective | Avail/Celestia | DA data |
 | `PrimitiveTypeNEAR{NEP141,NEP171,NEP245,Intent,Generic,AccountWatch}` | respective | NEAR | Token / intent / function-call tracking |
+| `PrimitiveTypeSolana{ProgramLog,AccountBalance,TokenAccount}` | respective `builtinGrammars.solana*` | Solana | Program logs / lamport balances / SPL token accounts |
 
 ## 7. Custom Primitives
 

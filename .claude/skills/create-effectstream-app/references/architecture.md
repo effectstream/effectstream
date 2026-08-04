@@ -129,7 +129,7 @@ Common SDK packages you'll import:
 | `@effectstream/wallets` | `EffectstreamConfig`, `walletLogin`, `sendTransaction` |
 | `@effectstream/log` | `ComponentNames`, logging |
 
-**All `@effectstream/*` packages share a coordinated version (current series: `0.100.x`).** Never mix versions across them.
+**All `@effectstream/*` packages share a coordinated version (current series: `0.102.x`).** Never mix versions across them.
 
 **How to find the exact version to pin:**
 
@@ -164,7 +164,7 @@ Sibling packages (`@my-template/database`, `@my-template/contracts-evm`, etc.) r
   "dependencies": {
     "@my-template/database": "workspace:*",
     "@my-template/contracts-evm": "workspace:*",
-    "@effectstream/runtime": "0.100.15",
+    "@effectstream/runtime": "0.102.0",
     "...": "..."
   }
 }
@@ -207,13 +207,13 @@ Midnight Compact contracts compile to a subdirectory that itself is a workspace 
     "start:mainnet": "bun run packages/node/main.mainnet.ts",
     "test": "bun run packages/tests/run-tests.ts",
     "build:evm": "bun run --filter @my-template/contracts-evm build:mod",
-    "build:midnight": "bun run --filter @my-template/contracts-midnight build:midnight",
-    "build:pgtypes": "bunx orchestrator stop > /dev/null 2>&1 || true; bun run --filter @my-template/database pgtyped:update"
+    "build:midnight": "bun run --filter @my-template/midnight-contract compact",
+    "build:pgtypes": "bun run --filter @my-template/database pgtyped:update"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
     "@effectstream/orchestrator": "<latest>",
-    "@midnightntwrk/wallet-sdk-address-format": "3.1.0",
+    "@midnightntwrk/wallet-sdk-address-format": "3.1.2",
     "wait-on": "8.0.3"
   },
   "effectstream": {
@@ -225,7 +225,7 @@ Midnight Compact contracts compile to a subdirectory that itself is a workspace 
 Notes:
 
 - `effectstream.default` tells the CLI which start file to use when `bunx orchestrator start` is run without arguments.
-- `wait-on` must be a **direct root dependency** — the `launchPglite()` helper invokes `./node_modules/.bin/wait-on tcp:5432` and Bun only hoists binaries from direct deps.
+- `wait-on` must be a **direct root dependency** — contract packages use it (e.g. `hardhat.config.ts` imports it; `contracts-midnight`'s `midnight-node:wait` runs `wait-on tcp:9944`) and Bun only hoists binaries from direct deps. (`launchPglite()` does NOT use it — the orchestrator waits via its own `wait-tcp.ts`.)
 - `@midnightntwrk/wallet-sdk-address-format` is a **phantom dependency** required by `@effectstream/db` transitively but not declared anywhere in the chain. Every template needs it at the root or runtime fails with `Cannot find module`.
 - Include `build:midnight` / `build:evm` only for chains the template actually uses.
 

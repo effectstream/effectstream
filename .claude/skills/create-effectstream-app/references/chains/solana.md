@@ -46,7 +46,7 @@ Program-log attribution keys off the log stream's `invoke`/`success` framing, no
 
 `SolanaAdapter` — fee-payer sponsor (gasless). The user sets `feePayer` to the sponsor's pubkey and partially signs; the batcher co-signs and submits. Transactions are **base64**.
 
-Scoped to one `targetProgramId`. `maxPriorityFeeMicroLamports` defaults to `0n` (any priority fee rejected) because the sponsor pays it. Volume is not bounded — add a rate limit before exposing a funded batcher.
+Scoped to one `targetProgramId`. `maxPriorityFeeMicroLamports` defaults to `0n` (any priority fee rejected) because the sponsor pays it. Volume is not bounded by the adapter — enable the batcher's built-in rate limiting (`rateLimit` config, `packages/batcher/core/rate-limiter.ts`) before exposing a funded batcher.
 
 ## Wallets
 

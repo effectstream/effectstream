@@ -70,7 +70,7 @@ const config: BatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   adapters: { paimaL2 },
   defaultTarget: "paimaL2",
-  namespace: "",                       // ⚠️ must match frontend EffectstreamConfig appName
+  namespace: "",                       // ⚠️ must match frontend EffectstreamConfig securityNamespace
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },
@@ -96,9 +96,9 @@ main(function* () {
 });
 ```
 
-## `/send-input` request shape (the only HTTP contract the batcher exposes)
+## `/send-input` request shape (the main HTTP contract the batcher exposes)
 
-The batcher's HTTP server has one write endpoint: `POST /send-input`. Anything that submits a user action through the batcher — the frontend (`sendTransaction` from `@effectstream/wallets`), a custom bridge daemon, a CI test, etc. — hits this endpoint. The schema is:
+The batcher's HTTP server has one production write endpoint: `POST /send-input`. (Read endpoints `GET /health`, `GET /status`, `GET /queue-stats` always exist; with `ENABLE_DEV_AND_DEBUG_ENDPOINTS` set, `POST /force-batch` and `DELETE /clear-inputs` are also registered — `packages/batcher/server/batcher-server.ts`.) Anything that submits a user action through the batcher — the frontend (`sendTransaction` from `@effectstream/wallets`), a custom bridge daemon, a CI test, etc. — hits this endpoint. The schema is:
 
 ```ts
 // Request body
@@ -141,9 +141,9 @@ fetch(`${BATCHER_URL}/send-input`, {
 
 The OpenAPI explorer at `${BATCHER_URL}/documentation` reflects the live schema and is the authoritative reference if anything ever changes.
 
-## ⚠️ Namespace must equal frontend appName
+## ⚠️ Namespace must equal frontend securityNamespace
 
-`BatcherConfig.namespace` **must exactly match** the `EffectstreamConfig` `appName` used by the frontend when signing transactions. The signed message includes `appName`; the batcher validates the signature against `namespace`. A mismatch produces `401 Invalid signature` from `/send-input`.
+`BatcherConfig.namespace` **must exactly match** the `EffectstreamConfig` `securityNamespace` (its first constructor arg) used by the frontend when signing transactions. The signed message includes `securityNamespace`; the batcher validates the signature against `namespace`. A mismatch produces `401 Invalid signature` from `/send-input`. (Not to be confused with the runtime's `start({ appName })` — a different field.)
 
 Pick one string (often `""` or the template name like `"my-template"`) and use it in BOTH places.
 
@@ -157,6 +157,18 @@ Pick one string (often `""` or the template name like `"my-template"`) and use i
 | `BitcoinAdapter` | Bitcoin | hybrid |
 | `NearAdapter` | NEAR | time, size |
 | `NearIntentAdapter` | NEAR (intents) | time, size |
+
+## Adapter validation hooks
+
+`BlockchainAdapter` has an optional `validateInput(input)` hook — called after signature verification, before the input is queued — for adapter-specific semantic validation (allowlists, payload shape). Reference: the decorator pattern in `templates/batcher-validations/packages/batcher/gated-adapter.ts` (`GatedAdapter` wraps an inner adapter and delegates to it). ⚠️ Defining `verifySignature` on a custom adapter **replaces** the batcher's default per-addressType signature check entirely — delegate to the wrapped adapter (or reimplement the check) deliberately.
+
+## Rate limiting
+
+Built in and on by default: `BatcherConfig.rateLimit` (`{ maxRequests, windowMs }`), default 1000 requests per 24h window (`packages/batcher/core/config.ts`; enforced by `core/rate-limiter.ts`). Adapters can pick the key via the optional `getRateLimitKeyStrategy()`: `"ip"` (default), `"ip-and-address"`, or `"composite"`.
+
+## Storage
+
+Use `FileStorage`. `DatabaseStorage` is also exported but is an unimplemented stub — every method throws (`core/storage.ts`).
 
 ## Two configuration patterns
 
@@ -186,7 +198,7 @@ batcher
   .setDefaultTarget("myAdapter");
 ```
 
-Pattern B separates configuration from adapter wiring and makes it easy to conditionally add adapters (e.g. skip Midnight when `DISABLE_MIDNIGHT=true`).
+Pattern B separates configuration from adapter wiring and makes it easy to conditionally add adapters per environment (e.g. a dev-only adapter).
 
 ## Multi-environment
 

@@ -22,11 +22,11 @@ which bun compact 2>&1
 | Tool | Required for | If missing |
 |---|---|---|
 | `bun` | All Effectstream work | Stop — you can't build, run, or verify anything. Install Bun before continuing. |
-| `compact` (Midnight Compact compiler) | `bun run build:midnight` (compiles `.compact` to JS + zkir keys/verifiers) | Stop and tell the user before scaffolding. Install: `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh \| sh` then `compact update`. The compiler downloads a per-version backend (e.g. `0.30.0`), so the **first** `compact compile +X.Y.Z` may take longer than later runs. |
+| `compact` (Midnight Compact compiler) | `bun run build:midnight` (compiles `.compact` to JS + zkir keys/verifiers) | Stop and tell the user before scaffolding. Install: `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh \| sh` then `compact update`. The compiler downloads a per-version backend (e.g. `0.31.0`), so the **first** `compact compile +X.Y.Z` may take longer than later runs. |
 
 Other Midnight binaries (`midnight-node`, `midnight-indexer`, `midnight-proof-server`) are NOT required as system tools — `launchMidnight` ships them via the `@effectstream/npm-midnight-*` packages and the orchestrator extracts them on first run.
 
-After confirming the tools are available, pin the **compiler version** in the contract package's `compact` script (e.g. `compact compile +0.30.0 …`) so a different default install doesn't silently produce mismatched output — see Sharp edges → **Compact compiler ↔ runtime version alignment**.
+After confirming the tools are available, pin the **compiler version** in the contract package's `compact` script (e.g. `compact compile +0.31.0 …`) so a different default install doesn't silently produce mismatched output — see Sharp edges → **Compact compiler ↔ runtime version alignment**.
 
 ## Local dev environment
 
@@ -48,7 +48,11 @@ Sync protocol: `MIDNIGHT_PARALLEL`.
 | Primitive | Grammar | Use |
 |---|---|---|
 | `PrimitiveTypeMidnightGeneric` | `builtinGrammars.midnightGeneric` | Read Midnight ledger contract state (raw or schema-decoded) |
-| `PrimitiveTypeMidnightNullifier` | — | Track nullifiers without owning the contract |
+| `PrimitiveTypeMidnightNullifierAndCommitment` | — | Track nullifiers/commitments without owning the contract |
+| `PrimitiveTypeMidnightUnshieldedSpend` | — | Unshielded UTXO spends; payload includes `owner`, `intentHash`, `outputIndex`, `value` (u128 decimal string), `tokenType` (hex), `txHash` |
+| `PrimitiveTypeMidnightUnshieldedCreate` | — | Unshielded UTXO creates; same payload shape (`value`/`tokenType` included) |
+| `PrimitiveTypeMidnightZswapRoot` | — | Zswap merkle-root updates (payload untyped) |
+| `PrimitiveTypeMidnightTokenMint` | `builtinGrammars.midnightTokenMint` | Token mint/burn events (`contractAddress`, `rawTokenType`, `kind`, `amount`, …) |
 
 ## Batcher adapters
 
@@ -105,7 +109,7 @@ export default {
 
 With this, the user can just `bun install && bun run dev` — same as EVM templates. The standalone `bun run build:midnight` script stays in the root `package.json` for CI/release use cases, but it's no longer a prereq for local dev.
 
-(If the engine fixes the asymmetry by adding a `midnight-contract:compile` script to `launchMidnight`'s `REQUIRED_SCRIPTS`, the inline ProcessConfig above becomes unnecessary. As of engine `0.100.x` it's still required.)
+(If the engine fixes the asymmetry by adding a `midnight-contract:compile` script to `launchMidnight`'s `REQUIRED_SCRIPTS`, the inline ProcessConfig above becomes unnecessary. As of engine `0.102.0` it's still required.)
 
 ## Sharp edges
 
@@ -123,31 +127,34 @@ undefined is not an object (evaluating 'Object.keys(contract.provableCircuits)')
 
 Pin to exact versions from the compatibility matrix below. **No `^` or `~` ranges anywhere in `@midnight-ntwrk/*` dependencies.**
 
-### Midnight SDK compatibility matrix (as of 2026-04-07)
+### Midnight SDK compatibility matrix (as of 2026-08-04, Midnight 1.0 / engine 0.102.0)
 
-All `@midnight-ntwrk/*` packages must come from the same compatibility set. Always check the official matrix before bumping any version: https://github.com/midnightntwrk/midnight-sdk/blob/main/COMPATIBILITY.md
+All Midnight SDK packages must come from the same compatibility set. Always check the official matrix before bumping any version: https://github.com/midnightntwrk/midnight-sdk/blob/main/COMPATIBILITY.md
+
+**Scope note:** the `wallet-sdk-*` packages live under the `@midnightntwrk/*` scope (no hyphen); everything else is `@midnight-ntwrk/*`.
 
 | Package group | Version |
 |---|---|
-| Compact compiler (`compactc`) | `+0.30.0` |
-| `compact-runtime` | `0.15.0` |
-| `compact-js` | `2.5.0` |
-| `midnight-js-*` (contracts, types, utils, providers, etc.) | `4.0.4` |
-| `ledger-v8` | `8.0.3` |
+| Compact compiler (`compact`) | `+0.31.0` |
+| `compact-runtime` | `0.16.0` |
+| `compact-js` | `2.5.1` |
+| `midnight-js-*` (contracts, types, utils, providers, etc.) | `4.1.1` |
+| `ledger-v8` | `8.1.0` |
 | `onchain-runtime` → `npm:@midnight-ntwrk/onchain-runtime-v3` | `3.0.0` |
-| `wallet-sdk-facade` | `3.0.0` |
-| `wallet-sdk-abstractions` | `2.0.0` |
-| `wallet-sdk-hd` | `3.0.1` |
-| `wallet-sdk-shielded` | `2.1.0` |
-| `wallet-sdk-dust-wallet` | `3.0.0` |
-| `wallet-sdk-unshielded-wallet` | `2.1.0` |
-| `wallet-sdk-address-format` | `3.1.0` |
+| `@midnightntwrk/wallet-sdk-facade` | `4.1.0` |
+| `@midnightntwrk/wallet-sdk-abstractions` | `2.1.0` |
+| `@midnightntwrk/wallet-sdk-hd` | `3.0.3` |
+| `@midnightntwrk/wallet-sdk-shielded` | `3.0.2` |
+| `@midnightntwrk/wallet-sdk-dust-wallet` | `4.2.0` |
+| `@midnightntwrk/wallet-sdk-unshielded-wallet` | `3.1.0` |
+| `@midnightntwrk/wallet-sdk-address-format` | `3.1.2` |
+| `@midnightntwrk/wallet-sdk-capabilities` | `3.3.1` |
 | `wallet` / `wallet-api` | `5.0.0` |
 | `dapp-connector-api` | `4.0.1` |
 | `zswap` | `4.0.0` |
-| Node (Docker) | `0.22.x` |
-| Indexer (Docker) | `4.0.x` |
-| Proof Server (Docker) | `8.0.3` |
+| Node (`@effectstream/npm-midnight-node` binary) | `1.0.0` |
+| Indexer (`@effectstream/npm-midnight-indexer` binary) | `4.3.3` |
+| Proof Server (`@effectstream/npm-midnight-proof-server` binary) | `ledger-8.1.0` |
 
 `@midnight-ntwrk/ledger` and `@midnight-ntwrk/ledger-v6` are **deprecated** — use `@midnight-ntwrk/ledger-v8`. Similarly, `onchain-runtime-v1` is replaced by `onchain-runtime-v3`.
 
@@ -217,25 +224,7 @@ Not `./deploy-ledger6` or other legacy names.
 
 Same rule applies in `packages/tests/run-tests.ts` if it dynamically imports any `@midnight-ntwrk/*` SDK (most test runners do, via the Phase B counter-increment helper). **Additionally**, the tests package must declare `@midnight-ntwrk/onchain-runtime` as a direct dependency in `packages/tests/package.json` — relying on workspace hoisting from `packages/node/` is not enough; Bun's `await import()` resolver from `run-tests.ts` cwd won't find the hoisted copy.
 
-With `DISABLE_MIDNIGHT=true`, guard the import:
-
-```ts
-if (!isEnvTrue("DISABLE_MIDNIGHT")) {
-  await import("@midnight-ntwrk/onchain-runtime");
-}
-```
-
-### `DISABLE_MIDNIGHT` dynamic-import pattern
-
-Multi-chain templates should support running without optional toolchains. Any top-level import from a Midnight package (contract types, SDK modules) will fail if the Compact compiler output (`managed/`) doesn't exist. Convert to dynamic imports — see `references/multi-env.md` for the full pattern.
-
-Managed-directory stubs for `DISABLE_MIDNIGHT` mode: the Midnight contract package's `_index.ts` re-exports from `./managed/contract/index.js`. For the frontend to build without the compiler:
-
-- `src/managed/contract/index.js` — minimal `Contract` class + `ledger` function that throw "not compiled" errors
-- `src/managed/contract/index.d.ts` — type stubs matching the generated interface
-- `src/managed/keys/.gitkeep` and `src/managed/zkir/.gitkeep` — empty directories for `viteStaticCopy`
-
-These are overwritten when `bun run build:midnight` runs the real Compact compiler.
+Note: any top-level import from a Midnight contract package (contract types, SDK modules) will fail if the Compact compiler output (`managed/`) doesn't exist yet — the compile step must run before the importing process starts. This is why the orchestrator gates the sync/batcher processes on the Midnight contract-compile process (`dependsOn`), and why the first `bun run dev` is slow. Do NOT invent a `DISABLE_MIDNIGHT` toggle for this: no template implements one (the `DISABLE_*` vars belong to the engine repo's e2e runner only), and there is no `isEnvTrue` helper in any template.
 
 ### Midnight indexer/contract timing gates in tests
 
@@ -243,4 +232,4 @@ The indexer's GraphQL endpoint on port 8088 takes significantly longer to come u
 
 ## Frontend / wallet integration
 
-Midnight wallet integration uses `@midnight-ntwrk/dapp-connector-api` against the Lace Midnight wallet extension. The frontend builds and signs Compact contract calls in the browser; the engine indexes resulting on-chain state via `PrimitiveTypeMidnightGeneric`. Frontend Vite config needs the `stream/web` shim and `node-fetch` aliasing — see `references/frontend.md` for the canonical setup. When the template ships in `DISABLE_MIDNIGHT=true` mode (e.g. for CI runs without the Compact compiler), the managed-dir stubs above let `vite build` succeed.
+Midnight wallet integration uses `@midnight-ntwrk/dapp-connector-api` against the Lace Midnight wallet extension. The frontend builds and signs Compact contract calls in the browser; the engine indexes resulting on-chain state via `PrimitiveTypeMidnightGeneric`. Frontend Vite config needs the `stream/web` shim and `node-fetch` aliasing — see `references/frontend.md` for the canonical setup.

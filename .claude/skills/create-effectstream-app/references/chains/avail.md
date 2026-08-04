@@ -63,7 +63,7 @@ Sync protocol: `AVAIL_PARALLEL`.
 
 Both the Avail node and the light client download their binaries (~70MB each) from GitHub releases on first boot, then extract into `node_modules/@effectstream/npm-avail-*/vendor/`. This adds 30-60s per binary per platform. Subsequent boots are ~10s.
 
-### Light client port is 9955, not the substrate-default 9944
+### Node WS RPC port is 9955, not the substrate-default 9944 (light client uses 7007)
 
 The launcher overrides Avail's WS RPC port to 9955 (avoiding collisions with other substrate-based dev nodes). Include BOTH `9944` and `9955` in `killStalePorts()` defensively — older configs sometimes use 9944.
 

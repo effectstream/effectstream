@@ -10,7 +10,7 @@
 >   0 tests failed
 > ```
 >
-> The skill's grader (`grade.py`) parses this summary and treats `passed > 0 && failed == 0` as success regardless of exit code. Anything consuming `bun run test` in CI should do the same — grep the stdout for the Summary line, don't trust the exit code alone.
+> Anything grading or consuming `bun run test` should treat `passed > 0 && failed == 0` in the `[Summary]` block as success regardless of exit code — grep the stdout for the Summary line, don't trust the exit code alone.
 
 
 Every template ships with `packages/tests/`. Tests use the orchestrator to spin up **real** infrastructure and assert against actual DB state — no mocks. The test suite is **the single most important verification** that the template scaffold works: a template can have every file in the right place and still fail to boot. Only running the actual integration tests catches that.
@@ -56,12 +56,12 @@ Templates can add more phases for cross-chain tests, privacy tests, etc. — the
 > | Chain | Gate to wait on before `chainReadyTest()` |
 > |---|---|
 > | EVM (Hardhat) | `EvmNames.HARDHAT_WAIT` |
-> | Bitcoin | `bitcoin-wait-for-block` (the chain reaches a usable height) — `BitcoinNames.WAIT_FOR_BLOCK` |
+> | Bitcoin | `bitcoin-wait-for-block` (the chain reaches a usable height) — `BitcoinNames.BITCOIN_WAIT_FOR_BLOCK` |
 > | Cardano | `CardanoNames.DOLOS_MINIBF_WAIT` |
 > | Midnight | `MidnightNames.INDEXER_WAIT` (GraphQL on 8088 takes much longer than EVM's 8545) |
 > | NEAR | `NearNames.SANDBOX_WAIT` |
 > | Avail | `AvailNames.LIGHT_CLIENT_WAIT` |
-> | Celestia | `celestia-bridge-wait` (custom process; no launcher) |
+> | Celestia | `CelestiaNames.BRIDGE_WAIT` (`@effectstream/orchestrator/launch-celestia`) |
 >
 > Without the wait, the first Phase A assertion fires too early and the test suite aborts before any other check runs. The empirical "fixed-after-the-fact" Midnight case is the long-tail extreme (~60s before indexer GraphQL responds), but EVERY chain has this in some form.
 
@@ -108,7 +108,7 @@ export async function deployTest() {
 > Concretely:
 >
 > - **Template has no batcher** (read-only indexer, or wallet submits directly to chain): on-chain submission via the chain's SDK (viem, Lucid, near-api-js, etc.) is the right Phase B path.
-> - **Template ships a batcher**: Phase B MUST include a `POST /send-input` to the batcher with `confirmationLevel: "wait-effectstream-processed"`, then `assertSQL` the row appears. The schema is in `references/batcher.md` § `/send-input` request shape. Catches: wrong request shape (`400 must have required property 'data'`), namespace ≠ appName signature mismatches (`401 Invalid signature`), adapter wiring errors, and confirmation-level bugs. None of these surface when you submit on-chain directly.
+> - **Template ships a batcher**: Phase B MUST include a `POST /send-input` to the batcher with `confirmationLevel: "wait-effectstream-processed"`, then `assertSQL` the row appears. The schema is in `references/batcher.md` § `/send-input` request shape. Catches: wrong request shape (`400 must have required property 'data'`), namespace ≠ securityNamespace signature mismatches (`401 Invalid signature`), adapter wiring errors, and confirmation-level bugs. None of these surface when you submit on-chain directly.
 > - **Template has a custom server-side relayer** (e.g. a bridge daemon that watches one chain and submits to another via the batcher): Phase B MUST trigger the relayer's input path and `assertSQL` the row appears in the destination chain's table. The relayer is the user's actual code path; testing around it is the test passing while the actual flow is broken.
 >
 > Pattern: at least one Phase B `stm/*.test.ts` per write-path the template ships.
@@ -532,7 +532,11 @@ export async function assertSQL<T>(
   console.log(" TIMEOUT"); failCount++; throw new Error(`Timed out waiting: ${name}`);
 }
 
-export function printSummary() { console.log(`\nResults: ${passCount} passed, ${failCount} failed`); }
+export function printSummary() {
+  console.log(`\n[Summary]`);
+  console.log(`  ${passCount} tests passed`);
+  console.log(`  ${failCount} tests failed`);
+}
 export function anyError() { return failCount > 0 || (passCount + failCount) === 0; }
 ```
 
@@ -545,4 +549,4 @@ Root `package.json`:
 }
 ```
 
-Then `cd templates/<name> && bun run test` works. The monorepo's `templates/run-template-tests.ts` auto-discovers every template with a `"test"` script.
+Then `cd templates/<name> && bun run test` works. The monorepo's `templates/run-template-tests.ts` does NOT auto-discover templates — it runs a hard-coded `ENABLED` array (line ~36; exported so CI can filter against it). A new template MUST be added to `ENABLED` by hand or its tests never run.
