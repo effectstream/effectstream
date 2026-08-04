@@ -147,18 +147,19 @@ export class WorkerPool {
    *
    * @param walletFilter Optional predicate to exclude wallets (e.g. those
    *   without available dust). Workers whose wallet is rejected by the filter
-   *   are skipped. If all free workers are filtered out, falls back to the
-   *   unfiltered set so callers never stall permanently.
+   *   are skipped. When every free worker is filtered out, returns null —
+   *   inputs stay queued and the adapter's capacity gate decides when to
+   *   resume (deliberately no fallback: assigning a worker from a wallet
+   *   known to lack dust guarantees a doomed balance attempt).
    */
   acquireWorker(walletFilter?: (walletIdx: number) => boolean): WorkerSlot | null {
     const free = this.workers.filter((w) => !w.busy);
     if (free.length === 0) return null;
 
-    // Apply wallet filter if provided, but fall back to unfiltered set to avoid stalling.
-    let candidates = walletFilter
+    const candidates = walletFilter
       ? free.filter((w) => walletFilter(w.walletIdx))
       : free;
-    if (candidates.length === 0) candidates = free;
+    if (candidates.length === 0) return null;
 
     // Count busy workers per wallet (across ALL workers, not just free ones)
     const busyPerWallet = new Map<number, number>();

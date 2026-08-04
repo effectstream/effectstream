@@ -206,6 +206,12 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         receipt: BlockchainTransactionReceipt,
         timeout: number,
       ) => this.waitForEffectStreamProcessed(target, receipt, timeout),
+      getRetryPolicy: () => ({
+        maxRetries: this.config.maxRetries ?? 3,
+        retryDelayMs: this.config.retryDelayMs ?? 1000,
+      }),
+      setTargetCooldown: (target: string, ms: number) =>
+        this.setTargetCooldown(target, ms),
     });
     this.shutdownManager = new ShutdownManager<T>(
       {
@@ -743,11 +749,26 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Check if a specific target is ready for batching based on its configured criteria
    */
+  /** Targets on an infra-failure cooldown are skipped until the deadline. */
+  private readonly targetCooldownUntil = new Map<string, number>();
+
+  /**
+   * Pause batching for a target (inputs stay queued, retry counts untouched).
+   * Used by the processor when a batch fails for INFRASTRUCTURE reasons —
+   * charging an outage against per-input retry budgets deletes user inputs.
+   */
+  setTargetCooldown(target: string, ms: number): void {
+    this.targetCooldownUntil.set(target, Date.now() + ms);
+  }
+
   private async isTargetReadyForBatching(target: string): Promise<boolean> {
     if (!this.defaultTarget) {
       // This shouldn't happen after init(), but handle gracefully
       return false;
     }
+
+    const cooldownUntil = this.targetCooldownUntil.get(target) ?? 0;
+    if (cooldownUntil > Date.now()) return false;
 
     const adapter = this.adapters[target];
 
