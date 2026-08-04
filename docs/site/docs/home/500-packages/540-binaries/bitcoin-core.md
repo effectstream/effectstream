@@ -58,6 +58,31 @@ brings up a regtest chain automatically. The Bitcoin E2E suite at
 [`e2e/bitcoin/`](https://github.com/effectstream/effectstream/tree/main/e2e/bitcoin)
 runs against this same binary.
 
+## Integrity
+
+`bin-wrapper` has no checksum support and discards the archive after extracting,
+so this package hashes the **extracted `bitcoind`** and refuses to run anything
+that is not one of the pinned v28.1 builds. Set `BITCOIN_CORE_SKIP_CHECKSUM=1` to bypass when
+deliberately running a local build.
+
+Digests live in `checksums.js` and the check is `@effectstream/binary-checksum`,
+shared with the other verified wrappers. Every entry is **upstream-verified**:
+the archive each digest came from was matched against the checksum the vendor
+publishes before the binary inside it was hashed, so the digest traces back to
+something the vendor stands behind rather than to whatever a download happened to
+return.
+
+On Apple Silicon this is a **download-time** check only. `adhocSignIfNeeded`
+rewrites the Mach-O in place to satisfy the kernel's exec requirement, which
+changes the file's hash, so the digest can only be compared while the binary is
+still pristine. Every other platform re-verifies on each run.
+
+Regenerate after a version bump:
+
+```bash
+bun scripts/generate-binary-checksums.ts bitcoin-core
+```
+
 ## Links
 
 - Docs: https://effectstream.github.io/docs/packages/binaries/bitcoin-core
