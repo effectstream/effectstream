@@ -303,8 +303,10 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
           }
           const newRetryCount = (input.retryCount ?? 0) + 1;
           if (newRetryCount >= maxRetries) {
-            debugLog(
-              `[Storage] Dropping input after ${newRetryCount} failed retries: ${key.substring(0, 100)}...`,
+            // Always-visible: deleting a user's input must never be silent.
+            console.warn(
+              `[Storage] DROPPING input after ${newRetryCount} failed retries ` +
+                `(address=${input.address}, target=${target}): ${key.substring(0, 100)}...`,
             );
             continue; // drop it from storage
           }
