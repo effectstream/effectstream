@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/grafana-alloy",
-  "version": "0.103.0",
+  "version": "0.103.1",
   "license": "(MIT OR Apache-2.0)",
   "description": "Grafana Alloy binary wrapper for EffectStream",
   "main": "install.js",
