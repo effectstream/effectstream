@@ -1,0 +1,6 @@
+# Written by link.sh — carries this machine's absolute MONOREPO_ROOT.
+.env
+
+# Runtime artifacts from a local stack.
+batcher-data/
+midnight-level-db*/

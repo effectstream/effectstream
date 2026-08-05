@@ -1,0 +1,12 @@
+pragma language_version >= 0.17;
+
+import CompactStandardLibrary;
+
+// Commutative public counter — concurrent increments never conflict, which
+// makes the on-chain `round` value an exact delivered-transaction count for
+// the adversarial test suite.
+export ledger round: Counter;
+
+export circuit increment(): [] {
+  round.increment(1);
+}
