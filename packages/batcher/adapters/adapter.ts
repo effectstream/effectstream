@@ -147,6 +147,13 @@ export interface BlockchainAdapter<TOutput> {
   ): ValidationResult | Promise<ValidationResult>;
 
   /**
+   * (Optional) Operational snapshot for `/queue-stats`, e.g. fee capacity,
+   * worker occupancy, configured policy. Must be cheap and side-effect free —
+   * it is called per status request. Errors are swallowed by the server.
+   */
+  getHealthInfo?(): Record<string, unknown>;
+
+  /**
    * (Optional) Recover adapter state after batcher initialization.
    * This is called after storage.init() but before processing starts,
    * allowing adapters to rebuild internal state from persisted inputs.

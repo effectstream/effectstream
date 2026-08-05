@@ -6,13 +6,18 @@ import type { DefaultBatcherInput } from "./types.ts";
 import * as fs from "node:fs";
 
 // Custom logger for debugging
+// File logging is opt-in: appendFileSync blocks the event loop on every line,
+// which is a throughput tax when several adapters share one process.
+const FILE_LOGGING_ENABLED = process.env.BATCHER_DEBUG_LOG === "1";
+
 function debugLog(message: string) {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${message}\n`;
-  try {
-    fs.appendFileSync("batcher-debug.log", logMessage);
-  } catch (e) {
-    // Ignore if we can't write
+  if (FILE_LOGGING_ENABLED) {
+    const timestamp = new Date().toISOString();
+    try {
+      fs.appendFileSync("batcher-debug.log", `[${timestamp}] ${message}\n`);
+    } catch {
+      // Ignore if we can't write
+    }
   }
   console.log(message);
 }
@@ -47,7 +52,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         timeout: number,
       ) => Promise<{ latestBlock: number; rollup: number } | null>;
       getCallbackKey: (input: T) => string;
-      getRetryPolicy: () => { maxRetries: number; retryDelayMs: number };
+      getRetryPolicy: (target?: string) => { maxRetries: number; retryDelayMs: number };
       setTargetCooldown: (target: string, ms: number) => void;
     },
   ) {}
@@ -120,7 +125,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       // so we need the original list to know which inputs actually failed.
       const inputsSnapshot = [...selectedInputs];
 
-      const { maxRetries, retryDelayMs } = this.batcher.getRetryPolicy();
+      const { maxRetries, retryDelayMs } = this.batcher.getRetryPolicy(target);
 
       let hash: string;
       try {

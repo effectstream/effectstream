@@ -206,10 +206,13 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         receipt: BlockchainTransactionReceipt,
         timeout: number,
       ) => this.waitForEffectStreamProcessed(target, receipt, timeout),
-      getRetryPolicy: () => ({
-        maxRetries: this.config.maxRetries ?? 3,
-        retryDelayMs: this.config.retryDelayMs ?? 1000,
-      }),
+      getRetryPolicy: (target?: string) => {
+        const override = target ? this.config.perTarget?.[target] : undefined;
+        return {
+          maxRetries: override?.maxRetries ?? this.config.maxRetries ?? 3,
+          retryDelayMs: override?.retryDelayMs ?? this.config.retryDelayMs ?? 1000,
+        };
+      },
       setTargetCooldown: (target: string, ms: number) =>
         this.setTargetCooldown(target, ms),
     });
@@ -480,6 +483,19 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       throw new InputValidationError(
         "No default target configured and input.target not specified. " +
           "Add adapters using addBlockchainAdapter() before initialization.",
+        400,
+      );
+    }
+
+    // Strict routing: with more than one product registered, an unaddressed
+    // input must NOT silently land in the first-registered product's queue
+    // (and on its wallet's dust). Opt out with requireExplicitTarget: false.
+    const requireExplicitTarget = this.config.requireExplicitTarget ??
+      Object.keys(this.adapters).length > 1;
+    if (!input.target && requireExplicitTarget) {
+      throw new InputValidationError(
+        `Input is missing "target". This batcher serves multiple targets ` +
+          `(${Object.keys(this.adapters).join(", ")}); name the one you mean.`,
         400,
       );
     }
@@ -899,13 +915,22 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Force process current batch (useful for testing or manual triggers)
    */
-  async forceProcessBatches(): Promise<void> {
+  async forceProcessBatches(target?: string): Promise<void> {
     if (this.shutdownState.isShuttingDown) {
       throw new Error("Cannot force process batches during shutdown");
     }
 
-    console.log("🔧 Force processing batches for all targets...");
-    const allTargets = Object.keys(this.adapters);
+    if (target && !this.adapters[target]) {
+      throw new Error(
+        `Unknown target ${target}. Available: ${Object.keys(this.adapters).join(", ")}`,
+      );
+    }
+    const allTargets = target ? [target] : Object.keys(this.adapters);
+    console.log(
+      target
+        ? `🔧 Force processing batches for target ${target}...`
+        : "🔧 Force processing batches for all targets...",
+    );
     await this.processBatchesForTargets(allTargets);
 
     // Update last process times for all targets
@@ -918,12 +943,28 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Clear all pending inputs (useful for testing)
    */
-  async clearPendingInputs(): Promise<void> {
+  async clearPendingInputs(target?: string): Promise<number> {
     if (this.shutdownState.isShuttingDown) {
       throw new Error("Cannot clear pending inputs during shutdown");
     }
 
-    await this.storage.clearAllInputs();
+    if (!target) {
+      const all = await this.storage.getAllInputs();
+      await this.storage.clearAllInputs();
+      return all.length;
+    }
+    if (!this.adapters[target]) {
+      throw new Error(
+        `Unknown target ${target}. Available: ${Object.keys(this.adapters).join(", ")}`,
+      );
+    }
+    // Scoped wipe: only this product's rows, so a shared batcher's other
+    // tenants keep their queues.
+    const scoped = await this.storage.getInputsByTarget(target, this.defaultTarget!);
+    if (scoped.length > 0) {
+      await this.storage.removeProcessedInputs(scoped, target);
+    }
+    return scoped.length;
   }
 
   /**

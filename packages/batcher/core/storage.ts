@@ -44,13 +44,18 @@ class Mutex {
 }
 
 // Custom logger for debugging
+// File logging is opt-in: appendFileSync blocks the event loop on every line,
+// which is a throughput tax when several adapters share one process.
+const FILE_LOGGING_ENABLED = process.env.BATCHER_DEBUG_LOG === "1";
+
 function debugLog(message: string) {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${message}\n`;
-  try {
-    fs.appendFileSync("batcher-debug.log", logMessage);
-  } catch (e) {
-    // Ignore if we can't write
+  if (FILE_LOGGING_ENABLED) {
+    const timestamp = new Date().toISOString();
+    try {
+      fs.appendFileSync("batcher-debug.log", `[${timestamp}] ${message}\n`);
+    } catch {
+      // Ignore if we can't write
+    }
   }
   console.log(message);
 }
@@ -245,12 +250,19 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
   }
 
   /**
-   * Create a unique key for a DefaultBatcherInput for comparison
+   * Create a unique key for a DefaultBatcherInput for comparison.
+   *
+   * The key must use the INPUT's own target (falling back to the caller's
+   * target for rows that predate explicit routing). Using the caller's target
+   * for every row makes it cancel out of the comparison, so in a multi-product
+   * batcher a byte-identical payload submitted to two targets would be treated
+   * as one row — and removing/retry-charging one product's input would hit the
+   * other product's copy.
    */
   private createInputKey(input: T, target: string): string {
     return [
       input.addressType,
-      target,
+      input.target ?? target,
       input.address,
       input.timestamp,
       input.signature ?? "",
