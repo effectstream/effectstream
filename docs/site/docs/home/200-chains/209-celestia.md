@@ -119,57 +119,33 @@ Celestia blobs are submitted by the bridge node, not end users. The primitive de
 
 ## 5. Orchestration
 
-There is no `launchCelestia` helper yet. Instead, define the orchestrator steps inline using the `@effectstream/celestia` binary package:
+Use `launchCelestia` from `@effectstream/orchestrator/launch-celestia`. It cleans any stale devnet home, starts the consensus node and bridge, waits for the bridge RPC, and funds the bridge wallet.
 
 ```ts
 // in start.dev.ts
+import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
+import { launchCelestia } from "@effectstream/orchestrator/launch-celestia";
 
-const CELESTIA_HOME = "/tmp/celestia-devnet-home";
+const root = import.meta.dirname!;
 
 export default {
   processes: [
-    {
-      name: "celestia-clean",
-      description: "Remove stale Celestia devnet data",
-      args: ["-e", `await import('fs').then(fs => { try { fs.rmSync('${CELESTIA_HOME}', { recursive: true, force: true }); } catch {} }); console.log('cleaned');`],
-      waitToExit: true,
-    },
-    {
-      name: "celestia-devnet",
-      description: "Celestia consensus node + bridge (ports 26657, 26658)",
-      cwd: "packages/contracts-celestia",
-      stopProcessAtPort: [26657, 26658],
-      args: ["run", "celestia-bridge:start"],
-      env: { CELESTIA_HOME, CELESTIA_FORCE_NO_BBR: "1" },
-      waitToExit: false,
-      critical: true,
-      silent: true,
-      dependsOn: ["celestia-clean"],
-    },
-    {
-      name: "celestia-bridge-wait",
-      description: "Wait for Celestia bridge RPC on port 26658",
-      cwd: "packages/contracts-celestia",
-      args: ["run", "celestia-bridge:wait"],
-      waitToExit: true,
-      dependsOn: ["celestia-devnet"],
-    },
-    {
-      name: "celestia-fund-bridge",
-      description: "Fund the bridge node wallet with tokens",
-      cwd: "packages/contracts-celestia",
-      args: ["run", "celestia-fund:bridge"],
-      env: { CELESTIA_HOME },
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["celestia-bridge-wait"],
-    },
+    ...launchCelestia("@my-project/contracts-celestia", {
+      cwd: path.join(root, "packages/contracts-celestia"),
+    }),
   ],
 } satisfies OrchestratorConfig;
 ```
 
-> NOTE: To use this setup you need a `contracts-celestia` package in your project. A working implementation is provided in the `zswap-da` template.
+`launchCelestia` accepts an optional third argument to override the defaults:
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `ports` | `[26657, 26658]` | Consensus and bridge RPC ports, freed before launch. |
+| `home` | `"/tmp/celestia-home"` | Celestia home directory, wiped on each start. |
+
+> NOTE: To use this setup you need a `contracts-celestia` package in your project providing the scripts below. The reference implementation is [`e2e/shared/contracts/celestia`](https://github.com/effectstream/effectstream/tree/main/e2e/shared/contracts/celestia).
 
 The contracts package needs these tasks in its `package.json`:
 

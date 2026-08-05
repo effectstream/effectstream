@@ -18,7 +18,10 @@ const config: BatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   adapters: { paimaL2 },
   defaultTarget: "paimaL2",
-  namespace: "",
+  // Must match the node's setSecurityNamespace(...) and the frontend's
+  // EffectstreamConfig namespace — the sync-side L2 primitive re-verifies
+  // batched signatures against only the configured namespace.
+  namespace: "chess-v2",
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },

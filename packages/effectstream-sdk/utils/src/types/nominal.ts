@@ -111,6 +111,9 @@ export type SubstrateAddress = FastFlavor<string, "SubstrateAddress">;
 
 export type NearAddress = FastFlavor<string, "NearAddress">;
 
+// TODO: close to the regex /^[1-9A-HJ-NP-Za-km-z]{43,44}$/
+export type SolanaAddress = FastFlavor<string, "SolanaAddress">;
+
 export type BitcoinBlockHash = FastFlavor<string, "BitcoinBlockHash">;
 export type BitcoinTxId = FastFlavor<string, "BitcoinTxId">;
 export type BitcoinAddress = FastFlavor<string, "BitcoinAddress">;
@@ -123,7 +126,8 @@ export type WalletAddress =
   | MidnightAddress
   | MinaAddress
   | SubstrateAddress
-  | BitcoinAddress;
+  | BitcoinAddress
+  | SolanaAddress;
 
 /**
  * TODO: probably best to make this more granular to different cryptographic schemes

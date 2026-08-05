@@ -2,8 +2,8 @@
   "name": "@effectstream/docs",
   "version": "0.3.0",
   "scripts": {
-    "sync-readmes": "bun run scripts/sync-package-readmes.ts",
-    "sync-readmes:check": "bun run scripts/sync-package-readmes.ts --check",
+    "sync-readmes": "bun run scripts/sync-package-readmes.ts && bun run scripts/sync-template-readmes.ts",
+    "sync-readmes:check": "bun run scripts/sync-package-readmes.ts --check && bun run scripts/sync-template-readmes.ts --check",
     "start": "bun run sync-readmes && docusaurus start",
     "build": "bun run sync-readmes && docusaurus build",
     "docs:check": "bun run sync-readmes:check"

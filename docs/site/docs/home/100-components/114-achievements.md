@@ -1,111 +1,87 @@
 # Achievements
 
-EffectStream includes a built-in implementation of the **Paima Request for Comments #1 (PRC-1)**, an open standard for exposing in-game achievements. By following this standard, your dApp can broadcast player accomplishments in a consistent, interoperable format.
+EffectStream ships **storage primitives for tracking player achievements**: a system table and two prepared queries you can call from your State Transition Functions. These are the building blocks for implementing [PRC-1](../400-paima-standards/prc1.md), the open standard for exposing in-game achievements.
 
-This allows third-party tools, community-run leaderboards, and other dApps to easily integrate with your game, creating a richer, more engaging ecosystem for your players.
+:::warning What is and isn't built in
+The engine provides the **storage layer only** — the `effectstream.achievement_progress` table and the `getAchievementProgress` / `setAchievementProgress` queries.
 
-### How it Works
+There is **no built-in achievement HTTP API**, and no `Achievement` / `AchievementMetadata` type or `achievements` export convention. Defining achievement metadata and serving PRC-1 endpoints is something you implement in your own [API router](./103-api.md). Earlier versions of this page described such an API; it does not exist in the engine.
+:::
 
-The achievement system is split into two main parts:
-1.  **Static Metadata**: The list of all possible achievements in your game, including their names, descriptions, and icons. You define this once.
-2.  **Dynamic Progress**: The per-player data, tracking which achievements a player has unlocked and their progress towards others. You update this from within your State Transition Functions (STFs).
+### The storage model
 
-EffectStream takes care of the rest, automatically exposing this information through a standardized, PRC-1 compliant API.
+Progress is stored in one system table, keyed by account and achievement name:
 
-### 1. Defining Achievement Metadata
-
-To enable the achievement API, you must define the list of all possible achievements for your game. This is done in your `api.ts` file (or a similar entry point for your API logic) by exporting a constant named `achievements`.
-
-**Example (`api.ts`):**
-```ts
-// Define all possible achievements for your game.
-const achievementList: Achievement[] = [
-    {
-        name: "finish-chapter-1",
-        displayName: "Over The River",
-        description: "Finish Chapter 1.",
-        isActive: true, // This achievement can currently be earned.
-    },
-    {
-        name: "win-10-battles",
-        displayName: "Battle Hardened",
-        description: "Win 10 battles against any opponent.",
-        isActive: true,
-    },
-];
-
-// Create the full metadata object.
-const metadata: AchievementMetadata = {
-    game: {
-        id: "my-awesome-game",
-    },
-    list: achievementList,
-};
-
-// Export the metadata to enable the EffectStream's built-in achievement API.
-export const achievements = Promise.resolve(metadata);
+```sql
+CREATE TABLE effectstream.achievement_progress(
+  account_id      INTEGER NOT NULL REFERENCES effectstream.accounts(id),
+  name            TEXT NOT NULL,
+  completed_date  TIMESTAMP,
+  progress        INTEGER,
+  total           INTEGER,
+  PRIMARY KEY (account_id, name)
+);
 ```
 
-### 2. Updating Player Progress in an STF
+Note that rows are keyed by **`account_id`**, not by wallet address. An account can have several addresses linked to it (see [Accounts](./116-accounts.md)), so achievements follow the player, not a single wallet. Use `getAddressByAddress` from `@effectstream/db` to resolve an address to its `account_id`.
 
-Once your metadata is defined, the next step is to track player progress. This is done from within your **State Transition Functions (STFs)** by using special database queries provided by the `@effectstream/db` package.
+| Column | Meaning |
+| --- | --- |
+| `account_id` | The player's account (FK to `effectstream.accounts`). |
+| `name` | Your identifier for the achievement, e.g. `"win-10-battles"`. |
+| `completed_date` | Timestamp when the achievement was completed; `NULL` while in progress. |
+| `progress` | Current progress value. |
+| `total` | Value of `progress` that counts as complete. |
 
-When a player performs an action that should affect an achievement, you:
-1.  **Get** their current progress for that achievement using `getAchievementProgress`.
-2.  **Set** their new progress using `setAchievementProgress`.
+### Reading and writing progress
 
-This `set` operation generates a database update that the EffectStream will apply atomically with the rest of your STF's state changes.
+Both queries are exported from `@effectstream/db`:
 
-**Example (inside an STF in `state-machine.ts`):**
+- `getAchievementProgress({ account_id, names })` — `names` accepts a list of achievement names, or `["*"]` to return every achievement for the account.
+- `setAchievementProgress({ account_id, name, completed_date, progress, total })` — upserts on `(account_id, name)`.
+
+Inside an STF you run them through `World.resolve`, which queues the operation so it is applied atomically with the rest of the state transition:
+
 ```ts
-import { getAchievementProgress, setAchievementProgress } from '@effectstream/db';
-import type { ISetAchievementProgressParams } from '@effectstream/db';
+import { Stm } from "@effectstream/sm";
+import { World } from "@effectstream/coroutine";
+import { getAchievementProgress, setAchievementProgress } from "@effectstream/db";
 
-// Assume this function is called inside your STF when a player wins a battle.
-async function handleBattleWin(walletId: number, blockTimestamp: Date, dbConn: Pool): Promise<SQLUpdate[]> {
-  const achievementName = 'win-10-battles';
+const TOTAL_BATTLES = 10;
 
-  // 1. Get the player's current progress for this achievement.
-  const currentProgress = await getAchievementProgress.run({
-    wallet: walletId,
-    names: [achievementName]
-  }, dbConn);
+stm.addStateTransition("battle_win", function* (data) {
+  const { accountId, blockTimestamp } = data;
+  const name = "win-10-battles";
 
-  const progressRow = currentProgress[0];
+  // `accountId` is optional on the STF input — it is only set for inputs that
+  // arrived from a signed, account-linked address.
+  if (accountId == null) return;
 
-  // If the achievement is not yet completed...
-  if (!progressRow?.completed_date) {
-    const newProgress = (progressRow?.progress ?? 0) + 1;
-    const isCompleted = newProgress >= 10;
+  // 1. Read the player's current progress.
+  const rows = yield* World.resolve(getAchievementProgress, {
+    account_id: accountId,
+    names: [name],
+  });
+  const current = rows[0];
 
-    // 2. Return a command to update the progress in the database.
-    // If the achievement is now complete, we also set the completion date.
-    return [
-      [setAchievementProgress, {
-        name: achievementName,
-        wallet: walletId,
-        completed_date: isCompleted ? blockTimestamp : null,
-        progress: newProgress,
-        total: 10,
-      } satisfies ISetAchievementProgressParams],
-    ];
-  }
+  // Already completed — nothing to do.
+  if (current?.completed_date) return;
 
-  // The achievement is already complete, so no update is needed.
-  return [];
-}
+  // 2. Write the new progress, stamping the completion date on the final step.
+  const progress = (current?.progress ?? 0) + 1;
+  yield* World.resolve(setAchievementProgress, {
+    account_id: accountId,
+    name,
+    progress,
+    total: TOTAL_BATTLES,
+    // `blockTimestamp` is epoch milliseconds; the column is a TIMESTAMP.
+    completed_date: progress >= TOTAL_BATTLES ? new Date(blockTimestamp) : null,
+  });
+});
 ```
 
-### 3. Consuming the Achievement API
+### Exposing achievements over HTTP
 
-Once enabled, your EffectStream node will automatically serve the PRC-1 compliant API endpoints. Other developers, services, or even your own frontend can then query this data.
+To make achievements readable by frontends or third-party tools, add routes to your own API router. A PRC-1 shaped implementation would define the static metadata (names, display names, descriptions, icons) in your application code and join it with the progress rows above.
 
-*   **List All Achievements**:
-    *   `GET /achievements/public/list`
-    *   Returns a list of all defined achievements, their descriptions, and global completion statistics.
-
-*   **Get a Player's Achievements**:
-    *   `GET /achievements/wallet/:walletAddress`
-    *   Returns the specific progress for a given wallet, including which achievements they have completed and their progress on others.
-
-This open standard makes it incredibly easy for anyone in the ecosystem to build on top of your game's accomplishments, fostering a more connected and engaging community.
+See [API](./103-api.md) for how to define routes, and [PRC-1](../400-paima-standards/prc1.md) for the response format the standard specifies.

@@ -77,13 +77,22 @@ const bitcoinAdapter = new BitcoinAdapter({
 
 ## 3. Orchestration
 
-Use `launchBitcoin` from `@effectstream/orchestrator/start-bitcoin`. This spins up a local **Bitcoin Core** node in regtest mode.
+Use `launchBitcoin` from `@effectstream/orchestrator/launch-bitcoin`. This spins up a local **Bitcoin Core** node in regtest mode.
 
 ```ts
-// in start.ts
-processesToLaunch: [
-  ...launchBitcoin("@my-project/bitcoin-contracts"),
-]
+// in start.dev.ts
+import path from "node:path";
+import { launchBitcoin } from "@effectstream/orchestrator/launch-bitcoin";
+
+const root = import.meta.dirname!;
+
+export default {
+  processes: [
+    ...launchBitcoin("@my-project/bitcoin-contracts", {
+      cwd: path.join(root, "packages/contracts-bitcoin"),
+    }),
+  ],
+} satisfies OrchestratorConfig;
 ```
 
 It is also common to include a process to mine blocks automatically in the background to ensure transaction processing during development.

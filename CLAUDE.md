@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Effectstream (formerly Paima Engine) is a multi-chain blockchain application framework. It's a Bun-based monorepo with 38 publishable packages. Full sync + batcher support: EVM, Midnight, Bitcoin, Cardano, Avail, Celestia, NEAR. Wallet-connect + signature-verify only (no L1 sync yet): Polkadot, Mina, Algorand.
+Effectstream (formerly Paima Engine) is a multi-chain blockchain application framework. It's a Bun-based monorepo with 38 publishable packages. Full sync + batcher support: EVM, Midnight, Bitcoin, Cardano, Avail, Celestia, NEAR, Solana. Wallet-connect + signature-verify only (no L1 sync yet): Polkadot, Mina, Algorand.
 
 ## Common Commands
 

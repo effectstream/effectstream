@@ -16,6 +16,7 @@ import { MinaConnector } from "./mina/mina.ts";
 import { AvailConnector } from "./avail/avail.ts";
 import { MidnightConnector } from "./midnight/midnight.ts";
 import { MidnightLocalConnector } from "./midnight/local.ts";
+import { SolanaConnector } from "./solana/solana.ts";
 
 export const enum WalletMode {
   EvmInjected,
@@ -29,6 +30,7 @@ export const enum WalletMode {
   Algorand,
   Mina,
   AvailJs,
+  Solana,
 }
 
 export const WalletNameMap: Record<WalletMode, string> = {
@@ -43,6 +45,7 @@ export const WalletNameMap: Record<WalletMode, string> = {
   [WalletMode.Algorand]: 'Algorand',
   [WalletMode.Mina]: "Mina",
   [WalletMode.AvailJs]: "Avail",
+  [WalletMode.Solana]: "Solana",
 };
 
 export const WalletModeMap = {
@@ -57,6 +60,7 @@ export const WalletModeMap = {
   [WalletMode.Algorand]: AlgorandConnector.instance(),
   [WalletMode.Mina]: MinaConnector.instance(),
   [WalletMode.AvailJs]: AvailConnector.instance(),
+  [WalletMode.Solana]: SolanaConnector.instance(),
 };
 
 type ExtractGeneric<T> = T extends IConnector<infer U> ? U : never;

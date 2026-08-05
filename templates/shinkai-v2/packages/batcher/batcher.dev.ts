@@ -19,9 +19,10 @@ const config: BatcherConfig = {
   adapters: { paimaL2 },
   defaultTarget: "paimaL2",
   // Must match what the sync-side `EffectstreamL2Primitive` uses to re-verify
-  // signatures. The SDK currently hardcodes namespace = null there, so we sign
-  // and verify with an empty namespace end-to-end until the SDK exposes it.
-  namespace: "",
+  // signatures — i.e. the node's setSecurityNamespace(...) — and the frontend's
+  // NAMESPACE. getReadNamespaces() returns only the configured namespace, so a
+  // mismatch here makes every batched input fail verification and be dropped.
+  namespace: "shinkai-v2",
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },

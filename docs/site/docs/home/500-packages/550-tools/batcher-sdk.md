@@ -81,17 +81,23 @@ That accepts inputs on `http://localhost:3334`, batches them on a 1s window, sub
 ### Submitting an input
 
 ```bash
-curl -X POST http://localhost:3334/batch-input \
+curl -X POST http://localhost:3334/send-input \
   -H "Content-Type: application/json" \
   -d '{
-    "address": "0x...",
-    "input": "myGameInput",
-    "signature": "0x...",
-    "timestamp": 1234567890
+    "data": {
+      "address": "0x...",
+      "addressType": 0,
+      "input": "myGameInput",
+      "signature": "0x...",
+      "timestamp": "1234567890"
+    },
+    "confirmationLevel": "wait-receipt"
   }'
 ```
 
-`signature` is required for the EVM and Cardano adapters. Adapters that override `verifySignature` (Midnight, for example) accept inputs without it but must implement their own check.
+The input is wrapped in a `data` object. `addressType` is the numeric `AddressType`, and `timestamp` is a string. `confirmationLevel` is one of `no-wait`, `wait-receipt` (default), or `wait-effectstream-processed`; an optional `timeoutMs` bounds receipt confirmation.
+
+`signature` is required for the EVM and Cardano adapters. Adapters that override `verifySignature` (Midnight and Solana, for example) accept inputs without it but must implement their own check - the Solana adapter verifies the Ed25519 signatures carried inside the submitted transaction and requires the claimed address to be one of its signers.
 
 ### Batching criteria
 
@@ -111,12 +117,41 @@ Per-adapter, you choose how `runBatcher` decides to submit:
 - `wait-receipt`: waits for the blockchain transaction receipt.
 - `wait-effectstream-processed`: waits until Effectstream has processed the resulting rollup block.
 
+### Rate limiting
+
+`POST /send-input` is rate limited. Configure it with the optional `rateLimit`
+block:
+
+```typescript
+const config: BatcherConfig = {
+  // …
+  rateLimit: {
+    maxRequests: 1000,   // requests allowed per window
+    windowMs: 86_400_000, // window size in ms
+    // store: myRateLimitStore,  // optional; in-memory by default
+  },
+};
+```
+
+Those are the defaults applied when you omit the block. Validation rejects
+`maxRequests < 1` or `windowMs < 1000`. A limited request gets HTTP 429 with a
+`retryAfter` value in the body.
+
+Each adapter chooses how requests are keyed by implementing the optional
+`getRateLimitKeyStrategy()`, returning one of `"ip"` (the default),
+`"ip-and-address"`, or `"composite"` - so a chain whose users share an IP can
+still be limited per address.
+
+To back the limiter with something other than process memory, implement
+`RateLimitStore` (`hit(key, nowMs)` and `count(key, nowMs, windowMs)`) and pass
+it as `store`. `InMemoryRateLimitStore` is the built-in implementation.
+
 ## Customising the batcher
 
 The four interfaces you'd implement, in order of frequency:
 
 - `BlockchainAdapter`: submit, wait for receipt, estimate fee, report chain name. New chains plug in here.
-- `BatcherStorage`: persist + load inputs. The default is `FileStorage` (JSONL on disk); Postgres / Redis / S3 implementations are straightforward.
+- `BatcherStorage`: persist + load inputs. The default is `FileStorage` (JSONL on disk). A `DatabaseStorage` class is exported but is **not implemented** - every method currently throws - so Postgres / Redis / S3 backends are yours to write against this interface.
 - `BatchDataBuilder<T>`: control how inputs are serialised into the bytes the adapter submits.
 - State-transition listeners: hook into `startup`, `batch:process:start`, `batch:submit`, `batch:confirmed`, `error`, and others for metrics or custom behaviour.
 
@@ -129,9 +164,13 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 - `createNewBatcher(config, storage)`: build a batcher instance.
 - `BatcherConfig`: configuration type. See `pollingIntervalMs`, `adapters`, `defaultTarget`, `batchingCriteria`, `confirmationLevel`, `enableHttpServer`, `port`, `enableEventSystem`, `namespace`, `batchBuilding`.
 - `FileStorage(dir)`: default JSONL storage.
-- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `BitcoinAdapter`.
+- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`, `NearAdapter`, `NearIntentAdapter`.
 - Batcher operations: `runBatcher`, `batchInput`, `addStateTransition`, `gracefulShutdownOp`, `getPublicConfig`, `getBatchingStatus`.
-- HTTP endpoints (when enabled): `POST /batch-input`, `GET /status`, `GET /health`, `POST /force-process`.
+- Rate limiting: `RateLimiter`, `InMemoryRateLimitStore`, and the `RateLimitStore` / `RateLimitKeyStrategy` / `RateLimitCheckResult` types. See [Rate limiting](#rate-limiting).
+- `DatabaseStorage`: a `BatcherStorage` shell that is **not implemented yet** - its methods throw. Use `FileStorage` or your own implementation.
+- `MidnightBalancingAdapter`: a Midnight adapter variant that delegates transaction balancing, for setups where the batcher does not hold the funding wallet itself.
+- `WorkerPool`: the internal concurrency primitive the Midnight adapter uses to run one transaction per wallet UTXO slot in parallel, with a per-slot mutex.
+- HTTP endpoints (when enabled): `POST /send-input`, `GET /health`, `GET /status`, `GET /queue-stats`. Two more are registered only when `ENABLE_DEV_AND_DEBUG_ENDPOINTS` is set: `POST /force-batch` and `DELETE /clear-inputs`.
 
 ## Examples
 

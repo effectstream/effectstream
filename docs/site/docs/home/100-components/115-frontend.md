@@ -38,32 +38,48 @@ To change the state of the application, the frontend must initiate a transaction
 All write operations begin with connecting a user's wallet. The `@effectstream/wallets` package provides a unified interface for connecting to various blockchain ecosystems.
 
 ```ts
-import { WalletMode, login } from '@effectstream/wallets';
+import { WalletMode, walletLogin } from '@effectstream/wallets';
 
 // Example for an injected EVM wallet like MetaMask
-const loginInfo = await login(WalletMode.EvmInjected);
+const result = await walletLogin({
+  mode: WalletMode.EvmInjected,
+  preferBatchedMode: true,
+});
+
+if (result.success) {
+  const { walletAddress, provider } = result.result;
+}
 ```
-Supported wallet modes include `EvmInjected`, `Cardano`, `Mina`, `AvailJs`, and more, enabling truly cross-chain applications.
+Supported wallet modes include `EvmInjected`, `Cardano`, `Mina`, `AvailJs`, `Solana`, and more, enabling truly cross-chain applications. See the [wallets package reference](../500-packages/510-sdk/wallets.md) for the exact login options each mode takes.
 
 ### Submission Methods
 1.  **Direct Contract Interaction**: The standard Web3 approach where your frontend calls a function on a smart contract directly (e.g., minting an NFT).
-2.  **Direct EffectStream L2 Contract Interaction**: A specific direct interaction where your frontend calls the `submitInput` method on your game's `EffectstreamL2Contract` with a grammar-formatted payload. The user pays the gas for this transaction.
+2.  **Direct EffectStream L2 Contract Interaction**: A specific direct interaction where your frontend calls the `effectstreamSubmitGameInput` method on your game's `EffectstreamL2Contract` with a grammar-formatted payload. The user pays the gas for this transaction.
 3.  **Batcher Interaction**: The recommended approach for the best UX. The user signs a message, and the frontend sends it to a **Batcher** service via an HTTP request. The Batcher then submits the input on-chain, often covering the gas fee and allowing users from different chains to interact.
 
 Here is an example of a frontend submitting an input to the batcher:
 ```ts
 import { createMessageForBatcher } from '@effectstream/concise';
+import { getWriteNamespace } from '@effectstream/config';
 import { AddressType } from '@effectstream/utils';
 
-const appName = "";
-const timestamp = Date.now();
-const conciseInput = ["my-action", "0x1", "0x2"]; // Your grammar-formatted input
+// The signing namespace must match the one your node is configured with,
+// otherwise the batcher rejects the signature.
+const namespace = getWriteNamespace(config.securityNamespace);
 
+// Both values are strings: the timestamp is sent as a string, and the input is
+// the JSON-encoded grammar tuple.
+const timestamp = Date.now().toString();
+const conciseInput = JSON.stringify(["my-action", "0x1", "0x2"]);
 
 // The user signs a message, not a transaction
 const signature = await walletClient.signMessage({
   message: createMessageForBatcher(
-    appName, timestamp, account.address, account.accountType, conciseInput
+    namespace,
+    timestamp,
+    account.address,
+    AddressType.EVM,
+    conciseInput,
   ),
 });
 
@@ -71,18 +87,20 @@ const signature = await walletClient.signMessage({
 await fetch(`${ENV.BATCHER_URL}/send-input`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ 
+  body: JSON.stringify({
     data: {
-      userAddress: account.address,
-      addressType: account.accountType,
-      userSignature: signature,
-      conciseInput: conciseInput,
-      millisecondTimestamp: timestamp,
+      address: account.address,
+      addressType: AddressType.EVM,
+      input: conciseInput,
+      signature,
+      timestamp,
     },
-    waitForConfirmation: "wait-effectstream-processed",
+    confirmationLevel: "wait-effectstream-processed",
   }),
 });
 ```
+
+The `data` object is the batcher's input schema; `confirmationLevel` is one of `"no-wait"`, `"wait-receipt"` (the default), or `"wait-effectstream-processed"`. An optional `timeoutMs` controls the receipt-confirmation timeout. See the [batcher documentation](./108-batcher/1200-overview.md) for the full API.
 
 ## Reading Data from the EffectStream (Reads)
 While you can read data directly from the blockchain, it is often slow, inefficient, and doesn't provide the rich, aggregated state of your EffectStream application.

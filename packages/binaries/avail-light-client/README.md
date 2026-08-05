@@ -5,8 +5,8 @@ CLI. Installs a pinned binary into `node_modules/.bin/npm-avail-light-client`
 so the EffectStream orchestrator and Avail-side E2E tests can spin up a
 light client without each developer fetching the binary by hand.
 
-- Pinned Avail light-client binary, dropped into `node_modules/.bin/`.
-- Linux / macOS, x64 and arm64.
+- Pinned Avail light-client binary (v1.13.2), dropped into `node_modules/.bin/`.
+- Native binaries: macOS arm64 + x64, Linux x64, Windows x64. **Linux arm64 has no native binary** — the wrapper raises "Unsupported platform" and falls back to Docker.
 - Used by the orchestrator's Avail step; pairs with `@effectstream/npm-avail-node`.
 - Exercised by the [`e2e/avail/`](https://github.com/effectstream/effectstream/tree/main/e2e/avail) suite.
 
@@ -26,10 +26,11 @@ install.
 ```bash
 # Through the bin shim
 bunx npm-avail-light-client --network mainnet
-
-# Or invoke the script directly
-bun run --bun @effectstream/npm-avail-light-client/start -- --network mainnet
 ```
+
+The package exposes a single `npm-avail-light-client` bin backed by
+`index.js`; it declares no `exports` map, so there is no importable
+subpath.
 
 ## Inside EffectStream
 

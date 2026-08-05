@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/orchestrator",
-  "version": "0.101.1",
+  "version": "0.103.1",
   "license": "(MIT OR Apache-2.0)",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -22,6 +22,7 @@
     "./launch-avail": "./scripts/launch-avail.ts",
     "./launch-celestia": "./scripts/launch-celestia.ts",
     "./launch-near": "./scripts/launch-near.ts",
+    "./scripts/launch-solana": "./scripts/launch-solana.ts",
     "./wait-tcp": "./scripts/wait-tcp.ts",
     "./wait-http": "./scripts/wait-http.ts"
   },

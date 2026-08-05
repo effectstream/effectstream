@@ -8,19 +8,21 @@
     "check": "tsc --noEmit main.dev.ts"
   },
   "dependencies": {
-    "@effectstream/runtime": "0.101.1",
-    "@effectstream/sm": "0.101.1",
-    "@effectstream/config": "0.101.1",
-    "@effectstream/concise": "0.101.1",
-    "@effectstream/coroutine": "0.101.1",
-    "@effectstream/db": "0.101.1",
-    "@effectstream/log": "0.101.1",
-    "@effectstream/utils": "0.101.1",
+    "@chess-v2/contracts-evm": "workspace:*",
+    "@chess-v2/database": "workspace:*",
+    "@effectstream/concise": "0.102.0",
+    "@effectstream/config": "0.102.0",
+    "@effectstream/coroutine": "0.102.0",
+    "@effectstream/db": "0.102.0",
+    "@effectstream/log": "0.102.0",
+    "@effectstream/runtime": "0.102.0",
+    "@effectstream/sm": "0.102.0",
+    "@effectstream/utils": "0.102.0",
     "@sinclair/typebox": "^0.34.30",
     "chess.js": "^1.4.0",
+    "effection": "^3.5.0",
     "fastify": "^5.4.0",
     "pg": "^8.14.0",
-    "effection": "^3.5.0",
     "viem": "2.37.3"
   }
 }

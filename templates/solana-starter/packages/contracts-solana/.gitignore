@@ -1,0 +1,24 @@
+# Rust/SBF build artifacts
+programs/counter/target/
+
+# Compiled program output. counter.so IS committed on purpose: the CI image has
+# no Rust toolchain, and cargo-build-sbf lives inside @effectstream/solana-node's
+# vendor/ dir, which is only populated when the validator binary downloads — i.e.
+# after this build step runs. Same convention as
+# e2e/shared/contracts/near/test_event_contract.wasm and
+# e2e/shared/contracts/solana/test_event.so. Rebuild with `bun run build:solana`
+# after editing programs/counter/src/lib.rs.
+/build/*
+!/build/counter.so
+
+# solana-test-validator scratch ledger
+test-ledger/
+
+# rustfmt backups
+**/*.rs.bk
+
+# Keypairs. `keypair/counter-program.json` IS committed on purpose so the
+# program ID stays deterministic for local dev — its secret is public and it
+# must never own anything on a real network. Any OTHER keypair stays out.
+keypair/*.json
+!keypair/counter-program.json

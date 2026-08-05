@@ -281,13 +281,22 @@ const isValidSig = await crypto.verifySignature(
 
 ## 5. Orchestration
 
-Use `launchCardano` from `@effectstream/orchestrator/start-cardano` to launch a local environment using **Yaci Devkit** and **Dolos**.
+Use `launchCardano` from `@effectstream/orchestrator/launch-cardano` to launch a local environment using **Yaci Devkit** and **Dolos**.
 
 ```ts
-// in start.ts
-processesToLaunch: [
-  ...launchCardano("@my-project/cardano-contracts"),
-]
+// in start.dev.ts
+import path from "node:path";
+import { launchCardano } from "@effectstream/orchestrator/launch-cardano";
+
+const root = import.meta.dirname!;
+
+export default {
+  processes: [
+    ...launchCardano("@my-project/cardano-contracts", {
+      cwd: path.join(root, "packages/contracts-cardano"),
+    }),
+  ],
+} satisfies OrchestratorConfig;
 ```
 
 > NOTE: To use this launcher you need to implement some scripts in your project's `package.json`. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.

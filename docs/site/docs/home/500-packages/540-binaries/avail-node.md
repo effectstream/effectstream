@@ -13,7 +13,7 @@ binary. Installs a pinned version into `node_modules/.bin/npm-avail-node`
 so the EffectStream orchestrator can run a local Avail node without each
 developer compiling or downloading it manually.
 
-- Pinned Avail node binary, dropped into `node_modules/.bin/`.
+- Pinned Avail node binary (v2.3.0.1-rc1), dropped into `node_modules/.bin/`.
 - Spins up a local dev node with `--dev` in one command.
 - Paired with `@effectstream/npm-avail-light-client` for full local Avail-DA.
 - Exercised by the [`e2e/avail/`](https://github.com/effectstream/effectstream/tree/main/e2e/avail) suite.

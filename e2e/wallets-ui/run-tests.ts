@@ -15,7 +15,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
-import { assert, printSummary, anyError } from "@e2e/engine";
+import { assert, printSummary, anyError, recordCrash } from "@e2e/engine";
 
 const __dirname = import.meta.dirname!;
 const PORT = 4201;
@@ -182,6 +182,7 @@ async function main(): Promise<void> {
     await browserTests();
     printSummary();
   } catch (e) {
+    recordCrash();
     printSummary();
     console.error(e);
   } finally {

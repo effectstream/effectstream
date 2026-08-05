@@ -35,6 +35,7 @@ test("README: every supported chain returns an IVerify", () => {
       AddressType.ALGORAND,
       AddressType.MINA,
       AddressType.MIDNIGHT,
+      AddressType.SOLANA,
     ]
   ) {
     const mgr = CryptoManager.getCryptoManager(t);

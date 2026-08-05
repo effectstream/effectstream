@@ -18,7 +18,7 @@ jobs:
       templates: ${{ steps.classify.outputs.templates }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -40,10 +40,14 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.core == 'true' && (github.event_name == 'push' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    # 11 suites run serially and green runs already sit at 28-29 min, so a
+    # single E2E_MAX_RETRIES retry of any one suite blew the old 30-min budget —
+    # the job was killed mid-retry and reported as `cancelled`, which reads like
+    # "superseded by a newer push" rather than "timed out".
+    timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Build testing image
         run: docker build -t testing_image:${{ github.sha }} -f .github/Dockerfile .
@@ -61,7 +65,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Build testing image
         run: docker build -t testing_image:${{ github.sha }} -f .github/Dockerfile .
@@ -89,7 +93,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -103,11 +107,32 @@ jobs:
       - name: Build & test frontend SDK
         run: bun test packages/frontend/test/
 
+  # The `assets.ts` bundles inline .sql / .txt sources as base64. They are
+  # generated files, but the generator used to be a deno/jsr tool we can no
+  # longer run, so they were hand-patched and both went stale unnoticed (a
+  # dropped `CREATE EXTENSION pg_ivm` in the db bundle, `@paima/` remappings in
+  # the evm-hardhat one). Regenerate + diff so drift can never ship again.
+  # Ungated: it takes seconds, needs no `bun install`, and gating it on `core`
+  # would skip it for a change to the generator itself (outside packages/).
+  assets-check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      # No `bun install`: the generator only uses Bun/node builtins.
+      - name: Check generated asset bundles are in sync
+        run: bun run assets:check
+
   # Aggregate gate: a single stable check to mark required in branch protection.
   # Passes when the gated jobs succeed or are skipped; fails if any fails or is
   # cancelled (or if the changes job itself failed).
   ci-ok:
-    needs: [changes, e2e, template-tests, frontend-build]
+    needs: [changes, e2e, template-tests, frontend-build, assets-check]
     if: ${{ always() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 5
@@ -118,13 +143,16 @@ jobs:
           echo "e2e=${{ needs.e2e.result }}"
           echo "template-tests=${{ needs.template-tests.result }}"
           echo "frontend-build=${{ needs.frontend-build.result }}"
+          echo "assets-check=${{ needs.assets-check.result }}"
           if [ "${{ needs.changes.result }}" = "failure" ] || \
              [ "${{ needs.e2e.result }}" = "failure" ] || \
              [ "${{ needs.e2e.result }}" = "cancelled" ] || \
              [ "${{ needs.template-tests.result }}" = "failure" ] || \
              [ "${{ needs.template-tests.result }}" = "cancelled" ] || \
              [ "${{ needs.frontend-build.result }}" = "failure" ] || \
-             [ "${{ needs.frontend-build.result }}" = "cancelled" ]; then
+             [ "${{ needs.frontend-build.result }}" = "cancelled" ] || \
+             [ "${{ needs.assets-check.result }}" = "failure" ] || \
+             [ "${{ needs.assets-check.result }}" = "cancelled" ]; then
             echo "::error::A required job failed or was cancelled."
             exit 1
           fi

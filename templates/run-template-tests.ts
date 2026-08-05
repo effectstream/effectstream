@@ -43,20 +43,23 @@ export const ENABLED = [
   "batcher-validations",
   "night-bitcoin-v2",
   "hex-battle",
-  // "chess-v2",        // TODO: migrate to effectstream-bun
+  "solana-starter",
+  "chess-v2",
   // "chess",           // TODO: migrate to effectstream-bun
   // "dice",            // TODO: migrate to effectstream-bun
   // "evm-midnight",    // TODO: migrate to effectstream-bun
-  // "minimal",         // TODO: migrate to effectstream-bun
+  "minimal",
   // "multi-chain-token-transfer", // TODO: migrate to effectstream-bun
   // "rock-paper-scissors", // TODO: migrate to effectstream-bun
-  // "zswap-da",         // frontend-only since 3fae2d91 extracted the backend to
-  //                     // github.com/effectstream/zswap-offerfiles-kernel. Can't be
-  //                     // tested in isolation: it needs that backend live on :9999
-  //                     // (Midnight config, ZK assets, batcher), and its
-  //                     // @zswap-da/contract-offer-files dep is a `file:` path into a
-  //                     // sibling checkout that doesn't exist in CI. Also has no
-  //                     // `test` script and no link.sh.
+  // "zswap-da",         // Frontend-only since 3fae2d91 extracted the backend to
+  //                     // github.com/effectstream/zswap-offerfiles-kernel. It now
+  //                     // installs and builds standalone (contract compiled from
+  //                     // src/contract/offer-files.compact; the out-of-repo `file:`
+  //                     // dep and the missing link.sh are both fixed), but there is
+  //                     // still no meaningful `test`: exercising it needs that
+  //                     // backend live on :9999 for Midnight config, ZK assets and
+  //                     // the batcher, which CI can't stand up. A typecheck-only
+  //                     // smoke test is the realistic way back in.
   "world-map-2d",
 ];
 

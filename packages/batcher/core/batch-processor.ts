@@ -47,8 +47,23 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         timeout: number,
       ) => Promise<{ latestBlock: number; rollup: number } | null>;
       getCallbackKey: (input: T) => string;
+      getRetryPolicy: () => { maxRetries: number; retryDelayMs: number };
+      setTargetCooldown: (target: string, ms: number) => void;
     },
   ) {}
+
+  /**
+   * Classify a batch-wide failure. INFRASTRUCTURE failures (no spendable
+   * dust, unreachable node/indexer/prover, timeouts) are conditions of the
+   * batcher's environment, not of the inputs — retrying the same inputs
+   * later will succeed, so their retry budgets must NOT be charged.
+   * Everything else is treated as an input failure.
+   */
+  static isInfraFailure(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /could not balance dust|Insufficient Funds|Unable to connect|fetch failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|ETIMEDOUT|socket|network|timed? ?out|Service Unavailable|Bad Gateway|502|503|pool timed out/i
+      .test(message);
+  }
 
   async processBatchForTarget(
     adapter: BlockchainAdapter<any>,
@@ -105,16 +120,33 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       // so we need the original list to know which inputs actually failed.
       const inputsSnapshot = [...selectedInputs];
 
+      const { maxRetries, retryDelayMs } = this.batcher.getRetryPolicy();
+
       let hash: string;
       try {
         hash = await adapter.submitBatch(data, estimatedFee);
       } catch (error) {
-        // All inputs failed — increment retry counts; storage drops those that hit the limit
+        if (BatchProcessor.isInfraFailure(error)) {
+          // PARK, don't drop: the environment failed, not the inputs. Leave
+          // retry counts untouched and pause the target so the poll loop
+          // doesn't burn worker slots on a known-bad environment.
+          const cooldownMs = Math.max(retryDelayMs, 1000);
+          console.warn(
+            `[BatchProcessor] Infra failure for target ${target} — parking ` +
+              `${inputsSnapshot.length} input(s) untouched, cooldown ${cooldownMs}ms: ${
+                error instanceof Error ? error.message : error
+              }`,
+          );
+          this.batcher.setTargetCooldown(target, cooldownMs);
+          throw error;
+        }
+        // Input failure — increment retry counts; storage drops (with a
+        // warning) those that hit the configured limit.
         debugLog(
-          `[BatchProcessor] submitBatch threw for target ${target}, incrementing retry counts for ${inputsSnapshot.length} inputs`,
+          `[BatchProcessor] submitBatch threw for target ${target}, incrementing retry counts for ${inputsSnapshot.length} inputs (maxRetries=${maxRetries})`,
         );
         await this.batcher.storage
-          .incrementRetryCount(inputsSnapshot, target, 3)
+          .incrementRetryCount(inputsSnapshot, target, maxRetries)
           .catch((e) =>
             debugLog(`[BatchProcessor] Failed to increment retry counts: ${e}`)
           );
@@ -145,10 +177,10 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         const failedInputs = inputsSnapshot.filter((i) => !finalSet.has(i));
         if (failedInputs.length > 0) {
           debugLog(
-            `[BatchProcessor] Incrementing retry count for ${failedInputs.length} failed inputs`,
+            `[BatchProcessor] Incrementing retry count for ${failedInputs.length} failed inputs (maxRetries=${maxRetries})`,
           );
           await this.batcher.storage
-            .incrementRetryCount(failedInputs, target, 3)
+            .incrementRetryCount(failedInputs, target, maxRetries)
             .catch((e) =>
               debugLog(
                 `[BatchProcessor] Failed to increment retry counts: ${e}`,

@@ -11,6 +11,7 @@ export enum ConfigNetworkType {
   BITCOIN = "bitcoin",
   CELESTIA = "celestia",
   NEAR = "near",
+  SOLANA = "solana",
   /**
    * Synthetic, fully in-memory chain used for deterministic tests.
    * Blocks are computed arithmetically (no RPC). Excluded from publishing.

@@ -1,0 +1,16 @@
+{
+  "name": "@solana-starter/batcher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./batcher.dev.ts",
+  "scripts": {
+    "start": "bun run batcher.dev.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.102.0",
+    "@solana-starter/contracts-solana": "workspace:*",
+    "bs58": "^6.0.0",
+    "effection": "^3.5.0"
+  }
+}

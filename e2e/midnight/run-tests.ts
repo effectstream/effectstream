@@ -12,6 +12,7 @@ import {
   assert,
   assertSQL,
   printSummary,
+  recordCrash,
   startInfrastructure,
   stopInfrastructure,
   waitForOrchestrator,
@@ -137,6 +138,33 @@ async function doTriggerUnshieldedCreates(): Promise<void> {
   }
 }
 
+// -- Unshielded-swap trigger: initSwap deltas completed by a balancing intent --
+// Runs FIRST among triggers: fees are paid in dust, and genesis dust is
+// depleted by the other triggers faster than it regenerates — a swap submitted
+// with dustBalance=0 is rejected by the node (Invalid Transaction: error 168).
+
+type UnshieldedSwapResult =
+  import("../shared/contracts/midnight/faucet.ts").UnshieldedSwapResult;
+
+async function doTriggerUnshieldedSwap(): Promise<UnshieldedSwapResult | undefined> {
+  try {
+    const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
+    const { triggerUnshieldedSwap } = await import("../shared/contracts/midnight/faucet.ts");
+    return await triggerUnshieldedSwap(
+      {
+        indexer: midnightNetworkConfig.indexer,
+        indexerWS: midnightNetworkConfig.indexerWS,
+        node: midnightNetworkConfig.node,
+        proofServer: midnightNetworkConfig.proofServer,
+      },
+      midnightNetworkConfig.id,
+    );
+  } catch (e) {
+    console.error("Failed to trigger unshielded swap (swap assertions will fail):", e);
+    return undefined;
+  }
+}
+
 // -- Token-mint trigger: mint custom tokens via the counter contract ----------
 
 async function doTriggerTokenMints(): Promise<MintedTokens | undefined> {
@@ -199,7 +227,11 @@ async function findIndexerRootForTx(txHash: string, maxBlocksBack = 600): Promis
 
 // -- Sync Tests (STM value validation) ----------------------------------------
 
-async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
+async function runSyncTests(
+  db: Client,
+  minted?: MintedTokens,
+  uswap?: UnshieldedSwapResult,
+): Promise<void> {
   console.log("\n--- Phase 3: Sync Tests (STM value validation) ---\n");
 
   await assertSQL<{ id: number; primitive_name: string; payload_json: string }>(
@@ -233,15 +265,16 @@ async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
     },
   );
 
-  // Nullifier primitive: verify that the Midnight-Nullifier primitive is tracked
+  // NullifierAndCommitment primitive: verify that it is tracked
   await assertSQL<{ primitive_name: string }>(
-    "Midnight: primitive_accounting has Midnight-Nullifier entries",
+    "Midnight: primitive_accounting has Midnight-NullifierAndCommitment entries",
     db,
     `SELECT primitive_name FROM effectstream.primitive_accounting
-     WHERE primitive_name = 'Midnight-Nullifier'
+     WHERE primitive_name = 'Midnight-NullifierAndCommitment'
      LIMIT 1;`,
     (res) => res.rows.length >= 1,
-    (res) => res.rows[0]?.primitive_name === "Midnight-Nullifier",
+    (res) =>
+      res.rows[0]?.primitive_name === "Midnight-NullifierAndCommitment",
   );
 
   // Nullifier STM: verify that nullifier events were written to the user table
@@ -257,9 +290,12 @@ async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
     },
   );
 
-  // Note: initSwap + balanceUnprovenTransaction does NOT produce ZswapInput ledger events.
-  // Atomic swap nullifiers are verified inside the ZK proof but not emitted as separate events.
-  // Only transferTransaction produces ZswapInput events with nullifier spends.
+  // Note: swap transactions (initSwap + balanceUnprovenTransaction) DO emit
+  // ZswapInput/ZswapOutput ledger events, just like transferTransaction — the
+  // dedicated zswap test below asserts their exact values. (An older note here
+  // claimed swaps emit no ZswapInput events; that observation came from the
+  // since-removed hand-rolled event decoder, which misread the variant byte
+  // and dropped events from non-zero segments.)
   await assertSQL<{ count: string }>(
     "Midnight: midnight_nullifiers has multiple entries from shielded transfer",
     db,
@@ -269,6 +305,90 @@ async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
       const count = parseInt(res.rows[0]?.count ?? "0", 10);
       console.log(`  Nullifier count: ${count}`);
       return count >= 2;
+    },
+  );
+
+  // Commitment side of the same primitive: every shielded transfer creates
+  // output coins (recipient + change), each emitting a ZswapOutput event.
+  await assertSQL<{ count: string; commitment: string; mt_index: string }>(
+    "Midnight: midnight_commitments has entries from shielded transfer",
+    db,
+    `SELECT COUNT(*)::text as count, MIN(commitment) as commitment, MIN(mt_index) as mt_index
+     FROM midnight_commitments;`,
+    (res) => res.rows.length >= 1,
+    (res) => {
+      const row = res.rows[0];
+      const count = parseInt(row?.count ?? "0", 10);
+      console.log(`  Commitment count: ${count}`);
+      return count >= 2 &&
+        typeof row.commitment === "string" && row.commitment.length === 64 &&
+        /^\d+$/.test(row.mt_index ?? "");
+    },
+  );
+
+  // Zswap test case: submit a fresh swap (initSwap + balance + submit) and
+  // assert the EXACT nullifiers and commitments read off the finalized swap
+  // transaction end up captured by the NullifierAndCommitment primitive.
+  // Nullifiers/commitments are globally unique, so exact-value matching
+  // cannot be satisfied by rows from any other transaction.
+  let zswap:
+    | { txId: string; expectedNullifiers: string[]; expectedCommitments: string[] }
+    | undefined;
+  try {
+    const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
+    const { triggerZswap } = await import("../shared/contracts/midnight/faucet.ts");
+    zswap = await triggerZswap(
+      {
+        indexer: midnightNetworkConfig.indexer,
+        indexerWS: midnightNetworkConfig.indexerWS,
+        node: midnightNetworkConfig.node,
+        proofServer: midnightNetworkConfig.proofServer,
+      },
+      midnightNetworkConfig.id,
+    );
+  } catch (e) {
+    console.error("Failed to trigger zswap (assertions below will fail):", e);
+  }
+
+  // Values are hex-validated before being embedded in the SQL literal.
+  const isHex64 = (h: string): boolean => /^[0-9a-f]{64}$/.test(h);
+  const expectedNullifiers = (zswap?.expectedNullifiers ?? []).filter(isHex64);
+  const expectedCommitments = (zswap?.expectedCommitments ?? []).filter(isHex64);
+  const inList = (vals: string[]): string =>
+    vals.map((v) => `'${v}'`).join(", ") || "''";
+
+  await assertSQL<{ nullifier: string }>(
+    "Midnight: zswap inputs captured as the exact expected nullifiers",
+    db,
+    `SELECT nullifier FROM midnight_nullifiers
+     WHERE nullifier IN (${inList(expectedNullifiers)});`,
+    (res) =>
+      expectedNullifiers.length > 0 &&
+      res.rows.length >= expectedNullifiers.length,
+    (res) => {
+      console.log(
+        `  zswap nullifiers captured: ${res.rows.length}/${expectedNullifiers.length}` +
+          ` (txId ${zswap?.txId ?? "n/a"})`,
+      );
+      return res.rows.length === expectedNullifiers.length;
+    },
+  );
+
+  await assertSQL<{ commitment: string; mt_index: string }>(
+    "Midnight: zswap outputs captured as the exact expected commitments",
+    db,
+    `SELECT commitment, mt_index FROM midnight_commitments
+     WHERE commitment IN (${inList(expectedCommitments)});`,
+    (res) =>
+      expectedCommitments.length > 0 &&
+      res.rows.length >= expectedCommitments.length,
+    (res) => {
+      console.log(
+        `  zswap commitments captured: ${res.rows.length}/${expectedCommitments.length}` +
+          ` (txId ${zswap?.txId ?? "n/a"})`,
+      );
+      return res.rows.length === expectedCommitments.length &&
+        res.rows.every((r) => /^\d+$/.test(r.mt_index));
     },
   );
 
@@ -297,6 +417,93 @@ async function runSyncTests(db: Client, minted?: MintedTokens): Promise<void> {
         r.output_index >= 0 &&
         (r.tx_hash ?? "").length > 0
       );
+    },
+  );
+
+  // UnshieldedSpend primitive: tracked (rows asserted by the swap test below)
+  await assertSQL<{ primitive_name: string }>(
+    "Midnight: primitive_accounting has Midnight-UnshieldedSpend entries",
+    db,
+    `SELECT primitive_name FROM effectstream.primitive_accounting
+     WHERE primitive_name = 'Midnight-UnshieldedSpend'
+     LIMIT 1;`,
+    (res) => res.rows.length >= 1,
+    (res) => res.rows[0].primitive_name === "Midnight-UnshieldedSpend",
+  );
+
+  // Unshielded swap test case: a transaction with unshielded token deltas
+  // (initSwap offer intent) COMPLETED by a separate balancing intent
+  // (balanceFinalizedTransaction) was submitted by doTriggerUnshieldedSwap
+  // (first in the trigger sequence — see its comment). Assert the exact marks
+  // read off the merged transaction are captured by the primitives. There is
+  // no nullifier/commitment for unshielded tokens — the canonical mark is the
+  // (intentHash, outputIndex) of the UTXO's creating intent, so:
+  //   - each spend must appear in midnight_unshielded_spends under the exact
+  //     (intentHash, outputIndex) identity of the UTXO it consumed;
+  //   - each created output must appear in midnight_unshielded_creates under
+  //     one of the merged tx's intent hashes, with the exact value.
+  // Values are hex-validated before being embedded in SQL literals.
+  const isHex = (h: string): boolean => /^[0-9a-f]+$/.test(h);
+  const spendPairs = (uswap?.expectedSpends ?? [])
+    .filter((s) => isHex(s.intentHash));
+  const candidateHashes = (uswap?.candidateIntentHashes ?? []).filter(isHex);
+  const hashList = (vals: string[]): string =>
+    vals.map((v) => `'${v}'`).join(", ") || "''";
+
+  await assertSQL<{ intent_hash: string; output_index: number; value: string | null; token_type: string | null }>(
+    "Midnight: unshielded swap spends captured with exact UTXO identities",
+    db,
+    `SELECT intent_hash, output_index, value, token_type FROM midnight_unshielded_spends
+     WHERE intent_hash IN (${hashList(spendPairs.map((s) => s.intentHash))});`,
+    (res) =>
+      spendPairs.length > 0 &&
+      spendPairs.every((s) =>
+        res.rows.some((r) =>
+          r.intent_hash === s.intentHash && r.output_index === s.outputIndex
+        )
+      ),
+    (res) => {
+      const matched = spendPairs.filter((s) =>
+        res.rows.some((r) =>
+          r.intent_hash === s.intentHash &&
+          r.output_index === s.outputIndex &&
+          (r.value ?? "") === s.value
+        )
+      );
+      console.log(
+        `  unshielded swap spends captured (id+value match): ${matched.length}/${spendPairs.length}` +
+          ` (txId ${uswap?.txId ?? "n/a"}; sample token_type: ${res.rows[0]?.token_type ?? "n/a"})`,
+      );
+      return matched.length === spendPairs.length;
+    },
+  );
+
+  await assertSQL<{ intent_hash: string; output_index: number; value: string | null; token_type: string | null }>(
+    "Midnight: unshielded swap creates captured under the swap's intents",
+    db,
+    `SELECT intent_hash, output_index, value, token_type FROM midnight_unshielded_creates
+     WHERE intent_hash IN (${hashList(candidateHashes)});`,
+    (res) =>
+      (uswap?.expectedCreateValues.length ?? 0) > 0 &&
+      res.rows.length >= (uswap?.expectedCreateValues.length ?? 0),
+    (res) => {
+      const expected = [...(uswap?.expectedCreateValues ?? [])].sort();
+      const got = res.rows.map((r) => r.value ?? "").sort();
+      console.log(
+        `  unshielded swap creates captured: ${res.rows.length} rows under swap intents;` +
+          ` values expected=${JSON.stringify(expected)} got=${JSON.stringify(got)}` +
+          ` (sample token_type: ${res.rows[0]?.token_type ?? "n/a"})`,
+      );
+      // Every expected output value must be present among the rows created by
+      // the swap's intents (the balancing intent may add change outputs, so
+      // rows are a superset of the offer's outputs).
+      const pool = [...got];
+      return expected.every((v) => {
+        const i = pool.indexOf(v);
+        if (i === -1) return false;
+        pool.splice(i, 1);
+        return true;
+      }) && res.rows.every((r) => r.output_index >= 0);
     },
   );
 
@@ -552,13 +759,14 @@ async function test() {
     // an unshielded self-transfer to produce unshielded-create events, then
     // contract mints to produce token-mint events. (To run the TokenMint
     // negative check, skip the mint trigger and confirm its assertions fail.)
+    const uswap = await doTriggerUnshieldedSwap();
     await doTriggerNullifiers();
     await doTriggerUnshieldedCreates();
     const minted = await doTriggerTokenMints();
 
     // 5. Connect to DB and run sync tests
     db = getDBConnection();
-    await runSyncTests(db, minted);
+    await runSyncTests(db, minted, uswap);
 
     // 6. Wait for batcher + run batcher tests
     try {
@@ -573,6 +781,7 @@ async function test() {
     // 7. Summary
     printSummary();
   } catch (e) {
+    recordCrash();
     printSummary();
     console.error(e);
   } finally {

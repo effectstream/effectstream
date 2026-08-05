@@ -20,7 +20,7 @@ Batch transactions for multiple blockchains simultaneously. Each blockchain gets
 Configure when batches are submitted using time-based, size-based, value-based, hybrid, or custom criteria-independently per blockchain.
 
 ### 💾 Crash-Safe Storage
-All inputs are persisted immediately to storage (file, PostgreSQL, Redis, or custom). No in-memory queues that can be lost on restart.
+All inputs are persisted immediately to storage. No in-memory queues that can be lost on restart. `FileStorage` (JSONL) is the implementation that ships; any other backend — PostgreSQL, Redis, or anything else — is a custom class implementing the `BatcherStorage` interface. See [Advanced Topics](./1290-advanced-topics.md) for worked examples.
 
 ### 🔌 Pluggable Architecture
 - **Adapters**: Add support for new blockchains by implementing the `BlockchainAdapter` interface
@@ -169,7 +169,7 @@ Once running, the batcher exposes these HTTP endpoints:
 - `GET /status` - Batcher status and configuration
 - `GET /queue-stats` - Queue statistics per target
 - `GET /health` - Health check
-- `POST /force-batch` - Manually trigger batching (dev)
+- `POST /force-batch` - Manually trigger batching. Registered only when `ENABLE_DEV_AND_DEBUG_ENDPOINTS` is set.
 - `GET /documentation` - Interactive OpenAPI docs
 
 See [HTTP API](./1290-advanced-topics.md#http-api) for complete documentation.

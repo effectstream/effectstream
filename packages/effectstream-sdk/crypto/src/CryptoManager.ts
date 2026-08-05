@@ -4,6 +4,7 @@ import { EvmCrypto } from "./chains/evm.ts";
 import { PolkadotCrypto } from "./chains/polkadot.ts";
 import { MinaCrypto } from "./chains/mina.ts";
 import { MidnightCrypto } from "./chains/midnight.ts";
+import { SolanaCrypto } from "./chains/solana.ts";
 import { AddressType } from "@effectstream/utils/types";
 import { IVerify } from "./IVerify.ts";
 
@@ -18,7 +19,8 @@ export class CryptoManager {
   private static polkadot: PolkadotCrypto | undefined;
   private static mina: MinaCrypto | undefined;
   private static midnight: MidnightCrypto | undefined;
-  
+  private static solana: SolanaCrypto | undefined;
+
   static Algorand(): AlgorandCrypto {
     if (CryptoManager.algorand == null) {
       CryptoManager.algorand = new AlgorandCrypto();
@@ -61,6 +63,13 @@ export class CryptoManager {
     return CryptoManager.midnight;
   }
 
+  static Solana(): SolanaCrypto {
+    if (CryptoManager.solana == null) {
+      CryptoManager.solana = new SolanaCrypto();
+    }
+    return CryptoManager.solana;
+  }
+
   public static getCryptoManager(addressType: AddressType): IVerify {
     switch (addressType) {
       case AddressType.EVM:
@@ -75,6 +84,8 @@ export class CryptoManager {
         return CryptoManager.Mina();
       case AddressType.MIDNIGHT:
         return CryptoManager.Midnight();
+      case AddressType.SOLANA:
+        return CryptoManager.Solana();
       default:
         throw new Error(`Unsupported address type: ${addressType}`);
     }

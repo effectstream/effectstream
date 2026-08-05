@@ -1,0 +1,7 @@
+programs/test_event/target/
+**/*.rs.bk
+test-ledger/
+
+# cargo-build-sbf drops a program keypair next to the .so. We load the program
+# by address via --bpf-program, so the secret is unnecessary — never commit it.
+*-keypair.json

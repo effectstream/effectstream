@@ -68,8 +68,9 @@ import { walletLogin, WalletMode } from "@effectstream/wallets";
 
 const result = await walletLogin({
   mode: WalletMode.AvailJs,
-  // For dev mode, you might provide a connection with a keyring seed
-  seed: "your test seed phrase", 
+  // An active connection to an Avail node (polkadot-js `ApiPromise`).
+  connection,
+  seed: "your test seed phrase",
   preferBatchedMode: true,
 });
 
@@ -93,9 +94,11 @@ const signature = await signMessage(wallet, "Hello Avail");
 ### Verifying Signatures
 ```typescript
 import { CryptoManager } from "@effectstream/crypto";
-import { AddressType } from "@effectstream/utils";
 
-const crypto = CryptoManager.getCryptoManager(AddressType.AVAIL);
+// Avail addresses are SS58/Substrate, so they are verified with the Polkadot
+// implementation. Note that `getCryptoManager(AddressType.AVAIL)` throws —
+// there is no dedicated AVAIL verifier.
+const crypto = CryptoManager.Polkadot();
 
 // 1. Verify Avail/Substrate Address
 const isValid = crypto.verifyAddress(userAddress);
@@ -110,15 +113,24 @@ const isAuthorized = await crypto.verifySignature(
 
 ## 5. Orchestration
 
-Use `launchAvail` from `@effectstream/orchestrator/start-avail`. This starts:
+Use `launchAvail` from `@effectstream/orchestrator/launch-avail`. This starts:
 1.  A local Avail Node.
 2.  An Avail Light Client connected to that node.
 
 ```ts
-// in start.ts
-processesToLaunch: [
-  ...launchAvail("@my-project/avail-contracts"),
-]
+// in start.dev.ts
+import path from "node:path";
+import { launchAvail } from "@effectstream/orchestrator/launch-avail";
+
+const root = import.meta.dirname!;
+
+export default {
+  processes: [
+    ...launchAvail("@my-project/avail-contracts", {
+      cwd: path.join(root, "packages/contracts-avail"),
+    }),
+  ],
+} satisfies OrchestratorConfig;
 ```
 
 > NOTE: To use this launcher you need to implement some scripts in your project's `package.json`. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.

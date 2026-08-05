@@ -55,6 +55,25 @@ export type {
   CelestiaNetwork,
 } from "./adapters/celestia-adapter.ts";
 
+export { SolanaAdapter, CapacityExchangeClient } from "./adapters/solana-adapter.ts";
+export type {
+  SolanaAdapterConfig,
+  SolanaBatchPayload,
+} from "./adapters/solana-adapter.ts";
+
+export { NearAdapter } from "./adapters/near-adapter.ts";
+export type {
+  NearAdapterConfig,
+  NearBatchPayload,
+} from "./adapters/near-adapter.ts";
+
+export { NearIntentAdapter } from "./adapters/near-intent-adapter.ts";
+export type {
+  NearIntentAdapterConfig,
+  NearIntentBatch,
+} from "./adapters/near-intent-adapter.ts";
+
+
 // Rate limiting
 export type {
   RateLimitStore,

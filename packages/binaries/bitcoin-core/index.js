@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
+import { verifyBinaryChecksum } from '@effectstream/binary-checksum';
+import { CHECKSUMS } from './checksums.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -67,13 +69,45 @@ function adhocSignIfNeeded(binaryPath) {
   }
 }
 
+/**
+ * Verify the download, fail closed if it is not a pinned v28.1 build.
+ *
+ * ORDER MATTERS, and it is not obvious. `adhocSignIfNeeded` rewrites the Mach-O
+ * in place on Apple Silicon, which changes its SHA-256. So the digest can only
+ * be checked against the pinned table while the file is still pristine, i.e.
+ * straight out of the archive and before signing.
+ *
+ * The consequence is that on darwin-arm64 verification is a download-time check
+ * only: once signed, the file no longer matches any pinned digest and re-running
+ * it would fail closed against a binary that is actually fine. Every other
+ * platform leaves the file untouched, so it is re-verified on every run.
+ * Do not move this below `adhocSignIfNeeded`.
+ */
+function verifyDownload(freshlyDownloaded) {
+  const isAppleSilicon = process.platform === 'darwin' && process.arch === 'arm64';
+  if (!freshlyDownloaded && isAppleSilicon) return;
+  const flavour = verifyBinaryChecksum({
+    binaryPath: bin.path(),
+    checksums: CHECKSUMS,
+    packageName: 'bitcoin-core',
+    skipEnvVar: 'BITCOIN_CORE_SKIP_CHECKSUM',
+    version,
+  });
+  return flavour;
+}
+
 export async function run(options = {}) {
   const { config, dataDir, verbose = false } = options;
 
-  // Download first, sign second, THEN let bin.run() exec it — `bin.run()` alone
-  // would try to execute the unsigned binary and be killed.
-  if (!fs.existsSync(bin.path())) {
+  // Download first, verify second, sign third, THEN let bin.run() exec it —
+  // `bin.run()` alone would try to execute the unsigned binary and be killed.
+  const needsDownload = !fs.existsSync(bin.path());
+  if (needsDownload) {
     await bin.download();
+  }
+  const flavour = verifyDownload(needsDownload);
+  if (verbose && flavour) {
+    console.log(`[bitcoin-core] verified bitcoind v${version} (${flavour})`);
   }
   adhocSignIfNeeded(bin.path());
 

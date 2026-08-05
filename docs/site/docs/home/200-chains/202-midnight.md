@@ -56,8 +56,9 @@ Define the connection to the Midnight node.
   builder.addNetwork({
     name: "midnight",
     type: ConfigNetworkType.MIDNIGHT,
-    genesisHash: "0x...",
-    networkId: 0, // 0 for local undeployed/devnet
+    // Canonical network identifier string: "undeployed", "devnet",
+    // "testnet", "preview", … — not a number.
+    networkId: "undeployed",
     nodeUrl: "http://127.0.0.1:9944",
   })
 )
@@ -75,7 +76,6 @@ The protocol type `MIDNIGHT_PARALLEL` connects to the Midnight Indexer (GraphQL)
     startBlockHeight: 1,
     pollingInterval: 1000,
     indexer: "http://127.0.0.1:8088/api/v1/graphql",
-    indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
   })
 )
 ```
@@ -124,12 +124,16 @@ import * as MyContract from "@my-project/midnight-contract/contract";
 
 In addition to contract state, four ledger-level primitives surface raw zswap
 activity (no contract address needed) — each emits a state-machine input under
-its `stateMachinePrefix`. They underpin the `zswap-da` template's offer-liveness
-checks (is a coin spent? does a UTXO exist? is a Merkle root real and recent?):
+its `stateMachinePrefix`. Together they answer the offer-liveness questions a
+swap protocol needs (is a coin spent? does a UTXO exist? is a Merkle root real
+and recent?), which is how the ZSwap Offerfile Kernel behind the `zswap-da`
+frontend uses them:
 
-*   **`PrimitiveTypeMidnightNullifier`**: emits each shielded coin **nullifier** as it is consumed (a spend). Payload `{ nullifier, txHash, eventId, logicalSegment }`.
-*   **`PrimitiveTypeMidnightUnshieldedSpend`**: emits each **unshielded UTXO spend** as `{ owner, intentHash, outputIndex, txHash }`.
-*   **`PrimitiveTypeMidnightUnshieldedCreate`**: emits each **unshielded UTXO creation** (regular **and** system transactions — rewards/bridge mint UTXOs) as `{ owner, intentHash, outputIndex, txHash }`. The existence counterpart of `UnshieldedSpend`.
+*   **`PrimitiveTypeMidnightNullifierAndCommitment`**: emits each shielded coin **nullifier** as it is consumed (a spend) and each coin **commitment** as it is created. Both arrive in the same indexer response, so tracking both adds no extra indexer load; the optional `capture` config (`"nullifiers" | "commitments" | "both"`, default `"both"`) filters which kinds are emitted. Payload is a discriminated union on `kind`: `{ kind: "nullifier", nullifier, txHash, eventId, logicalSegment, contract? }` or `{ kind: "commitment", commitment, mtIndex, txHash, eventId, logicalSegment, contract? }` (`mtIndex` is the commitment's zswap Merkle-tree index as a decimal string).
+*   **`PrimitiveTypeMidnightUnshieldedSpend`**: emits each **unshielded UTXO spend** as `{ owner, intentHash, outputIndex, value, tokenType, txHash }`.
+*   **`PrimitiveTypeMidnightUnshieldedCreate`**: emits each **unshielded UTXO creation** (regular **and** system transactions — rewards/bridge mint UTXOs) with the same payload shape. The existence counterpart of `UnshieldedSpend`.
+
+Unshielded UTXOs have no nullifier or commitment analog, so the canonical identity of a spend or create is the `(intentHash, outputIndex)` pair of the UTXO's creating intent — `intentHash` is the intent that **created** the UTXO, not the one spending it. `owner` is a Bech32m address, `value` a u128 as a decimal string, and `tokenType` a hex-encoded serialized token type; both amounts are public, which is what makes them observable here at all.
 *   **`PrimitiveTypeMidnightZswapRoot`**: emits the zswap coin-commitment Merkle tree **root** as it advances (the last `RegularTransaction.zswapMerkleTreeRoot` of each block) as `{ root, txHash }`.
 
 ```ts
@@ -247,21 +251,24 @@ import { MidnightAdapter } from "@effectstream/batcher-sdk";
 
 const midnightAdapter = new MidnightAdapter(
   contractAddress,
-  walletSeed,
+  walletSeed, // a single seed, or an array of seeds for higher throughput
   {
-    indexer: "...",
-    node: "...",
+    indexer: "http://127.0.0.1:8088/api/v1/graphql",
+    indexerWS: "ws://127.0.0.1:8088/api/v1/graphql/ws",
+    node: "http://127.0.0.1:9944",
     proofServer: "http://localhost:6300",
     zkConfigPath: "path/to/zk/config",
+    contractName: "contract-round-value", // Compact contract name
     privateStateStoreName: "my-app-store",
   },
   new MyContract.Contract(witnesses),
   witnesses,
   contractInfo,
-  NetworkId.Undeployed,
-  "parallelMidnight"
+  "parallelMidnight", // the sync protocol this adapter writes for
 );
 ```
+
+The config's required fields are `indexer`, `indexerWS`, `node`, `proofServer`, `zkConfigPath`, `contractName`, and `privateStateStoreName`. Optional fields cover timeouts (`contractJoinTimeoutSeconds`, `walletFundingTimeoutSeconds`, `callTxTimeoutSeconds`), `privateStateId`, `walletNetworkId`, and `maxSlotsPerWallet`. A final optional constructor argument sets `maxBatchSize` (default `10000`).
 
 The adapter uses `MidnightBatchBuilderLogic` to format inputs into circuit arguments compatible with the Compact runtime.
 
@@ -312,22 +319,28 @@ const isValidSig = await crypto.verifySignature(
 
 ## 5. Orchestration
 
-Use `launchMidnight` from `@effectstream/orchestrator/start-midnight` to launch the full stack:
+Use `launchMidnight` from `@effectstream/orchestrator/launch-midnight` to launch the full stack:
 *   Midnight Node
 *   GraphQL Indexer
 *   Proof Server
 *   Contract Deployment
 
-**Optional log controls (per process)**
-
-* `logsStartDisabled` (default: `false`): start with logs hidden in the TUI.
-* `disableStderr` (default: `false`): stop forwarding stderr for that process (useful because Substrate-based binaries like Avail Node and Midnight Node emit INFO/DEBUG on stderr).
-
 ```ts
-// in start.ts
-processesToLaunch: [
-  ...launchMidnight("@my-project/midnight-contracts"),
-]
+// in start.dev.ts
+import path from "node:path";
+import { launchMidnight } from "@effectstream/orchestrator/launch-midnight";
+
+const root = import.meta.dirname!;
+
+export default {
+  processes: [
+    ...launchMidnight(
+      "@my-project/midnight-contracts",
+      { cwd: path.join(root, "packages/contracts-midnight") },
+      { env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" } },
+    ),
+  ],
+} satisfies OrchestratorConfig;
 ```
 
 > NOTE: To use this launcher you need to implement some scripts in your project's `package.json`. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.

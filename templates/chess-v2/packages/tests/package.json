@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@chess-v2/contracts-evm": "workspace:*",
     "pg": "^8.14.0",
     "viem": "2.37.3"
   }

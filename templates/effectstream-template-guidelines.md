@@ -39,6 +39,7 @@ Currently supported chains (see `e2e/shared/contracts/*` for reference implement
 | Bitcoin | `contracts-bitcoin/` | None (scripts only) | `launchBitcoin` |
 | Cardano | `contracts-cardano/` | None (Yaci devkit) | `launchCardano` |
 | NEAR | `contracts-near/` | Rust → WASM | `launchNear` |
+| Solana | `contracts-solana/` | Rust → SBF (`cargo-build-sbf`) | `launchSolana` |
 | Avail | `contracts-avail/` | None (config + deploy) | `launchAvail` |
 | Celestia | `contracts-celestia/` | None (fund bridge) | — |
 
@@ -79,6 +80,7 @@ Available adapters (`@effectstream/batcher-sdk`):
 | `BitcoinAdapter` | Bitcoin | hybrid |
 | `NearAdapter` | NEAR | time, size |
 | `NearIntentAdapter` | NEAR (intents) | time, size |
+| `SolanaAdapter` | Solana (fee-payer sponsor) | size |
 
 - [ ] Create adapter config factories (e.g., `packages/batcher/effectstream-l2.ts`) — [Batcher Package](#batcher-package)
 - [ ] Create `packages/batcher/batcher.dev.ts` entry point — [Batcher Package](#batcher-package)
@@ -261,6 +263,7 @@ my-template/
 │   ├── contracts-bitcoin/                    # (optional) Bitcoin contracts
 │   ├── contracts-cardano/                    # (optional) Cardano contracts
 │   ├── contracts-near/                       # (optional) NEAR contracts
+│   ├── contracts-solana/                     # (optional) Solana programs
 │   │
 │   ├── batcher/                              # (optional) Transaction batcher
 │   │   ├── package.json                      # @my-template/batcher
@@ -354,6 +357,8 @@ export const grammar = {
 | `nearNep171` | NEAR | NEP-171 NFT events |
 | `nearNep245` | NEAR | NEP-245 multi-token events |
 | `nearIntent` | NEAR | DIP-4 intent events |
+| `solanaProgramLog` | Solana | Program log lines, scoped to the invoking program |
+| `solanaAccountBalance` | Solana | Watched address lamport balance |
 | `nearGeneric` | NEAR | NEP-297 generic events |
 | `nearAccountWatch` | NEAR | Function call tracking |
 
@@ -1171,7 +1176,7 @@ Every app requires exactly one `addMain` (the NTP clock) and one or more `addPar
 | `PrimitiveTypeEVMERC20` | `builtinGrammars.evmErc20` | EVM | ERC-20 Transfer events |
 | `PrimitiveTypeEVMERC1155` | `builtinGrammars.evmErc1155` | EVM | ERC-1155 TransferSingle events |
 | `PrimitiveTypeMidnightGeneric` | `builtinGrammars.midnightGeneric` | Midnight | Generic ledger contract state |
-| `PrimitiveTypeMidnightNullifier` | — | Midnight | Nullifier tracking |
+| `PrimitiveTypeMidnightNullifierAndCommitment` | — | Midnight | Shielded nullifier (spend) + commitment (create) tracking |
 | `PrimitiveTypeBitcoinAddress` | `builtinGrammars.bitcoinAddress` | Bitcoin | Watch address transactions |
 | `PrimitiveTypeUtxorpcGeneric` | `builtinGrammars.utxorpcGeneric` | Cardano | Generic UTXO events |
 | `PrimitiveTypeCardanoMintBurn` | `builtinGrammars.cardanoMintBurn` | Cardano | Mint/burn certificate events |

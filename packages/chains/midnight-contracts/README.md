@@ -123,6 +123,21 @@ The circuit list is enumerated automatically from the contract's compiled `keys/
 - `deployMidnightContractPhased(...)`: the phased deploy routine `deployMidnightContract` delegates to when `phasedVerifierKeys` is set. Exported for advanced callers that already have built providers and a wallet.
 - `DeployConfig`, `NetworkUrls`: input types.
 
+Wallet and dust helpers, exported from the package root:
+
+- `buildWalletFacade(...)`: builds the wallet facade the deploy and batcher paths run on.
+- `registerNightForDust(...)`, `getInitialDustState(...)`: register NIGHT to generate dust and read the starting state.
+- `waitForDustFunds(wallet, opts)` / `waitForDustFundsWithRetry(...)`: block until a wallet has spendable dust — the step that makes a freshly funded wallet usable.
+- `saveDustState(...)` / `loadDustState(...)`: persist and restore dust state across restarts, avoiding a re-sync.
+- `resolveFacadeDustBalance(...)`: current dust balance for a facade.
+
+Other subpaths:
+
+- `@effectstream/midnight-contracts/wallet-info` - wallet inspection plus the dust-state persistence helpers above, and `resolveWalletSyncTimeoutMs()`.
+- `@effectstream/midnight-contracts/midnight-env` - `midnightNetworkConfig` (the resolved `{ id, indexer, indexerWS, node, proofServer }` endpoints, env-overridable), `MidnightNetworkConfig`, and `isExternalProofServerConfigured`.
+- `@effectstream/midnight-contracts/ledger-from-tx-state` - `midnightLedgerFromTxStateHex(...)` and the `MidnightLedgerFn` / `MidnightContractStateDeserializer` types, for decoding contract ledger state from a serialized transaction state.
+- `@effectstream/midnight-contracts/types` - shared types.
+
 ## Examples
 
 End-to-end usage in templates:

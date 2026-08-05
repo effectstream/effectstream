@@ -1,0 +1,18 @@
+{
+  "name": "@e2e/solana-contracts",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./mod.ts",
+    "./program-id": "./program-id.ts"
+  },
+  "scripts": {
+    "chain:start": "bun run chain-start.ts",
+    "chain:wait": "bun ./node_modules/.bin/wait-on http-get://127.0.0.1:${SOLANA_RPC_PORT:-8899}/health"
+  },
+  "dependencies": {
+    "@effectstream/solana-node": "workspace:*",
+    "@solana/web3.js": "^1.95.0",
+    "wait-on": "*"
+  }
+}

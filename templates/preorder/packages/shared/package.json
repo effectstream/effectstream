@@ -6,7 +6,7 @@
     "./app-events": "./app-events.ts"
   },
   "dependencies": {
-    "@effectstream/event-client": "0.101.1",
+    "@effectstream/event-client": "0.102.0",
     "@sinclair/typebox": "0.34.41"
   }
 }

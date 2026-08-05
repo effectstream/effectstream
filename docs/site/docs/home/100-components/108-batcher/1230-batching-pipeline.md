@@ -67,7 +67,7 @@ Once the target adapter is identified, the batcher performs two crucial validati
 
 The batcher calls the adapter's `verifySignature()` method. This is adapter-specific because different blockchains have different signature schemes:
 
-- **EVM adapters**: Use the default EVM signature verification (via `CryptoManager.Evm().verifySignature()`)
+- **Adapters without a custom check**: Use the default verification, which selects the verifier from the input's own `addressType` via `CryptoManager.getCryptoManager(input.addressType)` — so EVM, Cardano, Polkadot, Algorand, Mina, Midnight and Solana inputs are all handled. A signature is required; the default path throws without one.
 - **Custom adapters**: Can override this method to implement their own logic or bypass it entirely
 
 ```typescript
@@ -109,7 +109,7 @@ Pre-queue validation ensures that only valid inputs reach persistent storage. Th
 
 ### Step 4: Queuing
 
-After passing validation, the input is saved to the `BatcherStorage` (e.g., `FileStorage`, PostgreSQL, Redis).
+After passing validation, the input is saved to the `BatcherStorage` — `FileStorage` by default, or your own implementation of the interface.
 
 **Important**: Storage is the single source of truth. There are no in-memory queues that could be lost on restart.
 

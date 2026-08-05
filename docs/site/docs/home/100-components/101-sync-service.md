@@ -113,6 +113,7 @@ For maximum consistency and to decouple your application's tick-rate from the va
 | **`BITCOIN_RPC_PARALLEL`** | Bitcoin | Connects to Bitcoin Core via JSON-RPC to track UTXO-based transactions. |
 | **`CELESTIA_PARALLEL`** | Celestia | Connects to a Celestia light node to fetch data blobs from specific namespaces. |
 | **`NEAR_RPC_PARALLEL`** | NEAR | Connects to NEAR Protocol via JSON-RPC to sync blocks, extract NEP-297 events, and track NEAR Intents settlements. |
+| **`SOLANA_RPC_PARALLEL`** | Solana | Polls Solana JSON-RPC slot by slot, attributing program logs to the invoking program and tracking watched lamport balances. Skipped slots are expected and passed over. |
 
 ### Configuration Example
 
@@ -160,7 +161,11 @@ Here is how you would combine these protocols in a `ConfigBuilder` to create a m
 
 Primitives are the specific event listeners. This is where you tell the engine, "On this protocol, watch this contract for this specific event."
 
-Each primitive is linked to a **`scheduledPrefix`**. This prefix is the crucial link between the Sync Service and the State Machine. When a primitive detects an event, it creates an input with this prefix, which in turn triggers the corresponding State Transition Function (STF).
+Each primitive is linked to a **`stateMachinePrefix`**. This prefix is the crucial link between the Sync Service and the State Machine. When a primitive detects an event, it creates an input with this prefix, which in turn triggers the corresponding State Transition Function (STF).
+
+:::warning
+The field must be named `stateMachinePrefix`. An older alias, `scheduledPrefix`, is still accepted by the config type but is **ignored by the runtime**: the primitive keeps writing accounting rows while its `stateMachinePayload` stays `null`, so the state machine never sees the event and no error is raised.
+:::
 
 In this example, we are tracking the `Transfer` event from an ERC20 contract. We use the built-in `PrimitiveTypeEVMERC20` to automatically handle parsing and database updates for token balances.
 
@@ -182,7 +187,7 @@ import { PrimitiveTypeEVMERC20 } from "@effectstream/sm/builtin";
           contractAddress: deployments["EffectStreamErc20DevModule#EffectStreamErc20Dev"].address,
           // 3. The link to the State Machine.
           // This will trigger the STF registered with the name "transfer".
-          scheduledPrefix: "transfer",
+          stateMachinePrefix: "transfer",
         })
     )
   )

@@ -10,6 +10,7 @@ import type { AvailSyncState } from "./avail/state.ts";
 import type { BitcoinSyncState } from "./bitcoin/state.ts";
 import type { CelestiaSyncState } from "./celestia/state.ts";
 import type { NearSyncState } from "./near/state.ts";
+import type { SolanaSyncState } from "./solana/state.ts";
 import type { TestSyncState } from "./test/state.ts";
 
 // TODO: move folders
@@ -26,6 +27,7 @@ export type AllSyncProtocols =
   | BitcoinSyncState
   | CelestiaSyncState
   | NearSyncState
+  | SolanaSyncState
   | TestSyncState;
 export type ISyncProtocol = UnionToIntersection<AllSyncProtocols>;
 

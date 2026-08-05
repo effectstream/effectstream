@@ -14,11 +14,11 @@ import "@openzeppelin/contracts/utils/Address.sol";
 contract EffectstreamL2Contract {
     // ... (events and state variables)
 
-    /// @dev Emits the `EffectStreamGameInteraction` event, logging the `msg.sender`, `data`, and `msg.value`.
+    /// @dev Emits the `EffectstreamGameInteraction` event, logging the `msg.sender`, `data`, and `msg.value`.
     /// Revert if `msg.value` is less than set `fee`.
     function effectstreamSubmitGameInput(bytes calldata data) public payable {
         require(msg.value >= fee, "Sufficient funds required to submit game input");
-        emit EffectStreamGameInteraction(msg.sender, data, msg.value);
+        emit EffectstreamGameInteraction(msg.sender, data, msg.value);
     }
 
     // ... (owner-only administrative functions)
@@ -31,7 +31,7 @@ The contract's logic centers around a single function and a single event.
 
 *   **`effectstreamSubmitGameInput(bytes calldata data)`**: This is the function your frontend will call. It accepts a single `bytes` argument, which allows you to send any kind of data, but it's designed to carry a concise grammar formatted according to your application's [Grammar](./111-grammar.md) (e.g., `["attack","player1","monster7"]`).
 
-*   **`EffectStreamGameInteraction` Event**: When `effectstreamSubmitGameInput` is called, the contract does not perform any complex logic. It simply emits the `EffectStreamGameInteraction` event, logging three crucial pieces of information onto the blockchain:
+*   **`EffectstreamGameInteraction` Event**: When `effectstreamSubmitGameInput` is called, the contract does not perform any complex logic. It simply emits the `EffectstreamGameInteraction` event, logging three crucial pieces of information onto the blockchain:
     *   `userAddress`: The wallet address of the user who called the function (`msg.sender`).
     *   `data`: The raw `bytes` payload that was submitted.
     *   `value`: The amount of cryptocurrency sent with the transaction (`msg.value`), used for the optional fee.
@@ -41,8 +41,8 @@ The contract's logic centers around a single function and a single event.
 The `EffectstreamL2Contract` is the critical on-chain starting point that triggers your off-chain logic. The connection happens through a precise sequence of steps orchestrated by the EffectStream:
 
 1.  **User Action**: A user on your frontend initiates an action, which calls `effectstreamSubmitGameInput` on the deployed `EffectstreamL2Contract` with a formatted string (e.g., `["attack","player1","monster7"]`).
-2.  **Event Emission**: The contract executes and emits the `EffectStreamGameInteraction` event onto the blockchain.
-3.  **Sync Service Detection**: The EffectStream's **Sync Service**, which is constantly monitoring the blockchain, has a **Primitive** configured to listen specifically for the `EffectStreamGameInteraction` event from your contract's address.
+2.  **Event Emission**: The contract executes and emits the `EffectstreamGameInteraction` event onto the blockchain.
+3.  **Sync Service Detection**: The EffectStream's **Sync Service**, which is constantly monitoring the blockchain, has a **Primitive** configured to listen specifically for the `EffectstreamGameInteraction` event from your contract's address.
 4.  **Grammar Parsing**: When the Sync Service detects a new event, it takes the `data` payload and passes it to the **Grammar Parser**. The parser checks the prefix (`["attack",...`) to identify which rule to apply. It then validates and parses the rest of the string into a structured, type-safe object.
 5.  **STF Execution**: The engine uses the parsed prefix to identify and execute the corresponding **State Transition Function (STF)** in your state machine (e.g., the function registered for `"attack"`). The parsed data object is passed as an argument to your STF, where your game logic runs.
 
@@ -57,7 +57,7 @@ sequenceDiagram
     participant EffectStream (State Machine)
 
     User/Frontend->>EVM Blockchain (EffectstreamL2Contract): Calls `effectstreamSubmitGameInput("attack|p1|m7")`
-    EVM Blockchain (EffectstreamL2Contract)->>EVM Blockchain (EffectstreamL2Contract): Emits `EffectStreamGameInteraction` event
+    EVM Blockchain (EffectstreamL2Contract)->>EVM Blockchain (EffectstreamL2Contract): Emits `EffectstreamGameInteraction` event
     EffectStream (Sync Service)->>EVM Blockchain (EffectstreamL2Contract): [Primitive] Detects Event
     EffectStream (Sync Service)->>EffectStream (Grammar Parser): Passes raw data: ["attack","p1","m7"]
     EffectStream (Grammar Parser)->>EffectStream (State Machine): Parses input and identifies 'attack' prefix

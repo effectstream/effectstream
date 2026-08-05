@@ -13,7 +13,7 @@ Installs a pinned version into `node_modules/.bin/celestia` so the
 EffectStream orchestrator can boot a local Celestia DA layer
 (node + bridge) for development and testing.
 
-- Pinned Celestia node + bridge binaries.
+- Pinned Celestia node + bridge binaries (celestia-node 0.28.4).
 - Ships `start-node` and `start-bridge` convenience scripts.
 - Consumed by `@effectstream/sync`'s `CelestiaFetcher`.
 - E2E: [`e2e/celestia/`](https://github.com/effectstream/effectstream/tree/main/e2e/celestia).

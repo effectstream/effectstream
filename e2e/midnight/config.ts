@@ -10,8 +10,9 @@ import {
 } from "@effectstream/config";
 import {
   PrimitiveTypeMidnightGeneric,
-  PrimitiveTypeMidnightNullifier,
+  PrimitiveTypeMidnightNullifierAndCommitment,
   PrimitiveTypeMidnightUnshieldedCreate,
+  PrimitiveTypeMidnightUnshieldedSpend,
   PrimitiveTypeMidnightZswapRoot,
   PrimitiveTypeMidnightTokenMint,
 } from "@effectstream/sm/builtin";
@@ -99,7 +100,6 @@ export const config = new ConfigBuilder()
           pollingInterval: 1000,
           delayMs: 18000,
           indexer: midnightNetworkConfig.indexer,
-          indexerWs: midnightNetworkConfig.indexerWS,
         }),
       )
   )
@@ -137,10 +137,11 @@ export const config = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelMidnight,
         (network, deployments, syncProtocol) => ({
-          name: "Midnight-Nullifier",
-          type: PrimitiveTypeMidnightNullifier,
+          name: "Midnight-NullifierAndCommitment",
+          type: PrimitiveTypeMidnightNullifierAndCommitment,
           startBlockHeight: 1,
-          stateMachinePrefix: "midnightNullifierState",
+          stateMachinePrefix: "midnightZswapEventState",
+          // capture: "both" is the default; set "nullifiers" or "commitments" to filter
           networkId: midnightNetworkConfig.id,
         }),
       )
@@ -151,6 +152,16 @@ export const config = new ConfigBuilder()
           type: PrimitiveTypeMidnightUnshieldedCreate,
           startBlockHeight: 1,
           stateMachinePrefix: "midnightUnshieldedCreateState",
+          networkId: midnightNetworkConfig.id,
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelMidnight,
+        (network, deployments, syncProtocol) => ({
+          name: "Midnight-UnshieldedSpend",
+          type: PrimitiveTypeMidnightUnshieldedSpend,
+          startBlockHeight: 1,
+          stateMachinePrefix: "midnightUnshieldedSpendState",
           networkId: midnightNetworkConfig.id,
         }),
       )

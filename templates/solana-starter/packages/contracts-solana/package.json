@@ -1,0 +1,21 @@
+{
+  "name": "@solana-starter/contracts-solana",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./mod.ts",
+    "./program-id": "./program-id.ts",
+    "./dev-config": "./dev-config.ts"
+  },
+  "scripts": {
+    "build:program": "bun run scripts/build-program.ts",
+    "build": "bun run scripts/build.ts",
+    "build:mod": "bun run scripts/build.ts"
+  },
+  "dependencies": {
+    "@effectstream/solana-node": "0.102.0",
+    "@solana/web3.js": "^1.95.0",
+    "bs58": "^6.0.0"
+  }
+}

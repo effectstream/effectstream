@@ -3,11 +3,11 @@
 Browser wallet connectors and the runtime client an EffectStream
 frontend uses to log in, sign batcher messages, send transactions, and
 wait for them to be processed. Spans MetaMask (and any EVM-injected
-wallet), Cardano (CIP-30), Midnight, Mina, Polkadot, Algorand, and
-Avail.
+wallet), Cardano (CIP-30), Midnight, Mina, Polkadot, Algorand, Avail,
+and Solana.
 
 - Browser wallet connectors plus the runtime client a frontend uses to log in, sign, and submit.
-- Spans MetaMask + injected EVM, Cardano (CIP-30), Midnight, Mina, Polkadot, Algorand, Avail.
+- Spans MetaMask + injected EVM, Cardano (CIP-30), Midnight, Mina, Polkadot, Algorand, Avail, Solana.
 - Used together with `@effectstream/crypto` (server-side verification).
 - High-level helpers `walletLogin` and `sendTransaction` hide the polling loop.
 - Also supports **local (in-browser) wallets** that need no extension: `CardanoLocal`, `EvmViem`, `MidnightLocal`.
@@ -32,17 +32,29 @@ import {
   EffectstreamConfig,
   sendTransaction,
 } from "@effectstream/wallets";
+import { hardhat } from "viem/chains";
 
-const config = new EffectstreamConfig({ /* …chain/batcher URLs… */ });
+// The constructor takes positional arguments, not an options object.
+const config = new EffectstreamConfig(
+  "my-app",                     // securityNamespace — must match the node's
+  "parallelEvmRPC",             // effectstreamL2SyncProtocolName
+  "0x5FbDB2315678afecb367f032d93F642f64180aa3", // L2 contract address
+  hardhat,                      // viem Chain
+  undefined,                    // L2 ABI (undefined → built-in fallback ABI)
+  "http://localhost:3334",      // batcherURL (required when batching)
+  true,                         // preferBatchedMode
+);
 
-const wallet = await walletLogin({
-  config,
-  preference: { name: "MetaMask" },
+const result = await walletLogin({
   mode: WalletMode.EvmInjected,
+  preference: { name: "MetaMask" },
+  preferBatchedMode: true,
 });
+if (!result.success) throw new Error("login failed");
+const wallet = result.result;
 
-const result = await sendTransaction(wallet, "join|alice");
-// result.blockHeight === number once the batcher's submission landed
+// conciseData is the grammar tuple as an array; config is a required argument.
+const tx = await sendTransaction(wallet, ["join", "alice"], config);
 ```
 
 If you just want to discover available wallets:
@@ -71,6 +83,12 @@ and `sendTransaction` work identically:
 - `WalletMode.CardanoLocal` - BIP-39 seed generated in-browser (via Lucid).
 - `WalletMode.EvmViem` - viem account from a `0x` private key.
 - `WalletMode.MidnightLocal` - hex seed generated in-browser.
+
+Solana ships its connector on two dedicated subpaths rather than through the
+package root: `@effectstream/wallets/solana` (`SolanaConnector`,
+`SolanaProvider`, `SolanaWalletApi` — for injected wallets such as Phantom)
+and `@effectstream/wallets/solana-local` (`SolanaLocalConnector`,
+`SolanaLocalProvider` — the in-browser local wallet).
 
 ```typescript
 import { walletLogin, WalletMode, signMessage } from "@effectstream/wallets";
@@ -115,14 +133,14 @@ Login + signing:
 
 Sending transactions:
 
-- `sendTransaction(wallet, conciseInput, opts?)`: submit through the batcher and (by default) wait for processing.
+- `sendTransaction(wallet, conciseData, config, waitForConfirmation?, batcherTarget?)`: submit through the batcher (or self-sequence, depending on `config.preferBatchedMode`) and, by default, wait for processing. `conciseData` is the grammar tuple as an array; `config` is a required `EffectstreamConfig`.
 - `sendBatcherTransaction(...)`: explicit batcher submission.
 - `sendSelfSequencedTransaction(...)` bypasses the batcher.
 - `waitForEffectstreamBlockProcessed(...)` - block-height poller used by the above.
 
 Wallet discovery / identification:
 
-- `WalletMode`: enum of `EvmInjected`, `EvmEthers`, `EvmViem`, `Cardano`, `CardanoLocal`, `Midnight`, `MidnightLocal`, `Polkadot`, `Algorand`, `Mina`, `AvailJs`. The `*Local` and `EvmViem` modes are in-browser wallets that need no extension.
+- `WalletMode`: enum of `EvmInjected`, `EvmEthers`, `EvmViem`, `Midnight`, `MidnightLocal`, `Cardano`, `CardanoLocal`, `Polkadot`, `Algorand`, `Mina`, `AvailJs`, `Solana`. The `*Local` and `EvmViem` modes are in-browser wallets that need no extension.
 - `WalletNameMap`: `Record<WalletMode, string>` for display.
 - `allInjectedWallets(config)` lists installed wallets in the browser.
 - `getAddressType(walletMode)` maps a `WalletMode` to its `@effectstream/utils` `AddressType`.
@@ -130,12 +148,15 @@ Wallet discovery / identification:
 Types:
 
 - `Wallet`: handle returned by `walletLogin`, used by send/sign helpers.
-- `UserSignature`, `Hash`, `BatcherPostResponse`, `BatcherTrackResponse`, `PostDataResponse`, `PostDataResponseAsync`, `SignFunction`.
+- `UserSignature`, `AddressAndType`, `WalletOption`, `IProvider`, `LoginInfo`, `LoginInfoMap`.
 
-Lower-level connector machinery (used internally; export surface is
-stable but rarely needed in app code): `connectInjectedWallet`,
-`WalletModeMap`, `IProvider`, `IConnector`, `IInjectedConnector`,
-`InjectionPreference`.
+> **Not re-exported from the package root.** These exist in the source but are
+> not part of the entry point, so they cannot be imported from
+> `@effectstream/wallets` today: `Hash`, `BatcherPostResponse`,
+> `BatcherTrackResponse`, `PostDataResponse`, `PostDataResponseAsync`,
+> `SignFunction` (all in `src/types.ts`); `connectInjectedWallet`,
+> `WalletModeMap`, `InjectionPreference` (`src/utils.ts`); and `IConnector`,
+> `IInjectedConnector` (`src/IProvider.ts`).
 
 ## Examples
 
