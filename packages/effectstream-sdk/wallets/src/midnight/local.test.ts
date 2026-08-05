@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import { Buffer } from "node:buffer";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 import { verifySignature } from "@midnight-ntwrk/ledger-v8";
 import { CryptoManager } from "@effectstream/crypto";
 import { MidnightLocalConnector, type MidnightLocalApi } from "./local.ts";
@@ -117,10 +117,17 @@ describe("MidnightLocalProvider", () => {
     expect(api.walletFacade).toBe(fakeFacade);
     expect(api.dustAddress).toBe(`dust-for-${DETERMINISTIC_SEED.slice(0, 8)}`);
     expect(api.shieldedAddress).toBe("deadbeef-coin-pub-key");
+    // The encryption key is surfaced alongside the coin key: anything building
+    // a shielded output for this wallet needs both, and re-deriving it meant
+    // reaching back into @effectstream/midnight-contracts.
+    expect(api.shieldedEncryptionPublicKey).toBe("deadbeef-enc-pub-key");
 
-    // getShieldedAddresses no longer throws in facade mode.
+    // getShieldedAddresses no longer throws in facade mode, and mirrors the
+    // dapp-connector-api's shape (same field names; hex rather than bech32m).
     await expect(api.getShieldedAddresses()).resolves.toEqual({
       shieldedAddress: "deadbeef-coin-pub-key",
+      shieldedCoinPublicKey: "deadbeef-coin-pub-key",
+      shieldedEncryptionPublicKey: "deadbeef-enc-pub-key",
     });
 
     expect(provider.getConnection().metadata.displayName).toBe(

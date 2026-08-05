@@ -6,7 +6,7 @@
 // import { connectInjected } from './wallet-modes.js';
 // import type { Result } from '@effectstream/utils';
 
-import type { Result } from "@effectstream/utils";
+import type { Result } from "@effectstream/utils/types";
 import type { IProvider } from "../IProvider.ts";
 import type { WalletMode, ApiForMode } from "../utils.ts";
 import { type LoginInfoMap, connectInjected } from "../wallet-modes.ts";

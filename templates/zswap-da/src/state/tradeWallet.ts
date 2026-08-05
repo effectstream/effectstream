@@ -1,9 +1,15 @@
 // Wallet transaction capability — the seam between the app and whichever wallet
-// performs mint / create-offer / take-offer. Today only the injected wallet
-// (Lace, via the dapp-connector ConnectedAPI) implements it. The local JS
-// (facade) wallet is a TYPED STUB: it satisfies the same interface but throws a
-// clear "coming soon" error, so when its build/prove/balance path is ported
-// later, only this file changes — every call site already routes through here.
+// performs mint / create-offer / take-offer.
+//
+// Capability is per-operation, not per-wallet. Minting is a plain contract call
+// and BOTH wallets do it: Lace through the dapp-connector, the built-in JS
+// wallet through the wallet facade (see services/contractWallet.ts). Offers are
+// the part still wired only for Lace — `buildMakerOfferBlob` uses Lace's
+// `makeIntent` and settlement uses `balanceSealedTransaction`.
+//
+// The facade exposes the offer path too (`initSwap` → `signRecipe` →
+// `balanceUnboundTransaction` → `finalizeRecipe` → `submitTransaction`), so
+// this is a porting gap in this template, NOT a limitation of the JS wallet.
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import type { BrowserMintResult } from '../hooks/useContract';
@@ -13,9 +19,11 @@ import { dlog } from '../debug';
 
 export interface TradeWallet {
   readonly kind: 'injected' | 'local';
-  /** Whether mint/create/take are implemented for this wallet. */
-  readonly canTransact: boolean;
-  /** Why not, when canTransact is false (shown in the UI). */
+  /** Faucet minting (a contract call). Implemented for both wallets. */
+  readonly canMint: boolean;
+  /** Create/take offers. Lace only for now — see the note above. */
+  readonly canTrade: boolean;
+  /** Why trading is unavailable, when canTrade is false (shown in the UI). */
   readonly unsupportedReason?: string;
   mintShielded(domainSep: Uint8Array, amount: bigint, nonce: bigint, name: string): Promise<BrowserMintResult>;
   mintUnshielded(domainSep: Uint8Array, amount: bigint, name: string): Promise<BrowserMintResult>;
@@ -23,17 +31,18 @@ export interface TradeWallet {
   settleOffer(config: MidnightBrowserConfig, blob: string): Promise<{ txHash: string }>;
 }
 
-export interface InjectedMintFns {
+export interface MintFns {
   mintShielded: TradeWallet['mintShielded'];
   mintUnshielded: TradeWallet['mintUnshielded'];
 }
 
-// Injected (Lace) wallet: mint via the OfferFiles contract client (useContract),
+// Injected (Lace): mint via the OfferFiles contract client (useContract),
 // create via makeIntent+encodeOffer, take via proveAndSubmitOffer.
-export function makeInjectedTradeWallet(connectedApi: ConnectedAPI, mint: InjectedMintFns): TradeWallet {
+export function makeInjectedTradeWallet(connectedApi: ConnectedAPI, mint: MintFns): TradeWallet {
   return {
     kind: 'injected',
-    canTransact: true,
+    canMint: true,
+    canTrade: true,
     mintShielded: mint.mintShielded,
     mintUnshielded: mint.mintUnshielded,
     buildOfferBlob: (networkId, gives, wants) => buildMakerOfferBlob(connectedApi, networkId, gives, wants),
@@ -48,23 +57,32 @@ export function makeInjectedTradeWallet(connectedApi: ConnectedAPI, mint: Inject
   };
 }
 
-export const LOCAL_WALLET_NOT_WIRED =
-  'JS wallet transactions are coming soon — connect Lace to mint and trade on this network.';
-
-// Local JS (facade) wallet: portable stub. When implemented, it would use the
-// wallet facade (walletResult.zswapSecretKeys / dustSecretKey / unshieldedKeystore)
-// to build, prove, and balance transactions locally — no Lace required.
-export function makeLocalTradeWalletStub(_facadeApi: unknown): TradeWallet {
-  const fail = async (): Promise<never> => {
-    throw new Error(LOCAL_WALLET_NOT_WIRED);
-  };
+/**
+ * Built-in JS (facade) wallet — full capability.
+ *
+ * Mint runs the same contract-call path as Lace, with the facade balancing and
+ * sealing behind ContractWallet. Offers go through the facade's own swap API
+ * (services/localTradeOffers.ts): initSwap/signRecipe for the maker,
+ * balanceFinalizedTransaction + merge for the taker — no makeIntent needed.
+ */
+export function makeLocalTradeWallet(localApi: unknown, mint: MintFns): TradeWallet {
   return {
     kind: 'local',
-    canTransact: false,
-    unsupportedReason: LOCAL_WALLET_NOT_WIRED,
-    mintShielded: fail,
-    mintUnshielded: fail,
-    buildOfferBlob: fail,
-    settleOffer: fail,
+    canMint: true,
+    canTrade: true,
+    mintShielded: mint.mintShielded,
+    mintUnshielded: mint.mintUnshielded,
+    buildOfferBlob: async (networkId, gives, wants) => {
+      const { buildMakerOfferBlobLocal } = await import('../services/localTradeOffers');
+      return buildMakerOfferBlobLocal(localApi as never, networkId, gives, wants);
+    },
+    settleOffer: async (config, blob) => {
+      dlog('tradeWallet.settleOffer → settleOfferLocal (JS wallet facade)', {
+        networkId: config.networkId,
+        blobLen: blob.length,
+      });
+      const { settleOfferLocal } = await import('../services/localTradeOffers');
+      return settleOfferLocal(localApi as never, config, blob);
+    },
   };
 }

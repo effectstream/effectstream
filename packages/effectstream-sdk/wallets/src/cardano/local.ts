@@ -1,4 +1,4 @@
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 import { utf8ToHex } from "web3-utils";
 import type {
   ActiveConnection,

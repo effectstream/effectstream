@@ -3,7 +3,7 @@ import {
   type Signature,
   TypeboxHelpers,
   type WalletAddress,
-} from "@effectstream/utils";
+} from "@effectstream/utils/types";
 import type { IVerify } from "../IVerify.ts";
 import { PublicKey } from "@solana/web3.js";
 import nacl from "tweetnacl";

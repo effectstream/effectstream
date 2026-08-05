@@ -1,7 +1,7 @@
 // Order book tab — pair header + 24h stats + depth book (asks/bids, click-to-
 // select range → Take) + trade history. Pair discovery AND the order-book ladder
 // (price / amount / total) are built from REAL open offers (st.orders); only the
-// 24h stats + trade history still come from the backend GET /api/chart/** routes.
+// 24h stats + trade history still come from the backend GET /v1/chart/** routes.
 // Selecting price levels and pressing "Take" settles the underlying real offers
 // via the shared confirm dialog (st.requestTakeMany); your own offers are
 // skipped (you can't take your own ZSwap).
@@ -89,7 +89,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
     return () => document.removeEventListener('pointerdown', off);
   }, []);
 
-  // Pairs from /api/pairs (pair_stats projection + live open count). Includes
+  // Pairs from /v1/pairs (pair_stats projection + live open count). Includes
   // pairs with no current open orders as long as they have trade history.
   // Refreshed every 30 s so the list stays reasonably current.
   const [apiPairs, setApiPairs] = useState<PairInfo[]>([]);
@@ -101,7 +101,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
-  // Name-resolve the color pairs from /api/pairs and merge with live orders to
+  // Name-resolve the color pairs from /v1/pairs and merge with live orders to
   // mark "mine". Falls back to the live order set for pairs not yet in pair_stats.
   const liquidPairs = useMemo(() => {
     const nameOf = (color: string) =>
@@ -401,7 +401,19 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
             </div>
 
             {!realDepth ? (
-              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>{st.ordersLoading ? 'Loading order book…' : 'No open orders for this pair yet.'}</div>
+              <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>
+                {st.ordersLoading ? 'Loading order book…' : 'No open orders for this pair yet.'}
+                {/* Pages span all pairs, so this pair's orders may simply be on
+                    a later page — offer the control here too, not only under a
+                    populated ladder. */}
+                {!st.ordersLoading && st.hasMoreOrders && (
+                  <div style={{ marginTop: 14 }}>
+                    <button className="zs-btn" onClick={() => st.loadMoreOrders()} style={{ fontSize: 12.5, padding: '7px 14px' }}>
+                      Load more offers
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 {view !== 'bids' && asks.map((r, i) => <Row key={'a' + i} r={r} side="ask" idx={i} />)}
@@ -412,6 +424,23 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                 </div>
 
                 {view !== 'asks' && bids.map((r, i) => <Row key={'b' + i} r={r} side="bid" idx={i} />)}
+
+                {/* The book is keyset-paginated and does NOT auto-paginate: a
+                    deep book would otherwise fan out into many requests against
+                    a 60 req/min budget. One page per click, explicitly. Pages
+                    span all pairs, so a page may add nothing to this ladder. */}
+                {st.hasMoreOrders && (
+                  <div style={{ padding: '10px 12px', borderTop: '1px solid var(--line-2)', textAlign: 'center' }}>
+                    <button
+                      className="zs-btn"
+                      onClick={() => st.loadMoreOrders()}
+                      disabled={st.ordersLoading}
+                      style={{ fontSize: 12.5, padding: '7px 14px' }}
+                    >
+                      {st.ordersLoading ? 'Loading…' : 'Load more offers'}
+                    </button>
+                  </div>
+                )}
 
                 {summary ? (
                   <div style={{ padding: '14px 16px', borderTop: '1px solid var(--line)', background: summary.preview ? 'var(--surface-2)' : 'var(--accent-soft)' }}>
@@ -430,7 +459,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                     {!summary.preview && (
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button className="zs-btn" style={{ padding: '11px 14px', fontSize: 13.5, flex: '0 0 auto' }} onClick={() => { setActive({}); setHover(null); }}>Clear</button>
-                        <button className="zs-btn zs-btn--primary" style={{ flex: 1, justifyContent: 'center', padding: '11px', fontSize: 14 }} onClick={takeDepth}><Icon.bolt /> <span>{`Take offer · ${nActive} level${nActive > 1 ? 's' : ''}`}</span></button>
+                        <button className="zs-btn zs-btn--primary" style={{ flex: 1, justifyContent: 'center', padding: '11px', fontSize: 14 }} onClick={takeDepth} disabled={st.takePreparing}><Icon.bolt /> <span>{st.takePreparing ? 'Loading offers…' : `Take offer · ${nActive} level${nActive > 1 ? 's' : ''}`}</span></button>
                       </div>
                     )}
                   </div>

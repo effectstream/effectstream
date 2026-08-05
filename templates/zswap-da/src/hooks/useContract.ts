@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
+import type { ContractWallet } from '../services/contractWallet';
 import {
   connectBrowserContract,
   type ConnectedOfferFilesContract,
@@ -15,7 +15,13 @@ export interface BrowserMintResult {
   txHash: string;
 }
 
-export function useContract(connectedApi: ConnectedAPI | null) {
+/**
+ * Drives the Midnight contract (the Faucet's mint circuits) for WHICHEVER
+ * wallet is connected. It used to take a Lace `ConnectedAPI` directly, which is
+ * why the built-in JS wallet couldn't mint; `ContractWallet` abstracts the four
+ * wallet-specific calls so the facade-backed wallet works too.
+ */
+export function useContract(wallet: ContractWallet | null) {
   const [config, setConfig] = useState<MidnightBrowserConfig | null>(null);
   const [connected, setConnected] = useState<ConnectedOfferFilesContract | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,35 +30,27 @@ export function useContract(connectedApi: ConnectedAPI | null) {
 
   // Reset when the wallet connection drops.
   useEffect(() => {
-    if (!connectedApi) {
+    if (!wallet) {
       setConnected(null);
       setConfig(null);
       inflight.current = null;
     }
-  }, [connectedApi]);
+  }, [wallet]);
 
   const ensureConnected = useCallback(async (): Promise<ConnectedOfferFilesContract> => {
-    if (!connectedApi) throw new Error('Browser wallet is not connected');
+    if (!wallet) throw new Error("No wallet is connected");
     if (connected) return connected;
     if (inflight.current) return inflight.current;
 
     setLoading(true);
     setError(null);
     const promise = (async () => {
-      console.log('[useContract] fetching /api/midnight/config');
+      console.log('[useContract] fetching /v1/midnight/config');
       const cfg = await api.getMidnightConfig();
       setConfig(cfg);
-      const walletStatus = await connectedApi.getConnectionStatus();
-      if (walletStatus.status !== 'connected') {
-        throw new Error('Browser wallet is not connected');
-      }
-      if (walletStatus.networkId !== cfg.networkId) {
-        throw new Error(
-          `Network mismatch: wallet is on "${walletStatus.networkId}", backend expects "${cfg.networkId}"`,
-        );
-      }
-      console.log('[useContract] connecting OfferFiles contract via browser wallet');
-      const result = await connectBrowserContract(connectedApi, cfg);
+      await wallet.assertReady(cfg.networkId);
+      console.log(`[useContract] connecting OfferFiles contract via ${wallet.label}`);
+      const result = await connectBrowserContract(wallet, cfg);
       setConnected(result);
       return result;
     })();
@@ -67,7 +65,7 @@ export function useContract(connectedApi: ConnectedAPI | null) {
       setLoading(false);
       inflight.current = null;
     }
-  }, [connectedApi, connected]);
+  }, [wallet, connected]);
 
   const ensureContract = useCallback(async (): Promise<FoundOfferFilesContract> => {
     return (await ensureConnected()).contract;
@@ -113,13 +111,13 @@ export function useContract(connectedApi: ConnectedAPI | null) {
   // Decode Lace's bech32m unshielded address (e.g. "mn_addr_<network>1...") into
   // the raw 32-byte form the compact `UserAddress` parameter expects.
   const resolveRecipientBytes = useCallback(async (): Promise<Uint8Array> => {
-    if (!connectedApi) throw new Error('Browser wallet is not connected');
+    if (!wallet) throw new Error("No wallet is connected");
     const cfg = config ?? (await api.getMidnightConfig());
-    const { unshieldedAddress } = await connectedApi.getUnshieldedAddress();
+    const unshieldedAddress = await wallet.getUnshieldedAddress();
     const parsed = MidnightBech32m.parse(unshieldedAddress);
     const decoded = parsed.decode(UnshieldedAddress, cfg.networkId as any);
     return new Uint8Array(decoded.data);
-  }, [connectedApi, config]);
+  }, [wallet, config]);
 
   const mintUnshielded = useCallback(
     async (

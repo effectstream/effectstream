@@ -63,6 +63,22 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['@midnight-ntwrk/onchain-runtime'],
+    // Pre-bundle deps that are only reachable through DYNAMIC imports, so Vite
+    // doesn't discover them mid-session.
+    //
+    // The JS wallet's connect path (@effectstream/wallets → MidnightLocal.
+    // connectFromSeed → @effectstream/midnight-contracts/wallet-info) pulls
+    // node:path / node:fs / node:buffer only when the user clicks Connect. Vite
+    // then re-optimizes and issues a FULL PAGE RELOAD, which wipes React state
+    // — so the wallet appears to connect and immediately disconnect, once, on
+    // the first connect of a fresh dev server. Declaring them here moves that
+    // work to startup. Dev-only: `vite build` bundles everything upfront.
+    include: [
+      '@midnight-ntwrk/midnight-js-types',
+      'node:path',
+      'node:fs',
+      'node:buffer',
+    ],
     esbuildOptions: {
       target: 'esnext',
       plugins: [

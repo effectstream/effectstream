@@ -38,76 +38,23 @@ import {
   TransactionHistoryStorage,
 } from "@midnightntwrk/wallet-sdk-abstractions";
 import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
-import * as path from "node:path";
-import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+// No node:fs / node:path here — this module is reachable from BROWSER bundles
+// (MidnightLocal.connectFromSeed imports `./wallet-info` to build the wallet
+// facade), and browser bundlers shim those to empty/null modules. All disk I/O
+// (dust-state persistence) lives in dust-state.ts, loaded lazily inside
+// waitForDustFundsWithRetry so it never enters the browser's static graph.
 import { CONSTANTS } from "./constants.ts";
 import type { NetworkUrls, WalletResult } from "./types.ts";
 import { midnightNetworkConfig } from "./midnight-env.ts";
 import { getEnv, args as getArgs, exit, isNotFoundError } from "@effectstream/utils/runtime";
 
 // ============================================================================
-// Dust State Persistence
+// Dust State Persistence — moved to dust-state.ts (node-only; disk I/O).
+// Re-exported from mod.ts for node consumers; NOT re-exported here, since a
+// static re-export would pull node:fs right back into the browser graph.
 // ============================================================================
 
 const DEFAULT_DUST_STATE_DIR = "dust-state";
-
-/**
- * Build the dust state file path from network + seed.
- * Uses first 16 hex chars of the seed as a stable identifier — the seed
- * deterministically maps to a dust address, so this is a unique key per wallet
- * that is available before building the facade.
- */
-function getDustStatePath(baseDir: string, networkId: string, seed: string): string {
-  const seedKey = seed.slice(0, 16);
-  return path.join(baseDir, `${networkId}-${seedKey}.json`);
-}
-
-function isUndeployedNetwork(networkId: string): boolean {
-  return networkId.toLowerCase() === "undeployed";
-}
-
-/**
- * Save serialized dust wallet state to disk.
- * No-ops for "undeployed" networks (chain resets make cached state invalid).
- * @param seed - Wallet seed hex string (used to derive stable file path)
- */
-export function saveDustState(
-  baseDir: string,
-  networkId: string,
-  seed: string,
-  serializedState: string,
-): string | null {
-  if (isUndeployedNetwork(networkId)) return null;
-  const filePath = getDustStatePath(baseDir, networkId, seed);
-  try {
-    mkdirSync(path.dirname(filePath), { recursive: true });
-    writeFileSync(filePath, serializedState, "utf-8");
-    log.info(`Dust state saved to ${filePath}`);
-    return filePath;
-  } catch (e) {
-    log.warn(`Failed to save dust state to ${filePath}: ${e instanceof Error ? e.message : String(e)}`);
-    return null;
-  }
-}
-
-/**
- * Load previously saved dust wallet state from disk.
- * Always returns null for "undeployed" networks.
- * @param seed - Wallet seed hex string (used to derive stable file path)
- */
-export function loadDustState(
-  baseDir: string,
-  networkId: string,
-  seed: string,
-): string | null {
-  if (isUndeployedNetwork(networkId)) return null;
-  const filePath = getDustStatePath(baseDir, networkId, seed);
-  try {
-    return readFileSync(filePath, "utf-8");
-  } catch {
-    return null;
-  }
-}
 
 // ============================================================================
 // Key Derivation
@@ -553,6 +500,11 @@ export async function waitForDustFundsWithRetry(
   } = options;
 
   const networkIdStr = String(networkId);
+
+  // Lazy import keeps node:fs out of the browser's static graph — this retry
+  // flow is node-side (long-running dust sync with disk caching), while the
+  // module as a whole is bundled for browsers via `./wallet-info`.
+  const { loadDustState, saveDustState, getDustStatePath } = await import("./dust-state.ts");
 
   // Pre-load cached state from disk before building any wallet.
   // Uses seed-based path so we don't need the dust address yet.

@@ -1,0 +1,21 @@
+<!--
+  Tab icon: the ZSwap mark (ring + 3 stacked cubes) from src/ui/icons.tsx,
+  knocked out of a Midnight-blue (#0000FE) badge.
+
+  The mark's geometry is copied verbatim from the <Mark> component and scaled
+  about its center, so this stays in step with the header logo by inspection.
+  A solid badge rather than a bare outline: at 16px a 3px stroke on transparent
+  vanishes into the tab strip, and a filled backdrop reads on both light and
+  dark browser chrome without needing prefers-color-scheme.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <rect width="48" height="48" rx="11" fill="#0000FE" />
+  <g transform="translate(24 24) scale(0.72) translate(-24 -24)">
+    <circle cx="24" cy="24" r="20.5" stroke="#FFFFFF" stroke-width="3.2" fill="none" />
+    <g fill="#FFFFFF">
+      <rect x="19.2" y="9.4" width="9.6" height="9.6" rx="1.6" />
+      <rect x="19.2" y="19.2" width="9.6" height="9.6" rx="1.6" />
+      <rect x="19.2" y="29.0" width="9.6" height="9.6" rx="1.6" />
+    </g>
+  </g>
+</svg>

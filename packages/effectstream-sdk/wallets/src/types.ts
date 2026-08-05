@@ -1,5 +1,5 @@
 export type Hash = string;
-import type { WalletAddress } from "@effectstream/utils";
+import type { WalletAddress } from "@effectstream/utils/types";
 import type { IProvider, UserSignature, WalletOption } from "./IProvider.ts";
 
 export type SignFunction = (message: string) => Promise<UserSignature>;

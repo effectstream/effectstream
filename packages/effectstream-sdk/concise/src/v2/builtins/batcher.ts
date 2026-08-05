@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import type { GrammarDefinition } from "../types.ts";
 import { toKeyedJsonGrammar } from "../grammar.ts";
-import { AddressType, AddressValidator } from "@effectstream/utils";
+import { AddressType, AddressValidator } from "@effectstream/utils/types";
 
 /**
  * builtins are prefixed with '&' to avoid conflicts with user-defined grammars

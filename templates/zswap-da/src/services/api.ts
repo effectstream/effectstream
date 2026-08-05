@@ -1,7 +1,76 @@
 // src/services/api.ts
-import type { KnownToken, ZSwapOffer } from '../types';
+import type {
+  KnownToken,
+  OfferDetail,
+  OffersPage,
+  OfferStatusLookup,
+} from '../types';
 import { API_BASE, BATCHER_URL, BATCHER_TARGET } from '../config';
 import { dlog, timed } from '../debug';
+
+/** Every offer route lives under /v1 with MIP-0006 vocabulary. */
+const V1 = `${API_BASE}/v1`;
+
+/**
+ * Error carrying the node API's machine-readable code.
+ *
+ * Bodies are always `{error, reason, ...extras}` with a truthful status: 400
+ * validation, 404 unknown, 409 duplicate, 429 rate-limited, 500 INTERNAL.
+ * Extras (`offerId`, `status`, `hint`, `diagnostics`) survive on `.data`.
+ */
+export class ApiError extends Error {
+  readonly code: string;
+  readonly status: number;
+  readonly data: Record<string, any>;
+  constructor(status: number, body: any, fallback: string) {
+    super(body?.reason ?? body?.message ?? body?.error ?? fallback);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = body?.error ?? `HTTP_${status}`;
+    this.data = body && typeof body === 'object' ? body : {};
+  }
+}
+
+/**
+ * Submit failures where the offer can provably never settle. Retrying the same
+ * blob is guaranteed to fail again — surface the reason and stop, never loop.
+ *
+ * ROOT_UNKNOWN is in here deliberately: it used to be treated as transient and
+ * retried, but the node now diagnoses it as a wallet/indexer misconfiguration
+ * and says so in `hint`. Retrying a foreign root never converges.
+ */
+export const TERMINAL_SUBMIT_CODES = new Set([
+  'BAD_ENCODING',
+  'BAD_DESERIALIZE',
+  'TOO_LARGE',
+  'NOT_A_SWAP',
+  'NO_SPENDABLE_INPUT',
+  'NULLIFIER_SPENT',
+  'UTXO_NOT_LIVE',
+  'UTXO_SPENT',
+  'UTXO_UNKNOWN',
+  'ROOT_UNKNOWN',
+  'VALIDATION',
+]);
+
+/** Parse a node API response, throwing ApiError with the code on failure. */
+async function parse<T>(res: Response, fallback: string): Promise<T> {
+  let body: any = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* non-JSON (proxy error page, gateway timeout) — body stays null */
+  }
+  if (!res.ok) throw new ApiError(res.status, body, fallback);
+  return body as T;
+}
+
+/** 64 hex chars. Guards the :offerId path segment client-side. */
+const isOfferId = (h: unknown): h is string =>
+  typeof h === 'string' && /^[0-9a-f]{64}$/i.test(h);
+
+/** POST /v1/offers/status accepts at most 50 offers per batched request. */
+const STATUS_BATCH_MAX = 50;
 
 export interface Quote {
   from_token: string;
@@ -17,12 +86,15 @@ export interface Quote {
   to_usd: number | null;
 }
 
-export interface ChartDepthRow { price: number; amt: number; total: number }
-export interface ChartDepth { mid: number; asks: ChartDepthRow[]; bids: ChartDepthRow[]; maxTotal: number; spread: number }
+// NOTE: there is no /v1/chart/depth endpoint — the node serves only
+// /v1/chart/{stats,history}. The order book's depth view is derived
+// client-side from the live offers (see screens/Market.tsx).
+// chart/history is derived from GENUINE FILLS only (consumed, not cancelled),
+// so it is sparser than the pre-/v1 series, which counted cancels too.
 export interface ChartStats { base: string; quote: string; last: number; change24: number; high: number; low: number; volume_base: number; volume_quote: number }
 export interface ChartHistoryRow { price: number; amt: number; up: boolean; at: string }
 
-/** One row from /api/pairs — pair_stats write-side projection merged with live open count. */
+/** One row from /v1/pairs — pair_stats write-side projection merged with live open count. */
 export interface PairInfo {
   pair_key: string;
   base_color: string;
@@ -82,62 +154,86 @@ export async function submitToBatcher(
 
 export const api = {
   getKnownTokens: async (): Promise<KnownToken[]> => {
-    const res = await fetch(`${API_BASE}/api/known-tokens`);
-    if (!res.ok) throw new Error('Failed to fetch known tokens');
-    return res.json();
+    const res = await fetch(`${V1}/known-tokens`);
+    return parse(res, 'Failed to fetch known tokens');
   },
 
-  // blob is the bech32m `swapoffer1…` string produced by MIP-0005 encodeOffer().
-  submitSwapOffer: async (blob: string) => {
-    const res = await fetch(`${API_BASE}/api/zswap/submit`, {
+  /**
+   * Publish an offer. `blob` is the bech32m `swapoffer1…` string produced by
+   * MIP-0005 encodeOffer(); the wire field is `offer`.
+   *
+   * Resolves to `{success, offerId, result}` — persist `offerId` and poll by it.
+   * `result` is an internal batcher receipt with no stable shape: ignore it.
+   *
+   * The offer only appears in `GET /v1/offers` after the Celestia round-trip
+   * (seconds to ~a minute), so poll status until it leaves `not_found`.
+   *
+   * Throws ApiError. Notable codes: `DUPLICATE_OFFER` (409, carries the existing
+   * `offerId` + `status` — not a failure), and everything in
+   * TERMINAL_SUBMIT_CODES, which must never be retried.
+   */
+  submitSwapOffer: async (
+    blob: string,
+  ): Promise<{ success: boolean; offerId: string; result: unknown }> => {
+    const res = await fetch(`${V1}/offers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blob }),
+      body: JSON.stringify({ offer: blob }),
     });
-    const data = await res.json();
-    if (!res.ok) {
-      const err = new Error(data.reason ?? data.message ?? JSON.stringify(data)) as Error & { code?: string };
-      err.code = data.error;
-      throw err;
+    return parse(res, 'Failed to submit offer');
+  },
+
+  /**
+   * The order book. Keyset-paginated: feed the previous page's `nextCursor`
+   * back as `after_hash` until `nextCursor` is null. Query params stay
+   * snake_case — only response bodies went camelCase.
+   *
+   * Rows are blob-free. A 400 `INVALID_CURSOR` means the cursor is stale or
+   * fabricated: restart from page one rather than looping.
+   */
+  getOffers: async (params: {
+    limit?: number;
+    token?: string;
+    direction?: 'GIVING' | 'WANTING';
+    after_hash?: string;
+  } = {}): Promise<OffersPage> => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== '') q.set(k, String(v));
     }
-    return data;
+    const res = await fetch(`${V1}/offers?${q.toString()}`);
+    return parse(res, 'Failed to fetch offers');
   },
 
-  // ROOT_UNKNOWN is transient: the maker proves against a real chain root, but
-  // the sync node may not have ingested it into `known_roots` yet. Re-submitting
-  // the same blob succeeds once the root lands (mirrors the e2e suites). Other
-  // errors throw immediately.
-  submitSwapOfferRetrying: async (
-    blob: string,
-    opts?: { tries?: number; delayMs?: number; onWait?: (attempt: number, tries: number) => void },
-  ) => {
-    const tries = opts?.tries ?? 24;
-    const delayMs = opts?.delayMs ?? 4000;
-    for (let i = 0; ; i++) {
-      try {
-        return await api.submitSwapOffer(blob);
-      } catch (e: any) {
-        if (e?.code === 'ROOT_UNKNOWN' && i < tries) {
-          opts?.onWait?.(i + 1, tries);
-          await new Promise((r) => setTimeout(r, delayMs));
-          continue;
-        }
-        if (e?.code === 'ROOT_UNKNOWN') {
-          throw new Error('The chain has not caught up to your wallet state yet (offer root unknown). Make sure your wallet is fully synced to this network, then try again.');
-        }
-        throw e;
-      }
+  /**
+   * Full offer including its blob, by content hash — the only endpoint that
+   * returns a blob. Archived offers still resolve, with their final status.
+   * Fetch lazily on selection; never prefetch for a whole page of the book.
+   *
+   * Throws ApiError `INVALID_HASH` (400) or `NOT_FOUND` (404).
+   */
+  getOfferById: async (offerId: string): Promise<OfferDetail> => {
+    if (!isOfferId(offerId)) {
+      throw new ApiError(400, { error: 'INVALID_HASH', reason: `not a 64-hex offerId: ${offerId}` }, 'Invalid offerId');
+    }
+    const res = await fetch(`${V1}/offers/${offerId}`);
+    return parse(res, 'Failed to fetch offer');
+  },
+
+  /** Lightweight status probe by offerId. Preferred whenever you have one. */
+  getOfferStatusById: async (offerId: string): Promise<OfferStatusLookup> => {
+    if (!isOfferId(offerId)) return 'not_found';
+    try {
+      const res = await fetch(`${V1}/offers/${offerId}/status`);
+      if (res.status === 404) return 'not_found';
+      const data = await parse<{ offerId: string; status: OfferStatusLookup }>(res, 'Failed to fetch status');
+      return data.status ?? 'not_found';
+    } catch {
+      return 'not_found';
     }
   },
 
-  getZSwaps: async (params: Record<string, string>): Promise<ZSwapOffer[]> => {
-    const searchParams = new URLSearchParams(params);
-    const res = await fetch(`${API_BASE}/api/zswaps?${searchParams.toString()}`);
-    if (!res.ok) throw new Error('Failed to fetch ZSwaps');
-    return res.json();
-  },
-
-  getEventsUrl: () => `${API_BASE}/api/events`,
+  getEventsUrl: () => `${V1}/offers/stream`,
 
   // Synthetic price quote (see node/market-mock.ts). `toAmount` optional — when
   // set, discount/sponsored are computed against that custom receive amount.
@@ -149,23 +245,27 @@ export const api = {
   ): Promise<Quote> => {
     const p = new URLSearchParams({ from_token: fromToken, to_token: toToken, from_amount: fromAmount });
     if (toAmount != null && toAmount !== '') p.set('to_amount', toAmount);
-    const res = await fetch(`${API_BASE}/api/quote?${p.toString()}`);
-    if (!res.ok) throw new Error('Failed to fetch quote');
-    return res.json();
+    const res = await fetch(`${V1}/quote?${p.toString()}`);
+    // The node no longer fabricates a rate for tokens it doesn't know:
+    // 404 UNKNOWN_TOKEN (not in /v1/known-tokens), 400 VALIDATION (malformed
+    // color). Give both a message a user can act on.
+    if (res.status === 404 || res.status === 400) {
+      const body = await res.json().catch(() => null);
+      if (body?.error === 'UNKNOWN_TOKEN') {
+        throw new ApiError(res.status, body, `Token not registered: ${body.token ?? toToken}`);
+      }
+      throw new ApiError(res.status, body, 'That token pair is not quotable');
+    }
+    return parse(res, 'Failed to fetch quote');
   },
 
   getChartStats: async (base: string, quote: string): Promise<ChartStats> => {
-    const res = await fetch(`${API_BASE}/api/chart/stats?base=${base}&quote=${quote}`);
+    const res = await fetch(`${V1}/chart/stats?base=${base}&quote=${quote}`);
     if (!res.ok) throw new Error('Failed to fetch stats');
     return res.json();
   },
-  getChartDepth: async (base: string, quote: string): Promise<ChartDepth> => {
-    const res = await fetch(`${API_BASE}/api/chart/depth?base=${base}&quote=${quote}`);
-    if (!res.ok) throw new Error('Failed to fetch depth');
-    return res.json();
-  },
   getChartHistory: async (base: string, quote: string): Promise<ChartHistoryRow[]> => {
-    const res = await fetch(`${API_BASE}/api/chart/history?base=${base}&quote=${quote}`);
+    const res = await fetch(`${V1}/chart/history?base=${base}&quote=${quote}`);
     if (!res.ok) throw new Error('Failed to fetch history');
     return res.json();
   },
@@ -177,14 +277,14 @@ export const api = {
     proofServerUri: string;
     networkId: string;
   }> => {
-    const res = await fetch(`${API_BASE}/api/midnight/config`);
+    const res = await fetch(`${V1}/midnight/config`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
     return data;
   },
 
   registerKnownToken: async (color: string, name: string, kind: 'shielded' | 'unshielded') => {
-    const res = await fetch(`${API_BASE}/api/known-tokens`, {
+    const res = await fetch(`${V1}/known-tokens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ color, name, kind }),
@@ -197,7 +297,7 @@ export const api = {
   /** Fetch all known pairs from the write-side projection (pair_stats). */
   fetchPairs: async (): Promise<PairInfo[]> => {
     try {
-      const res = await fetch(`${API_BASE}/api/pairs`);
+      const res = await fetch(`${V1}/pairs`);
       if (!res.ok) return [];
       return res.json();
     } catch {
@@ -206,24 +306,39 @@ export const api = {
   },
 
   /**
-   * Lookup the server-side status for a list of offer blobs.
-   * Returns a map of blob → 'open' | 'completed' | 'expired' | 'not_found'.
-   * Used for startup-only My Trades reconciliation.
+   * Server-side status for a list of offer blobs, as blob → status.
+   *
+   * POST because a real blob is 16-25 KB, far past any query-string limit.
+   * Batched at 50 to match the endpoint's schema. Prefer getOfferStatusById
+   * whenever the offerId is known — this exists for pasted blobs and for
+   * My-Trades records that predate id storage.
    */
-  fetchTradeStatuses: async (blobs: string[]): Promise<Record<string, string>> => {
+  fetchTradeStatuses: async (blobs: string[]): Promise<Record<string, OfferStatusLookup | 'unknown'>> => {
     if (blobs.length === 0) return {};
-    const results = await Promise.all(
-      blobs.map(async (blob): Promise<[string, string]> => {
-        try {
-          const res = await fetch(`${API_BASE}/api/zswap/status?blob=${encodeURIComponent(blob)}`);
-          if (!res.ok) return [blob, 'unknown'];
-          const data = await res.json();
-          return [blob, data.status ?? 'unknown'];
-        } catch {
-          return [blob, 'unknown'];
-        }
-      }),
-    );
-    return Object.fromEntries(results);
+    const out: Record<string, OfferStatusLookup | 'unknown'> = {};
+    for (let i = 0; i < blobs.length; i += STATUS_BATCH_MAX) {
+      const chunk = blobs.slice(i, i + STATUS_BATCH_MAX);
+      try {
+        const res = await fetch(`${V1}/offers/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ offers: chunk }),
+        });
+        const data = await parse<{ statuses: { offerId?: string; status: OfferStatusLookup }[] }>(
+          res,
+          'Failed to fetch statuses',
+        );
+        // Responses come back in input order and carry no echo of the blob, so
+        // indexing is necessarily positional.
+        chunk.forEach((blob, idx) => {
+          out[blob] = data.statuses?.[idx]?.status ?? 'unknown';
+        });
+      } catch {
+        // Best-effort: an unreachable node leaves these 'unknown' and the
+        // caller keeps whatever local status it already had.
+        for (const blob of chunk) out[blob] = 'unknown';
+      }
+    }
+    return out;
   },
 };

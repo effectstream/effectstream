@@ -3,7 +3,7 @@ import {
   type Signature,
   TypeboxHelpers,
   type WalletAddress,
-} from "@effectstream/utils";
+} from "@effectstream/utils/types";
 import type { IVerify } from "../IVerify.ts";
 import { Value } from "@sinclair/typebox/value";
 import { utf8ToHex } from "web3-utils";

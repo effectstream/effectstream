@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { CryptoManager } from "@effectstream/crypto";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 import { CardanoLocalConnector } from "./local.ts";
 
 describe("CardanoLocalProvider", () => {

@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "build:contract": "bun run scripts/build-contract.ts",
+    "verify:contract": "bun run scripts/build-contract.ts --verify-only",
+    "predev": "bun run build:contract",
     "dev": "vite --port 10600 --host",
+    "prebuild": "bun run build:contract",
     "build": "tsc -b && vite build",
     "preview": "vite preview --port 10600 --host",
     "serve": "vite preview --port 10600 --host"
@@ -14,6 +18,7 @@
     "@effectstream/mip-zswap-offer": "0.2.0",
     "@effectstream/wallets": "0.101.1",
     "@midnight-ntwrk/compact-js": "2.5.1",
+    "@midnight-ntwrk/compact-runtime": "0.16.0",
     "@midnight-ntwrk/dapp-connector-api": "4.0.1",
     "@midnight-ntwrk/ledger-v8": "8.1.0",
     "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
@@ -28,7 +33,6 @@
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.8.0",
     "@scure/base": "^2.0.0",
-    "@zswap-da/contract-offer-files": "file:../../../zswap-offerfile-kernel/packages/contracts-midnight/contract-offer-files",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.183.2"
@@ -45,5 +49,18 @@
     "node-stdlib-browser": "^1.2.0",
     "crypto-browserify": "^3.12.1",
     "vite-plugin-wasm": "^3.4.1"
+  },
+  "//overrides": [
+    "ledger-v8 is a wasm-bindgen module: its exported classes carry per-instance",
+    "type identity, so two copies in one bundle make every cross-copy value fail",
+    "an instanceof check. The symptom is 'expected instance of _DustParameters'",
+    "at wallet connect — wallet-sdk-dust-wallet had resolved its own nested",
+    "8.0.3 while the app used the hoisted 8.1.0.",
+    "Every nested spec is ^8.0.2/^8.0.3, all satisfied by 8.1.0, so these were",
+    "stale lockfile resolutions rather than real conflicts. Pinning collapses",
+    "them to one copy — which also halves ~10 MB of wasm out of the bundle."
+  ],
+  "overrides": {
+    "@midnight-ntwrk/ledger-v8": "8.1.0"
   }
 }

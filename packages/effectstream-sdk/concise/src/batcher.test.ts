@@ -3,7 +3,7 @@ import {
   AddressType,
   type TimestampMsStr,
   type WalletAddress,
-} from "@effectstream/utils";
+} from "@effectstream/utils/types";
 import {
   createBatcherSubunit,
   createMessageForBatcher,
