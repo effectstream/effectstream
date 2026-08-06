@@ -4,13 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun run run-tests.ts"
+    "test": "bun run run-tests.ts",
+    "launcher": "bun run launcher.cli.ts"
   },
   "dependencies": {
-    "@e2e/midnight-contracts": "workspace:*",
+    "@e2e/engine": "workspace:*",
     "@e2e/midnight-contract-counter-basic": "workspace:*",
+    "@e2e/midnight-contracts": "workspace:*",
     "@effectstream/batcher-sdk": "workspace:*",
     "@effectstream/midnight-contracts": "workspace:*",
+    "@effectstream/orchestrator": "workspace:*",
     "@effectstream/utils": "workspace:*",
     "@midnight-ntwrk/compact-js": "2.5.1",
     "@midnight-ntwrk/ledger-v8": "8.1.0",

@@ -239,10 +239,12 @@
       "name": "@e2e/multi-batcher",
       "version": "0.1.0",
       "dependencies": {
+        "@e2e/engine": "workspace:*",
         "@e2e/midnight-contract-counter-basic": "workspace:*",
         "@e2e/midnight-contracts": "workspace:*",
         "@effectstream/batcher-sdk": "workspace:*",
         "@effectstream/midnight-contracts": "workspace:*",
+        "@effectstream/orchestrator": "workspace:*",
         "@effectstream/utils": "workspace:*",
         "@midnight-ntwrk/compact-js": "2.5.1",
         "@midnight-ntwrk/ledger-v8": "8.1.0",

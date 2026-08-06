@@ -1,5 +1,9 @@
 // FAST CI guard for the shared multi-product batcher.
 //
+// Infrastructure is the orchestrator's native-binary graph (launcher.cli.ts),
+// matching every other e2e suite — the CI test image has no docker CLI. The
+// exhaustive Docker-based harness lives in templates/multi-batcher.
+//
 // Scope: prove the wiring still works — every product accepts its own
 // transaction shape, refuses the others, and routing errors are refused.
 // Each assertion is ONE cheap transaction; stress, fault injection and the
@@ -16,7 +20,7 @@
 
 import "@midnight-ntwrk/onchain-runtime-v3";
 
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
@@ -44,7 +48,7 @@ async function loadCounter(): Promise<CounterModule> {
   return counterModule;
 }
 
-import { writeFileSync } from "node:fs";
+import { startInfrastructure, stopInfrastructure } from "@e2e/engine";
 
 import { ACTOR_SEEDS, NETWORK } from "./env.ts";
 import {
@@ -181,114 +185,21 @@ async function readCounter(): Promise<bigint> {
 // ---------------------------------------------------------------------------
 
 const SUITE_DIR = import.meta.dirname!;
-const MONOREPO_ROOT = path.resolve(SUITE_DIR, "../..");
-
-/** Run a docker compose command for this suite's hermetic stack. */
-async function compose(...cmd: string[]): Promise<{ code: number; out: string }> {
-  const proc = Bun.spawn(["docker", "compose", ...cmd], {
-    cwd: SUITE_DIR,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, MONOREPO_ROOT },
-  });
-  const [out, err] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  return { code: await proc.exited, out: out + err };
-}
-
-async function startInfrastructure(): Promise<void> {
-  // Compose reads MONOREPO_ROOT for the bind mount; write it so `docker
-  // compose` invoked by hand from this directory works identically.
-  writeFileSync(
-    path.join(SUITE_DIR, ".env"),
-    `MONOREPO_ROOT=${MONOREPO_ROOT}\n` +
-      `HOST_UID=${process.getuid?.() ?? 1000}\n` +
-      `HOST_GID=${process.getgid?.() ?? 1000}\n`,
-  );
-
-  // Every run starts a FRESH chain (`down -v`), but these artifacts live on the
-  // bind mount, not in a volume — so they survive and would make the app
-  // container skip the deploy and hand us a contract address that no longer
-  // exists on chain. Clear them first.
-  console.log("  clearing stale chain artifacts...");
-  const contractsDir = path.join(E2E_ROOT, "shared/contracts/midnight");
-  const stale = [
-    path.join(contractsDir, "contract-counter.undeployed.json"),
-    path.join(contractsDir, "contract-eip-20.undeployed.json"),
-    path.join(contractsDir, "midnight-level-db"),
-    path.join(contractsDir, "midnight-level-db-deploy"),
-    path.join(SUITE_DIR, "batcher-data"),
-  ];
-  const stubborn: string[] = [];
-  for (const target of stale) {
-    try {
-      rmSync(target, { recursive: true, force: true });
-    } catch {
-      // Left by an older run whose container still ran as root.
-      stubborn.push(target);
-    }
-  }
-  if (stubborn.length > 0) {
-    console.log(`  removing ${stubborn.length} root-owned leftover(s) via docker...`);
-    const proc = Bun.spawn([
-      "docker", "run", "--rm", "-v", `${MONOREPO_ROOT}:${MONOREPO_ROOT}`,
-      "alpine:3", "rm", "-rf", ...stubborn,
-    ], { stdout: "pipe", stderr: "pipe" });
-    if (await proc.exited !== 0) {
-      throw new Error(`could not remove stale artifacts: ${stubborn.join(", ")}`);
-    }
-  }
-
-  // The counter's Compact artifacts must exist before the container deploys it.
-  console.log("  compiling counter contract (compact)...");
-  const compile = Bun.spawn(["bun", "run", "compact"], {
-    cwd: path.join(MONOREPO_ROOT, "e2e/shared/contracts/midnight/contract-counter"),
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  if (await compile.exited !== 0) throw new Error("compact compile failed");
-
-  console.log("  docker compose up...");
-  const up = await compose("up", "-d", "--remove-orphans");
-  if (up.code !== 0) throw new Error(`compose up failed:\n${up.out}`);
-}
-
-async function stopInfrastructure(): Promise<void> {
-  console.log("\nStopping infrastructure...");
-  if (!passed) {
-    const logs = await compose("logs", "app", "--tail", "60", "--no-log-prefix");
-    console.log("\n--- app/batcher log tail ---\n" + logs.out);
-  }
-  await compose("down", "-v", "--remove-orphans");
-}
+const LAUNCHER_PATH = path.resolve(SUITE_DIR, "./launcher.cli.ts");
 
 async function main() {
   setNetworkId(NETWORK.id as never);
   console.log("\n=== multi-batcher e2e: one batcher, three products ===\n");
 
-  console.log("[0/4] starting hermetic stack (compose, ports 12800-block)...");
-  await startInfrastructure();
+  // compile → midnight node/indexer/proof-server → contract deploy → fund →
+  // batcher, sequenced by the orchestrator's dependency graph (launcher.cli.ts).
+  // Funding is a `waitToExit` prerequisite of the batcher because adapters read
+  // their wallets at construction: a batcher started first comes up unfunded.
+  console.log("[1/3] starting infrastructure...");
+  await startInfrastructure(LAUNCHER_PATH);
 
-  // Wait for the container's contract deploy to finish BEFORE funding: the
-  // deploy also drives the genesis wallet, and two instances of one seed book
-  // dust independently — they would select the same coins and double-spend.
-  console.log("[1/4] waiting for contract deploy, then funding...");
-  const deployDeadline = Date.now() + 15 * 60 * 1000;
-  while (!existsSync(ADDRESS_FILE)) {
-    if (Date.now() > deployDeadline) {
-      throw new Error("contract deploy did not complete within 15 minutes");
-    }
-    await new Promise((r) => setTimeout(r, 5_000));
-  }
-  console.log("  contract deployed");
-
-  const { fundEverything } = await import("./fund.ts");
-  await fundEverything();
-
-  console.log("[2/4] waiting for the shared batcher...");
-  await waitForBatcher(300_000);
+  console.log("[2/3] waiting for the shared batcher...");
+  await waitForBatcher(900_000);
   const stats = await getStats();
   check(
     "all three products are registered",
@@ -298,7 +209,7 @@ async function main() {
     stats.targets.map((t) => t.target).join(", "),
   );
 
-  console.log("[3/4] building one transaction of each shape...");
+  console.log("[3/3] building one transaction of each shape...");
   const maker: WalletCtx = await buildWallet(NETWORK, ACTOR_SEEDS.maker);
   const sink: WalletCtx = await buildWallet(NETWORK, ACTOR_SEEDS.sink);
   await waitSynced(maker, { label: "maker" });
@@ -357,7 +268,7 @@ async function main() {
   const counterBefore = await readCounter();
   const sinkBefore = await getShieldedBalance(sink);
 
-  console.log("\n[4/4] assertions\n");
+  console.log("\n  assertions\n");
 
   // — policy: each product accepts its own shape —
   const aOk = await sendTx(callHex, { target: "product-a", txStage: "unbound" });

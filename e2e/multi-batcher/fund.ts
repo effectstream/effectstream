@@ -13,8 +13,6 @@
 // funded and can never pay a fee.
 
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
 
 import { ACTOR_SEEDS, FUNDING, GENESIS_SEED, NETWORK, PRODUCT_SEEDS } from "./env.ts";
 import {
@@ -190,14 +188,6 @@ export async function fundEverything(): Promise<void> {
     for (const [label, seed] of Object.entries(ACTOR_SEEDS)) {
       await fundActorShielded(genesis, seed, label);
     }
-    // Marker the app container waits on before starting the batcher: its
-    // adapters need funded wallets to initialize.
-    const marker = path.join(import.meta.dirname!, "batcher-data/funding-ready.json");
-    mkdirSync(path.dirname(marker), { recursive: true });
-    writeFileSync(
-      marker,
-      JSON.stringify({ completedAt: new Date().toISOString(), network: NETWORK.id }, null, 2),
-    );
     console.log("[fund] complete");
   } finally {
     await genesis.wallet.stop().catch(() => {});

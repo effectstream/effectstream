@@ -1,3 +1,0 @@
-# Written by run-tests.ts before `docker compose up` — carries this machine's
-# absolute MONOREPO_ROOT and uid/gid.
-.env

@@ -1,24 +1,22 @@
 // Shared config for the multi-product batcher e2e suite.
 //
-// The suite runs against its OWN docker-compose stack (see docker-compose.yml)
-// on the 12800 port block, so it is hermetic: it never collides with a
-// developer's or another agent's stack on the default Midnight ports.
-//
-// Host-side defaults below match the published compose ports; inside the `app`
-// container compose overrides them with service hostnames.
+// Infrastructure comes from the orchestrator (launcher.cli.ts) as native
+// binaries on the standard Midnight ports, matching every other e2e suite —
+// the runner executes suites serially, so they never overlap. Every value is
+// env-overridable if you want to point the suite at a stack of your own.
 
 const env = (key: string, fallback: string): string =>
   process.env[key]?.trim() || fallback;
 
 export const NETWORK = {
   id: env("MIDNIGHT_NETWORK_ID", "undeployed"),
-  node: env("MIDNIGHT_NODE_HTTP", "http://127.0.0.1:12844"),
-  indexer: env("MIDNIGHT_INDEXER_HTTP", "http://127.0.0.1:12888/api/v3/graphql"),
-  indexerWS: env("MIDNIGHT_INDEXER_WS", "ws://127.0.0.1:12888/api/v3/graphql/ws"),
-  proofServer: env("MIDNIGHT_PROOF_SERVER_URL", "http://127.0.0.1:12863"),
+  node: env("MIDNIGHT_NODE_HTTP", "http://127.0.0.1:9944"),
+  indexer: env("MIDNIGHT_INDEXER_HTTP", "http://127.0.0.1:8088/api/v3/graphql"),
+  indexerWS: env("MIDNIGHT_INDEXER_WS", "ws://127.0.0.1:8088/api/v3/graphql/ws"),
+  proofServer: env("MIDNIGHT_PROOF_SERVER_URL", "http://127.0.0.1:6300"),
 } as const;
 
-export const BATCHER_URL = env("BATCHER_URL", "http://127.0.0.1:12834");
+export const BATCHER_URL = env("BATCHER_URL", "http://127.0.0.1:3334");
 
 export const GENESIS_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
