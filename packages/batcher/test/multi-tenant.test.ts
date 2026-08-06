@@ -11,6 +11,7 @@ import path from "node:path";
 
 import { FileStorage } from "../core/storage.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
+import { type Batcher, createNewBatcher } from "../core/batcher.ts";
 
 const withStorage = async (fn: (s: FileStorage) => Promise<void>) => {
   const dir = mkdtempSync(path.join(tmpdir(), "batcher-multitenant-"));
@@ -187,21 +188,67 @@ describe("per-target retry policy resolution", () => {
 });
 
 describe("strict routing decision", () => {
-  // Mirrors Batcher.batchInput: reject unaddressed inputs when several
-  // products share the process, unless explicitly opted out.
-  const requiresTarget = (adapterCount: number, configured?: boolean) =>
-    configured ?? adapterCount > 1;
+  // These exercise the REAL Batcher. An earlier version of this file mirrored
+  // the rule in the test instead, so when the rule was wrong the test agreed
+  // with it and a two-adapter consumer (e2e/evm, which calls setDefaultTarget)
+  // broke in CI while this file stayed green.
 
-  test("multi-product batchers require an explicit target", () => {
-    expect(requiresTarget(3)).toBe(true);
+  const stubAdapter = () =>
+    ({
+      submitBatch: async () => "0xhash",
+      estimateBatchFee: () => "0",
+      buildBatchData: async () => null,
+      getChainName: () => "stub",
+    }) as unknown as Parameters<Batcher<DefaultBatcherInput>["addBlockchainAdapter"]>[1];
+
+  const memoryStorage = () => {
+    const rows: DefaultBatcherInput[] = [];
+    return {
+      init: async () => {},
+      addInput: async (i: DefaultBatcherInput) => { rows.push(i); },
+      getPendingInputs: async () => rows,
+      getInputsByTarget: async () => rows,
+      removeProcessedInputs: async () => {},
+      updateInput: async () => {},
+      clearAll: async () => { rows.length = 0; },
+    } as unknown as Parameters<typeof createNewBatcher>[1];
+  };
+
+  const build = (targets: string[], explicitDefault?: string) => {
+    const b = createNewBatcher(
+      { pollingIntervalMs: 1000, enableHttpServer: false, enableEventSystem: false },
+      memoryStorage(),
+    );
+    for (const t of targets) b.addBlockchainAdapter(t, stubAdapter(), { criteriaType: "size", maxBatchSize: 1 });
+    if (explicitDefault) b.setDefaultTarget(explicitDefault);
+    return b;
+  };
+
+  const unaddressed = (): DefaultBatcherInput =>
+    ({ address: "0xabc", addressType: 1, input: "x", timestamp: "1" }) as DefaultBatcherInput;
+
+  const routingError = async (b: ReturnType<typeof build>): Promise<string | null> => {
+    try {
+      await b.batchInput(unaddressed());
+      return null;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return msg.includes("missing \"target\"") ? msg : null;
+    }
+  };
+
+  test("several adapters and only an INFERRED default: unaddressed input is refused", async () => {
+    // defaultTarget here is whichever adapter happened to be registered first.
+    expect(await routingError(build(["a", "b", "c"]))).toContain('missing "target"');
   });
 
-  test("single-product batchers keep the defaultTarget fallback", () => {
-    expect(requiresTarget(1)).toBe(false);
+  test("REGRESSION: an explicit setDefaultTarget() is honoured", async () => {
+    // e2e/evm registers two adapters and names its default. Routing must not
+    // reject its unaddressed inputs — this is what broke in CI.
+    expect(await routingError(build(["effectstream-l2", "evmCounter"], "effectstream-l2"))).toBeNull();
   });
 
-  test("explicit config overrides the heuristic in both directions", () => {
-    expect(requiresTarget(1, true)).toBe(true);
-    expect(requiresTarget(5, false)).toBe(false);
+  test("a single adapter keeps the defaultTarget fallback", async () => {
+    expect(await routingError(build(["only"]))).toBeNull();
   });
 });

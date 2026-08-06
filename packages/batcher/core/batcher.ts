@@ -70,6 +70,13 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   private adapters: Record<string, BlockchainAdapter<any>>;
   /** Default target to use when input.target is not specified */
   public defaultTarget?: string;
+  /**
+   * True when the operator named the default target (config `defaultTarget` or
+   * `setDefaultTarget()`), false when it was inferred from the first adapter.
+   * Strict routing only guards the inferred case — an explicit default IS the
+   * operator saying where unaddressed input belongs.
+   */
+  private defaultTargetIsExplicit = false;
   /** Per-adapter batching criteria configuration */
   private readonly batchingCriteria: Map<string, BatchingCriteriaConfig<T>>;
   /** Track when the last batch was processed for time-based criteria (per adapter) */
@@ -146,6 +153,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       // Auto-set to first adapter if defaultTarget not explicitly provided
       this.defaultTarget = cfg.defaultTarget ||
         Object.keys(this.adapters)[0];
+      this.defaultTargetIsExplicit = !!cfg.defaultTarget;
       if (!cfg.defaultTarget) {
         console.log(
           `🎯 Auto-set default target to '${this.defaultTarget}' (first adapter from config)`,
@@ -154,6 +162,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     } else {
       // No adapters in config - will be set when first adapter is added via addBlockchainAdapter()
       this.defaultTarget = cfg.defaultTarget;
+      this.defaultTargetIsExplicit = !!cfg.defaultTarget;
     }
 
     // Initialize per-adapter batching criteria
@@ -406,6 +415,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     this.defaultTarget = adapterName;
+    this.defaultTargetIsExplicit = true;
     return this;
   }
 
@@ -487,15 +497,22 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       );
     }
 
-    // Strict routing: with more than one product registered, an unaddressed
-    // input must NOT silently land in the first-registered product's queue
-    // (and on its wallet's dust). Opt out with requireExplicitTarget: false.
+    // Strict routing: with more than one product registered and NO default the
+    // operator actually chose, an unaddressed input must not silently land in
+    // the first-registered product's queue (and on its wallet's dust) — that
+    // default was inferred from registration order, not intended.
+    //
+    // A default the operator named (config `defaultTarget` or
+    // `setDefaultTarget()`) is exactly the statement "unaddressed input goes
+    // here", so it is honoured. Force either behaviour with
+    // `requireExplicitTarget`.
     const requireExplicitTarget = this.config.requireExplicitTarget ??
-      Object.keys(this.adapters).length > 1;
+      (Object.keys(this.adapters).length > 1 && !this.defaultTargetIsExplicit);
     if (!input.target && requireExplicitTarget) {
       throw new InputValidationError(
         `Input is missing "target". This batcher serves multiple targets ` +
-          `(${Object.keys(this.adapters).join(", ")}); name the one you mean.`,
+          `(${Object.keys(this.adapters).join(", ")}) and has no explicit ` +
+          `default; name the one you mean, or call setDefaultTarget().`,
         400,
       );
     }
