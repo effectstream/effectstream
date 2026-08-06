@@ -34,7 +34,14 @@ export { DatabaseStorage, FileStorage } from "./core/storage.ts";
 export type { BlockchainAdapter, BatchBuildingOptions, BatchBuildingResult } from "./adapters/adapter.ts";
 export { EffectstreamL2DefaultAdapter } from "./adapters/effectstream-l2-adapter.ts";
 export { MidnightAdapter } from "./adapters/midnight-adapter.ts";
-export { MidnightBalancingAdapter } from "./adapters/midnight-balancing-adapter.ts";
+export {
+  MidnightBalancingAdapter,
+  releaseWalletSeeds,
+  resetWalletSeedRegistry,
+} from "./adapters/midnight-balancing-adapter.ts";
+// Transaction policy: shared introspection helpers + declarative rules.
+// Custom filters (policy.allowCustomFinalFilter) should be written with these.
+export * from "./adapters/midnight-policy.ts";
 export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./adapters/bitcoin-adapter.ts";
 export { parseCircuitArgs } from "./adapters/mod.ts";
 export {
