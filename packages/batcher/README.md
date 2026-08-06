@@ -138,6 +138,98 @@ To back the limiter with something other than process memory, implement
 `RateLimitStore` (`hit(key, nowMs)` and `count(key, nowMs, windowMs)`) and pass
 it as `store`. `InMemoryRateLimitStore` is the built-in implementation.
 
+## One batcher, many products
+
+A single batcher process can serve every product on a network. A *product* is a
+`target` plus its own adapter instance, its own wallet seed(s) and its own
+policy. The queue is shared; **fee capacity is not** — each product gets its own
+worker pool and dust lanes, so one product can never spend or starve another's.
+
+Two rules the design depends on:
+
+- **One network per process.** Midnight's `setNetworkId` is module-global, so
+  run one batcher per environment, hosting that environment's products.
+- **Never share a wallet seed between adapters.** Two instances on one seed keep
+  independent pending-spend ledgers, which is a double-spend. Constructing a
+  second adapter on a seed already in use throws.
+
+### Authorizing work by content
+
+There are no API keys and no client-side changes: the batcher decides from the
+**transaction itself** whether it will sponsor it. Rules are declared per
+product and are static.
+
+```ts
+new MidnightBalancingAdapter(seed, {
+  /* … */
+  policy: {
+    allowZswapTransfers: true,            // plain shielded/unshielded transfers
+    allowedTokenTypes: [myToken],         // …optionally only these tokens
+    allowedContracts: [counterAddress],   // any circuit on these contracts
+    allowedCircuits: [{ contract, entryPoint: "increment" }],
+    allowCustomFinalFilter: ({ tx, declarativeVerdict }) => {
+      if (!declarativeVerdict.valid) return false;
+      return isMatchedDeltaSwap(tx) ||
+        { valid: false, error: "not a matched swap" };
+    },
+  },
+});
+```
+
+Evaluation order is fixed: size cap → deserialize → declarative rules →
+`allowCustomFinalFilter`. The custom filter runs **last** and its verdict is
+final, so it can tighten *or* override the declarative result. It may be async;
+throwing rejects the input (fail closed). It runs at intake **and** again before
+any dust is spent, so it must be deterministic. No `policy` at all means
+allow-all — existing single-product batchers are unaffected.
+
+Custom filters are written against the same helpers the declarative rules are
+built from, exported at `@effectstream/batcher-sdk/midnight-policy`:
+`contractCalls`, `isZswapOnly`, `zswapTokenDeltas`, `zswapOfferShape`,
+`zswapNullifiers`, `callsOnlyContracts`, `callsOnlyCircuits`,
+`usesOnlyTokenTypes`, `isMatchedDeltaSwap`, `evaluateDeclarativePolicy`.
+
+**What a policy can and cannot see.** Shielded amounts are hidden, so value
+caps are impossible. Readable instead: contract addresses and entry points;
+per-token net deltas (a *balanced* transfer reports none — a swap offer's
+imbalance is exactly its signature); offer structure; and **nullifiers**, the
+spend tags. A nullifier already on chain means the coin is spent and the
+transaction can never apply — the one chain-state check worth a sponsor's time,
+since a doomed transaction still costs it proving and dust to find out. It is
+safe in a filter that runs twice because "spent" is monotone.
+
+Accepting that anyone may submit a *policy-conforming* transaction is the
+trade-off of tokenless authorization. Bound the blast radius with
+`allowedTokenTypes`, per-target rate limits, and network ACLs in front of the
+port.
+
+### Per-target controls
+
+```ts
+const config: BatcherConfig<DefaultBatcherInput> = {
+  requireExplicitTarget: true,   // refuse input that doesn't name its target
+  perTarget: {
+    "product-a": { rateLimit: { maxRequests: 60, windowMs: 60_000 }, maxRetries: 5 },
+  },
+};
+```
+
+Left unset, this turns itself on when there is more than one adapter **and** no
+default target was named. The distinction matters: `addBlockchainAdapter()`
+auto-assigns `defaultTarget` to whichever adapter registered first, and routing
+to a default nobody chose is the hazard. A default you set yourself — via
+`defaultTarget` or `setDefaultTarget()` — is a statement of intent and is
+honoured, so existing multi-adapter setups keep working.
+
+Rate-limit buckets, retry policy, dedup keys, `/queue-stats` entries and the
+`?target=`-scoped `POST /force-batch` and `DELETE /clear-inputs` are all
+per-target. `adapter.getHealthInfo()` surfaces each product's wallet, dust and
+worker state in `/queue-stats`.
+
+Worked example: [`templates/multi-batcher`](https://github.com/effectstream/effectstream/tree/main/templates/multi-batcher)
+— three products (contract calls, transfers, custom-filtered swaps) on one
+batcher, with fast and deep test suites.
+
 ## Customising the batcher
 
 The four interfaces you'd implement, in order of frequency:
@@ -162,7 +254,8 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 - `DatabaseStorage`: a `BatcherStorage` shell that is **not implemented yet** — its methods throw. Use `FileStorage` or your own implementation.
 - `MidnightBalancingAdapter`: a Midnight adapter variant that delegates transaction balancing, for setups where the batcher does not hold the funding wallet itself.
 - `WorkerPool`: the internal concurrency primitive the Midnight adapter uses to run one transaction per wallet UTXO slot in parallel, with a per-slot mutex.
-- HTTP endpoints (when enabled): `POST /send-input`, `GET /health`, `GET /status`, `GET /queue-stats`. Two more are registered only when `ENABLE_DEV_AND_DEBUG_ENDPOINTS` is set: `POST /force-batch` and `DELETE /clear-inputs`.
+- HTTP endpoints (when enabled): `POST /send-input`, `GET /health`, `GET /status`, `GET /queue-stats`. Two more are registered only when `ENABLE_DEV_AND_DEBUG_ENDPOINTS` is set: `POST /force-batch` and `DELETE /clear-inputs`. Both accept `?target=` to scope to one product.
+- Policy helpers at `@effectstream/batcher-sdk/midnight-policy`: transaction introspection plus the declarative rule engine, shared by the built-in rules and your own `allowCustomFinalFilter`. See [One batcher, many products](#one-batcher-many-products).
 
 ## Examples
 
