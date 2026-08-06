@@ -25,15 +25,16 @@ import {
   getShieldedBalance,
   getUnshieldedBalance,
   getUnshieldedCoinCount,
+  ignoreCleanWebSocketClose,
   registerForDust,
   transferShielded,
   transferUnshielded,
+  type WalletCtx,
   waitForDustCoins,
   waitForSelectableDust,
   waitForSelfTransferSettled,
   waitForUnshieldedBalanceAtLeast,
   waitSynced,
-  type WalletCtx,
 } from "../shared/wallet.ts";
 import { assertRegistryIsSane, buildProducts } from "./registry.ts";
 
@@ -221,6 +222,8 @@ async function main() {
   console.log(`\n[fund] DONE — marker written to ${READY_FILE}`);
   process.exit(0);
 }
+
+ignoreCleanWebSocketClose("fund");
 
 main().catch((e) => {
   console.error("[fund] FAILED:", e);

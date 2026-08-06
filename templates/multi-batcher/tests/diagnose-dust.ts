@@ -17,7 +17,11 @@ import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import * as Rx from "rxjs";
 
 import { ACTOR_SEEDS, GENESIS_SEED, NETWORK } from "../shared/env.ts";
-import { buildWallet, waitSynced } from "../shared/wallet.ts";
+import {
+  buildWallet,
+  ignoreCleanWebSocketClose,
+  waitSynced,
+} from "../shared/wallet.ts";
 import { buildProducts } from "../shared-batcher/registry.ts";
 
 /** Product seeds come from the registry — one source of truth. */
@@ -107,6 +111,8 @@ async function main() {
   }
   process.exit(0);
 }
+
+ignoreCleanWebSocketClose("diag");
 
 main().catch((e) => {
   console.error("[diag] failed:", e);

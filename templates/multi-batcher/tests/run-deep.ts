@@ -28,7 +28,12 @@ import {
   waitForBatcher,
   waitForDrained,
 } from "../shared/batcher-client.ts";
-import { buildWallet, getShieldedBalance, waitSynced } from "../shared/wallet.ts";
+import {
+  buildWallet,
+  getShieldedBalance,
+  ignoreCleanWebSocketClose,
+  waitSynced,
+} from "../shared/wallet.ts";
 import { buildProducts } from "../shared-batcher/registry.ts";
 
 const TEMPLATE_ROOT = path.join(import.meta.dirname!, "..");
@@ -502,6 +507,8 @@ async function main() {
   const failed = results.filter((r) => r.outcome === "fail" || r.outcome === "error");
   process.exit(failed.length > 0 ? 1 : 0);
 }
+
+ignoreCleanWebSocketClose("deep");
 
 main().catch((e) => {
   console.error("[deep] fatal:", e);

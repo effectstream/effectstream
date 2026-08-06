@@ -15,6 +15,7 @@ import {
   buildFeelessShieldedTransfer,
   buildWallet,
   getShieldedBalance,
+  ignoreCleanWebSocketClose,
   toHex,
   waitSynced,
 } from "../shared/wallet.ts";
@@ -124,6 +125,7 @@ async function main() {
 }
 
 if (import.meta.main) {
+  ignoreCleanWebSocketClose("product-b");
   main().catch((e) => {
     console.error(`[${TARGET}] FAILED:`, e);
     process.exit(1);

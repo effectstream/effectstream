@@ -644,3 +644,33 @@ export function resolveNativeTokenId(): string {
 export function toHex(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("hex");
 }
+
+/**
+ * Survive the indexer websocket closing normally.
+ *
+ * The wallet SDK leaves a subscription promise unsettled when its indexer
+ * websocket closes, so a NORMAL close (`code: 1000, wasClean: true`) arrives as
+ * an unhandled rejection whose reason is the CloseEvent itself — and Bun kills
+ * the process. Stopping a wallet closes that socket, so this fires during
+ * completely ordinary teardown; it took down the CI funding step twice.
+ *
+ * Only a clean close is swallowed. Every other rejection still fails loudly,
+ * so this cannot hide a real error.
+ */
+export function ignoreCleanWebSocketClose(label: string): void {
+  const isCleanClose = (reason: unknown): boolean => {
+    const r = reason as { type?: unknown; code?: unknown; wasClean?: unknown } | null;
+    return !!r && typeof r === "object" &&
+      r.type === "close" && r.wasClean === true && r.code === 1000;
+  };
+  const handle = (kind: string) => (reason: unknown) => {
+    if (isCleanClose(reason)) {
+      console.warn(`[${label}] ignoring clean websocket close (subscription teardown)`);
+      return;
+    }
+    console.error(`[${label}] FAILED (${kind}):`, reason);
+    process.exit(1);
+  };
+  process.on("unhandledRejection", handle("unhandled rejection"));
+  process.on("uncaughtException", handle("uncaught exception"));
+}

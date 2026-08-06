@@ -36,7 +36,11 @@ import {
 
 import { ACTOR_SEEDS, NETWORK } from "../shared/env.ts";
 import { sendTx, waitForBatcher } from "../shared/batcher-client.ts";
-import { deriveSeedForRole, toHex } from "../shared/wallet.ts";
+import {
+  deriveSeedForRole,
+  ignoreCleanWebSocketClose,
+  toHex,
+} from "../shared/wallet.ts";
 
 const args = process.argv.slice(2);
 const flag = (name: string, dflt: string): string => {
@@ -257,6 +261,7 @@ async function main() {
 }
 
 if (import.meta.main) {
+  ignoreCleanWebSocketClose("product-a");
   main().catch((e) => {
     console.error("[product-a] FAILED:", e);
     process.exit(1);

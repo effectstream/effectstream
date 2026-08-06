@@ -26,10 +26,11 @@ import {
   buildSwapOffer,
   buildWallet,
   getShieldedBalance,
+  ignoreCleanWebSocketClose,
   shieldedTokenId,
   toHex,
-  waitSynced,
   type WalletCtx,
+  waitSynced,
 } from "../shared/wallet.ts";
 
 export const TARGET = "product-c";
@@ -197,6 +198,7 @@ async function main() {
 }
 
 if (import.meta.main) {
+  ignoreCleanWebSocketClose("product-c");
   main().catch((e) => {
     console.error(`[${TARGET}] FAILED:`, e);
     process.exit(1);
