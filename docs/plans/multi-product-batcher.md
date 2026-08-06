@@ -4,8 +4,8 @@ Written 2026-08-06, after the first attempt (PRs #850 / #851, both closed).
 The design held up; the *process* is what needs repeating differently. Nothing
 below is speculative — every fact was paid for once already.
 
-Read §1–§5 to build it. Read §6–§8 before writing a single test. Read §9 before
-touching git.
+Read §1–§6 to build it — §5 is the part to copy rather than paraphrase.
+Read §7–§9 before writing a single test. Read §10 before touching git.
 
 ---
 
@@ -107,10 +107,12 @@ from `mod.ts`.
 
 ### C. Core — `batcher.ts`, `storage.ts`, `config.ts`, `batcher-server.ts`
 
+> Exact code for the dedup key and the routing rule is in §5.6 / §5.7.
+
 - **Dedup key must include the target.** `createInputKey` previously used the
   caller's target for every row, so it cancelled out: an identical payload sent
   to two products could cross-delete rows or cross-charge retries.
-- **Strict routing — get the rule right the first time.** See §9.2; the naive
+- **Strict routing — get the rule right the first time.** See §10.2; the naive
   version breaks existing consumers.
 - `perTarget?: Record<string, {rateLimit?, maxRetries?, retryDelayMs?}>` and
   `requireExplicitTarget?: boolean`. **Add these to the TypeBox schema as well
@@ -129,7 +131,7 @@ actively wrong once one process runs several.
 Fix: `createHash("sha256").update(seed).digest("hex").slice(0, 32)`, plus an
 atomic tmp+`renameSync` write (concurrent writers would otherwise interleave).
 
-**This now lives in `src/dust-state.ts`, not `get-wallet-info.ts`.** See §9.1.
+**This now lives in `src/dust-state.ts`, not `get-wallet-info.ts`.** See §10.1.
 
 ---
 
@@ -203,7 +205,335 @@ Product policies:
 
 ---
 
-## 5. Midnight facts that cost real time
+---
+
+## 5. Reference implementation — the parts that must be exact
+
+Copied from the first attempt (branch `claude/multi-batcher-sdk`, still on the
+remote). Everything else in this document can be rebuilt from the description;
+**these cannot**. Get the contracts below right and the rest follows.
+
+### 5.1 The policy contract
+
+The whole feature is this type plus its evaluation order. `TTx` defaults to the
+structural interface so tests need no WASM; the adapter instantiates it with the
+real ledger type.
+
+```ts
+export interface PolicyVerdict {
+  valid: boolean;
+  /** Name of the rule that decided the verdict (for logs + error messages). */
+  rule?: string;
+  /** Human-readable reason when invalid. */
+  reason?: string;
+}
+
+export interface CustomFilterContext<TTx = PolicyInspectableTx> {
+  tx: TTx;
+  txStage: "unproven" | "unbound" | "finalized";
+  input: DefaultBatcherInput;
+  /** Verdict of the declarative rules, which always run first. */
+  declarativeVerdict: PolicyVerdict;
+}
+
+export type CustomFinalFilter<TTx = PolicyInspectableTx> = (
+  ctx: CustomFilterContext<TTx>,
+) => boolean | ValidationResult | Promise<boolean | ValidationResult>;
+
+export interface MidnightTxPolicy<TTx = PolicyInspectableTx> {
+  /** Allow transfer-shaped transactions: no contract actions, at least one offer. */
+  allowZswapTransfers?: boolean;
+  /** Tighten the transfer rule to these token types (normalized hex). */
+  allowedTokenTypes?: string[];
+  /** Allow any circuit on these contract addresses. */
+  allowedContracts?: string[];
+  /** Allow only these (contract, entryPoint) pairs. */
+  allowedCircuits?: ContractCallRef[];
+  /**
+   * Custom FINAL filter. Runs strictly AFTER the declarative rules and receives
+   * their verdict; its return value is the final decision (it can tighten OR
+   * override). Throwing rejects the input (fail closed).
+   *
+   * MUST be deterministic and side-effect free: it runs at intake AND again
+   * pre-batch (storage rows are untrusted, and policy may change across a
+   * restart).
+   */
+  allowCustomFinalFilter?: CustomFinalFilter<TTx>;
+}
+```
+
+### 5.2 Declarative evaluation — order matters, and so does failing closed
+
+Rules are tried in a fixed order and the **first match wins**. An empty policy
+is allow-all (backward compatibility). The `catch` is not decoration: ledger
+getters are WASM-backed and throw on odd shapes — an introspection failure must
+reject, never pass.
+
+```ts
+export function evaluateDeclarativePolicy(
+  tx: PolicyInspectableTx,
+  policy: MidnightTxPolicy<never> | undefined,
+): PolicyVerdict {
+  // No declarative rules configured: allow-all (a custom filter may still reject).
+  if (isEmptyPolicy(policy)) return { valid: true, rule: "allow-all" };
+  const p = policy!;
+
+  try {
+    if (p.allowZswapTransfers && isZswapOnly(tx)) {
+      if (p.allowedTokenTypes?.length && !usesOnlyTokenTypes(tx, p.allowedTokenTypes)) {
+        return {
+          valid: false,
+          rule: "allowedTokenTypes",
+          reason: `transfer touches a token type outside the allowlist (used: ${
+            [...tokenTypesUsed(tx)].join(", ") || "none"
+          })`,
+        };
+      }
+      return { valid: true, rule: "allowZswapTransfers" };
+    }
+
+    if (p.allowedContracts?.length && callsOnlyContracts(tx, p.allowedContracts)) {
+      return { valid: true, rule: "allowedContracts" };
+    }
+
+    if (p.allowedCircuits?.length && callsOnlyCircuits(tx, p.allowedCircuits)) {
+      return { valid: true, rule: "allowedCircuits" };
+    }
+
+    // Nothing matched — explain why in terms the submitter can act on.
+    const actions = contractActions(tx);
+    const detail = actions.length > 0
+      ? `contract actions [${
+        actions.map((a) => `${a.contract.slice(0, 12)}…#${a.entryPoint || "<deploy>"}`).join(", ")
+      }] not allowlisted`
+      : isZswapOnly(tx)
+      ? "transfer-shaped transaction, but allowZswapTransfers is not enabled"
+      : "transaction matches no configured rule (no offers and no contract actions?)";
+    return { valid: false, rule: "no-rule-matched", reason: detail };
+  } catch (error) {
+    return {
+      valid: false,
+      rule: "introspection-failed",
+      reason: `could not inspect transaction: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+}
+```
+
+### 5.3 Full evaluation — the custom filter runs last and wins
+
+Note it accepts `boolean` **or** `ValidationResult`, so a filter can return a
+bare `true` or an `{valid:false, error}` with a message. The `catch` is the
+fail-closed guarantee.
+
+```ts
+export async function evaluatePolicy<TTx extends PolicyInspectableTx>(
+  ctx: {
+    tx: TTx;
+    txStage: "unproven" | "unbound" | "finalized";
+    input: DefaultBatcherInput;
+  },
+  policy: MidnightTxPolicy<TTx> | undefined,
+): Promise<PolicyVerdict> {
+  const declarativeVerdict = evaluateDeclarativePolicy(
+    ctx.tx,
+    policy as MidnightTxPolicy<never> | undefined,
+  );
+  const custom = policy?.allowCustomFinalFilter;
+  if (!custom) return declarativeVerdict;
+
+  try {
+    const outcome = await custom({ ...ctx, declarativeVerdict });
+    if (typeof outcome === "boolean") {
+      return outcome
+        ? { valid: true, rule: "allowCustomFinalFilter" }
+        : {
+          valid: false,
+          rule: "allowCustomFinalFilter",
+          reason: "rejected by custom filter",
+        };
+    }
+    return {
+      valid: outcome.valid,
+      rule: "allowCustomFinalFilter",
+      reason: outcome.valid ? undefined : (outcome.error ?? "rejected by custom filter"),
+    };
+  } catch (error) {
+    // Fail closed.
+    return {
+      valid: false,
+      rule: "allowCustomFinalFilter",
+      reason: `custom filter threw: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+}
+```
+
+### 5.4 Wallet-seed exclusivity — the one that prevents double-spends
+
+Module-level, checked at **construction**, before any wallet sync starts. Two
+adapters on one seed keep independent `pendingDust` ledgers and will select the
+same coins. Validate the whole list before mutating, so a partial claim can't
+leak on the throw path.
+
+```ts
+const claimedWalletSeeds = new Map<string, string>();
+
+export function claimWalletSeeds(seeds: string[], label?: string): void {
+  const owner = label ?? "unlabeled adapter";
+  const seen = new Set<string>();
+  for (const seed of seeds) {
+    if (seen.has(seed)) {
+      throw new Error(
+        `MidnightBalancingAdapter (${owner}): wallet seed listed twice in the same adapter`,
+      );
+    }
+    seen.add(seed);
+    const existing = claimedWalletSeeds.get(seed);
+    if (existing !== undefined) {
+      throw new Error(
+        `MidnightBalancingAdapter (${owner}): wallet seed already in use by "${existing}". ` +
+          `Each adapter instance needs its OWN wallet — sharing one causes double-spent dust. ` +
+          `Give this product a distinct seed.`,
+      );
+    }
+  }
+  for (const seed of seeds) claimedWalletSeeds.set(seed, owner);
+}
+```
+
+Call it first thing in the constructor: `claimWalletSeeds(seeds, config.logLabel)`.
+Also export `releaseWalletSeeds` / `resetWalletSeedRegistry` for tests.
+
+### 5.5 The three enforcement points
+
+**Intake** (`validateInput`) — size cap → hex → deserialize → policy. Returns a
+400 that names the failing rule:
+
+```ts
+const verdict = await evaluatePolicy(
+  { tx: entry.tx as unknown as PolicyInspectableTx, txStage: entry.txStage, input },
+  this.config.policy as MidnightTxPolicy<PolicyInspectableTx> | undefined,
+);
+if (!verdict.valid) {
+  this.log.warn(
+    `Policy rejected #${inputContentHash(input.input)} at intake ` +
+      `[${verdict.rule}]: ${verdict.reason ?? "no reason given"}`,
+  );
+  return {
+    valid: false,
+    error: `Rejected by policy (${verdict.rule}): ${
+      verdict.reason ?? "transaction not permitted for this target"
+    }`,
+  };
+}
+```
+
+**Pre-batch** (`buildBatchData`) — synchronous re-check of the *declarative*
+half via `declarativePolicyVerdict(entry)`; marks the row invalid so it takes
+the bounded-retry-then-warned-drop path.
+
+**Pre-spend** (`processWorkerTx`) — the full policy including the async custom
+filter, before any dust is committed. Throw a plain `Error` here: it must be
+treated as an **input** failure (retry-charged, dropped) and not as infra:
+
+```ts
+// Final policy gate before any dust is spent: runs the FULL policy
+// (declarative + custom filter). buildBatchData already re-checked the
+// declarative half synchronously; this covers the async custom filter.
+if (!isEmptyPolicy(this.config.policy as MidnightTxPolicy<never> | undefined)) {
+  const verdict = await evaluatePolicy(
+    { tx: entry.tx as unknown as PolicyInspectableTx, txStage: entry.txStage, input: trace.input },
+    this.config.policy as MidnightTxPolicy<PolicyInspectableTx> | undefined,
+  );
+  if (!verdict.valid) {
+    throw new Error(
+      `Rejected by policy (${verdict.rule}): ${
+        verdict.reason ?? "transaction not permitted for this target"
+      }`,
+    );
+  }
+}
+```
+
+Getting three gates is deliberate: intake gives the submitter a fast 400,
+pre-batch catches tampered storage cheaply and synchronously, pre-spend is the
+one that actually protects the dust.
+
+### 5.6 Dedup key — one character of real impact
+
+`input.target ?? target`. The old version used the caller's `target` for every
+row, so it cancelled out of the comparison and one product's removal could
+match another product's identical row.
+
+```ts
+private createInputKey(input: T, target: string): string {
+  return [
+    input.addressType,
+    input.target ?? target,   // ← per-row target, NOT the caller's
+    input.address,
+    input.timestamp,
+    input.signature ?? "",
+    input.input,
+  ].join("|");
+}
+```
+
+### 5.7 Strict routing — the rule that broke a consumer
+
+Do **not** key on adapter count. `addBlockchainAdapter()` auto-assigns
+`defaultTarget` to the first adapter registered; routing to a default nobody
+chose is the hazard, whereas a default the operator *named* is an explicit
+statement of intent. Track which it is:
+
+```ts
+// set true from cfg.defaultTarget and inside setDefaultTarget()
+private defaultTargetIsExplicit = false;
+
+const requireExplicitTarget = this.config.requireExplicitTarget ??
+  (Object.keys(this.adapters).length > 1 && !this.defaultTargetIsExplicit);
+
+if (!input.target && requireExplicitTarget) {
+  throw new InputValidationError(
+    `Input is missing "target". This batcher serves multiple targets ` +
+      `(${Object.keys(this.adapters).join(", ")}) and has no explicit ` +
+      `default; name the one you mean, or call setDefaultTarget().`,
+    400,
+  );
+}
+```
+
+### 5.8 `isMatchedDeltaSwap` — the shipped example filter
+
+```ts
+export function isMatchedDeltaSwap(
+  tx: PolicyInspectableTx,
+  opts?: { tokens?: [string, string] },
+): boolean {
+  const deltas = zswapTokenDeltas(tx);
+  if (deltas.size !== 2) return false;
+  const [[tokenA, deltaA], [tokenB, deltaB]] = [...deltas.entries()];
+  if (deltaA !== -deltaB) return false;
+  if (deltaA === 0n) return false;   // a balanced transfer is not a swap
+  if (opts?.tokens) {
+    const wanted = new Set(opts.tokens.map(normalizeHex));
+    if (!wanted.has(tokenA) || !wanted.has(tokenB)) return false;
+  }
+  return true;
+}
+```
+
+`zswapTokenDeltas` **drops zero entries**, which is what makes the
+`deltas.size !== 2` test meaningful — a balanced transfer arrives as an empty
+map, not as two zeroes.
+
+---
+
+## 6. Midnight facts that cost real time
 
 Everything here was discovered the expensive way. None of it is guessable.
 
@@ -262,7 +592,7 @@ Everything here was discovered the expensive way. None of it is guessable.
 
 ---
 
-## 6. Testing strategy
+## 7. Testing strategy
 
 ### Tier 1 — unit (`packages/batcher/test/`)
 
@@ -304,7 +634,7 @@ exactly-once, mixed soak with memory tables.
 
 ---
 
-## 7. The tests, concretely
+## 8. The tests, concretely
 
 ### Unit — 56 tests total
 
@@ -316,7 +646,7 @@ hidden)`, `nullifiers (the one thing a sponsor can check about a hidden coin)`.
 `multi-tenant.test.ts` (14 tests / 4 describes): `shared queue keeps products
 separate`, `wallet-seed exclusivity`, `per-target retry policy resolution`,
 `strict routing decision` — **this last one must drive the real `Batcher`**
-(see §8.1), including the two-adapter + `setDefaultTarget()` case.
+(see §9.1), including the two-adapter + `setDefaultTarget()` case.
 
 ### e2e — the 12 assertions
 
@@ -345,7 +675,7 @@ zero)`.
 
 Note #4 and #7 use the **same** product and opposite outcomes — that is what
 proves the filter discriminates rather than rejecting everything. #10 exists
-because a swap offer cannot settle (§5), so its rows are retired rather than
+because a swap offer cannot settle (§6), so its rows are retired rather than
 waited on.
 
 ### Deep suite — M1–M10
@@ -374,7 +704,7 @@ peak 585 MiB over 173 samples, no growth; proof servers ~1 GiB peak each.
 
 ---
 
-## 8. Test-quality rules (learned the hard way)
+## 9. Test-quality rules (learned the hard way)
 
 Four separate assertions in the first attempt passed **for the wrong reason**.
 This is the single highest-value section.
@@ -400,7 +730,7 @@ This is the single highest-value section.
 
 ---
 
-## 9. Traps to avoid on the second pass
+## 10. Traps to avoid on the second pass
 
 ### 7.1 `git fetch` before you branch
 
@@ -528,7 +858,7 @@ on that.
 
 ---
 
-## 10. Verification checklist
+## 11. Verification checklist
 
 Before opening a PR:
 
