@@ -58,6 +58,13 @@ import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-p
 import type { NetworkId as WalletNetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { AdapterLogger } from "./adapter-logger.ts";
 import { WorkerPool } from "./worker-pool.ts";
+import {
+  evaluateDeclarativePolicy,
+  evaluatePolicy,
+  isPolicyEnforced,
+  type MidnightTxPolicy,
+  type PolicyInspectableTx,
+} from "./midnight-policy.ts";
 
 // ---------------------------------------------------------------------------
 // Config & types
@@ -91,6 +98,23 @@ export interface MidnightBalancingAdapterConfig {
   // intake (pre-queue). Defaults to 500k chars (~250 KB of tx bytes) — well
   // above any legitimate balanced+padded tx, well below abuse territory.
   maxInputChars?: number;
+  /**
+   * Content-based authorization for this target (multi-product batchers).
+   * Declares WHICH transactions this product may submit — pure transfers,
+   * calls to allowlisted contracts/circuits — plus an optional custom final
+   * filter. Omit for allow-all (single-product / back-compatible behavior).
+   *
+   * Enforced at intake (validateInput → 400) and re-checked pre-batch
+   * (storage rows are untrusted and policy can change across a restart).
+   * See `./midnight-policy.ts` for the helpers custom filters should use.
+   */
+  policy?: MidnightTxPolicy<DelegatedTx>;
+  /**
+   * Log label for this adapter instance, e.g. the product name. Defaults to
+   * "balancing". In a multi-product process this is what makes each product's
+   * lines distinguishable: `[balancing:product-a] …`.
+   */
+  logLabel?: string;
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
@@ -113,6 +137,60 @@ function formatDust(specks: bigint): string {
   const frac = abs % SPECKS_PER_DUST;
   const fracStr = frac.toString().padStart(15, "0").replace(/0+$/, "");
   return fracStr ? `${sign}${whole}.${fracStr}` : `${sign}${whole}`;
+}
+
+// ---------------------------------------------------------------------------
+// Wallet-seed registry (process-wide)
+// ---------------------------------------------------------------------------
+
+/**
+ * Seeds already claimed by a live adapter in this process, seed → owner label.
+ *
+ * Sharing a seed across two adapter instances is never safe: each instance
+ * builds its own WalletFacade with its own `pendingDust` ledger and its own
+ * per-wallet balance mutex, so both would select the same on-chain dust coins
+ * (double-spend attempts, "could not balance dust", coins stranded until the
+ * grace period). One wallet belongs to exactly one adapter.
+ */
+const claimedWalletSeeds = new Map<string, string>();
+
+/**
+ * Claim wallet seeds for one adapter instance. Throws if any seed is already
+ * claimed (or listed twice). Exported so the exclusivity contract can be
+ * tested without starting wallet sync.
+ */
+export function claimWalletSeeds(seeds: string[], label?: string): void {
+  const owner = label ?? "unlabeled adapter";
+  const seen = new Set<string>();
+  for (const seed of seeds) {
+    if (seen.has(seed)) {
+      throw new Error(
+        `MidnightBalancingAdapter (${owner}): wallet seed listed twice in the same adapter`,
+      );
+    }
+    seen.add(seed);
+    const existing = claimedWalletSeeds.get(seed);
+    if (existing !== undefined) {
+      throw new Error(
+        `MidnightBalancingAdapter (${owner}): wallet seed already in use by "${existing}". ` +
+          `Each adapter instance needs its OWN wallet — sharing one causes double-spent dust. ` +
+          `Give this product a distinct seed.`,
+      );
+    }
+  }
+  for (const seed of seeds) claimedWalletSeeds.set(seed, owner);
+}
+
+/** Release seed claims (tests, and adapters that are torn down). */
+export function releaseWalletSeeds(seeds: string | string[]): void {
+  for (const seed of Array.isArray(seeds) ? seeds : [seeds]) {
+    claimedWalletSeeds.delete(seed);
+  }
+}
+
+/** Drop every seed claim — test helper. */
+export function resetWalletSeedRegistry(): void {
+  claimedWalletSeeds.clear();
 }
 
 /** Short 8-char hex hash of the input payload for tracing duplicates from the app. */
@@ -145,6 +223,8 @@ interface TxTraceInfo {
   contentHash: string;
   /** Retry attempt (0 = first try) */
   retry: number;
+  /** The originating input — needed by the pre-spend policy gate. */
+  input: DefaultBatcherInput;
 }
 
 interface DelegatedBatchData {
@@ -189,7 +269,7 @@ export class MidnightBalancingAdapter
   private readonly walletFundingTimeoutMs: number;
   private readonly syncProtocolName: string;
   private readonly walletSeeds: string[];
-  private readonly log = new AdapterLogger("balancing");
+  private readonly log: AdapterLogger;
 
   private walletResults: (WalletResult | null)[];
   private walletAddresses: (string | null)[];
@@ -217,8 +297,16 @@ export class MidnightBalancingAdapter
     config: MidnightBalancingAdapterConfig,
   ) {
     const seeds = Array.isArray(walletSeed) ? walletSeed : [walletSeed];
+    // Two adapter instances sharing a seed each build their OWN WalletFacade,
+    // with independent local dust booking and independent balance mutexes —
+    // they would select the same on-chain dust coins and double-spend. Fail
+    // loudly at construction instead of at 3am.
+    claimWalletSeeds(seeds, config.logLabel);
     this.walletSeeds = seeds;
     this.config = config;
+    this.log = new AdapterLogger(
+      config.logLabel ? `balancing:${config.logLabel}` : "balancing",
+    );
     this.walletNetworkId = config.walletNetworkId ??
       ("undeployed" as WalletNetworkId.NetworkId);
     this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 600) *
@@ -777,6 +865,20 @@ export class MidnightBalancingAdapter
         continue;
       }
 
+      // Defense in depth: re-check the declarative rules against the stored
+      // row. Catches on-disk tampering and policy tightened across a restart.
+      // (The custom filter half runs in processWorkerTx — it may be async.)
+      const verdict = this.declarativePolicyVerdict(entry);
+      if (!verdict.valid) {
+        this.log.warn(
+          `Policy rejected #${inputContentHash(input.input)} pre-batch ` +
+            `[${verdict.rule}]: ${verdict.reason ?? "no reason given"} — marking failed`,
+        );
+        invalidInputs.push(input);
+        selectedInputs.push(input);
+        continue;
+      }
+
       const worker = this.pool.acquireWorker(dustFilter);
       if (!worker) break; // no free workers
 
@@ -791,6 +893,7 @@ export class MidnightBalancingAdapter
         label: `B${String(batchId).padStart(2, "0")}:${txIdx}`,
         contentHash: inputContentHash(input.input),
         retry: input.retryCount ?? 0,
+        input,
       });
     }
 
@@ -1051,6 +1154,28 @@ export class MidnightBalancingAdapter
     const tag = `${trace.label}/${w} #${trace.contentHash}`;
     const retryTag = trace.retry > 0 ? ` [retry ${trace.retry}/3]` : "";
     const pipelineStart = performance.now();
+
+    // Final policy gate before any dust is spent: runs the FULL policy
+    // (declarative + custom filter). buildBatchData already re-checked the
+    // declarative half synchronously; this covers the async custom filter.
+    if (isPolicyEnforced(this.config.policy as MidnightTxPolicy<never> | undefined)) {
+      const verdict = await evaluatePolicy(
+        {
+          tx: entry.tx as unknown as PolicyInspectableTx,
+          txStage: entry.txStage,
+          input: trace.input,
+        },
+        this.config.policy as MidnightTxPolicy<PolicyInspectableTx> | undefined,
+      );
+      if (!verdict.valid) {
+        // Input failure (NOT infra): retry-charged and dropped with a warning.
+        throw new Error(
+          `Rejected by policy (${verdict.rule}): ${
+            verdict.reason ?? "transaction not permitted for this target"
+          }`,
+        );
+      }
+    }
 
     // --- Phase 1: Balance (under wallet lock) ---
     this.log.log(`[${tag}] Acquiring balance lock${retryTag}...`);
@@ -1403,6 +1528,33 @@ export class MidnightBalancingAdapter
     return 0n;
   }
 
+  /**
+   * Operational snapshot for /queue-stats. In a multi-product batcher this is
+   * how you see WHICH product is out of fee capacity without reading logs.
+   * Uses cached state only — no chain/indexer calls, safe to poll.
+   */
+  getHealthInfo(): Record<string, unknown> {
+    return {
+      wallets: this.walletSeeds.length,
+      walletsReady: this.walletInitialized.filter(Boolean).length,
+      dustUtxos: this.availableDustUtxoCounts.map((c) => c ?? 0),
+      dustExhausted: this.walletInitialized.every(
+        (ok, i) => !ok || this.walletDustExhausted[i],
+      ),
+      workersBusy: this.pool.getTotalWorkerCount() - this.pool.getFreeWorkerCount(),
+      workersTotal: this.pool.getTotalWorkerCount(),
+      inFlightInputs: this.inFlightInputKeys.size,
+      policy: !isPolicyEnforced(this.config.policy as MidnightTxPolicy<never> | undefined)
+        ? "allow-all"
+        : {
+          allowZswapTransfers: this.config.policy?.allowZswapTransfers ?? false,
+          allowedContracts: this.config.policy?.allowedContracts?.length ?? 0,
+          allowedCircuits: this.config.policy?.allowedCircuits?.length ?? 0,
+          customFilter: Boolean(this.config.policy?.allowCustomFinalFilter),
+        },
+    };
+  }
+
   verifySignature(_input: DefaultBatcherInput): boolean {
     return true;
   }
@@ -1414,7 +1566,7 @@ export class MidnightBalancingAdapter
    * deserialization on every poll tick, and (pre-hardening) sit in the queue
    * forever. Running the real deserializer here makes intake authoritative.
    */
-  validateInput(input: DefaultBatcherInput): ValidationResult {
+  async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
     const maxChars = this.config.maxInputChars ?? DEFAULT_MAX_INPUT_CHARS;
     if (input.input.length > maxChars) {
       return {
@@ -1422,19 +1574,56 @@ export class MidnightBalancingAdapter
         error: `Input too large (${input.input.length} chars, max ${maxChars})`,
       };
     }
+    let entry: DelegatedTxEntry;
     try {
       const { hex } = this.parseHexInput(input.input);
       if (!/^[0-9a-fA-F]+$/.test(hex)) {
         return { valid: false, error: "Input is not valid hex" };
       }
-      this.deserializeTxEntry(input);
-      return { valid: true };
+      entry = this.deserializeTxEntry(input);
     } catch (e) {
       return {
         valid: false,
         error: e instanceof Error ? e.message : String(e),
       };
     }
+
+    // Content-based authorization: declarative rules first, then the custom
+    // final filter. Both fail closed.
+    const verdict = await evaluatePolicy(
+      {
+        tx: entry.tx as unknown as PolicyInspectableTx,
+        txStage: entry.txStage,
+        input,
+      },
+      this.config.policy as MidnightTxPolicy<PolicyInspectableTx> | undefined,
+    );
+    if (!verdict.valid) {
+      this.log.warn(
+        `Policy rejected #${inputContentHash(input.input)} at intake ` +
+          `[${verdict.rule}]: ${verdict.reason ?? "no reason given"}`,
+      );
+      return {
+        valid: false,
+        error: `Rejected by policy (${verdict.rule}): ${
+          verdict.reason ?? "transaction not permitted for this target"
+        }`,
+      };
+    }
+    return { valid: true };
+  }
+
+  /**
+   * Pre-batch DECLARATIVE re-check (synchronous, so it can run inside
+   * buildBatchData). Storage rows are untrusted — they can be tampered with on
+   * disk, and the policy may have been tightened since the input was accepted.
+   * The async half (custom filter) runs in processWorkerTx.
+   */
+  private declarativePolicyVerdict(entry: DelegatedTxEntry) {
+    return evaluateDeclarativePolicy(
+      entry.tx as unknown as PolicyInspectableTx,
+      this.config.policy as MidnightTxPolicy<never> | undefined,
+    );
   }
 
   async getBlockNumber(): Promise<bigint> {
