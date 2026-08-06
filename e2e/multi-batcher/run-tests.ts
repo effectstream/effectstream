@@ -48,7 +48,13 @@ async function loadCounter(): Promise<CounterModule> {
   return counterModule;
 }
 
-import { startInfrastructure, stopInfrastructure } from "@e2e/engine";
+import {
+  startInfrastructure,
+  stopInfrastructure,
+  waitForOrchestrator,
+  waitForProcess,
+} from "@e2e/engine";
+import { MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 
 import { ACTOR_SEEDS, NETWORK } from "./env.ts";
 import {
@@ -197,9 +203,21 @@ async function main() {
   // their wallets at construction: a batcher started first comes up unfunded.
   console.log("[1/3] starting infrastructure...");
   await startInfrastructure(LAUNCHER_PATH);
+  await waitForOrchestrator();
+
+  // Wait on each critical stage rather than only on the batcher's health.
+  // startInfrastructure() returns as soon as the orchestrator is spawned, so
+  // without these a dead compile/deploy/fund would just look like a batcher
+  // that never got healthy — 15 minutes to reach a misleading error.
+  await waitForProcess(MidnightNames.NODE_WAIT, { waitForExit: true, timeoutMs: 300_000 });
+  await waitForProcess(MidnightNames.INDEXER_WAIT, { waitForExit: true, timeoutMs: 300_000 });
+  await waitForProcess(MidnightNames.CONTRACT_DEPLOY, { waitForExit: true, timeoutMs: 600_000 });
+  console.log("  contract deployed");
+  await waitForProcess("fund", { waitForExit: true, timeoutMs: 900_000 });
+  console.log("  products funded");
 
   console.log("[2/3] waiting for the shared batcher...");
-  await waitForBatcher(900_000);
+  await waitForBatcher(300_000);
   const stats = await getStats();
   check(
     "all three products are registered",
