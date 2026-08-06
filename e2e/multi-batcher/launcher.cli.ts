@@ -48,6 +48,10 @@ export default {
       name: "batcher",
       description: "Shared batcher hosting product-a/b/c",
       args: ["run", "e2e/multi-batcher/batcher/main.ts"],
+      // The suite asserts on the target-scoped admin routes (/clear-inputs),
+      // which are only registered when this is set. Carried over from the
+      // compose stack this launcher replaced.
+      env: { ENABLE_DEV_AND_DEBUG_ENDPOINTS: "true" },
       stopProcessAtPort: [3334],
       waitToExit: false,
       dependsOn: ["fund"],
