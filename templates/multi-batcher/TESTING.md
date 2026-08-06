@@ -42,7 +42,7 @@ Requires the Docker stack (`docker compose up -d`). Results append to
 
 ### Border cases covered at unit level
 
-`bun test packages/batcher` — no chain required (62 tests):
+`bun test packages/batcher` — no chain required (124 tests):
 
 - **Rule matching**: allowed contract + *disallowed* second call in another
   intent ⇒ reject; wrong/miscased entry point ⇒ reject; a deploy (no entry
@@ -52,7 +52,14 @@ Requires the Docker stack (`docker compose up -d`). Results append to
 - **Fail closed**: introspection that throws ⇒ reject, never accept.
 - **Custom filter semantics**: runs strictly *after* the declarative rules and
   receives their verdict; can tighten; can override; throwing rejects; async
-  filters are awaited; a filter alone (no declarative rules) still gates.
+  filters are awaited; a filter alone (no declarative rules) still gates — at
+  intake *and* at the pre-spend gate.
+- **Enforcement guard**: a filter-only policy is declaratively empty by design
+  (so the filter receives an allow-all verdict it can override), which makes
+  `isEmptyPolicy` the wrong guard for an enforcement point — it would skip such
+  a policy entirely. `isPolicyEnforced` is the guard, and the contract is
+  asserted directly: every policy shape the guard skips must be incapable of
+  rejecting anything.
 - **Nullifier pre-check**: a tx whose input nullifier is already on chain is
   refused before any dust is spent; the verdict is monotone across the intake
   and pre-batch evaluations.

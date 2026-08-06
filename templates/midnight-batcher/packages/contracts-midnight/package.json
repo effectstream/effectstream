@@ -8,7 +8,7 @@
     "midnight-contract:deploy": "bun run deploy.ts"
   },
   "dependencies": {
-    "@effectstream/midnight-contracts": "0.103.0",
+    "@effectstream/midnight-contracts": "0.103.2",
     "@midnight-batcher/midnight-contract": "workspace:*",
     "@midnight-ntwrk/ledger-v8": "8.1.0",
     "@midnight-ntwrk/compact-runtime": "0.16.0",

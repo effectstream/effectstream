@@ -3,6 +3,13 @@
 Runs append here. Newest information wins where a test was corrected between
 runs — see the note below.
 
+> **The 2026-08-05 runs below were recorded on an older base and have not been
+> reproduced since.** They predate both the rebase onto current `v-next` and the
+> clean-websocket-close guard now installed in the template's six
+> wallet-opening processes. Treat them as indicative of the suite's shape, not
+> as a green result for this tree. Regenerate with `bun run test:deep` before
+> citing them.
+
 > **M3 was rewritten between the two runs on 2026-08-05.** The first run's M3
 > ("delivered once EACH") did not test what it claimed: it sent the payload to
 > product-b and product-c, but product-c *rejects* a plain transfer, so only one

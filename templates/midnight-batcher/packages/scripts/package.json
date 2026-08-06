@@ -7,8 +7,8 @@
     "./batcher-client": "./batcher-client.ts"
   },
   "dependencies": {
-    "@effectstream/midnight-contracts": "0.103.0",
-    "@effectstream/utils": "0.103.0",
+    "@effectstream/midnight-contracts": "0.103.2",
+    "@effectstream/utils": "0.103.2",
     "@midnight-batcher/midnight-contract": "workspace:*",
     "@midnight-ntwrk/ledger-v8": "8.1.0",
     "@midnight-ntwrk/compact-js": "2.5.1",

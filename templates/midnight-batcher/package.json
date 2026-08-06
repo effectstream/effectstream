@@ -12,9 +12,9 @@
     "test:adversarial": "bun run packages/tests/run-adversarial.ts"
   },
   "dependencies": {
-    "@effectstream/batcher-sdk": "0.103.0",
-    "@effectstream/midnight-contracts": "0.103.0",
-    "@effectstream/utils": "0.103.0",
+    "@effectstream/batcher-sdk": "0.103.2",
+    "@effectstream/midnight-contracts": "0.103.2",
+    "@effectstream/utils": "0.103.2",
     "@midnightntwrk/wallet-sdk-address-format": "3.1.2"
   },
   "devDependencies": {
