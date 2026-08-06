@@ -166,6 +166,26 @@ export interface BatcherConfig<
   // Rate limiting for /send-input endpoint
   rateLimit?: RateLimitConfig;
 
+  /**
+   * Reject inputs that do not name a target instead of routing them to
+   * `defaultTarget`. Defaults to true when more than one adapter is
+   * registered: in a multi-product batcher, silently dropping an
+   * unaddressed input into the first-registered product's queue (and onto
+   * its wallet's dust) is never the intent.
+   */
+  requireExplicitTarget?: boolean;
+
+  /**
+   * Per-target overrides. Anything omitted falls back to the global value.
+   * Lets one product be rate-limited or retried differently from another
+   * without giving it its own process.
+   */
+  perTarget?: Record<string, {
+    rateLimit?: RateLimitConfig;
+    maxRetries?: number;
+    retryDelayMs?: number;
+  }>;
+
   // Shutdown configuration
   shutdown?: {
     hooks?: ShutdownHooks<TInput>;
@@ -260,6 +280,19 @@ export const BatcherConfigSchema = Type.Object({
   ),
 
   rateLimit: Type.Optional(RateLimitConfigSchema),
+
+  requireExplicitTarget: Type.Optional(Type.Boolean()),
+
+  perTarget: Type.Optional(
+    Type.Record(
+      Type.String(),
+      Type.Object({
+        rateLimit: Type.Optional(RateLimitConfigSchema),
+        maxRetries: Type.Optional(Type.Number({ minimum: 0 })),
+        retryDelayMs: Type.Optional(Type.Number({ minimum: 0 })),
+      }, { additionalProperties: false }),
+    ),
+  ),
 
   shutdown: Type.Optional(Type.Object({
     hooks: Type.Optional(Type.Object({

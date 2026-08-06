@@ -70,6 +70,13 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   private adapters: Record<string, BlockchainAdapter<any>>;
   /** Default target to use when input.target is not specified */
   public defaultTarget?: string;
+  /**
+   * True when the operator named the default target (config `defaultTarget` or
+   * `setDefaultTarget()`), false when it was inferred from the first adapter.
+   * Strict routing only guards the inferred case — an explicit default IS the
+   * operator saying where unaddressed input belongs.
+   */
+  private defaultTargetIsExplicit = false;
   /** Per-adapter batching criteria configuration */
   private readonly batchingCriteria: Map<string, BatchingCriteriaConfig<T>>;
   /** Track when the last batch was processed for time-based criteria (per adapter) */
@@ -146,6 +153,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       // Auto-set to first adapter if defaultTarget not explicitly provided
       this.defaultTarget = cfg.defaultTarget ||
         Object.keys(this.adapters)[0];
+      this.defaultTargetIsExplicit = !!cfg.defaultTarget;
       if (!cfg.defaultTarget) {
         console.log(
           `🎯 Auto-set default target to '${this.defaultTarget}' (first adapter from config)`,
@@ -154,6 +162,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     } else {
       // No adapters in config - will be set when first adapter is added via addBlockchainAdapter()
       this.defaultTarget = cfg.defaultTarget;
+      this.defaultTargetIsExplicit = !!cfg.defaultTarget;
     }
 
     // Initialize per-adapter batching criteria
@@ -206,10 +215,13 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         receipt: BlockchainTransactionReceipt,
         timeout: number,
       ) => this.waitForEffectStreamProcessed(target, receipt, timeout),
-      getRetryPolicy: () => ({
-        maxRetries: this.config.maxRetries ?? 3,
-        retryDelayMs: this.config.retryDelayMs ?? 1000,
-      }),
+      getRetryPolicy: (target?: string) => {
+        const override = target ? this.config.perTarget?.[target] : undefined;
+        return {
+          maxRetries: override?.maxRetries ?? this.config.maxRetries ?? 3,
+          retryDelayMs: override?.retryDelayMs ?? this.config.retryDelayMs ?? 1000,
+        };
+      },
       setTargetCooldown: (target: string, ms: number) =>
         this.setTargetCooldown(target, ms),
     });
@@ -403,6 +415,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     this.defaultTarget = adapterName;
+    this.defaultTargetIsExplicit = true;
     return this;
   }
 
@@ -480,6 +493,26 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       throw new InputValidationError(
         "No default target configured and input.target not specified. " +
           "Add adapters using addBlockchainAdapter() before initialization.",
+        400,
+      );
+    }
+
+    // Strict routing: with more than one product registered and NO default the
+    // operator actually chose, an unaddressed input must not silently land in
+    // the first-registered product's queue (and on its wallet's dust) — that
+    // default was inferred from registration order, not intended.
+    //
+    // A default the operator named (config `defaultTarget` or
+    // `setDefaultTarget()`) is exactly the statement "unaddressed input goes
+    // here", so it is honoured. Force either behaviour with
+    // `requireExplicitTarget`.
+    const requireExplicitTarget = this.config.requireExplicitTarget ??
+      (Object.keys(this.adapters).length > 1 && !this.defaultTargetIsExplicit);
+    if (!input.target && requireExplicitTarget) {
+      throw new InputValidationError(
+        `Input is missing "target". This batcher serves multiple targets ` +
+          `(${Object.keys(this.adapters).join(", ")}) and has no explicit ` +
+          `default; name the one you mean, or call setDefaultTarget().`,
         400,
       );
     }
@@ -899,13 +932,22 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Force process current batch (useful for testing or manual triggers)
    */
-  async forceProcessBatches(): Promise<void> {
+  async forceProcessBatches(target?: string): Promise<void> {
     if (this.shutdownState.isShuttingDown) {
       throw new Error("Cannot force process batches during shutdown");
     }
 
-    console.log("🔧 Force processing batches for all targets...");
-    const allTargets = Object.keys(this.adapters);
+    if (target && !this.adapters[target]) {
+      throw new Error(
+        `Unknown target ${target}. Available: ${Object.keys(this.adapters).join(", ")}`,
+      );
+    }
+    const allTargets = target ? [target] : Object.keys(this.adapters);
+    console.log(
+      target
+        ? `🔧 Force processing batches for target ${target}...`
+        : "🔧 Force processing batches for all targets...",
+    );
     await this.processBatchesForTargets(allTargets);
 
     // Update last process times for all targets
@@ -918,12 +960,28 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Clear all pending inputs (useful for testing)
    */
-  async clearPendingInputs(): Promise<void> {
+  async clearPendingInputs(target?: string): Promise<number> {
     if (this.shutdownState.isShuttingDown) {
       throw new Error("Cannot clear pending inputs during shutdown");
     }
 
-    await this.storage.clearAllInputs();
+    if (!target) {
+      const all = await this.storage.getAllInputs();
+      await this.storage.clearAllInputs();
+      return all.length;
+    }
+    if (!this.adapters[target]) {
+      throw new Error(
+        `Unknown target ${target}. Available: ${Object.keys(this.adapters).join(", ")}`,
+      );
+    }
+    // Scoped wipe: only this product's rows, so a shared batcher's other
+    // tenants keep their queues.
+    const scoped = await this.storage.getInputsByTarget(target, this.defaultTarget!);
+    if (scoped.length > 0) {
+      await this.storage.removeProcessedInputs(scoped, target);
+    }
+    return scoped.length;
   }
 
   /**
