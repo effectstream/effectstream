@@ -17,6 +17,7 @@ import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { ACTOR_SEEDS, FUNDING, GENESIS_SEED, NETWORK, PRODUCT_SEEDS } from "./env.ts";
 import {
   buildWallet,
+  ignoreCleanWebSocketClose,
   getShieldedBalance,
   getUnshieldedBalance,
   getUnshieldedCoinCount,
@@ -197,17 +198,7 @@ export async function fundEverything(): Promise<void> {
 }
 
 if (import.meta.main) {
-  // The wallet SDK keeps background indexer subscriptions alive. When one of
-  // those rejects, it lands outside the promise chain below and Bun exits with
-  // a bare CloseEvent dump that says nothing about what actually broke. Name it.
-  process.on("unhandledRejection", (reason) => {
-    console.error("[fund] FAILED (unhandled rejection):", reason);
-    process.exit(1);
-  });
-  process.on("uncaughtException", (err) => {
-    console.error("[fund] FAILED (uncaught exception):", err);
-    process.exit(1);
-  });
+  ignoreCleanWebSocketClose("fund");
 
   fundEverything()
     .then(() => process.exit(0))

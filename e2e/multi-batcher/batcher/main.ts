@@ -21,6 +21,11 @@ import {
 } from "@effectstream/batcher-sdk/midnight-policy";
 
 import { NETWORK, PRODUCT_SEEDS } from "../env.ts";
+import { ignoreCleanWebSocketClose } from "../wallet.ts";
+
+// Wallet teardown closes the indexer websocket, which the SDK surfaces as an
+// unhandled rejection. Without this the batcher can die mid-suite.
+ignoreCleanWebSocketClose("e2e-multi-batcher");
 
 const PORT = Number(process.env.BATCHER_PORT ?? 3334);
 const E2E_ROOT = path.join(import.meta.dirname!, "../..");

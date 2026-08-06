@@ -69,6 +69,7 @@ import {
   buildFeelessShieldedTransfer,
   buildSwapOffer,
   buildWallet,
+  ignoreCleanWebSocketClose,
   deriveSeedForRole,
   getShieldedBalance,
   shieldedTokenId,
@@ -194,6 +195,7 @@ const SUITE_DIR = import.meta.dirname!;
 const LAUNCHER_PATH = path.resolve(SUITE_DIR, "./launcher.cli.ts");
 
 async function main() {
+  ignoreCleanWebSocketClose("multi-batcher e2e");
   setNetworkId(NETWORK.id as never);
   console.log("\n=== multi-batcher e2e: one batcher, three products ===\n");
 
