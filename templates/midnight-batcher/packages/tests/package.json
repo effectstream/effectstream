@@ -1,0 +1,11 @@
+{
+  "name": "@midnight-batcher/tests",
+  "private": true,
+  "dependencies": {
+    "@midnight-batcher/scripts": "workspace:*",
+    "@midnight-batcher/midnight-contract": "workspace:*",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.1.1",
+    "@midnight-ntwrk/onchain-runtime-v3": "3.0.0"
+  }
+}
