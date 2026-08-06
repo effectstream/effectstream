@@ -148,25 +148,31 @@ async function registerOpenApiDocumentation(
   });
 }
 
+/**
+ * Rate-limit keys are scoped by target so one product's traffic cannot consume
+ * another product's budget (they share a process, not a quota).
+ */
 function buildRateLimitKeys(
   strategy: RateLimitKeyStrategy,
   ip: string,
   address?: string,
+  target?: string,
 ): string[] {
+  const scope = target ? `${target}|` : "";
   switch (strategy) {
     case "ip":
-      return [`ip:${ip}`];
+      return [`${scope}ip:${ip}`];
     case "ip-and-address": {
-      const keys = [`ip:${ip}`];
+      const keys = [`${scope}ip:${ip}`];
       if (address) {
-        keys.push(`addr:${address}`);
+        keys.push(`${scope}addr:${address}`);
       }
       return keys;
     }
     case "composite":
-      return [`composite:${ip}:${address ?? "unknown"}`];
+      return [`${scope}composite:${ip}:${address ?? "unknown"}`];
     default:
-      return [`ip:${ip}`];
+      return [`${scope}ip:${ip}`];
   }
 }
 
@@ -193,6 +199,23 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     maxRequests,
     windowMs,
   );
+  // Per-target budgets (config.perTarget[t].rateLimit) get their own limiter
+  // over the same store; targets without an override use the global one.
+  const perTargetLimiters = new Map<string, RateLimiter>();
+  const limiterFor = (target?: string): RateLimiter => {
+    const override = target ? batcher.config.perTarget?.[target]?.rateLimit : undefined;
+    if (!override || !target) return rateLimiter;
+    let limiter = perTargetLimiters.get(target);
+    if (!limiter) {
+      limiter = new RateLimiter(
+        override.store ?? rateLimitStore,
+        override.maxRequests ?? maxRequests,
+        override.windowMs ?? windowMs,
+      );
+      perTargetLimiters.set(target, limiter);
+    }
+    return limiter;
+  };
 
   // Periodic cleanup of expired rate limit entries to prevent unbounded memory growth
   const cleanupInterval = setInterval(() => {
@@ -277,6 +300,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
             isReady: Type.Boolean(),
             criteriaType: Type.String(),
             timeSinceLastProcess: Type.Number(),
+            health: Type.Optional(Type.Any()),
           })),
         }),
       },
@@ -285,7 +309,21 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     const status = await batcher.getBatchingStatus();
     return {
       totalPendingInputs: status.totalPendingInputs,
-      targets: status.targets,
+      // Adapters may expose an operational snapshot (fee capacity, workers,
+      // policy shape). In a multi-product batcher this is how you tell WHICH
+      // product is degraded without reading logs.
+      targets: status.targets.map((t) => {
+        const adapter = batcher.getAdapter(t.target) as
+          | { getHealthInfo?: () => Record<string, unknown> }
+          | undefined;
+        let health: Record<string, unknown> | undefined;
+        try {
+          health = adapter?.getHealthInfo?.();
+        } catch {
+          health = undefined;
+        }
+        return health ? { ...t, health } : t;
+      }),
     };
   });
 
@@ -321,8 +359,8 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
       const target = body.data?.target || batcher.getPublicConfig().defaultTarget;
       const adapter = target ? batcher.getAdapter(target) : undefined;
       const strategy = adapter?.getRateLimitKeyStrategy?.() ?? "ip";
-      const keys = buildRateLimitKeys(strategy, request.ip, body.data?.address);
-      const rateLimitResult = await rateLimiter.check(keys);
+      const keys = buildRateLimitKeys(strategy, request.ip, body.data?.address, target);
+      const rateLimitResult = await limiterFor(target).check(keys);
 
       if (!rateLimitResult.allowed) {
         reply.header("Retry-After", String(rateLimitResult.retryAfterSeconds ?? 60));
@@ -420,6 +458,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     server.post("/force-batch", {
       schema: {
         tags: ["developer"],
+        querystring: Type.Object({ target: Type.Optional(Type.String()) }),
         response: {
           200: Type.Object({
             success: Type.Boolean(),
@@ -433,13 +472,16 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           }),
         },
       },
-    }, async (_, reply) => {
+    }, async (request, reply) => {
       try {
-        await batcher.forceProcessBatches();
+        const target = (request.query as { target?: string })?.target;
+        await batcher.forceProcessBatches(target);
         const status = await batcher.getBatchingStatus();
         return {
           success: true,
-          message: "Batch processing forced",
+          message: target
+            ? `Batch processing forced for target ${target}`
+            : "Batch processing forced",
           remainingInputs: status.totalPendingInputs,
         };
       } catch (error) {
@@ -452,10 +494,13 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
       }
     });
 
-    // Clear all pending inputs (administrative endpoint)
+    // Clear pending inputs (administrative endpoint).
+    // `?target=` scopes the wipe to one product — without it, a shared
+    // multi-product batcher would nuke every tenant's queue.
     server.delete("/clear-inputs", {
       schema: {
         tags: ["developer"],
+        querystring: Type.Object({ target: Type.Optional(Type.String()) }),
         response: {
           200: Type.Object({
             success: Type.Boolean(),
@@ -463,12 +508,15 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           }),
         },
       },
-    }, async () => {
+    }, async (request) => {
       try {
-        await batcher.clearPendingInputs();
+        const target = (request.query as { target?: string })?.target;
+        const cleared = await batcher.clearPendingInputs(target);
         return {
           success: true,
-          message: "All pending inputs cleared",
+          message: target
+            ? `Cleared ${cleared} pending input(s) for target ${target}`
+            : "All pending inputs cleared",
         };
       } catch (error) {
         console.error("Error clearing inputs:", error);
