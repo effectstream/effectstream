@@ -11,17 +11,22 @@
 // never enter the browser's static graph at all.
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { createHash } from "node:crypto";
 
 const log = console;
 
 /**
  * Build the dust state file path from network + seed.
- * Uses first 16 hex chars of the seed as a stable identifier — the seed
- * deterministically maps to a dust address, so this is a unique key per wallet
- * that is available before building the facade.
+ *
+ * Keyed by a hash of the FULL seed: a prefix of the raw seed is not unique —
+ * conventional dev seeds differ only in their last characters
+ * (0x00…0002, 0x00…0003, …) and would all collide on one cache file, so one
+ * wallet would restore another's dust state. That is harmless with a single
+ * wallet per process and actively wrong once one process runs several.
+ * Hashing also keeps seed material out of file names.
  */
 export function getDustStatePath(baseDir: string, networkId: string, seed: string): string {
-  const seedKey = seed.slice(0, 16);
+  const seedKey = createHash("sha256").update(seed).digest("hex").slice(0, 32);
   return path.join(baseDir, `${networkId}-${seedKey}.json`);
 }
 
@@ -44,7 +49,12 @@ export function saveDustState(
   const filePath = getDustStatePath(baseDir, networkId, seed);
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, serializedState, "utf-8");
+    // Atomic: a torn write leaves a wallet unable to restore its state, and
+    // concurrent writers (multi-wallet / multi-product processes) would
+    // otherwise interleave into one file.
+    const tmpPath = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, serializedState, "utf-8");
+    fs.renameSync(tmpPath, filePath);
     log.info(`Dust state saved to ${filePath}`);
     return filePath;
   } catch (e) {
