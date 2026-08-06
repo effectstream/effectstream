@@ -214,10 +214,21 @@ register("M2", "One product's dust exhaustion does not stall the others", async 
   const beforeSinkB = await sinkBalance(ACTOR_SEEDS.bSink);
 
   // Flood product-a hard while b and c do normal work.
+  //
+  // product-c's payload is a matched-delta swap OFFER — half a trade, so it can
+  // never settle and its rows must be retired rather than waited on. Retire them
+  // as soon as c's own workload finishes, NOT after Promise.all: left queued
+  // they exhaust their retry budget and get dropped, and the size of that window
+  // is set by how long product-a's flood runs. That made this assertion pass on
+  // a fast machine and fail on a loaded one.
+  const cWork = workload("c", ["--count", "3"]).then(async (r) => {
+    await retireProductCOffers().catch(() => {});
+    return r;
+  });
   const [a, b, c] = await Promise.all([
     workload("a", ["--count", "30", "--concurrency", "10"]),
     workload("b", ["--count", "4", "--concurrency", "2"]),
-    workload("c", ["--count", "3"]),
+    cWork,
   ]);
   await retireProductCOffers();
   await waitForDrained(undefined, 900_000);
@@ -226,9 +237,15 @@ register("M2", "One product's dust exhaustion does not stall the others", async 
   const deliveredA = Number(await readCounter() - beforeCounter);
   const deliveredB = Number((await sinkBalance(ACTOR_SEEDS.bSink)) - beforeSinkB);
   const logs = await appLogsSince(since);
-  const drops = countMatches(logs, /DROPPING input/);
+  // Drops are counted for the products whose isolation is under test. A dropped
+  // product-c offer says nothing about whether a starved product-a stalled
+  // anyone — that payload is undeliverable by design — so it is reported for
+  // visibility but not asserted on.
+  const drops = countMatches(logs, /DROPPING input.*target=product-[ab]\b/);
+  const cDrops = countMatches(logs, /DROPPING input.*target=product-c\b/);
   const notes =
-    `a: ${deliveredA}/${a.accepted} b: ${deliveredB}/${b.accepted} c accepted=${c.accepted} drops=${drops}`;
+    `a: ${deliveredA}/${a.accepted} b: ${deliveredB}/${b.accepted} ` +
+    `c accepted=${c.accepted} drops(a,b)=${drops} cOffersReaped=${cDrops}`;
   // product-c must have gotten work through too. Without this the test passes
   // while c contributes nothing, which is exactly the "not stalled" claim it
   // exists to make — a silent 0 here once hid a bug in c's workload.
