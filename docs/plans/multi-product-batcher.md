@@ -4,7 +4,7 @@ Written 2026-08-06, after the first attempt (PRs #850 / #851, both closed).
 The design held up; the *process* is what needs repeating differently. Nothing
 below is speculative — every fact was paid for once already.
 
-Read §1–§4 to build it. Read §5–§6 before writing a single test. Read §7 before
+Read §1–§5 to build it. Read §6–§8 before writing a single test. Read §9 before
 touching git.
 
 ---
@@ -110,7 +110,7 @@ from `mod.ts`.
 - **Dedup key must include the target.** `createInputKey` previously used the
   caller's target for every row, so it cancelled out: an identical payload sent
   to two products could cross-delete rows or cross-charge retries.
-- **Strict routing — get the rule right the first time.** See §7.2; the naive
+- **Strict routing — get the rule right the first time.** See §9.2; the naive
   version breaks existing consumers.
 - `perTarget?: Record<string, {rateLimit?, maxRetries?, retryDelayMs?}>` and
   `requireExplicitTarget?: boolean`. **Add these to the TypeBox schema as well
@@ -129,11 +129,81 @@ actively wrong once one process runs several.
 Fix: `createHash("sha256").update(seed).digest("hex").slice(0, 32)`, plus an
 atomic tmp+`renameSync` write (concurrent writers would otherwise interleave).
 
-**This now lives in `src/dust-state.ts`, not `get-wallet-info.ts`.** See §7.1.
+**This now lives in `src/dust-state.ts`, not `get-wallet-info.ts`.** See §9.1.
 
 ---
 
-## 4. Midnight facts that cost real time
+## 4. File inventory
+
+Everything to create, with purpose. Sizes are from the first attempt
+(1774 insertions across `packages/`, plus ~9100 lines of template).
+
+### `packages/batcher/` — the SDK
+
+| file | change | what |
+|---|---|---|
+| `adapters/midnight-policy.ts` | **new**, ~515 lines | introspection helpers + declarative engine + `evaluatePolicy` |
+| `adapters/midnight-balancing-adapter.ts` | +197 | policy config, seed registry, `logLabel`, `getHealthInfo`, intake + pre-spend gates |
+| `core/batcher.ts` | +76 | strict routing, `getRetryPolicy(target)`, `clearPendingInputs(target)`, `forceProcessBatches(target)` |
+| `core/storage.ts` | +28 | `createInputKey` keyed on `input.target ?? target` |
+| `core/config.ts` | +33 | `requireExplicitTarget`, `perTarget` — **in the TypeBox schema too** |
+| `server/batcher-server.ts` | +78 | per-target rate-limit keys/limiters, `?target=` admin routes, health in `/queue-stats` |
+| `adapters/adapter.ts` | +7 | optional `getHealthInfo?()` |
+| `adapters/adapter-logger.ts` | +9 | label from config |
+| `core/batch-processor.ts` | +21 | `BATCHER_DEBUG_LOG` gating of sync-append logging |
+| `mod.ts` / `package.json` | +19 | `./midnight-policy` subpath export |
+| `test/midnight-policy.test.ts` | **new** | 42 tests / 7 describes |
+| `test/multi-tenant.test.ts` | **new** | 14 tests / 4 describes |
+| `packages/chains/midnight-contracts/src/dust-state.ts` | +20 | sha256 cache key + atomic write |
+
+### `e2e/multi-batcher/` — fast CI guard (9 files)
+
+| file | what |
+|---|---|
+| `launcher.cli.ts` | orchestrator graph: compile → midnight → deploy → **fund** → batcher → batcher-wait |
+| `env.ts` | standard ports (9944/8088/6300/3334), product + actor seeds (**must be valid hex**), `lanesPerProduct: 2` |
+| `fund.ts` | genesis sync gate → per-product seed → register → fund → split → actors; `import.meta.main` guard with exit codes |
+| `batcher/main.ts` | three adapters, `requireExplicitTarget: true`, per-target rate limits |
+| `run-tests.ts` | infra waits + the 12 assertions |
+| `wallet.ts` | wallet helpers incl. `projectedDustValue`, `waitForSelectableDust`, `ignoreCleanWebSocketClose`, `buildSwapOffer(spend, create)` |
+| `batcher-client.ts` | `sendTx`, `getStats`, `getPendingCountFor`, `clearInputs`, `waitForDrained` |
+| `diagnose-dust.ts` | dumps `rate`/`maxCap`/`dtime`/`ctime`/`generatedNow` per coin |
+| `package.json` | deps incl. `@e2e/engine`, `@effectstream/orchestrator` |
+
+Register in `e2e/runner.ts`: `{ name: "multi-batcher", script: "./multi-batcher/run-tests.ts" }`.
+
+### `templates/multi-batcher/` — reference + deep suite (26 files)
+
+```
+docker-compose.yml  proof-lb.conf  link.sh  entry.ts  package.json  .gitignore
+README.md  TESTING.md  TESTING-RESULTS.md
+shared-batcher/   batcher.ts  fund.ts  registry.ts
+shared/           env.ts  wallet.ts  batcher-client.ts
+product-a/        deploy.ts  workload.ts  contract-counter/{package.json,src/*}
+product-b/        workload.ts
+product-c/        workload.ts
+tests/            run-deep.ts  diagnose-dust.ts
+```
+
+Ports (loopback, 12800 block — clear of defaults and of `midnight-batcher`'s
+18400 block): batcher **12835**, node 12845, proof-lb 12864 over 3 provers,
+indexer 12889.
+
+`registry.ts` holds `Product[]` + `buildProducts(networkId)` +
+`assertRegistryIsSane()` (duplicate seeds / actor-seed overlap / duplicate
+targets) + the exported `matchedDeltaSwapFilter`.
+
+Product policies:
+
+| product | policy | backend |
+|---|---|---|
+| product-a | `allowedCircuits: [{contract: counter, entryPoint: "increment"}]` | Compact counter |
+| product-b | `allowZswapTransfers: true` | none |
+| product-c | `allowZswapTransfers: true` + `allowCustomFinalFilter: matchedDeltaSwapFilter` | none |
+
+---
+
+## 5. Midnight facts that cost real time
 
 Everything here was discovered the expensive way. None of it is guessable.
 
@@ -192,7 +262,7 @@ Everything here was discovered the expensive way. None of it is guessable.
 
 ---
 
-## 5. Testing strategy
+## 6. Testing strategy
 
 ### Tier 1 — unit (`packages/batcher/test/`)
 
@@ -234,7 +304,77 @@ exactly-once, mixed soak with memory tables.
 
 ---
 
-## 6. Test-quality rules (learned the hard way)
+## 7. The tests, concretely
+
+### Unit — 56 tests total
+
+`midnight-policy.test.ts` (42 tests / 7 describes): `normalization`,
+`introspection`, `declarative policy`, `custom final filter`, `matched-delta
+swaps (product-c shape)`, `offer shape (the signal available when amounts are
+hidden)`, `nullifiers (the one thing a sponsor can check about a hidden coin)`.
+
+`multi-tenant.test.ts` (14 tests / 4 describes): `shared queue keeps products
+separate`, `wallet-seed exclusivity`, `per-target retry policy resolution`,
+`strict routing decision` — **this last one must drive the real `Batcher`**
+(see §8.1), including the two-adapter + `setDefaultTarget()` case.
+
+### e2e — the 12 assertions
+
+Registration, then accept/refuse per product, then routing, then delivery:
+
+| # | assertion | expected |
+|---|---|---|
+| 1 | all three products are registered | a, b, c |
+| 2 | product-a accepts its counter call | 200 |
+| 3 | product-b accepts a shielded transfer | 200 |
+| 4 | product-c accepts a matched-delta swap | 200 |
+| 5 | product-a refuses a transfer (circuit allowlist) | 400 |
+| 6 | product-b refuses a contract call (transfers only) | 400 |
+| 7 | product-c refuses a balanced transfer (custom filter) | 400 |
+| 8 | unaddressed input is refused | 400 |
+| 9 | unknown target is refused | 404 |
+| 10 | clearing one target leaves the others' queues intact | product-c 1→0 |
+| 11 | product-a's call landed on chain | counter +1 |
+| 12 | product-b's transfer landed on chain | sink +1 |
+| — | every queue drained | pending=0 |
+
+Print the deltas of each shape before asserting — product-c's verdict is
+decided by exactly those, and a surprise there explains any failure instantly.
+Expected: swap `[native=1, contractToken=-1]`, plain transfer `none (nets to
+zero)`.
+
+Note #4 and #7 use the **same** product and opposite outcomes — that is what
+proves the filter discriminates rather than rejecting everything. #10 exists
+because a swap offer cannot settle (§5), so its rows are retired rather than
+waited on.
+
+### Deep suite — M1–M10
+
+| id | name | pass condition |
+|---|---|---|
+| M1 | Policy matrix: each product accepts only its own shape | 8/8 cases correct |
+| M2 | One product's dust exhaustion does not stall the others | `deliveredA===a.accepted && deliveredB===b.accepted && c.accepted===3 && drops===0` |
+| M3 | Byte-identical payload on two targets creates two independent rows | both accept, `rows b=1 c=1` |
+| M4 | Unaddressed and unknown-target inputs are refused | 400 / 404, pending 0 |
+| M5 | A policy-violating row written straight to storage is refused | pre-batch rejects, warned drop, other products unaffected |
+| M6 | Garbage and oversized payloads are refused at intake | `!anyAccepted && pending===0` |
+| M7 | Per-product health is observable via `/queue-stats` | `missing===0 && withHealth===products.length` |
+| M8 | Node outage parks every product and drops nothing | exact delivery, `drops===0` |
+| M9 | Restart with a mixed queue delivers every product exactly once | `delivered===accepted`, flags DOUBLE-SUBMIT if it exceeds |
+| M10 | Mixed three-product soak | `dustErrors===0 && drops===0` + exact delivery |
+
+M2 drives 30 concurrent product-a calls against b (4) and c (3). M3 **must** use
+a matched swap offer — accepted by both b and c — or the dedup key is never
+exercised. Every unscoped `waitForDrained` must be preceded by
+`retireProductCOffers()`, or it burns its full timeout on offers that can never
+settle.
+
+Reference numbers from a green run (3-product soak, 226s, tps 0.18): batcher
+peak 585 MiB over 173 samples, no growth; proof servers ~1 GiB peak each.
+
+---
+
+## 8. Test-quality rules (learned the hard way)
 
 Four separate assertions in the first attempt passed **for the wrong reason**.
 This is the single highest-value section.
@@ -260,7 +400,7 @@ This is the single highest-value section.
 
 ---
 
-## 7. Traps to avoid on the second pass
+## 9. Traps to avoid on the second pass
 
 ### 7.1 `git fetch` before you branch
 
@@ -388,7 +528,7 @@ on that.
 
 ---
 
-## 8. Verification checklist
+## 10. Verification checklist
 
 Before opening a PR:
 
