@@ -145,14 +145,16 @@ export async function fundEverything(): Promise<void> {
       `[fund] genesis: ${genesisDust.spendable}/${genesisDust.count} spendable dust coin(s)`,
     );
 
-    const feeWallets = await Promise.all(
-      Object.entries(PRODUCT_SEEDS).map(async ([label, seed]) => {
-        const w = await buildWallet(NETWORK, seed);
-        const address = w.unshieldedAddress;
-        await w.wallet.stop().catch(() => {});
-        return { label, seed, address };
-      }),
-    );
+    // Sequential on purpose: every wallet opens its own indexer websocket, and
+    // CI runners are much smaller than the machine the docker stack was proven
+    // on. Three at once is where funding fell over there.
+    const feeWallets: { label: string; seed: string; address: string }[] = [];
+    for (const [label, seed] of Object.entries(PRODUCT_SEEDS)) {
+      const w = await buildWallet(NETWORK, seed);
+      const address = w.unshieldedAddress;
+      await w.wallet.stop().catch(() => {});
+      feeWallets.push({ label, seed, address });
+    }
 
     // ORDER IS LOAD-BEARING. Register each address FIRST, with only a small
     // seed UTXO, and send the real funds afterwards: registration rotates
@@ -169,8 +171,8 @@ export async function fundEverything(): Promise<void> {
       feeWallets.map((w) => ({ receiver: w.address, amount: FUNDING.seedStars })),
     );
 
-    console.log("[fund] registering fee-wallet addresses (parallel)...");
-    await Promise.all(feeWallets.map((w) => registerFeeWallet(w.seed, w.label)));
+    console.log("[fund] registering fee-wallet addresses...");
+    for (const w of feeWallets) await registerFeeWallet(w.seed, w.label);
 
     console.log("[fund] genesis → fee wallets: lane funding (one transfer)...");
     await transferUnshielded(
@@ -181,8 +183,8 @@ export async function fundEverything(): Promise<void> {
       })),
     );
 
-    console.log("[fund] splitting fee lanes (parallel)...");
-    await Promise.all(feeWallets.map((w) => splitFeeLanes(w.seed, w.label)));
+    console.log("[fund] splitting fee lanes...");
+    for (const w of feeWallets) await splitFeeLanes(w.seed, w.label);
 
     // Actor wallets need shielded coins to build transfers/swaps.
     for (const [label, seed] of Object.entries(ACTOR_SEEDS)) {
@@ -195,6 +197,18 @@ export async function fundEverything(): Promise<void> {
 }
 
 if (import.meta.main) {
+  // The wallet SDK keeps background indexer subscriptions alive. When one of
+  // those rejects, it lands outside the promise chain below and Bun exits with
+  // a bare CloseEvent dump that says nothing about what actually broke. Name it.
+  process.on("unhandledRejection", (reason) => {
+    console.error("[fund] FAILED (unhandled rejection):", reason);
+    process.exit(1);
+  });
+  process.on("uncaughtException", (err) => {
+    console.error("[fund] FAILED (uncaught exception):", err);
+    process.exit(1);
+  });
+
   fundEverything()
     .then(() => process.exit(0))
     .catch((e) => {

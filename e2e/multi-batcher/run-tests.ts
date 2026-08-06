@@ -213,7 +213,7 @@ async function main() {
   await waitForProcess(MidnightNames.INDEXER_WAIT, { waitForExit: true, timeoutMs: 300_000 });
   await waitForProcess(MidnightNames.CONTRACT_DEPLOY, { waitForExit: true, timeoutMs: 600_000 });
   console.log("  contract deployed");
-  await waitForProcess("fund", { waitForExit: true, timeoutMs: 900_000 });
+  await waitForProcess("fund", { waitForExit: true, timeoutMs: 1_200_000 });
   console.log("  products funded");
 
   console.log("[2/3] waiting for the shared batcher...");
