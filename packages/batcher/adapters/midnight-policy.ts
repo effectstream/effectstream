@@ -366,6 +366,38 @@ export function callsOnlyCircuits(
 }
 
 /** True when every token type the transaction touches is allowlisted. */
+/**
+ * True when the transaction moves shielded coins whose token types the policy
+ * layer CANNOT see.
+ *
+ * Shielded token types are only observable through `ZswapOffer.deltas`, which
+ * is the offer's net imbalance. An ordinary transfer is balanced — its inputs
+ * and outputs cancel — so it carries coins while reporting an empty delta map.
+ * `tokenTypesUsed` therefore returns nothing for it, and any allowlist checked
+ * against that empty set passes vacuously.
+ *
+ * An UNBALANCED offer (a swap) does expose its types, and unshielded offers
+ * carry them directly, so an allowlist is enforceable in those cases. Callers
+ * that need `allowedTokenTypes` to mean something must use this to reject the
+ * unobservable case rather than silently accept it.
+ */
+export function hasUnobservableShieldedTokens(tx: PolicyInspectableTx): boolean {
+  for (const offer of zswapOfferList(tx)) {
+    const coins = (offer.inputs?.length ?? 0) + (offer.outputs?.length ?? 0) +
+      (offer.transients?.length ?? 0);
+    if (coins === 0) continue;
+    let observable = 0;
+    const deltas = offer.deltas;
+    if (deltas && typeof deltas.entries === "function") {
+      for (const [, value] of deltas.entries()) {
+        if (BigInt(value ?? 0n) !== 0n) observable++;
+      }
+    }
+    if (observable === 0) return true;
+  }
+  return false;
+}
+
 export function usesOnlyTokenTypes(tx: PolicyInspectableTx, allowlist: string[]): boolean {
   const allowed = new Set(allowlist.map(normalizeHex));
   for (const token of tokenTypesUsed(tx)) {
@@ -421,14 +453,30 @@ export function evaluateDeclarativePolicy(
 
   try {
     if (p.allowZswapTransfers && isZswapOnly(tx)) {
-      if (p.allowedTokenTypes?.length && !usesOnlyTokenTypes(tx, p.allowedTokenTypes)) {
-        return {
-          valid: false,
-          rule: "allowedTokenTypes",
-          reason: `transfer touches a token type outside the allowlist (used: ${
-            [...tokenTypesUsed(tx)].join(", ") || "none"
-          })`,
-        };
+      if (p.allowedTokenTypes?.length) {
+        // Fail closed when the types cannot be seen at all. A balanced shielded
+        // transfer reports NO deltas, so `tokenTypesUsed` is empty and the
+        // allowlist below would pass it whatever token it actually moves.
+        if (hasUnobservableShieldedTokens(tx)) {
+          return {
+            valid: false,
+            rule: "allowedTokenTypes",
+            reason:
+              "shielded token types are not observable for this transaction " +
+              "(a balanced transfer reports no deltas), so the allowlist cannot " +
+              "be enforced. Restrict this product to allowlisted contracts or " +
+              "circuits, or drop allowedTokenTypes and accept any shielded token.",
+          };
+        }
+        if (!usesOnlyTokenTypes(tx, p.allowedTokenTypes)) {
+          return {
+            valid: false,
+            rule: "allowedTokenTypes",
+            reason: `transfer touches a token type outside the allowlist (used: ${
+              [...tokenTypesUsed(tx)].join(", ") || "none"
+            })`,
+          };
+        }
       }
       return { valid: true, rule: "allowZswapTransfers" };
     }

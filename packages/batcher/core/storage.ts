@@ -145,11 +145,20 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
     }
   }
 
-  async addInput(input: T): Promise<void> {
+  async addInput(input: T, target?: string): Promise<void> {
     await this.mutex.run(async () => {
       try {
         const existing = await this.readFileContent();
-        await this.atomicWrite(existing + JSON.stringify(input) + "\n");
+        // Stamp the RESOLVED target onto the row. An input that arrived without
+        // one was routed to the default target, and if it is stored targetless
+        // then `createInputKey`'s fallback lets whichever product is currently
+        // being processed adopt it — so an identical row belonging to another
+        // product matches it and gets removed or retry-charged. A row's identity
+        // must not depend on who is reading it.
+        const row = input.target === undefined && target !== undefined
+          ? { ...input, target }
+          : input;
+        await this.atomicWrite(existing + JSON.stringify(row) + "\n");
       } catch (error) {
         console.error("Error adding input to storage:", error);
         throw new Error(`Failed to add input: ${error}`);
@@ -252,12 +261,18 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
   /**
    * Create a unique key for a DefaultBatcherInput for comparison.
    *
-   * The key must use the INPUT's own target (falling back to the caller's
-   * target for rows that predate explicit routing). Using the caller's target
-   * for every row makes it cancel out of the comparison, so in a multi-product
+   * The key must use the INPUT's own target. Using the caller's target for
+   * every row makes it cancel out of the comparison, so in a multi-product
    * batcher a byte-identical payload submitted to two targets would be treated
    * as one row — and removing/retry-charging one product's input would hit the
    * other product's copy.
+   *
+   * The `?? target` fallback exists only for rows written before `addInput`
+   * started stamping the resolved target. It is deliberately the LAST resort:
+   * while it applies, such a row takes on the identity of whichever product is
+   * reading it, which is the very collision this key exists to prevent. New
+   * rows are always stamped, so the fallback stops applying once a pre-existing
+   * queue has drained.
    */
   private createInputKey(input: T, target: string): string {
     return [
