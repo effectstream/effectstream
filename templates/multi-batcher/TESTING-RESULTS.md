@@ -136,3 +136,23 @@ After the fix `cOffersReaped=0` — the race is gone at the root, not papered ov
 | proof-server | 766.0 | 680.2 |
 | proof-server-2 | 869.4 | 830.5 |
 | proof-server-3 | 801.4 | 774.8 |
+
+## Deep run 2026-08-07T04:52:43.738Z
+
+| # | Test | Outcome | Notes |
+|---|------|---------|-------|
+| M3 | Byte-identical payload on two targets creates two independent rows | **pass** | b=accepted c=accepted rows: b=1 c=1 |
+| M5 | A policy-violating row written straight to storage is refused | **pass** | drained=true preBatchRejects=3 drops=1 productBPending=0 |
+| M9 | Restart with a mixed queue delivers every product exactly once | **pass** | a=4/4 b=3/3 |
+
+**Memory (docker stats, 25 samples):**
+
+| service | peak MiB | final MiB |
+|---|---|---|
+| app | 678.4 | 588.6 |
+| indexer | 49.3 | 49.2 |
+| node | 484.3 | 483.3 |
+| proof-lb | 2.9 | 2.4 |
+| proof-server | 788.2 | 785.8 |
+| proof-server-2 | 743.2 | 741.2 |
+| proof-server-3 | 710.1 | 700.3 |

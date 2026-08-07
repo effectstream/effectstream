@@ -46,9 +46,14 @@ Requires the Docker stack (`docker compose up -d`). Results append to
 
 - **Rule matching**: allowed contract + *disallowed* second call in another
   intent ⇒ reject; wrong/miscased entry point ⇒ reject; a deploy (no entry
-  point) never satisfies a circuit allowlist; `allowedTokenTypes` rejects
-  foreign tokens; empty transaction matches nothing; entry points as raw bytes
-  and as strings resolve identically (all three tx stages agree).
+  point) never satisfies a circuit allowlist; empty transaction matches
+  nothing; entry points as raw bytes and as strings resolve identically (all
+  three tx stages agree).
+- **`allowedTokenTypes` observability**: it rejects foreign tokens on
+  unshielded and *unbalanced* shielded offers, where the types are visible —
+  and rejects a balanced shielded transfer outright, because its types are not
+  observable at all and accepting it would mean passing what the allowlist
+  cannot check.
 - **Fail closed**: introspection that throws ⇒ reject, never accept.
 - **Custom filter semantics**: runs strictly *after* the declarative rules and
   receives their verdict; can tighten; can override; throwing rejects; async

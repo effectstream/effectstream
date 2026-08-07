@@ -72,8 +72,14 @@ and clients need no changes.
 
 ⚠️ **Residual risk, by design:** anyone who can reach the port may submit a
 *policy-conforming* transaction and have its fee sponsored. Policies are the
-budget control (narrow the circuits, pin `allowedTokenTypes`, add a custom
-filter); put network ACLs in front for anything public.
+budget control (narrow the circuits, add a custom filter); put network ACLs in
+front for anything public.
+
+Note that `allowedTokenTypes` is *not* a general budget control: a balanced
+shielded transfer exposes no token types at all, so the allowlist cannot be
+checked against it and such a transaction is rejected rather than waved
+through. It constrains unshielded offers and unbalanced ones (swaps). For real
+per-token control, gate on a circuit whose proof binds the token type.
 
 ### Writing a custom filter
 
