@@ -109,8 +109,8 @@ describe("wallet-seed exclusivity", () => {
       "../adapters/midnight-balancing-adapter.ts"
     );
     resetWalletSeedRegistry();
-    claimWalletSeeds(["seed-a"], "product-a");
-    expect(() => claimWalletSeeds(["seed-a"], "product-b")).toThrow(/already in use by "product-a"/);
+    claimWalletSeeds(["0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"], "product-a");
+    expect(() => claimWalletSeeds(["0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"], "product-b")).toThrow(/already in use by "product-a"/);
     resetWalletSeedRegistry();
   });
 
@@ -119,8 +119,8 @@ describe("wallet-seed exclusivity", () => {
       "../adapters/midnight-balancing-adapter.ts"
     );
     resetWalletSeedRegistry();
-    claimWalletSeeds(["seed-a"], "product-a");
-    expect(() => claimWalletSeeds(["seed-b", "seed-c"], "product-b")).not.toThrow();
+    claimWalletSeeds(["0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"], "product-a");
+    expect(() => claimWalletSeeds(["0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c"], "product-b")).not.toThrow();
     resetWalletSeedRegistry();
   });
 
@@ -129,7 +129,7 @@ describe("wallet-seed exclusivity", () => {
       "../adapters/midnight-balancing-adapter.ts"
     );
     resetWalletSeedRegistry();
-    expect(() => claimWalletSeeds(["dup", "dup"], "product-a")).toThrow(/listed twice/);
+    expect(() => claimWalletSeeds(["d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0", "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0"], "product-a")).toThrow(/listed twice/);
     resetWalletSeedRegistry();
   });
 
@@ -138,10 +138,10 @@ describe("wallet-seed exclusivity", () => {
       "../adapters/midnight-balancing-adapter.ts"
     );
     resetWalletSeedRegistry();
-    claimWalletSeeds(["taken"], "product-a");
-    // "fresh" precedes the conflicting seed — it must NOT be left claimed.
-    expect(() => claimWalletSeeds(["fresh", "taken"], "product-b")).toThrow();
-    expect(() => claimWalletSeeds(["fresh"], "product-c")).not.toThrow();
+    claimWalletSeeds(["7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a"], "product-a");
+    // "f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5" precedes the conflicting seed — it must NOT be left claimed.
+    expect(() => claimWalletSeeds(["f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5", "7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a"], "product-b")).toThrow();
+    expect(() => claimWalletSeeds(["f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5"], "product-c")).not.toThrow();
     resetWalletSeedRegistry();
   });
 
@@ -150,9 +150,9 @@ describe("wallet-seed exclusivity", () => {
       "../adapters/midnight-balancing-adapter.ts"
     );
     resetWalletSeedRegistry();
-    claimWalletSeeds(["recycle"], "product-a");
-    releaseWalletSeeds(["recycle"]);
-    expect(() => claimWalletSeeds(["recycle"], "product-b")).not.toThrow();
+    claimWalletSeeds(["9e".repeat(32)], "product-a");
+    releaseWalletSeeds(["9e".repeat(32)]);
+    expect(() => claimWalletSeeds(["9e".repeat(32)], "product-b")).not.toThrow();
     resetWalletSeedRegistry();
   });
 });
@@ -250,5 +250,180 @@ describe("strict routing decision", () => {
 
   test("a single adapter keeps the defaultTarget fallback", async () => {
     expect(await routingError(build(["only"]))).toBeNull();
+  });
+});
+
+describe("security review: cross-target row identity", () => {
+  // A row's identity must not depend on WHO IS READING IT. A default-routed
+  // input used to be stored without a target, so `createInputKey`'s fallback
+  // let whichever product was being processed adopt it — and an identical row
+  // belonging to that product matched, so removing one removed both.
+
+  const twinPayload = () => ({
+    address: "shared-address",
+    addressType: 5,
+    input: JSON.stringify({ tx: "aa".repeat(16) }),
+    timestamp: "1754350000000",
+  });
+
+  test("REGRESSION: removing an explicit target's row spares the default-routed twin", async () => {
+    await withStorage(async (storage) => {
+      const targetless = { ...twinPayload() } as DefaultBatcherInput;
+      const explicitB = { ...twinPayload(), target: "product-b" } as DefaultBatcherInput;
+
+      await storage.addInput(targetless, "product-a"); // routed to the default
+      await storage.addInput(explicitB, "product-b");
+      expect((await storage.getAllInputs()).length).toBe(2);
+
+      await storage.removeProcessedInputs([explicitB], "product-b");
+
+      const remaining = await storage.getAllInputs();
+      expect(remaining.length).toBe(1);
+      expect(remaining[0].target).toBe("product-a"); // stamped on write
+    });
+  });
+
+  test("REGRESSION: retry-charging an explicit target spares the default-routed twin", async () => {
+    await withStorage(async (storage) => {
+      const targetless = { ...twinPayload() } as DefaultBatcherInput;
+      const explicitB = { ...twinPayload(), target: "product-b" } as DefaultBatcherInput;
+
+      await storage.addInput(targetless, "product-a");
+      await storage.addInput(explicitB, "product-b");
+
+      await storage.incrementRetryCount([explicitB], "product-b", 5);
+
+      const rows = await storage.getAllInputs();
+      expect(rows.length).toBe(2);
+      // Identify the twin as "the row that is not product-b" rather than by an
+      // expected target: if the fix regresses the row is stored targetless, and
+      // a `find(target === "product-a")` would return undefined and pass
+      // vacuously against `?? 0`.
+      const charged = rows.filter((r) => (r.retryCount ?? 0) > 0);
+      expect(charged.length).toBe(1);
+      expect(charged[0].target).toBe("product-b");
+    });
+  });
+
+  test("a default-routed input can still be removed by the caller that owns it", async () => {
+    await withStorage(async (storage) => {
+      const targetless = { ...twinPayload() } as DefaultBatcherInput;
+      await storage.addInput(targetless, "product-a");
+      await storage.removeProcessedInputs([targetless], "product-a");
+      expect((await storage.getAllInputs()).length).toBe(0);
+    });
+  });
+});
+
+describe("security review: seed identity is the derived bytes", () => {
+  test("REGRESSION: the same seed spelled differently is still one wallet", async () => {
+    const {
+      assertPolicyIsEffective,
+      claimWalletSeeds,
+      releaseWalletSeeds,
+      resetWalletSeedRegistry,
+    } = await import("../adapters/midnight-balancing-adapter.ts");
+
+    resetWalletSeedRegistry();
+    const lower = "ab".repeat(32);
+    // Same bytes: different case, and an 0x prefix.
+    for (const equivalent of ["AB".repeat(32), "0x" + lower, ` ${lower} `]) {
+      resetWalletSeedRegistry();
+      claimWalletSeeds([lower], "product-a");
+      expect(() => claimWalletSeeds([equivalent], "product-b")).toThrow(
+        /already in use/,
+      );
+    }
+    resetWalletSeedRegistry();
+  });
+
+  test("a seed that is not valid hex is refused outright", async () => {
+    const {
+      assertPolicyIsEffective,
+      claimWalletSeeds,
+      releaseWalletSeeds,
+      resetWalletSeedRegistry,
+    } = await import("../adapters/midnight-balancing-adapter.ts");
+
+    resetWalletSeedRegistry();
+    expect(() => claimWalletSeeds(["not-hex!"], "p")).toThrow(/not valid hex/);
+    expect(() => claimWalletSeeds(["abc"], "p")).toThrow(/not valid hex/); // odd length
+    expect(() => claimWalletSeeds([""], "p")).toThrow(/not valid hex/);
+  });
+
+  test("release is ownership-checked and lets the owner re-claim", async () => {
+    const {
+      assertPolicyIsEffective,
+      claimWalletSeeds,
+      releaseWalletSeeds,
+      resetWalletSeedRegistry,
+    } = await import("../adapters/midnight-balancing-adapter.ts");
+
+    resetWalletSeedRegistry();
+    const seed = "cd".repeat(32);
+    claimWalletSeeds([seed], "product-a");
+    // A different owner cannot drop someone else's claim.
+    releaseWalletSeeds([seed], "product-b");
+    expect(() => claimWalletSeeds([seed], "product-b")).toThrow(/already in use/);
+    // The owner can.
+    releaseWalletSeeds([seed], "product-a");
+    expect(() => claimWalletSeeds([seed], "product-b")).not.toThrow();
+    resetWalletSeedRegistry();
+  });
+});
+
+describe("security review: a policy that authorizes nothing is refused", () => {
+  test("REGRESSION: allowedTokenTypes alone does not silently allow everything", async () => {
+    const {
+      assertPolicyIsEffective,
+      claimWalletSeeds,
+      releaseWalletSeeds,
+      resetWalletSeedRegistry,
+    } = await import("../adapters/midnight-balancing-adapter.ts");
+
+    expect(() => assertPolicyIsEffective({ allowedTokenTypes: ["aa"] } as never, "p"))
+      .toThrow(/authorizes nothing/);
+  });
+
+  test("an empty policy object is refused", async () => {
+    const {
+      assertPolicyIsEffective,
+      claimWalletSeeds,
+      releaseWalletSeeds,
+      resetWalletSeedRegistry,
+    } = await import("../adapters/midnight-balancing-adapter.ts");
+
+    expect(() => assertPolicyIsEffective({} as never, "p")).toThrow(/authorizes nothing/);
+  });
+
+  test("absent policy stays allow-all (backward compatible)", async () => {
+    const {
+      assertPolicyIsEffective,
+      claimWalletSeeds,
+      releaseWalletSeeds,
+      resetWalletSeedRegistry,
+    } = await import("../adapters/midnight-balancing-adapter.ts");
+
+    expect(() => assertPolicyIsEffective(undefined, "p")).not.toThrow();
+  });
+
+  test("any real rule is accepted", async () => {
+    const {
+      assertPolicyIsEffective,
+      claimWalletSeeds,
+      releaseWalletSeeds,
+      resetWalletSeedRegistry,
+    } = await import("../adapters/midnight-balancing-adapter.ts");
+
+    for (
+      const p of [
+        { allowZswapTransfers: true },
+        { allowedContracts: ["ab"] },
+        { allowedCircuits: [{ contract: "ab", entryPoint: "x" }] },
+        { allowCustomFinalFilter: () => true },
+      ]
+    ) {
+      expect(() => assertPolicyIsEffective(p as never, "p")).not.toThrow();
+    }
   });
 });
