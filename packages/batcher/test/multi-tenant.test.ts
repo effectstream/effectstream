@@ -297,8 +297,8 @@ describe("wallet-seed exclusivity", () => {
       "../adapters/midnight-balancing-adapter.ts"
     );
     resetWalletSeedRegistry();
-    claimWalletSeeds(["9e".repeat(32)], "product-a");
-    releaseWalletSeeds(["9e".repeat(32)]);
+    const claim = claimWalletSeeds(["9e".repeat(32)], "product-a");
+    releaseWalletSeeds(claim);
     expect(() => claimWalletSeeds(["9e".repeat(32)], "product-b")).not.toThrow();
     resetWalletSeedRegistry();
   });
@@ -498,7 +498,7 @@ describe("security review: seed identity is the derived bytes", () => {
     expect(() => claimWalletSeeds([""], "p")).toThrow(/not valid hex/);
   });
 
-  test("release is ownership-checked and lets the owner re-claim", async () => {
+  test("only the claim token can release, and it is unforgeable", async () => {
     const {
       assertPolicyIsEffective,
       claimWalletSeeds,
@@ -508,12 +508,20 @@ describe("security review: seed identity is the derived bytes", () => {
 
     resetWalletSeedRegistry();
     const seed = "cd".repeat(32);
-    claimWalletSeeds([seed], "product-a");
-    // A different owner cannot drop someone else's claim.
-    releaseWalletSeeds([seed], "product-b");
+    const claimA = claimWalletSeeds([seed], "product-a");
+
+    // REGRESSION: release used to take (seeds, owner?) with the owner
+    // OPTIONAL — so any caller could free another adapter's claim just by
+    // naming its seed, and then construct a second adapter on that wallet.
+    // Only the token minted at claim time works now, and it cannot be forged
+    // by reconstructing a value that merely looks like one.
+    const forged = { __walletSeedClaim: Symbol("nope") } as never;
+    releaseWalletSeeds(forged);
+    releaseWalletSeeds(undefined);
     expect(() => claimWalletSeeds([seed], "product-b")).toThrow(/already in use/);
-    // The owner can.
-    releaseWalletSeeds([seed], "product-a");
+
+    // The holder of the claim can.
+    releaseWalletSeeds(claimA);
     expect(() => claimWalletSeeds([seed], "product-b")).not.toThrow();
     resetWalletSeedRegistry();
   });

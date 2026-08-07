@@ -152,7 +152,14 @@ function formatDust(specks: bigint): string {
  * (double-spend attempts, "could not balance dust", coins stranded until the
  * grace period). One wallet belongs to exactly one adapter.
  */
-const claimedWalletSeeds = new Map<string, string>();
+/**
+ * Opaque proof of a seed claim. Only `claimWalletSeeds` mints one, and release
+ * compares by object identity — so a claim cannot be forged by reconstructing a
+ * value that "looks like" it, and one adapter cannot drop another's claim.
+ */
+export type WalletSeedClaim = { readonly __walletSeedClaim: unique symbol };
+
+const claimedWalletSeeds = new Map<string, { owner: string; token: object }>();
 
 /**
  * Wallets claimed by INSTANCE IDENTITY, not by seed.
@@ -228,7 +235,7 @@ function canonicalSeed(seed: string, owner: string): string {
   return hex.toLowerCase();
 }
 
-export function claimWalletSeeds(seeds: string[], label?: string): void {
+export function claimWalletSeeds(seeds: string[], label?: string): WalletSeedClaim {
   const owner = label ?? "unlabeled adapter";
   const seen = new Set<string>();
   const canonical: string[] = [];
@@ -243,7 +250,7 @@ export function claimWalletSeeds(seeds: string[], label?: string): void {
     }
     seen.add(key);
     canonical.push(key);
-    const existing = claimedWalletSeeds.get(key);
+    const existing = claimedWalletSeeds.get(key)?.owner;
     if (existing !== undefined) {
       throw new Error(
         `MidnightBalancingAdapter (${owner}): wallet seed already in use by "${existing}". ` +
@@ -253,7 +260,9 @@ export function claimWalletSeeds(seeds: string[], label?: string): void {
       );
     }
   }
-  for (const key of canonical) claimedWalletSeeds.set(key, owner);
+  const token = Object.freeze({}) as unknown as WalletSeedClaim;
+  for (const key of canonical) claimedWalletSeeds.set(key, { owner, token });
+  return token;
 }
 
 /**
@@ -261,18 +270,10 @@ export function claimWalletSeeds(seeds: string[], label?: string): void {
  * adapter gives up its wallet on shutdown, and one adapter must not be able to
  * drop another's claim and re-open the double-spend window.
  */
-export function releaseWalletSeeds(seeds: string | string[], owner?: string): void {
-  for (const seed of Array.isArray(seeds) ? seeds : [seeds]) {
-    let key: string;
-    try {
-      key = canonicalSeed(seed, owner ?? "release");
-    } catch {
-      continue; // never claimed, nothing to release
-    }
-    const holder = claimedWalletSeeds.get(key);
-    if (holder === undefined) continue;
-    if (owner !== undefined && holder !== owner) continue;
-    claimedWalletSeeds.delete(key);
+export function releaseWalletSeeds(claim: WalletSeedClaim | undefined): void {
+  if (!claim) return;
+  for (const [key, held] of [...claimedWalletSeeds.entries()]) {
+    if (held.token === claim) claimedWalletSeeds.delete(key);
   }
 }
 
@@ -403,6 +404,8 @@ export class MidnightBalancingAdapter
    * if two adapters share a log label.
    */
   private claimedWalletKeys: object[] = [];
+  /** Proof of this adapter's seed claim; the only thing that can release it. */
+  private readonly seedClaim: WalletSeedClaim;
   /**
    * True where the wallet was handed in via `config.walletResult`. An injected
    * wallet belongs to the caller: this adapter must not stop it on close.
@@ -443,7 +446,7 @@ export class MidnightBalancingAdapter
     // with independent local dust booking and independent balance mutexes —
     // they would select the same on-chain dust coins and double-spend. Fail
     // loudly at construction instead of at 3am.
-    claimWalletSeeds(seeds, config.logLabel);
+    this.seedClaim = claimWalletSeeds(seeds, config.logLabel);
     this.walletSeeds = seeds;
     this.config = config;
     this.log = new AdapterLogger(
@@ -1725,7 +1728,7 @@ export class MidnightBalancingAdapter
   }
 
   async close(): Promise<void> {
-    releaseWalletSeeds(this.walletSeeds, this.config.logLabel);
+    releaseWalletSeeds(this.seedClaim);
     // Only keys this adapter claimed are in the list, so this cannot drop
     // another adapter's claim even if two share a log label.
     for (const key of this.claimedWalletKeys) claimedWalletInstances.delete(key);
