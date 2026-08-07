@@ -1156,7 +1156,20 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Cleanup additional resources (can be overridden by subclasses)
    */
   protected async cleanupResources(): Promise<void> {
-    // Default implementation - can be extended by subclasses
+    // Give every adapter a chance to release process-wide resources. The
+    // Midnight balancing adapter holds an exclusive claim on its wallet seeds;
+    // without this, a batcher reconfigured or restarted inside one process can
+    // never re-acquire them and construction throws on the second attempt.
+    // A failing close must not block shutdown.
+    for (const [target, adapter] of Object.entries(this.adapters)) {
+      const close = (adapter as BlockchainAdapter<T>).close;
+      if (typeof close !== "function") continue;
+      try {
+        await close.call(adapter);
+      } catch (error) {
+        console.error(`Error closing adapter for target ${target}:`, error);
+      }
+    }
   }
 
   /**

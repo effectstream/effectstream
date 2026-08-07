@@ -163,6 +163,18 @@ export interface BlockchainAdapter<TOutput> {
   recoverState?(pendingInputs: DefaultBatcherInput[]): Promise<void> | void;
 
   /**
+   * (Optional) Release resources held by this adapter. Called once during
+   * graceful shutdown, after batch processing has stopped.
+   *
+   * Adapters that claim a process-wide exclusive resource (the Midnight
+   * balancing adapter claims its wallet seeds) must give it back here, or a
+   * batcher that is reconfigured or restarted inside one process can never
+   * re-acquire it. Errors are logged and swallowed — a failed close must not
+   * block shutdown.
+   */
+  close?(): Promise<void> | void;
+
+  /**
    * (Optional) Declare the rate limit key strategy for this adapter.
    * - "ip": Rate limit by IP only (default if not implemented)
    * - "ip-and-address": Independent limits on IP and wallet address

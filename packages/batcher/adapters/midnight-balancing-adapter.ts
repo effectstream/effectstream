@@ -159,38 +159,116 @@ const claimedWalletSeeds = new Map<string, string>();
  * claimed (or listed twice). Exported so the exclusivity contract can be
  * tested without starting wallet sync.
  */
+/**
+ * Canonical identity of a seed: what the wallet actually derives from.
+ *
+ * The wallet does `Buffer.from(seed, "hex")`, so "AA…" and "aa…" (and an
+ * 0x-prefixed spelling) are the SAME wallet. Keying the registry on the raw
+ * string would let two adapters claim one wallet by spelling it differently —
+ * defeating the exclusivity check exactly when it is needed, since an operator
+ * copying seeds between config files is how the collision arises in the first
+ * place.
+ */
+function canonicalSeed(seed: string, owner: string): string {
+  const raw = typeof seed === "string" ? seed.trim() : "";
+  const hex = raw.startsWith("0x") || raw.startsWith("0X") ? raw.slice(2) : raw;
+  if (hex.length === 0 || hex.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(hex)) {
+    throw new Error(
+      `MidnightBalancingAdapter (${owner}): wallet seed is not valid hex ` +
+        `(got ${hex.length} character(s)). The wallet derives from ` +
+        `Buffer.from(seed, "hex"), so a malformed seed silently becomes a ` +
+        `different wallet than intended.`,
+    );
+  }
+  return hex.toLowerCase();
+}
+
 export function claimWalletSeeds(seeds: string[], label?: string): void {
   const owner = label ?? "unlabeled adapter";
   const seen = new Set<string>();
+  const canonical: string[] = [];
+  // Validate the whole list before mutating, so a partial claim cannot leak on
+  // the throw path.
   for (const seed of seeds) {
-    if (seen.has(seed)) {
+    const key = canonicalSeed(seed, owner);
+    if (seen.has(key)) {
       throw new Error(
         `MidnightBalancingAdapter (${owner}): wallet seed listed twice in the same adapter`,
       );
     }
-    seen.add(seed);
-    const existing = claimedWalletSeeds.get(seed);
+    seen.add(key);
+    canonical.push(key);
+    const existing = claimedWalletSeeds.get(key);
     if (existing !== undefined) {
       throw new Error(
         `MidnightBalancingAdapter (${owner}): wallet seed already in use by "${existing}". ` +
           `Each adapter instance needs its OWN wallet — sharing one causes double-spent dust. ` +
-          `Give this product a distinct seed.`,
+          `Give this product a distinct seed. (Seeds are compared by their derived ` +
+          `bytes, so differing case or an 0x prefix is still the same wallet.)`,
       );
     }
   }
-  for (const seed of seeds) claimedWalletSeeds.set(seed, owner);
+  for (const key of canonical) claimedWalletSeeds.set(key, owner);
 }
 
-/** Release seed claims (tests, and adapters that are torn down). */
-export function releaseWalletSeeds(seeds: string | string[]): void {
+/**
+ * Release seed claims held by `owner`. Ownership-checked: releasing is how an
+ * adapter gives up its wallet on shutdown, and one adapter must not be able to
+ * drop another's claim and re-open the double-spend window.
+ */
+export function releaseWalletSeeds(seeds: string | string[], owner?: string): void {
   for (const seed of Array.isArray(seeds) ? seeds : [seeds]) {
-    claimedWalletSeeds.delete(seed);
+    let key: string;
+    try {
+      key = canonicalSeed(seed, owner ?? "release");
+    } catch {
+      continue; // never claimed, nothing to release
+    }
+    const holder = claimedWalletSeeds.get(key);
+    if (holder === undefined) continue;
+    if (owner !== undefined && holder !== owner) continue;
+    claimedWalletSeeds.delete(key);
   }
 }
 
-/** Drop every seed claim — test helper. */
+/**
+ * Drop every seed claim.
+ *
+ * @internal TEST HELPER ONLY. Calling this while adapters are live silently
+ * disables the double-spend protection for all of them.
+ */
 export function resetWalletSeedRegistry(): void {
   claimedWalletSeeds.clear();
+}
+
+/**
+ * Reject a policy object that cannot authorize anything.
+ *
+ * `undefined` means "no policy" and stays allow-all — that is the backward
+ * compatible path for single-product batchers. But a policy the operator wrote
+ * out and that grants nothing is a mistake, not a preference, and treating it
+ * as allow-all turns a typo into an open gate. `allowedTokenTypes` is the
+ * likeliest form: it only narrows the transfer rule, so on its own it grants
+ * nothing and silently authorizes everything.
+ */
+export function assertPolicyIsEffective(
+  policy: MidnightTxPolicy<never> | undefined,
+  label?: string,
+): void {
+  if (policy === undefined) return;
+  if (isPolicyEnforced(policy)) return;
+  const who = `MidnightBalancingAdapter (${label ?? "unlabeled adapter"})`;
+  const hasOnlyTokenTypes = (policy.allowedTokenTypes?.length ?? 0) > 0;
+  throw new Error(
+    `${who}: \`policy\` was provided but authorizes nothing, which would ` +
+      `behave as allow-all.` +
+      (hasOnlyTokenTypes
+        ? ` \`allowedTokenTypes\` only narrows the transfer rule — pair it with ` +
+          `\`allowZswapTransfers: true\`.`
+        : ` Set at least one of allowZswapTransfers / allowedContracts / ` +
+          `allowedCircuits / allowCustomFinalFilter.`) +
+      ` Omit \`policy\` entirely if this product really should accept anything.`,
+  );
 }
 
 /** Short 8-char hex hash of the input payload for tracing duplicates from the app. */
@@ -297,6 +375,14 @@ export class MidnightBalancingAdapter
     config: MidnightBalancingAdapterConfig,
   ) {
     const seeds = Array.isArray(walletSeed) ? walletSeed : [walletSeed];
+    // A policy object that authorizes nothing is almost certainly a config
+    // mistake, and today it behaves as allow-all — the operator believes work
+    // is gated when it is not. Absent policy stays allow-all for backward
+    // compatibility; an explicit one has to actually say something.
+    assertPolicyIsEffective(
+      config.policy as MidnightTxPolicy<never> | undefined,
+      config.logLabel,
+    );
     // Two adapter instances sharing a seed each build their OWN WalletFacade,
     // with independent local dust booking and independent balance mutexes —
     // they would select the same on-chain dust coins and double-spend. Fail
@@ -1553,6 +1639,31 @@ export class MidnightBalancingAdapter
           customFilter: Boolean(this.config.policy?.allowCustomFinalFilter),
         },
     };
+  }
+
+  /**
+   * Release this adapter's exclusive claim on its wallet seeds.
+   *
+   * The claim is process-wide and taken at construction, so without this a
+   * batcher that is torn down and rebuilt in the same process — a
+   * reconfiguration, or a test suite building several adapters — would fail on
+   * the second construction with "wallet seed already in use". The release is
+   * ownership-checked, so it can only drop claims this adapter actually holds.
+   */
+  async close(): Promise<void> {
+    releaseWalletSeeds(this.walletSeeds, this.config.logLabel);
+    for (const result of this.walletResults) {
+      try {
+        await (result as { wallet?: { stop?: () => Promise<void> } })?.wallet
+          ?.stop?.();
+      } catch (error) {
+        this.log.warn(
+          `wallet stop failed during close: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
   }
 
   verifySignature(_input: DefaultBatcherInput): boolean {
