@@ -149,9 +149,12 @@ Two rules the design depends on:
 
 - **One network per process.** Midnight's `setNetworkId` is module-global, so
   run one batcher per environment, hosting that environment's products.
-- **Never share a wallet seed between adapters.** Two instances on one seed keep
+- **Never share a wallet between adapters.** Two instances on one wallet keep
   independent pending-spend ledgers, which is a double-spend. Constructing a
-  second adapter on a seed already in use throws.
+  second adapter on a seed already in use throws, and so does handing the same
+  `walletResult` to two adapters — an injected wallet never goes through the
+  seed path, so it is claimed by instance identity instead. A wallet you pass in
+  stays yours: `close()` releases the claim but does not stop it.
 
 ### Authorizing work by content
 

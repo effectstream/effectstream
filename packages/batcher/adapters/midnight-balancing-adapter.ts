@@ -155,6 +155,51 @@ function formatDust(specks: bigint): string {
 const claimedWalletSeeds = new Map<string, string>();
 
 /**
+ * Wallets claimed by INSTANCE IDENTITY, not by seed.
+ *
+ * `config.walletResult` hands the adapter an already-built wallet and skips the
+ * seed path entirely. Two adapters can therefore declare distinct nominal
+ * seeds, both satisfy the seed registry, and then operate the same wallet —
+ * which is precisely the double-spend the seed registry exists to prevent,
+ * arrived at through the one door it does not watch.
+ *
+ * Seeds identify wallets the adapter builds; this identifies the ones it is
+ * handed. A WeakMap so a discarded wallet does not pin its owner label.
+ */
+const claimedWalletInstances = new WeakMap<object, string>();
+
+/** The object that identifies a wallet: the facade itself, else the result. */
+function walletIdentity(walletResult: unknown): object | null {
+  const target = (walletResult as { wallet?: unknown } | null)?.wallet ??
+    walletResult;
+  return target !== null &&
+      (typeof target === "object" || typeof target === "function")
+    ? target as object
+    : null;
+}
+
+/**
+ * Claim a resolved wallet instance. Returns the key to release later, or null
+ * when the value carries no usable identity (nothing to guard).
+ */
+export function claimWalletInstance(walletResult: unknown, owner: string): object | null {
+  const key = walletIdentity(walletResult);
+  if (!key) return null;
+  const existing = claimedWalletInstances.get(key);
+  if (existing !== undefined) {
+    throw new Error(
+      `MidnightBalancingAdapter (${owner}): this wallet instance is already in ` +
+        `use by "${existing}". Handing one walletResult to two adapters gives ` +
+        `them independent pendingDust ledgers over the same coins — the same ` +
+        `double-spend the seed registry prevents, reached through the path it ` +
+        `does not watch. Build a separate wallet for each product.`,
+    );
+  }
+  claimedWalletInstances.set(key, owner);
+  return key;
+}
+
+/**
  * Claim wallet seeds for one adapter instance. Throws if any seed is already
  * claimed (or listed twice). Exported so the exclusivity contract can be
  * tested without starting wallet sync.
@@ -352,6 +397,17 @@ export class MidnightBalancingAdapter
   private walletResults: (WalletResult | null)[];
   private walletAddresses: (string | null)[];
   private walletInitialized: boolean[];
+  /**
+   * Wallet-instance claims this adapter holds. Only keys it claimed itself land
+   * here, so releasing from this list cannot drop another adapter's claim even
+   * if two adapters share a log label.
+   */
+  private claimedWalletKeys: object[] = [];
+  /**
+   * True where the wallet was handed in via `config.walletResult`. An injected
+   * wallet belongs to the caller: this adapter must not stop it on close.
+   */
+  private walletIsInjected: boolean[];
   private availableDustUtxoCounts: (number | null)[];
   /** Tracks wallets that recently failed due to missing dust. Cleared when dust is confirmed available. */
   private walletDustExhausted: boolean[];
@@ -402,6 +458,7 @@ export class MidnightBalancingAdapter
 
     this.walletResults = new Array(seeds.length).fill(null);
     this.walletAddresses = new Array(seeds.length).fill(null);
+    this.walletIsInjected = new Array(seeds.length).fill(false);
     this.walletInitialized = new Array(seeds.length).fill(false);
     this.availableDustUtxoCounts = new Array(seeds.length).fill(null);
     this.walletDustExhausted = new Array(seeds.length).fill(false);
@@ -454,6 +511,11 @@ export class MidnightBalancingAdapter
       if (index === 0 && this.config.walletResult) {
         this.log.log(`Wallet ${label}: using shared wallet...`);
         this.walletResults[index] = await this.config.walletResult;
+        this.walletIsInjected[index] = true;
+        // The seed registry never saw this wallet — it was handed in, not
+        // derived. Claim it by identity or two adapters with different nominal
+        // seeds end up on the same coins.
+        this.claimWallet(this.walletResults[index]);
 
         this.log.log(`Wallet ${label}: waiting for funds...`);
         await this.ensureWalletFunds(index);
@@ -480,6 +542,10 @@ export class MidnightBalancingAdapter
         });
 
         this.walletResults[index] = walletResult;
+        // Also claimed, even though the seed registry already covers this path:
+        // a builder that ever returns a cached or shared instance would
+        // otherwise reintroduce the same aliasing silently.
+        this.claimWallet(walletResult);
 
         if (dustBalance > 0n) {
           this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
@@ -1650,9 +1716,26 @@ export class MidnightBalancingAdapter
    * the second construction with "wallet seed already in use". The release is
    * ownership-checked, so it can only drop claims this adapter actually holds.
    */
+  private claimWallet(walletResult: unknown): void {
+    const key = claimWalletInstance(
+      walletResult,
+      this.config.logLabel ?? "unlabeled adapter",
+    );
+    if (key) this.claimedWalletKeys.push(key);
+  }
+
   async close(): Promise<void> {
     releaseWalletSeeds(this.walletSeeds, this.config.logLabel);
-    for (const result of this.walletResults) {
+    // Only keys this adapter claimed are in the list, so this cannot drop
+    // another adapter's claim even if two share a log label.
+    for (const key of this.claimedWalletKeys) claimedWalletInstances.delete(key);
+    this.claimedWalletKeys = [];
+
+    for (const [index, result] of this.walletResults.entries()) {
+      // An injected wallet belongs to whoever passed it in and may well still
+      // be in use there; stopping it would break a caller that did nothing
+      // wrong. We stop only what we built.
+      if (this.walletIsInjected[index]) continue;
       try {
         await (result as { wallet?: { stop?: () => Promise<void> } })?.wallet
           ?.stop?.();
