@@ -168,7 +168,7 @@ new MidnightBalancingAdapter(seed, {
   policy: {
     allowZswapTransfers: true,            // plain shielded/unshielded transfers
     allowedTokenTypes: [myToken],         // …optionally only these tokens
-    allowedContracts: [counterAddress],   // any circuit on these contracts
+    allowedContracts: [counterAddress],   // any circuit CALL on these contracts
     allowedCircuits: [{ contract, entryPoint: "increment" }],
     allowCustomFinalFilter: ({ tx, declarativeVerdict }) => {
       if (!declarativeVerdict.valid) return false;
@@ -191,6 +191,15 @@ built from, exported at `@effectstream/batcher-sdk/midnight-policy`:
 `contractCalls`, `isZswapOnly`, `zswapTokenDeltas`, `zswapOfferShape`,
 `zswapNullifiers`, `callsOnlyContracts`, `callsOnlyCircuits`,
 `usesOnlyTokenTypes`, `isMatchedDeltaSwap`, `evaluateDeclarativePolicy`.
+
+> **Deploys and maintenance updates are never authorized by these rules.**
+> Both are contract actions carrying a contract's address but no entry point, so
+> an address allowlist would otherwise cover them — and a maintenance update can
+> rotate a contract's verifier keys and its maintenance authority. Sponsoring
+> that is nothing like sponsoring a circuit call, so `allowedContracts` matches
+> calls only, and an `allowedCircuits` entry with an empty `entryPoint` is
+> ignored rather than honoured. Supporting them would need its own explicit
+> option.
 
 **What a policy can and cannot see.** Shielded amounts are hidden, so value
 caps are impossible. Readable instead: contract addresses and entry points;

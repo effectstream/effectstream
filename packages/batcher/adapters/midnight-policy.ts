@@ -96,9 +96,19 @@ export interface MidnightTxPolicy<TTx = PolicyInspectableTx> {
   allowZswapTransfers?: boolean;
   /** Tighten the transfer rule to these token types (normalized hex). */
   allowedTokenTypes?: string[];
-  /** Allow any circuit on these contract addresses. */
+  /**
+   * Allow any circuit CALL on these contract addresses.
+   *
+   * Calls only — deploys and maintenance updates on an allowlisted contract are
+   * refused, because a maintenance update can rotate verifier keys and the
+   * maintenance authority.
+   */
   allowedContracts?: string[];
-  /** Allow only these (contract, entryPoint) pairs. */
+  /**
+   * Allow only these (contract, entryPoint) pairs. An entry with an empty
+   * `entryPoint` is ignored — it would otherwise match the empty entry point
+   * that deploys and maintenance updates report.
+   */
   allowedCircuits?: ContractCallRef[];
   /**
    * Custom FINAL filter. Runs strictly AFTER the declarative rules and receives
@@ -338,14 +348,28 @@ export function tokenTypesUsed(tx: PolicyInspectableTx): Set<string> {
 
 /**
  * True when the transaction has at least one contract action and EVERY action
- * targets an allowlisted contract. Deploys and maintenance updates count as
- * actions and must be allowlisted by address too.
+ * is a CALL on an allowlisted contract.
+ *
+ * Deploys and maintenance updates are contract actions too, and they report an
+ * empty entry point — so an earlier version, which matched on address alone,
+ * authorized them. A maintenance update can rotate a contract's verifier keys
+ * and its maintenance authority; sponsoring one is nothing like sponsoring "any
+ * circuit on this contract". They are refused here and need their own explicit
+ * option if they are ever to be supported.
  */
 export function callsOnlyContracts(tx: PolicyInspectableTx, allowlist: string[]): boolean {
   const allowed = new Set(allowlist.map(normalizeHex));
   const actions = contractActions(tx);
   if (actions.length === 0) return false;
-  return actions.every((a) => allowed.has(a.contract));
+  // EVERY action must be a CALL and target an allowlisted contract.
+  //
+  // Deploys and maintenance updates are contract actions carrying the
+  // contract's address, and they report an empty entry point. Matching on
+  // address alone therefore authorized them — and a maintenance update can
+  // rotate a contract's verifier keys and its maintenance authority, which is
+  // categorically not "any circuit on this contract". If deploys or
+  // maintenance are ever to be sponsored, they need their own explicit option.
+  return actions.every((a) => a.entryPoint !== "" && allowed.has(a.contract));
 }
 
 /**
@@ -357,12 +381,20 @@ export function callsOnlyCircuits(
   tx: PolicyInspectableTx,
   allowlist: ContractCallRef[],
 ): boolean {
+  // An allowlist entry with an empty entry point is dropped rather than
+  // honoured: it would otherwise match the empty entry point that deploys and
+  // maintenance updates report, quietly authorizing them. Same reasoning as
+  // callsOnlyContracts — those need their own explicit option.
   const allowed = new Set(
-    allowlist.map((c) => `${normalizeHex(c.contract)}#${c.entryPoint}`),
+    allowlist
+      .filter((c) => c.entryPoint !== "")
+      .map((c) => `${normalizeHex(c.contract)}#${c.entryPoint}`),
   );
   const actions = contractActions(tx);
   if (actions.length === 0) return false;
-  return actions.every((a) => allowed.has(`${a.contract}#${a.entryPoint}`));
+  return actions.every((a) =>
+    a.entryPoint !== "" && allowed.has(`${a.contract}#${a.entryPoint}`)
+  );
 }
 
 /** True when every token type the transaction touches is allowlisted. */
