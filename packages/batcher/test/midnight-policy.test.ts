@@ -12,6 +12,7 @@ import {
   contractCalls,
   evaluateDeclarativePolicy,
   evaluatePolicy,
+  hasUnobservableShieldedTokens,
   isEmptyPolicy,
   isMatchedDeltaSwap,
   isPolicyEnforced,
@@ -561,5 +562,77 @@ describe("enforcement guard (the contract an enforcement point relies on)", () =
       filterOnly,
     );
     expect(verdict.valid).toBe(false);
+  });
+});
+
+describe("allowedTokenTypes: shielded types are only sometimes observable", () => {
+  // Shielded token types are visible ONLY through ZswapOffer.deltas, which is
+  // the offer's net imbalance. A balanced transfer — the ordinary case —
+  // carries coins but reports no deltas, so the token set is empty and any
+  // allowlist checked against it passes vacuously. An UNBALANCED offer (a swap)
+  // and unshielded offers do carry their types, so the allowlist is
+  // enforceable there. That makes the feature conditionally, not uniformly,
+  // blind: testing it with a swap makes it look like it works.
+
+  const balancedTransfer = (): PolicyInspectableTx => ({
+    guaranteedOffer: { deltas: new Map(), inputs: [{}], outputs: [{}] },
+  });
+
+  test("a balanced shielded transfer exposes no token types at all", () => {
+    expect([...tokenTypesUsed(balancedTransfer())]).toEqual([]);
+    expect(hasUnobservableShieldedTokens(balancedTransfer())).toBe(true);
+  });
+
+  test("REGRESSION: it is REFUSED rather than vacuously accepted", () => {
+    const policy = { allowZswapTransfers: true, allowedTokenTypes: [TOKEN_A] };
+    const verdict = evaluateDeclarativePolicy(balancedTransfer(), policy);
+    expect(verdict.valid).toBe(false);
+    expect(verdict.rule).toBe("allowedTokenTypes");
+    expect(verdict.reason).toMatch(/not observable/);
+  });
+
+  test("an UNBALANCED offer does expose its types, so the allowlist still works", () => {
+    const swap = zswapTx({ [TOKEN_A]: 1n, [TOKEN_B]: -1n });
+    expect(hasUnobservableShieldedTokens(swap)).toBe(false);
+    // both tokens allowlisted → accepted
+    expect(
+      evaluateDeclarativePolicy(swap, {
+        allowZswapTransfers: true,
+        allowedTokenTypes: [TOKEN_A, TOKEN_B],
+      }).valid,
+    ).toBe(true);
+    // one token missing → refused on the allowlist, not the observability gate
+    const narrowed = evaluateDeclarativePolicy(swap, {
+      allowZswapTransfers: true,
+      allowedTokenTypes: [TOKEN_A],
+    });
+    expect(narrowed.valid).toBe(false);
+    expect(narrowed.reason).toMatch(/outside the allowlist/);
+  });
+
+  test("unshielded offers carry types directly and stay enforceable", () => {
+    const unshielded: PolicyInspectableTx = {
+      intents: new Map([[1, {
+        guaranteedUnshieldedOffer: {
+          inputs: [{ type: TOKEN_B, value: 5n }],
+          outputs: [{ type: TOKEN_B, value: 5n }],
+        },
+      }]]),
+    };
+    expect(hasUnobservableShieldedTokens(unshielded)).toBe(false);
+    expect(
+      evaluateDeclarativePolicy(unshielded, {
+        allowZswapTransfers: true,
+        allowedTokenTypes: [TOKEN_A],
+      }).valid,
+    ).toBe(false);
+  });
+
+  test("without allowedTokenTypes a balanced transfer is still accepted", () => {
+    // The observability gate must only apply when an allowlist is configured —
+    // otherwise every ordinary transfer would break.
+    expect(
+      evaluateDeclarativePolicy(balancedTransfer(), { allowZswapTransfers: true }).valid,
+    ).toBe(true);
   });
 });
