@@ -140,6 +140,52 @@ describe("introspection", () => {
   });
 });
 
+describe("allowedContracts authorizes CALLS, not every action", () => {
+  // A maintenance update can rotate a contract's verifier keys and its
+  // maintenance authority. It is categorically not "a circuit call", but it
+  // IS a contract action carrying the contract's address — so an allowlist
+  // that matches on address alone authorizes it. The config option is
+  // documented as "any circuit on these contract addresses"; an operator
+  // reading that would not expect to be sponsoring key rotations.
+  //
+  // Deploys and maintenance updates both report an empty entry point.
+  const maintenanceOn = (contract: string): PolicyInspectableTx => ({
+    intents: new Map([[1, { actions: [{ address: contract }] }]]),
+  });
+
+  test("REGRESSION: a maintenance update on an allowlisted contract is refused", () => {
+    expect(callsOnlyContracts(maintenanceOn(COUNTER), [COUNTER])).toBe(false);
+    const verdict = evaluateDeclarativePolicy(maintenanceOn(COUNTER), {
+      allowedContracts: [COUNTER],
+    });
+    expect(verdict.valid).toBe(false);
+  });
+
+  test("REGRESSION: an allowed call PLUS a maintenance update is refused", () => {
+    const mixed: PolicyInspectableTx = {
+      intents: new Map([
+        [1, { actions: [{ address: COUNTER, entryPoint: "increment" }] }],
+        [2, { actions: [{ address: COUNTER }] }], // maintenance / deploy
+      ]),
+    };
+    expect(callsOnlyContracts(mixed, [COUNTER])).toBe(false);
+  });
+
+  test("an ordinary call on an allowlisted contract is still accepted", () => {
+    const call = callTx([{ contract: COUNTER, entryPoint: "increment" }]);
+    expect(callsOnlyContracts(call, [COUNTER])).toBe(true);
+    expect(evaluateDeclarativePolicy(call, { allowedContracts: [COUNTER] }).valid).toBe(true);
+  });
+
+  test("an empty entryPoint in an allowedCircuits entry cannot authorize maintenance", () => {
+    // Guards the adjacent footgun: allowlisting {contract, entryPoint: ""}
+    // would otherwise match a maintenance update's empty entry point.
+    expect(
+      callsOnlyCircuits(maintenanceOn(COUNTER), [{ contract: COUNTER, entryPoint: "" }]),
+    ).toBe(false);
+  });
+});
+
 describe("declarative policy", () => {
   test("no rules configured is allow-all (back-compat)", () => {
     expect(isEmptyPolicy(undefined)).toBe(true);
