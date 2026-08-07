@@ -32,7 +32,18 @@ import { ENV } from "@effectstream/utils/node-env";
  * Provides structured error information with appropriate HTTP status codes
  */
 export class InputValidationError extends Error {
-  constructor(message: string, public statusCode: number = 400) {
+  constructor(
+    message: string,
+    public statusCode: number = 400,
+    /**
+     * Stable, machine-readable reason. Clients should branch on this rather
+     * than on `message`, whose text can include detail derived from the
+     * submitted input.
+     */
+    public errorCode?: string,
+    /** True when re-submitting the identical input could later succeed. */
+    public retryable?: boolean,
+  ) {
     super(message);
     this.name = "InputValidationError";
   }
@@ -560,8 +571,15 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     if (adapter && typeof adapter.validateInput === "function") {
       const validationResult = await adapter.validateInput(input);
       if (!validationResult.valid) {
+        // Honour a status the adapter asked for. A gate that could not COMPLETE
+        // — its own dependency was unavailable — reports 503, which is a
+        // different claim from "your input is wrong" and is the only one a
+        // caller can act on by retrying.
         throw new InputValidationError(
           validationResult.error || "Invalid input for target adapter",
+          validationResult.statusCode ?? 400,
+          validationResult.errorCode,
+          validationResult.retryable,
         );
       }
     }

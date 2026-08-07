@@ -167,6 +167,64 @@ describe("legacy targetless rows (upgrade path)", () => {
   });
 });
 
+describe("validation results can carry a status code", () => {
+  // Everything invalid used to become a 400. A gate that fails because its
+  // OWN dependency is unavailable — an unreachable indexer leaving ledger
+  // parameters unknown, say — must not tell the caller their transaction was
+  // malformed. That distinction is what lets a fail-closed check say 503
+  // (retryable infrastructure) rather than 400 (your input is wrong).
+
+  const build = (result: unknown) => {
+    const b = createNewBatcher(
+      { pollingIntervalMs: 1000, enableHttpServer: false, enableEventSystem: false },
+      {
+        init: async () => {},
+        addInput: async () => {},
+        getPendingInputs: async () => [],
+        getInputsByTarget: async () => [],
+        removeProcessedInputs: async () => {},
+        updateInput: async () => {},
+        clearAll: async () => {},
+      } as unknown as Parameters<typeof createNewBatcher>[1],
+    );
+    b.addBlockchainAdapter("only", {
+      submitBatch: async () => "0xhash",
+      estimateBatchFee: () => "0",
+      buildBatchData: async () => null,
+      getChainName: () => "stub",
+      // Without this the adapter is refused earlier, for a missing signature —
+      // which would make this test red for a reason that has nothing to do
+      // with the status code it claims to check.
+      verifySignature: () => true,
+      validateInput: async () => result,
+    } as unknown as Parameters<Batcher<DefaultBatcherInput>["addBlockchainAdapter"]>[1], {
+      criteriaType: "size",
+      maxBatchSize: 1,
+    });
+    return b;
+  };
+
+  const statusOf = async (result: unknown): Promise<number | string> => {
+    try {
+      await build(result).batchInput(
+        { address: "0xabc", addressType: 1, input: "x", timestamp: "1" } as DefaultBatcherInput,
+      );
+      return "no-throw";
+    } catch (e) {
+      return (e as { statusCode?: number }).statusCode ?? "no-status";
+    }
+  };
+
+  test("REGRESSION: an adapter can request 503 for its own unavailability", async () => {
+    expect(await statusOf({ valid: false, error: "params unavailable", statusCode: 503 }))
+      .toBe(503);
+  });
+
+  test("a plain invalid result still defaults to 400", async () => {
+    expect(await statusOf({ valid: false, error: "bad input" })).toBe(400);
+  });
+});
+
 describe("wallet-instance exclusivity (injected walletResult)", () => {
   // The seed registry only sees wallets the adapter DERIVES. `config.walletResult`
   // hands one in and skips that path entirely, so two adapters could declare
