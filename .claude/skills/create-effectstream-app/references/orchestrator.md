@@ -5,9 +5,9 @@
 > **See also (concept docs).**
 > - Orchestrator processes concept + CLI reference (`start`, `status`, `restart`, `stop`, `list`, `silence/unsilence`, `logs`): `docs/site/docs/home/500-packages/550-tools/orchestrator.md`
 > - High-level "what is the process orchestrator": `docs/site/docs/home/100-components/106-processes.md`
-> - **`DISABLE_*` env vars** (`DISABLE_EVM`, `DISABLE_MIDNIGHT`, `DISABLE_BITCOIN`, `DISABLE_CARDANO`, `DISABLE_NEAR`, `DISABLE_AVAIL`, `DISABLE_CELESTIA`) for skipping optional chains in dev — see the orchestrator doc.
+> - **`DISABLE_*` env vars are not interpreted by the orchestrator CLI.** The engine repo's own `orchestrator.config.ts` and `e2e/runner.ts` implement selected `DISABLE_*` flags themselves. A generated template has no such behavior unless its config explicitly adds it. Prefer `--only` / `--except` for ad-hoc process selection; add env gates only when the user asks for a stable template interface.
 > - **Daemon mode**: `bunx orchestrator start --background` runs the orchestrator as a detached daemon and exposes the full HTTP API on port 4747. The follow-up commands `status`, `restart <name>`, `logs <name>`, and `stop` all require the daemon to be running first. For interactive use (single terminal, foreground TUI) drop `--background`. README quick-starts should default to foreground; CI / containerized dev rigs should use daemon mode.
-> - **Always run `bunx orchestrator stop` before relaunching** or before running tests — clears stale ports from the previous run. The skill bakes this into the canonical `build:pgtypes` script for the same reason.
+> - **Always run `bunx orchestrator stop` before relaunching** or before running tests — clears stale ports from the previous run.
 
 ## Minimal example (EVM only)
 
@@ -79,12 +79,16 @@ Each launcher returns a `ProcessConfig[]` and exports named constants for `depen
 | Launcher | Import | Names export | Required package scripts |
 |---|---|---|---|
 | `launchPglite()` | `@effectstream/orchestrator/launch-pglite` | `DbNames` | (none — uses engine's PGLite) |
-| `launchEvm(pkg, loc)` | `@effectstream/orchestrator/launch-evm` | `EvmNames` | `build:hardhat`, `hardhat:start`, `hardhat:wait`, `deploy`, `build:mod` |
+| `launchEvm(pkg, loc)` | `@effectstream/orchestrator/launch-evm` | `EvmNames` | `chain:start`, `chain:wait`, `build:hardhat`, `build:forge`, `deploy` |
 | `launchMidnight(pkg, loc, opts?)` | `@effectstream/orchestrator/launch-midnight` | `MidnightNames` | `midnight-node:{start,wait}`, `midnight-indexer:{start,wait}`, `midnight-proof-server:{start,wait}`, `midnight-contract:deploy` |
-| `launchBitcoin(pkg, loc)` | `@effectstream/orchestrator/launch-bitcoin` | `BitcoinNames` | `chain:start`, `chain:wait`, `mine-blocks`, `wait-for-block` |
-| `launchCardano(pkg, loc)` | `@effectstream/orchestrator/launch-cardano` | `CardanoNames` | `yaci-devkit:{start,wait}`, `dolos:*`, `cardano:submit-tx` |
+| `launchBitcoin(pkg, loc)` | `@effectstream/orchestrator/launch-bitcoin` | `BitcoinNames` | `chain:start`, `chain:wait`, `generate:blocks`, `wait-for-block` |
+| `launchCardano(pkg, loc)` | `@effectstream/orchestrator/launch-cardano` | `CardanoNames` | `devkit:start`, `devkit:wait`, `dolos:fill-template`, `dolos:start`, `dolos:wait`, `cardano-submit-tx` |
 | `launchNear(pkg, loc)` | `@effectstream/orchestrator/launch-near` | `NearNames` | `chain:start`, `chain:wait` |
-| `launchAvail(pkg, loc)` | `@effectstream/orchestrator/launch-avail` | `AvailNames` | `avail-node:start`, `avail-light-client:*` |
+| `launchAvail(pkg, loc)` | `@effectstream/orchestrator/launch-avail` | `AvailNames` | `avail-node:start`, `avail-node:wait`, `avail-light-client:deploy`, `avail-light-client:wait` |
+| `launchCelestia(pkg, loc, opts?)` | `@effectstream/orchestrator/launch-celestia` | `CelestiaNames` | `celestia-bridge:start`, `celestia-bridge:wait`, `celestia-fund:bridge` |
+| `launchSolana(pkg, loc, opts?)` | `@effectstream/orchestrator/scripts/launch-solana` | `SolanaNames` | `chain:start`, `chain:wait` |
+
+(EVM mod generation is not a package script — the launcher runs `@effectstream/evm-hardhat/builder` inline for `EvmNames.GENERATE_MOD`.)
 
 ## The `cwd` vs `resolveFrom` rule (critical)
 
@@ -127,6 +131,50 @@ const root = import.meta.dirname!;
 | `link` | `string` | URL shown in status output |
 | `stopProcessAtPort` | `number[]` | Ports to free before launch |
 | `autoStart` | `boolean` | Include in normal start |
+
+## Custom programs and ordered setup phases
+
+The launcher helpers cover chain infrastructure, but real applications often need their own programs: compile a chain program, create wallets, fund them, seed data, register a contract, or start a filler/relayer. Add these as normal `ProcessConfig` entries and make the dependency graph express the phase order.
+
+Keep each script in the package that owns the operation. If it is substantial and has multiple consumers, create a purpose-named package such as `packages/wallet-provisioning`; do not create `packages/shared` or `packages/utils`.
+
+```ts
+{
+  name: "create-batcher-wallet",
+  description: "Create or reuse the local batcher wallet",
+  cwd: path.join(root, "packages/wallet-provisioning"),
+  args: ["run", "create-batcher-wallet"],
+  waitToExit: true,
+  type: "system-dependency",
+  critical: true,
+},
+{
+  name: "fund-batcher-wallet",
+  description: "Fund the local batcher wallet",
+  cwd: path.join(root, "packages/wallet-provisioning"),
+  args: ["run", "fund-batcher-wallet"],
+  waitToExit: true,
+  type: "system-dependency",
+  critical: true,
+  dependsOn: ["create-batcher-wallet", SolanaNames.SOLANA_VALIDATOR_WAIT],
+},
+{
+  name: "batcher",
+  args: ["run", "packages/batcher/batcher.dev.ts"],
+  waitToExit: false,
+  type: "system-dependency",
+  dependsOn: ["fund-batcher-wallet"],
+},
+```
+
+Rules for generated programs:
+
+- Use `waitToExit: true` for setup phases; a successful exit is their readiness signal.
+- Make setup scripts idempotent: reuse valid generated artifacts and check current funding before topping up.
+- Mark a setup phase `critical: true` when dependent services cannot operate without it.
+- Pass artifacts through explicit files or validated environment variables; document their paths and ownership.
+- Never generate automatic mainnet funding, production key creation, or hard-coded production secrets.
+- Add Phase A tests that prove each required setup program completed and produced usable output.
 
 ## Dependency ordering — use the Names constants
 
@@ -201,6 +249,16 @@ Keep `CARDANO_SUBMIT_TX` in `start.test.ts` if tests need pre-funded delegation.
 ```
 
 The CLI reads `package.json`'s `effectstream.default` to find the start file. To target a different file ad-hoc: `bunx orchestrator start start.test.ts`.
+
+### CLI flags that matter for scaffolded apps
+
+- `-c, --config <path>` — explicit config file (otherwise auto-detected from daemon state, `package.json`, or `orchestrator.config.ts`)
+- `-b, --background` — detached daemon; logs to `.orchestrator-logs/`, HTTP API on `-p, --port` (default 4747)
+- `-o, --only <p1,p2,...>` — run only these processes plus their dependencies. This is also how `autoStart: false` processes get run — they're skipped on a normal `start` and only launch when named via `--only`
+- `-e, --except <p1,p2,...>` — skip these processes
+- `-s, --serial` — launch one at a time instead of in parallel waves
+
+`bunx orchestrator start hardhat deploy-evm-contracts` (positional names) also starts a subset.
 
 Mainnet does **not** use the orchestrator (no local infra to manage):
 ```json

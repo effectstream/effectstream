@@ -1,6 +1,6 @@
 # Docker / Containerization
 
-Every template ships with a `Dockerfile` that runs the full dev stack (orchestrator → chain nodes → sync → frontend) or the e2e test suite when CMD is overridden.
+Some templates ship a `Dockerfile` that runs the full dev stack (orchestrator → chain nodes → sync → frontend) or the e2e test suite when CMD is overridden. Currently 5 of 21 do: `evm-midnight-v2` and `world-map-2d` (current-gen, the models to copy), plus legacy `dice`, `rock-paper-scissors`, and `multi-chain-token-transfer`. Add one to a new template only if containerized dev/CI is in scope.
 
 ## Base image and system deps
 
@@ -119,17 +119,20 @@ To run tests in the container, override CMD: `docker run <image> bun run test`.
 
 ## Port exposure
 
-| Service | Port | Templates |
+What the current-gen Dockerfiles actually `EXPOSE`:
+
+| Service | Port | EXPOSEd by |
 |---|---|---|
-| Frontend | 10599 | All |
-| Sync API | 9999 | All |
-| Orchestrator | 4747 | All |
-| Batcher | 3334 | EVM + batcher templates |
-| Hardhat EVM | 8545 | EVM templates |
-| Hardhat EVM (parallel) | 8546 | Multi-EVM templates |
-| Midnight node | 9944 | Midnight templates |
-| Midnight indexer | 8088 | Midnight templates |
-| Midnight proof server | 6300 | Midnight templates |
+| Frontend | 10599 | evm-midnight-v2, world-map-2d |
+| Sync API | 9999 | evm-midnight-v2, world-map-2d |
+| Hardhat EVM | 8545 | evm-midnight-v2, world-map-2d |
+| Hardhat EVM (parallel) | 8546 | evm-midnight-v2, world-map-2d |
+| Orchestrator API | 4747 | evm-midnight-v2 only |
+| Midnight node | 9944 | evm-midnight-v2 |
+| Midnight indexer | 8088 | evm-midnight-v2 |
+| Midnight proof server | 6300 | evm-midnight-v2 |
+
+The batcher port (3334) is not EXPOSEd by any shipped Dockerfile — add `EXPOSE 3334` (and 4747 for the daemon API) yourself if the container serves them.
 
 ## `.dockerignore`
 
@@ -172,7 +175,7 @@ Applies to any `bunx` call with a `/` subpath when the package is symlinked.
 
 ## README Docker Section
 
-Append to every template README:
+Append to the README of any template that ships a Dockerfile:
 
 ````markdown
 ## Docker

@@ -13,6 +13,12 @@ This skill exists because there are ~80 sharp edges (Bun workspace symlinking, M
 - **Create a new template (95% case)** → start with [Discovery](#discovery-confirm-scope-with-the-user-before-scaffolding) below, then follow [Build order](#build-order).
 - **Migrate an existing Paima/Effectstream-v1 project** → jump to `references/migration.md`. The rest of this file still applies after the structural migration.
 
+**Interpret rules by their owner:**
+
+- **Engine contracts** are runtime/API facts such as launcher scripts, primitive fields, and L2 namespace verification. Violating them breaks execution.
+- **Generator guarantees** are stricter output requirements of this skill: purpose-named packages, typed queries only, mandatory applicable tests, safe mainnet placeholders, and a verified `bun run dev`. Existing templates may predate these guarantees; do not copy their debt.
+- **Engine-repo integration rules** such as README validation and registration arrays apply only when adding the generated template under this repository's `templates/` directory.
+
 > ## Verification is mandatory — read this before you write any code
 >
 > A scaffold that hasn't been run is not a scaffold; it's a draft. Half the sharp edges this skill exists to avoid only surface at runtime, in Docker, or when the user opens the page in a browser. Static review of the generated files will not catch them.
@@ -41,7 +47,8 @@ This phase looks like a short interview, not a code change. Run it even if the u
 | **Sync protocols** | One `addMain` (NTP_MAIN) + one `addParallel` per chain | Specific protocol per chain | RPC calls / block × polling rate. Higher confirmation depth = slower but safer. |
 | **Primitives** | Built-in primitives that don't require contracts (read-only watchers) | Exact primitive list per chain + the events they listen to | Per-block scan work for each primitive — adds up |
 | **Contracts** | Minimal set or "none if a primitive covers it" | What gets deployed, by whom, on which chains | Deployment gas + audit + lifetime upgrade burden — borne by the user |
-| **Batchers** | Yes only if gasless UX or time/size amortization is needed | Yes/no per chain that supports batching | Batcher process + private-key custody + namespace coordination with the frontend |
+| **Batchers** | Yes only if gasless UX or time/size amortization is needed | Yes/no per chain that supports batching | Batcher process + private-key custody + namespace coordination with the frontend and L2 node |
+| **App shape** | Smallest executable set of packages and lifecycle programs | Full-stack, indexer-only, frontend-only/external backend, relayer/filler, or another explicit shape; plus custom startup phases | Every package/process adds build, startup, and operational surface |
 | **STM design** | Sketched after the above are locked | Grammar keys, transitions, DB tables, API endpoints | The shape of the rewrite if it changes later |
 
 If the user only said "build me an X" and the matrix isn't filled in, **stop and ask**. The skill assumes every row has been agreed before any of the build-order steps below run.
@@ -69,6 +76,7 @@ A sync protocol is **how the engine reads a chain**. Each app has exactly one `a
 | NEAR | `NEAR_RPC_PARALLEL` | (only option today) |
 | Avail | `AVAIL_PARALLEL` | (only option today) |
 | Celestia | `CELESTIA_PARALLEL` | (only option today) |
+| Solana | `SOLANA_RPC_PARALLEL` | (only option today) |
 
 What you DO need to confirm with the user even when there's only one protocol:
 
@@ -100,7 +108,7 @@ The default-unless-asked rule: don't add primitives the user didn't sign off on.
 
 ### 5. Do you need a batcher? (per chain, if applicable)
 
-A batcher aggregates user transactions and submits them to one or more chains. Batchers come with their own infrastructure cost: an extra long-running process, a custodial private key (gas-payer), and a `namespace` that MUST match the frontend's `EffectstreamConfig` `appName` exactly (mismatch → `401 Invalid signature`).
+A batcher aggregates user transactions and submits them to one or more chains. Batchers come with their own infrastructure cost: an extra long-running process and usually a custodial private key (gas-payer). For the signed EVM Effectstream L2 path, one security namespace must be used by the frontend signer, the batcher admission check, and the sync node's L2 primitive; see Core invariant §8.
 
 Confirm with the user, **per chain** the template targets:
 
@@ -114,14 +122,36 @@ Available adapters (one per target chain):
 | `EffectstreamL2DefaultAdapter` | EVM | time, size, hybrid |
 | `EvmContractAdapter` | EVM (custom contract) | time, size, hybrid |
 | `MidnightAdapter` | Midnight | size (typically 1; ZK proofs are heavy) |
+| `MidnightBalancingAdapter` | Midnight | size; delegates transaction balancing |
 | `BitcoinAdapter` | Bitcoin | hybrid |
 | `NearAdapter` | NEAR | time, size |
 | `NearIntentAdapter` | NEAR (DIP-4 intents) | time, size |
 | `CelestiaAdapter` | Celestia | size (PFB has its own gas semantics) |
+| `SolanaAdapter` | Solana | fee-payer sponsored transactions |
 
 For each batcher the user wants, also confirm: **which gas-payer key** (where will the private key live in production — env var, KMS, etc.) and **what batching criteria** (time window? size threshold? hybrid?).
 
-### 6. State machine design
+### 6. Which application shape and custom programs?
+
+Choose the smallest package/process graph that executes the requested flow. Do not assume every template needs contracts, a batcher, or a frontend. Confirm whether this is a full-stack app, indexer-only app, frontend for an external backend, relayer/filler service, or another explicit shape.
+
+- **Full-stack:** node + database + relevant chain packages + tests; add batcher/frontend only when requested.
+- **Indexer-only:** node + database + relevant chain packages + Phase A/B tests; no inert frontend.
+- **Frontend-only/external backend:** frontend + tests for build/render and the configured external API contract; do not fabricate a local node/database.
+- **Relayer/filler:** add a purpose-named long-lived service to the smallest base shape it actually depends on.
+
+Also enumerate **custom lifecycle programs** that must run before or alongside the long-lived services. Common examples are compiling a chain program, creating wallets, funding wallets, deploying or registering contracts, seeding data, and starting a filler/relayer. Model each as an orchestrator process with:
+
+- a specific, purpose-named script owned by the package responsible for the operation;
+- `waitToExit: true` for setup phases and `false` for long-lived services;
+- explicit `dependsOn` edges that encode the phase order;
+- `critical: true` when later processes would be invalid without it;
+- an idempotent output contract (for example, reuse an existing wallet file or verify funding before sending more funds);
+- no embedded production secrets or automatic mainnet funding.
+
+Echo the ordered program graph back to the user, for example: `validator → create-wallets → fund-wallets → batcher → frontend`. See `references/orchestrator.md` for the executable pattern.
+
+### 7. State machine design
 
 Once chains, contracts, and primitives are confirmed, **design the STM with the user before writing transitions**. The STM is where every write to the DB happens; getting its shape wrong means rewriting all the dependent layers. Specifically:
 
@@ -136,21 +166,21 @@ If anything is ambiguous, ASK. The skill assumes you'll do the interview; downst
 
 These hold across every Effectstream template. Violating any of them produces errors that are slow to diagnose because they surface far from the cause.
 
-1. **Flat `packages/*` layout, no `client/`, `shared/`, or `src/` wrapper dirs.** Grammar, config, STM, and API all live directly in `packages/node/`. The orchestrator config (`start.dev.ts`) lives at the project root, not inside the node package.
-2. **No raw SQL outside `packages/database/sql/*.sql` and `packages/database/migrations/*.sql`.** Every other file (state machine, API routes, tests) must use pgtyped-generated `PreparedQuery` objects exported from `@my-template/database`. Use `World.resolve(query, params)` inside STM transitions and `runPreparedQuery(query.run(params, dbConn), label)` in API routes. The one exception is reading the engine's internal `effectstream.sync_protocol_pagination` table for NTP recovery — that schema isn't owned by the template.
+1. **Flat `packages/*` layout with purpose-specific package names.** Do not create legacy root wrappers such as `packages/client/*`, generic packages such as `packages/shared`, `packages/utils`, or `packages/common`, or a `src/` wrapper inside `packages/node`; grammar, config, STM, and API live directly in `packages/node/`. Conventional framework-owned nesting inside a specific package (for example `packages/frontend/client/src`) is fine. Name reusable packages after their responsibility (`packages/app-events`, `packages/chess-rules`, `packages/liquidity-filler`). Only create repo-level `shared/{name}/` when the user explicitly intends that specifically named package to be independently versioned and published to npm; it is not the default place for template-local code. The orchestrator config (`start.dev.ts`) lives at the project root.
+2. **When the template has a database, all SQL is authored as typed-query input under `packages/database/sql/*.sql` or as migrations under `packages/database/migrations/*.sql`.** Every TypeScript file—including tests, readiness checks, and NTP recovery—must use pgtyped-generated `PreparedQuery` objects exported from the database package. Use `World.resolve(query, params)` inside STM transitions and `runPreparedQuery(query.run(params, dbConn), label)` in APIs, programs, and tests. Do not add inline `db.query(...)` SQL as a shortcut.
 
    **NEVER hand-write `*.queries.ts` files.** These files contain byte-offset `locs` arrays that pgtyped uses to substitute parameters into the SQL string. A hand-written `locs` that's off by even one character produces malformed SQL → Postgres aborts the transaction → the sync node crashes mid-STM with `current transaction is aborted (code 25P02)`, hiding the original error. The bug is invisible to TypeScript (the `IQueryParams` interface still typechecks) and invisible to static review (the file looks plausible). It only surfaces at runtime under a real integration test. The file MUST be generated by running `bun run build:pgtypes` (which invokes `@effectstream/db/scripts/pgtyped-update.ts`). Commit the generated output — but if you find yourself typing `.queries.ts` content into a `Write` tool call, STOP and run the script instead. There is no "I'll just stub it out" shortcut here; the byte offsets cannot be eyeballed.
-3. **All `@effectstream/*` packages share a single coordinated version.** Never mix `0.100.13` and `0.100.5` across `@effectstream/*` deps. To find the version to pin: (a) **query npm first** with `npm view @effectstream/orchestrator version` (any `@effectstream/*` package works; they're always co-versioned). (b) If npm returns nothing, **fall back to the `"version"` field of the engine monorepo's root `package.json`** — find it by walking up from the cwd looking for a `package.json` that has a `packages/effectstream-sdk/` sibling, or ask the user where the engine repo lives. (c) If neither works, **ask the user explicitly** rather than guessing. Never leave `<latest>` placeholders — `bun install` won't resolve them.
+3. **All `@effectstream/*` packages share the latest stable npm version.** Resolve it immediately before writing manifests with `npm view @effectstream/orchestrator version`, then pin that exact result uniformly across every `@effectstream/*` dependency. Stable releases are published and the packages are co-versioned, so do not infer a version from this skill, an existing template, or a local engine checkout. If npm cannot be queried, stop and report the blocker instead of guessing. Never leave `<latest>` placeholders.
 4. **Declare every sibling import as `workspace:*` in the importer's `package.json`.** Bun resolves these through the workspace graph (no `node_modules/<scope>/<pkg>` symlinks are needed on Mac). E.g. `packages/node/package.json` must include `"@my-template/database": "workspace:*"` and `"@my-template/contracts-evm": "workspace:*"`; without these declarations the import fails at runtime with `Cannot find module '@my-template/database'`. The reference templates use `workspace:*` everywhere — match that. Some chains have nested workspace subpackages that need to be listed explicitly in the root `workspaces` array because `packages/*` doesn't recurse (see the relevant `references/chains/{chain}.md`). Docker is the exception where workspace resolution doesn't "just work" — the Dockerfile creates the symlinks inline after `bun install` (see `references/docker.md`). `link.sh` is **not part of a normal template** — it's an advanced helper for engine+template co-iteration only; do not generate one by default.
 5. **Always use `{ cwd: path.join(root, "packages/contracts-X") }`, never `{ resolveFrom }`, for chain launchers.** `resolveFrom` goes through `require.resolve` which lives in Bun's `.bun/` cache and breaks both locally (resolves the wrong path) and in Docker (no `node_modules/@my-template/*` symlinks). `cwd` uses direct filesystem paths and works everywhere.
 6. **Compile every contract package before building anything that depends on it.** Each chain has its own build script (`bun run build:<chain>`); after SQL changes also run `bun run build:pgtypes`. Cascading failures from skipped compile steps are the #1 cause of "the node won't start" debugging sessions. Per-chain build commands live in `references/chains/{chain}.md`.
 7. **Multi-environment uses file-name suffixes (`config.dev.ts` / `config.mainnet.ts`), not env-var switches.** Each environment has its own entry point (`main.dev.ts` / `main.mainnet.ts`) that imports its corresponding config. The orchestrator runs only in dev — mainnet runs the node directly.
-8. **`BatcherConfig.namespace` and the frontend's `EffectstreamConfig` `appName` must match exactly.** A mismatch produces `401 Invalid signature` from the batcher's `/send-input` endpoint — the signed message contains `appName`, the batcher validates against `namespace`.
+8. **Signed EVM Effectstream L2 batching uses one namespace in three places.** The frontend's `EffectstreamConfig` first argument, `BatcherConfig.namespace`, and the node's `ConfigBuilder.setSecurityNamespace(...)` must represent the same namespace. The batcher checks it when admitting the input, and `PrimitiveTypeEVMEffectstreamL2` re-verifies the batched signature using the node namespace before calling the STM. A frontend↔batcher mismatch returns `401 Invalid signature`; a node mismatch silently drops the already-batched input. This three-way rule is specific to the signed L2 path; adapters with their own `verifySignature` contract must document and test that contract instead.
 9. **Some chain primitives are opt-in because of indexing/runtime cost — confirm with the user before adding any of them.** Default-on primitives scan every block of every chain they target; adding one speculatively means the production indexer does extra RPC work forever. The per-chain reference files enumerate which primitives are opt-in vs default (e.g. EVM's `PrimitiveTypeEVMEffectstreamL2`, Cardano's `CARDANO_SUBMIT_TX` dev process, Midnight's nullifier tracking). When the user has confirmed a primitive is needed, the chain file has the wiring; when they haven't, leave it out — the symptoms of a missing-but-needed primitive are silent ("blocks finalize but the row never appears"), so the right time to confirm is during [Discovery](#discovery-confirm-scope-with-the-user-before-scaffolding), not later.
 
 ## Build order
 
-Follow this order strictly. Each step depends on the previous one being verified-working. Don't try to scaffold everything in parallel and then debug — verify each layer in turn.
+Follow this order for the packages selected during Discovery, skipping steps that do not belong to the confirmed application shape. Each included step depends on the previous included one being verified-working. Don't try to scaffold everything in parallel and then debug — verify each layer in turn.
 
 For each step the right-hand column tells you which reference file to load. Don't preload them; load on demand to keep context lean.
 
@@ -158,21 +188,22 @@ For each step the right-hand column tells you which reference file to load. Don'
 |---|------|-------------------|-------------------------------|
 | 0 | **Discovery is done** (chains, contracts, primitives, STM design confirmed with the user — see [Discovery](#discovery-confirm-scope-with-the-user-before-scaffolding)). Pick a template name → `@my-template/*` scope. | `references/architecture.md` | `docs/site/docs/home/0-intro/1-what-is-effectstream.md`, `docs/site/docs/home/100-components/100-components.md`, `docs/site/docs/home/200-chains/200-chains.md` (chain Feature Support Matrix) |
 | 1 | Root `package.json` (workspaces, `effectstream.default`, scripts). | `references/architecture.md` | `docs/site/docs/home/500-packages/550-tools/orchestrator.md` (consumer of `effectstream.default`) |
-| 2 | `start.dev.ts` at project root (orchestrator config — declares chains/services). | `references/orchestrator.md` | `docs/site/docs/home/100-components/106-processes.md`, `docs/site/docs/home/500-packages/550-tools/orchestrator.md` |
+| 2 | `start.dev.ts` at project root (orchestrator config — declares chains, custom setup programs, and services). Encode wallet creation/funding, program compilation, seeding, and relayer/filler startup as dependency-ordered processes. | `references/orchestrator.md` | `docs/site/docs/home/100-components/106-processes.md`, `docs/site/docs/home/500-packages/550-tools/orchestrator.md` |
 | 3 | For each chain: `packages/contracts-{chain}/`. **Compile and verify before moving on.** | `references/chains/{chain}.md` | `docs/site/docs/home/100-components/105-contracts.md`, `docs/site/docs/home/200-chains/212-contracts.md`, `docs/site/docs/home/200-chains/{201-evm,202-midnight,203-cardano,204-avail,205-bitcoin,209-celestia,210-near,211-solana}.md` |
 | 4 | `packages/database/` (migrations + pgtyped `.sql`). **Run `bun run build:pgtypes` to generate `sql/*.queries.ts` — never write the generated file by hand (see Core invariant §2). Verify the script exits 0 before moving on.** | `references/database.md` | `docs/site/docs/home/100-components/109-database.md`, `docs/site/docs/home/1000-effectstream-engine/1002-database.md` (three-schema split: `effectstream`/`primitives`/`public`), `docs/site/docs/home/500-packages/520-node/db.md` |
-| 5 | `packages/node/` (grammar → config.dev.ts → state-machine.ts → api.ts → main.dev.ts). | `references/grammar-stm.md` | `docs/site/docs/home/100-components/102-state-machine.md`, `docs/site/docs/home/100-components/111-grammar.md` (incl. `&`-reserved keys + `mapPrimitivesToGrammar`), `docs/site/docs/home/100-components/103-api.md`, `docs/site/docs/home/100-components/117-node-startup.md`, `docs/site/docs/home/100-components/118-primitives.md`, `docs/site/docs/home/100-components/113-randomness.md`, `docs/site/docs/home/500-packages/520-node/{sm,runtime}.md` |
+| 5 | `packages/node/` (grammar → config.dev.ts → state-machine.ts → api.ts → main.dev.ts) plus any purpose-named package it imports, such as `packages/app-events` or `packages/chess-rules`. | `references/grammar-stm.md` | `docs/site/docs/home/100-components/102-state-machine.md`, `docs/site/docs/home/100-components/111-grammar.md` (incl. `&`-reserved keys), `docs/site/docs/home/100-components/103-api.md`, `docs/site/docs/home/100-components/117-node-startup.md`, `docs/site/docs/home/100-components/118-primitives.md`, `docs/site/docs/home/100-components/113-randomness.md`, `docs/site/docs/home/500-packages/520-node/{sm,runtime}.md` |
 | 6 | (optional) `packages/batcher/` with adapter factories + `batcher.dev.ts`. | `references/batcher.md` | `docs/site/docs/home/100-components/108-batcher/{1200-overview,1220-core-concepts,1240-configuration}.md`, `docs/site/docs/home/500-packages/550-tools/batcher-sdk.md` |
 | 7 | (optional) `packages/frontend/`. | `references/frontend.md` | `docs/site/docs/home/100-components/115-frontend.md`, `docs/site/docs/home/100-components/112-wallets.md`, `docs/site/docs/home/500-packages/{550-tools/frontend-sdk,510-sdk/wallets}.md` |
-| 8 | `packages/tests/` — phases A (infra) and B (STM+DB+API) MANDATORY for every template; C (frontend) if a frontend exists. The test contents adapt to whichever chains the template targets — the structure is constant. Source of truth: `templates/evm-midnight-v2/packages/tests/`. **A template without tests is unfinished — the tests are how anyone (including you) knows the scaffold actually boots and indexes.** | `references/tests.md` | (skill-only; docs have no Phase A/B/C testing concept) |
+| 8 | `packages/tests/` — phases A (infra) and B (STM+DB+API) are mandatory when the template runs a node; C is mandatory when a frontend exists. A frontend-only/external-backend template instead tests build/render and its configured API contract. Follow `references/tests.md`; existing templates may predate its typed-query rules. **A template without executable tests is unfinished.** | `references/tests.md` | (skill-only; docs have no Phase A/B/C testing concept) |
 | 9 | (optional) `config.mainnet.ts`, `main.mainnet.ts`, `batcher.mainnet.ts`, `"start:mainnet"` script. **Every `*.mainnet.ts` file MUST start with a "PLACEHOLDER FOR PRODUCTION" disclaimer comment** telling the user to replace hard-coded values and source secrets from env vars — see the multi-env reference for the exact block. | `references/multi-env.md` | `docs/site/docs/home/300-deployment/301-deploy-game.md`, `docs/site/docs/home/100-components/199-environment-variables.md` |
 | 10 | (**optional, only if the user asks for containerization**) `Dockerfile` + `.dockerignore`. Most templates don't need Docker on day one — skip unless the user explicitly requests it. | `references/docker.md` | (skill-only; docs have no Docker section) |
-| 11 | `README.md` at project root following the canonical structure. | `references/readme.md` | (skill-only style guide) |
-| 12 | **Verify — MANDATORY, incremental, stop on error.** Run each command separately and check it succeeded before moving to the next: `bun install` → `bun run build:evm` (per chain) → `bun run build:midnight` → `bun run build:pgtypes` → `bun run dev` (must reach a known boot state) → `bun run test`. If Docker was requested, also `docker build` then `docker run <image> bun run test`. Don't report completion until at least `bun run dev` has booted. Full criteria: [Verification — mandatory, incremental, stop on error](#verification--mandatory-incremental-stop-on-error). | — | — |
+| 11 | `README.md` at project root following `templates/README-FORMAT.md` (the canonical, validator-enforced format — don't improvise sections; screenshots live in `templates/<name>/docs/`). | `templates/README-FORMAT.md` | (repo-canonical format spec) |
+| 12 | **Register the template — REQUIRED when it ships in the engine repo's `templates/`.** (a) Add it to the `TEMPLATES` array in `docs/site/scripts/sync-template-readmes.ts`, then verify with `bun run --cwd docs/site sync-readmes:check` (the validator enforces the README format). (b) Add it to the `ENABLED` array in `templates/run-template-tests.ts` — templates are NOT auto-discovered by either. | — | — |
+| 13 | **Verify — MANDATORY, incremental, stop on error.** Run each command separately and check it succeeded before moving to the next: `bun install` → `bun run build:evm` (per chain) → `bun run build:midnight` → `bun run build:pgtypes` → `bun run dev` (must reach a known boot state) → `bun run test`. If Docker was requested, also `docker build` then `docker run <image> bun run test`. Don't report completion until at least `bun run dev` has booted. Full criteria: [Verification — mandatory, incremental, stop on error](#verification--mandatory-incremental-stop-on-error). | — | — |
 
 ### Why orchestrator before contracts
 
-The orchestrator declares which chains the template targets, which fixes the set of contract packages you need to create and the npm scripts each one must expose for its launcher (`launchEvm` needs `hardhat:start`, `launchMidnight` needs `midnight-node:start`, etc.). Designing contracts first leads to mismatches with the launcher's expectations.
+The orchestrator declares which chains the template targets, which fixes the set of contract packages you need to create and the npm scripts each one must expose for its launcher (`launchEvm` needs `chain:start`, `chain:wait`, `build:hardhat`, `build:forge`, `deploy`; `launchMidnight` needs `midnight-node:start`; etc.). Designing contracts first leads to mismatches with the launcher's expectations.
 
 ### Why grammar before state machine
 
@@ -222,6 +253,7 @@ Then, for **each chain the template targets**, open the chain's reference file a
 | Avail | `references/chains/avail.md` |
 | Celestia | `references/chains/celestia.md` |
 | NEAR | `references/chains/near.md` |
+| Solana | `references/chains/solana.md` |
 
 If Docker was requested, also run `docker --version 2>&1`.
 
@@ -237,11 +269,11 @@ Run at the project root. **Accept only:** exit code 0, no `error:` lines in stde
 
 ### Step 2 — `bun run build:<chain>` (per chain in the template)
 
-Run the per-chain build script for every chain the template targets. Each one is `bun run build:<chain>` (e.g. `build:evm`, `build:midnight`, `build:near`).
+Run the per-chain build script for every chain package the template includes. Each one is `bun run build:<chain>` (e.g. `build:evm`, `build:midnight`, `build:near`). A frontend-only template that consumes an already-deployed backend has no local chain build.
 
 **Accept only:** exit code 0 AND the chain's generated artifacts exist and are non-empty (not `export {}`). Until this passes, `packages/node/` can't import the chain's generated bindings and won't typecheck. Per-chain acceptance criteria (which artifact path to check, what counts as "non-empty") live in `references/chains/{chain}.md`. If a build fails with version-mismatch or toolchain errors, the chain file's **Sharp edges** is the first place to look.
 
-### Step 3 — `bun run build:pgtypes`
+### Step 3 — `bun run build:pgtypes` *(when a database package exists)*
 
 **Accept only:** exit code 0 AND `packages/database/sql/*.queries.ts` files exist AND are non-empty AND contain `PreparedQuery` instances (not `export {}`). Empty output means the script ran from the wrong cwd — use the root script, not raw pgtyped.
 
@@ -250,7 +282,7 @@ Run the per-chain build script for every chain the template targets. Each one is
 **This step is required before reporting completion.** It's the only verification that catches runtime issues like missing `workspace:*` declarations, `Cannot find module` errors, port collisions, and orchestrator-config bugs that all earlier static checks miss.
 
 **Accept only one of:**
-- **Success path:** Orchestrator boots, chain nodes are up on expected ports (8545 / 9944 / 8088 / etc.), sync node logs `indexing block N`, no `Cannot find module` or `current transaction is aborted` errors. Then `Ctrl-C` cleanly. Record the highest block height observed.
+- **Success path:** Every process in the selected application shape reaches its readiness condition. For node templates, chain processes are up and the sync node logs `indexing block N`; record the highest observed height. For frontend-only templates, the dev server renders and its configured API-contract probe succeeds. No included service logs module-resolution or database errors. Then stop the process graph cleanly.
 - **Recorded-failure path:** A specific command failed with a specific error message. Quote both verbatim in your final report. Do NOT round "didn't reach a stable state" off to "looks fine."
 
 **The wrong outcomes:**
@@ -262,7 +294,7 @@ If `bun run dev` doesn't terminate on its own (which it shouldn't — it's a lon
 
 ### Step 5 — `bun run test`
 
-**Accept only:** Phase A passes (chains up), Phase B passes (tx → DB → API round trip), and Phase C passes if a frontend exists. The Playwright render test in Phase C catches Vite/browser-only bugs that `vite build` succeeds on (e.g., `node-fetch` polyfill blowing up at mount). If any phase fails, fix the underlying issue — don't skip the phase.
+**Accept only:** every phase required by the chosen shape passes. Node templates require Phase A plus a real write-path → STM → typed DB → API Phase B; templates with a frontend require Phase C. Frontend-only/external-backend templates require build/render plus a test of the configured API contract. The Playwright render test catches Vite/browser-only bugs that `vite build` succeeds on. If any phase fails, fix the underlying issue—do not skip it.
 
 ### Step 6 — `docker build` *(only if Docker was opted in)*
 
@@ -278,11 +310,11 @@ These are the **chain-agnostic** failure modes that have wasted the most enginee
 
 - **`Cannot find module '@my-template/database'`** at runtime, despite `bun install` succeeding → the importer's `package.json` is missing `"@my-template/database": "workspace:*"`. Bun resolves siblings through the workspace graph but only for declared deps. In Docker, also confirm the Dockerfile creates the inline workspace symlinks (Linux doesn't resolve them automatically). → `references/architecture.md`, `references/docker.md`
 - **`Cannot find module '@midnightntwrk/wallet-sdk-address-format'`** → it's a phantom dependency (declared by no one but required at runtime). Every template must add it to the root `package.json`. → `references/multi-env.md`
-- **`401 Invalid signature` from batcher `/send-input`** → `BatcherConfig.namespace` ≠ frontend `EffectstreamConfig.appName`. Both must equal the same string (often `""` or the template name). → `references/batcher.md`
+- **`401 Invalid signature` or a batched L2 input that never reaches the STM** → align the frontend `EffectstreamConfig` namespace, `BatcherConfig.namespace`, and node `setSecurityNamespace(...)`; test the real `/send-input` → chain → STM path. → `references/batcher.md`
 - **pgtyped generates empty `.queries.ts`** → script was run from the wrong working directory. Always run via `bun run build:pgtypes`. → `references/database.md`
 - **Sync node crashes with `current transaction is aborted (code 25P02)` after submitting a tx** → the `.queries.ts` byte-offset `locs` are wrong, almost always because someone hand-wrote the file. Run `bun run build:pgtypes` to regenerate. The 25P02 is a cascade error; the real error is whatever pgtyped's malformed substitution produced one statement earlier. → Core invariant §2, `references/database.md`
 - **Frontend builds fine but blank page in browser** → `node-fetch` in the bundle calls `require("fs").promises` at module init. Alias it to a native-fetch shim in `vite.config.ts`. The Playwright render test catches this; `vite build` doesn't. → `references/frontend.md`
-- **MQTT BlockWatcher silently never fires** → Bun's `ws` module is missing `createWebSocketStream`. Frontend must set `VITE_IS_BUN=true` to fall back to HTTP `/block-heights` polling. → `references/frontend.md`
+- **Block updates never arrive** → verify the MQTT broker URL and connectivity first. Current Bun supports the MQTT/WebSocket path; use HTTP `/block-heights` polling only when the template deliberately disables MQTT or the deployment cannot expose the broker. → `references/frontend.md`
 - **Orchestrator works locally but `Cannot find module @my-template/contracts-X` in Docker** → the orchestrator launcher uses `resolveFrom` instead of `cwd`. → `references/orchestrator.md`
 
 **Chain-specific sharp edges** (Midnight version matrix, Cardano `CARDANO_SUBMIT_TX` filter, EVM `PrimitiveTypeEVMEffectstreamL2` opt-in, NEAR Rust toolchain, …) live in each chain's reference file under its **Sharp edges** section. Always read `references/chains/{chain}.md` for every chain the template targets before scaffolding it.
@@ -304,8 +336,7 @@ Before adding custom code, check whether the engine already ships the feature. T
 - **`&`-prefixed grammar keys are reserved for engine system commands.** Built-ins include `&B` (batched inputs), `&createAccount`, `&linkAddress`, `&unlinkAddress`. Never define a custom grammar key starting with `&`. See `docs/site/docs/home/100-components/104-l2-contract.md` and `docs/site/docs/home/100-components/111-grammar.md`.
 - **EffectStream Accounts** (multi-wallet linking, primary address). If the user needs "the same user across multiple wallets," wire up `&createAccount` / `&linkAddress` rather than rolling your own. See `docs/site/docs/home/100-components/116-accounts.md`.
 - **Deterministic randomness** via `data.randomGenerator` (Prando-based, seeded by block hash). Calls are stateful — call order matters for determinism. See `docs/site/docs/home/100-components/113-randomness.md`.
-- **PRC-1 Achievements** — built-in HTTP surface for leaderboards and achievement metadata. If the user mentions achievements or leaderboards, use `export const achievements` instead of bespoke endpoints. See `docs/site/docs/home/100-components/114-achievements.md` and `docs/site/docs/home/400-paima-standards/prc1.md`.
-- **`mapPrimitivesToGrammar` helper** auto-derives grammar entries from primitives — shrinks `grammar.ts` substantially when you have many chain primitives. See `docs/site/docs/home/100-components/111-grammar.md`.
+- **PRC-1 Achievements — storage only, no built-in HTTP API.** The engine ships the `effectstream.achievement_progress` table plus `getAchievementProgress` / `setAchievementProgress` prepared queries in `@effectstream/db` (call them via `World.resolve` inside STM transitions) — don't scaffold a redundant achievements table. Any HTTP surface for achievements/leaderboards is app code. See `docs/site/docs/home/100-components/114-achievements.md` and `docs/site/docs/home/400-paima-standards/prc1.md`.
 - **Three database schemas** — `effectstream` (engine internals like `sync_protocol_pagination`), `primitives` (per-primitive tracking), `public` (your tables). See `docs/site/docs/home/1000-effectstream-engine/1002-database.md`. Knowing the split disambiguates "engine table vs my table" when writing custom queries.
 - **`/api/*` built-in endpoints** — `/health`, `/block-heights`, `/addresses`, `/scheduled-data`, `/tables/:name`, `/primitives/:name`, `/rpc/evm`, `/grammar`, and an OpenAPI explorer at `/documentation`. Don't add a redundant custom `/health`. See `docs/site/docs/home/100-components/103-api.md`.
 - **Orchestrator CLI** is more than just `start` and `stop`: `status`, `restart <name>`, `logs <name>`, `silence/unsilence`, `list`. Useful for README and operations guidance. See `docs/site/docs/home/500-packages/550-tools/orchestrator.md`.
