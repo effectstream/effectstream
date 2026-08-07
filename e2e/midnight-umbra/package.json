@@ -1,0 +1,12 @@
+{
+  "name": "@e2e/midnight-umbra",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@effectstream/sync": "workspace:*",
+    "@effectstream/config": "workspace:*",
+    "effection": "3.5.0",
+    "pg": "^8.14.0",
+    "@effectstream/midnight-contracts": "workspace:*"
+  }
+}

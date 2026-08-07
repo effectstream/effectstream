@@ -1,0 +1,27 @@
+# Optional overlay: publishes the same services on a CONFIGURABLE host port block, for when you
+# want psql from a GUI or a browser on the indexer.
+#
+# Not the default, and not a convenience to reach for casually: the base stack publishes nothing
+# precisely so several of these can share a machine. Layer this only when you personally need host
+# access, and set HOST_PORT_BASE to something nobody else is using.
+#
+#   HOST_PORT_BASE=21000 docker compose -p mn-umbra \
+#     -f e2e/midnight-umbra/docker-compose.yml \
+#     -f e2e/midnight-umbra/docker-compose.hostports.yml up -d
+#
+# Bound to 127.0.0.1 rather than 0.0.0.0: a dev chain with an unsafe-external RPC should not be
+# reachable from the network just because someone wanted a psql prompt.
+
+services:
+  node:
+    ports:
+      - '127.0.0.1:${HOST_PORT_BASE:-21000}:9944'
+  indexer:
+    ports:
+      - '127.0.0.1:${HOST_PORT_INDEXER:-21088}:8088'
+  proof-server:
+    ports:
+      - '127.0.0.1:${HOST_PORT_PROOF:-21300}:6300'
+  postgres:
+    ports:
+      - '127.0.0.1:${HOST_PORT_PG:-21432}:5432'

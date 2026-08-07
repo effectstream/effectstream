@@ -8,7 +8,8 @@ import { pageRelation } from "./types.ts";
 import type { MidnightFetcher } from "./fetcher.ts";
 import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/config";
 import { getPage } from "@effectstream/db";
-import { MidnightClient } from "./MidnightClient.ts";
+import type { MidnightClient } from "./MidnightClient.ts";
+import type { UmbraClient } from "./UmbraClient.ts";
 import { applyDelay } from "../common/utils.ts";
 import { bufferAtCap } from "../common/page-helpers.ts";
 
@@ -37,7 +38,7 @@ export class MidnightSyncState extends SyncState<
       { networkType: ConfigNetworkType.MIDNIGHT }
     >,
     fetcher: MidnightFetcher,
-    public readonly client: MidnightClient,
+    public readonly client: MidnightClient | UmbraClient,
     dbConn: PoolClient,
   ) {
     super(
@@ -47,7 +48,10 @@ export class MidnightSyncState extends SyncState<
       pageRelation,
       dbConn,
     );
-    this.url = config.syncProtocol.indexer;
+    // Purely descriptive: the configured source, for logs. UmbraDB-backed protocols have no
+    // indexer URL at all, so this reports the archive instead of an empty string.
+    this.url = config.syncProtocol.indexer ??
+      `umbra:${config.syncProtocol.umbra?.schema ?? "chain_archive"}@${config.syncProtocol.umbra?.net ?? "?"}`;
   }
 
   @bound

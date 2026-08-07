@@ -1,0 +1,184 @@
+# The UmbraDB-backed Midnight sync stack: node + indexer + proof server + Postgres + an UmbraDB
+# archive ingest + the differential test runner.
+#
+# ── No host ports, deliberately ────────────────────────────────────────────────────────────────
+# Nothing here publishes to the host. Every service is reachable only on the compose network under
+# its CANONICAL port (node 9944, indexer 8088, proof server 6300, postgres 5432), which means
+# several of these stacks run side by side on one machine with zero port collisions, as long as
+# each uses its own project name (`docker compose -p <name> ...`). Docker gives each project its
+# own network, so `node:9944` in one project is a different container than `node:9944` in another.
+#
+# This matters more than it looks: the existing `e2e/midnight` suite binds fixed HOST ports
+# (9944/30333/8088/6300/3334/5432) via the process orchestrator, so two agents running it on one
+# machine silently test against each other's chain. A suite that probes a node URL and runs
+# against whatever answers will happily produce green results on foreign data.
+#
+# For host access (psql from a GUI, a browser on the indexer), layer the optional override:
+#   docker compose -f e2e/midnight-umbra/docker-compose.yml \
+#                  -f e2e/midnight-umbra/docker-compose.hostports.yml up -d
+#
+# ── Running the differential ───────────────────────────────────────────────────────────────────
+#   docker compose -p mn-umbra -f e2e/midnight-umbra/docker-compose.yml up -d node indexer proof-server postgres
+#   docker compose -p mn-umbra -f e2e/midnight-umbra/docker-compose.yml run --rm umbra-ingest
+#   docker compose -p mn-umbra -f e2e/midnight-umbra/docker-compose.yml run --rm differential
+#
+# UMBRADB_PATH must point at an UmbraDB checkout carrying migration 002_zswap_root (defaults to a
+# sibling `umbradb-fork`). The archive ingest and the effectstream reader are separate codebases
+# on purpose -- the whole point is that the consumer reads a database, not a service.
+
+name: midnight-umbra
+
+services:
+  # `--state-pruning archive` is NOT optional here. UmbraDB reads `midnight_zswapStateRoot` at
+  # each block's own hash; a pruned node answers for recent blocks and fails for older ones, so a
+  # default-pruning node turns a backfill into a confusing partial failure.
+  node:
+    restart: unless-stopped
+    image: 'midnightntwrk/midnight-node:${NODE_TAG:-1.0.0}'
+    command:
+      - '--dev'
+      - '--rpc-port=9944'
+      - '--port=30333'
+      - '--state-pruning=archive'
+      - '--blocks-pruning=archive'
+      - '--rpc-external'
+      - '--rpc-cors=all'
+    environment:
+      CFG_PRESET: 'dev'
+      SIDECHAIN_BLOCK_BENEFICIARY: '04bcf7ad3be7a5c790460be82a713af570f22e0f801f6659ab8e84a52be6969e'
+    healthcheck:
+      test:
+        - 'CMD-SHELL'
+        - >
+          curl -fs -H 'Content-Type: application/json' -d
+          '{"id":1,"jsonrpc":"2.0","method":"chain_getBlockHash","params":[1]}' http://localhost:9944 | grep -q
+          '"result":"0x'
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  # Kept deliberately. In this stack the indexer is the DIFFERENTIAL ORACLE, not a dependency:
+  # the archive is ingested node-only, and the test asserts the two agree. It is what makes the
+  # migration falsifiable, and it goes away only after the last primitive has migrated.
+  indexer:
+    restart: unless-stopped
+    image: 'midnightntwrk/indexer-standalone:${INDEXER_TAG:-4.3.2}'
+    environment:
+      RUST_LOG: 'indexer=info,chain_indexer=info,indexer_api=info,wallet_indexer=info,indexer_common=info,fastrace_opentelemetry=off,info'
+      APP__APPLICATION__NETWORK_ID: 'undeployed'
+      APP__INFRA__NODE__URL: 'ws://node:9944'
+      APP__INFRA__STORAGE__PASSWORD: 'indexer'
+      APP__INFRA__PUB_SUB__PASSWORD: 'indexer'
+      APP__INFRA__LEDGER_STATE_STORAGE__PASSWORD: 'indexer'
+      APP__INFRA__SECRET: '303132333435363738393031323334353637383930313233343536373839303132'
+      APP__INFRA__SPO_NODE__URL: 'ws://node:9944'
+      APP__INFRA__SPO_NODE__BLOCKFROST_ID: 'midnight-umbra-dummy-id'
+    healthcheck:
+      # image has neither curl nor wget -- probe the file the indexer writes when running
+      test: ['CMD-SHELL', 'cat /var/run/indexer-standalone/running']
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 60s
+    depends_on:
+      node:
+        condition: service_healthy
+
+  proof-server:
+    restart: unless-stopped
+    image: 'midnightntwrk/proof-server:${PROOF_TAG:-8.1.0}'
+    environment:
+      RUST_BACKTRACE: 'full'
+      EXTRA_ARGS: '-v'
+    # distroless image: no shell, so no healthcheck -- consumers retry on the port
+
+  # A REAL Postgres, not PGlite. UmbraDB's durability probe REFUSES to migrate when fsync or
+  # full_page_writes are off, and the archive schema uses range partitioning and plpgsql triggers.
+  # The three settings are pinned explicitly so a future edit that breaks the contract fails here
+  # rather than at migration time.
+  postgres:
+    restart: unless-stopped
+    image: 'postgres:17'
+    environment:
+      POSTGRES_USER: 'umbra'
+      POSTGRES_PASSWORD: 'umbra'
+      POSTGRES_DB: 'umbra'
+    command:
+      - 'postgres'
+      - '-c'
+      - 'fsync=on'
+      - '-c'
+      - 'full_page_writes=on'
+      - '-c'
+      - 'synchronous_commit=on'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U umbra -d umbra']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # UmbraDB's archive ingest, NODE-ONLY (`NODE_ONLY=1`): it never contacts the indexer, which is
+  # what makes the differential meaningful rather than circular. `CAPTURE_ZSWAP_ROOT=1` adds the
+  # one RPC per block that populates `feed_zswap_roots_v1`.
+  umbra-ingest:
+    image: 'node:${NODE_IMAGE_TAG:-24-bookworm}'
+    working_dir: /umbra
+    volumes:
+      - '${UMBRADB_PATH:-../../../umbradb-fork}:/umbra'
+    environment:
+      ARCHIVE_PG: 'postgres://umbra:umbra@postgres:5432/umbra'
+      ARCHIVE_SCHEMA: '${UMBRA_SCHEMA:-chain_archive}'
+      NET: '${UMBRA_NET:-undeployed}'
+      NODE_URL: 'http://node:9944'
+      NODE_ONLY: '1'
+      CAPTURE_ZSWAP_ROOT: '1'
+      MAX_BLOCKS: '${UMBRA_MAX_BLOCKS:-400}'
+    command: ['npx', 'tsx', 'chain-archive-sync/sync-cli.ts']
+    depends_on:
+      node:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Drives real zswap transactions so the differential has a corpus beyond genesis. Genesis fires
+  # on every chain without any live ingest having happened, so a run that only covers it would
+  # stay green even if ingest were broken -- the differential rejects that case, and this is what
+  # makes it satisfiable.
+  workload:
+    image: 'oven/bun:${BUN_TAG:-1}'
+    working_dir: /repo
+    volumes:
+      - '../..:/repo'
+    environment:
+      MIDNIGHT_INDEXER_HTTP: 'http://indexer:8088/api/v3/graphql'
+      MIDNIGHT_INDEXER_WS: 'ws://indexer:8088/api/v3/graphql/ws'
+      MIDNIGHT_NODE_HTTP: 'http://node:9944'
+      MIDNIGHT_PROOF_SERVER_URL: 'http://proof-server:6300'
+      MIDNIGHT_NETWORK_ID: 'undeployed'
+      ZSWAP_ROUNDS: '${ZSWAP_ROUNDS:-3}'
+    command: ['bun', 'e2e/midnight-umbra/drive-zswap-workload.ts']
+    depends_on:
+      indexer:
+        condition: service_healthy
+
+  # The Phase 1 acceptance test: the same `MidnightFetcher` driven by both clients, asserting an
+  # identical trigger set, values and order. Waits for the indexer too -- it is the oracle.
+  differential:
+    image: 'oven/bun:${BUN_TAG:-1}'
+    working_dir: /repo
+    volumes:
+      - '../..:/repo'
+    environment:
+      MIDNIGHT_INDEXER_HTTP: 'http://indexer:8088/api/v3/graphql'
+      MIDNIGHT_NODE_HTTP: 'http://node:9944'
+      MIDNIGHT_PROOF_SERVER_URL: 'http://proof-server:6300'
+      UMBRA_PG: 'postgres://umbra:umbra@postgres:5432/umbra'
+      UMBRA_SCHEMA: '${UMBRA_SCHEMA:-chain_archive}'
+      UMBRA_NET: '${UMBRA_NET:-undeployed}'
+    command: ['bun', 'e2e/midnight-umbra/zswap-root-differential.ts']
+    depends_on:
+      indexer:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy

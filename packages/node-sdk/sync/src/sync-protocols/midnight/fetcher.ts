@@ -18,6 +18,8 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
+import { UmbraClient, type UmbraClientOptions } from "./UmbraClient.ts";
+import { assertExactlyOneMidnightSource } from "@effectstream/config";
 import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
 import { decodeZswapEvent } from "./zswap-decoder.ts";
 import { decodeTokenMints } from "./mint-decoder.ts";
@@ -29,18 +31,24 @@ export class MidnightFetcher extends BaseDataFetcher<
   Page,
   RootPage
 > {
-  readonly client: MidnightClient;
+  /**
+   * The block source. Both clients expose the same `fetchBlock`/`fetchLatestBlock` surface and
+   * return the same block shape, which is what lets every primitive mapping below -- and every
+   * primitive class downstream -- stay identical across the migration. See `UmbraClient` for why
+   * the seam is here rather than in a parallel fetcher.
+   */
+  readonly client: MidnightClient | UmbraClient;
   private readonly networkId?: string;
   constructor(
     readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
     const indexerHttp = config.syncProtocol.indexer;
-    if (!indexerHttp) {
-      throw new Error(
-        `Midnight sync protocol "${config.syncProtocol.name}" requires an indexer URL.`,
-      );
-    }
+    const umbra = (config.syncProtocol as { umbra?: UmbraClientOptions }).umbra;
+    assertExactlyOneMidnightSource(config.syncProtocol.name, {
+      indexer: indexerHttp,
+      umbra,
+    });
     this.networkId = config.network?.networkId ??
       (config.network as any)?.id;
 
@@ -57,11 +65,21 @@ export class MidnightFetcher extends BaseDataFetcher<
       }
     }
 
-    this.client = new MidnightClient(
-      indexerHttp,
-      this.networkId,
-      requestTimeoutOf(config.syncProtocol),
-    );
+    if (umbra) {
+      // Checked here, at construction, so a config asking UmbraDB for a replay-gated primitive
+      // dies at startup naming that primitive -- rather than running against a feed that is
+      // empty for a reason nobody can see.
+      UmbraClient.assertPrimitivesSupported(
+        config.primitives.map((p) => p.primitive.type as string),
+      );
+      this.client = new UmbraClient(umbra);
+    } else {
+      this.client = new MidnightClient(
+        indexerHttp!,
+        this.networkId,
+        requestTimeoutOf(config.syncProtocol),
+      );
+    }
   }
 
   @bound
