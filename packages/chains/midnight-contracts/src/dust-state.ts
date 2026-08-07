@@ -19,10 +19,17 @@ const log = console;
  * Uses first 16 hex chars of the seed as a stable identifier — the seed
  * deterministically maps to a dust address, so this is a unique key per wallet
  * that is available before building the facade.
+ *
+ * `networkId` is stripped to a safe character set before it reaches
+ * `path.join`. No caller currently passes untrusted input here (`networkId`
+ * comes from the wallet SDK's own enum or a local CLI env var), but nothing
+ * upstream enforces that, and a `networkId` containing `../` would otherwise
+ * let the resulting path escape `baseDir`.
  */
 export function getDustStatePath(baseDir: string, networkId: string, seed: string): string {
   const seedKey = seed.slice(0, 16);
-  return path.join(baseDir, `${networkId}-${seedKey}.json`);
+  const safeNetworkId = networkId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return path.join(baseDir, `${safeNetworkId}-${seedKey}.json`);
 }
 
 function isUndeployedNetwork(networkId: string): boolean {
