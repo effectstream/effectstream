@@ -436,7 +436,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       this.lastProcessTime.set(target, now);
     }
 
-    await this.storage.init();
+    // Pass the default target so storage can stamp rows written before
+    // per-row targets existed (see FileStorage.init).
+    await this.storage.init(this.defaultTarget);
 
     for (const [target, adapter] of Object.entries(this.adapters)) {
       if (typeof adapter.recoverState === "function") {
@@ -1545,7 +1547,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     // 3. Perform sequential setup tasks
-    yield* call(() => this.storage.init());
+    yield* call(() => this.storage.init(this.defaultTarget));
 
     // 4. Recover adapter state from storage (e.g., Bitcoin reserved funds)
     if (this.defaultTarget) {

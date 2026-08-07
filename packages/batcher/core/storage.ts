@@ -67,9 +67,13 @@ export interface BatcherStorage<
   T extends DefaultBatcherInput = DefaultBatcherInput,
 > {
   /**
-   * Initialize the storage (create directories, tables, etc.)
+   * Initialize the storage (create directories, tables, etc.).
+   *
+   * `defaultTarget`, when given, is the target unaddressed input routes to.
+   * Implementations that persist a per-row target should use it to stamp rows
+   * written before targets were recorded — see `FileStorage.init`.
    */
-  init(): Promise<void>;
+  init(defaultTarget?: string): Promise<void>;
 
   /**
    * Add a new input to storage
@@ -136,13 +140,58 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
     await rename(tmpPath, this.filePath);
   }
 
-  async init(): Promise<void> {
+  async init(defaultTarget?: string): Promise<void> {
     try {
       await mkdir(this.dataDirectory, { recursive: true });
     } catch (error) {
       console.error("Error creating data directory:", error);
       throw new Error(`Failed to initialize storage: ${error}`);
     }
+    if (defaultTarget !== undefined) {
+      await this.stampLegacyRows(defaultTarget);
+    }
+  }
+
+  /**
+   * One-time migration: give rows written before targets were recorded the
+   * target they actually belong to.
+   *
+   * `createInputKey` falls back to the target currently being processed for a
+   * row that has none, so an untargeted row is read as belonging to whoever is
+   * asking. A queue carried across an upgrade can therefore have another
+   * product's identical row match — and remove or retry-charge — the legacy
+   * default-target row. Rewriting them once, under the mutex, ends that.
+   */
+  private async stampLegacyRows(defaultTarget: string): Promise<void> {
+    await this.mutex.run(async () => {
+      let content: string;
+      try {
+        content = await this.readFileContent();
+      } catch {
+        return; // no queue file yet
+      }
+      const lines = content.split("\n").filter((line) => line.trim());
+      if (lines.length === 0) return;
+
+      let stamped = 0;
+      const migrated = lines.map((line) => {
+        try {
+          const row = JSON.parse(line) as T;
+          if (row.target !== undefined) return line;
+          stamped += 1;
+          return JSON.stringify({ ...row, target: defaultTarget });
+        } catch {
+          return line; // leave unparseable lines exactly as found
+        }
+      });
+      if (stamped === 0) return;
+
+      await this.atomicWrite(migrated.join("\n") + "\n");
+      console.log(
+        `[Storage] Stamped ${stamped} legacy input(s) with target "${defaultTarget}" ` +
+          `(rows written before per-row targets were recorded).`,
+      );
+    });
   }
 
   async addInput(input: T, target?: string): Promise<void> {
@@ -374,7 +423,7 @@ export class DatabaseStorage<
   constructor(private connectionString: string) {}
 
   // TODO: Implement database storage
-  init(): Promise<void> {
+  init(_defaultTarget?: string): Promise<void> {
     throw new Error("DatabaseStorage not implemented yet");
   }
   addInput(input: T): Promise<void> {

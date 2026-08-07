@@ -5,7 +5,7 @@
 //  - retry policy is resolvable per target
 
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -95,6 +95,75 @@ describe("shared queue keeps products separate", () => {
       await storage.removeProcessedInputs([legacy], "product-a");
       expect((await storage.getAllInputs()).length).toBe(0);
     });
+  });
+});
+
+describe("legacy targetless rows (upgrade path)", () => {
+  // Rows written before per-row targets existed have no `target`, and
+  // createInputKey falls back to whoever is currently processing — so an
+  // untargeted row is read as belonging to the asker. A queue carried across
+  // the upgrade therefore lets one product remove another's row. New rows are
+  // stamped on write; the ones already on disk need the migration.
+
+  test("REGRESSION: a legacy row survives another product's removal", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "legacy-"));
+    try {
+      const base = { address: "a", addressType: 5, input: "{}", timestamp: "1" };
+      // Written by the previous version: the default-target row carries no target.
+      writeFileSync(
+        path.join(dir, "pending-inputs.jsonl"),
+        JSON.stringify(base) + "\n" +
+          JSON.stringify({ ...base, target: "product-b" }) + "\n",
+      );
+
+      const storage = new FileStorage(dir);
+      await storage.init("product-a");
+      expect((await storage.getAllInputs()).length).toBe(2);
+
+      await storage.removeProcessedInputs(
+        [{ ...base, target: "product-b" } as DefaultBatcherInput],
+        "product-b",
+      );
+
+      const left = await storage.getAllInputs();
+      expect(left.length).toBe(1);
+      expect(left[0].target).toBe("product-a");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("init without a default target leaves the file untouched", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "legacy-"));
+    try {
+      const row = JSON.stringify({ address: "a", addressType: 5, input: "{}", timestamp: "1" });
+      writeFileSync(path.join(dir, "pending-inputs.jsonl"), row + "\n");
+      const storage = new FileStorage(dir);
+      await storage.init();
+      expect((await storage.getAllInputs())[0].target).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("already-stamped rows and corrupt lines are left alone", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "legacy-"));
+    try {
+      writeFileSync(
+        path.join(dir, "pending-inputs.jsonl"),
+        JSON.stringify({ address: "a", addressType: 5, input: "{}", timestamp: "1", target: "product-z" }) +
+          "\nnot-json\n",
+      );
+      const storage = new FileStorage(dir);
+      await storage.init("product-a");
+      const rows = await storage.getAllInputs();
+      expect(rows.length).toBe(1);
+      expect(rows[0].target).toBe("product-z"); // not re-stamped
+      const raw = readFileSync(path.join(dir, "pending-inputs.jsonl"), "utf8");
+      expect(raw).toContain("not-json"); // unparseable line preserved
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
