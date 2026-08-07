@@ -1,6 +1,6 @@
 # Celestia
 
-`packages/contracts-celestia/` — Celestia DA layer config + bridge funding. The `launchCelestia` helper (present as of engine `0.102.0`) handles the four-process boot chain.
+`packages/contracts-celestia/` — Celestia DA layer config + bridge funding. The `launchCelestia` helper handles the four-process boot chain.
 
 > **See also (concept docs).**
 > - Celestia chain overview: `docs/site/docs/home/200-chains/209-celestia.md`
@@ -84,7 +84,7 @@ Convert `suppliedValue` to hex via `Buffer.from(suppliedValue, "binary").toStrin
 
 ### Celestia sync uses long polling — bump test timeouts
 
-`CELESTIA_PARALLEL` typically uses `delayMs: 12_000` + `pollingInterval: 6_000`. Phase B's `assertSQL` should use ~240s timeout (4 minutes). Default test timeouts built for EVM (~20s) will fail well before the engine indexes the blob.
+`CELESTIA_PARALLEL` typically uses `delayMs: 12_000` + `pollingInterval: 6_000`. Phase B's typed-query `assertEventually` should use ~240s timeout (4 minutes). Default test timeouts built for EVM (~20s) will fail well before the engine indexes the blob.
 
 ### Cold-start binary download
 

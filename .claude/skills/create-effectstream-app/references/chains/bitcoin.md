@@ -56,7 +56,7 @@ Sync protocol: `BITCOIN_RPC_PARALLEL`.
 
 ### Bitcoin sync polls slowly — tune test timeouts upward
 
-A typical Bitcoin sync protocol config uses `pollingInterval: 10000` and `delayMs: 20000` (regtest blocks are 1s but the sync gates for finality). Phase B's `assertSQL` should use a generous timeout (~180s) and `waitForProcess` for sync up to ~600s — defaults built for Hardhat-speed will time out.
+A typical Bitcoin sync protocol config uses `pollingInterval: 10000` and `delayMs: 20000` (regtest blocks are 1s but the sync gates for finality). Phase B's typed-query `assertEventually` should use a generous timeout (~180s) and `waitForProcess` for sync up to ~600s — defaults built for Hardhat-speed will time out.
 
 ### Address-primitive only surfaces the watched address; the funding address isn't included
 

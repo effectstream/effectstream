@@ -28,6 +28,16 @@ Import path is `@effectstream/orchestrator/scripts/launch-solana` (note: not `./
 - `chain:start` — start the validator with the program(s) preloaded
 - `chain:wait` — wait until RPC is responsive (`wait-on tcp:8899`)
 
+## Program build and sponsor-wallet phases
+
+Solana templates commonly need setup beyond `launchSolana`: build the SBF `.so`, create or reuse the sponsor keypair, and fund it before the sponsored batcher starts. Represent these as one-shot orchestrator processes, not hidden side effects in the batcher:
+
+```text
+build-program → solana-validator → create-sponsor-wallet → fund-sponsor-wallet → batcher
+```
+
+The validator process must depend on `build-program` when `chain:start` loads the `.so` with `--bpf-program`. `fund-sponsor-wallet` depends on both wallet creation and `SolanaNames.SOLANA_VALIDATOR_WAIT`; the batcher depends on funding. Put substantial provisioning logic in a purpose-named package such as `packages/wallet-provisioning`, make it reuse an existing valid keypair and check the current balance before airdropping, and cover the artifact/balance in Phase A. Never create or fund a production wallet automatically.
+
 ## Sync protocol + primitives
 
 Sync protocol: `SOLANA_RPC_PARALLEL`. Polls slot by slot; **skipped slots are normal** and are passed over.

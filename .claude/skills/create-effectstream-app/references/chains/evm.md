@@ -86,7 +86,9 @@ Sync protocol: `EVM_RPC_PARALLEL`.
 
 **Do not add it by default** — scanning an extra contract is expensive (one more RPC call per block, one more contract address to deploy and audit). Add it only when the template has standalone user actions that don't originate from events already emitted by other contracts (ERC-20 transfers, Midnight state changes, etc.).
 
-If you do need it, register it in `buildPrimitives` with `stateMachinePrefix: ""` pointing at the L2 contract address. **Without this primitive when it IS needed, the sync node silently ignores L2 inputs — no error, no crash, just empty results.** See `references/grammar-stm.md` §6 for the config example.
+If you do need it, register it in `buildPrimitives` pointing at the L2 contract address and **omit `stateMachinePrefix`**. The L2 primitive hardcodes the prefix to `undefined` because the grammar key comes from the encoded payload. **Without this primitive when it IS needed, the sync node silently ignores L2 inputs — no error, no crash, just empty results.** See `references/grammar-stm.md` §6 for the config example.
+
+For batched L2 input, also use one security namespace in the frontend `EffectstreamConfig`, `BatcherConfig.namespace`, and node `ConfigBuilder.setSecurityNamespace(...)`. The primitive re-verifies signatures with the node namespace, so a node-only mismatch silently drops inputs after successful batching and chain submission.
 
 ### Solidity contract — extend `EffectstreamL2Contract`
 

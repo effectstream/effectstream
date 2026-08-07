@@ -82,22 +82,22 @@ Do **not** ship a `.env` or `.env.mainnet` with real-looking defaults — only `
 
 ## NTP start-time recovery (deterministic replay)
 
-For deterministic replay across restarts, the NTP `startTime` should be recovered from the database. This is one of the few places **raw SQL is acceptable** because it reads the engine's internal `effectstream.sync_protocol_pagination` table — not the application schema, so no pgtyped binding exists.
+For deterministic replay across restarts, recover the NTP `startTime` with the engine's typed `getPage` prepared query. Do not inline SQL just because the table belongs to the engine schema.
 
 ```ts
-import { getConnection } from "@effectstream/db";
+import { getConnection, getPage, runPreparedQuery } from "@effectstream/db";
 
 let launchStartTime = Date.now(); // default on first boot
 
 const dbConn = getConnection();
 try {
-  const result = await dbConn.query(`
-    SELECT * FROM effectstream.sync_protocol_pagination
-    WHERE protocol_name = '${mainSyncProtocolName}'
-    ORDER BY page_number ASC LIMIT 1
-  `);
-  if (result?.rows.length) {
-    launchStartTime = result.rows[0].page.root - (result.rows[0].page_number * 1000);
+  const [firstPage] = await runPreparedQuery(
+    getPage.run({ protocol_name: mainSyncProtocolName }, dbConn),
+    "config:getInitialNtpPage",
+  );
+  if (firstPage) {
+    const page = firstPage.page as { root: number };
+    launchStartTime = page.root - (firstPage.page_number * 1000);
   }
 } catch { /* DB not initialized yet */ }
 ```
@@ -116,7 +116,7 @@ In the engine monorepo this works because the package is hoisted. Standalone tem
 
 ## Environment variables templates actually use
 
-Templates do **not** implement `DISABLE_*` chain toggles or an `isEnvTrue` helper — that machinery only exists for the engine's own e2e runner. Environment selection is the file split above (`config.dev.ts` / `config.mainnet.ts`, `main.dev.ts` / `main.mainnet.ts`), plus a few engine env vars (registry: `packages/effectstream-sdk/utils/src/config.ts`):
+The orchestrator CLI does **not** interpret `DISABLE_*` chain toggles. The engine repository implements selected flags in its own root config and e2e runner, but generated templates should not copy that machinery unless the user explicitly requests it. Environment selection is the file split above (`config.dev.ts` / `config.mainnet.ts`, `main.dev.ts` / `main.mainnet.ts`), plus a few engine env vars (registry: `packages/effectstream-sdk/utils/src/config.ts`):
 
 - `NODE_ENV=development` — set by the `dev` script
 - `EFFECTSTREAM_ENV` — if set, the engine loads `.env.${EFFECTSTREAM_ENV}` via dotenv

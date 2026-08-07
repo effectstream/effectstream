@@ -70,7 +70,7 @@ const config: BatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   adapters: { paimaL2 },
   defaultTarget: "paimaL2",
-  namespace: "",                       // ⚠️ must match frontend EffectstreamConfig securityNamespace
+  namespace: "my-template",            // signed L2 path: also use in frontend + node ConfigBuilder
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },
@@ -141,11 +141,17 @@ fetch(`${BATCHER_URL}/send-input`, {
 
 The OpenAPI explorer at `${BATCHER_URL}/documentation` reflects the live schema and is the authoritative reference if anything ever changes.
 
-## ⚠️ Namespace must equal frontend securityNamespace
+## ⚠️ Signed EVM L2 uses one namespace in frontend, batcher, and node
 
-`BatcherConfig.namespace` **must exactly match** the `EffectstreamConfig` `securityNamespace` (its first constructor arg) used by the frontend when signing transactions. The signed message includes `securityNamespace`; the batcher validates the signature against `namespace`. A mismatch produces `401 Invalid signature` from `/send-input`. (Not to be confused with the runtime's `start({ appName })` — a different field.)
+For `EffectstreamL2DefaultAdapter`, use the same namespace in all three places:
 
-Pick one string (often `""` or the template name like `"my-template"`) and use it in BOTH places.
+1. Frontend `new EffectstreamConfig("my-template", ...)` signs the message.
+2. `BatcherConfig.namespace = "my-template"` verifies it before queueing.
+3. Node `ConfigBuilder.setSecurityNamespace("my-template")` lets `PrimitiveTypeEVMEffectstreamL2` re-verify each batched message before invoking the STM.
+
+A frontend↔batcher mismatch produces `401 Invalid signature`. A node mismatch is more deceptive: the batcher and chain submission succeed, but the L2 primitive silently drops the input. Test the real `/send-input` → chain → typed DB query path.
+
+This three-way rule is specific to signed Effectstream L2 input. An adapter that implements its own `verifySignature` replaces the batcher's default admission check; document its signature contract and cover it with an end-to-end test instead of applying the L2 rule blindly. (The runtime's `start({ appName })` is unrelated.)
 
 ## Available adapters
 
@@ -154,9 +160,12 @@ Pick one string (often `""` or the template name like `"my-template"`) and use i
 | `EffectstreamL2DefaultAdapter` | EVM | time, size, hybrid |
 | `EvmContractAdapter` | EVM (custom contract) | time, size, hybrid |
 | `MidnightAdapter` | Midnight | size (typically 1) |
+| `MidnightBalancingAdapter` | Midnight | size; delegates transaction balancing |
 | `BitcoinAdapter` | Bitcoin | hybrid |
 | `NearAdapter` | NEAR | time, size |
 | `NearIntentAdapter` | NEAR (intents) | time, size |
+| `CelestiaAdapter` | Celestia | PFB submission |
+| `SolanaAdapter` | Solana | sponsored fee-payer transactions |
 
 ## Adapter validation hooks
 

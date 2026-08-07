@@ -5,7 +5,7 @@
 > **See also (concept docs).**
 > - Orchestrator processes concept + CLI reference (`start`, `status`, `restart`, `stop`, `list`, `silence/unsilence`, `logs`): `docs/site/docs/home/500-packages/550-tools/orchestrator.md`
 > - High-level "what is the process orchestrator": `docs/site/docs/home/100-components/106-processes.md`
-> - **`DISABLE_*` env vars** (`DISABLE_EVM`, `DISABLE_MIDNIGHT`, …) are read ONLY by the engine repo's `e2e/runner.ts` to skip test suites — the orchestrator itself does not read them, and templates do not implement them. To skip processes in dev, use `--only` / `--except`.
+> - **`DISABLE_*` env vars are not interpreted by the orchestrator CLI.** The engine repo's own `orchestrator.config.ts` and `e2e/runner.ts` implement selected `DISABLE_*` flags themselves. A generated template has no such behavior unless its config explicitly adds it. Prefer `--only` / `--except` for ad-hoc process selection; add env gates only when the user asks for a stable template interface.
 > - **Daemon mode**: `bunx orchestrator start --background` runs the orchestrator as a detached daemon and exposes the full HTTP API on port 4747. The follow-up commands `status`, `restart <name>`, `logs <name>`, and `stop` all require the daemon to be running first. For interactive use (single terminal, foreground TUI) drop `--background`. README quick-starts should default to foreground; CI / containerized dev rigs should use daemon mode.
 > - **Always run `bunx orchestrator stop` before relaunching** or before running tests — clears stale ports from the previous run.
 
@@ -85,6 +85,8 @@ Each launcher returns a `ProcessConfig[]` and exports named constants for `depen
 | `launchCardano(pkg, loc)` | `@effectstream/orchestrator/launch-cardano` | `CardanoNames` | `devkit:start`, `devkit:wait`, `dolos:fill-template`, `dolos:start`, `dolos:wait`, `cardano-submit-tx` |
 | `launchNear(pkg, loc)` | `@effectstream/orchestrator/launch-near` | `NearNames` | `chain:start`, `chain:wait` |
 | `launchAvail(pkg, loc)` | `@effectstream/orchestrator/launch-avail` | `AvailNames` | `avail-node:start`, `avail-node:wait`, `avail-light-client:deploy`, `avail-light-client:wait` |
+| `launchCelestia(pkg, loc, opts?)` | `@effectstream/orchestrator/launch-celestia` | `CelestiaNames` | `celestia-bridge:start`, `celestia-bridge:wait`, `celestia-fund:bridge` |
+| `launchSolana(pkg, loc, opts?)` | `@effectstream/orchestrator/scripts/launch-solana` | `SolanaNames` | `chain:start`, `chain:wait` |
 
 (EVM mod generation is not a package script — the launcher runs `@effectstream/evm-hardhat/builder` inline for `EvmNames.GENERATE_MOD`.)
 
@@ -129,6 +131,50 @@ const root = import.meta.dirname!;
 | `link` | `string` | URL shown in status output |
 | `stopProcessAtPort` | `number[]` | Ports to free before launch |
 | `autoStart` | `boolean` | Include in normal start |
+
+## Custom programs and ordered setup phases
+
+The launcher helpers cover chain infrastructure, but real applications often need their own programs: compile a chain program, create wallets, fund them, seed data, register a contract, or start a filler/relayer. Add these as normal `ProcessConfig` entries and make the dependency graph express the phase order.
+
+Keep each script in the package that owns the operation. If it is substantial and has multiple consumers, create a purpose-named package such as `packages/wallet-provisioning`; do not create `packages/shared` or `packages/utils`.
+
+```ts
+{
+  name: "create-batcher-wallet",
+  description: "Create or reuse the local batcher wallet",
+  cwd: path.join(root, "packages/wallet-provisioning"),
+  args: ["run", "create-batcher-wallet"],
+  waitToExit: true,
+  type: "system-dependency",
+  critical: true,
+},
+{
+  name: "fund-batcher-wallet",
+  description: "Fund the local batcher wallet",
+  cwd: path.join(root, "packages/wallet-provisioning"),
+  args: ["run", "fund-batcher-wallet"],
+  waitToExit: true,
+  type: "system-dependency",
+  critical: true,
+  dependsOn: ["create-batcher-wallet", SolanaNames.SOLANA_VALIDATOR_WAIT],
+},
+{
+  name: "batcher",
+  args: ["run", "packages/batcher/batcher.dev.ts"],
+  waitToExit: false,
+  type: "system-dependency",
+  dependsOn: ["fund-batcher-wallet"],
+},
+```
+
+Rules for generated programs:
+
+- Use `waitToExit: true` for setup phases; a successful exit is their readiness signal.
+- Make setup scripts idempotent: reuse valid generated artifacts and check current funding before topping up.
+- Mark a setup phase `critical: true` when dependent services cannot operate without it.
+- Pass artifacts through explicit files or validated environment variables; document their paths and ownership.
+- Never generate automatic mainnet funding, production key creation, or hard-coded production secrets.
+- Add Phase A tests that prove each required setup program completed and produced usable output.
 
 ## Dependency ordering — use the Names constants
 

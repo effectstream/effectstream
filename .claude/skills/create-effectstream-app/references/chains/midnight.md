@@ -109,7 +109,7 @@ export default {
 
 With this, the user can just `bun install && bun run dev` — same as EVM templates. The standalone `bun run build:midnight` script stays in the root `package.json` for CI/release use cases, but it's no longer a prereq for local dev.
 
-(If the engine fixes the asymmetry by adding a `midnight-contract:compile` script to `launchMidnight`'s `REQUIRED_SCRIPTS`, the inline ProcessConfig above becomes unnecessary. As of engine `0.102.0` it's still required.)
+After resolving the latest stable engine version from npm, inspect `launchMidnight`'s required scripts. If it still omits contract compilation, keep the explicit compile process above; if the launcher now owns compilation, do not duplicate it.
 
 ## Sharp edges
 
@@ -127,7 +127,7 @@ undefined is not an object (evaluating 'Object.keys(contract.provableCircuits)')
 
 Pin to exact versions from the compatibility matrix below. **No `^` or `~` ranges anywhere in `@midnight-ntwrk/*` dependencies.**
 
-### Midnight SDK compatibility matrix (as of 2026-08-04, Midnight 1.0 / engine 0.102.0)
+### Midnight SDK compatibility matrix (as of 2026-08-04, Midnight 1.0)
 
 All Midnight SDK packages must come from the same compatibility set. Always check the official matrix before bumping any version: https://github.com/midnightntwrk/midnight-sdk/blob/main/COMPATIBILITY.md
 

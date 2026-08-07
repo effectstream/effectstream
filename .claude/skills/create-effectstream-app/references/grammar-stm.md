@@ -71,7 +71,7 @@ export const grammar = {
 
 Each grammar key maps to a state transition via `Stm.addStateTransition`. Transitions are generator functions that use `World.resolve` for typed queries and `World.promise` for raw async operations.
 
-All game/business logic lives here. No separate `game-logic` package, no `tick.ts`, no round/match executors. **All DB access via pgtyped `PreparedQuery` from `@my-template/database`.**
+The STM owns deterministic transitions, scheduling, and every database effect. Do not recreate the legacy generic `game-logic` package, `tick.ts`, or round/match executor layers. Pure deterministic domain rules may stay beside the STM or, when multiple runtimes genuinely consume them, live in a purpose-named package such as `packages/chess-rules`. **All DB access uses pgtyped `PreparedQuery` exports from `@my-template/database`.**
 
 ```ts
 import { Stm } from "@effectstream/sm";
@@ -129,9 +129,9 @@ Typed events declared in the STM and consumed in the frontend via MQTT. Two guar
 1. **Post-COMMIT delivery** — when a subscriber receives an event, a follow-up API query will see the rows the STF wrote. The frontend never races ahead of the database.
 2. **Drop on rollback** — events emitted by an STF that throws (or by a block that fails to commit) are never published. No ghost events.
 
-A tiny `@my-template/shared` package keeps event declarations in one place so the state machine and frontend stay in sync.
+A purpose-specific `@my-template/app-events` package keeps event declarations in one place when both the state machine and frontend consume them. Do not create a generic `shared` package.
 
-### Declare (`packages/shared/app-events.ts`)
+### Declare (`packages/app-events/app-events.ts`)
 
 ```ts
 import { Type } from "@sinclair/typebox";
@@ -154,11 +154,11 @@ export const AppEvents = registerEvents({
 
 ```json
 {
-  "name": "@my-template/shared",
+  "name": "@my-template/app-events",
   "version": "1.0.0",
-  "exports": { "./app-events": "./app-events.ts" },
+  "exports": { ".": "./app-events.ts" },
   "dependencies": {
-    "@effectstream/event-client": "<latest>",
+    "@effectstream/event-client": "<EFFECTSTREAM_VERSION_FROM_NPM>",
     "@sinclair/typebox": "0.34.41"
   }
 }
@@ -167,7 +167,7 @@ export const AppEvents = registerEvents({
 ### Emit (in STM transition)
 
 ```ts
-import { AppEvents } from "@my-template/shared/app-events";
+import { AppEvents } from "@my-template/app-events";
 
 stm.addStateTransition("createRoom", function* (data) {
   const { roomName, maxPlayers } = data.parsedInput;
@@ -187,7 +187,7 @@ stm.addStateTransition("createRoom", function* (data) {
 
 ```tsx
 import { EventManager } from "@effectstream/event-client";
-import { AppEvents } from "@my-template/shared/app-events";
+import { AppEvents } from "@my-template/app-events";
 
 useEffect(() => {
   if (!walletAddress) return;
@@ -374,7 +374,7 @@ export const config = new ConfigBuilder()
 
 ### Networks (`ConfigNetworkType`)
 
-`NTP` (required, one per app), `EVM`, `MIDNIGHT`, `BITCOIN`, `CARDANO`, `AVAIL`, `CELESTIA`, `NEAR`, `MINA`.
+`NTP` (required, one per app), `EVM`, `MIDNIGHT`, `BITCOIN`, `CARDANO`, `AVAIL`, `CELESTIA`, `NEAR`, `SOLANA`, `MINA`.
 
 ### Sync Protocols (`ConfigSyncProtocolType`)
 
@@ -390,6 +390,7 @@ Every app: exactly one `addMain` (the `NTP_MAIN` clock) and one or more `addPara
 | `AVAIL_PARALLEL` | AVAIL |
 | `CELESTIA_PARALLEL` | CELESTIA |
 | `NEAR_RPC_PARALLEL` | NEAR |
+| `SOLANA_RPC_PARALLEL` | SOLANA |
 | `MINA_PARALLEL` | MINA |
 
 Common sync-protocol fields: `startBlockHeight`, `pollingInterval`, `confirmationDepth`, `stepSize`, `delayMs` (mainnet sync alignment).
@@ -412,7 +413,7 @@ The `ConfigBuilder.addPrimitive(...)` TypeScript schema exposes **`stateMachineP
 }))
 ```
 
-The symptom of getting it wrong is identical to the symptom of forgetting `PrimitiveTypeEVMEffectstreamL2` (Core invariant §9) — silent empty results. Always assertSQL against the user-side table (not just `primitive_accounting`) in Phase B tests to surface this immediately.
+The symptom of getting it wrong is identical to the symptom of forgetting `PrimitiveTypeEVMEffectstreamL2` (Core invariant §9) — silent empty results. Always run a typed application-table query (not just an assertion against `primitive_accounting`) in Phase B tests to surface this immediately.
 
 ### Built-in primitives (`@effectstream/sm/builtin`)
 

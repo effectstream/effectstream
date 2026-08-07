@@ -16,7 +16,7 @@ import { EffectstreamConfig } from "@effectstream/wallets";
 import { hardhat } from "viem/chains";
 
 export const paimaEngineConfig = new EffectstreamConfig(
-  "",              // securityNamespace — MUST match BatcherConfig.namespace
+  "my-template",   // signed L2 path: also use in BatcherConfig + node ConfigBuilder
   "mainEvmRPC",    // sync protocol name (from config.dev.ts)
   "0x5FbDB...",    // EffectstreamL2 contract address
   hardhat,         // viem chain definition
@@ -131,7 +131,7 @@ server.addContentTypeParser("application/cbor", { parseAs: "buffer" }, (_req, bo
 
 ```tsx
 import { EventManager } from "@effectstream/event-client";
-import { AppEvents } from "@my-template/shared/app-events";
+import { AppEvents } from "@my-template/app-events";
 ```
 
 See `grammar-stm.md` §3 for the full subscribe pattern. Key rules:

@@ -57,7 +57,7 @@ Sync protocol: `AVAIL_PARALLEL`.
 
 ### Avail finality is ~60s — test timeouts must accommodate
 
-`AVAIL_PARALLEL` typically uses `delayMs: 60000` (one minute) for confirmation. Phase B `assertSQL` should use ~240s budget. Defaults built for Hardhat (~20s) will time out before the first blob round-trips.
+`AVAIL_PARALLEL` typically uses `delayMs: 60000` (one minute) for confirmation. Phase B's typed-query `assertEventually` should use ~240s budget. Defaults built for Hardhat (~20s) will time out before the first blob round-trips.
 
 ### First-boot binary download is slow
 
