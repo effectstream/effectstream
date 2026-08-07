@@ -198,16 +198,19 @@ transaction can never apply — the one chain-state check worth a sponsor's time
 since a doomed transaction still costs it proving and dust to find out. It is
 safe in a filter that runs twice because "spent" is monotone.
 
-> **`allowedTokenTypes` cannot constrain an ordinary shielded transfer.**
-> Shielded token types are visible only through an offer's net deltas, and a
-> balanced transfer — the normal case — has none, so its token types are simply
-> not observable. Rather than accept such a transaction against an allowlist it
-> cannot actually check, the policy **rejects** it and says why. The allowlist
-> is enforceable, and enforced, for unshielded offers and for *unbalanced*
-> shielded offers such as swaps. If you need a product to accept arbitrary
-> shielded transfers, leave `allowedTokenTypes` unset; if you need real
-> per-token control, gate on an allowlisted contract or circuit whose proof
-> binds the token type.
+> **`allowedTokenTypes` constrains unshielded offers only.**
+> Shielded token types are visible solely through an offer's deltas, and deltas
+> are *net sums*: they show that some tokens moved, never every token the coins
+> span, because anything balancing inside the offer cancels to zero and
+> disappears. A balanced transfer shows no deltas at all; an unbalanced swap
+> shows two and may still be carrying a third. Both are equally unenumerable —
+> only the second looks otherwise, which is what makes it the dangerous case.
+>
+> So any transaction carrying shielded coins is **rejected** under this rule
+> rather than checked against an allowlist that cannot see its contents. If you
+> need a product to accept arbitrary shielded transfers, leave
+> `allowedTokenTypes` unset; if you need real per-token control, gate on an
+> allowlisted contract or circuit whose proof binds the token type.
 
 Accepting that anyone may submit a *policy-conforming* transaction is the
 trade-off of tokenless authorization. Bound the blast radius with

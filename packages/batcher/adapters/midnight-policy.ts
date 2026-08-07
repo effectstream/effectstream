@@ -370,30 +370,27 @@ export function callsOnlyCircuits(
  * True when the transaction moves shielded coins whose token types the policy
  * layer CANNOT see.
  *
- * Shielded token types are only observable through `ZswapOffer.deltas`, which
- * is the offer's net imbalance. An ordinary transfer is balanced — its inputs
- * and outputs cancel — so it carries coins while reporting an empty delta map.
- * `tokenTypesUsed` therefore returns nothing for it, and any allowlist checked
- * against that empty set passes vacuously.
+ * Shielded token types are only ever visible through `ZswapOffer.deltas`, and
+ * deltas are NET SUMS — the offer's imbalance per token. They reveal that
+ * *some* types moved; they cannot enumerate every type the coins span, because
+ * any token that balances within the offer nets to zero and never appears.
  *
- * An UNBALANCED offer (a swap) does expose its types, and unshielded offers
- * carry them directly, so an allowlist is enforceable in those cases. Callers
- * that need `allowedTokenTypes` to mean something must use this to reject the
- * unobservable case rather than silently accept it.
+ * So the presence of coins, not the emptiness of the delta map, is what makes
+ * the type set unknowable. A balanced transfer shows no deltas at all. An
+ * unbalanced swap shows two — and may still be carrying a third token that
+ * cancels inside it. Both are equally unenumerable; only the second *looks*
+ * otherwise, which is what made an earlier version of this guard exploitable:
+ * it accepted any offer that had at least one visible delta.
+ *
+ * Any offer carrying shielded coins therefore has an unobservable type set.
+ * Unshielded offers carry their types directly and stay enforceable, so
+ * `allowedTokenTypes` remains meaningful there and only there.
  */
 export function hasUnobservableShieldedTokens(tx: PolicyInspectableTx): boolean {
   for (const offer of zswapOfferList(tx)) {
     const coins = (offer.inputs?.length ?? 0) + (offer.outputs?.length ?? 0) +
       (offer.transients?.length ?? 0);
-    if (coins === 0) continue;
-    let observable = 0;
-    const deltas = offer.deltas;
-    if (deltas && typeof deltas.entries === "function") {
-      for (const [, value] of deltas.entries()) {
-        if (BigInt(value ?? 0n) !== 0n) observable++;
-      }
-    }
-    if (observable === 0) return true;
+    if (coins > 0) return true;
   }
   return false;
 }
@@ -462,9 +459,11 @@ export function evaluateDeclarativePolicy(
             valid: false,
             rule: "allowedTokenTypes",
             reason:
-              "shielded token types are not observable for this transaction " +
-              "(a balanced transfer reports no deltas), so the allowlist cannot " +
-              "be enforced. Restrict this product to allowlisted contracts or " +
+              "this transaction carries shielded coins, whose token types are " +
+              "not enumerable (deltas report only an offer's net imbalance, so " +
+              "any token balancing inside it is invisible) — the allowlist " +
+              "cannot be enforced. allowedTokenTypes constrains UNSHIELDED " +
+              "offers only. Restrict this product to allowlisted contracts or " +
               "circuits, or drop allowedTokenTypes and accept any shielded token.",
           };
         }
