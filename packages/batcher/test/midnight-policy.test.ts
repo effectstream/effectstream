@@ -158,10 +158,21 @@ describe("declarative policy", () => {
     expect(verdict.rule).toBe("no-rule-matched");
   });
 
-  test("allowedTokenTypes tightens the transfer rule", () => {
+  test("allowedTokenTypes tightens the transfer rule — for UNSHIELDED offers", () => {
+    // Shielded coins are exempt from this rule not because they are trusted but
+    // because their types cannot be enumerated; those are refused outright, and
+    // that case is covered in the observability describe block below.
     const policy = { allowZswapTransfers: true, allowedTokenTypes: [TOKEN_A] };
-    expect(evaluateDeclarativePolicy(zswapTx({ [TOKEN_A]: 1n }), policy).valid).toBe(true);
-    const verdict = evaluateDeclarativePolicy(zswapTx({ [TOKEN_B]: 1n }), policy);
+    const unshielded = (token: string): PolicyInspectableTx => ({
+      intents: new Map([[1, {
+        guaranteedUnshieldedOffer: {
+          inputs: [{ type: token, value: 5n }],
+          outputs: [{ type: token, value: 5n }],
+        },
+      }]]),
+    });
+    expect(evaluateDeclarativePolicy(unshielded(TOKEN_A), policy).valid).toBe(true);
+    const verdict = evaluateDeclarativePolicy(unshielded(TOKEN_B), policy);
     expect(verdict.valid).toBe(false);
     expect(verdict.rule).toBe("allowedTokenTypes");
   });
@@ -588,26 +599,49 @@ describe("allowedTokenTypes: shielded types are only sometimes observable", () =
     const verdict = evaluateDeclarativePolicy(balancedTransfer(), policy);
     expect(verdict.valid).toBe(false);
     expect(verdict.rule).toBe("allowedTokenTypes");
-    expect(verdict.reason).toMatch(/not observable/);
+    expect(verdict.reason).toMatch(/not enumerable/);
   });
 
-  test("an UNBALANCED offer does expose its types, so the allowlist still works", () => {
+  test("REGRESSION: a visible delta does NOT make the rest of the offer observable", () => {
+    // The bypass an earlier version of this guard allowed. One offer carries:
+    //   - a visible, allowlisted, non-zero delta (TOKEN_A), and
+    //   - a movement of a FORBIDDEN token that balances within the offer and so
+    //     never appears in the delta map at all.
+    // The old guard asked "does this offer have ANY observable delta?", saw
+    // TOKEN_A, declared the whole offer observable, and checked the allowlist
+    // against {TOKEN_A} — so the forbidden token rode along invisibly.
+    //
+    // Deltas are NET SUMS. They prove some types moved; they can never
+    // enumerate every type the coins span.
+    const mixed: PolicyInspectableTx = {
+      guaranteedOffer: {
+        deltas: new Map([[TOKEN_A, 5n]]),
+        inputs: [{}, {}],
+        outputs: [{}, {}],
+      },
+    };
+    expect(tokenTypesUsed(mixed).has(TOKEN_B)).toBe(false); // invisible, by construction
+    expect(hasUnobservableShieldedTokens(mixed)).toBe(true);
+
+    const verdict = evaluateDeclarativePolicy(mixed, {
+      allowZswapTransfers: true,
+      allowedTokenTypes: [TOKEN_A],
+    });
+    expect(verdict.valid).toBe(false);
+    expect(verdict.rule).toBe("allowedTokenTypes");
+  });
+
+  test("an unbalanced swap is no more observable than a balanced transfer", () => {
+    // Its deltas name two types, but coins of a third could balance inside it.
+    // Enforceable-looking is not enforceable.
     const swap = zswapTx({ [TOKEN_A]: 1n, [TOKEN_B]: -1n });
-    expect(hasUnobservableShieldedTokens(swap)).toBe(false);
-    // both tokens allowlisted → accepted
+    expect(hasUnobservableShieldedTokens(swap)).toBe(true);
     expect(
       evaluateDeclarativePolicy(swap, {
         allowZswapTransfers: true,
         allowedTokenTypes: [TOKEN_A, TOKEN_B],
       }).valid,
-    ).toBe(true);
-    // one token missing → refused on the allowlist, not the observability gate
-    const narrowed = evaluateDeclarativePolicy(swap, {
-      allowZswapTransfers: true,
-      allowedTokenTypes: [TOKEN_A],
-    });
-    expect(narrowed.valid).toBe(false);
-    expect(narrowed.reason).toMatch(/outside the allowlist/);
+    ).toBe(false);
   });
 
   test("unshielded offers carry types directly and stay enforceable", () => {

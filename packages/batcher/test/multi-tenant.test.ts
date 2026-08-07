@@ -5,7 +5,7 @@
 //  - retry policy is resolvable per target
 
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -98,6 +98,153 @@ describe("shared queue keeps products separate", () => {
   });
 });
 
+describe("legacy targetless rows (upgrade path)", () => {
+  // Rows written before per-row targets existed have no `target`, and
+  // createInputKey falls back to whoever is currently processing — so an
+  // untargeted row is read as belonging to the asker. A queue carried across
+  // the upgrade therefore lets one product remove another's row. New rows are
+  // stamped on write; the ones already on disk need the migration.
+
+  test("REGRESSION: a legacy row survives another product's removal", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "legacy-"));
+    try {
+      const base = { address: "a", addressType: 5, input: "{}", timestamp: "1" };
+      // Written by the previous version: the default-target row carries no target.
+      writeFileSync(
+        path.join(dir, "pending-inputs.jsonl"),
+        JSON.stringify(base) + "\n" +
+          JSON.stringify({ ...base, target: "product-b" }) + "\n",
+      );
+
+      const storage = new FileStorage(dir);
+      await storage.init("product-a");
+      expect((await storage.getAllInputs()).length).toBe(2);
+
+      await storage.removeProcessedInputs(
+        [{ ...base, target: "product-b" } as DefaultBatcherInput],
+        "product-b",
+      );
+
+      const left = await storage.getAllInputs();
+      expect(left.length).toBe(1);
+      expect(left[0].target).toBe("product-a");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("init without a default target leaves the file untouched", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "legacy-"));
+    try {
+      const row = JSON.stringify({ address: "a", addressType: 5, input: "{}", timestamp: "1" });
+      writeFileSync(path.join(dir, "pending-inputs.jsonl"), row + "\n");
+      const storage = new FileStorage(dir);
+      await storage.init();
+      expect((await storage.getAllInputs())[0].target).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("already-stamped rows and corrupt lines are left alone", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "legacy-"));
+    try {
+      writeFileSync(
+        path.join(dir, "pending-inputs.jsonl"),
+        JSON.stringify({ address: "a", addressType: 5, input: "{}", timestamp: "1", target: "product-z" }) +
+          "\nnot-json\n",
+      );
+      const storage = new FileStorage(dir);
+      await storage.init("product-a");
+      const rows = await storage.getAllInputs();
+      expect(rows.length).toBe(1);
+      expect(rows[0].target).toBe("product-z"); // not re-stamped
+      const raw = readFileSync(path.join(dir, "pending-inputs.jsonl"), "utf8");
+      expect(raw).toContain("not-json"); // unparseable line preserved
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("wallet-instance exclusivity (injected walletResult)", () => {
+  // The seed registry only sees wallets the adapter DERIVES. `config.walletResult`
+  // hands one in and skips that path entirely, so two adapters could declare
+  // different nominal seeds, both pass the seed check, and then operate the same
+  // wallet — the exact double-spend the seed registry exists to prevent, reached
+  // through the one door it does not watch.
+
+  test("REGRESSION: one wallet handed to two adapters is refused", async () => {
+    const { claimWalletInstance } = await import(
+      "../adapters/midnight-balancing-adapter.ts"
+    );
+    const wallet = { stop: async () => {} };
+    const handedToA = { wallet, zswapSecretKeys: {} };
+    const handedToB = { wallet, zswapSecretKeys: {} }; // different wrapper, SAME wallet
+
+    expect(claimWalletInstance(handedToA, "product-a")).not.toBeNull();
+    expect(() => claimWalletInstance(handedToB, "product-b")).toThrow(
+      /already in use by "product-a"/,
+    );
+  });
+
+  test("distinct wallet instances coexist", async () => {
+    const { claimWalletInstance } = await import(
+      "../adapters/midnight-balancing-adapter.ts"
+    );
+    expect(() => claimWalletInstance({ wallet: { id: 1 } }, "product-a")).not.toThrow();
+    expect(() => claimWalletInstance({ wallet: { id: 2 } }, "product-b")).not.toThrow();
+  });
+
+  test("REGRESSION: close() does not stop a wallet it was handed", async () => {
+    // An injected wallet belongs to whoever passed it in and may still be in
+    // use there. Stopping it on close breaks a caller that did nothing wrong.
+    // Drives the real adapter: the ownership flag is what decides this, and a
+    // test that re-implemented the rule would not have caught it.
+    const { MidnightBalancingAdapter, resetWalletSeedRegistry } = await import(
+      "../adapters/midnight-balancing-adapter.ts"
+    );
+    resetWalletSeedRegistry();
+
+    const stopped: string[] = [];
+    const injected = { wallet: { stop: async () => { stopped.push("injected"); } } };
+    const owned = { wallet: { stop: async () => { stopped.push("owned"); } } };
+
+    const adapter = new MidnightBalancingAdapter(
+      [
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "2222222222222222222222222222222222222222222222222222222222222222",
+      ],
+      {
+        indexer: "http://x", indexerWS: "ws://x", node: "http://x",
+        proofServer: "http://x", networkId: "Undeployed",
+        logLabel: "ownership-test",
+      } as never,
+    );
+
+    // Simulate a completed initialize: slot 0 injected, slot 1 built by us.
+    const inner = adapter as unknown as {
+      walletResults: unknown[];
+      walletIsInjected: boolean[];
+    };
+    inner.walletResults = [injected, owned];
+    inner.walletIsInjected = [true, false];
+
+    await adapter.close();
+
+    expect(stopped).toEqual(["owned"]);
+    resetWalletSeedRegistry();
+  });
+
+  test("a value with no usable identity is not claimed and does not throw", async () => {
+    const { claimWalletInstance } = await import(
+      "../adapters/midnight-balancing-adapter.ts"
+    );
+    expect(claimWalletInstance(null, "product-a")).toBeNull();
+    expect(claimWalletInstance(undefined, "product-a")).toBeNull();
+  });
+});
+
 describe("wallet-seed exclusivity", () => {
   // Two adapter instances sharing a seed each build their own WalletFacade,
   // with independent dust booking and independent balance mutexes → they
@@ -150,8 +297,8 @@ describe("wallet-seed exclusivity", () => {
       "../adapters/midnight-balancing-adapter.ts"
     );
     resetWalletSeedRegistry();
-    claimWalletSeeds(["9e".repeat(32)], "product-a");
-    releaseWalletSeeds(["9e".repeat(32)]);
+    const claim = claimWalletSeeds(["9e".repeat(32)], "product-a");
+    releaseWalletSeeds(claim);
     expect(() => claimWalletSeeds(["9e".repeat(32)], "product-b")).not.toThrow();
     resetWalletSeedRegistry();
   });
@@ -351,7 +498,7 @@ describe("security review: seed identity is the derived bytes", () => {
     expect(() => claimWalletSeeds([""], "p")).toThrow(/not valid hex/);
   });
 
-  test("release is ownership-checked and lets the owner re-claim", async () => {
+  test("only the claim token can release, and it is unforgeable", async () => {
     const {
       assertPolicyIsEffective,
       claimWalletSeeds,
@@ -361,12 +508,20 @@ describe("security review: seed identity is the derived bytes", () => {
 
     resetWalletSeedRegistry();
     const seed = "cd".repeat(32);
-    claimWalletSeeds([seed], "product-a");
-    // A different owner cannot drop someone else's claim.
-    releaseWalletSeeds([seed], "product-b");
+    const claimA = claimWalletSeeds([seed], "product-a");
+
+    // REGRESSION: release used to take (seeds, owner?) with the owner
+    // OPTIONAL — so any caller could free another adapter's claim just by
+    // naming its seed, and then construct a second adapter on that wallet.
+    // Only the token minted at claim time works now, and it cannot be forged
+    // by reconstructing a value that merely looks like one.
+    const forged = { __walletSeedClaim: Symbol("nope") } as never;
+    releaseWalletSeeds(forged);
+    releaseWalletSeeds(undefined);
     expect(() => claimWalletSeeds([seed], "product-b")).toThrow(/already in use/);
-    // The owner can.
-    releaseWalletSeeds([seed], "product-a");
+
+    // The holder of the claim can.
+    releaseWalletSeeds(claimA);
     expect(() => claimWalletSeeds([seed], "product-b")).not.toThrow();
     resetWalletSeedRegistry();
   });

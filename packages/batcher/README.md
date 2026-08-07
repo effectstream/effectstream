@@ -149,9 +149,12 @@ Two rules the design depends on:
 
 - **One network per process.** Midnight's `setNetworkId` is module-global, so
   run one batcher per environment, hosting that environment's products.
-- **Never share a wallet seed between adapters.** Two instances on one seed keep
+- **Never share a wallet between adapters.** Two instances on one wallet keep
   independent pending-spend ledgers, which is a double-spend. Constructing a
-  second adapter on a seed already in use throws.
+  second adapter on a seed already in use throws, and so does handing the same
+  `walletResult` to two adapters — an injected wallet never goes through the
+  seed path, so it is claimed by instance identity instead. A wallet you pass in
+  stays yours: `close()` releases the claim but does not stop it.
 
 ### Authorizing work by content
 
@@ -198,16 +201,19 @@ transaction can never apply — the one chain-state check worth a sponsor's time
 since a doomed transaction still costs it proving and dust to find out. It is
 safe in a filter that runs twice because "spent" is monotone.
 
-> **`allowedTokenTypes` cannot constrain an ordinary shielded transfer.**
-> Shielded token types are visible only through an offer's net deltas, and a
-> balanced transfer — the normal case — has none, so its token types are simply
-> not observable. Rather than accept such a transaction against an allowlist it
-> cannot actually check, the policy **rejects** it and says why. The allowlist
-> is enforceable, and enforced, for unshielded offers and for *unbalanced*
-> shielded offers such as swaps. If you need a product to accept arbitrary
-> shielded transfers, leave `allowedTokenTypes` unset; if you need real
-> per-token control, gate on an allowlisted contract or circuit whose proof
-> binds the token type.
+> **`allowedTokenTypes` constrains unshielded offers only.**
+> Shielded token types are visible solely through an offer's deltas, and deltas
+> are *net sums*: they show that some tokens moved, never every token the coins
+> span, because anything balancing inside the offer cancels to zero and
+> disappears. A balanced transfer shows no deltas at all; an unbalanced swap
+> shows two and may still be carrying a third. Both are equally unenumerable —
+> only the second looks otherwise, which is what makes it the dangerous case.
+>
+> So any transaction carrying shielded coins is **rejected** under this rule
+> rather than checked against an allowlist that cannot see its contents. If you
+> need a product to accept arbitrary shielded transfers, leave
+> `allowedTokenTypes` unset; if you need real per-token control, gate on an
+> allowlisted contract or circuit whose proof binds the token type.
 
 Accepting that anyone may submit a *policy-conforming* transaction is the
 trade-off of tokenless authorization. Bound the blast radius with
