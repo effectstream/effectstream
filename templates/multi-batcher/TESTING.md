@@ -49,11 +49,13 @@ Requires the Docker stack (`docker compose up -d`). Results append to
   point) never satisfies a circuit allowlist; empty transaction matches
   nothing; entry points as raw bytes and as strings resolve identically (all
   three tx stages agree).
-- **`allowedTokenTypes` observability**: it rejects foreign tokens on
-  unshielded and *unbalanced* shielded offers, where the types are visible —
-  and rejects a balanced shielded transfer outright, because its types are not
-  observable at all and accepting it would mean passing what the allowlist
-  cannot check.
+- **`allowedTokenTypes` observability**: it rejects foreign tokens on unshielded
+  offers, where types are carried directly, and rejects *any* shielded
+  coin-bearing transaction outright — including swaps. Deltas are net sums, so a
+  token balancing inside an offer is invisible, and a swap's two visible deltas
+  prove nothing about a third token riding along. A regression test pins the
+  mixed case (one allowlisted delta plus a hidden balanced one), which an
+  earlier version of the guard accepted.
 - **Fail closed**: introspection that throws ⇒ reject, never accept.
 - **Custom filter semantics**: runs strictly *after* the declarative rules and
   receives their verdict; can tighten; can override; throwing rejects; async

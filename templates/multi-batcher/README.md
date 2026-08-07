@@ -75,11 +75,15 @@ and clients need no changes.
 budget control (narrow the circuits, add a custom filter); put network ACLs in
 front for anything public.
 
-Note that `allowedTokenTypes` is *not* a general budget control: a balanced
-shielded transfer exposes no token types at all, so the allowlist cannot be
-checked against it and such a transaction is rejected rather than waved
-through. It constrains unshielded offers and unbalanced ones (swaps). For real
-per-token control, gate on a circuit whose proof binds the token type.
+Note that `allowedTokenTypes` is *not* a general budget control, and it
+constrains **unshielded offers only**. Shielded token types are visible just
+through an offer's deltas, which are net sums — a token that balances inside
+the offer cancels to zero and is invisible. That is true of a swap as much as
+of a plain transfer: a swap's two visible deltas say nothing about a third
+token riding along. Any transaction carrying shielded coins is therefore
+rejected under this rule rather than checked against an allowlist that cannot
+see its contents. For real per-token control, gate on a circuit whose proof
+binds the token type.
 
 ### Writing a custom filter
 
