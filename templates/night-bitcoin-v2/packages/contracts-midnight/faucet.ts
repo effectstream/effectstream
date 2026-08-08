@@ -1,3 +1,6 @@
+// Legacy manual-development helper. The template launch path intentionally does
+// not import this file: NIGHT and DUST now come from the verified custom genesis.
+
 const log = { info: console.log, warn: console.warn, error: console.error };
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import * as Rx from "rxjs";

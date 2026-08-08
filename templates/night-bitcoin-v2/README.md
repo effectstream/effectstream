@@ -103,10 +103,13 @@ the same `checkAndTransferFunds` matcher in `packages/node/state-machine.ts`.
   ```
 
 - `openssl`, used by the indexer launch script to generate a secret.
+- Docker Engine. The template uses digest-pinned Midnight Node and toolkit images
+  once to build its custom local genesis; subsequent launches reuse
+  checksum-verified artifacts.
 - A **Midnight wallet that supports the `undeployed` network** (Lace Midnight preview)
   to sign intents in the dApp.
-- No Docker, and no manually installed chain binaries: Bitcoin Core and the Midnight
-  node, indexer and proof server are pulled in as npm packages
+- No manually installed chain binaries: Bitcoin Core and the Midnight node, indexer
+  and proof server are pulled in as npm packages
   (`@effectstream/bitcoin-core`, `@effectstream/npm-midnight-node`,
   `@effectstream/npm-midnight-indexer`, `@effectstream/npm-midnight-proof-server`).
 
@@ -121,6 +124,15 @@ bun run dev
 > The first `bun run dev` compiles the two Compact contracts before anything else can
 > start, which takes several minutes with no visible progress. That is not a hang —
 > watch the `midnight-contract` process in the orchestrator output.
+
+The first launch also generates a custom `undeployed` genesis from
+`packages/contracts-midnight/undeployed-genesis-seeds.json`. It preserves the standard
+deployer, batcher and Lace test wallets and adds the template's three filler wallets,
+each with five NIGHT UTXOs already registered for DUST. Artifacts are cached under the
+ignored `packages/contracts-midnight/.midnight-genesis/` directory and verified by
+checksum on reuse. As a result, every later launch skips three serial NIGHT transfers,
+the fixed three-minute aging wait and three serial DUST-registration transactions.
+Only the three application-specific M20 inventory mints remain.
 
 ![Orchestrator output](./docs/terminal.png)
 
@@ -326,8 +338,8 @@ bun run test
 down again:
 
 - **Phase A — infrastructure.** Bitcoin regtest reaches block > 100, the Midnight node
-  and indexer answer, the Compact contracts deploy, and the filler wallets are created
-  on both chains.
+  and indexer answer, the Compact contracts deploy, filler NIGHT/DUST prefunding is
+  verified, M20 inventory is minted, and the filler wallets are created on both chains.
 - **Phase B — state machine, database, API.** The migration has applied and the three
   tables accept inserts (`stm/intents.test.ts`); `getLatestOpenIntentByToken` picks the
   right row (`stm/queries.test.ts`); the `midnight-unshielded-spend` transition is

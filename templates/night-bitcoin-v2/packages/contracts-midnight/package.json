@@ -5,7 +5,8 @@
     "./transfer-funds": "./transfer-funds.ts"
   },
   "scripts": {
-    "midnight-node:start": "MIDNIGHT_STORAGE_PASSWORD=YourPasswordMy1! CFG_PRESET=dev bun ./node_modules/.bin/npm-midnight-node --dev --rpc-port 9944 --port 30333 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
+    "midnight-genesis:prepare": "bun run prepare-midnight-genesis.ts",
+    "midnight-node:start": "MIDNIGHT_STORAGE_PASSWORD=YourPasswordMy1! bun run start-midnight-node.ts",
     "midnight-node:wait": "wait-on tcp:9944",
     "midnight-indexer:start": "RUST_BACKTRACE=1 LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" bun ./node_modules/.bin/npm-midnight-indexer --binary --clean",
     "midnight-indexer:wait": "wait-on tcp:8088",
@@ -14,8 +15,9 @@
     "midnight-contract:clean": "rm -rf midnight-level-db && rm -f contract.json erc7683.undeployed.json unshielded-erc20.undeployed.json",
     "midnight-contract:compile": "bun run --cwd erc7683 compact && bun run --cwd unshielded-erc20 compact",
     "midnight-contract:deploy": "bun run midnight-contract:clean && bun run midnight-contract:compile && bun run deploy.ts",
-    "create-wallets": "bun run create-wallets.ts ONLY_CREATE",
-    "mint-wallets": "bun run mint-wallets.ts"
+    "create-wallets": "bun run create-wallets.ts",
+    "mint-wallets": "bun run mint-wallets.ts",
+    "test:wallet-profile": "bun test wallet-profile.test.ts"
   },
   "dependencies": {
     "@effectstream/midnight-contracts": "0.102.0",

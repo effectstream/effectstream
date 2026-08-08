@@ -4,13 +4,41 @@ import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite"
 import { launchBitcoin, BitcoinNames } from "@effectstream/orchestrator/launch-bitcoin";
 import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 
+const root = import.meta.dirname!;
+const MIDNIGHT_GENESIS_PREPARE = "midnight-genesis-prepare";
+const midnightProcesses = launchMidnight(
+  "@night-bitcoin/contracts-midnight",
+  { cwd: path.join(root, "../contracts-midnight") },
+  { env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" } },
+).map((process) => {
+  if (process.name === MidnightNames.NODE) {
+    return {
+      ...process,
+      dependsOn: [MIDNIGHT_GENESIS_PREPARE, ...(process.dependsOn ?? [])],
+    };
+  }
+  if (
+    process.name === MidnightNames.INDEXER ||
+    process.name === MidnightNames.PROOF_SERVER
+  ) {
+    return { ...process, dependsOn: [MidnightNames.NODE_WAIT] };
+  }
+  return process;
+});
+
 export default {
   processes: [
     ...launchPglite(),
-    ...launchBitcoin("@night-bitcoin/contracts-bitcoin", { cwd: path.join(import.meta.dirname!, "../contracts-bitcoin") }),
-    ...launchMidnight("@night-bitcoin/contracts-midnight", { cwd: path.join(import.meta.dirname!, "../contracts-midnight") }, {
-      env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
-    }),
+    ...launchBitcoin("@night-bitcoin/contracts-bitcoin", { cwd: path.join(root, "../contracts-bitcoin") }),
+    {
+      name: MIDNIGHT_GENESIS_PREPARE,
+      description: "Prepare or verify the cached Night-Bitcoin custom genesis",
+      args: ["run", "--filter", "@night-bitcoin/contracts-midnight", "midnight-genesis:prepare"],
+      waitToExit: true,
+      type: "system-dependency",
+      critical: true,
+    },
+    ...midnightProcesses,
 
     {
       name: "create-wallets-bitcoin",
@@ -28,6 +56,14 @@ export default {
       type: "system-dependency",
       dependsOn: [MidnightNames.CONTRACT_DEPLOY],
     },
+    {
+      name: "mint-wallets-midnight",
+      description: "Verify genesis-prefunded NIGHT/DUST and mint filler M20 inventory",
+      args: ["run", "--filter", "@night-bitcoin/contracts-midnight", "mint-wallets"],
+      waitToExit: true,
+      type: "system-dependency",
+      dependsOn: ["create-wallets-midnight"],
+    },
 
     {
       name: "sync",
@@ -40,6 +76,8 @@ export default {
         DbNames.PGLITE_WAIT,
         BitcoinNames.BITCOIN_WAIT_FOR_BLOCK,
         MidnightNames.CONTRACT_DEPLOY,
+        "create-wallets-bitcoin",
+        "mint-wallets-midnight",
       ],
     },
   ],

@@ -126,7 +126,8 @@ async function test() {
 
     await waitForProcess("create-wallets-bitcoin", { waitForExit: true, timeoutMs: 300_000 });
     await waitForProcess("create-wallets-midnight", { waitForExit: true, timeoutMs: 600_000 });
-    console.log("Filler wallets created.");
+    await waitForProcess("mint-wallets-midnight", { waitForExit: true, timeoutMs: 600_000 });
+    console.log("Filler wallets created, genesis funding verified, and M20 inventory minted.");
 
     const { walletsCreatedTest } = await import("./infra/wallets-created.test.ts");
     await walletsCreatedTest();
