@@ -24,6 +24,10 @@
       "name": "@effectstream/midnight-v2-contracts",
       "version": "0.0.0",
     },
+    "packages/network-config": {
+      "name": "@effectstream/midnight-v2-network-config",
+      "version": "0.0.0",
+    },
     "packages/tests": {
       "name": "@effectstream/midnight-v2-tests",
       "version": "0.0.0",
@@ -39,6 +43,8 @@
     "@effect/platform": ["@effect/platform@0.96.3", "", { "dependencies": { "find-my-way-ts": "^0.1.6", "msgpackr": "^1.11.10", "multipasta": "^0.2.7" }, "peerDependencies": { "effect": "^3.21.5" } }, "sha512-LzvIj4HYE++TcTv/cVTCI/GRvQTV0ymwRmgjZMzNB5dU4OS05pTN36RKN0npiOm5orLJgw4yjIv1dNZoYGh/vg=="],
 
     "@effectstream/midnight-v2-contracts": ["@effectstream/midnight-v2-contracts@workspace:packages/contracts"],
+
+    "@effectstream/midnight-v2-network-config": ["@effectstream/midnight-v2-network-config@workspace:packages/network-config"],
 
     "@effectstream/midnight-v2-tests": ["@effectstream/midnight-v2-tests@workspace:packages/tests"],
 

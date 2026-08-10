@@ -15,7 +15,8 @@
     "test:compiler-smoke": "bun run packages/tests/compiler-smoke.ts",
     "test:compile:sink": "bun run packages/tests/compile-sink.test.ts",
     "test:compile:call-tree": "bun run packages/tests/compile-call-tree.test.ts",
-    "test:contracts": "bun run packages/tests/contracts.test.ts"
+    "test:contracts": "bun run packages/tests/contracts.test.ts",
+    "test:network-profile": "bun run packages/tests/network-profile.test.ts"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0",

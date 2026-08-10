@@ -7,5 +7,17 @@ templates/*
 !templates/midnight-stagenet-v2
 !templates/midnight-stagenet-v2/**
 
+# C07 hashes the legacy v1 config to prove the isolated v2 profile does not
+# change it. This is the only shared source admitted at this checkpoint.
+!packages
+packages/*
+!packages/chains
+packages/chains/*
+!packages/chains/midnight-contracts
+packages/chains/midnight-contracts/*
+!packages/chains/midnight-contracts/src
+packages/chains/midnight-contracts/src/*
+!packages/chains/midnight-contracts/src/midnight-env.ts
+
 # This committed sentinel proves this Dockerfile-specific allowlist is active.
 templates/midnight-stagenet-v2/.context-excluded.sentinel

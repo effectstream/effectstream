@@ -3,10 +3,14 @@
   "status": "release-locked-hosted-zkir-unverified",
   "networkId": "stagenet",
   "hostedZkirV3Verification": "unverified",
+  "baselines": {
+    "legacyV1MidnightEnvSha256": "222815ea959d632a6002d7a4110957c00e0a289c6bb0ae6d8743856123c00e49"
+  },
   "endpoints": {
     "nodeUrl": "wss://rpc.stagenet.shielded.tools",
     "indexerHttpUrl": "https://indexer.stagenet.shielded.tools/api/v4/graphql",
     "indexerWsUrl": "wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws",
+    "proofServerUrl": "http://proof-server-experimental:6300",
     "faucetUrl": "https://faucet.stagenet.shielded.tools/api/drips"
   },
   "hostedObservation": {
