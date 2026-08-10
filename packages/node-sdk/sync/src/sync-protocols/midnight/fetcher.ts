@@ -18,6 +18,12 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
+import type { MidnightBlockClient } from "./block-client.ts";
+import { UmbraClient, type UmbraClientOptions } from "./UmbraClient.ts";
+import {
+  assertExactlyOneMidnightSource,
+  assertUmbraSourceNetworkAllowed,
+} from "@effectstream/config";
 import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
 import { decodeZswapEvent } from "./zswap-decoder.ts";
 import { decodeTokenMints } from "./mint-decoder.ts";
@@ -29,18 +35,19 @@ export class MidnightFetcher extends BaseDataFetcher<
   Page,
   RootPage
 > {
-  readonly client: MidnightClient;
+  /** The block source. Both clients return the same block shape, which is what leaves every
+   *  primitive mapping below — and every primitive class downstream — identical across the
+   *  migration. See `block-client.ts` for why this is an interface rather than a swapped concrete
+   *  type. */
+  readonly client: MidnightBlockClient;
   private readonly networkId?: string;
   constructor(
     readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
     const indexerHttp = config.syncProtocol.indexer;
-    if (!indexerHttp) {
-      throw new Error(
-        `Midnight sync protocol "${config.syncProtocol.name}" requires an indexer URL.`,
-      );
-    }
+    const umbra = (config.syncProtocol as { umbra?: Omit<UmbraClientOptions, "networkId"> }).umbra;
+    assertExactlyOneMidnightSource(config.syncProtocol.name, { indexer: indexerHttp, umbra });
     this.networkId = config.network?.networkId ??
       (config.network as any)?.id;
 
@@ -57,11 +64,26 @@ export class MidnightFetcher extends BaseDataFetcher<
       }
     }
 
-    this.client = new MidnightClient(
-      indexerHttp,
-      this.networkId,
-      requestTimeoutOf(config.syncProtocol),
-    );
+    if (umbra) {
+      // Both checks are at CONSTRUCTION so a bad config dies at startup naming the problem, rather
+      // than running against a feed that is empty or wrong for a reason nobody can see.
+      assertUmbraSourceNetworkAllowed(config.syncProtocol.name, this.networkId);
+      UmbraClient.assertPrimitivesSupported(
+        config.primitives.map((p) => p.primitive.type as string),
+      );
+      this.client = new UmbraClient({ ...umbra, networkId: this.networkId! });
+    } else {
+      this.client = new MidnightClient(
+        indexerHttp!,
+        this.networkId,
+        requestTimeoutOf(config.syncProtocol),
+      );
+    }
+  }
+
+  /** Releases the block source's resources (the UmbraDB pool); a no-op for the indexer client. */
+  async close(): Promise<void> {
+    await this.client.close?.();
   }
 
   @bound
