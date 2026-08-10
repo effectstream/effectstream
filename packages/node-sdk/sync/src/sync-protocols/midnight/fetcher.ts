@@ -295,9 +295,15 @@ export class MidnightFetcher extends BaseDataFetcher<
     return results;
   }
 
-  // Mirror of fetchUnshieldedSpends over `unshieldedCreatedOutputs` — every
-  // unshielded UTXO created in the block (regular AND system transactions).
-  // One state-machine input per created output.
+  // NOTIFICATION, not a data copy (owner decision, 2026-08-09): one state-machine input per
+  // transaction that created — or may have created — unshielded UTXOs. The created rows are NOT
+  // copied into the payload; they stay in the source of record and a consumer reads them on demand
+  // (`UmbraRead.getUnshieldedCreates(txHash)` for the UmbraDB source).
+  //
+  // "May have": a source that cannot fully derive a transaction's creates marks it
+  // (`umbraDecodeRefused`, e.g. a ClaimRewards transaction) instead of halting sync. The trigger
+  // fires either way, so nothing is silently dropped and the CONSUMER decides — which also keeps
+  // the trigger set identical to the indexer's at reward heights.
   @bound
   fetchUnshieldedCreates(
     height: number,
@@ -306,28 +312,22 @@ export class MidnightFetcher extends BaseDataFetcher<
   ): PrimitiveType[] {
     const results: PrimitiveType[] = [];
     for (const tx of block.block.transactions) {
-      for (const created of tx.unshieldedCreatedOutputs ?? []) {
-        results.push({
-          syncProtocol: {
-            name: primitiveEntry.syncProtocol,
-            blockNumber: height,
-            transactionHash: tx.hash,
-            contractAddress: "",
-          },
-          primitive: primitiveEntry.primitive.name,
-          output: {
-            payloadType: "midnight-unshielded-create",
-            payload: {
-              owner: created.owner,
-              intentHash: created.intentHash,
-              outputIndex: created.outputIndex,
-              value: created.value,
-              tokenType: created.tokenType,
-              txHash: tx.hash,
-            },
-          },
-        });
-      }
+      const hasCreates = (tx.unshieldedCreatedOutputs ?? []).length > 0;
+      const refused = (tx as { umbraDecodeRefused?: string }).umbraDecodeRefused !== undefined;
+      if (!hasCreates && !refused) continue;
+      results.push({
+        syncProtocol: {
+          name: primitiveEntry.syncProtocol,
+          blockNumber: height,
+          transactionHash: tx.hash,
+          contractAddress: "",
+        },
+        primitive: primitiveEntry.primitive.name,
+        output: {
+          payloadType: "midnight-unshielded-create",
+          payload: { txHash: tx.hash },
+        },
+      });
     }
     return results;
   }

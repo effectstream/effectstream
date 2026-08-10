@@ -229,25 +229,29 @@ export class UmbraClient implements MidnightBlockClient {
       // System transactions carry no unshielded offers this reader can decode; they contribute a
       // transaction row with no creates rather than being dropped.
       let created: MidnightGqlBlockState["block"]["transactions"][number]["unshieldedCreatedOutputs"] = [];
+      let refused: string | undefined;
       if (t.kind === "regular") {
         const outcome = decodeUnshieldedCreates(
           Uint8Array.from(t.raw), t.result ?? undefined, this.networkId, t.tx_hash,
           { unsafeTreatUnknownResultAsSuccess: this.allowIncomplete },
         );
         if (!outcome.ok) {
-          // Refusals are loud by construction. Emitting nothing would be indistinguishable from a
-          // transaction that genuinely created nothing.
-          throw new Error(
-            `UmbraClient: refusing transaction ${t.tx_hash} at height ${blockHeight}: ` +
-              `${outcome.refusal.reason}` +
-              (outcome.refusal.reason === "claim_rewards"
-                ? " — ClaimRewards creates a UTXO with no intent, which this reader does not reconstruct"
-                : ""),
-          );
+          // A refusal is NOT a halt and NOT a silent skip: it marks the transaction so the
+          // primitive still fires a trigger for it, and the CONSUMER (which reads the rows on
+          // demand) sees the same refusal and decides. This is what keeps the trigger set
+          // identical to the indexer's even at ClaimRewards heights, without the sync layer
+          // pretending it can derive rows it cannot.
+          refused = outcome.refusal.reason;
+        } else {
+          created = outcome.outputs;
         }
-        created = outcome.outputs;
       }
-      return { hash: t.tx_hash, contractActions: [], unshieldedCreatedOutputs: created };
+      return {
+        hash: t.tx_hash,
+        contractActions: [],
+        unshieldedCreatedOutputs: created,
+        ...(refused !== undefined ? { umbraDecodeRefused: refused } : {}),
+      };
     });
 
     return {
