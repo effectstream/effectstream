@@ -23,7 +23,7 @@
 # trigger syncs a wallet from genesis, so cost grows with chain length. `run-demo.ts` bootstraps
 # everything from nothing.
 #
-#   docker compose -p mn-demo -f e2e/midnight-umbra/docker-compose.yml up -d node indexer proof-server postgres
+#   docker compose -p mn-demo -f e2e/midnight-umbra/docker-compose.yml up -d node indexer proof-server postgres umbra-ingest
 #   docker compose -p mn-demo -f e2e/midnight-umbra/docker-compose.yml run --rm demo
 
 name: midnight-umbra-demo
@@ -109,6 +109,9 @@ services:
   # Stock UmbraDB's OWN ingest CLI. INDEXER_URL is set explicitly because stock defaults to the
   # hosted v4 endpoint while this indexer serves v3 locally.
   umbra-ingest:
+    # A long-running SERVICE, not a one-shot: it follows the chain tip for as long as the stack is
+    # up, so `demo` only has to wait for the watermark to catch up. Bring it up WITH the stack.
+    restart: unless-stopped
     image: 'node:${NODE_IMAGE_TAG:-24-bookworm}'
     working_dir: /umbra
     volumes:
@@ -152,3 +155,7 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      # Without this the demo waits on a watermark nobody is advancing -- the failure mode the
+      # first cold-boot run actually hit.
+      umbra-ingest:
+        condition: service_started

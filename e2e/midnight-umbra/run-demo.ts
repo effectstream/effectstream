@@ -2,7 +2,7 @@
  * THE deliverable: one command that proves effectstream can be driven by a STOCK UmbraDB archive
  * instead of the Midnight indexer.
  *
- *   docker compose -p mn-demo -f e2e/midnight-umbra/docker-compose.yml up -d node indexer proof-server postgres
+ *   docker compose -p mn-demo -f e2e/midnight-umbra/docker-compose.yml up -d node indexer proof-server postgres umbra-ingest
  *   docker compose -p mn-demo -f e2e/midnight-umbra/docker-compose.yml run --rm demo
  *
  * Four stages, in order, each failing loudly rather than degrading:
@@ -66,7 +66,13 @@ if (workload !== 0) {
 // ── 2. ingest ──────────────────────────────────────────────────────────────────────────────────
 step(2, "Ingest with STOCK UmbraDB's own sync CLI (migrations 000+001 only)");
 const tipBefore = await nodeTip();
-console.log(`chain tip is ${tipBefore}; running ingest until the archive watermark reaches it`);
+console.log(`chain tip is ${tipBefore}; waiting for the archive watermark to reach it`);
+// The ingest is a long-running compose SERVICE (`umbra-ingest`); this stage only waits for it.
+// If it is not running, the watermark never moves -- so say that explicitly instead of timing out
+// after four minutes with "never caught up", which is what the first cold-boot run did.
+if ((await archiveWatermark()) < 0) {
+  console.log("no watermark yet — the `umbra-ingest` service should be creating it shortly");
+}
 // The CLI follows the tip forever, so run it in bounded passes and stop once caught up.
 for (let pass = 1; pass <= 40; pass++) {
   const wm = await archiveWatermark();
@@ -74,7 +80,10 @@ for (let pass = 1; pass <= 40; pass++) {
   console.log(`pass ${pass}: watermark ${wm} / tip ${tipBefore}`);
   await new Promise((r) => setTimeout(r, 6000));
   if (pass === 40) {
-    console.error("FAIL: the archive never caught up with the chain tip.");
+    console.error(
+      "FAIL: the archive never caught up with the chain tip. If the watermark stayed at -1 the " +
+      "whole time, the `umbra-ingest` service is not running — bring the stack up WITH it:\n" +
+      "  docker compose -p <name> -f e2e/midnight-umbra/docker-compose.yml up -d node indexer proof-server postgres umbra-ingest");
     process.exit(1);
   }
 }
