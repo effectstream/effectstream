@@ -14,10 +14,22 @@ export const GENESIS_NODE_VERSION = "1.0.0";
 export const GENESIS_NONCE_SEED =
   "0000000000000000000000000000000000000000000000000000000000000037";
 
-export const MIDNIGHT_NODE_IMAGE =
+/** Digest-pinned build provenance for the checked-in genesis snapshot. */
+export const GENESIS_SOURCE_NODE_IMAGE =
   "midnightntwrk/midnight-node@sha256:ede01da35e982b6a4b85461ad8492ae2753ef14246fba33c8039b782aa8e39fb";
-export const MIDNIGHT_TOOLKIT_IMAGE =
+/** Digest-pinned build provenance for the checked-in genesis snapshot. */
+export const GENESIS_SOURCE_TOOLKIT_IMAGE =
   "midnightntwrk/midnight-node-toolkit@sha256:9f709cf86503047ae014f4a2a5fcd2a945aeefefdeadc3660af6b41c921859e6";
+
+/** Reviewed hashes are the trust root; the adjacent manifest is not. */
+export const BUNDLED_GENESIS_PROFILE_HASH =
+  "deb5507da7e57536dba24e07f751cd4bddba61fc1142e868d894279e294f8e5c";
+export const BUNDLED_GENESIS_STATE_SHA256 =
+  "559d19c4c41ed0aed20b395dfdded371dcbb49e2e034b87a105ed27dc33cf6a6";
+export const BUNDLED_GENESIS_BLOCK_SHA256 =
+  "1549a52858503ca6d6371ad0234cb3d2bb9654e0a7bd65725e02cb5c6bccbaff";
+export const BUNDLED_GENESIS_CHAIN_SPEC_SHA256 =
+  "c6701c6796c5336e82823899163bee2c1bc91c38e929b5139439d7f8f877fa2d";
 
 export const EXPECTED_NIGHT_UTXOS = 5;
 export const EXPECTED_NIGHT_PER_UTXO = 50_000_000_000_000n;

@@ -5,7 +5,7 @@ import { launchBitcoin, BitcoinNames } from "@effectstream/orchestrator/launch-b
 import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 
 const root = import.meta.dirname!;
-const MIDNIGHT_GENESIS_PREPARE = "midnight-genesis-prepare";
+const MIDNIGHT_GENESIS_VERIFY = "midnight-genesis-verify";
 
 const midnightProcesses = launchMidnight(
   "@night-bitcoin/contracts-midnight",
@@ -15,7 +15,7 @@ const midnightProcesses = launchMidnight(
   if (process.name === MidnightNames.NODE) {
     return {
       ...process,
-      dependsOn: [MIDNIGHT_GENESIS_PREPARE, ...(process.dependsOn ?? [])],
+      dependsOn: [MIDNIGHT_GENESIS_VERIFY, ...(process.dependsOn ?? [])],
     };
   }
   if (
@@ -77,9 +77,9 @@ export default {
     ...launchPglite(),
     ...launchBitcoin("@night-bitcoin/contracts-bitcoin", { cwd: path.join(root, "packages/contracts-bitcoin") }),
     {
-      name: MIDNIGHT_GENESIS_PREPARE,
-      description: "Prepare or verify the cached Night-Bitcoin custom genesis",
-      args: ["run", "--filter", "@night-bitcoin/contracts-midnight", "midnight-genesis:prepare"],
+      name: MIDNIGHT_GENESIS_VERIFY,
+      description: "Verify the bundled Night-Bitcoin custom genesis",
+      args: ["run", "--filter", "@night-bitcoin/contracts-midnight", "midnight-genesis:verify"],
       waitToExit: true,
       type: "system-dependency",
       critical: true,

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "profileId": "night-bitcoin-v2-node-1.0.0-prefunded-v1",
+  "profileHash": "deb5507da7e57536dba24e07f751cd4bddba61fc1142e868d894279e294f8e5c",
+  "network": "undeployed",
+  "nodeVersion": "1.0.0",
+  "nonceSeed": "0000000000000000000000000000000000000000000000000000000000000037",
+  "nodeImage": "midnightntwrk/midnight-node@sha256:ede01da35e982b6a4b85461ad8492ae2753ef14246fba33c8039b782aa8e39fb",
+  "toolkitImage": "midnightntwrk/midnight-node-toolkit@sha256:9f709cf86503047ae014f4a2a5fcd2a945aeefefdeadc3660af6b41c921859e6",
+  "expectedNightUtxos": 5,
+  "expectedNightPerUtxo": "50000000000000",
+  "genesisStateSha256": "559d19c4c41ed0aed20b395dfdded371dcbb49e2e034b87a105ed27dc33cf6a6",
+  "genesisBlockSha256": "1549a52858503ca6d6371ad0234cb3d2bb9654e0a7bd65725e02cb5c6bccbaff",
+  "chainSpecSha256": "c6701c6796c5336e82823899163bee2c1bc91c38e929b5139439d7f8f877fa2d"
+}

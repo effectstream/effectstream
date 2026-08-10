@@ -97,8 +97,6 @@ export async function runPreparedMidnightNode(
 
 if (import.meta.main) {
   const prepared = await prepareMidnightGenesis();
-  console.log(
-    `[midnight-genesis] ${prepared.cacheHit ? "cache hit" : "generated"} ${GENESIS_PROFILE_ID}`,
-  );
+  console.log(`[midnight-genesis] verified bundled ${GENESIS_PROFILE_ID}`);
   process.exit(await runPreparedMidnightNode(prepared.chainSpecPath));
 }

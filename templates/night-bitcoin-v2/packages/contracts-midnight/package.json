@@ -5,7 +5,7 @@
     "./transfer-funds": "./transfer-funds.ts"
   },
   "scripts": {
-    "midnight-genesis:prepare": "bun run prepare-midnight-genesis.ts",
+    "midnight-genesis:verify": "bun run prepare-midnight-genesis.ts",
     "midnight-node:start": "MIDNIGHT_STORAGE_PASSWORD=YourPasswordMy1! bun run start-midnight-node.ts",
     "midnight-node:wait": "wait-on tcp:9944",
     "midnight-indexer:start": "RUST_BACKTRACE=1 LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" bun ./node_modules/.bin/npm-midnight-indexer --binary --clean",

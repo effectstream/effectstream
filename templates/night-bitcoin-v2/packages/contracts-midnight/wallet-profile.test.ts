@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  mkdirSync,
+  cpSync,
   mkdtempSync,
   rmSync,
   symlinkSync,
@@ -8,10 +8,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  prepareMidnightGenesis,
-  type DockerRunner,
-} from "./prepare-midnight-genesis.ts";
+import { prepareMidnightGenesis } from "./prepare-midnight-genesis.ts";
 import { midnightNodeArgs } from "./start-midnight-node.ts";
 import {
   EXPECTED_NIGHT_BALANCE,
@@ -33,37 +30,6 @@ const validObservation = () => ({
   })),
   dustBalance: 1n,
 });
-
-function bindSource(args: readonly string[], destination: string): string {
-  const suffix = `,dst=${destination}`;
-  const mount = args.find(
-    (arg) => arg.startsWith("type=bind,src=") && arg.endsWith(suffix),
-  );
-  if (!mount) throw new Error(`Fake Docker runner did not receive ${destination}`);
-  return mount.slice("type=bind,src=".length, -suffix.length);
-}
-
-function fakeDockerRunner(calls: string[][]): DockerRunner {
-  return (args, options = {}) => {
-    calls.push([...args]);
-    if (args.includes("generate-genesis")) {
-      const output = bindSource(args, "/output");
-      writeFileSync(path.join(output, "genesis_state_undeployed.mn"), "state");
-      writeFileSync(path.join(output, "genesis_block_undeployed.mn"), "block");
-    }
-    if (args.includes("build-spec")) {
-      if (!options.captureStdout) {
-        throw new Error("Chain-spec generation must capture stdout");
-      }
-      return JSON.stringify({
-        id: "midnight_undeployed",
-        chainType: "Local",
-        bootNodes: [],
-      });
-    }
-    return "";
-  };
-}
 
 describe("Night-Bitcoin undeployed genesis profile", () => {
   test("preserves the three existing, distinct filler roots", () => {
@@ -142,53 +108,33 @@ describe("prefunding observation", () => {
   });
 });
 
-describe("custom genesis preparation", () => {
-  test("publishes once, verifies the cache, and rejects corruption", async () => {
+describe("bundled custom genesis", () => {
+  test("verifies the checked-in snapshot and rejects corruption", async () => {
     const temporary = mkdtempSync(path.join(os.tmpdir(), "night-genesis-test-"));
-    const cacheRoot = path.join(temporary, "cache");
-    const calls: string[][] = [];
     try {
-      const first = await prepareMidnightGenesis({
-        cacheRoot,
-        dockerRunner: fakeDockerRunner(calls),
-      });
-      expect(first.cacheHit).toBe(false);
-      expect(calls).toHaveLength(3);
+      const bundled = await prepareMidnightGenesis();
+      expect(path.basename(bundled.directory)).toBe("prefunded-genesis");
 
-      const second = await prepareMidnightGenesis({
-        cacheRoot,
-        dockerRunner: () => {
-          throw new Error("Docker must not run on a verified cache hit");
-        },
-      });
-      expect(second.cacheHit).toBe(true);
-      expect(second.chainSpecPath).toBe(first.chainSpecPath);
-
-      writeFileSync(first.chainSpecPath, "{}\n");
+      const corrupted = path.join(temporary, "corrupted");
+      cpSync(bundled.directory, corrupted, { recursive: true });
+      writeFileSync(path.join(corrupted, "chain-spec.json"), "{}\n");
       await expect(
-        prepareMidnightGenesis({
-          cacheRoot,
-          dockerRunner: fakeDockerRunner([]),
-        }),
+        prepareMidnightGenesis({ bundleDirectory: corrupted }),
       ).rejects.toThrow("artifact checksum mismatch");
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
   });
 
-  test("rejects a symlinked cache root", async () => {
+  test("rejects a symlinked bundle", async () => {
     const temporary = mkdtempSync(path.join(os.tmpdir(), "night-genesis-link-"));
-    const realCache = path.join(temporary, "real-cache");
-    const linkedCache = path.join(temporary, "linked-cache");
+    const linkedBundle = path.join(temporary, "linked-bundle");
     try {
-      mkdirSync(realCache);
-      symlinkSync(realCache, linkedCache);
+      const bundled = await prepareMidnightGenesis();
+      symlinkSync(bundled.directory, linkedBundle);
       await expect(
-        prepareMidnightGenesis({
-          cacheRoot: linkedCache,
-          dockerRunner: fakeDockerRunner([]),
-        }),
-      ).rejects.toThrow("unsafe Midnight genesis cache root");
+        prepareMidnightGenesis({ bundleDirectory: linkedBundle }),
+      ).rejects.toThrow("bundle is not a regular directory");
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
