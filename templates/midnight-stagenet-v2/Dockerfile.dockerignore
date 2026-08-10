@@ -1,0 +1,11 @@
+**
+
+!package.json
+!bun.lock
+!templates
+templates/*
+!templates/midnight-stagenet-v2
+!templates/midnight-stagenet-v2/**
+
+# This committed sentinel proves this Dockerfile-specific allowlist is active.
+templates/midnight-stagenet-v2/.context-excluded.sentinel

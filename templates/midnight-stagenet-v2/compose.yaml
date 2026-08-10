@@ -1,0 +1,38 @@
+name: "${COMPOSE_PROJECT_NAME:?Set a unique COMPOSE_PROJECT_NAME}"
+
+x-hardened-service: &hardened-service
+  init: true
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:size=16m,mode=1777
+
+services:
+  scaffold-tests:
+    <<: *hardened-service
+    profiles:
+      - scaffold
+    build:
+      context: ../..
+      dockerfile: templates/midnight-stagenet-v2/Dockerfile
+      target: scaffold-test
+    network_mode: none
+
+  diagnostics:
+    <<: *hardened-service
+    profiles:
+      - diagnostics
+    build:
+      context: ../..
+      dockerfile: templates/midnight-stagenet-v2/Dockerfile
+      target: scaffold-test
+    command:
+      - bun
+      - -e
+      - >-
+        Bun.serve({hostname:'0.0.0.0',port:3000,fetch(){return new Response('midnight-v2 diagnostics')}})
+    ports:
+      - "127.0.0.1:${MIDNIGHT_V2_DIAGNOSTIC_PORT:?Set a preflighted port above 10000}:3000"

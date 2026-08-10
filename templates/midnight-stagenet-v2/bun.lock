@@ -1,0 +1,16 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "@effectstream/template-midnight-stagenet-v2",
+      "version": "0.0.0",
+    },
+    "packages/tests": {
+      "name": "@effectstream/midnight-v2-tests",
+      "version": "0.0.0",
+    },
+  },
+  "packages": {
+  }
+}
