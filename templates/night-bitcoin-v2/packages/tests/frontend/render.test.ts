@@ -52,7 +52,17 @@ export async function frontendRenderTest() {
     });
 
     const executablePath = process.env["CHROME_PATH"] || findChrome();
-    browser = await chromium.launch({ executablePath, headless: true });
+    // Opt in only for x64 Chromium running under ARM Docker/QEMU; native CI
+    // keeps the normal multi-process browser launch.
+    const emulatedChromiumArgs =
+      process.env["EFFECTSTREAM_CHROMIUM_NO_ZYGOTE"] === "1"
+        ? ["--no-zygote"]
+        : undefined;
+    browser = await chromium.launch({
+      executablePath,
+      headless: true,
+      args: emulatedChromiumArgs,
+    });
     const page = await browser.newPage();
 
     const jsErrors: string[] = [];
