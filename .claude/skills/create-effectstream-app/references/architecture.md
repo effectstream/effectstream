@@ -9,7 +9,7 @@ Read this when starting a new template — it covers everything before writing t
 
 ## Directory Structure
 
-Every template uses this exact flat layout. Optional packages are marked. **No `client/`, `shared/`, or `src/` wrapper dirs.**
+Use a flat layout and include only the packages the confirmed application shape needs. Optional packages are marked. **Do not recreate legacy `packages/client/*`, generic `packages/shared|common|utils`, or a `packages/node/src` wrapper.** Framework-owned nesting such as `packages/frontend/client/src` is fine. Give every extra package a purpose-specific name.
 
 ```
 my-template/
@@ -20,17 +20,17 @@ my-template/
 ├── Dockerfile
 ├── .dockerignore
 ├── packages/
-│   ├── node/                                 # The sync node
+│   ├── node/                                 # Sync node (omit only for frontend-only/external backend)
 │   │   ├── package.json                      # @my-template/node
 │   │   ├── grammar.ts                        # Grammar definition
 │   │   ├── config.dev.ts                     # ConfigBuilder (dev networks + primitives)
 │   │   ├── config.mainnet.ts                 # (optional) ConfigBuilder (mainnet)
-│   │   ├── state-machine.ts                  # Stm wiring (all game logic lives here)
+│   │   ├── state-machine.ts                  # Deterministic transitions + DB effects
 │   │   ├── api.ts                            # Fastify API routes
 │   │   ├── main.dev.ts                       # Entry point (dev/local)
 │   │   └── main.mainnet.ts                   # (optional) Entry point (mainnet)
 │   │
-│   ├── database/                             # SQL migrations + typed queries
+│   ├── database/                             # Typed DB (required with a sync node)
 │   │   ├── package.json                      # @my-template/database
 │   │   ├── mod.ts                            # Re-exports queries + migrations
 │   │   ├── migration-order.ts
@@ -63,6 +63,8 @@ my-template/
 │   ├── contracts-cardano/                    # (optional)
 │   ├── contracts-near/                       # (optional)
 │   ├── contracts-avail/                      # (optional)
+│   ├── contracts-celestia/                   # (optional)
+│   ├── contracts-solana/                     # (optional)
 │   │
 │   ├── batcher/                              # (optional)
 │   │   ├── package.json                      # @my-template/batcher
@@ -71,9 +73,13 @@ my-template/
 │   │   ├── effectstream-l2.ts                # Adapter factory (env-agnostic)
 │   │   └── midnight-balancing.ts             # (optional) Midnight adapter factory
 │   │
-│   ├── shared/                               # (optional) Event declarations shared with frontend
-│   │   ├── package.json                      # @my-template/shared
+│   ├── app-events/                           # (optional) Typed app events used by node + frontend
+│   │   ├── package.json                      # @my-template/app-events
 │   │   └── app-events.ts
+│   │
+│   ├── liquidity-filler/                     # (optional) Purpose-named long-lived worker
+│   │   ├── package.json                      # @my-template/liquidity-filler
+│   │   └── main.dev.ts
 │   │
 │   ├── frontend/                             # (optional) Web UI
 │   │   ├── package.json                      # @my-template/frontend
@@ -85,11 +91,22 @@ my-template/
 │       ├── package.json                      # @my-template/tests
 │       ├── run-tests.ts                      # Test runner
 │       ├── start.test.ts                     # Orchestrator config for test infra
-│       ├── helpers.ts                        # assert, assertSQL utilities
+│       ├── helpers.ts                        # assert, assertEventually utilities
 │       ├── infra/                            # Phase A: Infrastructure
 │       ├── stm/                              # Phase B: STM + DB + API
 │       └── frontend/                         # Phase C+: Frontend (if frontend exists)
 ```
+
+Minimum package sets:
+
+| Application shape | Required packages |
+|---|---|
+| Full-stack | `node`, `database`, relevant `contracts-*`, `tests`; optional `batcher`, `frontend`, and purpose-named services |
+| Indexer-only | `node`, `database`, relevant chain package(s), `tests` |
+| Frontend-only/external backend | `frontend`, `tests`; no invented local `node` or `database` |
+| Relayer/filler | A purpose-named worker plus only the chain/node/frontend packages its actual flow requires |
+
+Every shape must expose a root `bun run dev` command that starts its complete local process graph and a root `bun run test` command that executes the applicable acceptance path.
 
 ## Package Naming
 
@@ -104,10 +121,11 @@ SDK packages:       @effectstream/{package}
 | `@my-template/database` | Migrations + pgtyped queries |
 | `@my-template/contracts-evm` | EVM Solidity + Hardhat + deploy |
 | `@my-template/contracts-midnight` | Midnight Compact contracts |
-| `@my-template/contracts-{bitcoin,cardano,near,avail}` | Other chain contracts |
+| `@my-template/contracts-{bitcoin,cardano,near,avail,celestia,solana}` | Other chain packages/programs |
 | `@my-template/batcher` | Transaction batcher |
 | `@my-template/frontend` | Web UI |
-| `@my-template/shared` | App-event declarations (small, only if using events) |
+| `@my-template/app-events` | Typed app-event declarations (only if node and frontend both consume them) |
+| `@my-template/<specific-purpose>` | Optional domain package or worker such as `chess-rules` or `liquidity-filler` |
 | `@my-template/tests` | Test suite |
 
 Common SDK packages you'll import:
@@ -129,26 +147,29 @@ Common SDK packages you'll import:
 | `@effectstream/wallets` | `EffectstreamConfig`, `walletLogin`, `sendTransaction` |
 | `@effectstream/log` | `ComponentNames`, logging |
 
-**All `@effectstream/*` packages share a coordinated version (current series: `0.100.x`).** Never mix versions across them.
+**All `@effectstream/*` packages use one coordinated version.** Never mix versions across them and never copy the version from an existing template.
 
 **How to find the exact version to pin:**
 
 ```sh
-# Primary: query npm (any @effectstream/* package — they're always co-versioned)
+# Query npm immediately before creating package.json files.
+# Stable @effectstream/* packages are published and co-versioned.
 npm view @effectstream/orchestrator version
 ```
 
-If npm returns nothing or 404s (the engine release isn't published yet), **fall back to the `"version"` field in the engine monorepo's root `package.json`**:
+Apply the returned exact version uniformly to every `@effectstream/*` dependency in every template manifest. If the npm query fails, stop and report the network/registry blocker; do not use the local monorepo version or guess. The placeholders in this reference mean “replace with the npm result before writing,” not literal manifest values.
 
-```sh
-# Fallback: read directly from the engine monorepo's root package.json.
-# Find the engine repo by walking up from cwd for a package.json whose sibling
-# is `packages/effectstream-sdk/` — that's the canonical signature.
-# If you can't find it, ask the user where the engine repo lives.
-grep '"version"' <engine-repo-root>/package.json | head -1
-```
+## Purpose-specific packages and `shared/{name}`
 
-Apply the resolved version uniformly to every `@effectstream/*` dep in every `package.json` in the template. Don't leave `<latest>` placeholders — `bun install` won't resolve those.
+Template-local reuse does not justify a generic `packages/shared`. Create a purpose-named workspace package only when two packages genuinely need the same code:
+
+- `packages/app-events` for event declarations consumed by node and frontend;
+- `packages/chess-rules` for deterministic chess rules used by more than one runtime;
+- `packages/liquidity-filler` for a long-lived filler service.
+
+Keep code in its owning package when it has only one consumer. Avoid names such as `shared`, `common`, `utils`, `helpers`, and `game-logic`; they obscure ownership and accumulate unrelated code.
+
+The separate `shared/{name}/` convention is reserved for a specifically named package that the user explicitly intends to version and publish independently to npm. Do not generate it for ordinary template-local imports. If requested, add `shared/*` to the root workspaces deliberately and give the package a publishable, responsibility-based npm name.
 
 ## Bun Workspace Resolution
 
@@ -164,7 +185,7 @@ Sibling packages (`@my-template/database`, `@my-template/contracts-evm`, etc.) r
   "dependencies": {
     "@my-template/database": "workspace:*",
     "@my-template/contracts-evm": "workspace:*",
-    "@effectstream/runtime": "0.100.15",
+    "@effectstream/runtime": "<EFFECTSTREAM_VERSION_FROM_NPM>",
     "...": "..."
   }
 }
@@ -207,13 +228,13 @@ Midnight Compact contracts compile to a subdirectory that itself is a workspace 
     "start:mainnet": "bun run packages/node/main.mainnet.ts",
     "test": "bun run packages/tests/run-tests.ts",
     "build:evm": "bun run --filter @my-template/contracts-evm build:mod",
-    "build:midnight": "bun run --filter @my-template/contracts-midnight build:midnight",
-    "build:pgtypes": "bunx orchestrator stop > /dev/null 2>&1 || true; bun run --filter @my-template/database pgtyped:update"
+    "build:midnight": "bun run --filter @my-template/midnight-contract compact",
+    "build:pgtypes": "bun run --filter @my-template/database pgtyped:update"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
-    "@effectstream/orchestrator": "<latest>",
-    "@midnightntwrk/wallet-sdk-address-format": "3.1.0",
+    "@effectstream/orchestrator": "<EFFECTSTREAM_VERSION_FROM_NPM>",
+    "@midnightntwrk/wallet-sdk-address-format": "3.1.2",
     "wait-on": "8.0.3"
   },
   "effectstream": {
@@ -225,7 +246,7 @@ Midnight Compact contracts compile to a subdirectory that itself is a workspace 
 Notes:
 
 - `effectstream.default` tells the CLI which start file to use when `bunx orchestrator start` is run without arguments.
-- `wait-on` must be a **direct root dependency** — the `launchPglite()` helper invokes `./node_modules/.bin/wait-on tcp:5432` and Bun only hoists binaries from direct deps.
+- `wait-on` must be a **direct root dependency** — contract packages use it (e.g. `hardhat.config.ts` imports it; `contracts-midnight`'s `midnight-node:wait` runs `wait-on tcp:9944`) and Bun only hoists binaries from direct deps. (`launchPglite()` does NOT use it — the orchestrator waits via its own `wait-tcp.ts`.)
 - `@midnightntwrk/wallet-sdk-address-format` is a **phantom dependency** required by `@effectstream/db` transitively but not declared anywhere in the chain. Every template needs it at the root or runtime fails with `Cannot find module`.
 - Include `build:midnight` / `build:evm` only for chains the template actually uses.
 

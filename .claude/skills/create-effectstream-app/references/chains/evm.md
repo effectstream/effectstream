@@ -35,8 +35,8 @@ Optional but commonly expected:
   "scripts": {
     "build:hardhat": "bun run swap:remappings:hardhat && bun ./node_modules/.bin/hardhat compile",
     "build:forge": "bun run swap:remappings:forge && forge build",
-    "hardhat:start": "...",
-    "hardhat:wait": "...",
+    "chain:start": "...",
+    "chain:wait": "...",
     "deploy": "...",
     "build:mod": "(bun run deploy:standalone || true) && bun -e 'await import(\"@effectstream/evm-hardhat/builder\")'",
     "swap:remappings:forge": "bun ./node_modules/@effectstream/evm-hardhat/src/remappings/remappings-forge.ts --depth=0",
@@ -86,7 +86,9 @@ Sync protocol: `EVM_RPC_PARALLEL`.
 
 **Do not add it by default** — scanning an extra contract is expensive (one more RPC call per block, one more contract address to deploy and audit). Add it only when the template has standalone user actions that don't originate from events already emitted by other contracts (ERC-20 transfers, Midnight state changes, etc.).
 
-If you do need it, register it in `buildPrimitives` with `stateMachinePrefix: ""` pointing at the L2 contract address. **Without this primitive when it IS needed, the sync node silently ignores L2 inputs — no error, no crash, just empty results.** See `references/grammar-stm.md` §6 for the config example.
+If you do need it, register it in `buildPrimitives` pointing at the L2 contract address and **omit `stateMachinePrefix`**. The L2 primitive hardcodes the prefix to `undefined` because the grammar key comes from the encoded payload. **Without this primitive when it IS needed, the sync node silently ignores L2 inputs — no error, no crash, just empty results.** See `references/grammar-stm.md` §6 for the config example.
+
+For batched L2 input, also use one security namespace in the frontend `EffectstreamConfig`, `BatcherConfig.namespace`, and node `ConfigBuilder.setSecurityNamespace(...)`. The primitive re-verifies signatures with the node namespace, so a node-only mismatch silently drops inputs after successful batching and chain submission.
 
 ### Solidity contract — extend `EffectstreamL2Contract`
 
@@ -159,7 +161,7 @@ The orchestrator's `generate-evm-mod` step (and `bun run build:evm`) writes `pac
 
 `@effectstream/evm-hardhat/builder` reads exclusively from `build/artifacts/forge/`, not `build/artifacts/hardhat/`. So **Foundry must be installed and `forge build` must run** before the builder can generate `build/mod.ts` with ABI exports.
 
-The orchestrator's `launchEvm` only runs `build:hardhat` (for deployment). Either pre-build forge artifacts or have `build:hardhat` also trigger `build:forge`. Without forge artifacts, `build/mod.ts` will be `export {}` and frontend imports like `erc721dev` will fail.
+The orchestrator's `launchEvm` runs both `build:hardhat` (for deployment) and `build:forge` (both are in its REQUIRED_SCRIPTS), and it hard-errors at launch if `forge` is not on PATH. Without forge artifacts, `build/mod.ts` will be `export {}` and frontend imports like `erc721dev` will fail.
 
 ### Remappings depth MUST be `--depth=0`
 

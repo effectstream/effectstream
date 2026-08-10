@@ -24,10 +24,17 @@ const log = console;
  * wallet would restore another's dust state. That is harmless with a single
  * wallet per process and actively wrong once one process runs several.
  * Hashing also keeps seed material out of file names.
+ *
+ * `networkId` is stripped to a safe character set before it reaches
+ * `path.join`. No caller currently passes untrusted input here (`networkId`
+ * comes from the wallet SDK's own enum or a local CLI env var), but nothing
+ * upstream enforces that, and a `networkId` containing `../` would otherwise
+ * let the resulting path escape `baseDir`.
  */
 export function getDustStatePath(baseDir: string, networkId: string, seed: string): string {
   const seedKey = createHash("sha256").update(seed).digest("hex").slice(0, 32);
-  return path.join(baseDir, `${networkId}-${seedKey}.json`);
+  const safeNetworkId = networkId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return path.join(baseDir, `${safeNetworkId}-${seedKey}.json`);
 }
 
 function isUndeployedNetwork(networkId: string): boolean {
