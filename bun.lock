@@ -835,6 +835,7 @@
         "@midnightntwrk/wallet-sdk-shielded": "4.0.0-beta.2",
         "@midnightntwrk/wallet-sdk-unshielded-wallet": "4.0.0-beta.2",
         "@midnightntwrk/wallet-sdk-utilities": "1.2.0",
+        "rxjs": "7.8.2",
       },
       "devDependencies": {
         "typescript": "5.9.3",

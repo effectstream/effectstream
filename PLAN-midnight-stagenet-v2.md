@@ -1,6 +1,6 @@
 # Midnight stagenet 2.x feature template plan
 
-- Status: research and basal-state assessment complete; implementation has not started
+- Status: implementation in progress; C01-C10 complete, C11 awaiting the explicit hosted-write gate
 - Prepared: 2026-08-10
 - Repository: `/Users/edwardalvarado/effectstream-d`
 - Baseline branch: `v-next`
@@ -634,7 +634,7 @@ Scope:
 
 - Add pinned local node/indexer/proof services and health checks to Compose.
 - Add phased deployment and transaction submission sufficient for one contract.
-- Initialize the local test wallet with unshielded NIGHT, perform DUST registration, and assert a sufficient local fee budget before submission; use the same wallet-readiness code that C11 will exercise against hosted stagenet.
+- Initialize the local test wallet with unshielded NIGHT, perform DUST registration when required (or prove that its NIGHT UTXOs are already registered), and assert a sufficient local fee budget before submission; use the same wallet-readiness code that C11 will exercise against hosted stagenet.
 - Deploy only `CryptoEventSink` and call it directly with a fixed vector.
 - Assert returned digest, finalized `lastDigest`, `paused=false`, and exactly one local `Unpaused` event decoded with `ContractLog.decodeAll(result.public.logEvents)`.
 - Do not deploy the gateway or run Effectstream ingestion.
@@ -649,6 +649,8 @@ docker compose -f templates/midnight-stagenet-v2/compose.yaml \
 ```
 
 Pass condition: all services become healthy, one direct sink transaction proves and finalizes, assertions pass, and exact-project cleanup removes containers/volumes. If diagnostics expose host ports, they must use a freshly verified range above 10000.
+
+Basal execution (2026-08-10): **pass**. The isolated Compose run used no published host ports, deployed `CryptoEventSink`, finalized one direct call at local block 13, returned and stored `290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563`, set `paused=false`, and decoded exactly one non-degraded `unpaused` local event. The independent pinned Noble oracle agreed with the contract's Keccak-256 result. The deterministic local seed's five genesis NIGHT UTXOs were already registered and had positive DUST, so the shared readiness path proved `already-registered` rather than submitting a redundant registration; C11 must still register a hosted wallet when necessary. The proof-server image has no `curl`, so its health check uses shell built-ins and `/proc/net/tcp`. Exact-project cleanup left no checkpoint containers or volumes. C08 provider/WASM and C09 call-tree regressions also passed afterward under Docker with `--network none`.
 
 Suggested commit: `feat(midnight-v2): deploy and prove sink locally`
 

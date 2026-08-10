@@ -16,11 +16,13 @@ RUN test -f /context/package.json \
     && test -f /context/packages/chains/midnight-contracts-v2/src/ipc.mjs \
     && test -f /context/packages/chains/midnight-contracts-v2/src/call-tree-loader.mjs \
     && test -f /context/packages/chains/midnight-contracts-v2/src/call-tree-loader.d.ts \
+    && test -f /context/packages/chains/midnight-contracts-v2/src/e2e-runtime.mjs \
+    && test -f /context/packages/chains/midnight-contracts-v2/src/wallet-readiness.mjs \
     && test -f /context/packages/chains/midnight-contracts-v2/src/provider-worker.mjs \
     && test -f /context/packages/chains/midnight-contracts-v2/src/bun-node-bridge.mjs \
     && test -f /context/packages/chains/midnight-contracts-v2/src/index.d.ts \
     && test "$(find /context/packages/chains/midnight-contracts -type f | wc -l | tr -d ' ')" = "16" \
-    && test "$(find /context/packages -type f | wc -l | tr -d ' ')" = "25"
+    && test "$(find /context/packages -type f | wc -l | tr -d ' ')" = "27"
 
 FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS lockfile-generator
 
@@ -275,6 +277,7 @@ COPY --from=midnight-dependencies /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=midnight-dependencies /app/package.json ./package.json
 COPY --from=midnight-dependencies /app/bun.lock ./bun.lock
 COPY --from=midnight-dependencies /app/node_modules ./node_modules
+COPY --from=midnight-dependencies /app/packages/chains/midnight-contracts-v2/node_modules ./packages/chains/midnight-contracts-v2/node_modules
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/compatibility-lock.json ./compatibility-lock.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/network-config ./packages/network-config
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/run-v2-provider-tests.mjs ./packages/tests/run-v2-provider-tests.mjs
@@ -298,6 +301,13 @@ COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests
 COPY --from=call-tree-build /contracts/managed ./managed
 
 CMD ["node", "packages/tests/call-tree-loader.test.mjs"]
+
+FROM v2-provider-test AS sink-e2e-test
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/sink-e2e.mjs ./packages/tests/sink-e2e.mjs
+COPY --from=crypto-event-sink-build /contracts/managed ./managed
+
+CMD ["node", "packages/tests/sink-e2e.mjs"]
 
 FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS proof-smoke-test
 

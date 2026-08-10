@@ -20,7 +20,8 @@
     "test:network-profile": "bun run packages/tests/network-profile.test.ts",
     "test:providers": "node packages/tests/run-v2-provider-tests.mjs",
     "test:wasm": "node packages/tests/run-v2-wasm-smoke.mjs",
-    "test:call-tree-loader": "node packages/tests/call-tree-loader.test.mjs"
+    "test:call-tree-loader": "node packages/tests/call-tree-loader.test.mjs",
+    "test:sink-e2e": "node packages/tests/sink-e2e.mjs"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0",
