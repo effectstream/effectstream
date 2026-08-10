@@ -16,6 +16,7 @@ FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b4
 WORKDIR /app
 
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/package.json ./package.json
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/contracts/package.json ./packages/contracts/package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/package.json ./packages/tests/package.json
 
 RUN bun install --lockfile-only --ignore-scripts
@@ -26,6 +27,7 @@ WORKDIR /app
 
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/package.json ./package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/bun.lock ./bun.lock
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/contracts/package.json ./packages/contracts/package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/package.json ./packages/tests/package.json
 
 RUN bun install --frozen-lockfile --ignore-scripts
@@ -124,6 +126,49 @@ WORKDIR /app
 COPY --from=compatibility-test /app /app
 
 CMD ["bun", "run", "test:compiler-smoke"]
+
+FROM compact-toolchain AS crypto-event-sink-build
+
+WORKDIR /contracts
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/contracts ./
+
+RUN set -eu; \
+    bun run build:sink >./sink-compile.stdout 2>./sink-compile.stderr; \
+    cat ./sink-compile.stdout; \
+    cat ./sink-compile.stderr >&2; \
+    if grep -F "ZKIR not found" ./sink-compile.stderr; then \
+      echo "Compiler skipped CryptoEventSink ZKIR generation" >&2; \
+      exit 1; \
+    fi; \
+    sha256sum ./managed/CryptoEventSink/compiler/contract-manifest.json \
+      | awk '{print $1}' \
+      >./managed/CryptoEventSink/compiler/contract-manifest.sha256; \
+    compactc --feature-zkir-v3 \
+      ./src/CryptoEventSink.compact ./reproducibility-check/CryptoEventSink \
+      >./sink-repro.stdout 2>./sink-repro.stderr; \
+    if grep -F "ZKIR not found" ./sink-repro.stderr; then \
+      echo "Compiler skipped reproducibility-check ZKIR generation" >&2; \
+      exit 1; \
+    fi; \
+    cmp \
+      ./managed/CryptoEventSink/compiler/contract-manifest.json \
+      ./reproducibility-check/CryptoEventSink/compiler/contract-manifest.json; \
+    rm -rf /contracts/reproducibility-check
+
+FROM crypto-event-sink-build AS contract-test
+
+WORKDIR /app
+
+COPY --from=midnight-dependencies /app/package.json ./package.json
+COPY --from=midnight-dependencies /app/node_modules ./node_modules
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/compatibility-lock.json ./compatibility-lock.json
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests ./packages/tests
+COPY --from=crypto-event-sink-build /contracts/managed ./managed
+
+USER bun
+
+CMD ["bun", "run", "test:compile:sink"]
 
 FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS proof-smoke-test
 

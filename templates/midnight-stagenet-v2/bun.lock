@@ -10,6 +10,7 @@
         "@midnight-ntwrk/midnight-js-contracts": "5.0.0-beta.6",
         "@midnight-ntwrk/midnight-js-http-client-proof-provider": "5.0.0-beta.6",
         "@midnight-ntwrk/midnight-js-network-id": "5.0.0-beta.6",
+        "@midnight-ntwrk/midnight-js-node-zk-config-provider": "5.0.0-beta.6",
         "@midnight-ntwrk/midnight-js-protocol": "5.0.0-beta.6",
         "@midnight-ntwrk/midnight-js-types": "5.0.0-beta.6",
         "@midnight-ntwrk/midnight-js-utils": "5.0.0-beta.6",
@@ -17,6 +18,10 @@
         "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
         "@midnightntwrk/onchain-runtime-v4": "4.0.0-rc.3",
       },
+    },
+    "packages/contracts": {
+      "name": "@effectstream/midnight-v2-contracts",
+      "version": "0.0.0",
     },
     "packages/tests": {
       "name": "@effectstream/midnight-v2-tests",
@@ -32,6 +37,8 @@
   "packages": {
     "@effect/platform": ["@effect/platform@0.96.3", "", { "dependencies": { "find-my-way-ts": "^0.1.6", "msgpackr": "^1.11.10", "multipasta": "^0.2.7" }, "peerDependencies": { "effect": "^3.21.5" } }, "sha512-LzvIj4HYE++TcTv/cVTCI/GRvQTV0ymwRmgjZMzNB5dU4OS05pTN36RKN0npiOm5orLJgw4yjIv1dNZoYGh/vg=="],
 
+    "@effectstream/midnight-v2-contracts": ["@effectstream/midnight-v2-contracts@workspace:packages/contracts"],
+
     "@effectstream/midnight-v2-tests": ["@effectstream/midnight-v2-tests@workspace:packages/tests"],
 
     "@midnight-ntwrk/compact-js": ["@midnight-ntwrk/compact-js@2.5.5-rc.7", "", { "dependencies": { "@effect/platform": "^0.96.1", "@midnight-ntwrk/compact-runtime": "0.18.0-rc.1", "@midnight-ntwrk/platform-js": "^3.0.0", "@midnightntwrk/ledger-v9": "^1.0.0-rc.3", "@noble/hashes": "^2.2.0", "effect": "^3.21.4", "tslib": "^2.8.1" } }, "sha512-INcbIxsgK2NGm5J7pCHRsq1kxKQEXKQjFRgU84TsbP6GadqnWFg1hh0eJ/H2SS6AxAQGQjI0iasLodVTviKAIw=="],
@@ -43,6 +50,8 @@
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": ["@midnight-ntwrk/midnight-js-http-client-proof-provider@5.0.0-beta.6", "", { "dependencies": { "@midnight-ntwrk/midnight-js-contracts": "5.0.0-beta.6", "@midnight-ntwrk/midnight-js-network-id": "5.0.0-beta.6", "@midnight-ntwrk/midnight-js-protocol": "5.0.0-beta.6", "@midnight-ntwrk/midnight-js-types": "5.0.0-beta.6", "@midnight-ntwrk/midnight-js-utils": "5.0.0-beta.6", "cross-fetch": "^4.1.0", "fetch-retry": "^6.0.0" } }, "sha512-5PHS28YspoNw6D1C4QluolcsaSvsbcXsCv0CKKTesrxA7iwgT/5ZXFbFbengTLsgr3Qgd2IZdv2Ed09gApxBJA=="],
 
     "@midnight-ntwrk/midnight-js-network-id": ["@midnight-ntwrk/midnight-js-network-id@5.0.0-beta.6", "", {}, "sha512-XgvvAyHLovjdGLz96nc9K0s3LIYl5fxhXIYHF/X5VxlXHY5NZlLIjptXERcGcAQRTjZWhZbIXcUwZxXDpiSjZw=="],
+
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": ["@midnight-ntwrk/midnight-js-node-zk-config-provider@5.0.0-beta.6", "", { "dependencies": { "@midnight-ntwrk/midnight-js-types": "5.0.0-beta.6", "@midnight-ntwrk/midnight-js-utils": "5.0.0-beta.6" } }, "sha512-opaiQo2MXRrBLMw8zol3DzqftCa3UhN+DZloZw/izAOTsbuqTX093ESKujuz/qcG/9+IbzUiDe59N1VCJy2GkQ=="],
 
     "@midnight-ntwrk/midnight-js-protocol": ["@midnight-ntwrk/midnight-js-protocol@5.0.0-beta.6", "", { "dependencies": { "@midnight-ntwrk/compact-js": "2.5.5-rc.7", "@midnight-ntwrk/compact-runtime": "0.18.0-rc.1", "@midnight-ntwrk/platform-js": "3.0.0", "@midnightntwrk/ledger-v9": "1.0.0-rc.3", "@midnightntwrk/onchain-runtime-v4": "4.0.0-rc.3" } }, "sha512-qqT4S7FqclCkwUx5ISVI3xwpE1iiZ2SU/5EjSiWMf9bUdi00RANyGv+ZRKkXEMOj9OigHhu4UXmIieWGAVEhgA=="],
 

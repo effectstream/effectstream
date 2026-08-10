@@ -90,5 +90,16 @@
       "platforms": ["linux/amd64", "linux/arm64"],
       "targetHostMode": "native-arm64"
     }
+  },
+  "artifacts": {
+    "CryptoEventSink": {
+      "compilerManifestSha256": "626271b0c0d79ce3fc1f118b351209eb97817715b472a487eed9924c8ef66fcc",
+      "compilerVersion": "0.33.0",
+      "languageVersion": "0.25.0",
+      "runtimeVersion": "0.18.0-rc.1",
+      "circuitCount": 1,
+      "zkirVersion": 3,
+      "keyVersion": 7
+    }
   }
 }
