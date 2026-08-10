@@ -24,3 +24,14 @@ RUN --network=none bun install --frozen-lockfile --ignore-scripts
 USER bun
 
 CMD ["bun", "run", "test:scaffold"]
+
+FROM scaffold-test AS compatibility-test
+
+USER root
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/compatibility-lock.json ./compatibility-lock.json
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/COMPATIBILITY.md ./COMPATIBILITY.md
+
+USER bun
+
+CMD ["bun", "run", "test:compatibility:fixtures"]

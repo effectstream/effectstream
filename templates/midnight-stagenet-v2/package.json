@@ -8,6 +8,8 @@
   ],
   "scripts": {
     "test": "bun run test:scaffold",
-    "test:scaffold": "bun run packages/tests/scaffold-test.ts"
+    "test:scaffold": "bun run packages/tests/scaffold-test.ts",
+    "test:compatibility:fixtures": "bun run packages/tests/compatibility-fixtures.test.ts",
+    "test:live:read": "bun run packages/tests/live-read.ts"
   }
 }

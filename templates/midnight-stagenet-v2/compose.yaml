@@ -36,3 +36,19 @@ services:
         Bun.serve({hostname:'0.0.0.0',port:3000,fetch(){return new Response('midnight-v2 diagnostics')}})
     ports:
       - "127.0.0.1:${MIDNIGHT_V2_DIAGNOSTIC_PORT:?Set a preflighted port above 10000}:3000"
+
+  node-image:
+    profiles:
+      - image-preflight
+    image: docker.io/midnightntwrk/midnight-node@sha256:caf93d6f9fb3630c906ef3e714c151655377f3d28f907d17545de1870514da2e
+
+  indexer-image:
+    profiles:
+      - image-preflight
+    image: docker.io/midnightntwrk/indexer-standalone@sha256:5d79f3a20da9ed86236c7f7dc9d93b1beeb0b0c47c9c43a791041322eb80b74e
+    platform: linux/amd64
+
+  proof-image:
+    profiles:
+      - image-preflight
+    image: docker.io/midnightntwrk/proof-server@sha256:4f02ca2734649eb238d13924df299b1c82bd5546ec928c5d67bdd0ce86dd0bd1

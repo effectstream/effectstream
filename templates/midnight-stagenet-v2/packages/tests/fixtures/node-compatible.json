@@ -1,0 +1,8 @@
+{
+  "chain": "Midnight Stagenet",
+  "nodeVersion": "2.0.0-d9729c13",
+  "specVersion": 2000000,
+  "transactionVersion": 4,
+  "peers": 6,
+  "isSyncing": false
+}
