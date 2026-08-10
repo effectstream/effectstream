@@ -22,7 +22,8 @@
     "test:wasm": "node packages/tests/run-v2-wasm-smoke.mjs",
     "test:call-tree-loader": "node packages/tests/call-tree-loader.test.mjs",
     "test:sink-e2e": "node packages/tests/sink-e2e.mjs",
-    "test:hosted-keccak": "node packages/tests/hosted-keccak.mjs"
+    "test:hosted-keccak": "node packages/tests/hosted-keccak.mjs",
+    "test:ccc-e2e": "node packages/tests/ccc-e2e.mjs"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0",

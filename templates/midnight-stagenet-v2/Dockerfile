@@ -22,6 +22,7 @@ RUN test -f /context/package.json \
     && test -f /context/packages/chains/midnight-contracts-v2/src/bun-node-bridge.mjs \
     && test -f /context/packages/chains/midnight-contracts-v2/src/index.d.ts \
     && test -f /context/templates/midnight-stagenet-v2/packages/tests/hosted-keccak.mjs \
+    && test -f /context/templates/midnight-stagenet-v2/packages/tests/ccc-e2e.mjs \
     && test "$(find /context/packages/chains/midnight-contracts -type f | wc -l | tr -d ' ')" = "16" \
     && test "$(find /context/packages -type f | wc -l | tr -d ' ')" = "27"
 
@@ -316,6 +317,13 @@ COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests
 COPY --from=contract-boundary-build /work/compiled-fixtures/KeccakHostedProbe ./managed/KeccakHostedProbe
 
 CMD ["node", "packages/tests/hosted-keccak.mjs"]
+
+FROM v2-provider-test AS ccc-e2e-test
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/ccc-e2e.mjs ./packages/tests/ccc-e2e.mjs
+COPY --from=call-tree-build /contracts/managed ./managed
+
+CMD ["node", "packages/tests/ccc-e2e.mjs"]
 
 FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS proof-smoke-test
 

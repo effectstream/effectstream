@@ -1,6 +1,6 @@
 # Midnight stagenet 2.x feature template plan
 
-- Status: implementation in progress; C01-C11 complete, C12 is next
+- Status: implementation in progress; C01-C12 complete, C13 is next
 - Prepared: 2026-08-10
 - Repository: `/Users/edwardalvarado/effectstream-d`
 - Baseline branch: `v-next`
@@ -707,6 +707,8 @@ docker compose -f templates/midnight-stagenet-v2/compose.yaml \
 ```
 
 Pass condition: one root transaction proves all three contract features locally and the negative substitution is rejected before submission.
+
+Basal execution (2026-08-10): **pass**. The isolated no-host-port Compose run deployed sink `025f…c778` then gateway `2037…e2cb`; one gateway root transaction finalized at local block 16 with call order `[sink, gateway]`, returned/stored the canonical zero-vector Keccak-256 digest, and exposed exactly one non-degraded sink `unpaused` locally. API v4 indexed the correlated `Unpaused` event for the root transaction (event id 53, indexer transaction id 28), and block-hash-pinned sink state agreed with the call-tree state. A substituted sink address was rejected by the authenticated call-tree loader before submission, with sink state and event IDs unchanged. The initial basal attempt additionally proved the constructor's typed boundary: a raw `Uint8Array` address fails before gateway deployment; the correct Compact contract argument is `{ bytes: Uint8Array }`. Exact-project cleanup removed all containers, volumes, and the private network; diagnostic value `23472` was freshly checked but never published.
 
 Suggested commit: `feat(midnight-v2): prove gateway contract-to-contract call`
 
