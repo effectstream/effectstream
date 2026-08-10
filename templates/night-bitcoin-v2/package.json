@@ -26,6 +26,9 @@
   "devDependencies": {
     "@types/bun": "^1.3.13"
   },
+  "patchedDependencies": {
+    "@effectstream/bitcoin-core@0.103.2": "patches/@effectstream%2Fbitcoin-core@0.103.2.patch"
+  },
   "overrides": {
     "@effect/platform": "0.96.1",
     "@midnight-ntwrk/ledger-v8": "8.1.0",

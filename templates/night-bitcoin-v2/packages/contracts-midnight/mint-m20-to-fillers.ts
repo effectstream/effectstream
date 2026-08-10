@@ -18,7 +18,7 @@ import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 import {
   buildWalletFacade,
   getInitialShieldedState,
-  registerNightForDust,
+  waitForDustFunds,
   configureMidnightNodeProviders,
 } from "@effectstream/midnight-contracts";
 import {
@@ -66,8 +66,8 @@ const M20_DOMAIN_SEP = new Uint8Array(32).fill(0x20);
 
 // Genesis seed used to fund the mint operations in standalone/undeployed mode.
 // Holds initial NIGHT/dust on a fresh local Midnight node. MUST be a 64-char
-// hex string (32 bytes) and MUST match faucet.ts's GENESIS_MINT_WALLET_SEED —
-// any drift derives a different (empty) wallet and stalls sync for 10 minutes.
+// hex string (32 bytes) and MUST match the `genesis-deployer` entry in
+// undeployed-genesis-seeds.json. Any drift derives a different empty wallet.
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
 
@@ -83,6 +83,7 @@ const contractConfig = {
 };
 
 const standaloneConfig = {
+  id: NetworkId.NetworkId.Undeployed,
   indexer: "http://127.0.0.1:8088/api/v3/graphql",
   indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
   node: "http://127.0.0.1:9944",
@@ -197,11 +198,8 @@ export async function mintM20ToFillers(
     });
 
     // Custom sync wait: shielded + unshielded only, with non-zero unshielded.
-    // We intentionally do NOT wait for `dust.progress.isStrictlyComplete()` —
-    // after the faucet step registers NIGHT UTXOs and transfers NIGHT, the
-    // dust subtree's progress tracker hangs in undeployed mode and never
-    // reports complete, even with a fully-funded wallet. registerNightForDust
-    // + the mint tx itself work fine without that flag flipping.
+    // We intentionally do NOT wait for `dust.progress.isStrictlyComplete()`;
+    // the DUST sub-wallet is checked independently below.
     log.info(
       "Step 3/5 — waiting for wallet sync (shielded + unshielded) and non-zero NIGHT balance",
     );
@@ -236,20 +234,17 @@ export async function mintM20ToFillers(
       `Sync ready in ${((Date.now() - t0) / 1000).toFixed(1)}s — unshielded NIGHT: ${unshieldedBalance}`,
     );
 
-    // Always try to register NIGHT for dust — this seeds the dust pool the
-    // wallet uses to pay tx fees. Safe to call even if some dust already
-    // exists from a prior faucet run (it just no-ops or re-registers).
-    log.info(
-      "Registering NIGHT UTXOs for dust generation (so we can pay tx fees)",
-    );
-    try {
-      await registerNightForDust(walletResult);
-      log.info("registerNightForDust completed");
-    } catch (e) {
-      log.warn(
-        `registerNightForDust failed (continuing — mint will surface real fee errors if any): ${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
+    // Node 1.0.0 custom genesis registers this setup wallet's NIGHT at block
+    // zero. A read-only positive-DUST assertion avoids the old redundant
+    // registerNightForDust call, whose façade-wide sync precheck can wait for
+    // ten minutes on an already-registered undeployed wallet.
+    const dustBalance = await waitForDustFunds(wallet, {
+      timeoutMs: SYNC_TIMEOUT_MS,
+      waitNonZero: true,
+      skipCatchUp: true,
+      dustPollIntervalMs: 1_000,
+    });
+    log.info(`Genesis DUST preflight complete: ${dustBalance}`);
 
     log.info("Step 4/5 — joining deployed M20 contract", { contractAddress });
     const providers = (await configureMidnightNodeProviders(

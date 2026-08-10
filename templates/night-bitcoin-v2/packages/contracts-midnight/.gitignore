@@ -4,5 +4,6 @@ erc7683.*.json
 unshielded-erc20.*.json
 midnight-level-db
 generated/
+.midnight-genesis/
 erc7683/src/managed
 unshielded-erc20/src/managed

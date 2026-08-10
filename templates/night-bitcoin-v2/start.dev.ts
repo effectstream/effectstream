@@ -5,6 +5,27 @@ import { launchBitcoin, BitcoinNames } from "@effectstream/orchestrator/launch-b
 import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 
 const root = import.meta.dirname!;
+const MIDNIGHT_GENESIS_VERIFY = "midnight-genesis-verify";
+
+const midnightProcesses = launchMidnight(
+  "@night-bitcoin/contracts-midnight",
+  { cwd: path.join(root, "packages/contracts-midnight") },
+  { env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" } },
+).map((process) => {
+  if (process.name === MidnightNames.NODE) {
+    return {
+      ...process,
+      dependsOn: [MIDNIGHT_GENESIS_VERIFY, ...(process.dependsOn ?? [])],
+    };
+  }
+  if (
+    process.name === MidnightNames.INDEXER ||
+    process.name === MidnightNames.PROOF_SERVER
+  ) {
+    return { ...process, dependsOn: [MidnightNames.NODE_WAIT] };
+  }
+  return process;
+});
 
 const slugify = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") ||
@@ -55,9 +76,15 @@ export default {
   processes: [
     ...launchPglite(),
     ...launchBitcoin("@night-bitcoin/contracts-bitcoin", { cwd: path.join(root, "packages/contracts-bitcoin") }),
-    ...launchMidnight("@night-bitcoin/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
-      env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
-    }),
+    {
+      name: MIDNIGHT_GENESIS_VERIFY,
+      description: "Verify the bundled Night-Bitcoin custom genesis",
+      args: ["run", "--filter", "@night-bitcoin/contracts-midnight", "midnight-genesis:verify"],
+      waitToExit: true,
+      type: "system-dependency",
+      critical: true,
+    },
+    ...midnightProcesses,
 
     {
       name: "create-wallets-bitcoin",
@@ -77,7 +104,7 @@ export default {
     },
     {
       name: "mint-wallets-midnight",
-      description: "Mint test ERC20 funds to filler Midnight wallets",
+      description: "Verify genesis-prefunded NIGHT/DUST and mint filler M20 inventory",
       args: ["run", "--filter", "@night-bitcoin/contracts-midnight", "mint-wallets"],
       waitToExit: true,
       type: "system-dependency",
@@ -95,6 +122,8 @@ export default {
         DbNames.PGLITE_WAIT,
         MidnightNames.CONTRACT_DEPLOY,
         BitcoinNames.BITCOIN_WAIT_FOR_BLOCK,
+        "create-wallets-bitcoin",
+        "mint-wallets-midnight",
       ],
     },
 

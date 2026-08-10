@@ -1,3 +1,6 @@
+// Legacy manual-development helper. The template launch path intentionally does
+// not import this file: filler NIGHT is registered for DUST in custom genesis.
+//
 // For each filler, build their wallet from the saved seed, register the
 // freshly-received NIGHT UTXO for dust generation, and wait until dust > 0.
 // This must run while the orchestrator is up and before the filler service

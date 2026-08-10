@@ -102,6 +102,7 @@ function getDBConnection(): Client {
 
 async function test() {
   let db: Client | null = null;
+  let caughtError = false;
   try {
     await startInfrastructure();
     await waitForOrchestrator();
@@ -126,7 +127,8 @@ async function test() {
 
     await waitForProcess("create-wallets-bitcoin", { waitForExit: true, timeoutMs: 300_000 });
     await waitForProcess("create-wallets-midnight", { waitForExit: true, timeoutMs: 600_000 });
-    console.log("Filler wallets created.");
+    await waitForProcess("mint-wallets-midnight", { waitForExit: true, timeoutMs: 600_000 });
+    console.log("Filler wallets created, genesis funding verified, and M20 inventory minted.");
 
     const { walletsCreatedTest } = await import("./infra/wallets-created.test.ts");
     await walletsCreatedTest();
@@ -162,12 +164,15 @@ async function test() {
 
     printSummary();
   } catch (e) {
+    caughtError = true;
     printSummary();
     console.error(e);
   } finally {
     if (db) await db.end();
     await stopInfrastructure();
-    if (anyError()) process.exit(1);
+    // Infrastructure and browser errors can occur outside assert(), so they
+    // must fail the run even when every completed assertion passed.
+    if (caughtError || anyError()) process.exit(1);
     process.exit(0);
   }
 }
