@@ -10,7 +10,15 @@ RUN test -f /context/package.json \
     && test ! -e /context/templates/midnight-stagenet-v2/.context-excluded.sentinel \
     && test ! -e /context/PLAN-midnight-stagenet-v2.md \
     && test -f /context/packages/chains/midnight-contracts/src/midnight-env.ts \
-    && test "$(find /context/packages -type f | wc -l | tr -d ' ')" = "1"
+    && test -f /context/packages/chains/midnight-contracts-v2/package.json \
+    && test -f /context/packages/chains/midnight-contracts-v2/src/providers.mjs \
+    && test -f /context/packages/chains/midnight-contracts-v2/src/runtime-guard.mjs \
+    && test -f /context/packages/chains/midnight-contracts-v2/src/ipc.mjs \
+    && test -f /context/packages/chains/midnight-contracts-v2/src/provider-worker.mjs \
+    && test -f /context/packages/chains/midnight-contracts-v2/src/bun-node-bridge.mjs \
+    && test -f /context/packages/chains/midnight-contracts-v2/src/index.d.ts \
+    && test "$(find /context/packages/chains/midnight-contracts -type f | wc -l | tr -d ' ')" = "16" \
+    && test "$(find /context/packages -type f | wc -l | tr -d ' ')" = "23"
 
 FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS lockfile-generator
 
@@ -20,6 +28,7 @@ COPY --from=context-audit /context/templates/midnight-stagenet-v2/package.json .
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/contracts/package.json ./packages/contracts/package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/network-config/package.json ./packages/network-config/package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/package.json ./packages/tests/package.json
+COPY --from=context-audit /context/packages/chains/midnight-contracts-v2/package.json ./packages/chains/midnight-contracts-v2/package.json
 
 RUN bun install --lockfile-only --ignore-scripts
 
@@ -32,6 +41,7 @@ COPY --from=context-audit /context/templates/midnight-stagenet-v2/bun.lock ./bun
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/contracts/package.json ./packages/contracts/package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/network-config/package.json ./packages/network-config/package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/package.json ./packages/tests/package.json
+COPY --from=context-audit /context/packages/chains/midnight-contracts-v2/package.json ./packages/chains/midnight-contracts-v2/package.json
 
 RUN bun install --frozen-lockfile --ignore-scripts
 
@@ -252,6 +262,33 @@ COPY --from=context-audit /context/packages/chains/midnight-contracts/src/midnig
 USER bun
 
 CMD ["bun", "run", "test:network-profile"]
+
+FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS v2-provider-test
+
+WORKDIR /app
+
+RUN apk add --no-cache libstdc++=14.2.0-r6
+
+COPY --from=midnight-dependencies /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=midnight-dependencies /app/package.json ./package.json
+COPY --from=midnight-dependencies /app/bun.lock ./bun.lock
+COPY --from=midnight-dependencies /app/node_modules ./node_modules
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/compatibility-lock.json ./compatibility-lock.json
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/network-config ./packages/network-config
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/run-v2-provider-tests.mjs ./packages/tests/run-v2-provider-tests.mjs
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/run-v2-wasm-smoke.mjs ./packages/tests/run-v2-wasm-smoke.mjs
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/v2-provider-types.ts ./packages/tests/v2-provider-types.ts
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/tsconfig.c08.json ./packages/tests/tsconfig.c08.json
+COPY --from=context-audit /context/packages/chains/midnight-contracts-v2 ./packages/chains/midnight-contracts-v2
+COPY --from=context-audit /context/packages/chains/midnight-contracts ./legacy/midnight-contracts
+
+RUN --network=none node \
+      ./node_modules/.bun/typescript@5.9.3/node_modules/typescript/bin/tsc \
+      -p ./packages/tests/tsconfig.c08.json
+
+USER node
+
+CMD ["node", "packages/tests/run-v2-provider-tests.mjs"]
 
 FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS proof-smoke-test
 

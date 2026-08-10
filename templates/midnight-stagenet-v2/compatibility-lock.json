@@ -4,7 +4,8 @@
   "networkId": "stagenet",
   "hostedZkirV3Verification": "unverified",
   "baselines": {
-    "legacyV1MidnightEnvSha256": "222815ea959d632a6002d7a4110957c00e0a289c6bb0ae6d8743856123c00e49"
+    "legacyV1MidnightEnvSha256": "222815ea959d632a6002d7a4110957c00e0a289c6bb0ae6d8743856123c00e49",
+    "legacyV1PackageTreeSha256": "6b82eb68f4dccf5fe83d29db9ef9372e8a00cabbe03e1ed87159538a6885a056"
   },
   "endpoints": {
     "nodeUrl": "wss://rpc.stagenet.shielded.tools",

@@ -588,7 +588,9 @@ Scope:
 }
 ```
 - Under Node, actually exercise Ledger v9 and on-chain-runtime-v4 WASM with a deterministic in-memory encode/decode/state operation. A successful module import or provider construction against fakes is insufficient.
+- Type-check the v2 package through a strict consumer fixture. Basal execution found declaration errors internal to the pinned prerelease `compact-js`/`thread-stream` graph, so this consumer check uses `skipLibCheck`; it still resolves and exercises the package's exported types.
 - Reject duplicate package copies and `instanceof`/type identity splits before provider construction; never load Ledger 8 and Ledger 9 in one process.
+- The legacy `packages/chains/midnight-contracts` package has no direct `*.test.*`/`*.spec.*` files at this baseline. C08 therefore authenticates its complete 16-file tree as unchanged; the external Ledger-8 wallet regression remains part of C20's affected-package gate.
 
 Required Docker test:
 

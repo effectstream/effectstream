@@ -5,7 +5,8 @@
   "type": "module",
   "packageManager": "bun@1.3.14",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/chains/*"
   ],
   "scripts": {
     "test": "bun run test:scaffold",
@@ -16,7 +17,9 @@
     "test:compile:sink": "bun run packages/tests/compile-sink.test.ts",
     "test:compile:call-tree": "bun run packages/tests/compile-call-tree.test.ts",
     "test:contracts": "bun run packages/tests/contracts.test.ts",
-    "test:network-profile": "bun run packages/tests/network-profile.test.ts"
+    "test:network-profile": "bun run packages/tests/network-profile.test.ts",
+    "test:providers": "node packages/tests/run-v2-provider-tests.mjs",
+    "test:wasm": "node packages/tests/run-v2-wasm-smoke.mjs"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0",
