@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:sink": "compactc --feature-zkir-v3 src/CryptoEventSink.compact managed/CryptoEventSink"
+    "build:sink": "compactc --feature-zkir-v3 src/CryptoEventSink.compact managed/CryptoEventSink",
+    "build:gateway": "bun run build-gateway.ts",
+    "build:manifest": "bun run build-call-tree-manifest.ts",
+    "build:call-tree": "bun run build:sink && bun run build:gateway && bun run build:manifest"
   }
 }

@@ -13,7 +13,8 @@
     "test:compatibility:fixtures": "bun run packages/tests/compatibility-fixtures.test.ts",
     "test:live:read": "bun run packages/tests/live-read.ts",
     "test:compiler-smoke": "bun run packages/tests/compiler-smoke.ts",
-    "test:compile:sink": "bun run packages/tests/compile-sink.test.ts"
+    "test:compile:sink": "bun run packages/tests/compile-sink.test.ts",
+    "test:compile:call-tree": "bun run packages/tests/compile-call-tree.test.ts"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-js": "2.5.5-rc.7",

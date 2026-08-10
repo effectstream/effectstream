@@ -100,6 +100,19 @@
       "circuitCount": 1,
       "zkirVersion": 3,
       "keyVersion": 7
+    },
+    "FeatureGateway": {
+      "compilerManifestSha256": "60ff3ad0423287125b9cb1c0992d4d7002e65ddec19a2bd722885496c74994c3",
+      "compilerVersion": "0.33.0",
+      "languageVersion": "0.25.0",
+      "runtimeVersion": "0.18.0-rc.1",
+      "circuitCount": 1,
+      "zkirVersion": 2,
+      "keyVersion": 6
+    },
+    "CallTree": {
+      "manifestSha256": "14ef122ebc0478c2f3f66b1b8528b39bf1f2a56a3b678716d403bc637fd39835",
+      "compilationOrder": ["CryptoEventSink", "FeatureGateway"]
     }
   }
 }

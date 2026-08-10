@@ -170,6 +170,55 @@ USER bun
 
 CMD ["bun", "run", "test:compile:sink"]
 
+FROM compact-toolchain AS call-tree-build
+
+WORKDIR /contracts
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/contracts ./
+
+RUN set -eu; \
+    bun run build:call-tree >./call-tree-compile.stdout 2>./call-tree-compile.stderr; \
+    cat ./call-tree-compile.stdout; \
+    cat ./call-tree-compile.stderr >&2; \
+    if grep -F "ZKIR not found" ./call-tree-compile.stderr; then \
+      echo "Compiler skipped call-tree ZKIR generation" >&2; \
+      exit 1; \
+    fi; \
+    test -s ./managed/call-tree-manifest.json; \
+    mkdir -p ./negative/reverse/src ./negative/wrong-name/src; \
+    cp ./build-gateway.ts ./negative/reverse/build-gateway.ts; \
+    cp ./src/FeatureGateway.compact ./negative/reverse/src/FeatureGateway.compact; \
+    if (cd ./negative/reverse && bun run build-gateway.ts >../reverse.stdout 2>../reverse.stderr); then \
+      echo "Gateway-first compilation unexpectedly succeeded" >&2; \
+      exit 1; \
+    fi; \
+    grep -F "Required sibling bundle is missing" ./negative/reverse.stderr; \
+    cp ./build-gateway.ts ./negative/wrong-name/build-gateway.ts; \
+    cp ./src/FeatureGateway.compact ./negative/wrong-name/src/FeatureGateway.compact; \
+    mkdir -p ./negative/wrong-name/managed; \
+    cp -R ./managed/CryptoEventSink ./negative/wrong-name/managed/WrongName; \
+    if (cd ./negative/wrong-name && bun run build-gateway.ts >../wrong-name.stdout 2>../wrong-name.stderr); then \
+      echo "Renamed-sibling compilation unexpectedly succeeded" >&2; \
+      exit 1; \
+    fi; \
+    grep -F "Required sibling bundle is missing" ./negative/wrong-name.stderr; \
+    rm -rf ./negative/wrong-name/managed
+
+FROM call-tree-build AS call-tree-test
+
+WORKDIR /app
+
+COPY --from=midnight-dependencies /app/package.json ./package.json
+COPY --from=midnight-dependencies /app/node_modules ./node_modules
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/compatibility-lock.json ./compatibility-lock.json
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests ./packages/tests
+COPY --from=call-tree-build /contracts/managed ./managed
+COPY --from=call-tree-build /contracts/negative ./negative
+
+USER bun
+
+CMD ["bun", "run", "test:compile:call-tree"]
+
 FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS proof-smoke-test
 
 WORKDIR /app

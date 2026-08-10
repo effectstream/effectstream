@@ -486,7 +486,7 @@ Scope:
 
 - Add only the gateway interface/source and the call-tree compile orchestration.
 - Compile the sink first and expose its interface/verifier artifact under the exact name expected by `FeatureGateway`.
-- Place both managed bundles as siblings under one artifact root. The callee output directory must be named exactly `CryptoEventSink`, matching the gateway's declared `contract CryptoEventSink { ... }` interface; this directory name is what resolves `compiler/contract-info.json` and bakes `expectedVk` into the caller.
+- Place both managed bundles as siblings under one artifact root. The callee output directory must be named exactly `CryptoEventSink`, matching the gateway's declared `contract CryptoEventSink { ... }` interface. Baseline execution found that Compact 0.33 accepts the external CCC declaration without linking a sibling artifact, so the repository build guard—not `compactc` itself—must resolve and authenticate `managed/CryptoEventSink/compiler/contract-info.json` before compiling the gateway.
 - Compile the gateway second with the same rc.1 compiler. Use `--feature-zkir-v3` only for circuits that themselves require Keccak/secp; events and CCC alone do not require the flag. Record the ZKIR/proof version of every exported circuit.
 - Never pass `--no-communications-commitment`, trap `ZKIR not found` on stderr, and enforce seven or fewer exported circuits per deployable contract.
 - Produce a call-tree manifest that binds logical interface name, artifact path/checksum, compiler-manifest hash, verifier key, and ZKIR version.
@@ -499,7 +499,7 @@ docker run --rm --network none effectstream/midnight-v2:c05 \
   bun run test:compile:call-tree
 ```
 
-Pass condition: both contracts compile from a clean state in the required order, use one compiler generation, retain communications commitments, pass fail-closed artifact-manifest checks, and the gateway binding resolves only to sibling `CryptoEventSink`. Reversing the build order, renaming the directory, emitting a skipped-ZKIR warning, or substituting a fixture artifact must fail.
+Pass condition: both contracts compile from a clean state in the required order, use one compiler generation, retain communications commitments, pass fail-closed artifact-manifest checks, and the explicit gateway build guard resolves only the authenticated sibling `CryptoEventSink`. Reversing the build order, renaming the directory, emitting a skipped-ZKIR warning, or substituting a fixture artifact must fail. The first two are build-orchestration failures because the compiler does not enforce sibling linkage by itself.
 
 Suggested commit: `feat(midnight-v2): compile gateway contract call tree`
 
