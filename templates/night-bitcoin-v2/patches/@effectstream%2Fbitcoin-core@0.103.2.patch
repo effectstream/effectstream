@@ -1,0 +1,7 @@
+diff --git a/index.js b/index.js
+index 8294818dba69da8df023998c0d2b1af69eb627cd..c89a4a3970094817836372a99ee09cdecff44768 100755
+--- a/index.js
++++ b/index.js
+@@ -13 +13 @@ const version = '28.1';
+-const base = `https://bitcoin.org/bin/bitcoin-core-${version}`;
++const base = `https://bitcoincore.org/bin/bitcoin-core-${version}`;
