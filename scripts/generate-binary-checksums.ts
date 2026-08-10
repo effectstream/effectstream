@@ -53,7 +53,7 @@ type PackageSpec = {
   assets: Asset[];
 };
 
-const BITCOIN = "https://bitcoin.org/bin/bitcoin-core-28.1";
+const BITCOIN = "https://bitcoincore.org/bin/bitcoin-core-28.1";
 const LOKI = "https://github.com/grafana/loki/releases/download/v3.5.8";
 const ALLOY = "https://github.com/grafana/alloy/releases/download/v1.11.3";
 

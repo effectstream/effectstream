@@ -10,7 +10,10 @@ import { CHECKSUMS } from './checksums.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const version = '28.1';
-const base = `https://bitcoin.org/bin/bitcoin-core-${version}`;
+// bitcoin.org stopped serving /bin/ (every release asset 404s there now); the
+// binaries live on bitcoincore.org, which is the canonical host upstream links.
+// The artifacts are byte-identical, so CHECKSUMS below is unchanged.
+const base = `https://bitcoincore.org/bin/bitcoin-core-${version}`;
 const dest = path.join(__dirname, 'vendor');
 
 const bin = new BinWrapper()
@@ -42,7 +45,7 @@ fallbackfee=0.00001
 /**
  * Apple Silicon refuses to exec an arm64 Mach-O that carries no code signature
  * at all — the process is SIGKILLed before `main`, with no diagnostic beyond
- * exit 137. bitcoin.org ships `bitcoin-*-arm64-apple-darwin.tar.gz` unsigned
+ * exit 137. Upstream ships `bitcoin-*-arm64-apple-darwin.tar.gz` unsigned
  * (`codesign -dv` → "code object is not signed at all"), so an ad-hoc signature
  * has to be applied locally before first use. Every other binary in
  * packages/binaries/ already ships signed; this is bitcoin-core only.
