@@ -62,6 +62,27 @@ export type UnshieldedDecodeOutcome =
   | { ok: true; outputs: DecodedUnshieldedCreate[] }
   | { ok: false; refusal: UnshieldedRefusal };
 
+export interface UnshieldedDecodeOptions {
+  /**
+   * Proceed when the archive records **no** result at all, treating the transaction as successful.
+   *
+   * Why this exists: `chain_archive.transactions.result` is nullable and **stock UmbraDB never
+   * writes it** (verified: every row `NULL`). Without this escape hatch the strict check below
+   * refuses every transaction and the reader emits nothing, forever.
+   *
+   * **It waives only the UNKNOWN case.** A transaction the archive positively records as
+   * `failure` or `partial_success` is still refused, flag or no flag — those are cases where we
+   * *know* the offers overstate what applied, and proceeding would invent UTXOs.
+   *
+   * Unsafe, and named to say so: a genuinely failed transaction whose result simply was not
+   * recorded will be emitted as though it landed. Only set this where something else establishes
+   * that the range contains no such transaction — the differential harness asserts exactly that
+   * using the indexer as an oracle. Delete it, do not rename it, once the archive populates
+   * `result` (plan dependency B3).
+   */
+  unsafeTreatUnknownResultAsSuccess?: boolean;
+}
+
 function toBech32m(networkId: string, rawOwner: string): string {
   const hex = rawOwner.startsWith("0x") ? rawOwner.slice(2) : rawOwner;
   return MidnightBech32m
@@ -72,7 +93,8 @@ function toBech32m(networkId: string, rawOwner: string): string {
 /**
  * @param rawBytes the transaction's archived `tx_raw` bytes
  * @param result the transaction's applied result, or `undefined` when the archive does not record
- *   one. `undefined` is treated as a refusal, never as success — see `UnshieldedRefusal`.
+ *   one. `undefined` refuses by default; see `UnshieldedDecodeOptions` for the deliberate,
+ *   explicitly-unsafe waiver that the devnet demo requires.
  * @param networkId the network the addresses belong to (`undeployed`, `testnet`, …)
  */
 export function decodeUnshieldedCreates(
@@ -80,6 +102,7 @@ export function decodeUnshieldedCreates(
   result: string | undefined,
   networkId: string,
   txHash: string,
+  options: UnshieldedDecodeOptions = {},
 ): UnshieldedDecodeOutcome {
   let tx: any;
   try {
@@ -96,7 +119,16 @@ export function decodeUnshieldedCreates(
 
   // Only a full success lets every offer be taken at face value. PARTIAL_SUCCESS would require
   // per-segment filtering, and the segment map is not available from the archive.
-  if (result !== "success") {
+  //
+  // The two cases are deliberately NOT equivalent:
+  //   - result is KNOWN and not "success"  -> always refuse; we know the offers overstate reality.
+  //   - result is UNKNOWN (archive wrote no value) -> refuse by default, waivable by the caller,
+  //     because stock UmbraDB never records one and refusing would reject every transaction.
+  const resultKnown = result !== undefined && result !== null;
+  if (resultKnown && result !== "success") {
+    return { ok: false, refusal: { reason: "result_unknown_or_not_success", txHash, result } };
+  }
+  if (!resultKnown && options.unsafeTreatUnknownResultAsSuccess !== true) {
     return { ok: false, refusal: { reason: "result_unknown_or_not_success", txHash, result } };
   }
 
