@@ -29,7 +29,7 @@ The GHCR references in the upstream beta.6 testkit returned HTTP 401 to anonymou
 
 The read-only C02 probe checks the literal `stagenet` network identity, node runtime, API-v4 contract-event capability, GraphQL WebSocket handshake, and non-mutating faucet `OPTIONS` response. A passing read probe does not establish transaction or ZKIR-v3 compatibility.
 
-`hostedZkirV3Verification` remains `unverified` until the authorized C11 Keccak deployment/call passes. Do not weaken this field based on local proving alone.
+`hostedZkirV3Verification` is `validated`. On 2026-08-10, authorized C11 deployment `c12eb4c20d08f94f0e10e09fd7b4607896a53616478f5f77795cb27b417dbe1c` and call `3fd30b4ee50d4b8312abd358c2da79d525a56673880cf81e09e2fa150683004b` finalized on `Midnight Stagenet`; the V7 verifier key and locally produced ZKIR-v3 proof were accepted, and indexed state contained the expected Keccak-256 digest. No wallet secret, witness, proof bytes, or private state is recorded.
 
 ## C03 local toolchain observation
 

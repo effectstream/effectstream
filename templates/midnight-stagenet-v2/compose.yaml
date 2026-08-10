@@ -116,6 +116,7 @@ services:
     profiles:
       - toolchain-smoke
       - sink-e2e
+      - hosted-keccak
     image: docker.io/midnightntwrk/proof-server@sha256:4f02ca2734649eb238d13924df299b1c82bd5546ec928c5d67bdd0ce86dd0bd1
     environment:
       RUST_LOG: warn
@@ -195,9 +196,39 @@ services:
     networks:
       - toolchain
 
+  hosted-keccak-tests:
+    <<: *hardened-service
+    profiles:
+      - hosted-keccak
+    build:
+      context: ../..
+      dockerfile: templates/midnight-stagenet-v2/Dockerfile
+      target: hosted-keccak-test
+    environment:
+      RUN_STAGENET_WRITE_TESTS: ${RUN_STAGENET_WRITE_TESTS:-0}
+      MIDNIGHT_V2_READ_ONLY_WALLET_PROBE: ${MIDNIGHT_V2_READ_ONLY_WALLET_PROBE:-0}
+      MIDNIGHT_V2_WALLET_SEED_FILE: /run/secrets/stagenet-wallet-seed
+      MIDNIGHT_V2_NODE_URL: wss://rpc.stagenet.shielded.tools
+      MIDNIGHT_V2_INDEXER_HTTP_URL: https://indexer.stagenet.shielded.tools/api/v4/graphql
+      MIDNIGHT_V2_INDEXER_WS_URL: wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws
+      MIDNIGHT_V2_PROOF_SERVER_URL: http://proof-server-experimental:6300
+    secrets:
+      - stagenet-wallet-seed
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    depends_on:
+      proof-server-experimental:
+        condition: service_healthy
+    networks:
+      - toolchain
+
 networks:
   toolchain:
     driver: bridge
 
 volumes:
   proof-params:
+
+secrets:
+  stagenet-wallet-seed:
+    file: ${MIDNIGHT_V2_WALLET_SEED_SOURCE_FILE:-/dev/null}

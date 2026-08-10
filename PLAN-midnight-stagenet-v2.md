@@ -1,6 +1,6 @@
 # Midnight stagenet 2.x feature template plan
 
-- Status: implementation in progress; C01-C10 complete, C11 awaiting the explicit hosted-write gate
+- Status: implementation in progress; C01-C11 complete, C12 is next
 - Prepared: 2026-08-10
 - Repository: `/Users/edwardalvarado/effectstream-d`
 - Baseline branch: `v-next`
@@ -672,12 +672,15 @@ Required Compose test:
 
 ```text
 RUN_STAGENET_WRITE_TESTS=1 \
+MIDNIGHT_V2_WALLET_SEED_SOURCE_FILE=/absolute/path/to/disposable.seed \
 docker compose -f templates/midnight-stagenet-v2/compose.yaml \
   --project-name effectstream-midnight-v2-c11-<run-id> \
   --profile hosted-keccak run --rm hosted-keccak-tests
 ```
 
 Pass condition: the hosted node accepts the deployed V7 verifier key and one locally produced V3 Keccak proof, finalizes the transaction, and exposes the expected digest in contract state. If funding/authorization is absent, C11 is blocked. If hosted verification rejects valid locally proven material, **HARD STOP** and reopen scope with the user; secp256k1 is not a non-V3 crypto fallback.
+
+Basal execution (2026-08-10): **pass**. A read-only Docker-secret preflight first proved that public genesis seed `…0001` is funded on the hosted stagenet as well as local `undeployed`: one native UTXO was already registered and DUST was positive, with no write submitted. The authorized isolated Compose run then started the pinned experimental proof server, deployed the one-circuit/no-event/no-CCC `KeccakHostedProbe`, and finalized its call at block 457723. Stagenet accepted the compiler-manifest `0582a9ab211b163df40d56b20015c71c92e7405c1fc5e922ae4f773e6e782ce0`, ZKIR v3, V7 verifier key, and proof-server `9.0.0-rc.5` output; indexed `lastDigest` was `290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563`. Public transaction hashes are recorded in `COMPATIBILITY.md`; wallet secret, witness, proof bytes, and private state are not. No host port was published; `23471` was freshly checked and reserved only as the required diagnostic interpolation value.
 
 Schedule risk: acquiring unshielded NIGHT may require a human Turnstile step, and DUST registration/accrual adds a second readiness wait. This can block the gate without indicating a code failure.
 

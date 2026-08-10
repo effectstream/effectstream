@@ -43,7 +43,7 @@ if (redacted !== 'https://example.test/path') {
 
 if (
   lock.networkId !== 'stagenet' ||
-  lock.hostedZkirV3Verification !== 'unverified' ||
+  lock.hostedZkirV3Verification !== 'validated' ||
   lock.toolchain.midnightJs !== '5.0.0-beta.6' ||
   lock.toolchain.compactCompiler !== '0.33.0-rc.1' ||
   lock.toolchain.walletPackages['@midnightntwrk/wallet-sdk-prover-client'] !== '2.0.0-beta.2' ||
