@@ -47,7 +47,7 @@ Sync protocol: `BITCOIN_RPC_PARALLEL`.
 
 {
   name: "sync",
-  dependsOn: [DbNames.PGLITE_WAIT, BitcoinNames.CHAIN_WAIT],
+  dependsOn: [DbNames.PGLITE_WAIT, BitcoinNames.BITCOIN_WAIT_FOR_BLOCK],
   // ...
 },
 ```
@@ -56,11 +56,11 @@ Sync protocol: `BITCOIN_RPC_PARALLEL`.
 
 ### Bitcoin sync polls slowly — tune test timeouts upward
 
-A typical Bitcoin sync protocol config uses `pollingInterval: 10000` and `delayMs: 20000` (regtest blocks are 1s but the sync gates for finality). Phase B's `assertSQL` should use a generous timeout (~180s) and `waitForProcess` for sync up to ~600s — defaults built for Hardhat-speed will time out.
+A typical Bitcoin sync protocol config uses `pollingInterval: 10000` and `delayMs: 20000` (regtest blocks are 1s but the sync gates for finality). Phase B's typed-query `assertEventually` should use a generous timeout (~180s) and `waitForProcess` for sync up to ~600s — defaults built for Hardhat-speed will time out.
 
-### Address-primitive only emits direction; the funding address isn't surfaced
+### Address-primitive only surfaces the watched address; the funding address isn't included
 
-`PrimitiveTypeBitcoinAddress` emits `{ direction, txid, vout, amount, recipient }` for each input/output touching the watched address. The funding (sender) UTXO's address is NOT included — recovering it requires an extra `getrawtransaction` per event or a custom primitive. Most templates record `sender = ""` and document the limitation.
+`PrimitiveTypeBitcoinAddress` emits `{ direction, address, transactionId, index, valueSats, utxoTxid, utxoVout, label? }` for each input/output touching the watched address. The funding (sender) UTXO's address is NOT included — recovering it requires an extra `getrawtransaction` per event or a custom primitive. Most templates record `sender = ""` and document the limitation.
 
 ## Frontend / wallet integration
 

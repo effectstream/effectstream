@@ -70,7 +70,7 @@ const config: BatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   adapters: { paimaL2 },
   defaultTarget: "paimaL2",
-  namespace: "",                       // ⚠️ must match frontend EffectstreamConfig appName
+  namespace: "my-template",            // signed L2 path: also use in frontend + node ConfigBuilder
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },
@@ -96,9 +96,9 @@ main(function* () {
 });
 ```
 
-## `/send-input` request shape (the only HTTP contract the batcher exposes)
+## `/send-input` request shape (the main HTTP contract the batcher exposes)
 
-The batcher's HTTP server has one write endpoint: `POST /send-input`. Anything that submits a user action through the batcher — the frontend (`sendTransaction` from `@effectstream/wallets`), a custom bridge daemon, a CI test, etc. — hits this endpoint. The schema is:
+The batcher's HTTP server has one production write endpoint: `POST /send-input`. (Read endpoints `GET /health`, `GET /status`, `GET /queue-stats` always exist; with `ENABLE_DEV_AND_DEBUG_ENDPOINTS` set, `POST /force-batch` and `DELETE /clear-inputs` are also registered — `packages/batcher/server/batcher-server.ts`.) Anything that submits a user action through the batcher — the frontend (`sendTransaction` from `@effectstream/wallets`), a custom bridge daemon, a CI test, etc. — hits this endpoint. The schema is:
 
 ```ts
 // Request body
@@ -141,11 +141,17 @@ fetch(`${BATCHER_URL}/send-input`, {
 
 The OpenAPI explorer at `${BATCHER_URL}/documentation` reflects the live schema and is the authoritative reference if anything ever changes.
 
-## ⚠️ Namespace must equal frontend appName
+## ⚠️ Signed EVM L2 uses one namespace in frontend, batcher, and node
 
-`BatcherConfig.namespace` **must exactly match** the `EffectstreamConfig` `appName` used by the frontend when signing transactions. The signed message includes `appName`; the batcher validates the signature against `namespace`. A mismatch produces `401 Invalid signature` from `/send-input`.
+For `EffectstreamL2DefaultAdapter`, use the same namespace in all three places:
 
-Pick one string (often `""` or the template name like `"my-template"`) and use it in BOTH places.
+1. Frontend `new EffectstreamConfig("my-template", ...)` signs the message.
+2. `BatcherConfig.namespace = "my-template"` verifies it before queueing.
+3. Node `ConfigBuilder.setSecurityNamespace("my-template")` lets `PrimitiveTypeEVMEffectstreamL2` re-verify each batched message before invoking the STM.
+
+A frontend↔batcher mismatch produces `401 Invalid signature`. A node mismatch is more deceptive: the batcher and chain submission succeed, but the L2 primitive silently drops the input. Test the real `/send-input` → chain → typed DB query path.
+
+This three-way rule is specific to signed Effectstream L2 input. An adapter that implements its own `verifySignature` replaces the batcher's default admission check; document its signature contract and cover it with an end-to-end test instead of applying the L2 rule blindly. (The runtime's `start({ appName })` is unrelated.)
 
 ## Available adapters
 
@@ -154,9 +160,24 @@ Pick one string (often `""` or the template name like `"my-template"`) and use i
 | `EffectstreamL2DefaultAdapter` | EVM | time, size, hybrid |
 | `EvmContractAdapter` | EVM (custom contract) | time, size, hybrid |
 | `MidnightAdapter` | Midnight | size (typically 1) |
+| `MidnightBalancingAdapter` | Midnight | size; delegates transaction balancing |
 | `BitcoinAdapter` | Bitcoin | hybrid |
 | `NearAdapter` | NEAR | time, size |
 | `NearIntentAdapter` | NEAR (intents) | time, size |
+| `CelestiaAdapter` | Celestia | PFB submission |
+| `SolanaAdapter` | Solana | sponsored fee-payer transactions |
+
+## Adapter validation hooks
+
+`BlockchainAdapter` has an optional `validateInput(input)` hook — called after signature verification, before the input is queued — for adapter-specific semantic validation (allowlists, payload shape). Reference: the decorator pattern in `templates/batcher-validations/packages/batcher/gated-adapter.ts` (`GatedAdapter` wraps an inner adapter and delegates to it). ⚠️ Defining `verifySignature` on a custom adapter **replaces** the batcher's default per-addressType signature check entirely — delegate to the wrapped adapter (or reimplement the check) deliberately.
+
+## Rate limiting
+
+Built in and on by default: `BatcherConfig.rateLimit` (`{ maxRequests, windowMs }`), default 1000 requests per 24h window (`packages/batcher/core/config.ts`; enforced by `core/rate-limiter.ts`). Adapters can pick the key via the optional `getRateLimitKeyStrategy()`: `"ip"` (default), `"ip-and-address"`, or `"composite"`.
+
+## Storage
+
+Use `FileStorage`. `DatabaseStorage` is also exported but is an unimplemented stub — every method throws (`core/storage.ts`).
 
 ## Two configuration patterns
 
@@ -186,7 +207,7 @@ batcher
   .setDefaultTarget("myAdapter");
 ```
 
-Pattern B separates configuration from adapter wiring and makes it easy to conditionally add adapters (e.g. skip Midnight when `DISABLE_MIDNIGHT=true`).
+Pattern B separates configuration from adapter wiring and makes it easy to conditionally add adapters per environment (e.g. a dev-only adapter).
 
 ## Multi-environment
 
