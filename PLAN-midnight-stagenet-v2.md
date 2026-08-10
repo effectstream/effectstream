@@ -508,8 +508,8 @@ Suggested commit: `feat(midnight-v2): compile gateway contract call tree`
 Scope:
 
 - Add known Keccak-256 vectors, including all-zero input and a value ending in `0x00`, using an independent pinned Keccak implementation rather than SHA3-256.
-- Assert compilation fails without `--feature-zkir-v3`.
-- Add negative fixtures for a witness/private-state callee, constructor CCC, constructor event, undisclosed impure CCC argument, undeclared event, purity mismatch, and recursive/reentrant interface.
+- Assert the ledger-writing/provable Keccak fixture fails without `--feature-zkir-v3`; baseline execution confirms a pure Keccak circuit intentionally remains flag-free because it never enters ZKIR.
+- Add negative fixtures for a witness/private-state callee, constructor CCC, constructor event, undisclosed impure CCC argument, undeclared event, purity mismatch, and recursive/reentrant interface. Baseline execution classifies constructor/argument/event/type-cycle cases as compiler failures, while witness-bearing callees and purity mismatches are explicit template-policy failures derived from authenticated compiler metadata because Compact accepts those source units independently.
 - Add a minimal `KeccakHostedProbe` test fixture with one `hashAndStore(Bytes<32>)` circuit, public `lastDigest`, no event, and no CCC. C11 uses it to isolate hosted ZKIR-v3 verification from all other new features.
 - Add Compact 0.33 migration fixtures: numeric literals used as `Field` must use an explicit `as Field` cast, and Ledger-8 `ContractState[v6]` fixtures must be rejected rather than migrated into Ledger-9 `ContractState[v8]`.
 - Keep all negative contracts as test fixtures, never template examples.

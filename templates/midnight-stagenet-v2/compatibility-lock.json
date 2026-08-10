@@ -40,6 +40,7 @@
     "ledgerV9": "1.0.0-rc.3",
     "onchainRuntimeV4": "4.0.0-rc.3",
     "platformJs": "3.0.0",
+    "nobleHashes": "2.2.0",
     "bun": "1.3.14",
     "nodeJs": "22.18.0",
     "walletSdk": "2.0.0-beta.2",

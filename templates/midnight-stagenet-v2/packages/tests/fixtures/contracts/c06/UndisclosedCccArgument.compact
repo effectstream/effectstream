@@ -1,0 +1,15 @@
+pragma language_version >= 0.25.0;
+
+contract Target {
+  circuit accept(value: Bytes<32>): [];
+}
+
+ledger target: Target;
+
+constructor(target_: Target) {
+  target = disclose(target_);
+}
+
+export circuit forward(value: Bytes<32>): [] {
+  target.accept(value);
+}

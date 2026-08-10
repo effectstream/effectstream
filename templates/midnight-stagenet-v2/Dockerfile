@@ -219,6 +219,26 @@ USER bun
 
 CMD ["bun", "run", "test:compile:call-tree"]
 
+FROM compact-toolchain AS contract-boundary-build
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/fixtures/contracts/c06 /fixtures
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/compile-contract-fixtures.ts /runner/compile-contract-fixtures.ts
+
+RUN bun /runner/compile-contract-fixtures.ts
+
+FROM contract-boundary-build AS contract-boundary-test
+
+WORKDIR /app
+
+COPY --from=midnight-dependencies /app/package.json ./package.json
+COPY --from=midnight-dependencies /app/node_modules ./node_modules
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/contracts.test.ts ./packages/tests/contracts.test.ts
+COPY --from=contract-boundary-build /work/compiled-fixtures ./compiled-fixtures
+
+USER bun
+
+CMD ["bun", "run", "test:contracts"]
+
 FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS proof-smoke-test
 
 WORKDIR /app

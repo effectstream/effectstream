@@ -1,0 +1,7 @@
+pragma language_version >= 0.25.0;
+
+witness localSecret(): Bytes<32>;
+
+export circuit reveal(): Bytes<32> {
+  return disclose(localSecret());
+}

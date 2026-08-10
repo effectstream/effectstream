@@ -1,0 +1,10 @@
+pragma language_version >= 0.25.0;
+
+contract Target {
+  circuit ping(): [];
+}
+
+constructor(target: Target) {
+  const disclosedTarget = disclose(target);
+  disclosedTarget.ping();
+}

@@ -14,9 +14,11 @@
     "test:live:read": "bun run packages/tests/live-read.ts",
     "test:compiler-smoke": "bun run packages/tests/compiler-smoke.ts",
     "test:compile:sink": "bun run packages/tests/compile-sink.test.ts",
-    "test:compile:call-tree": "bun run packages/tests/compile-call-tree.test.ts"
+    "test:compile:call-tree": "bun run packages/tests/compile-call-tree.test.ts",
+    "test:contracts": "bun run packages/tests/contracts.test.ts"
   },
   "dependencies": {
+    "@noble/hashes": "2.2.0",
     "@midnight-ntwrk/compact-js": "2.5.5-rc.7",
     "@midnight-ntwrk/compact-runtime": "0.18.0-rc.1",
     "@midnight-ntwrk/midnight-js-contracts": "5.0.0-beta.6",

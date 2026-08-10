@@ -1,0 +1,5 @@
+pragma language_version >= 0.25.0;
+
+export circuit explicitField(): Field {
+  return 0 as Field;
+}

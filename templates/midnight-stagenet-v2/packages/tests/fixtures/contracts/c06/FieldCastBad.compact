@@ -1,0 +1,5 @@
+pragma language_version >= 0.25.0;
+
+export circuit implicitField(): Field {
+  return 0;
+}

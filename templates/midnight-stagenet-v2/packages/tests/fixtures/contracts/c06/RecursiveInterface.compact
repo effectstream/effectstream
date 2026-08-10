@@ -1,0 +1,10 @@
+pragma language_version >= 0.25.0;
+
+contract Recursive {
+  circuit recurse(self: Recursive): [];
+}
+
+export circuit start(self: Recursive): [] {
+  const target = disclose(self);
+  target.recurse(target);
+}
