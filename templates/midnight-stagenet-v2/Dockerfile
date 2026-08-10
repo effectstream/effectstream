@@ -14,11 +14,13 @@ RUN test -f /context/package.json \
     && test -f /context/packages/chains/midnight-contracts-v2/src/providers.mjs \
     && test -f /context/packages/chains/midnight-contracts-v2/src/runtime-guard.mjs \
     && test -f /context/packages/chains/midnight-contracts-v2/src/ipc.mjs \
+    && test -f /context/packages/chains/midnight-contracts-v2/src/call-tree-loader.mjs \
+    && test -f /context/packages/chains/midnight-contracts-v2/src/call-tree-loader.d.ts \
     && test -f /context/packages/chains/midnight-contracts-v2/src/provider-worker.mjs \
     && test -f /context/packages/chains/midnight-contracts-v2/src/bun-node-bridge.mjs \
     && test -f /context/packages/chains/midnight-contracts-v2/src/index.d.ts \
     && test "$(find /context/packages/chains/midnight-contracts -type f | wc -l | tr -d ' ')" = "16" \
-    && test "$(find /context/packages -type f | wc -l | tr -d ' ')" = "23"
+    && test "$(find /context/packages -type f | wc -l | tr -d ' ')" = "25"
 
 FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS lockfile-generator
 
@@ -289,6 +291,13 @@ RUN --network=none node \
 USER node
 
 CMD ["node", "packages/tests/run-v2-provider-tests.mjs"]
+
+FROM v2-provider-test AS call-tree-loader-test
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/call-tree-loader.test.mjs ./packages/tests/call-tree-loader.test.mjs
+COPY --from=call-tree-build /contracts/managed ./managed
+
+CMD ["node", "packages/tests/call-tree-loader.test.mjs"]
 
 FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS proof-smoke-test
 

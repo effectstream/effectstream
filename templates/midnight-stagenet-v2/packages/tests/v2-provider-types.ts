@@ -3,6 +3,10 @@ import type {
   MidnightV2ProviderConfig,
   MidnightV2Providers,
 } from '../chains/midnight-contracts-v2/src/index.js';
+import type {
+  AuthenticatedCallTree,
+  FinalizedBlockPin,
+} from '../chains/midnight-contracts-v2/src/call-tree-loader.js';
 
 const config = {
   networkId: 'stagenet',
@@ -22,6 +26,9 @@ const providerKeys = [
 ] as const satisfies readonly (keyof MidnightV2Providers)[];
 
 type ProtocolTypesArePublicImports = MidnightV2ProtocolTypes;
+type CallTreeUsesPinnedBlock = AuthenticatedCallTree['stateQueries'][string]['block'] extends FinalizedBlockPin
+  ? true
+  : false;
 
 export { config, providerKeys };
-export type { ProtocolTypesArePublicImports };
+export type { CallTreeUsesPinnedBlock, ProtocolTypesArePublicImports };

@@ -610,7 +610,7 @@ Suggested commit: `feat(midnight): add isolated v2 provider package`
 Scope:
 
 - Load the C05 manifest, validate artifact checksums, and discover the complete root/callee tree.
-- Construct one fail-closed `NodeZkConfigProvider(managed/<InterfaceName>, expectedManifestHash)` per deployable contract, using the exact sibling directories emitted in C05.
+- Construct one fail-closed `new NodeZkConfigProvider(managed/<ContractName>, { verify: "require", expectedManifestHash })` per deployable contract, using the exact sibling directories emitted in C05. This is the beta.6 constructor shape; the manifest hash is an integrity option, not a positional argument.
 - Construct the proof-provider registry with `nodeZkConfigRegistry(<parent-of-managed>)` so the entire root/callee call tree is available during proving; do not point it at only the gateway bundle.
 - Resolve ZK configurations once per implementation and preserve callee-first/root-last ordering.
 - Add block-pinned state-query interfaces for both contracts.

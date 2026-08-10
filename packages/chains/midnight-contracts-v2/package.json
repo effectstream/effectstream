@@ -13,6 +13,10 @@
       "types": "./src/index.d.ts",
       "import": "./src/providers.mjs"
     },
+    "./call-tree-loader": {
+      "types": "./src/call-tree-loader.d.ts",
+      "import": "./src/call-tree-loader.mjs"
+    },
     "./ipc": "./src/ipc.mjs",
     "./runtime-guard": "./src/runtime-guard.mjs",
     "./worker": "./src/provider-worker.mjs"
