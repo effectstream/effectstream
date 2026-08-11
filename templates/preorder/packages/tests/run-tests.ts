@@ -136,6 +136,10 @@ async function getDBConnection(): Promise<Client> {
 
 async function test() {
   let db: Client | null = null;
+  // Infrastructure that never came up throws outside any assertion, leaving
+  // anyError() false once an earlier phase has passed. Track it explicitly so
+  // a boot failure can't exit 0 with later phases silently skipped.
+  let infraError = false;
   try {
     await startInfrastructure();
     await waitForOrchestrator();
@@ -260,12 +264,13 @@ async function test() {
 
     printSummary();
   } catch (e) {
+    infraError = true;
     printSummary();
     console.error(e);
   } finally {
     if (db) await db.end();
     await stopInfrastructure();
-    if (anyError()) process.exit(1);
+    if (anyError() || infraError) process.exit(1);
     process.exit(0);
   }
 }
