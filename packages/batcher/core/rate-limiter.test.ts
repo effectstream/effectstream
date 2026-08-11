@@ -1,5 +1,10 @@
 import { test, expect } from "bun:test";
 import { InMemoryRateLimitStore, RateLimiter } from "./rate-limiter.ts";
+import {
+  buildPreAuthRateLimitBuckets,
+  buildRateLimitBuckets,
+} from "../server/batcher-server.ts";
+import { DEFAULT_CONFIG_VALUES } from "./config.ts";
 
 // --- InMemoryRateLimitStore tests ---
 
@@ -107,4 +112,216 @@ test("RateLimiter - does not record hits when rate limited", async () => {
   await limiter.check(["ip:1.1.1.1", "addr:0xabc"]);
   // addr:0xabc should still have 0 hits
   expect(await store.count("addr:0xabc", Date.now(), 60000)).toEqual(0);
+});
+
+// --- buildRateLimitBuckets: which authenticated quotas are consumed ---
+
+test("buildPreAuthRateLimitBuckets uses only the encoded source IP", () => {
+  expect(buildPreAuthRateLimitBuckets("2001:db8::1", 50)).toEqual([{
+    key: "pre-auth:ip:2001%3Adb8%3A%3A1",
+    maxRequests: 50,
+  }]);
+});
+
+test("buildRateLimitBuckets - ip strategy includes target-global and IP buckets", () => {
+  expect(
+    buildRateLimitBuckets("ip", "solana", "1.1.1.1", "addr1", 10, 100),
+  ).toEqual([
+    { key: "target:solana:global", maxRequests: 100 },
+    { key: "target:solana:ip:1.1.1.1", maxRequests: 10 },
+  ]);
+});
+
+test("buildRateLimitBuckets - ip-and-address gives the IP the global ceiling", () => {
+  expect(
+    buildRateLimitBuckets(
+      "ip-and-address",
+      "solana",
+      "1.1.1.1",
+      "addr1",
+      10,
+      100,
+    ),
+  ).toEqual([
+    { key: "target:solana:global", maxRequests: 100 },
+    { key: "target:solana:ip:1.1.1.1", maxRequests: 100 },
+    { key: "target:solana:addr:addr1", maxRequests: 10 },
+  ]);
+});
+
+test("buildRateLimitBuckets - missing address cannot create an identity bucket", () => {
+  expect(
+    buildRateLimitBuckets(
+      "ip-and-address",
+      "solana",
+      "1.1.1.1",
+      undefined,
+      10,
+      100,
+    ),
+  ).toEqual([
+    { key: "target:solana:global", maxRequests: 100 },
+    { key: "target:solana:ip:1.1.1.1", maxRequests: 100 },
+  ]);
+});
+
+test("buildRateLimitBuckets - composite is scoped to the adapter target", () => {
+  expect(
+    buildRateLimitBuckets(
+      "composite",
+      "solana/main",
+      "2001:db8::1",
+      "addr1",
+      10,
+      100,
+    ),
+  ).toEqual([
+    { key: "target:solana%2Fmain:global", maxRequests: 100 },
+    {
+      key: "target:solana%2Fmain:composite:2001%3Adb8%3A%3A1:addr1",
+      maxRequests: 10,
+    },
+  ]);
+});
+
+test("ip-and-address isolates wallets behind one NAT until the global cap", async () => {
+  const store = new InMemoryRateLimitStore();
+  const limiter = new RateLimiter(store, 2, 60000);
+  const SHARED_IP = "203.0.113.7";
+
+  for (let i = 0; i < 2; i++) {
+    const r = await limiter.checkBuckets(
+      buildRateLimitBuckets(
+        "ip-and-address",
+        "solana",
+        SHARED_IP,
+        "walletA",
+        2,
+        4,
+      ),
+    );
+    expect(r.allowed).toEqual(true);
+  }
+
+  const blockedA = await limiter.checkBuckets(
+    buildRateLimitBuckets(
+      "ip-and-address",
+      "solana",
+      SHARED_IP,
+      "walletA",
+      2,
+      4,
+    ),
+  );
+  expect(blockedA.allowed).toEqual(false);
+  expect(blockedA.limitedKey).toEqual("target:solana:addr:walletA");
+
+  const allowedB = await limiter.checkBuckets(
+    buildRateLimitBuckets(
+      "ip-and-address",
+      "solana",
+      SHARED_IP,
+      "walletB",
+      2,
+      4,
+    ),
+  );
+  expect(allowedB.allowed).toEqual(true);
+  expect(
+    await store.count("target:solana:addr:walletB", Date.now(), 60000),
+  ).toEqual(1);
+});
+
+test("target-global bucket caps different IPs and wallets together", async () => {
+  const store = new InMemoryRateLimitStore();
+  const limiter = new RateLimiter(store, 10, 60000);
+
+  for (const [ip, wallet] of [["1.1.1.1", "a"], ["2.2.2.2", "b"]]) {
+    const result = await limiter.checkBuckets(
+      buildRateLimitBuckets(
+        "ip-and-address",
+        "solana",
+        ip,
+        wallet,
+        10,
+        2,
+      ),
+    );
+    expect(result.allowed).toBe(true);
+  }
+
+  const blocked = await limiter.checkBuckets(
+    buildRateLimitBuckets(
+      "ip-and-address",
+      "solana",
+      "3.3.3.3",
+      "c",
+      10,
+      2,
+    ),
+  );
+  expect(blocked.allowed).toBe(false);
+  expect(blocked.limitedKey).toBe("target:solana:global");
+});
+
+test("target-global buckets do not couple different adapter targets", async () => {
+  const store = new InMemoryRateLimitStore();
+  const limiter = new RateLimiter(store, 1, 60000);
+  const first = await limiter.checkBuckets(
+    buildRateLimitBuckets("ip", "solana-a", "1.1.1.1", "a", 1, 1),
+  );
+  const second = await limiter.checkBuckets(
+    buildRateLimitBuckets("ip", "solana-b", "1.1.1.1", "a", 1, 1),
+  );
+  expect(first.allowed).toBe(true);
+  expect(second.allowed).toBe(true);
+});
+
+test("atomic consume admits only one concurrent request at a limit of one", async () => {
+  const store = new InMemoryRateLimitStore();
+  const limiter = new RateLimiter(store, 1, 60000);
+  const results = await Promise.all(
+    Array.from({ length: 50 }, () => limiter.check(["target:solana:global"])),
+  );
+  expect(results.filter((result) => result.allowed)).toHaveLength(1);
+  expect(results.filter((result) => !result.allowed)).toHaveLength(49);
+});
+
+test("concurrent IPs and wallets cannot overshoot the target-global cap", async () => {
+  const store = new InMemoryRateLimitStore();
+  const limiter = new RateLimiter(store, 100, 60000);
+  const results = await Promise.all(
+    Array.from({ length: 50 }, (_, index) =>
+      limiter.checkBuckets(
+        buildRateLimitBuckets(
+          "ip-and-address",
+          "solana",
+          `192.0.2.${index + 1}`,
+          `wallet-${index + 1}`,
+          100,
+          1,
+        ),
+      )),
+  );
+  expect(results.filter((result) => result.allowed)).toHaveLength(1);
+  expect(results.filter((result) => !result.allowed)).toHaveLength(49);
+  expect(
+    results.filter((result) => !result.allowed).every((result) =>
+      result.limitedKey === "target:solana:global"
+    ),
+  ).toBe(true);
+});
+
+test("omitting rateLimit does not disable rate limiting", () => {
+  // The server falls back to these when config.rateLimit is absent. A future
+  // change to "no config means unlimited" would be a silent spend regression
+  // for every batcher that never set the key.
+  expect(DEFAULT_CONFIG_VALUES.rateLimit.maxRequests).toBeGreaterThan(0);
+  expect(DEFAULT_CONFIG_VALUES.rateLimit.windowMs).toBeGreaterThan(0);
+  expect(DEFAULT_CONFIG_VALUES.rateLimit).toEqual({
+    preAuthMaxRequests: 1000,
+    maxRequests: 1000,
+    globalMaxRequests: 1000,
+    windowMs: 86400000,
+  });
 });

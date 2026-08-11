@@ -8,6 +8,7 @@ import type {
 } from "./adapter.ts";
 import { AdapterLogger } from "./adapter-logger.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
+import type { RateLimitKeyStrategy } from "../core/rate-limiter.ts";
 import {
   Connection,
   Keypair,
@@ -129,6 +130,24 @@ export interface SolanaAdapterConfig {
    * program either way.
    */
   allowSponsorAsInstructionAccount?: boolean;
+  /**
+   * How `/send-input` rate limit keys are derived for this adapter.
+   *
+   * Defaults to `"ip"`, matching the batcher's own default when no adapter
+   * declares a strategy — existing deployments keep the behaviour they have.
+   *
+   * `"ip-and-address"` is the meaningful setting for a sponsor when the
+   * batcher's `globalMaxRequests` is larger than its per-identity
+   * `maxRequests`. The target-global bucket caps total sponsor volume, while a
+   * verified wallet receives the lower identity allowance. The shared IP uses
+   * the global ceiling, so one wallet can exhaust its own allowance without
+   * blocking every user behind the same venue, office, or carrier NAT.
+   *
+   * Identity buckets are consumed only after `verifySignature` rejects any
+   * `input.address` that did not sign, so an attacker cannot poison another
+   * wallet's bucket or mint composite buckets with forged addresses.
+   */
+  rateLimitKeyStrategy?: RateLimitKeyStrategy;
 }
 
 /**
@@ -147,6 +166,7 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
   private readonly syncProtocolName: string;
   private readonly allowSponsorAsInstructionAccount: boolean;
   private readonly maxPriorityFeeMicroLamports: bigint;
+  private readonly rateLimitKeyStrategy: RateLimitKeyStrategy;
   public readonly maxBatchSize: number;
   private readonly logger: AdapterLogger;
 
@@ -161,6 +181,7 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
     this.maxPriorityFeeMicroLamports = BigInt(
       config.maxPriorityFeeMicroLamports ?? 0,
     );
+    this.rateLimitKeyStrategy = config.rateLimitKeyStrategy ?? "ip";
     this.logger = new AdapterLogger("SolanaAdapter");
   }
 
@@ -179,6 +200,10 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
 
   getSyncProtocolName(): string {
     return this.syncProtocolName;
+  }
+
+  getRateLimitKeyStrategy(): RateLimitKeyStrategy {
+    return this.rateLimitKeyStrategy;
   }
 
   async getBlockNumber(): Promise<bigint> {
@@ -228,9 +253,10 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
    *     within `maxPriorityFeeMicroLamports`;
    *  3. the sponsor appears only as fee payer, never in an instruction's accounts.
    *
-   * Volume is NOT bounded here — each accepted tx still costs the sponsor the
-   * 5000-lamport base fee, so operators must layer a rate limit (see the
-   * batcher's `RateLimitStore`) on top for any non-local deployment.
+   * Volume is NOT bounded here. Solana charges 5000 lamports per signature; a
+   * sponsored transaction has at least the user's and sponsor's signatures and
+   * therefore costs at least 10000 lamports. Operators must configure the
+   * batcher's target-global rate limit for any non-local deployment.
    */
   async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
     let tx: Transaction;

@@ -176,9 +176,11 @@ export interface BlockchainAdapter<TOutput> {
 
   /**
    * (Optional) Declare the rate limit key strategy for this adapter.
-   * - "ip": Rate limit by IP only (default if not implemented)
-   * - "ip-and-address": Independent limits on IP and wallet address
-   * - "composite": Single combined IP+address key
+   * Identity keys are consumed only after the adapter verifies the signature;
+   * every strategy also consumes the adapter target's global sponsor bucket.
+   * - "ip": Per-IP identity quota (default if not implemented)
+   * - "ip-and-address": Shared IP/global ceiling plus per-wallet quota
+   * - "composite": Per IP+verified-address quota
    */
   getRateLimitKeyStrategy?(): RateLimitKeyStrategy;
 

@@ -88,6 +88,7 @@ export type {
   RateLimitStore,
   RateLimitKeyStrategy,
   RateLimitCheckResult,
+  RateLimitBucket,
 } from "./core/rate-limiter.ts";
 export { RateLimiter, InMemoryRateLimitStore } from "./core/rate-limiter.ts";
 
