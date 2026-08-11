@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@chess-v2/contracts-evm": "workspace:*",
-    "@effectstream/batcher-sdk": "0.102.0",
+    "@effectstream/batcher-sdk": "0.103.3",
     "effection": "^3.5.0"
   }
 }

@@ -1,5 +1,7 @@
 /*
- * This script is used to update the version of @paimaexample/ packages in the templates.
+ * This script is used to update the version of @effectstream/ packages in the
+ * templates (and the deprecated @paimaexample/ ones still pinned by the legacy
+ * templates — each dependency keeps whichever scope it already uses).
  *
  *  usage:
  *  bun run update-packages.ts --version 1.0.0 --package <name> --dry-run
@@ -107,9 +109,16 @@ async function main(): Promise<void> {
   packageDirs.forEach((dir) => console.log(`- ${dir.split("/").pop()}`));
   console.log(`New version: ${version}`);
 
-  const denoJsonRegex = /(jsr|npm):@paimaexample\/([\w-]+)@[\^~]?(\d+\.\d+\.\d+)/g;
-  const denoJsonEffectstreamLogRegex = /(jsr|npm):@effectstream\/log@[\^~]?(\d+\.\d+\.\d+)/g;
-  const packageJsonRegex = /"@paimaexample\/([\w-]+)": "[\^~]?(\d+\.\d+\.\d+)"/g;
+  // The scope is captured rather than hard-coded, so each dependency keeps the
+  // scope it already had. @paimaexample is the deprecated one and survives only
+  // in the legacy templates (dice, rock-paper-scissors, multi-chain-token-transfer);
+  // everything current is @effectstream. Hard-coding @paimaexample here meant the
+  // script silently rewrote nothing on a modern template while still deleting its
+  // bun.lock — it reported success having changed no versions at all.
+  const denoJsonRegex =
+    /(jsr|npm):@(paimaexample|effectstream)\/([\w-]+)@[\^~]?(\d+\.\d+\.\d+)/g;
+  const packageJsonRegex =
+    /"@(paimaexample|effectstream)\/([\w-]+)": "[\^~]?(\d+\.\d+\.\d+)"/g;
 
   for (const dir of packageDirs) {
     // 4. now for each package delete bun.lock and node_modules folder.
@@ -144,28 +153,19 @@ async function main(): Promise<void> {
     for await (const filePath of walkJsonFiles(dir, /deno\.json$/)) {
       const content = await readFile(filePath, "utf-8");
       const matches = [...content.matchAll(denoJsonRegex)];
-      const effectstreamLogMatches = [...content.matchAll(denoJsonEffectstreamLogRegex)];
 
-      if (matches.length > 0 || effectstreamLogMatches.length > 0) {
+      if (matches.length > 0) {
         if (dryRun) {
           console.log(`\n[dry-run] Changes for ${filePath}:`);
           for (const match of matches) {
-            const newDep = `${match[1]}:@paimaexample/${match[2]}@${version}`;
-            console.log(`  - ${match[0]} -> ${newDep}`);
-          }
-          for (const match of effectstreamLogMatches) {
-            const newDep = `${match[1]}:@effectstream/log@${version}`;
+            const newDep = `${match[1]}:@${match[2]}/${match[3]}@${version}`;
             console.log(`  - ${match[0]} -> ${newDep}`);
           }
         } else {
           console.log(`\nUpdating ${filePath}...`);
-          let newContent = content.replace(
+          const newContent = content.replace(
             denoJsonRegex,
-            `$1:@paimaexample/$2@${version}`,
-          );
-          newContent = newContent.replace(
-            denoJsonEffectstreamLogRegex,
-            `$1:@effectstream/log@${version}`,
+            `$1:@$2/$3@${version}`,
           );
           await writeFile(filePath, newContent);
           console.log(`Successfully updated ${filePath}`);
@@ -181,14 +181,14 @@ async function main(): Promise<void> {
         if (dryRun) {
           console.log(`\n[dry-run] Changes for ${filePath}:`);
           for (const match of matches) {
-            const newDep = `"@paimaexample/${match[1]}": "${version}"`;
+            const newDep = `"@${match[1]}/${match[2]}": "${version}"`;
             console.log(`  - ${match[0]} -> ${newDep}`);
           }
         } else {
           console.log(`\nUpdating ${filePath}...`);
           const newContent = content.replace(
             packageJsonRegex,
-            `"@paimaexample/$1": "${version}"`,
+            `"@$1/$2": "${version}"`,
           );
           await writeFile(filePath, newContent);
           console.log(`Successfully updated ${filePath}`);
