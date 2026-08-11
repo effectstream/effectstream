@@ -35,6 +35,7 @@ WORKDIR /app
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/package.json ./package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/contracts/package.json ./packages/contracts/package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/network-config/package.json ./packages/network-config/package.json
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/node/package.json ./packages/node/package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/package.json ./packages/tests/package.json
 COPY --from=context-audit /context/packages/chains/midnight-contracts-v2/package.json ./packages/chains/midnight-contracts-v2/package.json
 
@@ -48,6 +49,7 @@ COPY --from=context-audit /context/templates/midnight-stagenet-v2/package.json .
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/bun.lock ./bun.lock
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/contracts/package.json ./packages/contracts/package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/network-config/package.json ./packages/network-config/package.json
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/node/package.json ./packages/node/package.json
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/package.json ./packages/tests/package.json
 COPY --from=context-audit /context/packages/chains/midnight-contracts-v2/package.json ./packages/chains/midnight-contracts-v2/package.json
 
@@ -358,6 +360,16 @@ COPY --from=context-audit /context/templates/midnight-stagenet-v2/package.json .
 USER bun
 
 CMD ["bun", "run", "test:midnight-contract-event-primitive"]
+
+FROM midnight-dependencies AS state-machine-test
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/network-config ./packages/network-config
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/node ./packages/node
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/state-machine.test.ts ./packages/tests/state-machine.test.ts
+
+USER bun
+
+CMD ["bun", "run", "test:state-machine"]
 
 FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS proof-smoke-test
 

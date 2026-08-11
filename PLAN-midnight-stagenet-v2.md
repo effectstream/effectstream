@@ -778,6 +778,8 @@ docker run --rm --network none effectstream/midnight-v2:c15 \
 
 Pass condition: one synthetic event creates one row/result, the same event applied twice still counts once, and a nonmatching emitter/type changes nothing.
 
+Basal execution (2026-08-10): **pass**. The template's frozen Bun lock now includes its node workspace and test-only PGlite `0.3.16`; `effectstream/midnight-v2:c15` ran with `--network none` and no published ports. Three tests with nine assertions created the Postgres-compatible schema in an embedded database, built the stagenet/API-v4 node and `Midnight:ContractEvent` configuration at deployment block 42, applied one synthetic `Unpaused` primitive enriched with a block-pinned sink digest, and exposed both event-detail and summary queries. Reapplying the same composite event identity left the processed count at one, and substituted emitter/type inputs made no database change. The schema stores the indexer transaction row ID separately from the chain transaction hash, plus emitter, digest, block identity, event identity, and processed row count. Diagnostic value `24715` was freshly checked free but never published.
+
 Suggested commit: `feat(template): persist Midnight contract events`
 
 ### C16 — join the pieces in one local Compose E2E
