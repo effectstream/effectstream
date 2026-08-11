@@ -31,13 +31,19 @@ export async function frontendE2eTest(): Promise<void> {
   // OOM-killed silently, and the readiness poll below would then time out.
   // Starting it immediately before the check keeps the live window tiny and
   // self-contained; we tear it down in the finally.
+  // --host is not cosmetic. Vite's default host is "localhost", which Node
+  // resolves to ::1 inside the CI container, so vite binds IPv6 loopback ONLY
+  // (`ss -ltn` → LISTEN [::1]:10598). Bun's fetch resolves "localhost" to
+  // 127.0.0.1, so the readiness poll below got ECONNREFUSED for the full 60s
+  // while vite sat there reporting "ready in 418 ms". Pin both ends to the same
+  // literal IPv4 address so neither can drift onto a different family again.
   const viteProc = Bun.spawn(
-    ["bunx", "vite", "--port", "10598", "--mode", "dev"],
+    ["bunx", "vite", "--port", "10598", "--host", "127.0.0.1", "--mode", "dev"],
     { cwd: frontendDir, stdout: "inherit", stderr: "inherit" },
   );
 
   try {
-    await waitForViteServer("http://localhost:10598");
+    await waitForViteServer("http://127.0.0.1:10598");
 
     const installProc = Bun.spawn(
       ["bunx", "playwright", "install", "chromium"],

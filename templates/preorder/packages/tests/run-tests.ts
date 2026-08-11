@@ -56,6 +56,7 @@ async function waitForProcess(
 ): Promise<void> {
   const { waitForExit = false, timeoutMs = 120_000 } = opts;
   console.log(`Waiting for process "${name}"${waitForExit ? " to complete" : ""}...`);
+  let deadExit: number | string | null = null;
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
@@ -64,11 +65,23 @@ async function waitForProcess(
         const data = await res.json() as any;
         const proc = data.processes?.find((p: any) => p.name === name);
         if (proc) {
+          // Fail fast: a process that has already died will never reach
+          // "done"/"running", so waiting out the timeout only buries the real
+          // error under a misleading "did not complete within Ns". Recorded
+          // here and thrown below because the catch swallows everything.
+          if (proc.status === "failed" || proc.status === "stopped") {
+            deadExit = proc.exitCode ?? "unknown";
+          }
           if (waitForExit && proc.status === "done") return;
           if (!waitForExit && (proc.status === "running" || proc.status === "done")) return;
         }
       }
     } catch { /* not ready */ }
+    if (deadExit !== null) {
+      throw new Error(
+        `Process "${name}" exited with code ${deadExit} while waiting for it to ${waitForExit ? "complete" : "start"}`,
+      );
+    }
     await delay(500);
   }
   throw new Error(`Process "${name}" did not ${waitForExit ? "complete" : "start"} within ${timeoutMs / 1000}s`);
@@ -136,6 +149,10 @@ async function getDBConnection(): Promise<Client> {
 
 async function test() {
   let db: Client | null = null;
+  // Infrastructure that never came up throws outside any assertion, leaving
+  // anyError() false once an earlier phase has passed. Track it explicitly so
+  // a boot failure can't exit 0 with later phases silently skipped.
+  let infraError = false;
   try {
     await startInfrastructure();
     await waitForOrchestrator();
@@ -260,12 +277,13 @@ async function test() {
 
     printSummary();
   } catch (e) {
+    infraError = true;
     printSummary();
     console.error(e);
   } finally {
     if (db) await db.end();
     await stopInfrastructure();
-    if (anyError()) process.exit(1);
+    if (anyError() || infraError) process.exit(1);
     process.exit(0);
   }
 }

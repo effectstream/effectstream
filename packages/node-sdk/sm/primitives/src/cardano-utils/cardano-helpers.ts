@@ -1,3 +1,4 @@
+import { blake2b } from "@noble/hashes/blake2.js";
 import { uint8ArrayToHexString } from "@effectstream/utils";
 import type { cardano } from "@utxorpc/spec";
 
@@ -29,6 +30,10 @@ export function stakeCredentialToHex(cred: cardano.StakeCredential): { type: "ke
 
 export function addressToHex(address: Uint8Array): string {
   return uint8ArrayToHexString(address);
+}
+
+export function verificationKeyToCredentialHex(vkey: Uint8Array): string {
+  return uint8ArrayToHexString(blake2b(vkey, { dkLen: 28 }));
 }
 
 export function metadataToJson(metadata: cardano.Metadata[]): Record<string, unknown> | null {

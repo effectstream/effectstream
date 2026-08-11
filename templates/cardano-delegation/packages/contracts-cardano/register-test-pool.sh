@@ -15,19 +15,33 @@ curl -s "$YACI_API/addresses/topup" \
   -d "{\"address\":\"$POOL_ADDR\",\"adaAmount\":10000}" > /dev/null
 
 echo "[register-test-pool] Waiting for UTxOs..."
-for i in $(seq 1 15); do
-  UTXO_LINE=$("$CARDANO_CLI" conway query utxo --address "$POOL_ADDR" --testnet-magic 42 2>/dev/null | tail -1)
-  if echo "$UTXO_LINE" | grep -q lovelace; then
+# 120s, not the old 15x2s=30s: on a 2-core CI runner the yaci topup had not
+# landed inside 30s, and the run then failed in a way that named neither funding
+# nor this script (see the guard below).
+UTXO_QUERY=""
+UTXO_LINE=""
+for i in $(seq 1 60); do
+  UTXO_QUERY=$("$CARDANO_CLI" conway query utxo --address "$POOL_ADDR" --testnet-magic 42 2>&1 || true)
+  # Select a real UTxO row, never the table's `-----` separator. The old code
+  # took `tail -1` unconditionally, so on an empty table awk turned that
+  # separator into `----------------#` — which is neither "" nor "#", so it slid
+  # past the guard and reached cardano-cli as --tx-in, producing
+  # `option --tx-in: unexpected "-"` instead of this script's own clear error.
+  UTXO_LINE=$(echo "$UTXO_QUERY" | grep lovelace | tail -1 || true)
+  if [ -n "$UTXO_LINE" ]; then
     break
   fi
   sleep 2
 done
 
-UTXO_IN=$(echo "$UTXO_LINE" | awk '{print $1 "#" $2}')
-if [ -z "$UTXO_IN" ] || [ "$UTXO_IN" = "#" ]; then
-  echo "[register-test-pool] ERROR: No UTxOs found after funding"
+if [ -z "$UTXO_LINE" ]; then
+  echo "[register-test-pool] ERROR: No UTxOs found at $POOL_ADDR after 120s of funding"
+  echo "[register-test-pool] last query output was:"
+  echo "$UTXO_QUERY"
   exit 1
 fi
+
+UTXO_IN=$(echo "$UTXO_LINE" | awk '{print $1 "#" $2}')
 
 TMPDIR=$(mktemp -d)
 

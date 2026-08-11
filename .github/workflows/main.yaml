@@ -1,6 +1,23 @@
-on: [push]
+# Pull requests must be a first-class trigger: a push to an external fork runs
+# only in that fork and cannot report checks to this repository. Keep pushes on
+# the default branch for post-merge validation, and use the PR merge ref for one
+# pre-merge run (rather than duplicating every same-repository branch push).
+on:
+  push:
+    branches: [v-next]
+  pull_request:
+    # Expensive jobs skip drafts. Re-run when a draft becomes reviewable, and
+    # cancel an in-progress run through the PR-scoped concurrency group when a
+    # pull request is converted back to draft.
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
 
 name: Effectstream Test Workflow
+
+# This workflow executes untrusted pull-request code. It does not need secrets
+# or repository writes; fork PRs also receive GitHub's read-only token and
+# first-time-contributor approval boundary.
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS cardano_transfers (
   tx_id TEXT NOT NULL,
   metadata TEXT,
   input_credentials JSONB NOT NULL,
-  outputs JSONB NOT NULL
+  outputs JSONB NOT NULL,
+  signer_key_hashes JSONB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS cardano_delegations (

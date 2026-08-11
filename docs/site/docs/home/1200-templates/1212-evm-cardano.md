@@ -127,7 +127,7 @@ the cost of coupling your throughput to your slowest source.
 | EVM sync (`ConfigSyncProtocolType.EVM_RPC_PARALLEL`) | `packages/node/config.dev.ts` | Reading the local Hardhat chain with `confirmationDepth: 1` |
 | Cardano sync (`ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL`) | `packages/node/config.dev.ts` | Reading Cardano blocks from Dolos over UTxO-RPC from `origin` |
 | `PrimitiveTypeEVMERC721` (`@effectstream/sm/builtin`) | `packages/node/config.dev.ts` | Decoding ERC-721 `Transfer` logs into `{ to, from, tokenId, isBurn }` |
-| `PrimitiveTypeCardanoTransfer` (`@effectstream/sm/builtin`) | `packages/node/config.dev.ts` | Decoding Cardano transactions into `{ txId, metadata, inputCredentials, outputs }` |
+| `PrimitiveTypeCardanoTransfer` (`@effectstream/sm/builtin`) | `packages/node/config.dev.ts` | Decoding Cardano transactions into `{ txId, metadata, inputCredentials, outputs, signerKeyHashes }` |
 | Builtin grammars (`@effectstream/sm/grammar`) | `packages/node/grammar.ts` | Typing both primitives' payloads without writing a schema by hand |
 | `Stm` state transitions (`@effectstream/sm`) | `packages/node/state-machine.ts` | Two transitions writing into one shared `events` table |
 | `World.resolve` (`@effectstream/coroutine`) | `packages/node/state-machine.ts` | Running pgtyped queries inside a state transition |
@@ -214,8 +214,9 @@ export const grammar = {
 The keys match the `stateMachinePrefix` of each primitive in `packages/node/config.dev.ts`
 (`nft-transfer` and `cardano-transfer`) — that is what routes a decoded payload to a
 transition. `evmErc721` yields `{ to, from, tokenId, isBurn }`; `cardanoTransfer` yields
-`{ txId, metadata, inputCredentials, outputs }`, where `inputCredentials` and `outputs` are
-JSON strings.
+`{ txId, metadata, inputCredentials, outputs, signerKeyHashes }`. `outputs` and
+`signerKeyHashes` are JSON strings. The deprecated `inputCredentials` is also a JSON
+string, but contains raw verification keys and is retained only for compatibility.
 
 ### State machine
 
@@ -242,7 +243,9 @@ transaction hash — a simplification of the demo, not a framework limitation.
 
 The Cardano transition is shaped by the UTxO model: one transaction fans out into several
 outputs, so it parses the JSON payload and inserts one row per output, attributing the
-sender to the first input credential:
+sender to the first signer key hash. When replaying a historical tuple that predates
+`signerKeyHashes`, it falls back to the deprecated raw verification key so old data remains
+processable:
 
 ```ts
 // packages/node/state-machine.ts
