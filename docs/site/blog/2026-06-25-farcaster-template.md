@@ -82,7 +82,7 @@ The `2_000_000n` lovelace (2 ADA) output is required by the Cardano minimum UTxO
 
 The state machine iterates the pairs explicitly.
 
-**4. Voter identity** comes from `inputCredentials` -- the first vkey witness hash on the Cardano transaction. This is more crypto-native than an address: it is the hash of the actual signing key, regardless of which address the user controls. The state machine uses it as the deduplication key.
+**4. Voter identity** comes from `signerKeyHashes` -- the first vkey witness hash on the Cardano transaction. This is more crypto-native than an address: it is the hash of the actual signing key, regardless of which address the user controls. The state machine uses it as the deduplication key. The older `inputCredentials` field is deprecated because it actually contains raw verification keys.
 
 **5. Block ingestion** runs through Dolos MiniBF (a UTxORPC relay) connected to the YACI devnet. `PrimitiveTypeCardanoTransfer` watches for transactions that match the grammar prefix, extracts the metadata, and feeds a typed input into the state machine for each block.
 
@@ -96,7 +96,7 @@ The wallet log in the UI makes the full flow visible:
 
 ### grammar.ts
 
-The grammar declares what inputs the app recognizes. `cardanoTransfer` is a builtin that captures `txId`, `metadata`, `inputCredentials`, and `outputs` from any Cardano transfer -- we alias it under our own name:
+The grammar declares what inputs the app recognizes. `cardanoTransfer` is a builtin that captures `txId`, `metadata`, deprecated `inputCredentials`, `outputs`, and `signerKeyHashes` from any Cardano transfer -- we alias it under our own name:
 
 ```ts
 export const grammar = {
@@ -111,12 +111,14 @@ const VALID_MOVIES  = new Set(["dune2","gladiator2","wicked","alien","joker2"]);
 const VALID_RATINGS = new Set(["best","meh","worst"]);
 
 stm.addStateTransition("cardano-vote", function* (data) {
-  const { txId, metadata, inputCredentials } = data.parsedInput;
+  const { txId, metadata, inputCredentials, signerKeyHashes } = data.parsedInput;
 
   // Voter = first vkey witness hash (signing key identity, not address).
   let voter = txId;
   try {
-    const creds = JSON.parse(inputCredentials);
+    const hashes = JSON.parse(signerKeyHashes ?? "[]");
+    // Fall back only for old SDK payloads or historical tuples.
+    const creds = hashes.length ? hashes : JSON.parse(inputCredentials ?? "[]");
     if (creds[0]) voter = creds[0];
   } catch {}
 

@@ -45,12 +45,20 @@ stm.addStateTransition("cardano-mint-burn", function* (data) {
 });
 
 stm.addStateTransition("cardano-transfer", function* (data) {
-  const { txId, metadata, inputCredentials, outputs } = data.parsedInput;
+  const { txId, metadata, inputCredentials, outputs, signerKeyHashes } =
+    data.parsedInput;
   console.log(`[STM] cardano-transfer: txId=${txId}`);
   yield* World.promise(pool.query(
-    `INSERT INTO cardano_transfers (block_height, tx_id, metadata, input_credentials, outputs)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [data.blockHeight, txId, metadata || null, inputCredentials, outputs],
+    `INSERT INTO cardano_transfers (block_height, tx_id, metadata, input_credentials, outputs, signer_key_hashes)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [
+      data.blockHeight,
+      txId,
+      metadata || null,
+      inputCredentials,
+      outputs,
+      signerKeyHashes,
+    ],
   ));
 });
 
