@@ -32,6 +32,7 @@ const endpoints = Object.freeze({
 });
 
 setNetworkId(networkId);
+const startingFinalizedBlock = await queryIndexerLatestBlock();
 const wallet = await createV2Wallet({
   role: `${runId}-local`,
   seedHex: process.env.MIDNIGHT_V2_E2E_WALLET_SEED_FILE
@@ -151,6 +152,8 @@ try {
   if (hermeticResultFile) {
     const indexedEvent = indexedEvents[0];
     writeFileSync(hermeticResultFile, JSON.stringify({
+      networkId,
+      startingFinalizedBlock,
       startBlockHeight: deployedSink.deployTxData.public.blockHeight,
       sinkAddress,
       gatewayAddress,
@@ -176,6 +179,12 @@ try {
         eventType: indexedEvent.eventType,
         raw: indexedEvent.raw,
       },
+      wallet: {
+        unshieldedNightPositive: readiness.unshieldedNight > 0n,
+        registeredNightUtxos: readiness.registeredNightUtxos,
+        registrationState: readiness.registrationState,
+        dustPositive: readiness.dust > 0n,
+      },
     }));
   }
 
@@ -183,6 +192,8 @@ try {
     checkpoint: 'C12',
     wallet: {
       registrationState: readiness.registrationState,
+      registeredNightUtxos: readiness.registeredNightUtxos,
+      unshieldedNightPositive: readiness.unshieldedNight > 0n,
       dustPositive: readiness.dust > 0n,
     },
     contracts: addresses,
@@ -298,4 +309,24 @@ function optionalRunId(value) {
     throw new Error('MIDNIGHT_V2_RUN_ID must be 1-63 URL-safe alphanumeric/hyphen characters');
   }
   return value.toLowerCase();
+}
+
+async function queryIndexerLatestBlock() {
+  const response = await fetch(endpoints.indexerHttpUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      query: 'query CccStartingBlock { block { hash height protocolVersion } }',
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const payload = await response.json();
+  const block = payload.data?.block;
+  if (
+    !response.ok || payload.errors || typeof block?.hash !== 'string' ||
+    !Number.isSafeInteger(block.height) || block.protocolVersion !== 2_000_000
+  ) {
+    throw new Error('Unable to capture the starting finalized API-v4 block');
+  }
+  return { hash: normalizeAddress(block.hash), height: block.height };
 }

@@ -76,8 +76,16 @@ if (
 }
 
 if (
+  lock.status !== 'release-locked-hosted-integrated-validated' ||
   lock.networkId !== 'stagenet' ||
   lock.hostedZkirV3Verification !== 'validated' ||
+  lock.hostedIntegratedTemplateVerification !== 'validated' ||
+  lock.hostedIntegratedObservation.transaction.hash !==
+    'ff60ee5657415fc331c6d0532ba412301e2850b80d28d71d26af3727a51f6aad' ||
+  lock.hostedIntegratedObservation.keccak256Digest !==
+    '290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563' ||
+  lock.hostedIntegratedObservation.effectstreamProcessedCount !== 1 ||
+  lock.hostedIntegratedObservation.effectstreamReplayApplied !== false ||
   lock.toolchain.midnightJs !== '5.0.0-beta.6' ||
   lock.toolchain.compactCompiler !== '0.33.0-rc.1' ||
   lock.toolchain.walletPackages['@midnightntwrk/wallet-sdk-prover-client'] !== '2.0.0-beta.2' ||

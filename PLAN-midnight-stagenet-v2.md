@@ -869,12 +869,17 @@ Required Compose test:
 
 ```text
 RUN_STAGENET_WRITE_TESTS=1 \
+MIDNIGHT_V2_WRITE_WALLET_FUNDED=1 \
+MIDNIGHT_V2_RUN_ID=c19-hosted-<run-id> \
+MIDNIGHT_V2_WALLET_SEED_SOURCE_FILE=/absolute/path/to/disposable.seed \
 docker compose -f templates/midnight-stagenet-v2/compose.yaml \
   --project-name effectstream-midnight-v2-c19-<run-id> \
-  --profile live-write run --rm live-write-tests
+  --profile live-write run --rm hosted-write-tests
 ```
 
 Pass condition: one authorized hosted root transaction satisfies every section 5 assertion and the redacted evidence matches the finalized lock. If authorization/funding is unavailable, this checkpoint is blocked and the issue is not yet complete; do not weaken or bypass it.
+
+Basal execution (2026-08-10): **pass** after one detected-and-corrected network-identity defect. The first hosted run completed the chain path but exposed that the Effectstream test client still labeled the hosted indexer `undeployed`; that run was not accepted as C19 evidence. The client now receives `MIDNIGHT_V2_NETWORK_ID`, rejects disagreement with the contract process, and the hosted runner requires `stagenet` from both application passes. With diagnostic interpolation value `24720` freshly checked free, corrected run `c19-hosted-20260810-24720` executed under Compose project `effectstream-midnight-v2-c19-20260810-24720` with no published ports. The public undeployed genesis wallet was mounted only as a Compose secret and immediately reported one registered NIGHT UTxO, positive unshielded NIGHT, completed registration, and positive DUST. Starting from finalized block 458768, the run deployed `CryptoEventSink` at `f548223c6c73ed1fb535ce84326c3c4d4696ea7023a8af8ecafe5139117e5907` at block 458776 and `FeatureGateway` at `b2872b4ec54d1a3d9b74c02b8edcc9987028f814918cffcc7da2cc41428a7f8a`; gateway transaction `ff60ee5657415fc331c6d0532ba412301e2850b80d28d71d26af3727a51f6aad` finalized at block 458784 with block hash `a3d448465a1ce57983022ba881c11b8873a257c9297948199a40c937958b3996`. Its authenticated call order was sink then gateway, the returned and indexed state digest matched the independent Keccak-256 vector, and one non-degraded local `Unpaused` event matched one exact API-v4 indexed event. A separate Bun/Effectstream process reported network `stagenet`, stored one row, and a fresh replay process reported `applied: false` with the row count still one. Captured output contained no wallet seed, witness, proof bytes, private state, or wholesale call result. The finalized lock changes only validation status and public evidence; the C02 release matrix is unchanged. The exact project container, network, and proof-parameter volume were removed afterward.
 
 Suggested commit: `test(midnight-v2): validate hosted stagenet feature path`
 

@@ -25,7 +25,11 @@ const config = createNodeConfig({
   sinkContractAddress: chainResult.sinkAddress,
   startBlockHeight: chainResult.startBlockHeight,
 });
-const client = new MidnightClient(requiredEnv("MIDNIGHT_V2_INDEXER_HTTP_URL"), "undeployed");
+const networkId = requiredEnv("MIDNIGHT_V2_NETWORK_ID");
+if (chainResult.networkId !== networkId) {
+  throw new Error(`Contract and application network identities differ: ${chainResult.networkId} != ${networkId}`);
+}
+const client = new MidnightClient(requiredEnv("MIDNIGHT_V2_INDEXER_HTTP_URL"), networkId);
 const decodedEvents = await client.fetchContractEvents(
   chainResult.call.blockHeight,
   {
@@ -144,6 +148,7 @@ try {
   console.log(JSON.stringify({
     checkpoint: "C16-application",
     phase,
+    networkId,
     primitive: config.primitive.type,
     eventIdentity: payload.eventIdentity,
     transition,

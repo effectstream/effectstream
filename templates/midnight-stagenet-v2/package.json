@@ -28,7 +28,8 @@
     "test:midnight-contract-event-primitive": "bun test packages/node-sdk/sync/test/midnight-contract-event-primitive.test.ts packages/node-sdk/sync/test/midnight-event-decoder.test.ts packages/node-sdk/sync/test/zswap-decoder.test.ts packages/node-sdk/sync/test/mint-decoder.test.ts packages/node-sdk/sm/primitives/src/midnight-token-mint/midnight-token-mint.test.ts",
     "test:state-machine": "bun test packages/tests/state-machine.test.ts",
     "test:hermetic": "node packages/tests/hermetic-runner.mjs",
-    "test:live:write": "node packages/tests/write-canary-fixtures.mjs"
+    "test:live:write": "node packages/tests/write-canary-fixtures.mjs",
+    "test:live:hosted": "node packages/tests/hosted-integrated-runner.mjs"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0",

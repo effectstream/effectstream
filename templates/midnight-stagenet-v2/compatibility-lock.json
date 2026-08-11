@@ -1,8 +1,9 @@
 {
   "schemaVersion": 1,
-  "status": "release-locked-hosted-zkir-unverified",
+  "status": "release-locked-hosted-integrated-validated",
   "networkId": "stagenet",
   "hostedZkirV3Verification": "validated",
+  "hostedIntegratedTemplateVerification": "validated",
   "baselines": {
     "legacyV1MidnightEnvSha256": "222815ea959d632a6002d7a4110957c00e0a289c6bb0ae6d8743856123c00e49",
     "legacyV1PackageTreeSha256": "6b82eb68f4dccf5fe83d29db9ef9372e8a00cabbe03e1ed87159538a6885a056"
@@ -23,6 +24,30 @@
     "peersAtObservation": 6,
     "isSyncing": false,
     "contractEventSchemaFingerprint": "ada637d429dafd6b1fff7339b025bf512b1325ff9562576be0442fa0f0187058"
+  },
+  "hostedIntegratedObservation": {
+    "observedAt": "2026-08-10",
+    "runId": "c19-hosted-20260810-24720",
+    "startingFinalizedBlock": {
+      "height": 458768,
+      "hash": "dd9dec84285f7ba126acb6f0e974410520a136fe3e62a9fcf60439e92b0eea2f"
+    },
+    "deploymentBlockHeight": 458776,
+    "transaction": {
+      "height": 458784,
+      "hash": "ff60ee5657415fc331c6d0532ba412301e2850b80d28d71d26af3727a51f6aad",
+      "blockHash": "a3d448465a1ce57983022ba881c11b8873a257c9297948199a40c937958b3996"
+    },
+    "contracts": {
+      "CryptoEventSink": "f548223c6c73ed1fb535ce84326c3c4d4696ea7023a8af8ecafe5139117e5907",
+      "FeatureGateway": "b2872b4ec54d1a3d9b74c02b8edcc9987028f814918cffcc7da2cc41428a7f8a"
+    },
+    "callOrder": ["CryptoEventSink", "FeatureGateway"],
+    "keccak256Digest": "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+    "localEventCount": 1,
+    "indexedEventCount": 1,
+    "effectstreamProcessedCount": 1,
+    "effectstreamReplayApplied": false
   },
   "toolchain": {
     "compactManager": "0.5.1",

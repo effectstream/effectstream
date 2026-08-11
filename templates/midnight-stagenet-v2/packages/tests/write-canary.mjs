@@ -56,6 +56,7 @@ if (process.env.RUN_STAGENET_WRITE_TESTS !== '1') {
     contracts: 2,
     localEvents: 1,
     indexedEvents: 1,
+    wallet: result.wallet,
     status: 'pass',
   }));
 }

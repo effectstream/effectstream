@@ -380,6 +380,13 @@ COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests
 
 CMD ["bun", "run", "test:live:write"]
 
+FROM hermetic-e2e-test AS hosted-write-test
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/write-canary.mjs ./packages/tests/write-canary.mjs
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/hosted-integrated-runner.mjs ./packages/tests/hosted-integrated-runner.mjs
+
+CMD ["bun", "run", "test:live:hosted"]
+
 FROM shared-test-dependencies AS midnight-contract-event-primitive-test
 
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/package.json ./package.json
