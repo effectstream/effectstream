@@ -297,3 +297,17 @@ test("SolanaAdapter.buildBatchData collects base64 transaction strings", () => {
 test("SolanaAdapter is always ready", () => {
   expect(adapter.isReady()).toBe(true);
 });
+
+test("SolanaAdapter defaults to the ip rate limit strategy", () => {
+  // Deliberately the same as the server's fallback for an adapter that does not
+  // implement the hook, so adding the method changed no existing deployment.
+  expect(adapter.getRateLimitKeyStrategy()).toBe("ip");
+});
+
+test("SolanaAdapter honours a configured rate limit strategy", () => {
+  const scoped = new SolanaAdapter({
+    ...TEST_CONFIG,
+    rateLimitKeyStrategy: "ip-and-address",
+  });
+  expect(scoped.getRateLimitKeyStrategy()).toBe("ip-and-address");
+});

@@ -1,47 +1,64 @@
 /**
  * Rate limiting module for the batcher HTTP server.
  *
- * Provides a pluggable storage interface with an in-memory sliding window
- * implementation, and a RateLimiter class that supports multiple key strategies.
+ * A request may consume several buckets (for example a target-global sponsor
+ * budget and a verified wallet budget). Stores must check and record the whole
+ * set atomically so concurrent requests cannot overshoot a configured cap or
+ * partially consume one bucket when another is already exhausted.
  */
 
 /**
- * Strategy for extracting rate limit keys from a request.
- * - "ip": Rate limit by IP address only (default)
- * - "ip-and-address": Independent limits on both IP and wallet address
- * - "composite": Single limit on combined IP+address key
+ * Strategy for extracting identity rate limit buckets from a request.
+ * - "ip": Per-IP quota (plus the target-global quota)
+ * - "ip-and-address": A shared-IP ceiling plus a verified-wallet quota
+ * - "composite": Per IP+verified-address quota (plus the target-global quota)
  */
 export type RateLimitKeyStrategy = "ip" | "ip-and-address" | "composite";
 
+/** One independently configured bucket consumed by an allowed request. */
+export interface RateLimitBucket {
+  key: string;
+  maxRequests: number;
+}
+
+export interface RateLimitCheckResult {
+  allowed: boolean;
+  /** Seconds until the client can retry (for Retry-After header). */
+  retryAfterSeconds?: number;
+  /** Which key triggered the limit. */
+  limitedKey?: string;
+}
+
 /**
  * Pluggable storage interface for rate limit state.
- * All timestamp parameters are epoch milliseconds.
+ *
+ * `consume` is deliberately one operation. Redis implementations should use a
+ * Lua script or transaction, and SQL implementations should use a transaction
+ * with the appropriate row/advisory locks. A split count-then-hit contract is
+ * not sufficient: concurrent callers can all observe spare capacity and exceed
+ * a sponsor budget.
  */
 export interface RateLimitStore {
-  /** Record a request hit for the given key. */
-  hit(key: string, nowMs: number): Promise<void>;
-
-  /** Count hits for the given key within [nowMs - windowMs, nowMs]. */
-  count(key: string, nowMs: number, windowMs: number): Promise<number>;
-
-  /** Get the oldest hit timestamp within the current window. Returns undefined if none. */
-  oldestHitInWindow(
-    key: string,
+  consume(
+    buckets: readonly RateLimitBucket[],
     nowMs: number,
     windowMs: number,
-  ): Promise<number | undefined>;
+  ): Promise<RateLimitCheckResult>;
 
   /** Remove expired entries across all keys. */
   cleanup(nowMs: number, windowMs: number): Promise<void>;
 }
 
 /**
- * In-memory sliding window rate limit store.
- * Uses a Map of sorted timestamp arrays. Expired entries are pruned lazily on count().
+ * In-memory sliding-window rate limit store.
+ *
+ * `consume` contains no await points: checking and recording every bucket is a
+ * single synchronous critical section in the JavaScript event loop.
  */
 export class InMemoryRateLimitStore implements RateLimitStore {
   private readonly hits: Map<string, number[]> = new Map();
 
+  /** Record a request hit directly. Exposed for diagnostics and focused tests. */
   async hit(key: string, nowMs: number): Promise<void> {
     let arr = this.hits.get(key);
     if (!arr) {
@@ -51,61 +68,83 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     arr.push(nowMs);
   }
 
+  /** Count hits in the current window. Exposed for diagnostics and tests. */
   async count(key: string, nowMs: number, windowMs: number): Promise<number> {
-    const arr = this.hits.get(key);
-    if (!arr) return 0;
-
-    const cutoff = nowMs - windowMs;
-    // Prune expired entries
-    const pruned = arr.filter((ts) => ts > cutoff);
-    if (pruned.length === 0) {
-      this.hits.delete(key);
-      return 0;
-    }
-    this.hits.set(key, pruned);
-    return pruned.length;
+    return this.prune(key, nowMs, windowMs).length;
   }
 
+  /** Return the oldest unexpired hit. Exposed for diagnostics and tests. */
   async oldestHitInWindow(
     key: string,
     nowMs: number,
     windowMs: number,
   ): Promise<number | undefined> {
-    const arr = this.hits.get(key);
-    if (!arr) return undefined;
+    return this.prune(key, nowMs, windowMs)[0];
+  }
 
-    const cutoff = nowMs - windowMs;
-    for (const ts of arr) {
-      if (ts > cutoff) return ts;
+  async consume(
+    buckets: readonly RateLimitBucket[],
+    nowMs: number,
+    windowMs: number,
+  ): Promise<RateLimitCheckResult> {
+    // A duplicate key must never be charged twice. If callers provide
+    // conflicting ceilings, the stricter one wins.
+    const unique = new Map<string, RateLimitBucket>();
+    for (const bucket of buckets) {
+      const previous = unique.get(bucket.key);
+      if (!previous || bucket.maxRequests < previous.maxRequests) {
+        unique.set(bucket.key, bucket);
+      }
     }
-    return undefined;
+
+    const active = new Map<string, number[]>();
+    for (const bucket of unique.values()) {
+      const hits = this.prune(bucket.key, nowMs, windowMs);
+      active.set(bucket.key, hits);
+      if (hits.length >= bucket.maxRequests) {
+        const oldest = hits[0];
+        const retryAfterMs = oldest === undefined
+          ? windowMs
+          : (oldest + windowMs) - nowMs;
+        return {
+          allowed: false,
+          retryAfterSeconds: Math.ceil(Math.max(retryAfterMs, 0) / 1000),
+          limitedKey: bucket.key,
+        };
+      }
+    }
+
+    // No await occurs between the checks above and these writes.
+    for (const bucket of unique.values()) {
+      const hits = active.get(bucket.key) ?? [];
+      hits.push(nowMs);
+      this.hits.set(bucket.key, hits);
+    }
+
+    return { allowed: true };
   }
 
   async cleanup(nowMs: number, windowMs: number): Promise<void> {
-    const cutoff = nowMs - windowMs;
-    for (const [key, arr] of this.hits) {
-      const pruned = arr.filter((ts) => ts > cutoff);
-      if (pruned.length === 0) {
-        this.hits.delete(key);
-      } else {
-        this.hits.set(key, pruned);
-      }
+    for (const key of this.hits.keys()) {
+      this.prune(key, nowMs, windowMs);
     }
+  }
+
+  private prune(key: string, nowMs: number, windowMs: number): number[] {
+    const arr = this.hits.get(key);
+    if (!arr) return [];
+
+    const cutoff = nowMs - windowMs;
+    const pruned = arr.filter((timestamp) => timestamp > cutoff);
+    if (pruned.length === 0) {
+      this.hits.delete(key);
+      return [];
+    }
+    this.hits.set(key, pruned);
+    return pruned;
   }
 }
 
-export interface RateLimitCheckResult {
-  allowed: boolean;
-  /** Seconds until the client can retry (for Retry-After header) */
-  retryAfterSeconds?: number;
-  /** Which key triggered the limit */
-  limitedKey?: string;
-}
-
-/**
- * Rate limiter using a pluggable store.
- * check() is atomic: all keys are verified first, hits recorded only if all pass.
- */
 export class RateLimiter {
   constructor(
     private readonly store: RateLimitStore,
@@ -113,34 +152,17 @@ export class RateLimiter {
     private readonly windowMs: number,
   ) {}
 
-  async check(keys: string[]): Promise<RateLimitCheckResult> {
-    const nowMs = Date.now();
+  /** Check keys that all use the limiter's default ceiling. */
+  async check(keys: readonly string[]): Promise<RateLimitCheckResult> {
+    return this.checkBuckets(
+      keys.map((key) => ({ key, maxRequests: this.maxRequests })),
+    );
+  }
 
-    // Check all keys before recording any hits
-    for (const key of keys) {
-      const currentCount = await this.store.count(key, nowMs, this.windowMs);
-      if (currentCount >= this.maxRequests) {
-        const oldest = await this.store.oldestHitInWindow(
-          key,
-          nowMs,
-          this.windowMs,
-        );
-        const retryAfterMs = oldest
-          ? (oldest + this.windowMs) - nowMs
-          : this.windowMs;
-        return {
-          allowed: false,
-          retryAfterSeconds: Math.ceil(Math.max(retryAfterMs, 0) / 1000),
-          limitedKey: key,
-        };
-      }
-    }
-
-    // All keys passed — record hits
-    for (const key of keys) {
-      await this.store.hit(key, nowMs);
-    }
-
-    return { allowed: true };
+  /** Atomically check and consume buckets with independent ceilings. */
+  async checkBuckets(
+    buckets: readonly RateLimitBucket[],
+  ): Promise<RateLimitCheckResult> {
+    return await this.store.consume(buckets, Date.now(), this.windowMs);
   }
 }

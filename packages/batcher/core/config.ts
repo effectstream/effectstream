@@ -120,18 +120,43 @@ export type ConfirmationLevel =
   | "wait-receipt"
   | "wait-effectstream-processed";
 
+/**
+ * Rate limiting for `POST /send-input`.
+ *
+ * Omitting `rateLimit` entirely does NOT disable it. The server falls back to
+ * {@link DEFAULT_CONFIG_VALUES}.rateLimit, so every batcher is limited by
+ * default. Keep the numbers below in step with that constant, which is the one
+ * the running server actually reads.
+ */
 export interface RateLimitConfig {
-  /** Maximum number of requests per window. Default: 100 */
+  /**
+   * Maximum requests per source IP before signature verification. Defaults to
+   * the effective `globalMaxRequests` value.
+   */
+  preAuthMaxRequests?: number;
+  /** Maximum authenticated requests per identity bucket. Default: 1000 */
   maxRequests: number;
-  /** Window size in milliseconds. Default: 60000 (1 minute) */
+  /**
+   * Maximum authenticated requests across the whole adapter target/window.
+   * Defaults to `maxRequests`, making the identity allowance a hard global
+   * sponsor ceiling unless an operator explicitly chooses a larger total.
+   */
+  globalMaxRequests?: number;
+  /** Window size in milliseconds. Default: 86400000 (24 hours) */
   windowMs: number;
-  /** Custom store implementation (in-memory by default) */
+  /** Custom atomic store implementation (in-memory by default) */
   store?: RateLimitStore;
 }
 
 const RateLimitConfigSchema = Type.Object({
-  maxRequests: Type.Number({ minimum: 1, default: 100 }),
-  windowMs: Type.Number({ minimum: 1000, default: 60000 }),
+  // These must match DEFAULT_CONFIG_VALUES.rateLimit. They are reachable by a
+  // different path (`Value.Cast` filling a partial `rateLimit` object) than the
+  // server-side fallback, so two different sets of numbers here would mean the
+  // effective limit depended on whether the key was absent or half-filled.
+  maxRequests: Type.Integer({ minimum: 1, default: 1000 }),
+  preAuthMaxRequests: Type.Optional(Type.Integer({ minimum: 1 })),
+  globalMaxRequests: Type.Optional(Type.Integer({ minimum: 1 })),
+  windowMs: Type.Integer({ minimum: 1000, default: 86400000 }),
   store: Type.Optional(Type.Any()),
 }, { additionalProperties: false });
 
@@ -176,12 +201,16 @@ export interface BatcherConfig<
   requireExplicitTarget?: boolean;
 
   /**
-   * Per-target overrides. Anything omitted falls back to the global value.
-   * Lets one product be rate-limited or retried differently from another
-   * without giving it its own process.
+   * Per-target retry overrides. Anything omitted falls back to the global
+   * value, so one product can be retried differently from another without
+   * giving it its own process.
+   *
+   * Rate limiting is NOT here: it is already target-scoped by the limiter
+   * itself, which derives a `target:<name>:…` bucket per request plus a
+   * target-global ceiling (`globalMaxRequests`). A second per-target knob here
+   * would be a config field that silently did nothing.
    */
   perTarget?: Record<string, {
-    rateLimit?: RateLimitConfig;
     maxRetries?: number;
     retryDelayMs?: number;
   }>;
@@ -209,7 +238,9 @@ export const DEFAULT_CONFIG_VALUES = {
   maxRetries: 3,
   retryDelayMs: 1000,
   rateLimit: {
+    preAuthMaxRequests: 1000,
     maxRequests: 1000,
+    globalMaxRequests: 1000,
     windowMs: 86400000,
   },
   shutdown: {
@@ -287,7 +318,6 @@ export const BatcherConfigSchema = Type.Object({
     Type.Record(
       Type.String(),
       Type.Object({
-        rateLimit: Type.Optional(RateLimitConfigSchema),
         maxRetries: Type.Optional(Type.Number({ minimum: 0 })),
         retryDelayMs: Type.Optional(Type.Number({ minimum: 0 })),
       }, { additionalProperties: false }),
@@ -368,11 +398,37 @@ export function validateBatcherConfig<
 
   // Validate rate limit configuration
   if (config.rateLimit) {
-    if (config.rateLimit.maxRequests < 1) {
-      throw new Error("rateLimit.maxRequests must be at least 1");
+    if (
+      !Number.isInteger(config.rateLimit.maxRequests) ||
+      config.rateLimit.maxRequests < 1
+    ) {
+      throw new Error("rateLimit.maxRequests must be a positive integer");
     }
-    if (config.rateLimit.windowMs < 1000) {
-      throw new Error("rateLimit.windowMs must be at least 1000ms");
+    if (
+      config.rateLimit.preAuthMaxRequests !== undefined &&
+      (!Number.isInteger(config.rateLimit.preAuthMaxRequests) ||
+        config.rateLimit.preAuthMaxRequests < 1)
+    ) {
+      throw new Error(
+        "rateLimit.preAuthMaxRequests must be a positive integer",
+      );
+    }
+    if (
+      config.rateLimit.globalMaxRequests !== undefined &&
+      (!Number.isInteger(config.rateLimit.globalMaxRequests) ||
+        config.rateLimit.globalMaxRequests < 1)
+    ) {
+      throw new Error(
+        "rateLimit.globalMaxRequests must be a positive integer",
+      );
+    }
+    if (
+      !Number.isInteger(config.rateLimit.windowMs) ||
+      config.rateLimit.windowMs < 1000
+    ) {
+      throw new Error(
+        "rateLimit.windowMs must be an integer of at least 1000ms",
+      );
     }
   }
 

@@ -111,6 +111,11 @@ Per-adapter, you choose how `runBatcher` decides to submit:
 
 ### Rate limiting
 
+> **Breaking change for custom stores:** `RateLimitStore` now requires the
+> atomic `consume(buckets, nowMs, windowMs)` operation. Implementations of the
+> former split `count`/`hit` contract are incompatible and must be migrated
+> before upgrading.
+
 `POST /send-input` is rate limited. Configure it with the optional `rateLimit`
 block:
 
@@ -118,25 +123,56 @@ block:
 const config: BatcherConfig = {
   // …
   rateLimit: {
-    maxRequests: 1000,   // requests allowed per window
+    preAuthMaxRequests: 1000, // all requests per source IP before verification
+    maxRequests: 100,     // authenticated requests per identity
+    globalMaxRequests: 1000, // total authenticated requests for this target
     windowMs: 86_400_000, // window size in ms
     // store: myRateLimitStore,  // optional; in-memory by default
   },
 };
 ```
 
-Those are the defaults applied when you omit the block. Validation rejects
-`maxRequests < 1` or `windowMs < 1000`. A limited request gets HTTP 429 with a
+Rate limiting has two phases. First, every schema-valid request consumes a
+server-scoped IP bucket before signature verification. Its key never includes
+the untrusted target or address from the request body, so changing those fields
+cannot evade the ceiling or poison another identity. Invalid signatures still
+consume this pre-authentication allowance, bounding verification work. Second,
+a verified request atomically consumes the authenticated target-global and
+identity buckets before semantic validation and queuing.
+
+When `globalMaxRequests` is omitted it defaults to `maxRequests`, so the
+identity allowance is also a hard target-wide ceiling. When
+`preAuthMaxRequests` is omitted it defaults to that effective global value. The
+built-in defaults are 1000 for all three limits over 24 hours. A limited
+request in either phase gets HTTP 429 with a `Retry-After` header and
 `retryAfter` value in the body.
+
+An application-level IP ceiling cannot stop a distributed source that rotates
+addresses. Public deployments should also enforce connection and request-rate
+controls at a trusted load balancer or WAF.
 
 Each adapter chooses how requests are keyed by implementing the optional
 `getRateLimitKeyStrategy()`, returning one of `"ip"` (the default),
-`"ip-and-address"`, or `"composite"` — so a chain whose users share an IP can
-still be limited per address.
+`"ip-and-address"`, or `"composite"`. Every strategy also consumes a bucket
+scoped to the validated adapter target, enforcing `globalMaxRequests` across
+all IPs and wallets for that sponsor.
 
-To back the limiter with something other than process memory, implement
-`RateLimitStore` (`hit(key, nowMs)` and `count(key, nowMs, windowMs)`) and pass
-it as `store`. `InMemoryRateLimitStore` is the built-in implementation.
+`SolanaAdapter` exposes this as a `rateLimitKeyStrategy` config field, still
+defaulting to `"ip"`. For a sponsored batcher, set `globalMaxRequests` to the
+total volume the sponsor can fund and a lower `maxRequests` per wallet, then use
+`"ip-and-address"`. Its shared-IP bucket uses the global ceiling while each
+verified address uses the lower identity ceiling, so one wallet can exhaust its
+own allowance without blocking everyone behind the same NAT. Identity buckets
+are created only after `SolanaAdapter.verifySignature` binds the claimed
+address to a real signer.
+
+To back the limiter with something other than process memory, implement the
+atomic `RateLimitStore.consume(buckets, nowMs, windowMs)` operation and pass it
+as `store`. Redis implementations should use a transaction or Lua script; SQL
+implementations should use a transaction with row/advisory locks. The operation
+must check and record every bucket in one phase together; the pre-authentication
+and authenticated phases are intentionally separate calls. `InMemoryRateLimitStore`
+is the built-in single-process implementation.
 
 ## One batcher, many products
 
@@ -226,8 +262,8 @@ safe in a filter that runs twice because "spent" is monotone.
 
 Accepting that anyone may submit a *policy-conforming* transaction is the
 trade-off of tokenless authorization. Bound the blast radius with
-`allowedTokenTypes`, per-target rate limits, and network ACLs in front of the
-port.
+`allowedTokenTypes`, the target-scoped rate limits (`globalMaxRequests` caps a
+sponsor's total volume), and network ACLs in front of the port.
 
 ### Per-target controls
 
@@ -235,7 +271,7 @@ port.
 const config: BatcherConfig<DefaultBatcherInput> = {
   requireExplicitTarget: true,   // refuse input that doesn't name its target
   perTarget: {
-    "product-a": { rateLimit: { maxRequests: 60, windowMs: 60_000 }, maxRetries: 5 },
+    "product-a": { maxRetries: 5, retryDelayMs: 2_000 },
   },
 };
 ```
@@ -247,9 +283,11 @@ to a default nobody chose is the hazard. A default you set yourself — via
 `defaultTarget` or `setDefaultTarget()` — is a statement of intent and is
 honoured, so existing multi-adapter setups keep working.
 
-Rate-limit buckets, retry policy, dedup keys, `/queue-stats` entries and the
-`?target=`-scoped `POST /force-batch` and `DELETE /clear-inputs` are all
-per-target. `adapter.getHealthInfo()` surfaces each product's wallet, dust and
+Retry policy, dedup keys, `/queue-stats` entries and the `?target=`-scoped
+`POST /force-batch` and `DELETE /clear-inputs` are all per-target. Rate limiting
+is target-scoped too, but it is configured under `rateLimit` rather than here —
+the limiter derives a `target:<name>:…` bucket per request plus a target-global
+ceiling, so a second knob on `perTarget` would do nothing. `adapter.getHealthInfo()` surfaces each product's wallet, dust and
 worker state in `/queue-stats`.
 
 Worked example: [`templates/multi-batcher`](https://github.com/effectstream/effectstream/tree/main/templates/multi-batcher)
@@ -276,7 +314,7 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 - `FileStorage(dir)`: default JSONL storage.
 - Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`, `NearAdapter`, `NearIntentAdapter`.
 - Batcher operations: `runBatcher`, `batchInput`, `addStateTransition`, `gracefulShutdownOp`, `getPublicConfig`, `getBatchingStatus`.
-- Rate limiting: `RateLimiter`, `InMemoryRateLimitStore`, and the `RateLimitStore` / `RateLimitKeyStrategy` / `RateLimitCheckResult` types. See [Rate limiting](#rate-limiting).
+- Rate limiting: `RateLimiter`, `InMemoryRateLimitStore`, and the `RateLimitStore` / `RateLimitBucket` / `RateLimitKeyStrategy` / `RateLimitCheckResult` types. See [Rate limiting](#rate-limiting).
 - `DatabaseStorage`: a `BatcherStorage` shell that is **not implemented yet** — its methods throw. Use `FileStorage` or your own implementation.
 - `MidnightBalancingAdapter`: a Midnight adapter variant that delegates transaction balancing, for setups where the batcher does not hold the funding wallet itself.
 - `WorkerPool`: the internal concurrency primitive the Midnight adapter uses to run one transaction per wallet UTXO slot in parallel, with a per-slot mutex.

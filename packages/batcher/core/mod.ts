@@ -10,6 +10,7 @@ export type {
   RateLimitStore,
   RateLimitKeyStrategy,
   RateLimitCheckResult,
+  RateLimitBucket,
 } from "./rate-limiter.ts";
 export { RateLimiter, InMemoryRateLimitStore } from "./rate-limiter.ts";
 export type { BatcherStorage } from "./storage.ts";

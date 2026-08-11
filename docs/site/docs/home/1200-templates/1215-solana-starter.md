@@ -394,8 +394,28 @@ with `solana program deploy` instead of the validator's `--bpf-program` preload 
 >
 > The sponsor also pays every transaction fee it co-signs. `SolanaAdapter` bounds
 > *per-transaction* cost — scoping to one program, and rejecting priority fees above
-> `maxPriorityFeeMicroLamports` — but not *volume*. Add a rate limit before exposing a
-> funded batcher publicly.
+> `maxPriorityFeeMicroLamports`. Solana charges 5000 lamports per signature, and
+> a sponsored transaction carries at least the user's and sponsor's signatures,
+> so its base fee is at least 10000 lamports.
+>
+> Those dev values are a short window (100k requests per minute) so local testing
+> is not locked out for a day. **They are not a production posture.** Before
+> exposing a funded batcher, note that 100k accepted transactions cost at least
+> 1 SOL at the two-signature minimum. Removing the `rateLimit` block does not turn
+> limiting off; it falls back to 1000 requests per 24 hours.
+>
+> Requests are keyed per IP, the adapter default, so everyone behind a shared
+> NAT draws down one bucket. The pinned published SDK applies that legacy
+> per-IP abuse quota before signature verification; it does not provide a
+> target-global sponsor budget. `LINK_LOCAL=1` links this monorepo's layered
+> implementation instead: a body-independent pre-authentication IP ceiling,
+> then atomic target-global and authenticated identity buckets. The batcher's
+> startup log reports which capability is active. For production, configure
+> `preAuthMaxRequests`, size `globalMaxRequests` against the sponsor balance,
+> and use a lower `maxRequests` with `rateLimitKeyStrategy: "ip-and-address"`.
+> Custom multi-process stores must implement the new atomic multi-bucket
+> `RateLimitStore.consume` contract; this replaces the old split store methods
+> and is a breaking interface change.
 
 ## Testing
 

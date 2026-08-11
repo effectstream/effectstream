@@ -38,6 +38,11 @@ export class InputValidationError extends Error {
   }
 }
 
+export interface AuthenticatedInputContext {
+  /** Adapter target resolved and verified by the batcher. */
+  target: string;
+}
+
 /**
  * EffectStream Batcher - A type-safe, simplified blockchain batching system
  *
@@ -482,6 +487,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     confirmationLevel: "no-wait" | "wait-receipt" | "wait-effectstream-processed" =
       "wait-receipt",
     timeoutMs: number = 300_000,
+    onAuthenticated?: (
+      context: AuthenticatedInputContext,
+    ) => Promise<void> | void,
   ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
     if (this.shutdownState.isShuttingDown) {
       // 503 Service Unavailable
@@ -542,6 +550,11 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     if (!verifiedSignature) {
       throw new InputValidationError("Invalid signature", 401);
     }
+
+    // The claimed identity is trustworthy from this point onward. HTTP callers
+    // use this boundary to consume address-based and sponsor-global quotas;
+    // doing so earlier lets a forged request poison somebody else's bucket.
+    await onAuthenticated?.({ target });
 
     // 2. Adapter-Specific Input Validation (Pre-Queue)
     if (adapter && typeof adapter.validateInput === "function") {
