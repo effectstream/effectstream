@@ -164,9 +164,9 @@ Note one consequence of the decorator, if you copy it: `GatedAdapter` also *defi
 
 ### Rate limiting
 
-Validation is not the batcher's only gate. `POST /send-input` runs a rate-limit check *before* signature verification and `validateInput`, keyed by the strategy the adapter declares through the optional `getRateLimitKeyStrategy()` (`"ip"`, `"ip-and-address"` or `"composite"`), and answers with `429` plus a `Retry-After` header when the caller is over budget.
+Validation is not the batcher's only gate. `POST /send-input` verifies the signature first, then atomically consumes the adapter target's global bucket and the identity buckets declared through `getRateLimitKeyStrategy()` (`"ip"`, `"ip-and-address"` or `"composite"`) before `validateInput`. This prevents forged addresses from consuming somebody else's quota. An over-budget caller receives `429` plus a `Retry-After` header.
 
-This template exercises the defaults rather than configuring them: `packages/batcher/batcher.dev.ts` sets no `rateLimit` in its `BatcherConfig`, so the SDK's defaults apply (1000 requests per 24-hour window), and `GatedAdapter` implements no key strategy, so limits are per IP. To tighten it, add `rateLimit: { maxRequests, windowMs }` to the config — `maxRequests` must be at least 1 and `windowMs` at least 1000 — or implement `getRateLimitKeyStrategy()` on the adapter to limit per wallet address as well.
+This template exercises the defaults rather than configuring them: `packages/batcher/batcher.dev.ts` sets no `rateLimit`, so the SDK applies an authenticated target-global ceiling and per-IP allowance of 1000 requests per 24-hour window. To separate the two, add `rateLimit: { maxRequests, globalMaxRequests, windowMs }`, where `maxRequests` is the identity allowance and `globalMaxRequests` is the total for the target, or implement `getRateLimitKeyStrategy()` to use verified wallet identities.
 
 ### State machine
 

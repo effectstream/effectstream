@@ -387,23 +387,24 @@ with `solana program deploy` instead of the validator's `--bpf-program` preload 
 >
 > The sponsor also pays every transaction fee it co-signs. `SolanaAdapter` bounds
 > *per-transaction* cost — scoping to one program, and rejecting priority fees above
-> `maxPriorityFeeMicroLamports`. *Volume* is bounded by the batcher's rate limit
-> instead, which `packages/batcher/batcher.dev.ts` sets explicitly.
+> `maxPriorityFeeMicroLamports`. Solana charges 5000 lamports per signature, and
+> a sponsored transaction carries at least the user's and sponsor's signatures,
+> so its base fee is at least 10000 lamports.
 >
 > Those dev values are a short window (100k requests per minute) so local testing
 > is not locked out for a day. **They are not a production posture.** Before
-> exposing a funded batcher, size `maxRequests` against what you are willing to
-> spend — at 5000 lamports per transaction, 100k requests is about 0.5 SOL of base
-> fees per window. Note that removing the `rateLimit` block does not turn limiting
-> off, it falls back to 1000 requests per 24 hours.
+> exposing a funded batcher, note that 100k accepted transactions cost at least
+> 1 SOL at the two-signature minimum. Removing the `rateLimit` block does not turn
+> limiting off; it falls back to 1000 requests per 24 hours.
 >
 > Requests are keyed per IP, the SDK default, so everyone behind a shared NAT
-> draws down one bucket. `SolanaAdapter` accepts
-> `rateLimitKeyStrategy: "ip-and-address"` to give each wallet its own budget as
-> well, but that option postdates the `0.102.0` this template pins — set it in
-> `packages/batcher/solana-adapter.ts` after bumping. Swap
-> `InMemoryRateLimitStore` for a Redis or Postgres backed `RateLimitStore` if you
-> run more than one batcher process, since in-memory counts are per process.
+> draws down one bucket. In the pinned `0.102.0`, this is a per-IP abuse quota,
+> not a target-global sponsor budget. The next SDK adds an atomic
+> `globalMaxRequests` ceiling and consumes verified wallet buckets only after
+> signature verification. After bumping, configure a lower `maxRequests` with
+> `rateLimitKeyStrategy: "ip-and-address"`; use `LINK_LOCAL=1` to test that path
+> against this monorepo before release. Multi-process stores must implement the
+> SDK's atomic multi-bucket `RateLimitStore.consume` contract.
 
 ## Testing
 

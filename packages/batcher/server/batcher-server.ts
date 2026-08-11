@@ -10,6 +10,8 @@ import fastifySwaggerUi, {
   type FastifySwaggerUiOptions,
 } from "@fastify/swagger-ui";
 import {
+  type RateLimitBucket,
+  type RateLimitCheckResult,
   type RateLimitKeyStrategy,
   RateLimiter,
   InMemoryRateLimitStore,
@@ -40,6 +42,13 @@ const BatcherInputWrapper = Type.Object({
 });
 
 type BatcherInputWrapper = Static<typeof BatcherInputWrapper>;
+
+class RateLimitExceededError extends Error {
+  constructor(public readonly result: RateLimitCheckResult) {
+    super("Rate limit exceeded");
+    this.name = "RateLimitExceededError";
+  }
+}
 
 /**
  * Register the OpenAPI documentation for the batcher server.
@@ -149,31 +158,72 @@ async function registerOpenApiDocumentation(
 }
 
 /**
- * Derive the rate limit buckets a request draws down.
+ * Derive the authenticated rate limit buckets a request draws down.
  *
- * Exported for tests: the choice of keys is the whole behavioural difference
- * between the strategies, and it is not observable from the outside without
+ * Every strategy includes a validated-target global bucket. Exported for tests:
+ * key choice and per-bucket ceilings are otherwise hard to observe without
  * standing up a server and exhausting a limit.
  */
-export function buildRateLimitKeys(
+export function buildRateLimitBuckets(
   strategy: RateLimitKeyStrategy,
+  target: string,
   ip: string,
-  address?: string,
-): string[] {
+  address: string | undefined,
+  maxRequests: number,
+  globalMaxRequests: number,
+): RateLimitBucket[] {
+  const scope = encodeURIComponent(target);
+  const component = (value: string) => encodeURIComponent(value);
+  const globalBucket: RateLimitBucket = {
+    key: `target:${scope}:global`,
+    maxRequests: globalMaxRequests,
+  };
+
   switch (strategy) {
     case "ip":
-      return [`ip:${ip}`];
+      return [
+        globalBucket,
+        {
+          key: `target:${scope}:ip:${component(ip)}`,
+          maxRequests,
+        },
+      ];
     case "ip-and-address": {
-      const keys = [`ip:${ip}`];
+      // The venue/shared-IP ceiling is the target-global sponsor maximum. A
+      // verified wallet gets the lower identity allowance, so one wallet can
+      // exhaust its budget without blocking every other wallet behind the NAT.
+      const buckets: RateLimitBucket[] = [
+        globalBucket,
+        {
+          key: `target:${scope}:ip:${component(ip)}`,
+          maxRequests: globalMaxRequests,
+        },
+      ];
       if (address) {
-        keys.push(`addr:${address}`);
+        buckets.push({
+          key: `target:${scope}:addr:${component(address)}`,
+          maxRequests,
+        });
       }
-      return keys;
+      return buckets;
     }
     case "composite":
-      return [`composite:${ip}:${address ?? "unknown"}`];
+      return [
+        globalBucket,
+        {
+          key:
+            `target:${scope}:composite:${component(ip)}:${component(address ?? "unknown")}`,
+          maxRequests,
+        },
+      ];
     default:
-      return [`ip:${ip}`];
+      return [
+        globalBucket,
+        {
+          key: `target:${scope}:ip:${component(ip)}`,
+          maxRequests,
+        },
+      ];
   }
 }
 
@@ -185,7 +235,7 @@ export function buildRateLimitKeys(
 export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
   batcher: Batcher<T>,
   port: number,
-): Promise<any> {
+): Promise<FastifyInstance> {
   const server = fastify();
 
   await registerOpenApiDocumentation(server, port);
@@ -193,7 +243,10 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
   await server.register(cors as any, { origin: "*" });
 
   // Initialize rate limiter (enabled by default with defaults from config)
-  const { maxRequests, windowMs } = batcher.config.rateLimit ?? DEFAULT_CONFIG_VALUES.rateLimit;
+  const rateLimitConfig = batcher.config.rateLimit ??
+    DEFAULT_CONFIG_VALUES.rateLimit;
+  const { maxRequests, windowMs } = rateLimitConfig;
+  const globalMaxRequests = rateLimitConfig.globalMaxRequests ?? maxRequests;
   const rateLimitStore = batcher.config.rateLimit?.store ?? new InMemoryRateLimitStore();
   const rateLimiter = new RateLimiter(
     rateLimitStore,
@@ -324,23 +377,6 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     try {
       const body = request.body as any;
 
-      // Rate limiting check
-      const target = body.data?.target || batcher.getPublicConfig().defaultTarget;
-      const adapter = target ? batcher.getAdapter(target) : undefined;
-      const strategy = adapter?.getRateLimitKeyStrategy?.() ?? "ip";
-      const keys = buildRateLimitKeys(strategy, request.ip, body.data?.address);
-      const rateLimitResult = await rateLimiter.check(keys);
-
-      if (!rateLimitResult.allowed) {
-        reply.header("Retry-After", String(rateLimitResult.retryAfterSeconds ?? 60));
-        return reply.status(429).send({
-          success: false,
-          error: "Rate limit exceeded",
-          message: `Too many requests. Please retry after ${rateLimitResult.retryAfterSeconds} seconds.`,
-          retryAfter: rateLimitResult.retryAfterSeconds,
-        });
-      }
-
       const batcherInput = body.data;
       let confirmationLevel = body.confirmationLevel as any;
       if (!confirmationLevel) {
@@ -371,6 +407,22 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
         adaptedInput as any,
         confirmationLevel,
         body.timeoutMs,
+        async ({ target }) => {
+          const adapter = batcher.getAdapter(target);
+          const strategy = adapter?.getRateLimitKeyStrategy?.() ?? "ip";
+          const buckets = buildRateLimitBuckets(
+            strategy,
+            target,
+            request.ip,
+            adaptedInput.address,
+            maxRequests,
+            globalMaxRequests,
+          );
+          const rateLimitResult = await rateLimiter.checkBuckets(buckets);
+          if (!rateLimitResult.allowed) {
+            throw new RateLimitExceededError(rateLimitResult);
+          }
+        },
       );
 
       // Return appropriate response based on confirmation level
@@ -404,6 +456,17 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           };
       }
     } catch (error) {
+      if (error instanceof RateLimitExceededError) {
+        const retryAfter = error.result.retryAfterSeconds ?? 60;
+        reply.header("Retry-After", String(retryAfter));
+        return reply.status(429).send({
+          success: false,
+          error: "Rate limit exceeded",
+          message: `Too many requests. Please retry after ${retryAfter} seconds.`,
+          retryAfter,
+        });
+      }
+
       console.error("Error adding input to batcher:", error);
 
       if (error instanceof InputValidationError) {
@@ -489,17 +552,10 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
   }
 
   // Start the server
-  server.listen(
-    { port, host: "0.0.0.0" },
-    (err: Error | null, address: string) => {
-      if (err) {
-        console.error("Batcher HTTP server error:", err);
-        throw err;
-      }
-      console.log(`🎯 Batcher HTTP server running on ${address}`);
-      console.log(
-        `📖 OpenAPI documentation available at ${address}/documentation`,
-      );
-    },
+  const address = await server.listen({ port, host: "0.0.0.0" });
+  console.log(`🎯 Batcher HTTP server running on ${address}`);
+  console.log(
+    `📖 OpenAPI documentation available at ${address}/documentation`,
   );
+  return server;
 }

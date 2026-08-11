@@ -136,15 +136,16 @@ export interface SolanaAdapterConfig {
    * Defaults to `"ip"`, matching the batcher's own default when no adapter
    * declares a strategy — existing deployments keep the behaviour they have.
    *
-   * `"ip-and-address"` is the meaningful setting for a sponsor: every accepted
-   * transaction costs the sponsor the base fee, and a shared egress IP (a
-   * conference venue, an office, a mobile carrier NAT) puts every user behind
-   * it into one bucket, so a per-IP-only limit throttles honest users
-   * collectively long before it throttles anyone individually.
+   * `"ip-and-address"` is the meaningful setting for a sponsor when the
+   * batcher's `globalMaxRequests` is larger than its per-identity
+   * `maxRequests`. The target-global bucket caps total sponsor volume, while a
+   * verified wallet receives the lower identity allowance. The shared IP uses
+   * the global ceiling, so one wallet can exhaust its own allowance without
+   * blocking every user behind the same venue, office, or carrier NAT.
    *
-   * It is safe here because `verifySignature` rejects an `input.address` that
-   * did not actually sign, so the address key cannot be spoofed to mint fresh
-   * buckets. Do not enable it on an adapter without that binding.
+   * Identity buckets are consumed only after `verifySignature` rejects any
+   * `input.address` that did not sign, so an attacker cannot poison another
+   * wallet's bucket or mint composite buckets with forged addresses.
    */
   rateLimitKeyStrategy?: RateLimitKeyStrategy;
 }
@@ -252,9 +253,10 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
    *     within `maxPriorityFeeMicroLamports`;
    *  3. the sponsor appears only as fee payer, never in an instruction's accounts.
    *
-   * Volume is NOT bounded here — each accepted tx still costs the sponsor the
-   * 5000-lamport base fee, so operators must layer a rate limit (see the
-   * batcher's `RateLimitStore`) on top for any non-local deployment.
+   * Volume is NOT bounded here. Solana charges 5000 lamports per signature; a
+   * sponsored transaction has at least the user's and sponsor's signatures and
+   * therefore costs at least 10000 lamports. Operators must configure the
+   * batcher's target-global rate limit for any non-local deployment.
    */
   async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
     let tx: Transaction;

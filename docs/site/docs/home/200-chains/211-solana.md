@@ -181,12 +181,12 @@ Transactions must be **base64**-encoded (`tx.serialize({ requireAllSignatures: f
 
 Plus one that is easy to miss: the fee payer also pays the **prioritization fee**, so an uncapped `SetComputeUnitPrice` is user-controlled spend from your sponsor. `maxPriorityFeeMicroLamports` defaults to `0n` — any priority-fee instruction is rejected. Raise it deliberately, and note the real cost is `price × computeUnitLimit / 1e6`.
 
-**Volume is bounded by the batcher, not the adapter.** Every accepted transaction still costs the sponsor the 5000-lamport base fee, so the rate limit is a spend cap. Two things to know before exposing a funded batcher publicly:
+**Volume is bounded by the batcher, not the adapter.** Solana charges 5000 lamports per signature. A sponsored transaction has at least the user's signature plus the sponsor fee-payer signature, so its base fee is at least 10000 lamports and can be higher with additional signers. Two things to know before exposing a funded batcher publicly:
 
-- **It is already on.** Omitting `rateLimit` from `BatcherConfig` does not disable it — the server falls back to 1000 requests per 24 hours. Set the block explicitly and size `maxRequests` against what you are willing to spend, rather than inheriting a number you did not choose.
-- **Key it per wallet, not just per IP.** `SolanaAdapter` takes `rateLimitKeyStrategy`, defaulting to `"ip"`. On a shared network (a venue, an office, a carrier NAT) every user sits behind one address and so shares one bucket. `"ip-and-address"` adds an independent per-wallet budget, and is sound here because `verifySignature` rejects an address that did not sign.
+- **Set the target-wide ceiling explicitly.** Omitting `rateLimit` does not disable it — the server falls back to 1000 authenticated requests per 24 hours. `globalMaxRequests` is the total allowance across every IP and wallet for this adapter target; when omitted it defaults to `maxRequests`. Size that global value against the sponsor balance, allowing for every required signature and any permitted priority fee.
+- **Use a lower verified-wallet allowance.** `SolanaAdapter` takes `rateLimitKeyStrategy`, defaulting to `"ip"`. With `"ip-and-address"`, the shared IP uses the global ceiling while each verified address uses `maxRequests`. Configure `maxRequests < globalMaxRequests` so one wallet reaching its allowance does not throttle everybody behind the same venue, office, or carrier NAT. The address bucket is consumed only after `verifySignature` proves that address signed, preventing targeted bucket poisoning.
 
-`InMemoryRateLimitStore` is per process, so counts reset on restart and are not shared between replicas. Implement `RateLimitStore` against Redis or Postgres for a deployment that is more than one process.
+`InMemoryRateLimitStore` is per process, so counts reset on restart and are not shared between replicas. A multi-process deployment needs a `RateLimitStore` whose multi-bucket `consume` operation is atomic across Redis or Postgres.
 :::
 
 `verifySignature` requires that the address the submitter claims is actually one of the transaction's signers, so submissions cannot be attributed to a third party.

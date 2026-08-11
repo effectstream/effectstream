@@ -7,6 +7,7 @@ import {
   type BatcherConfig,
 } from "@effectstream/batcher-sdk";
 import { createSolanaAdapter } from "./solana-adapter.ts";
+import { formatRateLimitSummary } from "./rate-limit-summary.ts";
 import {
   DEV_RPC_URL,
   DEV_NAMESPACE,
@@ -72,21 +73,22 @@ const config: BatcherConfig = {
    * the server falls back to 1000 requests per 24 hours, keyed by whatever
    * strategy the adapter declares.
    *
-   * This matters because the sponsor pays the 5000-lamport base fee on every
-   * accepted transaction, so the limit is a spend cap, not just abuse control.
+   * Solana charges 5000 lamports per signature. Every sponsored transaction has
+   * at least the user's and sponsor's signatures, so its base fee is at least
+   * 10000 lamports and can be higher when more signers are required.
    *
    * The values below are the dev posture: a short window so a local test that
    * hammers the endpoint recovers in a minute instead of being locked out for a
-   * day. BEFORE EXPOSING A FUNDED BATCHER PUBLICLY, size `maxRequests` against
-   * what you are willing to spend. At the default 5000 lamports per tx, 100000
-   * requests is roughly 0.5 SOL of base fees per window.
+   * day. At the two-signature minimum, 100000 accepted transactions cost at
+   * least 1 SOL of base fees.
    *
    * Keying is per IP, which is the SDK default. That means everyone behind one
    * NAT, which is most shared networks, draws down a single shared bucket. The
-   * SDK gained a `rateLimitKeyStrategy: "ip-and-address"` option on
-   * `SolanaAdapter` to give each wallet its own budget on top of that, but this
-   * template pins `@effectstream/batcher-sdk` 0.102.0, which predates it. Set it
-   * in `solana-adapter.ts` once this template moves to a release that has it.
+   * pinned SDK treats this as a per-IP quota, not a target-global funding cap.
+   * The next SDK adds an atomic `globalMaxRequests` target ceiling plus an
+   * authenticated `rateLimitKeyStrategy: "ip-and-address"` wallet allowance.
+   * After bumping, set both explicitly; `LINK_LOCAL=1` exercises that behavior
+   * against a monorepo checkout before the release exists.
    *
    * `InMemoryRateLimitStore` is per process, so counts reset on restart and are
    * not shared across replicas. Pass a `store` backed by Redis or Postgres for
@@ -104,6 +106,14 @@ const config: BatcherConfig = {
 
 const storage = new FileStorage("./batcher-data");
 const batcher = createNewBatcher(config, storage);
+const effectiveRateLimit = batcher.config.rateLimit!;
+const atomicGlobalLimit = typeof (
+  effectiveRateLimit.store as { consume?: unknown } | undefined
+)?.consume === "function";
+const effectiveGlobalMaxRequests =
+  (effectiveRateLimit as typeof effectiveRateLimit & {
+    globalMaxRequests?: number;
+  }).globalMaxRequests ?? effectiveRateLimit.maxRequests;
 
 main(function* () {
   console.log("Starting Solana starter batcher...");
@@ -114,7 +124,13 @@ main(function* () {
   // Printed because a 429 in the wild is otherwise hard to attribute: the
   // caller sees a rejection with no indication of which budget it hit.
   console.log(
-    `  ratelimit: ${config.rateLimit!.maxRequests} req / ${config.rateLimit!.windowMs} ms, keyed by ip`,
+    `  ${formatRateLimitSummary({
+      maxRequests: effectiveRateLimit.maxRequests,
+      globalMaxRequests: effectiveGlobalMaxRequests,
+      windowMs: effectiveRateLimit.windowMs,
+      strategy: "ip",
+      supportsAtomicGlobalLimit: atomicGlobalLimit,
+    })}`,
   );
 
   batcher.addStateTransition("startup", ({ publicConfig }) => {

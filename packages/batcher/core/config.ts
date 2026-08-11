@@ -129,11 +129,17 @@ export type ConfirmationLevel =
  * the running server actually reads.
  */
 export interface RateLimitConfig {
-  /** Maximum number of requests per window. Default: 1000 */
+  /** Maximum authenticated requests per identity bucket. Default: 1000 */
   maxRequests: number;
+  /**
+   * Maximum authenticated requests across the whole adapter target/window.
+   * Defaults to `maxRequests`, making the identity allowance a hard global
+   * sponsor ceiling unless an operator explicitly chooses a larger total.
+   */
+  globalMaxRequests?: number;
   /** Window size in milliseconds. Default: 86400000 (24 hours) */
   windowMs: number;
-  /** Custom store implementation (in-memory by default) */
+  /** Custom atomic store implementation (in-memory by default) */
   store?: RateLimitStore;
 }
 
@@ -142,8 +148,9 @@ const RateLimitConfigSchema = Type.Object({
   // different path (`Value.Cast` filling a partial `rateLimit` object) than the
   // server-side fallback, so two different sets of numbers here would mean the
   // effective limit depended on whether the key was absent or half-filled.
-  maxRequests: Type.Number({ minimum: 1, default: 1000 }),
-  windowMs: Type.Number({ minimum: 1000, default: 86400000 }),
+  maxRequests: Type.Integer({ minimum: 1, default: 1000 }),
+  globalMaxRequests: Type.Optional(Type.Integer({ minimum: 1 })),
+  windowMs: Type.Integer({ minimum: 1000, default: 86400000 }),
   store: Type.Optional(Type.Any()),
 }, { additionalProperties: false });
 
@@ -202,6 +209,7 @@ export const DEFAULT_CONFIG_VALUES = {
   retryDelayMs: 1000,
   rateLimit: {
     maxRequests: 1000,
+    globalMaxRequests: 1000,
     windowMs: 86400000,
   },
   shutdown: {
@@ -347,11 +355,28 @@ export function validateBatcherConfig<
 
   // Validate rate limit configuration
   if (config.rateLimit) {
-    if (config.rateLimit.maxRequests < 1) {
-      throw new Error("rateLimit.maxRequests must be at least 1");
+    if (
+      !Number.isInteger(config.rateLimit.maxRequests) ||
+      config.rateLimit.maxRequests < 1
+    ) {
+      throw new Error("rateLimit.maxRequests must be a positive integer");
     }
-    if (config.rateLimit.windowMs < 1000) {
-      throw new Error("rateLimit.windowMs must be at least 1000ms");
+    if (
+      config.rateLimit.globalMaxRequests !== undefined &&
+      (!Number.isInteger(config.rateLimit.globalMaxRequests) ||
+        config.rateLimit.globalMaxRequests < 1)
+    ) {
+      throw new Error(
+        "rateLimit.globalMaxRequests must be a positive integer",
+      );
+    }
+    if (
+      !Number.isInteger(config.rateLimit.windowMs) ||
+      config.rateLimit.windowMs < 1000
+    ) {
+      throw new Error(
+        "rateLimit.windowMs must be an integer of at least 1000ms",
+      );
     }
   }
 
