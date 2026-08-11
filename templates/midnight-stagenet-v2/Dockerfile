@@ -9,6 +9,7 @@ RUN test -f /context/package.json \
     && test -f /context/templates/midnight-stagenet-v2/package.json \
     && test ! -e /context/templates/midnight-stagenet-v2/.context-excluded.sentinel \
     && test ! -e /context/PLAN-midnight-stagenet-v2.md \
+    && test ! -e /context/templates/midnight-stagenet-v2/packages/tests/fixtures/undeployed-genesis-seed.txt \
     && test -f /context/packages/chains/midnight-contracts/src/midnight-env.ts \
     && test -f /context/packages/chains/midnight-contracts-v2/package.json \
     && test -f /context/packages/chains/midnight-contracts-v2/src/providers.mjs \
@@ -371,6 +372,13 @@ COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests
 USER node
 
 CMD ["bun", "run", "test:hermetic"]
+
+FROM ccc-e2e-test AS live-write-test
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/write-canary.mjs ./packages/tests/write-canary.mjs
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/write-canary-fixtures.mjs ./packages/tests/write-canary-fixtures.mjs
+
+CMD ["bun", "run", "test:live:write"]
 
 FROM shared-test-dependencies AS midnight-contract-event-primitive-test
 

@@ -63,3 +63,7 @@ packages/**/*
 
 # This committed sentinel proves this Dockerfile-specific allowlist is active.
 templates/midnight-stagenet-v2/.context-excluded.sentinel
+
+# Compose mounts this public undeployed-genesis test seed as a runtime secret.
+# Keep even test credentials out of every Docker build context and image layer.
+templates/midnight-stagenet-v2/packages/tests/fixtures/undeployed-genesis-seed.txt

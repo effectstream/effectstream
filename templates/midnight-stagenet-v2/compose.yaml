@@ -70,6 +70,7 @@ services:
       - sink-e2e
       - ccc-e2e
       - hermetic
+      - live-write-test
     image: docker.io/midnightntwrk/midnight-node@sha256:caf93d6f9fb3630c906ef3e714c151655377f3d28f907d17545de1870514da2e
     environment:
       CFG_PRESET: dev
@@ -105,6 +106,7 @@ services:
       - sink-e2e
       - ccc-e2e
       - hermetic
+      - live-write-test
     image: docker.io/midnightntwrk/indexer-standalone@sha256:5d79f3a20da9ed86236c7f7dc9d93b1beeb0b0c47c9c43a791041322eb80b74e
     platform: linux/amd64
     restart: on-failure:5
@@ -134,6 +136,7 @@ services:
       - hosted-keccak
       - ccc-e2e
       - hermetic
+      - live-write-test
     image: docker.io/midnightntwrk/proof-server@sha256:4f02ca2734649eb238d13924df299b1c82bd5546ec928c5d67bdd0ce86dd0bd1
     environment:
       RUST_LOG: warn
@@ -289,6 +292,35 @@ services:
     networks:
       - toolchain
 
+  live-write-tests:
+    <<: *hardened-service
+    profiles:
+      - live-write-test
+    build:
+      context: ../..
+      dockerfile: templates/midnight-stagenet-v2/Dockerfile
+      target: live-write-test
+    environment:
+      MIDNIGHT_V2_NETWORK_ID: undeployed
+      MIDNIGHT_V2_NODE_URL: ws://midnight-node:9944
+      MIDNIGHT_V2_INDEXER_HTTP_URL: http://indexer:8088/api/v4/graphql
+      MIDNIGHT_V2_INDEXER_WS_URL: ws://indexer:8088/api/v4/graphql/ws
+      MIDNIGHT_V2_PROOF_SERVER_URL: http://proof-server-experimental:6300
+      MIDNIGHT_V2_WRITE_WALLET_SEED_FILE: /run/secrets/undeployed-genesis-wallet-seed
+    secrets:
+      - undeployed-genesis-wallet-seed
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    depends_on:
+      midnight-node:
+        condition: service_healthy
+      indexer:
+        condition: service_healthy
+      proof-server-experimental:
+        condition: service_healthy
+    networks:
+      - toolchain
+
 networks:
   toolchain:
     driver: bridge
@@ -299,3 +331,5 @@ volumes:
 secrets:
   stagenet-wallet-seed:
     file: ${MIDNIGHT_V2_WALLET_SEED_SOURCE_FILE:-/dev/null}
+  undeployed-genesis-wallet-seed:
+    file: ./packages/tests/fixtures/undeployed-genesis-seed.txt

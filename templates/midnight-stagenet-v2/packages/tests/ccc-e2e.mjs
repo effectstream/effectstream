@@ -20,6 +20,8 @@ const managedRoot = '/app/managed';
 const sinkDir = `${managedRoot}/CryptoEventSink`;
 const gatewayDir = `${managedRoot}/FeatureGateway`;
 const expectedDigest = '290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563';
+const runId = optionalRunId(process.env.MIDNIGHT_V2_RUN_ID ?? 'c12');
+const networkId = process.env.MIDNIGHT_V2_NETWORK_ID ?? 'undeployed';
 const lock = JSON.parse(readFileSync('/app/compatibility-lock.json', 'utf8'));
 const callTreeManifest = JSON.parse(readFileSync(`${managedRoot}/call-tree-manifest.json`, 'utf8'));
 const endpoints = Object.freeze({
@@ -29,10 +31,12 @@ const endpoints = Object.freeze({
   proofServerUrl: requiredEnv('MIDNIGHT_V2_PROOF_SERVER_URL'),
 });
 
-setNetworkId('undeployed');
+setNetworkId(networkId);
 const wallet = await createV2Wallet({
-  role: 'c12-local',
-  seedHex: '0'.repeat(63) + '1',
+  role: `${runId}-local`,
+  seedHex: process.env.MIDNIGHT_V2_E2E_WALLET_SEED_FILE
+    ? readSeedSecret(process.env.MIDNIGHT_V2_E2E_WALLET_SEED_FILE)
+    : '0'.repeat(63) + '1',
   endpoints,
   feeBlocksMargin: 100,
 });
@@ -45,28 +49,28 @@ try {
     endpoints,
     artifactDir: sinkDir,
     compilerManifestSha256: lock.artifacts.CryptoEventSink.compilerManifestSha256,
-    privateStateId: 'c12-crypto-event-sink',
-    privateStatePassword: 'c12-disposable-sink-state',
+    privateStateId: `${runId}-crypto-event-sink`,
+    privateStatePassword: `${runId}-disposable-sink-state`,
     feeTimeoutMs: 600_000,
   });
   const deployedSink = await deployFresh(
     sinkProviders,
     sink.compiledContract,
-    'c12-crypto-event-sink',
+    `${runId}-crypto-event-sink`,
   );
   const sinkAddress = deployedSink.deployTxData.public.contractAddress;
   const gatewayProviders = await createE2eProviders(wallet, {
     endpoints,
     artifactDir: gatewayDir,
     compilerManifestSha256: lock.artifacts.FeatureGateway.compilerManifestSha256,
-    privateStateId: 'c12-feature-gateway',
-    privateStatePassword: 'c12-disposable-gateway-state',
+    privateStateId: `${runId}-feature-gateway`,
+    privateStatePassword: `${runId}-disposable-gateway-state`,
     feeTimeoutMs: 600_000,
   });
   const deployedGateway = await deployFresh(
     gatewayProviders,
     gateway.compiledContract,
-    'c12-feature-gateway',
+    `${runId}-feature-gateway`,
     [contractAddressArg(sinkAddress)],
   );
   const gatewayAddress = deployedGateway.deployTxData.public.contractAddress;
@@ -279,4 +283,19 @@ function requiredEnv(name) {
   const value = process.env[name];
   if (!value) throw new Error(`Missing ${name}`);
   return value;
+}
+
+function readSeedSecret(path) {
+  const value = readFileSync(path, 'utf8').trim();
+  if (!/^[0-9a-f]{64}$/i.test(value)) {
+    throw new Error('Midnight wallet Docker secret must contain exactly 32 bytes of seed hex');
+  }
+  return value;
+}
+
+function optionalRunId(value) {
+  if (!/^[a-z0-9][a-z0-9-]{0,62}$/i.test(value)) {
+    throw new Error('MIDNIGHT_V2_RUN_ID must be 1-63 URL-safe alphanumeric/hyphen characters');
+  }
+  return value.toLowerCase();
 }
