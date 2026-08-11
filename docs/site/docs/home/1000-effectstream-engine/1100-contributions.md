@@ -20,6 +20,8 @@ In your PR description, please include:
 
 Once you submit the Pull Request, our team will review your contribution, provide feedback if necessary, and merge it once it's ready. Thank you for helping to improve EffectStream
 
+Pull requests are tested in the EffectStream repository against their proposed merge result. For a first-time contribution from a fork, GitHub may pause the workflow until a maintainer selects **Approve workflows to run**. These checks use a read-only repository token and do not receive repository secrets.
+
 ## Running the tests
 
 ### Unit tests
