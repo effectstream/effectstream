@@ -1,4 +1,4 @@
-import type { Signature, WalletAddress } from "@effectstream/utils";
+import type { Signature, WalletAddress } from "@effectstream/utils/types";
 
 export interface IVerify {
   verifyAddress(address: WalletAddress): boolean;

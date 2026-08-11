@@ -510,7 +510,7 @@
     },
     "packages/batcher": {
       "name": "@effectstream/batcher-sdk",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/crypto": "workspace:*",
         "@effectstream/event-client": "workspace:*",
@@ -555,7 +555,7 @@
     },
     "packages/binaries/avail-light-client": {
       "name": "@effectstream/npm-avail-light-client",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "npm-avail-light-client": "index.js",
       },
@@ -566,7 +566,7 @@
     },
     "packages/binaries/avail-node": {
       "name": "@effectstream/npm-avail-node",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "npm-avail-node": "index.js",
       },
@@ -575,19 +575,24 @@
         "tar": "^6.2.0",
       },
     },
+    "packages/binaries/binary-checksum": {
+      "name": "@effectstream/binary-checksum",
+      "version": "0.103.0",
+    },
     "packages/binaries/bitcoin-core": {
       "name": "@effectstream/bitcoin-core",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "bitcoin-core": "./index.js",
       },
       "dependencies": {
+        "@effectstream/binary-checksum": "workspace:*",
         "@xhmikosr/bin-wrapper": "^5.0.0",
       },
     },
     "packages/binaries/celestia": {
       "name": "@effectstream/celestia",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "celestia": "./index.js",
       },
@@ -597,27 +602,29 @@
     },
     "packages/binaries/grafana-alloy": {
       "name": "@effectstream/grafana-alloy",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "grafana-alloy": "index.js",
       },
       "dependencies": {
+        "@effectstream/binary-checksum": "workspace:*",
         "@xhmikosr/bin-wrapper": "^13.2.0",
       },
     },
     "packages/binaries/grafana-loki": {
       "name": "@effectstream/grafana-loki",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "grafana-loki": "index.js",
       },
       "dependencies": {
+        "@effectstream/binary-checksum": "workspace:*",
         "@xhmikosr/bin-wrapper": "^13.2.0",
       },
     },
     "packages/binaries/midnight-indexer": {
       "name": "@effectstream/npm-midnight-indexer",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "npm-midnight-indexer": "index.js",
       },
@@ -630,7 +637,7 @@
     },
     "packages/binaries/midnight-node": {
       "name": "@effectstream/npm-midnight-node",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "npm-midnight-node": "index.js",
       },
@@ -642,7 +649,7 @@
     },
     "packages/binaries/midnight-proof-server": {
       "name": "@effectstream/npm-midnight-proof-server",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "npm-midnight-proof-server": "index.js",
       },
@@ -653,7 +660,7 @@
     },
     "packages/binaries/near-sandbox": {
       "name": "@effectstream/near-sandbox",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "near-sandbox": "./index.js",
       },
@@ -663,7 +670,7 @@
     },
     "packages/binaries/ord": {
       "name": "@effectstream/ord",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "ord": "./index.js",
       },
@@ -673,11 +680,12 @@
     },
     "packages/binaries/solana-node": {
       "name": "@effectstream/solana-node",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "solana-node": "./index.js",
       },
       "dependencies": {
+        "@effectstream/binary-checksum": "workspace:*",
         "@xhmikosr/bin-wrapper": "^5.0.0",
       },
     },
@@ -708,7 +716,7 @@
     },
     "packages/build-tools/orchestrator": {
       "name": "@effectstream/orchestrator",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "bin": {
         "orchestrator": "src/cli.ts",
       },
@@ -718,11 +726,11 @@
     },
     "packages/chains/avail-contracts": {
       "name": "@effectstream/avail-contracts",
-      "version": "0.102.0",
+      "version": "0.103.1",
     },
     "packages/chains/bitcoin-contracts": {
       "name": "@effectstream/bitcoin-contracts",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "bitcoinjs-lib": "^7.0.0",
         "ecpair": "^3.0.0",
@@ -731,11 +739,11 @@
     },
     "packages/chains/cardano-contracts": {
       "name": "@effectstream/cardano-contracts",
-      "version": "0.102.0",
+      "version": "0.103.1",
     },
     "packages/chains/evm-contracts": {
       "name": "@effectstream/evm-contracts",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@nomicfoundation/hardhat-ignition": "3.0.2",
         "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
@@ -750,7 +758,7 @@
     },
     "packages/chains/evm-hardhat": {
       "name": "@effectstream/evm-hardhat",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/log": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -768,7 +776,7 @@
     },
     "packages/chains/midnight-contracts": {
       "name": "@effectstream/midnight-contracts",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/utils": "workspace:*",
         "@midnight-ntwrk/compact-js": "2.5.1",
@@ -797,14 +805,14 @@
     },
     "packages/effectstream-sdk/chain-types": {
       "name": "@effectstream/chain-types",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "js-sha3": "^0.9.3",
       },
     },
     "packages/effectstream-sdk/concise": {
       "name": "@effectstream/concise",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/crypto": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -815,7 +823,7 @@
     },
     "packages/effectstream-sdk/config": {
       "name": "@effectstream/config",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@dcspark/carp-client": "^3.3.0",
         "@dcspark/cip34-js": "3.0.1",
@@ -832,7 +840,7 @@
     },
     "packages/effectstream-sdk/coroutine": {
       "name": "@effectstream/coroutine",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@coderspirit/nominal": "^4.1.1",
         "@pgtyped/parser": "2.4.2",
@@ -844,7 +852,7 @@
     },
     "packages/effectstream-sdk/crypto": {
       "name": "@effectstream/crypto",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@cardano-foundation/cardano-verify-datasignature": "1.0.11",
         "@effectstream/utils": "workspace:*",
@@ -873,7 +881,7 @@
     },
     "packages/effectstream-sdk/events": {
       "name": "@effectstream/event-client",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/utils": "workspace:*",
         "@seriousme/opifex": "^1.11.2",
@@ -887,7 +895,7 @@
     },
     "packages/effectstream-sdk/log": {
       "name": "@effectstream/log",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/utils": "workspace:*",
         "@opentelemetry/api": "^1.9.0",
@@ -909,14 +917,14 @@
     },
     "packages/effectstream-sdk/precompile": {
       "name": "@effectstream/precompile",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "js-sha3": "^0.9.3",
       },
     },
     "packages/effectstream-sdk/utils": {
       "name": "@effectstream/utils",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@coderspirit/nominal": "^4.1.1",
         "@foxglove/crc": "^1.0.1",
@@ -937,7 +945,7 @@
     },
     "packages/effectstream-sdk/wallets": {
       "name": "@effectstream/wallets",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@aurowallet/mina-provider": "^1.0.12",
         "@effectstream/concise": "workspace:*",
@@ -996,14 +1004,14 @@
     },
     "packages/frontend": {
       "name": "@effectstream/frontend-sdk",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/wallets": "workspace:*",
       },
     },
     "packages/node-sdk/db": {
       "name": "@effectstream/db",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/coroutine": "workspace:*",
         "@effectstream/log": "workspace:*",
@@ -1026,7 +1034,7 @@
     },
     "packages/node-sdk/db-emulator": {
       "name": "@effectstream/db-emulator",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@pgtyped/runtime": "2.4.2",
         "effection": "^3.5.0",
@@ -1035,7 +1043,7 @@
     },
     "packages/node-sdk/events": {
       "name": "@effectstream/event-server",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/utils": "workspace:*",
         "@seriousme/opifex": "^1.11.2",
@@ -1043,7 +1051,7 @@
     },
     "packages/node-sdk/node": {
       "name": "@effectstream/node-sdk",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/chain-types": "workspace:*",
         "@effectstream/concise": "workspace:*",
@@ -1061,7 +1069,7 @@
     },
     "packages/node-sdk/runtime": {
       "name": "@effectstream/runtime",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
@@ -1093,7 +1101,7 @@
     },
     "packages/node-sdk/sm": {
       "name": "@effectstream/sm",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
@@ -1114,7 +1122,7 @@
     },
     "packages/node-sdk/sync": {
       "name": "@effectstream/sync",
-      "version": "0.102.0",
+      "version": "0.103.1",
       "dependencies": {
         "@cardano-sdk/core": "^0.46.11",
         "@cardano-sdk/util": "^0.17.1",
@@ -1322,6 +1330,8 @@
     "@effectstream/avail-contracts": ["@effectstream/avail-contracts@workspace:packages/chains/avail-contracts"],
 
     "@effectstream/batcher-sdk": ["@effectstream/batcher-sdk@workspace:packages/batcher"],
+
+    "@effectstream/binary-checksum": ["@effectstream/binary-checksum@workspace:packages/binaries/binary-checksum"],
 
     "@effectstream/bitcoin-contracts": ["@effectstream/bitcoin-contracts@workspace:packages/chains/bitcoin-contracts"],
 

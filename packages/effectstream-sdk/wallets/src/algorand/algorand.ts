@@ -1,5 +1,5 @@
 import { PeraWalletConnect } from "@perawallet/connect";
-import { AddressType, uint8ArrayToHexString } from "@effectstream/utils";
+import { AddressType, uint8ArrayToHexString } from "@effectstream/utils/types";
 import {
   type IConnector,
   type IInjectedConnector,

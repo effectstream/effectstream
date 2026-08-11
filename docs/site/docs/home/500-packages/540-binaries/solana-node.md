@@ -66,11 +66,14 @@ so this package hashes the **extracted binary** and refuses to run anything that
 isn't one of the pinned official builds. Set `SOLANA_NODE_SKIP_CHECKSUM=1` to
 bypass when deliberately testing a locally-built validator.
 
-Regenerate the digests whenever the pinned version changes:
+Digests live in `checksums.js` and the check itself is
+`@effectstream/binary-checksum`, shared with the other verified wrappers.
 
-```bash
-shasum -a 256 packages/binaries/solana-node/vendor/bin/solana-test-validator
-```
+These three digests are **self-recorded**: they were hashed from a download on a
+maintainer's machine, which pins the artifact against later mutation but does not
+attest that it was correct to begin with. Regenerating them through
+`scripts/generate-binary-checksums.ts`, so an Agave-published checksum backs them
+the way bitcoin-core and the Grafana wrappers now are, is open work.
 
 ## Networking
 

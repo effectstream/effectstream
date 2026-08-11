@@ -10,24 +10,24 @@
 >   0 tests failed
 > ```
 >
-> The skill's grader (`grade.py`) parses this summary and treats `passed > 0 && failed == 0` as success regardless of exit code. Anything consuming `bun run test` in CI should do the same — grep the stdout for the Summary line, don't trust the exit code alone.
+> Anything grading or consuming `bun run test` should treat `passed > 0 && failed == 0` in the `[Summary]` block as success regardless of exit code — grep the stdout for the Summary line, don't trust the exit code alone.
 
 
-Every template ships with `packages/tests/`. Tests use the orchestrator to spin up **real** infrastructure and assert against actual DB state — no mocks. The test suite is **the single most important verification** that the template scaffold works: a template can have every file in the right place and still fail to boot. Only running the actual integration tests catches that.
+Every template ships with executable tests. Node templates use the orchestrator to spin up **real** infrastructure and assert against actual typed DB state—no mocks. Frontend-only/external-backend templates test build/render plus the configured backend contract and do not invent a local database. The test suite is the most important proof that the scaffold works: a template can have every file in the right place and still fail to boot.
 
 ## The structure is constant; the contents adapt to your chains
 
-The phased shape — Phase A (infrastructure) → Phase B (STM/DB/API) → Phase C (frontend if present) → optional D/E for cross-chain or chain-specific checks — is **the same for every template** regardless of which chains it uses. What changes is what each phase tests:
+For node templates, use Phase A (infrastructure) → Phase B (STM/DB/API) → Phase C (frontend if present) → optional D/E for cross-chain or chain-specific checks. A frontend-only template starts at Phase C and adds a backend-contract probe. What changes by chain is what each phase tests:
 
 | Phase | Chain-agnostic intent | EVM-specific instantiation | Midnight-specific | Cardano-specific |
 |---|---|---|---|---|
 | A — `infra/chain-ready.test.ts` | Each chain's RPC/indexer responds on the expected port | `eth_chainId` returns `0x7a69` on 8545 | Midnight indexer GraphQL responds on 8088 | YACI on 10000, Dolos on 50051 / 3000 |
 | A — `infra/deploy.test.ts` | Each contract package's address is available | `contractAddressesEvmMain().chain31337[...]` is a `0x` address | `readMidnightContract()` returns a deployed contract | (no contract on Cardano — verify YACI funded genesis pool) |
-| B — `stm/<action>.test.ts` | Submit a real transaction on-chain → assert DB row appears | viem `writeContract` to `effectstreamSubmitGameInput` → `assertSQL` | Compact contract call via deploy → primitive parses → `assertSQL` | Lucid tx submission → cardano-primitive parses → `assertSQL` |
+| B — `stm/<action>.test.ts` | Submit a real transaction on-chain → assert DB row appears | viem `writeContract` to `effectstreamSubmitGameInput` → typed query | Compact contract call via deploy → primitive parses → typed query | Lucid tx submission → cardano-primitive parses → typed query |
 | B — `stm/api.test.ts` | The API serves what the STM wrote | `GET /api/rooms` returns the inserted row | same | same |
 | C — frontend (optional) | Build succeeds + headless render finds the root element | Playwright on `:10599` | same | same |
 
-The `evm-midnight-v2` template's `packages/tests/run-tests.ts` is the canonical reference — it orchestrates Phase A → B → C → cross-chain → midnight-property → frontend. The runner pattern (start orchestrator → wait for health → wait for processes → run phased tests → shut down) is the same regardless of which chains you have.
+Use this reference as the source of truth. Existing templates such as `evm-midnight-v2` are useful examples of the runner lifecycle (start orchestrator → wait for health/processes → run phases → shut down), but may contain older untyped test queries or incomplete paths that a new scaffold must not copy.
 
 ## Architecture
 
@@ -35,7 +35,7 @@ The `evm-midnight-v2` template's `packages/tests/run-tests.ts` is the canonical 
 packages/tests/
 ├── run-tests.ts              # Orchestrates all phases
 ├── start.test.ts             # Orchestrator config for test mode
-├── helpers.ts                # assert, assertSQL utilities
+├── helpers.ts                # assert, assertEventually utilities
 ├── infra/                    # Phase A: Infrastructure
 │   ├── chain-ready.test.ts
 │   └── deploy.test.ts
@@ -47,7 +47,9 @@ packages/tests/
     └── render.test.ts
 ```
 
-Templates can add more phases for cross-chain tests, privacy tests, etc. — the core A/B/C structure stays the same.
+Templates can add more phases for cross-chain tests, privacy tests, custom setup programs, etc. Do not add empty A/B phases to a frontend-only shape.
+
+`@my-template/tests` must depend on `@my-template/database: "workspace:*"` and the npm-resolved `@effectstream/db` version so Phase B imports the same generated prepared queries as application code. Put test-only reads such as readiness or detailed assertions in `packages/database/sql/test-queries.sql`; they remain typed and generated with the rest of the database package.
 
 ## Phase A: Infrastructure
 
@@ -56,17 +58,18 @@ Templates can add more phases for cross-chain tests, privacy tests, etc. — the
 > | Chain | Gate to wait on before `chainReadyTest()` |
 > |---|---|
 > | EVM (Hardhat) | `EvmNames.HARDHAT_WAIT` |
-> | Bitcoin | `bitcoin-wait-for-block` (the chain reaches a usable height) — `BitcoinNames.WAIT_FOR_BLOCK` |
+> | Bitcoin | `bitcoin-wait-for-block` (the chain reaches a usable height) — `BitcoinNames.BITCOIN_WAIT_FOR_BLOCK` |
 > | Cardano | `CardanoNames.DOLOS_MINIBF_WAIT` |
 > | Midnight | `MidnightNames.INDEXER_WAIT` (GraphQL on 8088 takes much longer than EVM's 8545) |
 > | NEAR | `NearNames.SANDBOX_WAIT` |
 > | Avail | `AvailNames.LIGHT_CLIENT_WAIT` |
-> | Celestia | `celestia-bridge-wait` (custom process; no launcher) |
+> | Celestia | `CelestiaNames.BRIDGE_WAIT` (`@effectstream/orchestrator/launch-celestia`) |
+> | Solana | `SolanaNames.SOLANA_VALIDATOR_WAIT` (`@effectstream/orchestrator/scripts/launch-solana`) |
 >
 > Without the wait, the first Phase A assertion fires too early and the test suite aborts before any other check runs. The empirical "fixed-after-the-fact" Midnight case is the long-tail extreme (~60s before indexer GraphQL responds), but EVERY chain has this in some form.
 
 
-Verifies the orchestrator boots correctly — chain nodes respond, contracts deploy, sync node healthy, blocks indexing.
+Verifies the orchestrator boots correctly — chain nodes respond, contracts deploy, custom setup programs complete, generated wallets/artifacts are usable, the sync node is healthy, and blocks index. If `start.dev.ts` contains phases such as `create-wallets`, `fund-wallets`, or `build-program`, wait for those processes and assert their outputs or resulting balances before Phase B.
 
 **Midnight timing gate.** If the template includes Midnight, you MUST `await waitForProcess("midnight-indexer-wait", { waitForExit: true })` before running `chainReadyTest()`. The Midnight indexer's GraphQL endpoint on port 8088 takes significantly longer to start than the EVM chain on 8545. Without this wait, the `chainReadyTest` will attempt to query port 8088, fail, and abort the entire test suite — even though the indexer would have been ready a few seconds later. The `midnight-indexer-wait` process is an orchestrator-managed health probe that exits once the indexer responds to GraphQL queries. Similarly, wait for `midnight-contract` (with a long timeout, e.g. 600s) after `deployTest()` before proceeding to Phase B, since Midnight contract deployment via Compact is much slower than EVM Hardhat Ignition.
 
@@ -108,38 +111,43 @@ export async function deployTest() {
 > Concretely:
 >
 > - **Template has no batcher** (read-only indexer, or wallet submits directly to chain): on-chain submission via the chain's SDK (viem, Lucid, near-api-js, etc.) is the right Phase B path.
-> - **Template ships a batcher**: Phase B MUST include a `POST /send-input` to the batcher with `confirmationLevel: "wait-effectstream-processed"`, then `assertSQL` the row appears. The schema is in `references/batcher.md` § `/send-input` request shape. Catches: wrong request shape (`400 must have required property 'data'`), namespace ≠ appName signature mismatches (`401 Invalid signature`), adapter wiring errors, and confirmation-level bugs. None of these surface when you submit on-chain directly.
-> - **Template has a custom server-side relayer** (e.g. a bridge daemon that watches one chain and submits to another via the batcher): Phase B MUST trigger the relayer's input path and `assertSQL` the row appears in the destination chain's table. The relayer is the user's actual code path; testing around it is the test passing while the actual flow is broken.
+> - **Template ships a batcher**: Phase B MUST include a `POST /send-input` to the batcher with `confirmationLevel: "wait-effectstream-processed"`, then use a generated typed query to prove the row appears. The schema is in `references/batcher.md` § `/send-input` request shape. Catches: wrong request shape (`400 must have required property 'data'`), namespace mismatches (`401 Invalid signature` or node-side silent drops), adapter wiring errors, and confirmation-level bugs. None of these surface when you submit on-chain directly.
+> - **Template has a custom server-side relayer** (e.g. a bridge daemon that watches one chain and submits to another via the batcher): Phase B MUST trigger the relayer's input path and use a generated typed query to prove the row appears in the destination chain's table. The relayer is the user's actual code path; testing around it is the test passing while the actual flow is broken.
 >
 > Pattern: at least one Phase B `stm/*.test.ts` per write-path the template ships.
 
-> **Precondition before the first `SELECT`: confirm the target table exists.** The sync node's `/health` returning OK means the HTTP server is up — it does NOT mean user migrations have been applied yet. Migrations land when the first block is finalized, which can be a few seconds after `/health` reports OK. A Phase B test that runs `SELECT * FROM counter_history` immediately after `waitForHealth()` will hit `42P01: relation "counter_history" does not exist` and fail.
+> **Precondition before the first application query: confirm the target table exists.** The sync node's `/health` returning OK means the HTTP server is up — it does NOT mean user migrations have been applied yet. Migrations land when the first block is finalized, which can be a few seconds after `/health` reports OK.
 >
-> Poll `information_schema.tables` for the table before any application `SELECT`:
+> Define `publicTableExists` in `packages/database/sql/test-queries.sql`, generate it with pgtyped, and poll it through `runPreparedQuery`:
 >
 > ```ts
-> async function waitForTable(db: Client, name: string, timeoutMs = 30_000): Promise<void> {
+> import { runPreparedQuery } from "@effectstream/db";
+> import { publicTableExists } from "@my-template/database";
+>
+> async function waitForTable(db: Client, tableName: string, timeoutMs = 30_000): Promise<void> {
 >   const start = Date.now();
 >   while (Date.now() - start < timeoutMs) {
->     const res = await db.query(
->       `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1`,
->       [name],
+>     const [result] = await runPreparedQuery(
+>       publicTableExists.run({ table_name: tableName }, db),
+>       "test:publicTableExists",
 >     );
->     if (res.rows.length) return;
+>     if (result?.exists) return;
 >     await new Promise((r) => setTimeout(r, 500));
 >   }
->   throw new Error(`Table "${name}" not created within ${timeoutMs/1000}s`);
+>   throw new Error(`Table "${tableName}" not created within ${timeoutMs/1000}s`);
 > }
 > ```
 >
-> Call this before any `assertSQL` against a user-schema table.
+> Call this before polling a generated query against a user-schema table.
 
 
 The core loop: submit transactions on-chain, wait for the sync node to index them, then assert (1) STM wrote correct values to DB and (2) API returns expected responses.
 
 ```ts
 // packages/tests/stm/my-action.test.ts
-import { assertSQL } from "../helpers.ts";
+import { assertEventually, waitForTable } from "../helpers.ts";
+import { runPreparedQuery } from "@effectstream/db";
+import { getRoomByName } from "@my-template/database";
 import { createWalletClient, createPublicClient, http, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { hardhat } from "viem/chains";
@@ -172,13 +180,16 @@ export async function createRoomTest(db: Client) {
   });
   await publicClient.waitForTransactionReceipt({ hash });
 
-  await assertSQL(
+  await waitForTable(db, "rooms");
+  await assertEventually(
     "createRoom: room written to DB",
-    db,
-    `SELECT room_name, max_players, creator FROM rooms WHERE room_name = 'test-room';`,
-    (res) => res.rows.length >= 1,
-    (res) => {
-      const room = res.rows[0];
+    () => runPreparedQuery(
+      getRoomByName.run({ room_name: "test-room" }, db),
+      "test:getRoomByName",
+    ),
+    (rows) => rows.length >= 1,
+    (rows) => {
+      const room = rows[0];
       return room.room_name === "test-room"
           && room.max_players === 4
           && room.creator === wallet0.address.toLowerCase();
@@ -492,12 +503,16 @@ export default {
 } satisfies OrchestratorConfig;
 ```
 
-The test launcher must also apply `DISABLE_*` filtering for optional chains, same as `start.dev.ts`.
+The test launcher should mirror any process-selection interface the generated template deliberately implements. Do not assume the orchestrator handles `DISABLE_*`; prefer a focused `start.test.ts`, or add matching env filters only when the template explicitly exposes them.
 
 ## Test helpers
 
 ```ts
 // packages/tests/helpers.ts
+import { runPreparedQuery } from "@effectstream/db";
+import { publicTableExists } from "@my-template/database";
+import type { Client } from "pg";
+
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let passCount = 0;
@@ -511,20 +526,19 @@ export async function assert(name: string, check: () => Promise<boolean>): Promi
   } catch (e) { console.log(" FAIL"); failCount++; throw e; }
 }
 
-export async function assertSQL<T>(
+export async function assertEventually<T>(
   name: string,
-  db: any,
-  query: string,
-  waitUntil: (res: { rows: T[] }) => boolean,
-  check: (res: { rows: T[] }) => boolean,
+  read: () => Promise<T>,
+  waitUntil: (value: T) => boolean,
+  check: (value: T) => boolean,
   timeoutMs = 20_000,
 ): Promise<void> {
   process.stdout.write(`  [TEST] ${name}...`);
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const res = await db.query(query);
-    if (waitUntil(res)) {
-      if (check(res)) { console.log(" PASS"); passCount++; return; }
+    const value = await read();
+    if (waitUntil(value)) {
+      if (check(value)) { console.log(" PASS"); passCount++; return; }
       else { console.log(" FAIL"); failCount++; throw new Error(`Check failed: ${name}`); }
     }
     await delay(200);
@@ -532,7 +546,28 @@ export async function assertSQL<T>(
   console.log(" TIMEOUT"); failCount++; throw new Error(`Timed out waiting: ${name}`);
 }
 
-export function printSummary() { console.log(`\nResults: ${passCount} passed, ${failCount} failed`); }
+export async function waitForTable(
+  db: Client,
+  tableName: string,
+  timeoutMs = 30_000,
+): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const [result] = await runPreparedQuery(
+      publicTableExists.run({ table_name: tableName }, db),
+      "test:publicTableExists",
+    );
+    if (result?.exists) return;
+    await delay(500);
+  }
+  throw new Error(`Table "${tableName}" not created within ${timeoutMs / 1000}s`);
+}
+
+export function printSummary() {
+  console.log(`\n[Summary]`);
+  console.log(`  ${passCount} tests passed`);
+  console.log(`  ${failCount} tests failed`);
+}
 export function anyError() { return failCount > 0 || (passCount + failCount) === 0; }
 ```
 
@@ -545,4 +580,4 @@ Root `package.json`:
 }
 ```
 
-Then `cd templates/<name> && bun run test` works. The monorepo's `templates/run-template-tests.ts` auto-discovers every template with a `"test"` script.
+Then `cd templates/<name> && bun run test` works. The monorepo's `templates/run-template-tests.ts` does NOT auto-discover templates — it runs a hard-coded `ENABLED` array (line ~36; exported so CI can filter against it). A new template MUST be added to `ENABLED` by hand or its tests never run.

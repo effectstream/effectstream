@@ -82,22 +82,22 @@ Do **not** ship a `.env` or `.env.mainnet` with real-looking defaults — only `
 
 ## NTP start-time recovery (deterministic replay)
 
-For deterministic replay across restarts, the NTP `startTime` should be recovered from the database. This is one of the few places **raw SQL is acceptable** because it reads the engine's internal `effectstream.sync_protocol_pagination` table — not the application schema, so no pgtyped binding exists.
+For deterministic replay across restarts, recover the NTP `startTime` with the engine's typed `getPage` prepared query. Do not inline SQL just because the table belongs to the engine schema.
 
 ```ts
-import { getConnection } from "@effectstream/db";
+import { getConnection, getPage, runPreparedQuery } from "@effectstream/db";
 
 let launchStartTime = Date.now(); // default on first boot
 
 const dbConn = getConnection();
 try {
-  const result = await dbConn.query(`
-    SELECT * FROM effectstream.sync_protocol_pagination
-    WHERE protocol_name = '${mainSyncProtocolName}'
-    ORDER BY page_number ASC LIMIT 1
-  `);
-  if (result?.rows.length) {
-    launchStartTime = result.rows[0].page.root - (result.rows[0].page_number * 1000);
+  const [firstPage] = await runPreparedQuery(
+    getPage.run({ protocol_name: mainSyncProtocolName }, dbConn),
+    "config:getInitialNtpPage",
+  );
+  if (firstPage) {
+    const page = firstPage.page as { root: number };
+    launchStartTime = page.root - (firstPage.page_number * 1000);
   }
 } catch { /* DB not initialized yet */ }
 ```
@@ -110,44 +110,22 @@ In the engine monorepo this works because the package is hoisted. Standalone tem
 
 ```json
 "dependencies": {
-  "@midnightntwrk/wallet-sdk-address-format": "3.1.0"
+  "@midnightntwrk/wallet-sdk-address-format": "3.1.2"
 }
 ```
 
-## `DISABLE_*` env vars for optional chains
+## Environment variables templates actually use
 
-Multi-chain templates should support running without optional chain toolchains. Wrap top-level imports from optional packages in dynamic imports:
+The orchestrator CLI does **not** interpret `DISABLE_*` chain toggles. The engine repository implements selected flags in its own root config and e2e runner, but generated templates should not copy that machinery unless the user explicitly requests it. Environment selection is the file split above (`config.dev.ts` / `config.mainnet.ts`, `main.dev.ts` / `main.mainnet.ts`), plus a few engine env vars (registry: `packages/effectstream-sdk/utils/src/config.ts`):
 
-```ts
-const midnightEnabled = !isEnvTrue("DISABLE_MIDNIGHT");
-const midnight = midnightEnabled
-  ? await (async () => {
-      const { readMidnightContract } = await import("@effectstream/midnight-contracts/read-contract");
-      const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
-      const CounterContract = await import("@my-template/midnight-contract/contract");
-      return { readMidnightContract, midnightNetworkConfig, CounterContract };
-    })()
-  : null;
-```
-
-Apply this in `config.ts`, `main.ts`, and batcher configs. Use `critical: midnightEnabled` on frontend/batcher processes so a missing Midnight toolchain doesn't take the orchestrator down.
-
-### Managed-directory stubs for `DISABLE_MIDNIGHT` mode
-
-The Midnight contract package's `_index.ts` re-exports from `./managed/contract/index.js` (Compact compiler output). For the frontend to build without the compiler:
-
-- `src/managed/contract/index.js` — minimal `Contract` class + `ledger` function that throw "not compiled" errors
-- `src/managed/contract/index.d.ts` — type stubs matching the generated interface
-- `src/managed/keys/.gitkeep` and `src/managed/zkir/.gitkeep` — empty directories for `viteStaticCopy`
-
-These are overwritten when `bun run build:midnight` runs the real Compact compiler.
+- `NODE_ENV=development` — set by the `dev` script
+- `EFFECTSTREAM_ENV` — if set, the engine loads `.env.${EFFECTSTREAM_ENV}` via dotenv
+- `PGLITE=true` — use embedded PGLite instead of PostgreSQL (set on the sync process in `start.dev.ts`); `PGLITE_DATA_DIR` overrides its data directory
 
 ## WASM runtime workaround (Midnight)
 
-`@midnight-ntwrk/onchain-runtime` must be imported **at the top of `main.ts` before any other Midnight imports**, otherwise the WASM module fails to initialize at runtime. With `DISABLE_MIDNIGHT=true`, guard the import:
+`@midnight-ntwrk/onchain-runtime` must be imported **at the top of `main.ts` before any other Midnight imports**, otherwise the WASM module fails to initialize at runtime:
 
 ```ts
-if (!isEnvTrue("DISABLE_MIDNIGHT")) {
-  await import("@midnight-ntwrk/onchain-runtime");
-}
+import "@midnight-ntwrk/onchain-runtime";
 ```

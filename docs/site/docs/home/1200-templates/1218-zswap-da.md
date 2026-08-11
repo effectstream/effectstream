@@ -50,6 +50,12 @@ source: shielded-only offers have no Intent slots, so `balanceSealedTransaction`
 unshielded offers cannot take that path because Lace's unshielded `makeIntent` adds an empty
 structural `Intent[1]` to both sides, which collides on merge.
 
+That mirror-then-merge dance is a *Lace* workaround, not the shape of the protocol. The built-in JS
+wallet uses the wallet facade's own swap API instead (`src/services/localTradeOffers.ts`):
+`initSwap` for the maker, `balanceFinalizedTransaction` then `finalizeRecipe` for the taker — no
+segment guessing, because nothing hardcodes a balancing slot. Comparing the two files is the
+clearest illustration in this repo of what the dapp-connector costs you.
+
 **Offer liveness: the hard part of an off-chain order book.** An order book living in a DA layer can
 show you an offer whose coins were spent five minutes ago — nothing revokes a blob. So the backend
 answers three questions about every offer before listing it and before letting it be taken:
@@ -114,25 +120,21 @@ token color.
 
 Prerequisites:
 
-- **Bun**, and a **Midnight browser wallet** (Lace) for anything that transacts. Minting, creating
-  and taking offers all need it — `src/state/tradeWallet.ts` ships the local JS wallet as a typed
-  stub that throws a "coming soon" error for those three operations.
-- **The backend, checked out as a sibling directory.** `package.json` resolves
-  `@zswap-da/contract-offer-files` through a relative `file:` path, so the checkout must be named
-  `zswap-offerfile-kernel` (singular — the GitHub repository is `zswap-offerfiles-kernel`):
-
-  ```
-  Code/
-  ├── effectstream/            # this monorepo
-  └── zswap-offerfile-kernel/  # backend — github.com/effectstream/zswap-offerfiles-kernel
-  ```
-
-Start the backend first. It compiles the Compact contract this app imports, and serves the API, the
-batcher and the ZK artifacts:
+- **Bun** and the [Compact toolchain](https://docs.midnight.network/develop/tutorial/building/).
+  The app compiles its own contract from `src/contract/offer-files.compact` — `predev`/`prebuild`
+  run `bun run build:contract`, which compiles and then verifies all 16 outputs against a committed
+  sha256 manifest, so a wrong compiler version can't silently produce bindings that mismatch the
+  deployed contract. See `src/contract/README.md`.
+- **A wallet.** Either works, for everything: the injected browser wallet (Lace) via the
+  dapp-connector, or the **built-in JS wallet** via the Midnight wallet facade — no extension
+  needed. `src/services/contractWallet.ts` and `src/services/localTradeOffers.ts` are the two
+  adapters that make minting and offers wallet-agnostic.
+- **The backend, running.** It is needed at *runtime* — Midnight config, ZK artifacts, the batcher —
+  but no longer to install or build, and it can live anywhere:
 
 ```sh
-git clone git@github.com:effectstream/zswap-offerfiles-kernel.git zswap-offerfile-kernel
-cd zswap-offerfile-kernel
+git clone git@github.com:effectstream/zswap-offerfiles-kernel.git
+cd zswap-offerfiles-kernel
 bun install
 bun run dev
 ```
@@ -150,14 +152,16 @@ bun run dev
 | ZSwap frontend (Vite) | http://localhost:10600 |
 | Backend API (default in `src/config.ts`) | `http://<hostname>:9999` |
 | Batcher (default in `src/config.ts`) | `http://<hostname>:3334` |
-| Midnight contract, indexer and proof server | Fetched at runtime from `GET /api/midnight/config` |
+| Midnight contract, indexer and proof server | Fetched at runtime from `GET /v1/midnight/config` |
 
 `src/state/wallet.ts` carries fallback URLs used only by the local JS wallet when that config call
 fails — indexer `http://<hostname>:8088/api/v3/graphql`, node `http://<hostname>:9944`, proof server
 `http://<hostname>:6300`. They are a last resort, not the source of truth.
 
-If `@zswap-da/contract-offer-files` fails to resolve, the backend has not compiled the contract yet.
-Run its dev stack once, then `bun install` here again.
+Developing against monorepo source rather than published `@effectstream/*`? Run `./link.sh`. It also
+enforces a single-instance rule for the `@midnight-ntwrk/*` (wasm classes) and `@midnightntwrk/*`
+(wallet-sdk) families: both carry module-scoped identity, so a second copy of either breaks
+`instanceof` and Symbol-brand checks at runtime with errors that name neither cause.
 
 ## Project structure
 
@@ -197,7 +201,7 @@ tiers apply to the batcher. That ordering is what lets one built bundle be dropp
 without a rebuild.
 
 Everything Midnight-specific — contract address, indexer URI, indexer WS URI, proof server URI and
-network id — is fetched at runtime from `GET /api/midnight/config`, so the frontend hardcodes no
+network id — is fetched at runtime from `GET /v1/midnight/config`, so the frontend hardcodes no
 deployment. `src/hooks/useContract.ts` additionally refuses to proceed when the connected wallet's
 `networkId` differs from the one the backend reports.
 
@@ -212,7 +216,7 @@ deployment. `src/hooks/useContract.ts` additionally refuses to proceed when the 
    `makeIntent`. The intent id is drawn at random from `≥ 2`, because segment 0 is the guaranteed
    offer and Lace's `balanceSealedTransaction` lands its balancing intent at segment 1.
 3. The serialized transaction is encoded with `OfferFiles` into a `swapoffer1…` string.
-4. `api.submitSwapOfferRetrying(blob)` POSTs it to `/api/zswap/submit`, retrying on `ROOT_UNKNOWN`
+4. `api.submitSwapOfferRetrying(blob)` POSTs it to `/v1/offers`, retrying on `ROOT_UNKNOWN`
    while the status line reads "Waiting for chain to sync root…".
 5. The blob is recorded locally (`addMyOffer`) so the maker's own offer is filtered out of the book,
    and a trade row is appended with status `not_public` until the order book confirms it.
@@ -261,7 +265,7 @@ on the deployed OfferFiles contract through `src/services/browserContract.ts`, w
 standard midnight-js provider stack — `indexerPublicDataProvider`, `httpClientProofProvider`,
 `FetchZkConfigProvider`, `levelPrivateStateProvider` — and resolves the contract with
 `findDeployedContract`. Newly minted token names are held in `src/services/mintQueue.ts` and
-registered against their derived color once the mint lands, via `POST /api/known-tokens`.
+registered against their derived color once the mint lands, via `POST /v1/known-tokens`.
 
 ### Browser build workarounds
 
@@ -310,11 +314,11 @@ decoding inside `src/services/takerBalance.ts` precisely so it can be tested wit
 chain.
 
 > [!NOTE]
-> This template is **excluded from the repository's template test runner**. The reason is recorded in
-> `templates/run-template-tests.ts`, where its entry in the `ENABLED` list is commented out: the
-> `package.json` depends on `@zswap-da/contract-offer-files` via a `file:` path outside the
-> repository, and there is no `test` script, so the runner's `bun run test` step can never pass. It
-> is to be re-enabled once both are sorted.
+> This template is **excluded from the repository's template test runner**. The reason is recorded
+> in `templates/run-template-tests.ts`, where its entry in the `ENABLED` list is commented out. It
+> installs and builds standalone now, but a meaningful test still needs the backend live on :9999
+> for Midnight config, ZK artifacts and the batcher — which CI can't stand up. A typecheck-only
+> smoke test is the realistic way back in.
 
 ## Where to go next
 

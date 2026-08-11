@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 import {
   Keypair,
   PublicKey,

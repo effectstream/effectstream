@@ -21,7 +21,7 @@ export function ConsoleDock({ st, open, onToggle, dockRef, requestPayPicker, onP
   requestPayPicker?: boolean;
   onPayPickerHandled?: () => void;
 }) {
-  const openCount = st.myTrades.filter((t) => t.status === 'open').length;
+  const openCount = st.myTrades.filter((t) => t.status === 'live').length;
 
   const copyLog = async () => {
     const ok = await log.copy();

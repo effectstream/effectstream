@@ -19,7 +19,8 @@ import { useTokens } from '../hooks/useTokens';
 import { useContract, type BrowserMintResult } from '../hooks/useContract';
 import { useMintReconciler } from '../hooks/useMintReconciler';
 import { type OfferLeg } from '../services/makerOffer';
-import { makeInjectedTradeWallet, makeLocalTradeWalletStub, type TradeWallet } from './tradeWallet';
+import { makeInjectedTradeWallet, makeLocalTradeWallet, type TradeWallet } from './tradeWallet';
+import { injectedContractWallet, localContractWallet, type ContractWallet } from '../services/contractWallet';
 import { api } from '../services/api';
 import { addMyOffer } from './myOffers';
 import type { ConfirmPayload } from '../ui/ConfirmModal';
@@ -32,13 +33,12 @@ import { findTokenName, shortToken } from '../utils';
 import { log } from '../lib/log';
 import { dlog, timed } from '../debug';
 import { takerShortfalls, shortfallsFromLegs, shortfallMessage, batchTakerShortfalls, affordableIndices } from '../services/takerBalance';
-import type { KnownToken, ZSwapOffer } from '../types';
+import type { KnownToken, OfferStatus, ZSwapOffer } from '../types';
 
 const NETWORK_ID = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string) || 'undeployed';
 
-/** A single open swap offer, in the shape the order-book screen consumes. */
+/** A single live swap offer, in the shape the order-book screen consumes. */
 export interface Order {
-  id: number;
   from: string;
   to: string;
   fromColor: string;
@@ -46,9 +46,20 @@ export interface Order {
   amtFrom: number;
   amtTo: number;
   impliedRate: number;
+  /** Conservative floor on expiry — shielded offers can outlive it. Display as
+   *  "expires ≥ …"; `status` is the authoritative end state. */
+  expiresAt: string | null;
   ttl: number | null;
   ttlMax: number | null;
+  /** Content hash of the raw transaction bytes — the stable cross-node
+   *  identity, safe as a React key. `null` only if the node couldn't hash it. */
+  offerId: string | null;
+  /** Blob length reported by the list, for display only. The blob itself is
+   *  fetched on selection via `GET /v1/offers/:offerId` — the order book is
+   *  blob-free, so `blob` is only set once loadOfferBlob() has run. */
+  blobChars?: number;
   blob?: string;
+  status: OfferStatus;
   multiGive: boolean;
   multiWant: boolean;
   /** true when this offer was created by the connected wallet (shown in the
@@ -64,17 +75,20 @@ export interface OfferPreview {
 }
 
 function toOrder(offer: ZSwapOffer, knownTokens: KnownToken[]): Order | null {
-  const give = offer.gives?.[0] as any;
-  const want = offer.wants?.[0] as any;
+  // Legs live under `computed` — they are derived by the indexer from the
+  // transaction itself, not supplied by the maker.
+  const give = offer.computed?.gives?.[0];
+  const want = offer.computed?.wants?.[0];
   if (!give || !want) return null;
-  const fromColor = String(give.token ?? give.type ?? '');
-  const toColor = String(want.token ?? want.type ?? '');
+  const fromColor = String(give.token ?? '');
+  const toColor = String(want.token ?? '');
+  // NOTE: amounts are decimal strings (u128 on-chain). Number() is lossy above
+  // 2^53 and is used here only for display and for the book's price ordering,
+  // which the existing UI has always done in floats. Anything exact (balance
+  // checks, settlement) works from the blob's own legs, not these.
   const amtFrom = Number(give.amount);
   const amtTo = Number(want.amount);
-  // offers carry no live TTL via the API today (metadata_expires_at is null),
-  // so render them as "live" rather than a countdown.
   return {
-    id: offer.id,
     from: findTokenName(fromColor, knownTokens) ?? shortToken(fromColor),
     to: findTokenName(toColor, knownTokens) ?? shortToken(toColor),
     fromColor,
@@ -82,11 +96,16 @@ function toOrder(offer: ZSwapOffer, knownTokens: KnownToken[]): Order | null {
     amtFrom,
     amtTo,
     impliedRate: amtFrom > 0 ? amtTo / amtFrom : 0,
+    // `expiresAt` is a conservative FLOOR — a shielded offer can stay fillable
+    // past it. Surfaced for display only; the status field is the authority.
+    expiresAt: offer.computed?.expiresAt ?? null,
     ttl: null,
     ttlMax: null,
-    blob: offer.transaction_hex,
-    multiGive: (offer.gives?.length ?? 0) > 1,
-    multiWant: (offer.wants?.length ?? 0) > 1,
+    offerId: offer.offerId ?? null,
+    blobChars: offer.blobChars,
+    status: offer.computed?.status ?? 'live',
+    multiGive: (offer.computed?.gives?.length ?? 0) > 1,
+    multiWant: (offer.computed?.wants?.length ?? 0) > 1,
     isMine: false,
   };
 }
@@ -139,6 +158,11 @@ export interface ZSwapApp {
   // order book (your own offers excluded)
   orders: Order[];
   ordersLoading: boolean;
+  /** True while the book has further keyset pages to fetch. */
+  hasMoreOrders: boolean;
+  /** Append the next page. Explicit click-to-load — the book does not
+   *  auto-paginate, so a deep book never silently fans out into many requests. */
+  loadMoreOrders: () => void;
   knownTokens: KnownToken[];
   refetchOffers: () => void;
   refetchTokens: () => void;
@@ -155,8 +179,13 @@ export interface ZSwapApp {
   takeOffer: (blob: string) => Promise<void>;
   // shared take-confirm dialog (driven by any screen, rendered once in App)
   pendingConfirm: ConfirmPayload | null;
-  requestTake: (o: Order) => void;
-  requestTakeMany: (orders: Order[]) => void;
+  /** Async: the offer's blob is fetched on selection (the book is blob-free). */
+  requestTake: (o: Order) => Promise<void>;
+  requestTakeMany: (orders: Order[]) => Promise<void>;
+  /** True while blobs are being fetched for a selection, before the confirm
+   *  dialog opens. Used to disable take controls so the round trip isn't
+   *  silent. */
+  takePreparing: boolean;
   /** Reason an offer blob can't be taken with the current balances, else null. */
   takerShortfall: (blob: string) => string | null;
   closeConfirm: () => void;
@@ -179,14 +208,25 @@ export function useZSwapApp(): ZSwapApp {
   const [network, setNetwork] = useState(DISPLAY_NETWORK);
   const zapi = useZSwapAPI();
   const { knownTokens, refetchTokens } = useTokens();
-  const contract = useContract(connected?.connectedApi ?? null);
+  // Contract (mint) wallet adapter — BOTH wallets can drive the contract: Lace
+  // through the dapp-connector, the built-in JS wallet through the facade.
+  const contractWallet = useMemo<ContractWallet | null>(() => {
+    if (connected?.kind === 'injected' && connected.connectedApi) {
+      return injectedContractWallet(connected.connectedApi);
+    }
+    if (connected?.kind === 'local' && connected.localApi) {
+      return localContractWallet(connected.localApi);
+    }
+    return null;
+  }, [connected]);
+  const contract = useContract(contractWallet);
   const [mintTick, setMintTick] = useState(0);
   const [myTrades, setMyTrades] = useState<MyTrade[]>(() => listTrades());
   useEffect(() => subscribeTrades(() => setMyTrades([...listTrades()])), []);
 
   // The active wallet's transaction capability (mint/create/take). Injected
-  // (Lace) is implemented; local (JS facade) is a portable stub. Every
-  // transaction below routes through this seam.
+  // (Lace) goes through the dapp-connector; local (JS facade) through the
+  // wallet facade's own APIs. Every transaction below routes through this seam.
   const tradeWallet = useMemo<TradeWallet | null>(() => {
     if (connected?.kind === 'injected' && connected.connectedApi) {
       return makeInjectedTradeWallet(connected.connectedApi, {
@@ -194,13 +234,18 @@ export function useZSwapApp(): ZSwapApp {
         mintUnshielded: contract.mintUnshielded,
       });
     }
-    if (connected?.kind === 'local') return makeLocalTradeWalletStub(connected.localApi);
+    if (connected?.kind === 'local' && connected.localApi) {
+      return makeLocalTradeWallet(connected.localApi, {
+        mintShielded: contract.mintShielded,
+        mintUnshielded: contract.mintUnshielded,
+      });
+    }
     return null;
   }, [connected, contract.mintShielded, contract.mintUnshielded]);
 
   const requireWallet = useCallback((): TradeWallet => {
     if (!tradeWallet) throw new Error('Connect a wallet first.');
-    if (!tradeWallet.canTransact) throw new Error(tradeWallet.unsupportedReason ?? 'This wallet cannot transact yet.');
+    if (!tradeWallet.canTrade) throw new Error(tradeWallet.unsupportedReason ?? 'This wallet cannot trade yet.');
     return tradeWallet;
   }, [tradeWallet]);
 
@@ -232,26 +277,60 @@ export function useZSwapApp(): ZSwapApp {
     [wstate?.unshieldedAddress],
   );
 
+  // Blobs fetched on demand from GET /v1/offers/:offerId, keyed by offerId.
+  // The order book is blob-free, so this fills in only for offers the user has
+  // actually selected — never prefetched for a whole page.
+  const [blobById, setBlobById] = useState<Record<string, string>>({});
+
+  /**
+   * Resolve one offer's blob, from cache or the API. Returns null when the row
+   * carries no offerId, or the offer is gone (404 NOT_FOUND — it was consumed
+   * between the page render and the click).
+   */
+  const loadOfferBlob = useCallback(
+    async (offerId: string | null): Promise<string | null> => {
+      if (!offerId) return null;
+      const cached = blobById[offerId];
+      if (cached) return cached;
+      try {
+        const detail = await timed(`loadOfferBlob: GET /v1/offers/${offerId.slice(0, 12)}…`, () =>
+          api.getOfferById(offerId),
+        );
+        setBlobById((m) => (m[offerId] ? m : { ...m, [offerId]: detail.offerBech32 }));
+        return detail.offerBech32;
+      } catch (e: any) {
+        dlog('loadOfferBlob: failed', { offerId, code: e?.code, message: e?.message });
+        return null;
+      }
+    },
+    [blobById],
+  );
+
   // Map offers → order rows. We KEEP the connected wallet's own offers (they are
   // real open liquidity and affect the market — hiding them makes it look like
   // your orders don't exist), but flag them `isMine` so the UI can mark them and
-  // keep them non-takeable. Ownership: shielded offers are anonymous on-chain, so
-  // we use (a) a local record of offers we created (isMyOffer) and (b) an
-  // unshielded-owner match (isOwnOffer).
+  // keep them non-takeable.
+  //
+  // Ownership: shielded offers are anonymous on-chain, so the primary signal is
+  // a local record of what this browser created — now keyed by offerId, which
+  // is what the blob-free list carries. The unshielded-sender match needs the
+  // blob, so it can only run for offers whose blob we've already fetched; the
+  // authoritative check happens at selection time in requestTake(), where the
+  // blob is always loaded.
   const orders = useMemo<Order[]>(() => {
     return (zapi.offers ?? [])
-      .map((o) => {
+      .map((o): Order | null => {
         const order = toOrder(o, knownTokens);
         if (!order) return null;
-        let mine = isMyOffer(o.transaction_hex);
-        if (!mine && selfUnshieldedHex && o.transaction_hex) {
-          const info = parseOfferSender(o.transaction_hex, NETWORK_ID as any);
-          mine = isOwnOffer(info, selfUnshieldedHex);
+        const blob = order.offerId ? blobById[order.offerId] : undefined;
+        let mine = isMyOffer(order.offerId) || isMyOffer(blob);
+        if (!mine && selfUnshieldedHex && blob) {
+          mine = isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex);
         }
-        return { ...order, isMine: mine };
+        return { ...order, blob, isMine: mine };
       })
       .filter((o): o is Order => o !== null);
-  }, [zapi.offers, knownTokens, selfUnshieldedHex]);
+  }, [zapi.offers, knownTokens, selfUnshieldedHex, blobById]);
 
   const toast = useCallback((msg: string, kind?: 'ok' | string) => {
     const id = Math.random().toString(36).slice(2);
@@ -377,24 +456,54 @@ export function useZSwapApp(): ZSwapApp {
       opts?.onStatus?.('Building offer in wallet…');
       const blob = await w.buildOfferBlob(cfg.networkId, gives, wants);
       opts?.onStatus?.('Posting to Celestia…');
-      await api.submitSwapOfferRetrying(blob, {
-        onWait: (n, total) => {
-          opts?.onStatus?.(`Waiting for chain to sync root… (${n}/${total})`);
-          if (n === 1 || n % 5 === 0) toast('Waiting for the chain to sync your offer root…');
-        },
-      });
-      addMyOffer(blob);
+
+      // 409 DUPLICATE_OFFER isn't a failure from the user's point of view — the
+      // offer exists — so adopt the existing offer's id and status. The node
+      // rejects it before paying a Celestia fee.
+      //
+      // Everything in TERMINAL_SUBMIT_CODES is unretryable by construction, so
+      // there is no retry loop here any more. ROOT_UNKNOWN in particular used to
+      // be polled up to 24 times as if it were transient; the node now diagnoses
+      // it as a wallet/indexer misconfiguration and returns a `hint` naming the
+      // exact fix, which we surface verbatim rather than burying under retries.
+      let offerId: string | null = null;
+      let duplicateStatus: OfferStatus | null = null;
+      try {
+        const submitted = await api.submitSwapOffer(blob);
+        offerId = submitted?.offerId ?? null;
+      } catch (e: any) {
+        if (e?.code === 'DUPLICATE_OFFER') {
+          offerId = e.data?.offerId ?? null;
+          duplicateStatus = (e.data?.status as OfferStatus) ?? null;
+          dlog('createOffer: duplicate offer', { offerId, status: duplicateStatus });
+        } else if (e?.code === 'ROOT_UNKNOWN' && e.data?.hint) {
+          dlog('createOffer: root unknown', e.data?.diagnostics);
+          throw new Error(e.data.hint);
+        } else {
+          throw e;
+        }
+      }
+
+      addMyOffer(offerId ?? blob);
       const give = gives[0];
       const want = wants[0];
       addTrade({
         kind: 'create',
         give: { sym: findTokenName(give.color, knownTokens) ?? shortToken(give.color), amt: Number(give.amount) },
         get: { sym: findTokenName(want.color, knownTokens) ?? shortToken(want.color), amt: Number(want.amount) },
-        status: 'not_public',
+        // A duplicate is already indexed, so skip 'not_public' and take the
+        // server's word for where it is in its lifecycle.
+        status: duplicateStatus ?? 'not_public',
         shielded: give.kind === 'shielded' && want.kind === 'shielded',
         blob,
+        offerId: offerId ?? undefined,
       });
-      toast('Offer created', 'ok');
+      toast(
+        duplicateStatus
+          ? `This offer was already posted (${duplicateStatus})`
+          : 'Offer created',
+        duplicateStatus ? undefined : 'ok',
+      );
       zapi.fetchOffers();
       refreshBalances();
     },
@@ -407,7 +516,7 @@ export function useZSwapApp(): ZSwapApp {
     async (blob: string) => {
       dlog('takeOffer: enter', { blobLen: blob.length, blobHead: blob.slice(0, 24) });
       const w = requireWallet();
-      dlog('takeOffer: wallet', { kind: w.kind, canTransact: w.canTransact });
+      dlog('takeOffer: wallet', { kind: w.kind, canTrade: w.canTrade });
 
       // Authoritative balance guard: every take path funnels here, so block once
       // on fresh balances (a missing input coin makes Lace's makeIntent hang).
@@ -434,7 +543,7 @@ export function useZSwapApp(): ZSwapApp {
 
       const cfg = contract.config
         ? (dlog('takeOffer: using cached midnight config', contract.config), contract.config)
-        : await timed('takeOffer: GET /api/midnight/config', () => api.getMidnightConfig());
+        : await timed('takeOffer: GET /v1/midnight/config', () => api.getMidnightConfig());
       dlog('takeOffer: config resolved', {
         contractAddress: cfg.contractAddress,
         indexerUri: cfg.indexerUri,
@@ -471,13 +580,38 @@ export function useZSwapApp(): ZSwapApp {
   );
 
   const [pendingConfirm, setPendingConfirm] = useState<ConfirmPayload | null>(null);
+  // Selecting an offer now costs a GET /v1/offers/:offerId per offer. Expose that
+  // as a pending flag so the screens can disable their take controls instead of
+  // appearing frozen between click and confirm dialog.
+  const [takePreparing, setTakePreparing] = useState(false);
   const requestTake = useCallback(
-    (o: Order) => {
-      if (!o.blob) {
-        toast('This offer has no settle blob — cannot take.');
+    async (o: Order) => {
+      if (!o.offerId) {
+        // Legacy row indexed before content addressing — the node can't serve
+        // its blob by hash, so there's nothing to settle from.
+        toast('This offer predates content addressing and can no longer be taken.');
         return;
       }
-      const blob = o.blob;
+      // Selection is where the blob gets fetched — the order book itself is
+      // blob-free, so nothing was prefetched for the rest of the page.
+      setTakePreparing(true);
+      let blob: string | null;
+      try {
+        blob = await loadOfferBlob(o.offerId);
+      } finally {
+        setTakePreparing(false);
+      }
+      if (!blob) {
+        toast('This offer is no longer available — it may have just been taken.');
+        zapi.fetchOffers();
+        return;
+      }
+      // The list can't tell whether an unshielded offer is ours (that needs the
+      // blob). Now that we have it, check before letting the user take it.
+      if (selfUnshieldedHex && isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex)) {
+        toast("That's your own offer — you can't take it.");
+        return;
+      }
       // Taker pays what the order WANTS (o.to / amtTo) and receives what it
       // GIVES (o.from / amtFrom).
       setPendingConfirm({
@@ -492,56 +626,91 @@ export function useZSwapApp(): ZSwapApp {
             kind: 'take',
             give: { sym: o.to, amt: o.amtTo },
             get: { sym: o.from, amt: o.amtFrom },
-            status: 'completed',
+            status: 'consumed',
             shielded: false,
             blob,
+            offerId: o.offerId ?? undefined,
           });
         },
       });
     },
-    [toast, takeOffer, takerShortfall],
+    [toast, takeOffer, takerShortfall, loadOfferBlob, selfUnshieldedHex, zapi],
   );
 
   // Take one or more order-book offers in a single confirm dialog. Filters out
   // your own offers (you can't take them) and blobs we can't settle; aggregates
   // the pay/receive across the selection; settles each via the batcher in turn.
   const requestTakeMany = useCallback(
-    (orders: Order[]) => {
-      // Only real bech32m offers (swapoffer1…) can be settled. Seeded demo
-      // liquidity carries a placeholder blob and must be skipped with a clear
-      // message rather than a cryptic decode error.
-      const isReal = (b?: string) => !!b && /^swapoffer1/i.test(b);
-      const takeable = orders.filter((o) => isReal(o.blob) && !o.isMine);
-      if (takeable.length === 0) {
+    async (orders: Order[]) => {
+      if (!tradeWallet?.canTrade) {
+        toast('Use the browser wallet (Lace) to take offers.');
+        return;
+      }
+      const candidates = orders.filter((o) => !o.isMine && o.offerId);
+      if (candidates.length === 0) {
         if (orders.some((o) => o.isMine)) {
           setConnectOpen(true);
           return;
         }
-        const seeded = orders.some((o) => o.blob && !isReal(o.blob) && !o.isMine);
         toast(
-          seeded ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (swapoffer1…) offer to test taking."
+          orders.some((o) => !o.offerId)
+            ? 'These offers predate content addressing and can no longer be taken.'
             : 'No live offer to take here.',
         );
         return;
       }
-      if (!tradeWallet?.canTransact) {
-        toast('Use the browser wallet (Lace) to take offers.');
+
+      // Fetch the blobs for the SELECTION only — bounded by what the user
+      // picked, never the whole book. Offers that 404 here were consumed
+      // between render and click.
+      setTakePreparing(true);
+      let resolved: { o: Order; blob: string | null }[];
+      try {
+        resolved = await Promise.all(
+          candidates.map(async (o) => ({ o, blob: await loadOfferBlob(o.offerId) })),
+        );
+      } finally {
+        setTakePreparing(false);
+      }
+      // Only real bech32m offers (swapoffer1…) can be settled. Seeded demo
+      // liquidity carries a placeholder blob and must be skipped with a clear
+      // message rather than a cryptic decode error.
+      const isReal = (b: string | null) => !!b && /^swapoffer1/i.test(b);
+      const takeable = resolved
+        .filter((r): r is { o: Order; blob: string } => isReal(r.blob))
+        // The list can't detect unshielded ownership without the blob; now that
+        // we have it, drop anything that turns out to be ours.
+        .filter(({ blob }) =>
+          !selfUnshieldedHex || !isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex))
+        .map(({ o, blob }) => ({ ...o, blob }));
+
+      if (takeable.length === 0) {
+        const vanished = resolved.some((r) => r.blob === null);
+        toast(
+          vanished
+            ? 'Those offers are no longer available — they may have just been taken.'
+            : resolved.some((r) => r.blob && !isReal(r.blob))
+              ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (swapoffer1…) offer to test taking."
+              : 'No live offer to take here.',
+        );
+        if (vanished) zapi.fetchOffers();
         return;
       }
       const n = takeable.length;
       const payAmt = takeable.reduce((s, o) => s + o.amtTo, 0);
       const recvAmt = takeable.reduce((s, o) => s + o.amtFrom, 0);
       // Settle each selected offer via the batcher, in book order.
-      const settle = (orders: Order[]) => async () => {
+      const settle = (orders: (Order & { blob: string })[]) => async () => {
         for (const o of orders) {
-          await takeOffer(o.blob!);
+          await takeOffer(o.blob);
           addTrade({
             kind: 'take',
             give: { sym: o.to, amt: o.amtTo },
             get: { sym: o.from, amt: o.amtFrom },
-            status: 'completed',
+            status: 'consumed',
             shielded: false,
             blob: o.blob,
+            offerId: o.offerId ?? undefined,
           });
         }
       };
@@ -551,7 +720,7 @@ export function useZSwapApp(): ZSwapApp {
       // user can take part instead of nothing.
       const blocked = shortfallMessage(
         batchTakerShortfalls(
-          takeable.map((o) => o.blob!),
+          takeable.map((o) => o.blob),
           wstate?.shieldedBalances,
           wstate?.unshieldedBalances,
           NETWORK_ID as any,
@@ -561,7 +730,7 @@ export function useZSwapApp(): ZSwapApp {
       const okIdx = blocked
         ? new Set(
             affordableIndices(
-              takeable.map((o) => parseTakerLegs(o.blob!, NETWORK_ID as any)?.pays ?? []),
+              takeable.map((o) => parseTakerLegs(o.blob, NETWORK_ID as any)?.pays ?? []),
               wstate?.shieldedBalances,
               wstate?.unshieldedBalances,
             ),
@@ -587,7 +756,7 @@ export function useZSwapApp(): ZSwapApp {
         onConfirm: settle(takeable),
       });
     },
-    [toast, takeOffer, tradeWallet, addTrade, wstate, knownTokens],
+    [toast, takeOffer, tradeWallet, wstate, knownTokens, loadOfferBlob, selfUnshieldedHex, zapi],
   );
   const closeConfirm = useCallback(() => setPendingConfirm(null), []);
 
@@ -618,7 +787,7 @@ export function useZSwapApp(): ZSwapApp {
         kind: 'take',
         give: preview?.pays[0] ?? { sym: '—', amt: 0 },
         get: preview?.gets[0] ?? { sym: '—', amt: 0 },
-        status: 'completed',
+        status: 'consumed',
         shielded: preview?.shielded ?? false,
         blob: b,
       });
@@ -628,44 +797,82 @@ export function useZSwapApp(): ZSwapApp {
   const clearTrade = useCallback((id: string) => removeTrade(id), []);
   const clearAllTrades = useCallback(() => clearTrades(), []);
 
-  // Live order-book reconciliation: watch the blob set in each poll cycle.
-  //   not_public → open    when the blob first appears in the live book
-  //   open       → completed  when a previously-seen blob disappears from the book
-  const seenBlobs = useRef<Set<string>>(new Set());
+  // Live order-book reconciliation, keyed on offerId.
+  //
+  //   not_public → live   as soon as the id shows up in the book
+  //   live       → ?      when a previously-seen id drops out
+  //
+  // Disappearing is NOT evidence of a fill. It could be a fill (consumed), the
+  // maker spending the inputs elsewhere (cancelled), a TTL lapse (expired), or
+  // simply the offer being pushed past the first page as the book grows. The
+  // old code assumed "gone == completed" and so mislabelled cancels as fills;
+  // now that archived offers resolve by id, ask instead of guessing.
+  const seenIds = useRef<Set<string>>(new Set());
+  const probing = useRef<Set<string>>(new Set());
   useEffect(() => {
     const offers = zapi.offers ?? [];
-    const live = new Set(offers.map((o) => o.transaction_hex).filter(Boolean) as string[]);
+    const live = new Set(offers.map((o) => o.offerId).filter(Boolean) as string[]);
     for (const t of listTrades()) {
-      if (t.kind !== 'create' || !t.blob) continue;
-      if (t.status === 'not_public' && live.has(t.blob)) {
-        seenBlobs.current.add(t.blob);
-        updateTradeStatus(t.id, 'open');
-      } else if (t.status === 'open' && seenBlobs.current.has(t.blob) && !live.has(t.blob)) {
-        updateTradeStatus(t.id, 'completed');
-      } else {
-        // Track any live blob regardless of status so we detect future removal.
-        if (live.has(t.blob)) seenBlobs.current.add(t.blob);
+      if (t.kind !== 'create' || !t.offerId) continue;
+      const id = t.offerId;
+      if (live.has(id)) {
+        seenIds.current.add(id);
+        if (t.status === 'not_public') updateTradeStatus(t.id, 'live');
+        continue;
       }
+      if (t.status !== 'live' || !seenIds.current.has(id) || probing.current.has(id)) continue;
+      probing.current.add(id);
+      api
+        .getOfferStatusById(id)
+        .then((srv) => {
+          // not_found here would mean the node forgot an offer it had indexed;
+          // leave the local record alone rather than inventing a terminal state.
+          if (srv === 'consumed' || srv === 'cancelled' || srv === 'expired') {
+            updateTradeStatus(t.id, srv);
+            seenIds.current.delete(id);
+          }
+        })
+        .catch(() => { /* transient; retried on the next poll */ })
+        .finally(() => probing.current.delete(id));
     }
   }, [zapi.offers]);
 
   // Startup-only reconciliation: on first mount, ask the server for the
   // definitive status of every non-terminal created trade.
+  //
+  // Trades carrying an offerId use the cheap per-id probe. Older records only
+  // stored the blob, so those go through the batched POST — a blob is 16-25 KB,
+  // far past any query-string limit.
   useEffect(() => {
-    const blobs = listTrades()
-      .filter((t) => t.kind === 'create' && t.blob && t.status !== 'cancelled')
-      .map((t) => t.blob!);
-    if (blobs.length === 0) return;
-    api.fetchTradeStatuses(blobs).then((statusMap) => {
-      for (const t of listTrades()) {
-        if (t.kind !== 'create' || !t.blob) continue;
-        const srv = statusMap[t.blob];
-        if (!srv || srv === 'unknown') continue;
-        if (srv === 'completed' && t.status !== 'completed') updateTradeStatus(t.id, 'completed');
-        else if (srv === 'expired' && t.status !== 'expired') updateTradeStatus(t.id, 'expired');
-        else if (srv === 'open' && t.status === 'not_public') updateTradeStatus(t.id, 'open');
+    const pending = listTrades().filter(
+      (t) => t.kind === 'create' && t.status !== 'cancelled' && (t.offerId || t.blob),
+    );
+    if (pending.length === 0) return;
+
+    const apply = (t: MyTrade, srv: string | undefined) => {
+      if (!srv || srv === 'unknown' || srv === 'not_found') return;
+      // Terminal states are authoritative; 'live' only ever promotes a record
+      // that was still waiting on the Celestia round-trip.
+      if (srv === 'consumed' || srv === 'cancelled' || srv === 'expired') {
+        if (t.status !== srv) updateTradeStatus(t.id, srv);
+      } else if (srv === 'live' && t.status === 'not_public') {
+        updateTradeStatus(t.id, 'live');
       }
-    }).catch(() => { /* startup reconcile is best-effort */ });
+    };
+
+    const byId = pending.filter((t) => t.offerId);
+    const byBlob = pending.filter((t) => !t.offerId && t.blob);
+
+    Promise.all([
+      Promise.all(
+        byId.map(async (t) => apply(t, await api.getOfferStatusById(t.offerId!))),
+      ),
+      byBlob.length > 0
+        ? api.fetchTradeStatuses(byBlob.map((t) => t.blob!)).then((statusMap) => {
+            for (const t of byBlob) apply(t, statusMap[t.blob!]);
+          })
+        : Promise.resolve(),
+    ]).catch(() => { /* startup reconcile is best-effort */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -702,21 +909,24 @@ export function useZSwapApp(): ZSwapApp {
     localWalletAvailable: network === LOCAL_WALLET_NETWORK,
     orders,
     ordersLoading: zapi.loading,
+    hasMoreOrders: zapi.hasMore,
+    loadMoreOrders: zapi.loadMore,
     knownTokens,
     refetchOffers: zapi.fetchOffers,
     refetchTokens,
     selfUnshieldedHex,
-    canMint: !!tradeWallet?.canTransact,
+    canMint: !!tradeWallet?.canMint && !!contractWallet,
     contractBusy: contract.loading,
     mintShielded,
     mintUnshielded,
     onMinted,
-    canTrade: !!tradeWallet?.canTransact,
+    canTrade: !!tradeWallet?.canTrade,
     createOffer,
     takeOffer,
     pendingConfirm,
     requestTake,
     requestTakeMany,
+    takePreparing,
     takerShortfall,
     closeConfirm,
     myTrades,

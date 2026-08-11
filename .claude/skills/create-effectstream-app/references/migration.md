@@ -29,7 +29,7 @@ After the structural migration, **everything in SKILL.md and the other reference
 
 ## Migrating from `@paimaexample/*` Templates
 
-All existing templates (chess, dice, minimal, rock-paper-scissors, multi-chain-token-transfer, night-bitcoin, world-map-2d, evm-midnight) use the old `@paimaexample/*` SDK with a nested directory structure.
+Three templates still use the old `@paimaexample/*` SDK with a nested directory structure: **dice, rock-paper-scissors, multi-chain-token-transfer**. `world-map-2d` and `minimal` are already migrated to `@effectstream/*`; chess, night-bitcoin, and evm-midnight exist only as migrated `-v2` templates (`chess-v2`, `night-bitcoin-v2`, `evm-midnight-v2`). Resolve the target `@effectstream/*` version from npm instead of copying any template's pin.
 
 ### Step 1: Package namespace rename
 
@@ -87,7 +87,7 @@ OLD (delete entirely):
   mod.ts               → initRoundExecutor(), extractMatchEnvironment(), buildMatchState()
 ```
 
-In the new SDK, **game logic lives directly in the STM transition** — no round executors, no tick events, no match executors.
+In the new SDK, **the STM transition owns deterministic orchestration and database effects** — no round executors, tick events, or match executors. Pure domain rules may be called from a local module or a purpose-named package when multiple runtimes consume them.
 
 ```ts
 // NEW: game logic inline in the transition
@@ -118,7 +118,7 @@ stm.addStateTransition("submitMoves", function* (data) {
 
 **What to keep vs remove:**
 
-| Keep (move to `packages/node/`) | Remove entirely |
+| Keep (move to `packages/node/`, or a specific package such as `packages/chess-rules` when genuinely multi-consumer) | Remove entirely |
 |---|---|
 | Pure chess logic: `isValidMove`, `gameOver`, `updateBoard` | `round_executor.ts` |
 | Rating calculation: `calculateRatingChange` | `match_executor.ts` |
@@ -140,7 +140,7 @@ yield* World.resolve(insertRound, { lobby_id: id, round: 1, /* … */ });
 
 ### Step 4: Merge remaining game-logic helpers
 
-After removing the executor abstraction, move pure helpers (chess validation, rating math, etc.) into `packages/node/` — either inline in `state-machine.ts` or a `game-helpers.ts` file if substantial. Delete `packages/shared/game-logic/` entirely.
+After removing the executor abstraction, keep single-consumer helpers beside the STM with a responsibility-based filename such as `chess-rules.ts`. If node and frontend both execute the same deterministic rules, create a purpose-named package such as `packages/chess-rules`. Delete `packages/shared/game-logic/` entirely; never replace it with another generic `shared`, `utils`, or `common` bucket.
 
 ### Step 5: Rename `PaimaSTM` → `Stm`
 
@@ -265,10 +265,10 @@ Verify each step before moving to the next:
 - [ ] Merge `packages/shared/data-types/` into `packages/node/`
 - [ ] Set database script to use `@effectstream/db/scripts/pgtyped-update.ts`
 - [ ] `bun run build:pgtypes` succeeds and `.queries.ts` files committed
-- [ ] No raw SQL outside `packages/database/sql/*.sql`
-- [ ] Round/match/tick executor abstraction removed; logic inlined into STM transitions
+- [ ] No SQL text outside `packages/database/sql/*.sql` and `packages/database/migrations/*.sql`; tests and recovery use generated typed queries
+- [ ] Round/match/tick executor abstraction removed; STM owns orchestration and DB effects
 - [ ] `[PreparedQuery, params]` tuple pattern removed
-- [ ] Pure helpers moved from `game-logic` into `packages/node/`
+- [ ] Pure helpers moved beside their owner or into a purpose-named multi-consumer package
 - [ ] `packages/shared/game-logic/`, `packages/shared/utils/`, `packages/shared/`, `packages/client/` deleted
 - [ ] `PaimaSTM` → `Stm` with type parameters
 - [ ] `scripts/start.ts` → root `start.dev.ts`

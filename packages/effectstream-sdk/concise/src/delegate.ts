@@ -13,7 +13,7 @@ import {
   type PrivateKey,
   TypeboxHelpers,
   type WalletAddress,
-} from "@effectstream/utils";
+} from "@effectstream/utils/types";
 import { Value } from "@sinclair/typebox/value";
 import { CryptoManager } from "@effectstream/crypto";
 

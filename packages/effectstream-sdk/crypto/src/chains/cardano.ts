@@ -3,7 +3,7 @@ import {
   type Signature,
   TypeboxHelpers,
   type WalletAddress,
-} from "@effectstream/utils";
+} from "@effectstream/utils/types";
 import type { IVerify } from "../IVerify.ts";
 import { Value } from "@sinclair/typebox/value";
 import { default as verifyCardanoDataSignature } from "@cardano-foundation/cardano-verify-datasignature";

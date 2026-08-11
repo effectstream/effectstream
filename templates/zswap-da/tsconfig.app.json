@@ -15,7 +15,10 @@
     "baseUrl": ".",
     "paths": {
       "@effectstream/wallets": ["./src/shims/wallets.d.ts"],
-      "@effectstream/wallets/midnight-local": ["./src/shims/wallets-midnight-local.d.ts"]
+      "@effectstream/wallets/midnight-local": ["./src/shims/wallets-midnight-local.d.ts"],
+      "@effectstream/midnight-contracts/wallet-info": [
+        "./src/shims/midnight-contracts-wallet-info.d.ts"
+      ]
     },
 
     /* Bundler mode */

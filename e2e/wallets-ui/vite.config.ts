@@ -68,6 +68,12 @@ export default defineConfig({
       // → ENOTDIR, failing the build. `./node-env` maps to config.ts (per the
       // utils package exports).
       "@effectstream/utils/node-env": utilsPath + "src/config.ts",
+      // Same prefix-matching hazard: `./types` is the browser-safe subset that
+      // wallets/crypto/concise import (the root barrel re-exports config.ts,
+      // which runs dotenv at import time). Without this line it resolves to
+      // `src/mod.ts/types` → ENOTDIR and the whole app fails to build, which
+      // surfaces in the wallets-ui suite as a blank page and a click timeout.
+      "@effectstream/utils/types": utilsPath + "src/types/mod.ts",
       "@effectstream/utils": utilsPath + "src/mod.ts",
       "@effectstream/config": configPath + "src/mod.ts",
       "@effectstream/concise": concisePath + "src/mod.ts",

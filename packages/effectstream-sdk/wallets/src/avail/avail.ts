@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { utf8ToHex } from 'web3-utils';
 import type { ApiPromise } from "avail-js-sdk";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 import type { IProvider, ActiveConnection, AddressAndType, UserSignature } from "../IProvider.ts";
 type PolkadotAddress = string;
 import { u8aToHex } from "@polkadot/util";

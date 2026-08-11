@@ -15,13 +15,13 @@
 
 `launchCardano` starts three services:
 
-1. **YACI DevKit** — local Cardano devnet with a faucet at `localhost:10000` and a web UI at `localhost:8090`.
+1. **YACI DevKit** — local Cardano devnet with a faucet at `localhost:10000`; `localhost:8090` is the cardano-submit-api port.
 2. **Dolos** — lightweight Cardano node exposing UTxO-RPC (gRPC at `localhost:50051`) and a Blockfrost-compatible API at `localhost:3000`.
 3. **cardano-submit-tx** — one-shot process that submits initial transactions (e.g. stake delegation to bootstrap the pool). **Filter this out in dev** — see Sharp edges.
 
 ## Required `launchCardano` package scripts
 
-(Names verified against `packages/build-tools/orchestrator/scripts/launch-cardano.ts` on engine `0.100.15` — earlier skill versions had slightly wrong names that the cardano-delegation reference template also still uses. If the launcher complains "missing script X", the launcher script is the source of truth.)
+(Names verified against `packages/build-tools/orchestrator/scripts/launch-cardano.ts`. If the launcher reports "missing script X", inspect the launcher shipped by the npm-resolved `@effectstream/orchestrator` version.)
 
 - `devkit:start`, `devkit:wait`
 - `dolos:fill-template`, `dolos:start`, `dolos:wait`
@@ -36,7 +36,7 @@ Sync protocol: `CARDANO_UTXORPC_PARALLEL` (via Dolos). Cardano-specific primitiv
 | Primitive | Fields | Use |
 |---|---|---|
 | `CardanoPoolDelegation` | `address` (staking cred hash), `pool` (pool keyhash), `epoch` | Stake delegation detection — eligibility, governance |
-| `CardanoMintBurn` | `policy`, `asset`, `quantity` | Native token mint/burn tracking |
+| `CardanoMintBurn` | `txId`, `metadata`, `assets`, `inputAddresses`, `outputAddresses` | Native token mint/burn tracking; mint/burn quantities are represented inside `assets` |
 | `CardanoTransfer` | `address`, `amount`, ... | ADA/token transfers |
 | `CardanoDelayedAsset` | ... | Delayed asset claim tracking |
 | `CardanoProjectedNFT` | ... | Projected NFT state changes |

@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/solana-node",
-  "version": "0.103.0",
+  "version": "0.103.3",
   "type": "module",
   "main": "./index.js",
   "bin": {
@@ -10,6 +10,7 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "@effectstream/binary-checksum": "workspace:*",
     "@xhmikosr/bin-wrapper": "^5.0.0"
   },
   "homepage": "https://effectstream.github.io/docs/",

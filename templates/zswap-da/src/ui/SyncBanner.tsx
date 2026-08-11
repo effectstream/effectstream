@@ -18,7 +18,7 @@ export function SyncBanner() {
     async function check() {
       if (dead) return;
       try {
-        const r = await fetch(`${API_BASE}/api/health/sync`);
+        const r = await fetch(`${API_BASE}/v1/health/sync`);
         if (dead) return;
         if (r.ok) {
           const data: HealthSync = await r.json();

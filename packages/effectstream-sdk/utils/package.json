@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/utils",
-  "version": "0.103.0",
+  "version": "0.103.3",
   "license": "(MIT OR Apache-2.0)",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -13,6 +13,7 @@
   },
   "exports": {
     ".": "./src/mod.ts",
+    "./types": "./src/types/mod.ts",
     "./node-env": "./src/config.ts",
     "./runtime": "./src/runtime.ts",
     "./runtime-spawn": "./src/runtime-spawn.ts",

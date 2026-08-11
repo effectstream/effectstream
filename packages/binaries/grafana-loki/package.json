@@ -1,7 +1,8 @@
 {
   "name": "@effectstream/grafana-loki",
-  "version": "0.103.0",
+  "version": "0.103.3",
   "license": "(MIT OR Apache-2.0)",
+  "type": "module",
   "description": "Grafana Loki binary wrapper for EffectStream",
   "main": "index.js",
   "bin": {
@@ -11,6 +12,7 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "@effectstream/binary-checksum": "workspace:*",
     "@xhmikosr/bin-wrapper": "^13.2.0"
   },
   "homepage": "https://effectstream.github.io/docs/",

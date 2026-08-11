@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test";
 import { SolanaLocalConnector } from "./local.ts";
 import { CryptoManager } from "@effectstream/crypto";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 
 const verifier = () => CryptoManager.getCryptoManager(AddressType.SOLANA);
 

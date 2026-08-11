@@ -3,7 +3,7 @@ import {
   connectInjectedWallet,
 } from "./utils.ts";
 import type { IInjectedConnector, IProvider } from "./IProvider.ts";
-import { AddressType } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils/types";
 
 const MOCK_ADDRESS = "0xmock";
 const MOCK_METADATA = { name: "MockWallet", displayName: "Mock Wallet", icon: "", version: "1.0" };

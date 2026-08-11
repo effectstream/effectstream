@@ -1,4 +1,4 @@
-import { AddressType, type EvmAddress } from "@effectstream/utils";
+import { AddressType, type EvmAddress } from "@effectstream/utils/types";
 import type { Wallet } from "./types.ts";
 import type { IProvider } from "./IProvider.ts";
 import { type Chain, numberToHex } from "viem";

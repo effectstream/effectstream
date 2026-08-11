@@ -2,12 +2,12 @@ import {
   type Signature,
   type SubstrateAddress,
   TypeboxHelpers,
-} from "@effectstream/utils";
+} from "@effectstream/utils/types";
 import type { IVerify } from "../IVerify.ts";
 import { Value } from "@sinclair/typebox/value";
 import { cryptoWaitReady, decodeAddress, signatureVerify } from "@polkadot/util-crypto";
 import { u8aToHex } from "@polkadot/util";
-import type { WalletAddress } from "@effectstream/utils";
+import type { WalletAddress } from "@effectstream/utils/types";
 
 export class PolkadotCrypto implements IVerify {
   verifyAddress = (address: string): address is SubstrateAddress => {

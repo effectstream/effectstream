@@ -16,7 +16,7 @@ import { EffectstreamConfig } from "@effectstream/wallets";
 import { hardhat } from "viem/chains";
 
 export const paimaEngineConfig = new EffectstreamConfig(
-  "",              // appName — MUST match BatcherConfig.namespace
+  "my-template",   // signed L2 path: also use in BatcherConfig + node ConfigBuilder
   "mainEvmRPC",    // sync protocol name (from config.dev.ts)
   "0x5FbDB...",    // EffectstreamL2 contract address
   hardhat,         // viem chain definition
@@ -34,8 +34,9 @@ import { walletLogin, allInjectedWallets, WalletMode } from "@effectstream/walle
 // It returns { success: true, result: Wallet } | { success: false, errorMessage }.
 
 // Browser injected wallet (MetaMask, etc.) — discover, then connect a chosen one.
-// EvmInjected REQUIRES `preference`; without it there is no wallet to connect and
-// walletLogin returns { success: false }. Entries are ConnectionOption → read
+// `preference` is optional: without it, the FIRST discovered injected wallet is
+// auto-connected (it only fails when no EVM wallet is injected at all). Pass
+// `preference` to pick a specific wallet. Entries are ConnectionOption → read
 // `.metadata.name`, NOT a top-level `.name`.
 const injected = await allInjectedWallets({ signatureSupport: true, transactionSupport: true });
 const opt = injected[WalletMode.EvmInjected][0];
@@ -130,12 +131,36 @@ server.addContentTypeParser("application/cbor", { parseAs: "buffer" }, (_req, bo
 
 ```tsx
 import { EventManager } from "@effectstream/event-client";
-import { AppEvents } from "@my-template/shared/app-events";
+import { AppEvents } from "@my-template/app-events";
 ```
 
 See `grammar-stm.md` §3 for the full subscribe pattern. Key rules:
 - Set fields to `undefined` to wildcard, supply values to narrow.
 - Subscribers should be idempotent — events re-emit on full resync.
+
+## Vanilla esbuild path (minimal, world-map-2d)
+
+`templates/minimal` and `templates/world-map-2d` skip Vite/React entirely: a plain `index.js` bundled by `packages/frontend/esbuild.js`. The one non-obvious requirement: `@effectstream/wallets` declares Cardano/Midnight helpers (`@lucid-evolution/*`, `@midnight-ntwrk/*`, `@effectstream/midnight-contracts`) as optional deps. Bundling them fails (Lucid resolution, ledger-v8 `.wasm`), and `external` leaves bare specifiers the browser can't resolve at load time even though the code never runs. Resolve them to an empty stub instead:
+
+```js
+{
+  name: "stub-optional-wallet-deps",
+  setup(build) {
+    const filter =
+      /^(@lucid-evolution\/|@midnight-ntwrk\/|@effectstream\/midnight-contracts(\/|$))/;
+    build.onResolve({ filter }, (args) => ({
+      path: args.path,
+      namespace: "optional-wallet-stub",
+    }));
+    build.onLoad(
+      { filter: /.*/, namespace: "optional-wallet-stub" },
+      () => ({ contents: "module.exports = {};", loader: "js" }),
+    );
+  },
+},
+```
+
+Pair it with `nodeModulesPolyfillPlugin({ globals: { process: true, Buffer: true } })`. Without the stub plugin a vanilla build fails on the optional wallet deps.
 
 ## Vite issues you WILL hit (read this before debugging)
 
@@ -194,11 +219,11 @@ export const Response = globalThis.Response;
 
 **This bug is invisible to build-smoke tests** (the build succeeds) — only shows up in headless browser tests or when a user opens the page. This is why the Playwright render test exists. Skipping the render test does NOT save time — it just hides this class of bug until production.
 
-## Bun + MQTT broker limitation (frontend HTTP-polling fallback)
+## MQTT broker under Bun (and the HTTP-polling fallback)
 
-Bun does not implement `createWebSocketStream` from the `ws` module. The MQTT event broker (`aedes-server-factory`) uses this internally — the broker starts successfully but crashes asynchronously when a WebSocket client connects. `@effectstream/runtime` already has a `typeof Bun` guard that skips broker startup under Bun.
+The MQTT event broker works under Bun: it's `@seriousme/opifex`'s `MqttServer` with WebSocket transport served by native `Bun.serve` (`packages/node-sdk/events/src/event-broker.ts`). The runtime starts it whenever `MQTT_BROKER` is on — and it defaults to `true` — with no Bun-specific guard (`packages/node-sdk/runtime/src/main.ts`). Older notes about aedes crashing under Bun and a `typeof Bun` guard in `@effectstream/runtime` are stale — that code is gone.
 
-Frontend consequence: the `BlockWatcher` silently fails — `latestBlock` never updates, so `waitForBlock()` hangs forever. Fix by setting in `packages/frontend/.env`:
+If the broker is disabled (`MQTT_BROKER=false`) or WebSockets can't reach it, `BlockWatcher` still offers an HTTP fallback — set in `packages/frontend/.env.dev` / `.env.mainnet`:
 
 ```
 VITE_IS_BUN=true
@@ -231,5 +256,3 @@ This switches BlockWatcher to poll the `/block-heights` REST endpoint every 2 se
   dependsOn: ["frontend-build"],
 },
 ```
-
-When Midnight is optional, use `critical: midnightEnabled` so a frontend failure doesn't take the whole orchestrator down in `DISABLE_MIDNIGHT=true` mode.

@@ -1,0 +1,23 @@
+{
+  "name": "@effectstream/binary-checksum",
+  "version": "0.103.3",
+  "license": "(MIT OR Apache-2.0)",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/effectstream/effectstream",
+    "directory": "packages/binaries/binary-checksum"
+  },
+  "bugs": {
+    "url": "https://github.com/effectstream/effectstream/issues"
+  },
+  "description": "Shared fail-closed SHA-256 verification for the EffectStream binary wrappers"
+}

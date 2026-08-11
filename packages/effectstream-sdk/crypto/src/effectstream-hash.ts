@@ -1,4 +1,4 @@
-import type { BlockHash, EffectstreamBlockHash } from "@effectstream/utils";
+import type { BlockHash, EffectstreamBlockHash } from "@effectstream/utils/types";
 import crypto from "node:crypto";
 
 /**
