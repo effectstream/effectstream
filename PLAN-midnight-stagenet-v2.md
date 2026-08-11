@@ -825,6 +825,8 @@ docker compose -f templates/midnight-stagenet-v2/compose.yaml \
 
 Pass condition: all current endpoints respond as expected, drift behavior is tested against fixtures, output is redacted, and no external state changes.
 
+Basal execution (2026-08-10): **pass**. With inactive-diagnostics interpolation value `24717` freshly checked free, the frozen image first ran C17's compatibility, drift, and redaction fixtures under `--network none`; the compatible fixture produced no drift, mutations to the spec version and schema fingerprint produced both expected drift paths, and a credential/query/fragment-bearing URL was reduced to its origin/path with every sentinel removed. The exact `live-read` Compose command then made only bounded reads: hosted node identity/runtime/health and latest-plus-pinned block hash, HTTP GraphQL schema and latest-plus-pinned block, GraphQL WebSocket protocol acknowledgement, and faucet `OPTIONS`. It observed node `2.0.0-d9729c13`, spec `2000000`, transaction version `4`, six peers, a non-syncing node, the locked API-v4 schema fingerprint and all eleven contract-event variants, WSS `graphql-transport-ws`, and faucet status `204`; node and indexer pinned-block round trips were internally consistent at their independently observed heights. The machine report contained only redacted endpoint URLs and public compatibility data. The compatibility lock was compared but not changed, the service published no ports, and no wallet, faucet drip, proof, deployment, or transaction code was initialized.
+
 Suggested commit: `test(midnight-v2): add live read-only stagenet canary`
 
 ### C18 — implement the secret-gated live write canary

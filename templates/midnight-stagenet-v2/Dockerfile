@@ -76,6 +76,10 @@ USER bun
 
 CMD ["bun", "run", "test:compatibility:fixtures"]
 
+FROM compatibility-test AS live-read-test
+
+CMD ["bun", "run", "test:live:read"]
+
 FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS compact-manager
 
 USER root

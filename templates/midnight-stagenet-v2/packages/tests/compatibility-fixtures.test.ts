@@ -1,6 +1,9 @@
 import {
   extractIndexerCapability,
   fingerprintIndexerCapability,
+  findCompatibilityDrift,
+  NETWORK,
+  redactEndpoints,
   redactUrl,
   validateIndexerCapability,
   validateNodeObservation,
@@ -28,6 +31,28 @@ if (!throws(() => validateNodeObservation(driftedNode))) {
   throw new Error('A changed spec version was not rejected');
 }
 
+const compatibleObservation = {
+  networkId: NETWORK.networkId,
+  endpoints: NETWORK,
+  node,
+  contractEventSchemaFingerprint: fingerprint,
+};
+if (findCompatibilityDrift(lock, compatibleObservation).length !== 0) {
+  throw new Error('Compatible live observation was reported as drift');
+}
+const drift = findCompatibilityDrift(lock, {
+  ...compatibleObservation,
+  node: driftedNode,
+  contractEventSchemaFingerprint: '00'.repeat(32),
+});
+if (
+  drift.length !== 2 ||
+  !drift.some((entry) => entry.startsWith('node.specVersion:')) ||
+  !drift.some((entry) => entry.startsWith('indexer.contractEventSchemaFingerprint:'))
+) {
+  throw new Error(`Compatibility drift report is incomplete: ${JSON.stringify(drift)}`);
+}
+
 const driftedCapability = {
   ...capability,
   contractEventTypes: capability.contractEventTypes.filter((name) => name !== 'UnpausedEvent'),
@@ -39,6 +64,15 @@ if (!throws(() => validateIndexerCapability(driftedCapability))) {
 const redacted = redactUrl('https://user:secret@example.test/path?token=secret#fragment');
 if (redacted !== 'https://example.test/path') {
   throw new Error(`URL redaction failed: ${redacted}`);
+}
+const redactedReport = JSON.stringify(redactEndpoints({
+  node: 'wss://user:secret@example.test/rpc?token=hunter2#private',
+}));
+if (
+  redactedReport !== '{"node":"wss://example.test/rpc"}' ||
+  ['user', 'secret', 'token', 'hunter2', 'private'].some((value) => redactedReport.includes(value))
+) {
+  throw new Error(`Machine report redaction failed: ${redactedReport}`);
 }
 
 if (
@@ -52,7 +86,13 @@ if (
   throw new Error('Compatibility lock does not contain the selected beta.6/rc.1 lane');
 }
 
-console.log(JSON.stringify({ checkpoint: 'C02-fixtures', fingerprint, status: 'pass' }));
+console.log(JSON.stringify({
+  checkpoint: 'C17-fixtures',
+  fingerprint,
+  driftPaths: drift.map((entry) => entry.split(':', 1)[0]),
+  redactedReport: true,
+  status: 'pass',
+}));
 
 function throws(operation: () => void): boolean {
   try {

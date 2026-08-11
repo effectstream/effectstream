@@ -37,6 +37,17 @@ services:
     ports:
       - "127.0.0.1:${MIDNIGHT_V2_DIAGNOSTIC_PORT:?Set a preflighted port above 10000}:3000"
 
+  live-read-tests:
+    <<: *hardened-service
+    profiles:
+      - live-read
+    build:
+      context: ../..
+      dockerfile: templates/midnight-stagenet-v2/Dockerfile
+      target: live-read-test
+    networks:
+      - toolchain
+
   node-image:
     profiles:
       - image-preflight

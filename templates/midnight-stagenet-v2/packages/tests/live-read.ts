@@ -1,7 +1,9 @@
 import {
   NETWORK,
   extractIndexerCapability,
+  findCompatibilityDrift,
   fingerprintIndexerCapability,
+  redactEndpoints,
   redactUrl,
   validateIndexerCapability,
   validateNodeObservation,
@@ -10,12 +12,29 @@ import {
 
 const timeoutMs = 15_000;
 
-const [node, indexerPayload, indexerWs, faucet] = await Promise.all([
+const [nodeProbe, indexerPayload, indexerWs, faucet, latestIndexerBlock] = await Promise.all([
   probeNode(),
   probeIndexerHttp(),
   probeIndexerWs(),
   probeFaucetOptions(),
+  probeIndexerBlock(),
 ]);
+const node = nodeProbe.observation;
+
+const [pinnedNodeHash, pinnedIndexerBlock] = await Promise.all([
+  probeNodeBlockHash(nodeProbe.latestBlockHeight),
+  probeIndexerBlock(latestIndexerBlock.height),
+]);
+if (pinnedNodeHash !== nodeProbe.latestBlockHash) {
+  throw new Error('Pinned node block hash differs from the observed latest header');
+}
+if (
+  pinnedIndexerBlock.height !== latestIndexerBlock.height ||
+  pinnedIndexerBlock.hash !== latestIndexerBlock.hash ||
+  pinnedIndexerBlock.protocolVersion !== 2_000_000
+) {
+  throw new Error('Pinned indexer block differs from the observed latest block');
+}
 
 validateNodeObservation(node);
 const indexer = extractIndexerCapability(indexerPayload);
@@ -23,37 +42,36 @@ validateIndexerCapability(indexer);
 const schemaFingerprint = fingerprintIndexerCapability(indexer);
 
 const lock = await Bun.file('/app/compatibility-lock.json').json();
-if (lock.networkId !== NETWORK.networkId) throw new Error('Compatibility lock network ID drifted');
-if (node.nodeVersion !== lock.hostedObservation.nodeVersion) {
-  throw new Error(
-    `Hosted node version drift: expected ${lock.hostedObservation.nodeVersion}, observed ${node.nodeVersion}`,
-  );
-}
-if (lock.hostedObservation.contractEventSchemaFingerprint !== schemaFingerprint) {
-  throw new Error(
-    `Contract-event schema drift: expected ${lock.hostedObservation.contractEventSchemaFingerprint}, observed ${schemaFingerprint}`,
-  );
-}
+const drift = findCompatibilityDrift(lock, {
+  networkId: NETWORK.networkId,
+  endpoints: NETWORK,
+  node,
+  contractEventSchemaFingerprint: schemaFingerprint,
+});
+if (drift.length > 0) throw new Error(`Hosted compatibility drift:\n${drift.join('\n')}`);
 
 console.log(
   JSON.stringify({
-    checkpoint: 'C02-live-read',
+    checkpoint: 'C17-live-read',
     networkId: NETWORK.networkId,
-    endpoints: {
-      node: redactUrl(NETWORK.nodeUrl),
-      indexerHttp: redactUrl(NETWORK.indexerHttpUrl),
-      indexerWs: redactUrl(NETWORK.indexerWsUrl),
-      faucet: redactUrl(NETWORK.faucetUrl),
-    },
+    endpoints: redactEndpoints(NETWORK),
     node,
     indexer: { schemaFingerprint, contractEventTypes: indexer.contractEventTypes },
+    blocks: {
+      node: { height: nodeProbe.latestBlockHeight, hash: nodeProbe.latestBlockHash, pinned: true },
+      indexer: { ...latestIndexerBlock, pinned: true },
+    },
     indexerWs,
     faucet,
     status: 'pass',
   }),
 );
 
-async function probeNode(): Promise<NodeObservation> {
+async function probeNode(): Promise<{
+  observation: NodeObservation;
+  latestBlockHeight: number;
+  latestBlockHash: string;
+}> {
   const socket = await openSocket(NETWORK.nodeUrl);
   try {
     const results = await rpcBatch(socket, [
@@ -61,23 +79,71 @@ async function probeNode(): Promise<NodeObservation> {
       'system_version',
       'state_getRuntimeVersion',
       'system_health',
+      'chain_getHeader',
     ]);
     const runtime = results.state_getRuntimeVersion as {
       specVersion: number;
       transactionVersion: number;
     };
     const health = results.system_health as { peers: number; isSyncing: boolean };
+    const header = results.chain_getHeader as { number: string; hash?: string };
+    const latestBlockHeight = Number.parseInt(header.number, 16);
+    if (!Number.isSafeInteger(latestBlockHeight) || latestBlockHeight < 1) {
+      throw new Error(`Node returned an invalid latest block height: ${header.number}`);
+    }
+    const latestBlockHash = await rpcCall(socket, 'chain_getBlockHash', [latestBlockHeight]);
     return {
-      chain: results.system_chain as string,
-      nodeVersion: results.system_version as string,
-      specVersion: runtime.specVersion,
-      transactionVersion: runtime.transactionVersion,
-      peers: health.peers,
-      isSyncing: health.isSyncing,
+      observation: {
+        chain: results.system_chain as string,
+        nodeVersion: results.system_version as string,
+        specVersion: runtime.specVersion,
+        transactionVersion: runtime.transactionVersion,
+        peers: health.peers,
+        isSyncing: health.isSyncing,
+      },
+      latestBlockHeight,
+      latestBlockHash: String(latestBlockHash),
     };
   } finally {
     socket.close();
   }
+}
+
+async function probeNodeBlockHash(height: number): Promise<string> {
+  const socket = await openSocket(NETWORK.nodeUrl);
+  try {
+    return String(await rpcCall(socket, 'chain_getBlockHash', [height]));
+  } finally {
+    socket.close();
+  }
+}
+
+async function probeIndexerBlock(height?: number): Promise<{
+  hash: string;
+  height: number;
+  protocolVersion: number;
+}> {
+  const offset = height === undefined ? '' : `(offset: { height: ${height} })`;
+  const response = await fetch(NETWORK.indexerHttpUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      query: `query C17BlockProbe { block${offset} { hash height protocolVersion } }`,
+    }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const payload = await response.json() as {
+    data?: { block?: { hash?: string; height?: number; protocolVersion?: number } };
+    errors?: unknown[];
+  };
+  const block = payload.data?.block;
+  if (
+    !response.ok || payload.errors?.length || typeof block?.hash !== 'string' ||
+    !Number.isSafeInteger(block.height) || !Number.isSafeInteger(block.protocolVersion)
+  ) {
+    throw new Error(`Indexer ${height === undefined ? 'latest' : 'pinned'} block probe failed`);
+  }
+  return block as { hash: string; height: number; protocolVersion: number };
 }
 
 async function probeIndexerHttp(): Promise<unknown> {
@@ -181,5 +247,24 @@ async function rpcBatch(socket: WebSocket, methods: string[]): Promise<Record<st
       byId.set(id, method);
       socket.send(JSON.stringify({ jsonrpc: '2.0', id, method, params: [] }));
     });
+  });
+}
+
+async function rpcCall(socket: WebSocket, method: string, params: unknown[]): Promise<unknown> {
+  return await new Promise((resolve, reject) => {
+    const id = 10_001;
+    const timer = setTimeout(() => reject(new Error(`Node RPC ${method} timed out`)), timeoutMs);
+    socket.addEventListener('message', (event) => {
+      const response = JSON.parse(String(event.data)) as {
+        id?: number;
+        result?: unknown;
+        error?: { message?: string };
+      };
+      if (response.id !== id) return;
+      clearTimeout(timer);
+      if (response.error) reject(new Error(`Node RPC ${method} failed: ${response.error.message ?? 'unknown'}`));
+      else resolve(response.result);
+    });
+    socket.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
   });
 }

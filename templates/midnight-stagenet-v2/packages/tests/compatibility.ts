@@ -24,6 +24,13 @@ export type IndexerCapability = {
   contractAddressRequired: boolean;
 };
 
+export type LiveCompatibilityObservation = {
+  networkId: string;
+  endpoints: typeof NETWORK;
+  node: NodeObservation;
+  contractEventSchemaFingerprint: string;
+};
+
 const REQUIRED_EVENT_FIELDS = [
   'contractAddress',
   'id',
@@ -126,4 +133,43 @@ export function redactUrl(value: string): string {
   url.search = '';
   url.hash = '';
   return url.toString();
+}
+
+export function redactEndpoints(endpoints: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(endpoints).map(([name, value]) => [
+      name,
+      name === 'networkId' ? value : redactUrl(value),
+    ]),
+  );
+}
+
+export function findCompatibilityDrift(
+  lock: any,
+  observation: LiveCompatibilityObservation,
+): string[] {
+  const drift: string[] = [];
+  compare('networkId', lock.networkId, observation.networkId);
+  compare('node.chain', lock.hostedObservation.chain, observation.node.chain);
+  compare('node.nodeVersion', lock.hostedObservation.nodeVersion, observation.node.nodeVersion);
+  compare('node.specVersion', lock.hostedObservation.specVersion, observation.node.specVersion);
+  compare(
+    'node.transactionVersion',
+    lock.hostedObservation.transactionVersion,
+    observation.node.transactionVersion,
+  );
+  compare(
+    'indexer.contractEventSchemaFingerprint',
+    lock.hostedObservation.contractEventSchemaFingerprint,
+    observation.contractEventSchemaFingerprint,
+  );
+  for (const [name, value] of Object.entries(observation.endpoints)) {
+    const expected = name === 'networkId' ? lock.networkId : lock.endpoints[name];
+    compare(`endpoints.${name}`, expected, value);
+  }
+  return drift;
+
+  function compare(path: string, expected: unknown, actual: unknown): void {
+    if (expected !== actual) drift.push(`${path}: expected ${String(expected)}, observed ${String(actual)}`);
+  }
 }
