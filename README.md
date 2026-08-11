@@ -1,6 +1,7 @@
 # Effectstream
 
 A multi-chain Web3 engine for building multi-chain dApps, infrastructure and onchain games.
+This project integrates with the Midnight Network.
 
 [Home](https://effectstream.github.io/home/) · [Docs](https://effectstream.github.io/docs/) · [Blog](https://effectstream.github.io/docs/blog/)
 
