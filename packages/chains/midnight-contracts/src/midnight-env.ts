@@ -39,8 +39,8 @@ const undeployedNetworkConfig: NetworkConfig = {
 } as const;
 
 const deployedNetworkConfig = (networkId: NetworkId.NetworkId): NetworkConfig => ({
-    indexer: `https://indexer.${networkId}.midnight.network/api/v3/graphql`,
-    indexerWS: `wss://indexer.${networkId}.midnight.network/api/v3/graphql/ws`,
+    indexer: `https://indexer.${networkId}.midnight.network/api/v4/graphql`,
+    indexerWS: `wss://indexer.${networkId}.midnight.network/api/v4/graphql/ws`,
     node: `https://rpc.${networkId}.midnight.network`,
     proofServer: "http://127.0.0.1:6300",
     networkId,

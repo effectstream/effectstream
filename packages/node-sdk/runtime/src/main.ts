@@ -23,6 +23,8 @@ import {
 import { startMerge, startSync } from "@effectstream/sync";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import {
+  call,
+  ensure,
   type Operation,
   sleep,
   spawn,
@@ -68,6 +70,9 @@ export function* start(config: StartConfig): Operation<void> {
   const { syncInfo } = config;
 
   const dbConn = getConnection();
+  yield* ensure(function* () {
+    yield* call(() => dbConn.end());
+  });
 
   const syncProtocols = yield* startup(dbConn as any, // Client,
     syncInfo, config);
@@ -176,6 +181,7 @@ export function* start(config: StartConfig): Operation<void> {
         endpoint.blockNumber,
         endpoint.timestamp,
         getRangesForSyncProtocols(endpoint),
+        config.events !== false,
       );
       log.local(
         ComponentNames.EFFECTSTREAM_SYNC,
@@ -224,8 +230,9 @@ export function* start(config: StartConfig): Operation<void> {
       value.blockNumber,
       value.timestamp,
       contentBlocksForProtocol,
+      config.events !== false,
     );
-    for (const { event, payload } of blockAppEvents) {
+    for (const { event, payload } of config.events === false ? [] : blockAppEvents) {
       EventManager.Instance.sendMessage(event, payload as any).catch((err) => {
         log.local(
           ComponentNames.EFFECTSTREAM_RUNTIME,
@@ -279,7 +286,9 @@ function emitLatestBlocks(
   rollUpBlockHeight: number,
   rollUpBlockTimestamp: number,
   syncChains: Record<string, [number, number]>,
+  enabled = true,
 ): void {
+  if (!enabled) return;
   const logFailure = (topic: string) => (err: unknown) =>
     log.local(
       ComponentNames.EFFECTSTREAM_RUNTIME,

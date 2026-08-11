@@ -38,12 +38,13 @@ import {
   account_createAccount,
   account_linkAddress,
   account_unlinkAddress,
-} from "@effectstream/sm";
+} from "../../../delegate-wallet.ts";
 import { BuiltinGrammarPrefix } from "@effectstream/concise";
 
 import { effectstreamL2 } from "./effectstream-l2-abi.ts";
 import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
-import { type JsonObject, Primitive } from "@effectstream/sm";
+import { Primitive } from "../../Primitive.ts";
+import type { JsonObject } from "../../types.ts";
 import { Value } from "@sinclair/typebox/value";
 import type { CommandTuple } from "@effectstream/concise";
 import { PrimitiveTypeEVMEffectstreamL2 } from "../builtin.ts";
