@@ -18,6 +18,12 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
+import type { MidnightBlockClient } from "./block-client.ts";
+import { UmbraClient, type UmbraClientOptions } from "./UmbraClient.ts";
+import {
+  assertExactlyOneMidnightSource,
+  assertUmbraSourceNetworkAllowed,
+} from "@effectstream/config";
 import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
 import { decodeZswapEvent } from "./zswap-decoder.ts";
 import { decodeTokenMints } from "./mint-decoder.ts";
@@ -29,18 +35,19 @@ export class MidnightFetcher extends BaseDataFetcher<
   Page,
   RootPage
 > {
-  readonly client: MidnightClient;
+  /** The block source. Both clients return the same block shape, which is what leaves every
+   *  primitive mapping below — and every primitive class downstream — identical across the
+   *  migration. See `block-client.ts` for why this is an interface rather than a swapped concrete
+   *  type. */
+  readonly client: MidnightBlockClient;
   private readonly networkId?: string;
   constructor(
     readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
     const indexerHttp = config.syncProtocol.indexer;
-    if (!indexerHttp) {
-      throw new Error(
-        `Midnight sync protocol "${config.syncProtocol.name}" requires an indexer URL.`,
-      );
-    }
+    const umbra = (config.syncProtocol as { umbra?: Omit<UmbraClientOptions, "networkId"> }).umbra;
+    assertExactlyOneMidnightSource(config.syncProtocol.name, { indexer: indexerHttp, umbra });
     this.networkId = config.network?.networkId ??
       (config.network as any)?.id;
 
@@ -57,11 +64,26 @@ export class MidnightFetcher extends BaseDataFetcher<
       }
     }
 
-    this.client = new MidnightClient(
-      indexerHttp,
-      this.networkId,
-      requestTimeoutOf(config.syncProtocol),
-    );
+    if (umbra) {
+      // Both checks are at CONSTRUCTION so a bad config dies at startup naming the problem, rather
+      // than running against a feed that is empty or wrong for a reason nobody can see.
+      assertUmbraSourceNetworkAllowed(config.syncProtocol.name, this.networkId);
+      UmbraClient.assertPrimitivesSupported(
+        config.primitives.map((p) => p.primitive.type as string),
+      );
+      this.client = new UmbraClient({ ...umbra, networkId: this.networkId! });
+    } else {
+      this.client = new MidnightClient(
+        indexerHttp!,
+        this.networkId,
+        requestTimeoutOf(config.syncProtocol),
+      );
+    }
+  }
+
+  /** Releases the block source's resources (the UmbraDB pool); a no-op for the indexer client. */
+  async close(): Promise<void> {
+    await this.client.close?.();
   }
 
   @bound
@@ -273,9 +295,15 @@ export class MidnightFetcher extends BaseDataFetcher<
     return results;
   }
 
-  // Mirror of fetchUnshieldedSpends over `unshieldedCreatedOutputs` — every
-  // unshielded UTXO created in the block (regular AND system transactions).
-  // One state-machine input per created output.
+  // NOTIFICATION, not a data copy (owner decision, 2026-08-09): one state-machine input per
+  // transaction that created — or may have created — unshielded UTXOs. The created rows are NOT
+  // copied into the payload; they stay in the source of record and a consumer reads them on demand
+  // (`UmbraRead.getUnshieldedCreates(txHash)` for the UmbraDB source).
+  //
+  // "May have": a source that cannot fully derive a transaction's creates marks it
+  // (`umbraDecodeRefused`, e.g. a ClaimRewards transaction) instead of halting sync. The trigger
+  // fires either way, so nothing is silently dropped and the CONSUMER decides — which also keeps
+  // the trigger set identical to the indexer's at reward heights.
   @bound
   fetchUnshieldedCreates(
     height: number,
@@ -284,28 +312,22 @@ export class MidnightFetcher extends BaseDataFetcher<
   ): PrimitiveType[] {
     const results: PrimitiveType[] = [];
     for (const tx of block.block.transactions) {
-      for (const created of tx.unshieldedCreatedOutputs ?? []) {
-        results.push({
-          syncProtocol: {
-            name: primitiveEntry.syncProtocol,
-            blockNumber: height,
-            transactionHash: tx.hash,
-            contractAddress: "",
-          },
-          primitive: primitiveEntry.primitive.name,
-          output: {
-            payloadType: "midnight-unshielded-create",
-            payload: {
-              owner: created.owner,
-              intentHash: created.intentHash,
-              outputIndex: created.outputIndex,
-              value: created.value,
-              tokenType: created.tokenType,
-              txHash: tx.hash,
-            },
-          },
-        });
-      }
+      const hasCreates = (tx.unshieldedCreatedOutputs ?? []).length > 0;
+      const refused = (tx as { umbraDecodeRefused?: string }).umbraDecodeRefused !== undefined;
+      if (!hasCreates && !refused) continue;
+      results.push({
+        syncProtocol: {
+          name: primitiveEntry.syncProtocol,
+          blockNumber: height,
+          transactionHash: tx.hash,
+          contractAddress: "",
+        },
+        primitive: primitiveEntry.primitive.name,
+        output: {
+          payloadType: "midnight-unshielded-create",
+          payload: { txHash: tx.hash },
+        },
+      });
     }
     return results;
   }

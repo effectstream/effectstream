@@ -18,6 +18,7 @@ import {
   shieldedToken,
   UnprovenTransaction,
   ZswapSecretKeys,
+  UnshieldedOffer,
 } from "@midnight-ntwrk/ledger-v8";
 import {
   InMemoryTransactionHistoryStorage,
@@ -275,7 +276,24 @@ const sumUnshieldedBalances = (
   return Object.values(balances).reduce((acc, v) => acc + (v ?? 0n), 0n);
 };
 
-const resolveUnshieldedTokenId = async (
+/** Rebuild an `UnshieldedOffer` with a different output set. Its constructor is private, so the
+ *  static `new(inputs, outputs, signatures)` is the only route. Exported here because this module
+ *  is the one place under `e2e/` that resolves `@midnight-ntwrk/ledger-v8`. */
+export const makeUnshieldedOffer = (
+  inputs: unknown[],
+  outputs: unknown[],
+  signatures: unknown[],
+): unknown => (UnshieldedOffer as any).new(inputs, outputs, signatures);
+
+/** Decode a bech32m unshielded address into the form `transferTransaction` expects. Exported so
+ *  corpus generators do not each need their own dependency on the address-format package. */
+export const decodeUnshieldedAddress = (
+  bech32Address: string,
+  networkId: NetworkId.NetworkId,
+): UnshieldedAddress =>
+  MidnightBech32m.parse(bech32Address).decode(UnshieldedAddress, networkId);
+
+export const resolveUnshieldedTokenId = async (
   wallet: WalletFacade,
 ): Promise<string> => {
   const state = await Rx.firstValueFrom(wallet.state());

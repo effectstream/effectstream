@@ -22,22 +22,25 @@ import { midnightUnshieldedCreateGrammar } from "./midnight-unshielded-create-gr
 /**
  * MidnightUnshieldedCreatePrimitive
  *
- * Watches all unshielded UTXO *creation* events on the Midnight ledger — the
- * mirror of MidnightUnshieldedSpendPrimitive. The indexer's GraphQL
- * `transactions.unshieldedCreatedOutputs` field reports the
- * `(owner, intentHash, outputIndex)` triple for each unshielded UTXO created
- * in a block (by regular AND system transactions — rewards/bridge mint
- * unshielded UTXOs). One state-machine input is emitted per created output.
+ * Notifies the state machine when a transaction creates (or may create) unshielded UTXOs on the
+ * Midnight ledger — one input per such transaction, carrying only `{ txHash }`.
  *
- * Lets a node maintain a persistent set of UTXOs that have actually been
- * created on chain, so an offer referencing a never-created unshielded UTXO
- * can be rejected (existence check).
+ * BREAKING (owner decision, 2026-08-09): this primitive no longer copies the created rows into its
+ * payload. The rows live in the source of record (an UmbraDB chain archive); a state-transition
+ * function that needs them reads on demand:
  *
- * Usage:
  *   stm.addStateTransition("myPrefix", function* (data) {
- *     const { payload } = data.parsedInput;
- *     // payload = { owner, intentHash, outputIndex, txHash }
+ *     const { txHash } = data.parsedInput.payload;
+ *     const outcome = yield* World.promise(umbraRead.getUnshieldedCreates(txHash));
+ *     // outcome.ok -> outcome.outputs: { owner, intentHash, outputIndex, value, tokenType }[]
+ *     // !outcome.ok -> outcome.refusal names why the rows cannot be derived (e.g. a ClaimRewards
+ *     //                transaction, whose UTXO needs ledger-internal reconstruction) — the
+ *     //                consumer decides, instead of the sync layer halting.
  *   });
+ *
+ * The trigger invariant is unchanged: the state machine fires exactly when data exists at a block
+ * height. What moved is WHERE the data is read — from a copy in every STM input to the archive
+ * itself, so exactly one copy of the data exists.
  */
 export class MidnightUnshieldedCreatePrimitive extends Primitive<
   ConfigSyncProtocolType.MIDNIGHT_PARALLEL,

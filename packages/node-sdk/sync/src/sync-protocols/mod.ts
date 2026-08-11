@@ -3,6 +3,7 @@ export * from "./evm/state.ts";
 
 export * from "./midnight/fetcher.ts";
 export * from "./midnight/state.ts";
+export * from "./midnight/umbra-read.ts";
 
 export * from "./avail/fetcher.ts";
 export * from "./avail/state.ts";

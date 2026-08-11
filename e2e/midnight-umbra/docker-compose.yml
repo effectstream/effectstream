@@ -1,0 +1,161 @@
+# The reviewer-runnable demo stack: Midnight node + indexer + proof server + Postgres, with a
+# STOCK UmbraDB archive that effectstream reads instead of the indexer.
+#
+# ── What this proves, and what it does not ────────────────────────────────────────────────────
+# It proves effectstream can be driven by UmbraDB with the state machine firing at identical
+# heights. It does NOT prove indexer independence: the indexer is still what FILLS the archive
+# here (that is a separate, parallel workstream), and it is also the differential's oracle.
+#
+# ── Stock UmbraDB, deliberately ───────────────────────────────────────────────────────────────
+# `umbra-ingest` mounts an UNMODIFIED UmbraDB checkout (`UMBRADB_PATH`, default a sibling
+# `UmbraDB` clone at its `main`) and runs that repo's OWN sync CLI. No branch, no migration, no
+# patched dependency: only migrations 000+001 are applied, and `transactions.result` is never
+# populated -- which is exactly the constraint the reader is designed against.
+#
+# ── No host ports ─────────────────────────────────────────────────────────────────────────────
+# Nothing publishes to the host; services sit on canonical ports inside the compose network. So
+# several stacks coexist on one machine as long as each uses its own project name
+# (`docker compose -p <name>`). This matters: the older `e2e/midnight` suite binds FIXED host
+# ports, so two people running it concurrently silently test against each other's chain.
+#
+# ── Disposable by design ──────────────────────────────────────────────────────────────────────
+# Do not treat a running stack as precious. Fresh chains are cheap AND faster: every workload
+# trigger syncs a wallet from genesis, so cost grows with chain length. `run-demo.ts` bootstraps
+# everything from nothing.
+#
+#   docker compose -p mn-demo -f e2e/midnight-umbra/docker-compose.yml up -d node indexer proof-server postgres umbra-ingest
+#   docker compose -p mn-demo -f e2e/midnight-umbra/docker-compose.yml run --rm demo
+
+name: midnight-umbra-demo
+
+services:
+  # `--state-pruning archive` is required, not tidy: UmbraDB reads state at each block's own hash.
+  node:
+    restart: unless-stopped
+    image: 'midnightntwrk/midnight-node:${NODE_TAG:-1.0.0}'
+    command:
+      - '--dev'
+      - '--rpc-port=9944'
+      - '--port=30333'
+      - '--state-pruning=archive'
+      - '--blocks-pruning=archive'
+      - '--rpc-external'
+      - '--rpc-cors=all'
+    environment:
+      CFG_PRESET: 'dev'
+      SIDECHAIN_BLOCK_BENEFICIARY: '04bcf7ad3be7a5c790460be82a713af570f22e0f801f6659ab8e84a52be6969e'
+    healthcheck:
+      test:
+        - 'CMD-SHELL'
+        - >
+          curl -fs -H 'Content-Type: application/json' -d
+          '{"id":1,"jsonrpc":"2.0","method":"chain_getBlockHash","params":[1]}' http://localhost:9944 | grep -q
+          '"result":"0x'
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  # Kept for two reasons: it FILLS the stock archive (stock UmbraDB ingest requires an indexer),
+  # and it is the differential's ORACLE. Its presence is what makes the comparison falsifiable.
+  indexer:
+    restart: unless-stopped
+    image: 'midnightntwrk/indexer-standalone:${INDEXER_TAG:-4.3.2}'
+    environment:
+      RUST_LOG: 'indexer=info,chain_indexer=info,indexer_api=info,wallet_indexer=info,indexer_common=info,fastrace_opentelemetry=off,info'
+      APP__APPLICATION__NETWORK_ID: 'undeployed'
+      APP__INFRA__NODE__URL: 'ws://node:9944'
+      APP__INFRA__STORAGE__PASSWORD: 'indexer'
+      APP__INFRA__PUB_SUB__PASSWORD: 'indexer'
+      APP__INFRA__LEDGER_STATE_STORAGE__PASSWORD: 'indexer'
+      APP__INFRA__SECRET: '303132333435363738393031323334353637383930313233343536373839303132'
+      APP__INFRA__SPO_NODE__URL: 'ws://node:9944'
+      APP__INFRA__SPO_NODE__BLOCKFROST_ID: 'midnight-umbra-demo-dummy-id'
+    healthcheck:
+      # image has neither curl nor wget -- probe the file the indexer writes when running
+      test: ['CMD-SHELL', 'cat /var/run/indexer-standalone/running']
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 60s
+    depends_on:
+      node:
+        condition: service_healthy
+
+  proof-server:
+    restart: unless-stopped
+    image: 'midnightntwrk/proof-server:${PROOF_TAG:-8.1.0}'
+    environment:
+      RUST_BACKTRACE: 'full'
+      EXTRA_ARGS: '-v'
+    # distroless: no shell, so no healthcheck -- consumers retry on the port
+
+  # REAL Postgres, not PGlite: UmbraDB's durability probe refuses to migrate unless fsync and
+  # full_page_writes are on, and the archive schema uses range partitioning and plpgsql triggers.
+  postgres:
+    restart: unless-stopped
+    image: 'postgres:17'
+    environment:
+      POSTGRES_USER: 'umbra'
+      POSTGRES_PASSWORD: 'umbra'
+      POSTGRES_DB: 'umbra'
+    command: ['postgres', '-c', 'fsync=on', '-c', 'full_page_writes=on', '-c', 'synchronous_commit=on']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U umbra -d umbra']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # Stock UmbraDB's OWN ingest CLI. INDEXER_URL is set explicitly because stock defaults to the
+  # hosted v4 endpoint while this indexer serves v3 locally.
+  umbra-ingest:
+    # A long-running SERVICE, not a one-shot: it follows the chain tip for as long as the stack is
+    # up, so `demo` only has to wait for the watermark to catch up. Bring it up WITH the stack.
+    restart: unless-stopped
+    image: 'node:${NODE_IMAGE_TAG:-24-bookworm}'
+    working_dir: /umbra
+    volumes:
+      - '${UMBRADB_PATH:-../../../UmbraDB}:/umbra'
+    environment:
+      ARCHIVE_PG: 'postgres://umbra:umbra@postgres:5432/umbra'
+      ARCHIVE_SCHEMA: '${UMBRA_SCHEMA:-chain_archive}'
+      NET: '${UMBRA_NET:-undeployed}'
+      NODE_URL: 'http://node:9944'
+      INDEXER_URL: 'http://indexer:8088/api/v3/graphql'
+      MAX_BLOCKS: '${UMBRA_MAX_BLOCKS:-200}'
+    command: ['npx', 'tsx', 'chain-archive-sync/sync-cli.ts']
+    depends_on:
+      node:
+        condition: service_healthy
+      indexer:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # THE deliverable: one command that bootstraps a corpus, ingests it with stock UmbraDB, and
+  # runs the differential. The reviewer recipe and our own test path are the SAME artifact.
+  demo:
+    image: 'oven/bun:${BUN_TAG:-1}'
+    working_dir: /repo
+    volumes:
+      - '../..:/repo'
+      - '${UMBRADB_PATH:-../../../UmbraDB}:/umbra:ro'
+    environment:
+      MIDNIGHT_INDEXER_HTTP: 'http://indexer:8088/api/v3/graphql'
+      MIDNIGHT_INDEXER_WS: 'ws://indexer:8088/api/v3/graphql/ws'
+      MIDNIGHT_NODE_HTTP: 'http://node:9944'
+      MIDNIGHT_PROOF_SERVER_URL: 'http://proof-server:6300'
+      MIDNIGHT_NETWORK_ID: 'undeployed'
+      UMBRA_PG: 'postgres://umbra:umbra@postgres:5432/umbra'
+      UMBRA_SCHEMA: '${UMBRA_SCHEMA:-chain_archive}'
+      UMBRA_NET: '${UMBRA_NET:-undeployed}'
+    command: ['bun', 'e2e/midnight-umbra/run-demo.ts']
+    depends_on:
+      indexer:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      # Without this the demo waits on a watermark nobody is advancing -- the failure mode the
+      # first cold-boot run actually hit.
+      umbra-ingest:
+        condition: service_started
