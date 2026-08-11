@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { ContractLog } from '@midnight-ntwrk/midnight-js-protocol/compact-js';
@@ -142,6 +142,38 @@ try {
     result.public.txHash,
     result.public.blockHeight,
   );
+
+  const hermeticResultFile = process.env.MIDNIGHT_V2_E2E_RESULT_FILE;
+  if (hermeticResultFile) {
+    const indexedEvent = indexedEvents[0];
+    writeFileSync(hermeticResultFile, JSON.stringify({
+      startBlockHeight: deployedSink.deployTxData.public.blockHeight,
+      sinkAddress,
+      gatewayAddress,
+      expectedDigest,
+      call: {
+        transactionHash: normalizeAddress(result.public.txHash),
+        blockHash: normalizeAddress(result.public.blockHash),
+        blockHeight: result.public.blockHeight,
+        addresses: callAddresses,
+      },
+      localEvent: {
+        eventType: localEvents[0].eventType,
+        degraded: localEvents[0].degraded,
+        contractAddress: normalizeAddress(localEvents[0].address),
+      },
+      indexedEvent: {
+        id: indexedEvent.id,
+        maxId: indexedEvent.maxId,
+        version: indexedEvent.version,
+        protocolVersion: indexedEvent.protocolVersion,
+        contractAddress: normalizeAddress(indexedEvent.contractAddress),
+        transactionId: indexedEvent.transactionId,
+        eventType: indexedEvent.eventType,
+        raw: indexedEvent.raw,
+      },
+    }));
+  }
 
   console.log(JSON.stringify({
     checkpoint: 'C12',

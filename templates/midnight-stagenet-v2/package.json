@@ -9,7 +9,7 @@
     "packages/chains/*"
   ],
   "scripts": {
-    "test": "bun run test:scaffold",
+    "test": "bun run test:hermetic",
     "test:scaffold": "bun run packages/tests/scaffold-test.ts",
     "test:compatibility:fixtures": "bun run packages/tests/compatibility-fixtures.test.ts",
     "test:live:read": "bun run packages/tests/live-read.ts",
@@ -26,7 +26,8 @@
     "test:ccc-e2e": "node packages/tests/ccc-e2e.mjs",
     "test:midnight-event-decoder": "bun test packages/node-sdk/sync/test/midnight-event-decoder.test.ts",
     "test:midnight-contract-event-primitive": "bun test packages/node-sdk/sync/test/midnight-contract-event-primitive.test.ts packages/node-sdk/sync/test/midnight-event-decoder.test.ts packages/node-sdk/sync/test/zswap-decoder.test.ts packages/node-sdk/sync/test/mint-decoder.test.ts packages/node-sdk/sm/primitives/src/midnight-token-mint/midnight-token-mint.test.ts",
-    "test:state-machine": "bun test packages/tests/state-machine.test.ts"
+    "test:state-machine": "bun test packages/tests/state-machine.test.ts",
+    "test:hermetic": "node packages/tests/hermetic-runner.mjs"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0",

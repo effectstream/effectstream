@@ -353,6 +353,21 @@ COPY --from=context-audit /context/e2e ./e2e
 
 RUN bun install --frozen-lockfile --ignore-scripts
 
+FROM ccc-e2e-test AS hermetic-e2e-test
+
+USER root
+
+COPY --from=shared-test-dependencies /app /effectstream
+COPY --from=midnight-dependencies /app/node_modules/.bun/@electric-sql+pglite@0.3.16/node_modules/@electric-sql/pglite /effectstream/node_modules/@electric-sql/pglite
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/node /effectstream/template/packages/node
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/network-config /effectstream/template/packages/network-config
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/hermetic-application-pass.ts /effectstream/packages/node-sdk/sync/test/hermetic-application-pass.ts
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/hermetic-runner.mjs ./packages/tests/hermetic-runner.mjs
+
+USER node
+
+CMD ["bun", "run", "test:hermetic"]
+
 FROM shared-test-dependencies AS midnight-contract-event-primitive-test
 
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/package.json ./package.json
