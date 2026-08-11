@@ -6,7 +6,9 @@
  *   docker compose -p mn-demo -f e2e/midnight-umbra/docker-compose.yml run --rm demo
  *
  * Four stages, in order, each failing loudly rather than degrading:
- *   1. WORKLOAD  — drive transactions that create unshielded UTXOs. Swap FIRST: fees are paid in
+ *   1. WORKLOAD  — drive transactions that create unshielded UTXOs in BOTH intent sections
+ *      (fallible via the wallet's ordinary transfer, guaranteed via a constructed transaction).
+ *      Swap FIRST: fees are paid in
  *      dust, genesis dust depletes faster than it regenerates, and a swap submitted with
  *      dustBalance=0 is rejected by the node (error 168). Getting this order wrong silently costs
  *      the fallible-section corpus.
@@ -56,10 +58,21 @@ async function archiveWatermark(): Promise<number> {
 
 // ── 1. workload ────────────────────────────────────────────────────────────────────────────────
 step(1, "Drive a corpus of unshielded-UTXO-creating transactions");
+// BOTH sections, deliberately. `decodeUnshieldedCreates` branches on them -- guaranteed outputs
+// hash with `intentHash(0)`, fallible with `intentHash(<segment>)` -- and the wallet's ordinary
+// transfer path only ever produces the FALLIBLE shape. A corpus of one section leaves the other
+// branch untested, which is exactly how an earlier decoder bug survived.
 const workload = await sh("bun", ["e2e/midnight-umbra/drive-unshielded-workload.ts"]);
 if (workload !== 0) {
   console.error("\nFAIL: no workload transaction landed. The differential would compare an empty " +
     "corpus and pass while proving nothing, so this is fatal rather than a warning.");
+  process.exit(1);
+}
+// Guaranteed-section outputs cannot be obtained by waiting; they are constructed.
+const guaranteed = await sh("bun", ["e2e/midnight-umbra/drive-guaranteed-creates.ts"]);
+if (guaranteed !== 0) {
+  console.error("\nFAIL: no guaranteed-section transaction landed. The differential's " +
+    "both-sections requirement cannot be met, so the guaranteed decode branch would go untested.");
   process.exit(1);
 }
 

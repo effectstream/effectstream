@@ -36,6 +36,15 @@ export interface DecodedUnshieldedCreate {
   value: string;
   /** Hex token type. */
   tokenType: string;
+  /**
+   * Which section of the intent produced this output.
+   *
+   * Reported because it selects the `intentHash` rule — guaranteed uses `intentHash(0)`, fallible
+   * uses `intentHash(<that intent's segment>)` — so it is the one field that tells a test WHICH
+   * decode branch a row exercised. The indexer does not expose it; deriving it after the fact means
+   * re-decoding the transaction, which is how it ends up unchecked.
+   */
+  section: "guaranteed" | "fallible";
 }
 
 /**
@@ -147,6 +156,7 @@ export function decodeUnshieldedCreates(
         outputIndex: outputIndex++,
         value: String(out.value),
         tokenType: String(out.type),
+        section: "guaranteed",
       });
     }
   }
@@ -165,6 +175,7 @@ export function decodeUnshieldedCreates(
         outputIndex: outputIndex++,
         value: String(out.value),
         tokenType: String(out.type),
+        section: "fallible",
       });
     }
   }

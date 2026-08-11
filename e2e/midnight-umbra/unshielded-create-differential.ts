@@ -95,6 +95,11 @@ const reader = new UmbraRead({
   unsafeAllowIncompleteEffects: true,
 });
 let exact = 0, typedRefusals = 0, rowsCompared = 0;
+// Which decode BRANCH each compared transaction exercised. `decodeUnshieldedCreates` hashes
+// guaranteed outputs with `intentHash(0)` and fallible outputs with `intentHash(<segment>)`, so a
+// corpus covering only one section leaves the other branch untested -- the exact condition under
+// which an earlier decoder bug survived. Counted here so §3c can refuse to pass on it.
+let guaranteedRows = 0, fallibleRows = 0;
 for (const fired of firedUmbra) {
   const [hStr, txHash] = fired.split("|");
   const d = await gql(
@@ -113,10 +118,18 @@ for (const fired of firedUmbra) {
     `${x.owner}|${x.intentHash}|${x.outputIndex}|${x.value}|${String(x.tokenType).toLowerCase()}`;
   const a = want.map(key).sort().join("\n");
   const b = outcome.outputs.map(key).sort().join("\n");
-  if (a === b) { exact++; rowsCompared += outcome.outputs.length; }
+  if (a === b) {
+    exact++;
+    rowsCompared += outcome.outputs.length;
+    // The decoder reports which section each row came from, so no re-decode is needed here.
+    for (const o of outcome.outputs) {
+      if (o.section === "guaranteed") guaranteedRows++; else fallibleRows++;
+    }
+  }
   else failures.push(`read ${txHash}: rows differ\n    indexer(${want.length}): ${a}\n    umbra(${outcome.outputs.length}): ${b}`);
 }
 console.log(`[reads] exact=${exact} typedClaimRewardsRefusals=${typedRefusals} rowsCompared=${rowsCompared}`);
+console.log(`[sections] guaranteed=${guaranteedRows} fallible=${fallibleRows}`);
 
 // (3a) Vacuity guards. A green run over a corpus that exercises nothing proves nothing, and this
 // suite has already caught exactly that once.
@@ -127,6 +140,28 @@ if (rowsCompared === 0) {
   failures.push(
     "no trigger produced comparable ROWS (all were refusals or empty) — trigger equality alone " +
     "would pass while the decode path went entirely untested. Drive an unshielded workload.");
+}
+
+// (3c) CORPUS STRENGTH. The guards above catch an EMPTY corpus; this one catches a corpus that is
+// merely too thin or one-sided to mean anything. Both decode branches must be exercised, because
+// each has a plausible wrong answer that produces wrong intent hashes rather than a crash -- and
+// this project has already shipped one such bug, which survived precisely because the corpus only
+// covered the other branch.
+const MIN_ROWS = 4;
+if (rowsCompared > 0 && rowsCompared < MIN_ROWS) {
+  failures.push(
+    `only ${rowsCompared} row(s) compared (min ${MIN_ROWS}) — too thin to be evidence. Drive more ` +
+    `workload rounds.`);
+}
+if (rowsCompared > 0 && guaranteedRows === 0) {
+  failures.push(
+    "no GUARANTEED-section rows in the corpus — the `intentHash(0)` branch went untested. Run " +
+    "drive-guaranteed-creates.ts.");
+}
+if (rowsCompared > 0 && fallibleRows === 0) {
+  failures.push(
+    "no FALLIBLE-section rows in the corpus — the `intentHash(<segment>)` branch went untested. " +
+    "Run drive-unshielded-workload.ts.");
 }
 
 // (3b) Negative control: a differential that cannot fail proves nothing. Corrupt one archived
@@ -182,7 +217,9 @@ console.log("");
 if (failures.length === 0) {
   console.log(
     `PASS — triggers identical across ${heights.length} blocks (${firedIndexer.length} fired), ` +
-    `${exact} read(s) row-exact over ${rowsCompared} row(s), ${typedRefusals} typed ClaimRewards refusal(s)`);
+    `${exact} read(s) row-exact over ${rowsCompared} row(s) ` +
+    `(guaranteed=${guaranteedRows}, fallible=${fallibleRows} — both decode branches exercised), ` +
+    `${typedRefusals} typed ClaimRewards refusal(s)`);
   process.exit(0);
 }
 console.error(`FAIL (${failures.length}):`);

@@ -275,7 +275,15 @@ const sumUnshieldedBalances = (
   return Object.values(balances).reduce((acc, v) => acc + (v ?? 0n), 0n);
 };
 
-const resolveUnshieldedTokenId = async (
+/** Decode a bech32m unshielded address into the form `transferTransaction` expects. Exported so
+ *  corpus generators do not each need their own dependency on the address-format package. */
+export const decodeUnshieldedAddress = (
+  bech32Address: string,
+  networkId: NetworkId.NetworkId,
+): UnshieldedAddress =>
+  MidnightBech32m.parse(bech32Address).decode(UnshieldedAddress, networkId);
+
+export const resolveUnshieldedTokenId = async (
   wallet: WalletFacade,
 ): Promise<string> => {
   const state = await Rx.firstValueFrom(wallet.state());
