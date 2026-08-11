@@ -129,6 +129,11 @@ export type ConfirmationLevel =
  * the running server actually reads.
  */
 export interface RateLimitConfig {
+  /**
+   * Maximum requests per source IP before signature verification. Defaults to
+   * the effective `globalMaxRequests` value.
+   */
+  preAuthMaxRequests?: number;
   /** Maximum authenticated requests per identity bucket. Default: 1000 */
   maxRequests: number;
   /**
@@ -149,6 +154,7 @@ const RateLimitConfigSchema = Type.Object({
   // server-side fallback, so two different sets of numbers here would mean the
   // effective limit depended on whether the key was absent or half-filled.
   maxRequests: Type.Integer({ minimum: 1, default: 1000 }),
+  preAuthMaxRequests: Type.Optional(Type.Integer({ minimum: 1 })),
   globalMaxRequests: Type.Optional(Type.Integer({ minimum: 1 })),
   windowMs: Type.Integer({ minimum: 1000, default: 86400000 }),
   store: Type.Optional(Type.Any()),
@@ -208,6 +214,7 @@ export const DEFAULT_CONFIG_VALUES = {
   maxRetries: 3,
   retryDelayMs: 1000,
   rateLimit: {
+    preAuthMaxRequests: 1000,
     maxRequests: 1000,
     globalMaxRequests: 1000,
     windowMs: 86400000,
@@ -360,6 +367,15 @@ export function validateBatcherConfig<
       config.rateLimit.maxRequests < 1
     ) {
       throw new Error("rateLimit.maxRequests must be a positive integer");
+    }
+    if (
+      config.rateLimit.preAuthMaxRequests !== undefined &&
+      (!Number.isInteger(config.rateLimit.preAuthMaxRequests) ||
+        config.rateLimit.preAuthMaxRequests < 1)
+    ) {
+      throw new Error(
+        "rateLimit.preAuthMaxRequests must be a positive integer",
+      );
     }
     if (
       config.rateLimit.globalMaxRequests !== undefined &&

@@ -61,7 +61,7 @@ test("validateBatchingCriteria - invalid hybrid criteria", () => {
     ).toThrow("maxBatchSize is required");
 });
 
-test("partial rate-limit config receives the canonical window default", () => {
+test("partial rate-limit config receives canonical defaults and fallbacks", () => {
   const config = applyBatcherConfigDefaults({
     pollingIntervalMs: 1000,
     rateLimit: { maxRequests: 25 } as any,
@@ -75,6 +75,12 @@ test("partial rate-limit config receives the canonical window default", () => {
   expect(
     config.rateLimit!.globalMaxRequests ?? config.rateLimit!.maxRequests,
   ).toBe(25);
+  // `preAuthMaxRequests` follows the effective global ceiling when omitted.
+  expect(
+    config.rateLimit!.preAuthMaxRequests ??
+      config.rateLimit!.globalMaxRequests ??
+      config.rateLimit!.maxRequests,
+  ).toBe(25);
 });
 
 test("rate-limit counts must be positive integers", () => {
@@ -87,6 +93,17 @@ test("rate-limit counts must be positive integers", () => {
       },
     })
   ).toThrow("rateLimit.maxRequests must be a positive integer");
+
+  expect(() =>
+    validateBatcherConfig({
+      pollingIntervalMs: 1000,
+      rateLimit: {
+        maxRequests: 10,
+        preAuthMaxRequests: 0,
+        windowMs: 60_000,
+      },
+    })
+  ).toThrow("rateLimit.preAuthMaxRequests must be a positive integer");
 
   expect(() =>
     validateBatcherConfig({

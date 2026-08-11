@@ -82,13 +82,13 @@ const config: BatcherConfig = {
    * day. At the two-signature minimum, 100000 accepted transactions cost at
    * least 1 SOL of base fees.
    *
-   * Keying is per IP, which is the SDK default. That means everyone behind one
-   * NAT, which is most shared networks, draws down a single shared bucket. The
-   * pinned SDK treats this as a per-IP quota, not a target-global funding cap.
-   * The next SDK adds an atomic `globalMaxRequests` target ceiling plus an
-   * authenticated `rateLimitKeyStrategy: "ip-and-address"` wallet allowance.
-   * After bumping, set both explicitly; `LINK_LOCAL=1` exercises that behavior
-   * against a monorepo checkout before the release exists.
+   * Keying is per IP, which is the adapter default. The published SDK's legacy
+   * limiter applies this before signature verification and does not provide a
+   * target-global sponsor cap. `LINK_LOCAL=1` exercises the monorepo's layered
+   * limiter: a pre-authentication IP ceiling followed by atomic authenticated
+   * identity and target-global buckets. The startup summary below detects and
+   * reports which capability is actually present instead of inferring it from
+   * a package version.
    *
    * `InMemoryRateLimitStore` is per process, so counts reset on restart and are
    * not shared across replicas. Pass a `store` backed by Redis or Postgres for
@@ -107,13 +107,21 @@ const config: BatcherConfig = {
 const storage = new FileStorage("./batcher-data");
 const batcher = createNewBatcher(config, storage);
 const effectiveRateLimit = batcher.config.rateLimit!;
-const atomicGlobalLimit = typeof (
+const supportsLayeredRateLimits = typeof (
   effectiveRateLimit.store as { consume?: unknown } | undefined
 )?.consume === "function";
 const effectiveGlobalMaxRequests =
   (effectiveRateLimit as typeof effectiveRateLimit & {
     globalMaxRequests?: number;
   }).globalMaxRequests ?? effectiveRateLimit.maxRequests;
+const effectivePreAuthMaxRequests =
+  (effectiveRateLimit as typeof effectiveRateLimit & {
+    preAuthMaxRequests?: number;
+  }).preAuthMaxRequests ?? effectiveGlobalMaxRequests;
+const effectiveRateLimitStrategy =
+  (solana as typeof solana & {
+    getRateLimitKeyStrategy?: () => string;
+  }).getRateLimitKeyStrategy?.() ?? "ip";
 
 main(function* () {
   console.log("Starting Solana starter batcher...");
@@ -126,10 +134,11 @@ main(function* () {
   console.log(
     `  ${formatRateLimitSummary({
       maxRequests: effectiveRateLimit.maxRequests,
+      preAuthMaxRequests: effectivePreAuthMaxRequests,
       globalMaxRequests: effectiveGlobalMaxRequests,
       windowMs: effectiveRateLimit.windowMs,
-      strategy: "ip",
-      supportsAtomicGlobalLimit: atomicGlobalLimit,
+      strategy: effectiveRateLimitStrategy,
+      supportsLayeredRateLimits,
     })}`,
   );
 

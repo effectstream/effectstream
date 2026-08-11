@@ -1,6 +1,9 @@
 import { test, expect } from "bun:test";
 import { InMemoryRateLimitStore, RateLimiter } from "./rate-limiter.ts";
-import { buildRateLimitBuckets } from "../server/batcher-server.ts";
+import {
+  buildPreAuthRateLimitBuckets,
+  buildRateLimitBuckets,
+} from "../server/batcher-server.ts";
 import { DEFAULT_CONFIG_VALUES } from "./config.ts";
 
 // --- InMemoryRateLimitStore tests ---
@@ -112,6 +115,13 @@ test("RateLimiter - does not record hits when rate limited", async () => {
 });
 
 // --- buildRateLimitBuckets: which authenticated quotas are consumed ---
+
+test("buildPreAuthRateLimitBuckets uses only the encoded source IP", () => {
+  expect(buildPreAuthRateLimitBuckets("2001:db8::1", 50)).toEqual([{
+    key: "pre-auth:ip:2001%3Adb8%3A%3A1",
+    maxRequests: 50,
+  }]);
+});
 
 test("buildRateLimitBuckets - ip strategy includes target-global and IP buckets", () => {
   expect(
@@ -277,6 +287,31 @@ test("atomic consume admits only one concurrent request at a limit of one", asyn
   expect(results.filter((result) => !result.allowed)).toHaveLength(49);
 });
 
+test("concurrent IPs and wallets cannot overshoot the target-global cap", async () => {
+  const store = new InMemoryRateLimitStore();
+  const limiter = new RateLimiter(store, 100, 60000);
+  const results = await Promise.all(
+    Array.from({ length: 50 }, (_, index) =>
+      limiter.checkBuckets(
+        buildRateLimitBuckets(
+          "ip-and-address",
+          "solana",
+          `192.0.2.${index + 1}`,
+          `wallet-${index + 1}`,
+          100,
+          1,
+        ),
+      )),
+  );
+  expect(results.filter((result) => result.allowed)).toHaveLength(1);
+  expect(results.filter((result) => !result.allowed)).toHaveLength(49);
+  expect(
+    results.filter((result) => !result.allowed).every((result) =>
+      result.limitedKey === "target:solana:global"
+    ),
+  ).toBe(true);
+});
+
 test("omitting rateLimit does not disable rate limiting", () => {
   // The server falls back to these when config.rateLimit is absent. A future
   // change to "no config means unlimited" would be a silent spend regression
@@ -284,6 +319,7 @@ test("omitting rateLimit does not disable rate limiting", () => {
   expect(DEFAULT_CONFIG_VALUES.rateLimit.maxRequests).toBeGreaterThan(0);
   expect(DEFAULT_CONFIG_VALUES.rateLimit.windowMs).toBeGreaterThan(0);
   expect(DEFAULT_CONFIG_VALUES.rateLimit).toEqual({
+    preAuthMaxRequests: 1000,
     maxRequests: 1000,
     globalMaxRequests: 1000,
     windowMs: 86400000,

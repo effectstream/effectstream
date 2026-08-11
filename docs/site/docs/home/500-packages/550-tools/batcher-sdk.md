@@ -119,6 +119,11 @@ Per-adapter, you choose how `runBatcher` decides to submit:
 
 ### Rate limiting
 
+> **Breaking change for custom stores:** `RateLimitStore` now requires the
+> atomic `consume(buckets, nowMs, windowMs)` operation. Implementations of the
+> former split `count`/`hit` contract are incompatible and must be migrated
+> before upgrading.
+
 `POST /send-input` is rate limited. Configure it with the optional `rateLimit`
 block:
 
@@ -126,6 +131,7 @@ block:
 const config: BatcherConfig = {
   // …
   rateLimit: {
+    preAuthMaxRequests: 1000, // all requests per source IP before verification
     maxRequests: 100,     // authenticated requests per identity
     globalMaxRequests: 1000, // total authenticated requests for this target
     windowMs: 86_400_000, // window size in ms
@@ -134,12 +140,24 @@ const config: BatcherConfig = {
 };
 ```
 
+Rate limiting has two phases. First, every schema-valid request consumes a
+server-scoped IP bucket before signature verification. Its key never includes
+the untrusted target or address from the request body, so changing those fields
+cannot evade the ceiling or poison another identity. Invalid signatures still
+consume this pre-authentication allowance, bounding verification work. Second,
+a verified request atomically consumes the authenticated target-global and
+identity buckets before semantic validation and queuing.
+
 When `globalMaxRequests` is omitted it defaults to `maxRequests`, so the
-identity allowance is also a hard target-wide ceiling. The built-in defaults
-are 1000 for both limits over 24 hours. Counts are consumed only after the
-adapter verifies the request signature, preventing forged addresses from
-poisoning another wallet's budget. A limited request gets HTTP 429 with a
-`Retry-After` header and `retryAfter` value in the body.
+identity allowance is also a hard target-wide ceiling. When
+`preAuthMaxRequests` is omitted it defaults to that effective global value. The
+built-in defaults are 1000 for all three limits over 24 hours. A limited
+request in either phase gets HTTP 429 with a `Retry-After` header and
+`retryAfter` value in the body.
+
+An application-level IP ceiling cannot stop a distributed source that rotates
+addresses. Public deployments should also enforce connection and request-rate
+controls at a trusted load balancer or WAF.
 
 Each adapter chooses how requests are keyed by implementing the optional
 `getRateLimitKeyStrategy()`, returning one of `"ip"` (the default),
@@ -160,8 +178,9 @@ To back the limiter with something other than process memory, implement the
 atomic `RateLimitStore.consume(buckets, nowMs, windowMs)` operation and pass it
 as `store`. Redis implementations should use a transaction or Lua script; SQL
 implementations should use a transaction with row/advisory locks. The operation
-must check and record every bucket together. `InMemoryRateLimitStore` is the
-built-in single-process implementation.
+must check and record every bucket in one phase together; the pre-authentication
+and authenticated phases are intentionally separate calls. `InMemoryRateLimitStore`
+is the built-in single-process implementation.
 
 ## Customising the batcher
 

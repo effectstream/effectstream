@@ -51,6 +51,23 @@ class RateLimitExceededError extends Error {
 }
 
 /**
+ * Derive the server-scoped bucket checked before authentication.
+ *
+ * This intentionally excludes all attacker-controlled request fields. It
+ * bounds signature-verification work without allowing a forged address or
+ * target to consume another authenticated identity's allowance.
+ */
+export function buildPreAuthRateLimitBuckets(
+  ip: string,
+  preAuthMaxRequests: number,
+): RateLimitBucket[] {
+  return [{
+    key: `pre-auth:ip:${encodeURIComponent(ip)}`,
+    maxRequests: preAuthMaxRequests,
+  }];
+}
+
+/**
  * Register the OpenAPI documentation for the batcher server.
  * Create the OpenAPI specification and the UI.
  * UI is attached at /documentation
@@ -247,6 +264,8 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     DEFAULT_CONFIG_VALUES.rateLimit;
   const { maxRequests, windowMs } = rateLimitConfig;
   const globalMaxRequests = rateLimitConfig.globalMaxRequests ?? maxRequests;
+  const preAuthMaxRequests = rateLimitConfig.preAuthMaxRequests ??
+    globalMaxRequests;
   const rateLimitStore = batcher.config.rateLimit?.store ?? new InMemoryRateLimitStore();
   const rateLimiter = new RateLimiter(
     rateLimitStore,
@@ -375,6 +394,13 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     reply,
   ) => {
     try {
+      const preAuthRateLimitResult = await rateLimiter.checkBuckets(
+        buildPreAuthRateLimitBuckets(request.ip, preAuthMaxRequests),
+      );
+      if (!preAuthRateLimitResult.allowed) {
+        throw new RateLimitExceededError(preAuthRateLimitResult);
+      }
+
       const body = request.body as any;
 
       const batcherInput = body.data;
