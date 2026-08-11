@@ -732,6 +732,8 @@ docker run --rm --network none effectstream/midnight-v2:c13 \
 
 Pass condition: all recorded API v4 variants decode, large decimal amounts remain lossless strings, a missing contract address and malformed/missing fields fail clearly, unknown variants fail explicitly, and the API v3 query snapshot is unchanged when events are disabled.
 
+Basal execution (2026-08-10): **pass**. The Dockerfile-specific allowlist was expanded by exactly three audited shared-package files (30 package files total in the context), and the `effectstream/midnight-v2:c13` image ran with `--network none` and no published ports. Four tests with 29 assertions decoded all 11 concrete API-v4 variants, preserved the maximum u128 decimal as a string, normalized emitter/protocol/indexer-transaction/chain-transaction/block identity, and rejected unknown variants, malformed fields, invalid address kinds, missing contract filters, an empty type filter, and a non-v4 feature gate. The disabled branch produced the pre-C13 API-v3 block query byte-for-byte. Diagnostic value `24713` was freshly checked free but never published.
+
 Suggested commit: `feat(sync): decode Midnight API v4 contract events`
 
 ### C14 — add `Midnight:ContractEvent` and exactly-once behavior

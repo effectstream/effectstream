@@ -23,7 +23,8 @@
     "test:call-tree-loader": "node packages/tests/call-tree-loader.test.mjs",
     "test:sink-e2e": "node packages/tests/sink-e2e.mjs",
     "test:hosted-keccak": "node packages/tests/hosted-keccak.mjs",
-    "test:ccc-e2e": "node packages/tests/ccc-e2e.mjs"
+    "test:ccc-e2e": "node packages/tests/ccc-e2e.mjs",
+    "test:midnight-event-decoder": "bun test packages/node-sdk/sync/test/midnight-event-decoder.test.ts"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0",

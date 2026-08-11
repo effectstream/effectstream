@@ -18,5 +18,22 @@ packages/chains/*
 !packages/chains/midnight-contracts-v2
 !packages/chains/midnight-contracts-v2/**
 
+# C13 admits only the API-v4 client seam and its hermetic decoder test.
+!packages/node-sdk
+packages/node-sdk/*
+!packages/node-sdk/sync
+packages/node-sdk/sync/*
+!packages/node-sdk/sync/src
+packages/node-sdk/sync/src/*
+!packages/node-sdk/sync/src/sync-protocols
+packages/node-sdk/sync/src/sync-protocols/*
+!packages/node-sdk/sync/src/sync-protocols/midnight
+packages/node-sdk/sync/src/sync-protocols/midnight/*
+!packages/node-sdk/sync/src/sync-protocols/midnight/MidnightClient.ts
+!packages/node-sdk/sync/src/sync-protocols/midnight/types.ts
+!packages/node-sdk/sync/test
+packages/node-sdk/sync/test/*
+!packages/node-sdk/sync/test/midnight-event-decoder.test.ts
+
 # This committed sentinel proves this Dockerfile-specific allowlist is active.
 templates/midnight-stagenet-v2/.context-excluded.sentinel
