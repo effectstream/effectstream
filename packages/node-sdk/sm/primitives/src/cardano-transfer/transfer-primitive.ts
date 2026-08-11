@@ -10,9 +10,10 @@
  * Extraction: for each matched transaction, `getPayload()` maps `tx.outputs` into
  * structured objects with `{index, address, coin, assets[]}`. Coin values are extracted
  * from the protobuf BigInt (either `int` for small values or `bigUInt` for large).
- * Input credentials are derived by hashing each `tx.witnesses.vkeywitness[].vkey`
- * with BLAKE2b-224, yielding the verification key hashes that identify who authorized
- * the spend.
+ * `inputCredentials` retains the raw `tx.witnesses.vkeywitness[].vkey` values for
+ * backward compatibility, but is deprecated because those values are not credentials.
+ * `signerKeyHashes` hashes each verification key with BLAKE2b-224, yielding the
+ * Cardano key hashes that identify who authorized the transaction.
  * Transaction metadata is extracted from `tx.auxiliary.metadata`.
  *
  * Predicate: user-provided (typically `has_address` to watch specific addresses).
@@ -113,10 +114,18 @@ export class CardanoTransferPrimitive extends Primitive<
     });
 
     const inputCredentials: string[] = [];
+    const signerKeyHashes: string[] = [];
     if (tx.witnesses) {
       for (const w of tx.witnesses.vkeywitness) {
-        const credential = verificationKeyToCredentialHex(w.vkey);
-        if (!inputCredentials.includes(credential)) inputCredentials.push(credential);
+        const verificationKey = uint8ArrayToHexString(w.vkey);
+        if (!inputCredentials.includes(verificationKey)) {
+          inputCredentials.push(verificationKey);
+        }
+
+        const signerKeyHash = verificationKeyToCredentialHex(w.vkey);
+        if (!signerKeyHashes.includes(signerKeyHash)) {
+          signerKeyHashes.push(signerKeyHash);
+        }
       }
     }
 
@@ -127,6 +136,7 @@ export class CardanoTransferPrimitive extends Primitive<
       metadata: metadata ? JSON.stringify(metadata) : null,
       inputCredentials,
       outputs,
+      signerKeyHashes,
     };
 
     const stateMachinePayload: any = this.stateMachinePrefix
@@ -135,6 +145,7 @@ export class CardanoTransferPrimitive extends Primitive<
           metadata: metadata ? JSON.stringify(metadata) : "",
           inputCredentials: JSON.stringify(inputCredentials),
           outputs: JSON.stringify(outputs),
+          signerKeyHashes: JSON.stringify(signerKeyHashes),
         })
       : null;
 

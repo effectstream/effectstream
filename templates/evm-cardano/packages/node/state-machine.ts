@@ -37,12 +37,15 @@ stm.addStateTransition("nft-transfer", function* (data) {
 });
 
 stm.addStateTransition("cardano-transfer", function* (data) {
-  const { txId, inputCredentials, outputs } = data.parsedInput as {
-    txId: string;
-    metadata: string;
-    inputCredentials: string;
-    outputs: string;
-  };
+  const { txId, inputCredentials, signerKeyHashes, outputs } =
+    data.parsedInput as {
+      txId: string;
+      metadata: string;
+      /** @deprecated Raw verification keys; use signerKeyHashes. */
+      inputCredentials: string;
+      signerKeyHashes?: string;
+      outputs: string;
+    };
 
   let parsedOutputs: Array<{
     index: number;
@@ -58,7 +61,10 @@ stm.addStateTransition("cardano-transfer", function* (data) {
 
   let fromCredential: string | null = null;
   try {
-    const creds: string[] = JSON.parse(inputCredentials);
+    const hashes: string[] = JSON.parse(signerKeyHashes ?? "[]");
+    // Old SDKs and historical tuples lack hashes, so retain their legacy identity.
+    const creds: string[] =
+      hashes.length > 0 ? hashes : JSON.parse(inputCredentials);
     if (creds.length > 0) fromCredential = creds[0];
   } catch {}
 
