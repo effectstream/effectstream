@@ -113,7 +113,24 @@ type MidnightPrimitive = BasePrimitive & {
   parseAdditionalLedgerFields?: (stateValue: StateValue) => Record<string, any>;
   networkId?: string;
   genesisHash?: string;
+  /** Optional concrete API-v4 event variant. */
+  eventType?: MidnightContractEventType;
+  /** Exact string matches over fields valid for the selected concrete event. */
+  eventFieldFilters?: Readonly<Record<string, string>>;
 };
+
+export type MidnightContractEventType =
+  | "ShieldedSpend"
+  | "ShieldedReceive"
+  | "ShieldedMint"
+  | "ShieldedBurn"
+  | "UnshieldedSpend"
+  | "UnshieldedReceive"
+  | "UnshieldedMint"
+  | "UnshieldedBurn"
+  | "Paused"
+  | "Unpaused"
+  | "Misc";
 
 type CardanoUtxoRpcPrimitive = BasePrimitive & {
   predicate: UtxorpcTxPredicate;

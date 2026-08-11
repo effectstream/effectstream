@@ -17,10 +17,21 @@ import type {
 } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
-import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
+import {
+  MidnightClient,
+  type BlockFetchOptions,
+  type MidnightContractEventType,
+  type MidnightGqlBlockState,
+} from "./MidnightClient.ts";
 import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
 import { decodeZswapEvent } from "./zswap-decoder.ts";
 import { decodeTokenMints } from "./mint-decoder.ts";
+import {
+  dedupeMidnightContractEvents,
+  filterMidnightContractEvents,
+  toMidnightContractEventPayload,
+  validateMidnightContractEventFilter,
+} from "./contract-events.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -43,6 +54,20 @@ export class MidnightFetcher extends BaseDataFetcher<
     }
     this.networkId = config.network?.networkId ??
       (config.network as any)?.id;
+
+    const contractEventEntries = config.primitives.filter(
+      (entry) => entry.primitive.type === "Midnight:ContractEvent",
+    );
+    if (contractEventEntries.length > 0 && !/\/api\/v4\/graphql\/?$/.test(indexerHttp)) {
+      throw new Error("Midnight:ContractEvent requires an API-v4 indexer GraphQL URL");
+    }
+    for (const entry of contractEventEntries) {
+      validateMidnightContractEventFilter({
+        contractAddress: entry.primitive.contractAddress ?? "",
+        eventType: entry.primitive.eventType as MidnightContractEventType | undefined,
+        eventFieldFilters: entry.primitive.eventFieldFilters,
+      });
+    }
 
     if (this.networkId != null) {
       for (const entry of config.primitives) {
@@ -82,7 +107,8 @@ export class MidnightFetcher extends BaseDataFetcher<
           p.primitive.type !== "Midnight:UnshieldedSpend" &&
           p.primitive.type !== "Midnight:UnshieldedCreate" &&
           p.primitive.type !== "Midnight:ZswapRoot" &&
-          p.primitive.type !== "Midnight:TokenMint",
+          p.primitive.type !== "Midnight:TokenMint" &&
+          p.primitive.type !== "Midnight:ContractEvent",
       ),
       zswapLedgerEvents: this.config.primitives.some(
         (p) => p.primitive.type === "Midnight:NullifierAndCommitment",
@@ -108,6 +134,9 @@ export class MidnightFetcher extends BaseDataFetcher<
     const fetchAllBlocks = this.config.primitives.some(
       (p) => p.primitive.getAllBlockHeaders,
     );
+    const contractEventEntries = this.config.primitives.filter(
+      (entry) => entry.primitive.type === "Midnight:ContractEvent",
+    );
 
     const fetched = yield* all(
       heights.map(function* (height) {
@@ -118,6 +147,24 @@ export class MidnightFetcher extends BaseDataFetcher<
           result = yield* call(() =>
             self.client.fetchBlock(height, blockFetchOptions, signal)
           );
+          if (contractEventEntries.length > 0) {
+            const eventBatches = yield* all(
+              contractEventEntries.map(function* (entry) {
+                return yield* call(() => self.client.fetchContractEvents(
+                  height,
+                  {
+                    apiVersion: 4,
+                    contractAddress: entry.primitive.contractAddress!,
+                    types: entry.primitive.eventType
+                      ? [entry.primitive.eventType as MidnightContractEventType]
+                      : undefined,
+                  },
+                  signal,
+                ));
+              }),
+            );
+            result.contractEvents = dedupeMidnightContractEvents(eventBatches.flat());
+          }
           primitives = yield* self.readPrimitives(
             height,
             result,
@@ -193,6 +240,8 @@ export class MidnightFetcher extends BaseDataFetcher<
         syncResults.push(...this.fetchZswapRoots(height, primitiveEntry, block));
       } else if (primitiveEntry.primitive.type === "Midnight:TokenMint") {
         syncResults.push(...this.fetchTokenMints(height, primitiveEntry, block));
+      } else if (primitiveEntry.primitive.type === "Midnight:ContractEvent") {
+        syncResults.push(...this.fetchContractEvents(height, primitiveEntry, block));
       } else {
         asyncOps.push(
           this.fetchContractState(height, client, primitiveEntry, block),
@@ -202,6 +251,45 @@ export class MidnightFetcher extends BaseDataFetcher<
 
     const asyncResults = (yield* all(asyncOps)).flat();
     return [...syncResults, ...asyncResults].filter(Boolean) as PrimitiveType[];
+  }
+
+  @bound
+  fetchContractEvents(
+    height: number,
+    primitiveEntry: PrimitiveEntryType,
+    block: MidnightGqlBlockState,
+  ): PrimitiveType[] {
+    const primitive = primitiveEntry.primitive;
+    const events = filterMidnightContractEvents(block.contractEvents ?? [], {
+      contractAddress: primitive.contractAddress ?? "",
+      eventType: primitive.eventType as MidnightContractEventType | undefined,
+      eventFieldFilters: primitive.eventFieldFilters,
+    });
+    return events.map((event) => {
+      if (event.blockHeight !== height) {
+        throw new Error(
+          `Midnight contract event ${event.id} belongs to block ${event.blockHeight}, expected ${height}`,
+        );
+      }
+      if (event.blockHash.toLowerCase() !== block.block.hash.toLowerCase()) {
+        throw new Error(
+          `Midnight contract event ${event.id} block hash does not match fetched block ${height}`,
+        );
+      }
+      return {
+        syncProtocol: {
+          name: primitiveEntry.syncProtocol,
+          blockNumber: event.blockHeight,
+          transactionHash: event.transactionHash,
+          contractAddress: event.contractAddress,
+        },
+        primitive: primitive.name,
+        output: {
+          payloadType: "midnight-contract-event",
+          payload: toMidnightContractEventPayload(event),
+        },
+      };
+    });
   }
 
   @bound

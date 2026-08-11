@@ -1,22 +1,12 @@
 import type { Block } from "./types.ts";
 import type { ExecutionResult } from "graphql-ws/client";
+import type { MidnightContractEventType as ConfigMidnightContractEventType } from "@effectstream/config";
 
 type MidnightGqlBlock = {
   block: Block;
 };
 
-export type MidnightContractEventType =
-  | "ShieldedSpend"
-  | "ShieldedReceive"
-  | "ShieldedMint"
-  | "ShieldedBurn"
-  | "UnshieldedSpend"
-  | "UnshieldedReceive"
-  | "UnshieldedMint"
-  | "UnshieldedBurn"
-  | "Paused"
-  | "Unpaused"
-  | "Misc";
+export type MidnightContractEventType = ConfigMidnightContractEventType;
 
 export type MidnightContractEventAddress = {
   kind: "user" | "contract";
@@ -321,6 +311,21 @@ export class MidnightClient {
       }
     }`;
     return await this.gqlQuery(query);
+  }
+
+  async fetchContractEvents(
+    blockHeight: number,
+    selection: ContractEventSelection,
+    signal?: AbortSignal,
+  ): Promise<MidnightContractEvent[]> {
+    const query = `query {
+      ${buildContractEventsSelection(blockHeight, selection)}
+    }`;
+    const data = await this.gqlQuery(query, signal);
+    if (!Array.isArray(data.contractEvents)) {
+      throw new GraphQLError("API v4 response is missing contractEvents");
+    }
+    return data.contractEvents.map(decodeMidnightContractEvent);
   }
 }
 

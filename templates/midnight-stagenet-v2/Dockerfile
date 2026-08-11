@@ -24,8 +24,9 @@ RUN test -f /context/package.json \
     && test -f /context/templates/midnight-stagenet-v2/packages/tests/hosted-keccak.mjs \
     && test -f /context/templates/midnight-stagenet-v2/packages/tests/ccc-e2e.mjs \
     && test -f /context/packages/node-sdk/sync/test/midnight-event-decoder.test.ts \
+    && test "$(find /context/e2e -name package.json -type f | wc -l | tr -d ' ')" = "27" \
     && test "$(find /context/packages/chains/midnight-contracts -type f | wc -l | tr -d ' ')" = "16" \
-    && test "$(find /context/packages -type f | wc -l | tr -d ' ')" = "30"
+    && test "$(find /context/packages -type f | wc -l | tr -d ' ')" = "446"
 
 FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS lockfile-generator
 
@@ -338,6 +339,25 @@ COPY --from=context-audit /context/packages/node-sdk/sync/test/midnight-event-de
 USER bun
 
 CMD ["bun", "run", "test:midnight-event-decoder"]
+
+FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS shared-test-dependencies
+
+WORKDIR /app
+
+COPY --from=context-audit /context/package.json ./package.json
+COPY --from=context-audit /context/bun.lock ./bun.lock
+COPY --from=context-audit /context/packages ./packages
+COPY --from=context-audit /context/e2e ./e2e
+
+RUN bun install --frozen-lockfile --ignore-scripts
+
+FROM shared-test-dependencies AS midnight-contract-event-primitive-test
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/package.json ./package.json
+
+USER bun
+
+CMD ["bun", "run", "test:midnight-contract-event-primitive"]
 
 FROM node:22.18.0-alpine3.22@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS proof-smoke-test
 

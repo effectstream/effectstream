@@ -18,6 +18,10 @@ packages/chains/*
 !packages/chains/midnight-contracts-v2
 !packages/chains/midnight-contracts-v2/**
 
+!e2e/**/
+e2e/**/*
+!e2e/**/package.json
+
 # C13 admits only the API-v4 client seam and its hermetic decoder test.
 !packages/node-sdk
 packages/node-sdk/*
@@ -34,6 +38,28 @@ packages/node-sdk/sync/src/sync-protocols/midnight/*
 !packages/node-sdk/sync/test
 packages/node-sdk/sync/test/*
 !packages/node-sdk/sync/test/midnight-event-decoder.test.ts
+
+# C14 installs the root workspace in-container. Admit every workspace manifest
+# plus only the source packages needed by the Midnight sync/primitive suites.
+!packages/**/
+packages/**/*
+!packages/**/package.json
+!packages/effectstream-sdk/concise/**
+!packages/effectstream-sdk/config/**
+!packages/effectstream-sdk/coroutine/**
+!packages/effectstream-sdk/crypto/**
+!packages/effectstream-sdk/events/**
+!packages/effectstream-sdk/log/**
+!packages/effectstream-sdk/utils/**
+!packages/node-sdk/db/**
+!packages/node-sdk/sm/**
+!packages/node-sdk/sync/**
+!packages/chains/midnight-contracts/**
+!packages/chains/midnight-contracts-v2/**
+
+# Never admit host dependency trees even when a selected package has one.
+**/node_modules
+**/node_modules/**
 
 # This committed sentinel proves this Dockerfile-specific allowlist is active.
 templates/midnight-stagenet-v2/.context-excluded.sentinel
