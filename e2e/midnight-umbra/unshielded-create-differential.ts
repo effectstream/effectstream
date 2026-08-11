@@ -131,6 +131,37 @@ for (const fired of firedUmbra) {
 console.log(`[reads] exact=${exact} typedClaimRewardsRefusals=${typedRefusals} rowsCompared=${rowsCompared}`);
 console.log(`[sections] guaranteed=${guaranteedRows} fallible=${fallibleRows}`);
 
+// (3z) THE WAIVER'S PRECONDITION. The reader runs with `unsafeAllowIncompleteEffects` because
+// stock UmbraDB never records `transactions.result`, so a FAILED transaction reaches the decoder as
+// "unknown" and its offers are emitted as though they landed. That is sound ONLY while the compared
+// range contains no such transaction -- an assumption that was, until now, stated and never
+// checked. The indexer knows the real result, so ask it, and fail loudly rather than let a silent
+// over-report pass as agreement.
+{
+  const heightsWithTriggers = [...new Set(firedUmbra.map((f) => Number(f.split("|")[0])))];
+  const notSuccess: string[] = [];
+  for (const h of heightsWithTriggers) {
+    const d = await gql(
+      `query($h:Int!){ block(offset:{height:$h}){ transactions { hash ... on RegularTransaction { transactionResult { status } } } } }`,
+      { h });
+    for (const t of d?.data?.block?.transactions ?? []) {
+      const status = t?.transactionResult?.status;
+      if (status !== undefined && status !== null && status !== "SUCCESS") {
+        notSuccess.push(`h=${h} ${String(t.hash).slice(0, 12)}… ${status}`);
+      }
+    }
+  }
+  if (notSuccess.length > 0) {
+    failures.push(
+      `the unsafe waiver's precondition is VIOLATED — ${notSuccess.length} transaction(s) in the ` +
+      `compared range did not fully succeed (${notSuccess.join(", ")}). With stock UmbraDB recording ` +
+      `no result, the reader emits their offers as though they applied. Either exclude them or ` +
+      `populate transactions.result (plan dependency B3).`);
+  } else {
+    console.log(`[precondition] all transactions at ${heightsWithTriggers.length} trigger-bearing height(s) are SUCCESS — waiver is sound for this range`);
+  }
+}
+
 // (3a) Vacuity guards. A green run over a corpus that exercises nothing proves nothing, and this
 // suite has already caught exactly that once.
 if (firedIndexer.length === 0) {
