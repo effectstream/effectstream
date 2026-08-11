@@ -206,8 +206,9 @@ Captures ADA and native asset transfers. Tracks outputs (destination UTxOs) and 
 | :--- | :--- |
 | `txId` | Transaction hash |
 | `metadata` | JSON-stringified transaction metadata |
-| `inputCredentials` | JSON array of verification key hashes that signed inputs |
+| `inputCredentials` | **Deprecated.** JSON array of raw verification keys retained for compatibility |
 | `outputs` | JSON array of `{index, address, coin, assets[]}` |
+| `signerKeyHashes` | JSON array of 28-byte Cardano verification key hashes for transaction signers |
 
 ## 2. Batcher Adapters (Write)
 
