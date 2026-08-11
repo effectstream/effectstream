@@ -405,6 +405,19 @@ COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests
 
 CMD ["bun", "run", "test:affected"]
 
+FROM regression-test AS docs-test
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/README.md /template/README.md
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/COMPATIBILITY.md /template/COMPATIBILITY.md
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/compatibility-lock.json /template/compatibility-lock.json
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/compose.yaml /template/compose.yaml
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/Dockerfile /template/Dockerfile
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/contracts /template/packages/contracts
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/network-config /template/packages/network-config
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/docs.test.ts ./packages/tests/docs.test.ts
+
+CMD ["bun", "run", "test:docs"]
+
 FROM shared-test-dependencies AS midnight-contract-event-primitive-test
 
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/package.json ./package.json

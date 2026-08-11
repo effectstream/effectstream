@@ -30,7 +30,8 @@
     "test:hermetic": "node packages/tests/hermetic-runner.mjs",
     "test:live:write": "node packages/tests/write-canary-fixtures.mjs",
     "test:live:hosted": "node packages/tests/hosted-integrated-runner.mjs",
-    "test:affected": "node packages/tests/affected-regression.mjs"
+    "test:affected": "node packages/tests/affected-regression.mjs",
+    "test:docs": "bun test packages/tests/docs.test.ts"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0",
