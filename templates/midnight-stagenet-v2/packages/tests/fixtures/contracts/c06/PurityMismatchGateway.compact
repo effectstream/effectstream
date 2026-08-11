@@ -1,0 +1,18 @@
+pragma language_version >= 0.25.0;
+
+contract PurityTarget {
+  pure circuit getValue(): Uint<64>;
+}
+
+ledger target: PurityTarget;
+export ledger calls: Uint<64>;
+
+constructor(target_: PurityTarget) {
+  target = disclose(target_);
+  calls = 0 as Uint<64>;
+}
+
+export circuit forward(): Uint<64> {
+  calls = (calls + (1 as Uint<64>)) as Uint<64>;
+  return target.getValue();
+}

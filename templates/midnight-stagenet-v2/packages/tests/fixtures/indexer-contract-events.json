@@ -1,0 +1,41 @@
+{
+  "data": {
+    "queryType": { "fields": [{ "name": "contractEvents" }] },
+    "subscriptionType": { "fields": [{ "name": "contractEvents" }] },
+    "contractEvent": {
+      "fields": [
+        { "name": "id" },
+        { "name": "raw" },
+        { "name": "maxId" },
+        { "name": "protocolVersion" },
+        { "name": "version" },
+        { "name": "contractAddress" },
+        { "name": "transactionId" },
+        { "name": "transaction" }
+      ],
+      "possibleTypes": [
+        { "name": "MiscContractEvent" },
+        { "name": "PausedEvent" },
+        { "name": "ShieldedBurnEvent" },
+        { "name": "ShieldedMintEvent" },
+        { "name": "ShieldedReceiveEvent" },
+        { "name": "ShieldedSpendEvent" },
+        { "name": "UnpausedEvent" },
+        { "name": "UnshieldedBurnEvent" },
+        { "name": "UnshieldedMintEvent" },
+        { "name": "UnshieldedReceiveEvent" },
+        { "name": "UnshieldedSpendEvent" }
+      ]
+    },
+    "contractEventFilter": {
+      "inputFields": [
+        { "name": "contractAddress", "type": { "kind": "NON_NULL" } },
+        { "name": "types", "type": { "kind": "LIST" } },
+        { "name": "fieldPrefixes", "type": { "kind": "LIST" } },
+        { "name": "fromBlock", "type": { "kind": "SCALAR" } },
+        { "name": "toBlock", "type": { "kind": "SCALAR" } },
+        { "name": "transactionHash", "type": { "kind": "SCALAR" } }
+      ]
+    }
+  }
+}

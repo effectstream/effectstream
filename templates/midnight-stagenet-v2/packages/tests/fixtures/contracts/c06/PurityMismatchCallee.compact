@@ -1,0 +1,11 @@
+pragma language_version >= 0.25.0;
+
+export ledger value: Uint<64>;
+
+constructor() {
+  value = 0 as Uint<64>;
+}
+
+export circuit getValue(): Uint<64> {
+  return value;
+}

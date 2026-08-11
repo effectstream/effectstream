@@ -1,0 +1,22 @@
+pragma language_version >= 0.25.0;
+
+import CompactStandardLibrary;
+
+// Witness-free callee that combines the template's crypto and event features.
+// This fixture is called once per smoke deployment. It emits Unpaused on every
+// call, so the event is not a general transition guarantee for repeated calls.
+export ledger lastDigest: Bytes<32>;
+export ledger paused: Boolean;
+
+constructor() {
+  lastDigest = pad(32, "");
+  paused = true;
+}
+
+export circuit hashStoreAndUnpause(value: Bytes<32>): Bytes<32> {
+  const digest: Bytes<32> = disclose(keccak256<Bytes<32>>(value));
+  lastDigest = digest;
+  paused = false;
+  emit(Unpaused {});
+  return digest;
+}

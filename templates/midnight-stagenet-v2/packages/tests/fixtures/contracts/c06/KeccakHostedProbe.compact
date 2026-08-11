@@ -1,0 +1,15 @@
+pragma language_version >= 0.25.0;
+
+import CompactStandardLibrary;
+
+export ledger lastDigest: Bytes<32>;
+
+constructor() {
+  lastDigest = pad(32, "");
+}
+
+export circuit hashAndStore(value: Bytes<32>): Bytes<32> {
+  const digest = disclose(keccak256<Bytes<32>>(value));
+  lastDigest = digest;
+  return digest;
+}

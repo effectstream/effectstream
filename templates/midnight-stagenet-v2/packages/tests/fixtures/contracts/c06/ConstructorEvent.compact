@@ -1,0 +1,7 @@
+pragma language_version >= 0.25.0;
+
+import CompactStandardLibrary;
+
+constructor() {
+  emit(Unpaused {});
+}

@@ -24,10 +24,12 @@ import { poolDelegationGrammar } from "./cardano-pool-delegation/pool-delegation
 import { delayedAssetGrammar } from "./cardano-delayed-asset/delayed-asset-grammar.ts";
 import { projectedNftGrammar } from "./cardano-projected-nft/projected-nft-grammar.ts";
 import { midnightTokenMintGrammar } from "./midnight-token-mint/midnight-token-mint-grammar.ts";
+import { midnightContractEventGrammar } from "./midnight-contract-event/midnight-contract-event-grammar.ts";
 
 export const builtinGrammars = {
   midnightGeneric: midnightGenericGrammar,
   midnightTokenMint: midnightTokenMintGrammar,
+  midnightContractEvent: midnightContractEventGrammar,
   evmErc721: erc721Grammar,
   evmErc20: erc20Grammar,
   availGeneric: availGenericGrammar,

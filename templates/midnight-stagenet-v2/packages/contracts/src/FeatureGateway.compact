@@ -1,0 +1,17 @@
+pragma language_version >= 0.25.0;
+
+import CompactStandardLibrary;
+
+contract CryptoEventSink {
+  circuit hashStoreAndUnpause(value: Bytes<32>): Bytes<32>;
+}
+
+ledger sink: CryptoEventSink;
+
+constructor(target: CryptoEventSink) {
+  sink = disclose(target);
+}
+
+export circuit run(value: Bytes<32>): Bytes<32> {
+  return sink.hashStoreAndUnpause(disclose(value));
+}

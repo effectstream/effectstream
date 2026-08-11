@@ -12,6 +12,7 @@ export const PrimitiveTypeMidnightUnshieldedSpend = "Midnight:UnshieldedSpend" a
 export const PrimitiveTypeMidnightUnshieldedCreate = "Midnight:UnshieldedCreate" as const;
 export const PrimitiveTypeMidnightZswapRoot = "Midnight:ZswapRoot" as const;
 export const PrimitiveTypeMidnightTokenMint = "Midnight:TokenMint" as const;
+export const PrimitiveTypeMidnightContractEvent = "Midnight:ContractEvent" as const;
 
 export const PrimitiveTypeUtxorpcGeneric = "Utxorpc:Generic" as const;
 export const PrimitiveTypeCardanoMintBurn = "Cardano:MintBurn" as const;
@@ -58,6 +59,7 @@ type BuiltInPrimitives =
     typeof PrimitiveTypeMidnightUnshieldedCreate |
     typeof PrimitiveTypeMidnightZswapRoot |
     typeof PrimitiveTypeMidnightTokenMint |
+    typeof PrimitiveTypeMidnightContractEvent |
     typeof PrimitiveTypeEVMEffectstreamL2 |
     typeof PrimitiveTypeEVMERC721 |
     typeof PrimitiveTypeEVMERC20 |

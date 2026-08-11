@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "status": "release-locked-hosted-integrated-validated",
+  "networkId": "stagenet",
+  "hostedZkirV3Verification": "validated",
+  "hostedIntegratedTemplateVerification": "validated",
+  "baselines": {
+    "legacyV1MidnightEnvSha256": "222815ea959d632a6002d7a4110957c00e0a289c6bb0ae6d8743856123c00e49",
+    "legacyV1PackageTreeSha256": "6b82eb68f4dccf5fe83d29db9ef9372e8a00cabbe03e1ed87159538a6885a056"
+  },
+  "endpoints": {
+    "nodeUrl": "wss://rpc.stagenet.shielded.tools",
+    "indexerHttpUrl": "https://indexer.stagenet.shielded.tools/api/v4/graphql",
+    "indexerWsUrl": "wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws",
+    "proofServerUrl": "http://proof-server-experimental:6300",
+    "faucetUrl": "https://faucet.stagenet.shielded.tools/api/drips"
+  },
+  "hostedObservation": {
+    "observedAt": "2026-08-10",
+    "chain": "Midnight Stagenet",
+    "nodeVersion": "2.0.0-d9729c13",
+    "specVersion": 2000000,
+    "transactionVersion": 4,
+    "peersAtObservation": 6,
+    "isSyncing": false,
+    "contractEventSchemaFingerprint": "ada637d429dafd6b1fff7339b025bf512b1325ff9562576be0442fa0f0187058"
+  },
+  "hostedIntegratedObservation": {
+    "observedAt": "2026-08-10",
+    "runId": "c19-hosted-20260810-24720",
+    "startingFinalizedBlock": {
+      "height": 458768,
+      "hash": "dd9dec84285f7ba126acb6f0e974410520a136fe3e62a9fcf60439e92b0eea2f"
+    },
+    "deploymentBlockHeight": 458776,
+    "transaction": {
+      "height": 458784,
+      "hash": "ff60ee5657415fc331c6d0532ba412301e2850b80d28d71d26af3727a51f6aad",
+      "blockHash": "a3d448465a1ce57983022ba881c11b8873a257c9297948199a40c937958b3996"
+    },
+    "contracts": {
+      "CryptoEventSink": "f548223c6c73ed1fb535ce84326c3c4d4696ea7023a8af8ecafe5139117e5907",
+      "FeatureGateway": "b2872b4ec54d1a3d9b74c02b8edcc9987028f814918cffcc7da2cc41428a7f8a"
+    },
+    "callOrder": ["CryptoEventSink", "FeatureGateway"],
+    "keccak256Digest": "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+    "localEventCount": 1,
+    "indexedEventCount": 1,
+    "effectstreamProcessedCount": 1,
+    "effectstreamReplayApplied": false
+  },
+  "toolchain": {
+    "compactManager": "0.5.1",
+    "compactManagerAsset": {
+      "release": "midnightntwrk/compact@compact-v0.5.1",
+      "arm64Sha256": "bbeb53b34c895aa52e13a6375cbfe90bd670b2e6a72ba23356d383664a9536cf",
+      "amd64Sha256": "684c6b3d2eef9484aabba7a0820c166ae5c169f3aecf28cbea2074840263ba66"
+    },
+    "compactCompiler": "0.33.0-rc.1",
+    "compactCompilerAsset": {
+      "release": "LFDT-Minokawa/compact@compactc-v0.33.0-rc.1",
+      "arm64Sha256": "a186b604f73eff696016db517d18913a66162f5354e8b48f83e5c51ed77a04d9",
+      "amd64Sha256": "c1d5580c5ebfe94a7604e1cf74c85fa899545e266bdbe975d9c8e16ee6d9d168",
+      "acquisition": "direct-release-asset-manager-index-unavailable"
+    },
+    "compactLanguage": "0.25",
+    "compactRuntime": "0.18.0-rc.1",
+    "compactJs": "2.5.5-rc.7",
+    "midnightJs": "5.0.0-beta.6",
+    "ledgerV9": "1.0.0-rc.3",
+    "onchainRuntimeV4": "4.0.0-rc.3",
+    "platformJs": "3.0.0",
+    "nobleHashes": "2.2.0",
+    "bun": "1.3.14",
+    "nodeJs": "22.18.0",
+    "walletSdk": "2.0.0-beta.2",
+    "walletPackages": {
+      "@midnightntwrk/wallet-sdk-abstractions": "3.0.0-beta.0",
+      "@midnightntwrk/wallet-sdk-address-format": "4.0.0-beta.2",
+      "@midnightntwrk/wallet-sdk-capabilities": "4.0.0-beta.2",
+      "@midnightntwrk/wallet-sdk-dust-wallet": "5.0.0-beta.2",
+      "@midnightntwrk/wallet-sdk-facade": "5.0.0-beta.2",
+      "@midnightntwrk/wallet-sdk-hd": "3.1.0-beta.1",
+      "@midnightntwrk/wallet-sdk-indexer-client": "1.3.0-beta.1",
+      "@midnightntwrk/wallet-sdk-node-client": "2.0.0-beta.2",
+      "@midnightntwrk/wallet-sdk-prover-client": "2.0.0-beta.2",
+      "@midnightntwrk/wallet-sdk-runtime": "1.0.6-beta.0",
+      "@midnightntwrk/wallet-sdk-shielded": "4.0.0-beta.2",
+      "@midnightntwrk/wallet-sdk-unshielded-wallet": "4.0.0-beta.2",
+      "@midnightntwrk/wallet-sdk-utilities": "1.2.0"
+    }
+  },
+  "images": {
+    "nodeJsTestRuntime": {
+      "reference": "docker.io/library/node:22.18.0-alpine3.22",
+      "digest": "sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b",
+      "platforms": ["linux/amd64", "linux/arm64"],
+      "targetHostMode": "native-arm64"
+    },
+    "node": {
+      "reference": "docker.io/midnightntwrk/midnight-node:2.0.0-rc.4",
+      "digest": "sha256:caf93d6f9fb3630c906ef3e714c151655377f3d28f907d17545de1870514da2e",
+      "platforms": ["linux/amd64", "linux/arm64"],
+      "targetHostMode": "native-arm64"
+    },
+    "indexer": {
+      "reference": "docker.io/midnightntwrk/indexer-standalone:4.4.0-rc.1",
+      "digest": "sha256:5d79f3a20da9ed86236c7f7dc9d93b1beeb0b0c47c9c43a791041322eb80b74e",
+      "platforms": ["linux/amd64"],
+      "targetHostMode": "amd64-emulation-required"
+    },
+    "proofServer": {
+      "reference": "docker.io/midnightntwrk/proof-server:9.0.0-rc.5_experimental",
+      "digest": "sha256:4f02ca2734649eb238d13924df299b1c82bd5546ec928c5d67bdd0ce86dd0bd1",
+      "platforms": ["linux/amd64", "linux/arm64"],
+      "targetHostMode": "native-arm64"
+    },
+    "plainProofServerNegativeControl": {
+      "reference": "docker.io/midnightntwrk/proof-server:9.0.0-rc.5",
+      "digest": "sha256:d96a4d0f3f0f10f82698288443f2873a32fed180eb8f93c0bae83572c0a187a9",
+      "platforms": ["linux/amd64", "linux/arm64"],
+      "targetHostMode": "native-arm64"
+    }
+  },
+  "artifacts": {
+    "CryptoEventSink": {
+      "compilerManifestSha256": "626271b0c0d79ce3fc1f118b351209eb97817715b472a487eed9924c8ef66fcc",
+      "compilerVersion": "0.33.0",
+      "languageVersion": "0.25.0",
+      "runtimeVersion": "0.18.0-rc.1",
+      "circuitCount": 1,
+      "zkirVersion": 3,
+      "keyVersion": 7
+    },
+    "FeatureGateway": {
+      "compilerManifestSha256": "60ff3ad0423287125b9cb1c0992d4d7002e65ddec19a2bd722885496c74994c3",
+      "compilerVersion": "0.33.0",
+      "languageVersion": "0.25.0",
+      "runtimeVersion": "0.18.0-rc.1",
+      "circuitCount": 1,
+      "zkirVersion": 2,
+      "keyVersion": 6
+    },
+    "CallTree": {
+      "manifestSha256": "14ef122ebc0478c2f3f66b1b8528b39bf1f2a56a3b678716d403bc637fd39835",
+      "compilationOrder": ["CryptoEventSink", "FeatureGateway"]
+    }
+  }
+}
