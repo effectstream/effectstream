@@ -3,9 +3,11 @@ import { main, suspend } from "effection";
 import {
   createNewBatcher,
   FileStorage,
+  InMemoryRateLimitStore,
   type BatcherConfig,
 } from "@effectstream/batcher-sdk";
 import { createSolanaAdapter } from "./solana-adapter.ts";
+import { formatRateLimitSummary } from "./rate-limit-summary.ts";
 import {
   DEV_RPC_URL,
   DEV_NAMESPACE,
@@ -65,6 +67,38 @@ const config: BatcherConfig = {
     solana: { criteriaType: "size", maxBatchSize: 1 },
   },
   confirmationLevel: "wait-effectstream-processed",
+  /**
+   * Spelled out rather than left to the defaults, because the defaults are easy
+   * to misread as "off". Omitting `rateLimit` does NOT disable rate limiting:
+   * the server falls back to 1000 requests per 24 hours, keyed by whatever
+   * strategy the adapter declares.
+   *
+   * Solana charges 5000 lamports per signature. Every sponsored transaction has
+   * at least the user's and sponsor's signatures, so its base fee is at least
+   * 10000 lamports and can be higher when more signers are required.
+   *
+   * The values below are the dev posture: a short window so a local test that
+   * hammers the endpoint recovers in a minute instead of being locked out for a
+   * day. At the two-signature minimum, 100000 accepted transactions cost at
+   * least 1 SOL of base fees.
+   *
+   * Keying is per IP, which is the adapter default. The published SDK's legacy
+   * limiter applies this before signature verification and does not provide a
+   * target-global sponsor cap. `LINK_LOCAL=1` exercises the monorepo's layered
+   * limiter: a pre-authentication IP ceiling followed by atomic authenticated
+   * identity and target-global buckets. The startup summary below detects and
+   * reports which capability is actually present instead of inferring it from
+   * a package version.
+   *
+   * `InMemoryRateLimitStore` is per process, so counts reset on restart and are
+   * not shared across replicas. Pass a `store` backed by Redis or Postgres for
+   * a real deployment.
+   */
+  rateLimit: {
+    maxRequests: Number(process.env.BATCHER_RATE_LIMIT_MAX ?? "100000"),
+    windowMs: Number(process.env.BATCHER_RATE_LIMIT_WINDOW_MS ?? "60000"),
+    store: new InMemoryRateLimitStore(),
+  },
   enableHttpServer: true,
   enableEventSystem: true,
   port: PORT,
@@ -72,6 +106,22 @@ const config: BatcherConfig = {
 
 const storage = new FileStorage("./batcher-data");
 const batcher = createNewBatcher(config, storage);
+const effectiveRateLimit = batcher.config.rateLimit!;
+const supportsLayeredRateLimits = typeof (
+  effectiveRateLimit.store as { consume?: unknown } | undefined
+)?.consume === "function";
+const effectiveGlobalMaxRequests =
+  (effectiveRateLimit as typeof effectiveRateLimit & {
+    globalMaxRequests?: number;
+  }).globalMaxRequests ?? effectiveRateLimit.maxRequests;
+const effectivePreAuthMaxRequests =
+  (effectiveRateLimit as typeof effectiveRateLimit & {
+    preAuthMaxRequests?: number;
+  }).preAuthMaxRequests ?? effectiveGlobalMaxRequests;
+const effectiveRateLimitStrategy =
+  (solana as typeof solana & {
+    getRateLimitKeyStrategy?: () => string;
+  }).getRateLimitKeyStrategy?.() ?? "ip";
 
 main(function* () {
   console.log("Starting Solana starter batcher...");
@@ -79,6 +129,18 @@ main(function* () {
   console.log(`  sync:      ${SYNC_PROTOCOL_NAME}`);
   console.log(`  namespace: ${NAMESPACE}`);
   console.log(`  keypair:   ${BATCHER_KEYPAIR}`);
+  // Printed because a 429 in the wild is otherwise hard to attribute: the
+  // caller sees a rejection with no indication of which budget it hit.
+  console.log(
+    `  ${formatRateLimitSummary({
+      maxRequests: effectiveRateLimit.maxRequests,
+      preAuthMaxRequests: effectivePreAuthMaxRequests,
+      globalMaxRequests: effectiveGlobalMaxRequests,
+      windowMs: effectiveRateLimit.windowMs,
+      strategy: effectiveRateLimitStrategy,
+      supportsLayeredRateLimits,
+    })}`,
+  );
 
   batcher.addStateTransition("startup", ({ publicConfig }) => {
     console.log(
