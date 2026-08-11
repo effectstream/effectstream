@@ -1,0 +1,86 @@
+name: Midnight stagenet v2 live canaries
+
+on:
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+    inputs:
+      run_write:
+        description: Run the secret-gated hosted deployment/call
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: midnight-stagenet-v2-live
+  cancel-in-progress: false
+
+jobs:
+  live-read:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run read-only hosted canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          diagnostic_port=""
+          for candidate in $(seq 24751 24770); do
+            if ! ss -ltn | awk '{print $4}' | grep -Eq "(^|:)${candidate}$" && \
+               ! docker ps --format '{{.Ports}}' | grep -Eq "(^|[^0-9])${candidate}->"; then
+              diagnostic_port="$candidate"
+              break
+            fi
+          done
+          test -n "$diagnostic_port"
+          export COMPOSE_PROJECT_NAME="effectstream-midnight-v2-read-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export MIDNIGHT_V2_DIAGNOSTIC_PORT="$diagnostic_port"
+          export MIDNIGHT_V2_WALLET_SEED_SOURCE_FILE="$GITHUB_WORKSPACE/templates/midnight-stagenet-v2/packages/tests/fixtures/undeployed-genesis-seed.txt"
+          trap 'docker compose -f templates/midnight-stagenet-v2/compose.yaml --profile live-read down --volumes --remove-orphans' EXIT
+          docker compose -f templates/midnight-stagenet-v2/compose.yaml \
+            --profile live-read run --build --rm live-read-tests
+
+  live-write:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_write }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    environment: midnight-stagenet-v2-live-write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run authorized hosted integration canary
+        shell: bash
+        env:
+          STAGENET_WALLET_SEED: ${{ secrets.MIDNIGHT_V2_STAGENET_WALLET_SEED }}
+        run: |
+          set -euo pipefail
+          test -n "$STAGENET_WALLET_SEED"
+          diagnostic_port=""
+          for candidate in $(seq 24771 24790); do
+            if ! ss -ltn | awk '{print $4}' | grep -Eq "(^|:)${candidate}$" && \
+               ! docker ps --format '{{.Ports}}' | grep -Eq "(^|[^0-9])${candidate}->"; then
+              diagnostic_port="$candidate"
+              break
+            fi
+          done
+          test -n "$diagnostic_port"
+          seed_file="$(mktemp)"
+          chmod 600 "$seed_file"
+          printf '%s' "$STAGENET_WALLET_SEED" > "$seed_file"
+          export RUN_STAGENET_WRITE_TESTS=1
+          export MIDNIGHT_V2_WRITE_WALLET_FUNDED=1
+          export MIDNIGHT_V2_RUN_ID="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export MIDNIGHT_V2_WALLET_SEED_SOURCE_FILE="$seed_file"
+          export MIDNIGHT_V2_DIAGNOSTIC_PORT="$diagnostic_port"
+          export COMPOSE_PROJECT_NAME="effectstream-midnight-v2-write-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cleanup() {
+            docker compose -f templates/midnight-stagenet-v2/compose.yaml \
+              --profile live-write down --volumes --remove-orphans
+            rm -f "$seed_file"
+          }
+          trap cleanup EXIT
+          docker compose -f templates/midnight-stagenet-v2/compose.yaml \
+            --profile live-write run --build --rm hosted-write-tests

@@ -75,7 +75,40 @@ jobs:
           # Plain bash, NOT a login shell: `bash -l` sources /etc/profile which
           # resets root's PATH and drops /root/.local/bin, losing `compact`.
           docker run --rm --name templates_${{ github.run_number }} testing_image:${{ github.sha }} \
-            bash -c "bun run templates/run-template-tests.ts ${{ needs.changes.outputs.templates }} --skip-disabled"
+            bash -c "bun run templates/run-template-tests.ts ${{ needs.changes.outputs.templates }} --skip-disabled --skip-docker-managed"
+
+  midnight-v2-hermetic:
+    needs: changes
+    if: ${{ (needs.changes.outputs.core == 'true' || contains(needs.changes.outputs.templates, 'midnight-stagenet-v2')) && (github.event_name == 'push' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Run isolated Midnight v2 template
+        shell: bash
+        run: |
+          set -euo pipefail
+          diagnostic_port=""
+          for candidate in $(seq 24721 24750); do
+            if ! ss -ltn | awk '{print $4}' | grep -Eq "(^|:)${candidate}$" && \
+               ! docker ps --format '{{.Ports}}' | grep -Eq "(^|[^0-9])${candidate}->"; then
+              diagnostic_port="$candidate"
+              break
+            fi
+          done
+          test -n "$diagnostic_port"
+          export MIDNIGHT_V2_DIAGNOSTIC_PORT="$diagnostic_port"
+          export MIDNIGHT_V2_WALLET_SEED_SOURCE_FILE="$GITHUB_WORKSPACE/templates/midnight-stagenet-v2/packages/tests/fixtures/undeployed-genesis-seed.txt"
+          export COMPOSE_PROJECT_NAME="effectstream-midnight-v2-c20-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cleanup() {
+            docker compose -f templates/midnight-stagenet-v2/compose.yaml \
+              --profile hermetic down --volumes --remove-orphans
+          }
+          trap cleanup EXIT
+          docker compose -f templates/midnight-stagenet-v2/compose.yaml \
+            --profile hermetic up --build --abort-on-container-exit --exit-code-from tests
 
   # Browser build (+ tests) of @effectstream/frontend-sdk. This is the ONLY
   # package that needs a build before publish, and that build (`bun run build`,
@@ -132,7 +165,7 @@ jobs:
   # Passes when the gated jobs succeed or are skipped; fails if any fails or is
   # cancelled (or if the changes job itself failed).
   ci-ok:
-    needs: [changes, e2e, template-tests, frontend-build, assets-check]
+    needs: [changes, e2e, template-tests, midnight-v2-hermetic, frontend-build, assets-check]
     if: ${{ always() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 5
@@ -142,6 +175,7 @@ jobs:
           echo "changes=${{ needs.changes.result }}"
           echo "e2e=${{ needs.e2e.result }}"
           echo "template-tests=${{ needs.template-tests.result }}"
+          echo "midnight-v2-hermetic=${{ needs.midnight-v2-hermetic.result }}"
           echo "frontend-build=${{ needs.frontend-build.result }}"
           echo "assets-check=${{ needs.assets-check.result }}"
           if [ "${{ needs.changes.result }}" = "failure" ] || \
@@ -149,6 +183,8 @@ jobs:
              [ "${{ needs.e2e.result }}" = "cancelled" ] || \
              [ "${{ needs.template-tests.result }}" = "failure" ] || \
              [ "${{ needs.template-tests.result }}" = "cancelled" ] || \
+             [ "${{ needs.midnight-v2-hermetic.result }}" = "failure" ] || \
+             [ "${{ needs.midnight-v2-hermetic.result }}" = "cancelled" ] || \
              [ "${{ needs.frontend-build.result }}" = "failure" ] || \
              [ "${{ needs.frontend-build.result }}" = "cancelled" ] || \
              [ "${{ needs.assets-check.result }}" = "failure" ] || \

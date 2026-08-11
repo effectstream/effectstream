@@ -277,6 +277,7 @@ services:
       dockerfile: templates/midnight-stagenet-v2/Dockerfile
       target: hermetic-e2e-test
     environment:
+      MIDNIGHT_V2_NETWORK_ID: undeployed
       MIDNIGHT_V2_NODE_URL: ws://midnight-node:9944
       MIDNIGHT_V2_INDEXER_HTTP_URL: http://indexer:8088/api/v4/graphql
       MIDNIGHT_V2_INDEXER_WS_URL: ws://indexer:8088/api/v4/graphql/ws

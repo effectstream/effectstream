@@ -4,8 +4,19 @@
 !bun.lock
 !templates
 templates/*
+!templates/run-template-tests.ts
 !templates/midnight-stagenet-v2
 !templates/midnight-stagenet-v2/**
+
+# C20 admits only the CI classifier and workflow files needed to prove that the
+# Docker-managed template cannot fall through to the ordinary in-image runner.
+!.github
+.github/*
+!.github/ci-changes.ts
+!.github/workflows
+.github/workflows/*
+!.github/workflows/main.yaml
+!.github/workflows/midnight-stagenet-v2-live.yaml
 
 # C07+ hash the legacy v1 config to prove the isolated v2 profile does not
 # change it. C08 additionally admits only the isolated v2 provider package.

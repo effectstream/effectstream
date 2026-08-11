@@ -12,6 +12,9 @@
  *                    only a disabled/unknown template passes. The ENABLED array
  *                    is `export`ed so CI (.github/ci-changes.ts) can filter
  *                    changed templates against it without running this file.
+ *   --skip-docker-managed  Leave Docker-managed templates to their dedicated
+ *                    Compose CI job. Direct/manual runs require the unique
+ *                    Compose project and diagnostic-port environment below.
  *
  * Env:
  *   LINK_LOCAL=1   After `bun install`, run each template's ./link.sh so the
@@ -36,6 +39,7 @@ export const ENABLED = [
   "cardano-delegation",
   "evm-cardano",
   "evm-midnight-v2",
+  "midnight-stagenet-v2",
   "preorder",
   "projected-nft-preorder",
   "shinkai-v2",
@@ -63,6 +67,8 @@ export const ENABLED = [
   "world-map-2d",
 ];
 
+export const DOCKER_MANAGED = new Set(["midnight-stagenet-v2"]);
+
 interface Result {
   name: string;
   success: boolean;
@@ -76,6 +82,8 @@ async function runTemplate(name: string): Promise<Result> {
   console.log(`\n${"=".repeat(60)}`);
   console.log(`  ${name}`);
   console.log(`${"=".repeat(60)}\n`);
+
+  if (DOCKER_MANAGED.has(name)) return runDockerManagedTemplate(name, start);
 
   try {
     console.log(`> bun install\n`);
@@ -137,21 +145,70 @@ async function runTemplate(name: string): Promise<Result> {
   }
 }
 
+async function runDockerManagedTemplate(name: string, start: number): Promise<Result> {
+  const projectName = process.env.COMPOSE_PROJECT_NAME;
+  const diagnosticPort = process.env.MIDNIGHT_V2_DIAGNOSTIC_PORT;
+  if (!projectName || !diagnosticPort) {
+    return {
+      name,
+      success: false,
+      duration: Date.now() - start,
+      error: "Docker-managed template requires preflighted COMPOSE_PROJECT_NAME and MIDNIGHT_V2_DIAGNOSTIC_PORT",
+    };
+  }
+  const composeFile = path.join(__dirname, name, "compose.yaml");
+  const seedSource = process.env.MIDNIGHT_V2_WALLET_SEED_SOURCE_FILE ??
+    path.join(__dirname, name, "packages/tests/fixtures/undeployed-genesis-seed.txt");
+  const env = {
+    ...process.env,
+    COMPOSE_PROJECT_NAME: projectName,
+    MIDNIGHT_V2_DIAGNOSTIC_PORT: diagnosticPort,
+    MIDNIGHT_V2_WALLET_SEED_SOURCE_FILE: seedSource,
+  };
+  try {
+    const up = Bun.spawn([
+      "docker", "compose", "-f", composeFile, "--profile", "hermetic", "up", "--build",
+      "--abort-on-container-exit", "--exit-code-from", "tests",
+    ], { stdout: "inherit", stderr: "inherit", env });
+    const exitCode = await up.exited;
+    return exitCode === 0
+      ? { name, success: true, duration: Date.now() - start }
+      : { name, success: false, duration: Date.now() - start, error: `Compose exited ${exitCode}` };
+  } catch (error) {
+    return {
+      name,
+      success: false,
+      duration: Date.now() - start,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    const down = Bun.spawn([
+      "docker", "compose", "-f", composeFile, "--profile", "hermetic", "down",
+      "--volumes", "--remove-orphans",
+    ], { stdout: "inherit", stderr: "inherit", env });
+    await down.exited;
+  }
+}
+
 async function main() {
   // --skip-disabled: when explicit template args are given but none are ENABLED,
   // exit 0 (skip) instead of 1. Used by CI so that a push touching only a
   // disabled/unknown template passes instead of failing. Without the flag the
   // strict exit(1) is kept so manual runs still surface typos.
   const skipDisabled = process.argv.includes("--skip-disabled");
+  const skipDockerManaged = process.argv.includes("--skip-docker-managed");
   const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
-  const selected = args.length > 0
+  const enabledSelection = args.length > 0
     ? ENABLED.filter((name) => args.includes(name))
     : ENABLED;
+  const selected = skipDockerManaged
+    ? enabledSelection.filter((name) => !DOCKER_MANAGED.has(name))
+    : enabledSelection;
 
   if (selected.length === 0) {
-    if (skipDisabled && args.length > 0) {
+    if ((skipDisabled || skipDockerManaged) && args.length > 0) {
       console.log(
-        `No enabled templates among [${args.join(", ")}] — skipping. Enabled: ${ENABLED.join(", ")}`,
+        `No runnable templates among [${args.join(", ")}] — skipping. Enabled: ${ENABLED.join(", ")}`,
       );
       exit(0);
     }

@@ -24,6 +24,10 @@ RUN test -f /context/package.json \
     && test -f /context/packages/chains/midnight-contracts-v2/src/index.d.ts \
     && test -f /context/templates/midnight-stagenet-v2/packages/tests/hosted-keccak.mjs \
     && test -f /context/templates/midnight-stagenet-v2/packages/tests/ccc-e2e.mjs \
+    && test -f /context/templates/run-template-tests.ts \
+    && test -f /context/.github/ci-changes.ts \
+    && test -f /context/.github/workflows/main.yaml \
+    && test -f /context/.github/workflows/midnight-stagenet-v2-live.yaml \
     && test -f /context/packages/node-sdk/sync/test/midnight-event-decoder.test.ts \
     && test "$(find /context/e2e -name package.json -type f | wc -l | tr -d ' ')" = "27" \
     && test "$(find /context/packages/chains/midnight-contracts -type f | wc -l | tr -d ' ')" = "16" \
@@ -386,6 +390,20 @@ COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests
 COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/hosted-integrated-runner.mjs ./packages/tests/hosted-integrated-runner.mjs
 
 CMD ["bun", "run", "test:live:hosted"]
+
+FROM hermetic-e2e-test AS regression-test
+
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/affected-regression.mjs ./packages/tests/affected-regression.mjs
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/node ./packages/node
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/state-machine.test.ts ./packages/tests/state-machine.test.ts
+COPY --from=midnight-dependencies /app/node_modules/.bun/@electric-sql+pglite@0.3.16/node_modules/@electric-sql/pglite ./node_modules/@electric-sql/pglite
+COPY --from=context-audit /context/templates/run-template-tests.ts /effectstream/templates/run-template-tests.ts
+COPY --from=context-audit /context/.github/ci-changes.ts /effectstream/.github/ci-changes.ts
+COPY --from=context-audit /context/.github/workflows/main.yaml /effectstream/.github/workflows/main.yaml
+COPY --from=context-audit /context/.github/workflows/midnight-stagenet-v2-live.yaml /effectstream/.github/workflows/midnight-stagenet-v2-live.yaml
+COPY --from=context-audit /context/templates/midnight-stagenet-v2/packages/tests/ci-registration.test.ts /effectstream/templates/midnight-stagenet-v2/packages/tests/ci-registration.test.ts
+
+CMD ["bun", "run", "test:affected"]
 
 FROM shared-test-dependencies AS midnight-contract-event-primitive-test
 
