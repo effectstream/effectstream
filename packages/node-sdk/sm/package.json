@@ -25,6 +25,7 @@
     "@effectstream/event-client": "workspace:*",
     "@effectstream/log": "workspace:*",
     "@effectstream/utils": "workspace:*",
+    "@noble/hashes": "^2.2.0",
     "pg": "8.21.0",
     "pg-tx": "^1.0.1",
     "@sinclair/typebox": "0.34.41",

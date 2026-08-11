@@ -1111,6 +1111,7 @@
         "@effectstream/event-client": "workspace:*",
         "@effectstream/log": "workspace:*",
         "@effectstream/utils": "workspace:*",
+        "@noble/hashes": "^2.2.0",
         "@pgtyped/runtime": "^2.4.2",
         "@sinclair/typebox": "0.34.41",
         "assert-never": "^1.4.0",

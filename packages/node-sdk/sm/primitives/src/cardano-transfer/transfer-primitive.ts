@@ -10,8 +10,9 @@
  * Extraction: for each matched transaction, `getPayload()` maps `tx.outputs` into
  * structured objects with `{index, address, coin, assets[]}`. Coin values are extracted
  * from the protobuf BigInt (either `int` for small values or `bigUInt` for large).
- * Input credentials are extracted from `tx.witnesses.vkeywitness[].vkey` — these are
- * the public key hashes that signed the transaction, identifying who authorized the spend.
+ * Input credentials are derived by hashing each `tx.witnesses.vkeywitness[].vkey`
+ * with BLAKE2b-224, yielding the verification key hashes that identify who authorized
+ * the spend.
  * Transaction metadata is extracted from `tx.auxiliary.metadata`.
  *
  * Predicate: user-provided (typically `has_address` to watch specific addresses).
@@ -42,6 +43,7 @@ import {
   addressToHex,
   assetQuantityToString,
   metadataToJson,
+  verificationKeyToCredentialHex,
 } from "../cardano-utils/cardano-helpers.ts";
 
 export class CardanoTransferPrimitive extends Primitive<
@@ -113,8 +115,8 @@ export class CardanoTransferPrimitive extends Primitive<
     const inputCredentials: string[] = [];
     if (tx.witnesses) {
       for (const w of tx.witnesses.vkeywitness) {
-        const hash = uint8ArrayToHexString(w.vkey);
-        if (!inputCredentials.includes(hash)) inputCredentials.push(hash);
+        const credential = verificationKeyToCredentialHex(w.vkey);
+        if (!inputCredentials.includes(credential)) inputCredentials.push(credential);
       }
     }
 
