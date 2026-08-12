@@ -1,6 +1,6 @@
 import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import { createScheduledData } from "@effectstream/db";
 import {
@@ -116,7 +116,7 @@ stm.addStateTransition("ai", function* (data) {
   yield* World.resolve(setAnswer, { game_id: id, answer: ai, score, stage: target });
 });
 
-export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+export const appStateTransitions: StartConfigAppStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {

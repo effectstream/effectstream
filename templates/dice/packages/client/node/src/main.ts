@@ -6,7 +6,7 @@ import {
   withEffectstreamStaticConfig,
 } from "@paimaexample/config";
 import { migrationTable } from "@dice/db";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "@dice/data-types/grammar";
 
@@ -19,7 +19,7 @@ main(function* () {
       appName: "dice",
       appVersion: "0.1.0",
       syncInfo: toSyncProtocolWithNetwork(localhostConfig),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,

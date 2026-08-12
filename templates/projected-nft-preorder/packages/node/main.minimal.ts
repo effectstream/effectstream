@@ -7,7 +7,7 @@ import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import type { BaseStfInput } from "@effectstream/sm";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { migrationTable } from "@projected-nft-preorder/database";
@@ -72,7 +72,7 @@ const config = new ConfigBuilder()
   .build();
 
 // Step 2: No-op state machine
-const gameStateTransitions: StartConfigGameStateTransitions = function* (
+const appStateTransitions: StartConfigAppStateTransitions = function* (
   _blockHeight: number,
   _input: BaseStfInput,
 ): SyncStateUpdateStream<void> {};
@@ -86,7 +86,7 @@ main(function* () {
       appName: "projected-nft-preorder",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       // NO grammar
       // NO apiRouter

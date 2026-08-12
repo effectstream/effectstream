@@ -214,7 +214,7 @@ stm.addStateTransition("my_action_name", function* (data) {
   });
 });
 
-export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+export const appStateTransitions: StartConfigAppStateTransitions = function* (
   _blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {
@@ -231,7 +231,7 @@ Three things to take away:
 - `stm.addStateTransition("my_action_name", …)` is checked against `typeof grammar`, so
   `parsedInput.input` is a `string` without a cast, and a typo in the action name is a
   compile error.
-- `gameStateTransitions` is the single function the runtime calls per input. Here it just
+- `appStateTransitions` is the single function the runtime calls per input. Here it just
   delegates to the `Stm` router; larger templates branch on block height or version first.
 
 `signerAddress` is the address recovered from the submitting transaction, lower-cased —
@@ -359,7 +359,7 @@ main(function* () {
       appName: "minimal",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,

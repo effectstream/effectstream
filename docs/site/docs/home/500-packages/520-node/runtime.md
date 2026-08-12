@@ -53,7 +53,7 @@ await main(function* () {
 
   yield* start({
     config,
-    gameStateTransitions: [gameStm],
+    appStateTransitions: [gameStm],
     apiRouter: undefined,           // optional Fastify route plugin
     migrations: [],                 // SQL migrations
   });
@@ -129,7 +129,7 @@ coordinator the main loop drives).
 Types and helpers re-exported alongside `init` / `start`:
 
 - `DBMigrations` - versioned SQL migrations passed into `start`.
-- `StartConfig`, `StartConfigGameStateTransitions`, `StartConfigApiRouter` - `start`'s config types. Templates type-check against these implicitly but don't usually import them by name.
+- `StartConfig`, `StartConfigAppStateTransitions`, `StartConfigApiRouter` - `start`'s config types. Templates type-check against these implicitly but don't usually import them by name.
 - `PrimitiveConstructor<T>` - extension point for new primitives.
 - `VERSION` - `${number}.${number}.${number}` literal type for version pinning.
 - Pagination helpers re-exported from `./api/pagination.ts`.

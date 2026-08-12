@@ -338,7 +338,7 @@ down again:
 - **Phase B — state machine, database, API.** The migration has applied and the three
   tables accept inserts (`stm/intents.test.ts`); `getLatestOpenIntentByToken` picks the
   right row (`stm/queries.test.ts`); the `midnight-unshielded-spend` transition is
-  driven through the real `gameStateTransitions` generator with a fabricated input and
+  driven through the real `appStateTransitions` generator with a fabricated input and
   must produce the synthetic transfer and resolve the intent
   (`stm/unshielded-spend.test.ts`); and every API route returns the right shape and
   status, including the sub-dust rejection (`stm/api.test.ts`).

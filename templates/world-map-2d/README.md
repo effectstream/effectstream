@@ -241,7 +241,7 @@ yield* start({
   appName: "world-map-2d",
   appVersion: "1.0.0",
   syncInfo: toSyncProtocolWithNetwork(config),
-  gameStateTransitions,
+  appStateTransitions,
   migrations: migrationTable,
   apiRouter,
   grammar,

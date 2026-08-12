@@ -9,7 +9,7 @@ import {
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
 import { migrationTable } from "@zk-cardano/database";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "./grammar.ts";
 
@@ -22,7 +22,7 @@ main(function* () {
       appName: "zk-cardano",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,
