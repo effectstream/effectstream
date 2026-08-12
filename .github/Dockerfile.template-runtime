@@ -1,0 +1,220 @@
+# syntax=docker/dockerfile:1.12
+
+FROM node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94 AS node-source
+
+FROM oven/bun:1.3.10-debian@sha256:367842b35abbdf23f39e23c71f3a08eee940ff2679a14e08a5afcf4a1436cd89 AS toolchain
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    EFFECTSTREAM_HOME=/opt/effectstream \
+    BUN_INSTALL_CACHE_DIR=/opt/effectstream/cache/bun \
+    EFFECTSTREAM_BINARY_CACHE_DIR=/opt/effectstream/cache/binaries \
+    HARDHAT_GLOBAL_COMPILERS_CACHE=/opt/effectstream/cache/hardhat-nodejs/compilers-v3 \
+    XDG_CACHE_HOME=/opt/effectstream/cache \
+    SVM_HOME=/opt/effectstream/cache/svm \
+    CARGO_HOME=/opt/effectstream/cache/cargo \
+    EFFECTSTREAM_SOLANA_PLATFORM_TOOLS_DIR=/opt/effectstream/cache/solana-platform-tools/v1.52 \
+    EFFECTSTREAM_SOLANA_CRITERION_DIR=/opt/effectstream/cache/solana-criterion/v2.3.3 \
+    COMPACT_DIRECTORY=/opt/effectstream/cache/compact \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/effectstream/cache/playwright
+
+COPY --from=node-source /usr/local/ /usr/local/
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      bash \
+      bzip2 \
+      build-essential \
+      ca-certificates \
+      clang \
+      curl \
+      git \
+      iproute2 \
+      jq \
+      llvm \
+      lsof \
+      openssl \
+      procps \
+      sed \
+      unzip \
+      xz-utils \
+ && rm -rf /var/lib/apt/lists/* \
+ && bun --version \
+ && node --version \
+ && npm --version
+
+# Foundry v1.3.0-rc1, pinned to the upstream GitHub asset digest.
+RUN curl -fsSL --retry 3 \
+      https://github.com/foundry-rs/foundry/releases/download/v1.3.0-rc1/foundry_v1.3.0-rc1_linux_amd64.tar.gz \
+      -o /tmp/foundry.tar.gz \
+ && echo "a2d34849b6cf318f2a15421538012f24c8d2e22ee0b3f01bfb58fe2a8504acf4  /tmp/foundry.tar.gz" | sha256sum -c - \
+ && tar -xzf /tmp/foundry.tar.gz -C /usr/local/bin \
+ && rm /tmp/foundry.tar.gz \
+ && forge --version \
+ && cast --version \
+ && anvil --version
+
+# Install the pinned Compact dispatcher and the exact 0.31.0 toolchain without
+# executing the mutable releases/latest installer.
+RUN curl -fsSL --retry 3 \
+      https://github.com/midnightntwrk/compact/releases/download/compact-v0.5.1/compact-x86_64-unknown-linux-musl.tar.xz \
+      -o /tmp/compact.tar.xz \
+ && echo "684c6b3d2eef9484aabba7a0820c166ae5c169f3aecf28cbea2074840263ba66  /tmp/compact.tar.xz" | sha256sum -c - \
+ && tar -xJf /tmp/compact.tar.xz -C /tmp \
+ && install -m 0755 /tmp/compact-x86_64-unknown-linux-musl/compact /usr/local/bin/compact \
+ && rm -rf /tmp/compact.tar.xz /tmp/compact-x86_64-unknown-linux-musl \
+ && mkdir -p "$COMPACT_DIRECTORY/versions/0.31.0/x86_64-unknown-linux-musl" \
+ && curl -fsSL --retry 3 \
+      https://github.com/midnightntwrk/compact/releases/download/compactc-v0.31.0/compactc_v0.31.0_x86_64-unknown-linux-musl.zip \
+      -o "$COMPACT_DIRECTORY/versions/0.31.0/x86_64-unknown-linux-musl/artifact.zip" \
+ && echo "ddbb4bb227c6a9c67098e65663648d8647097404ae094fdc0abe660839ea3ee8  $COMPACT_DIRECTORY/versions/0.31.0/x86_64-unknown-linux-musl/artifact.zip" | sha256sum -c - \
+ && unzip -q "$COMPACT_DIRECTORY/versions/0.31.0/x86_64-unknown-linux-musl/artifact.zip" \
+      -d "$COMPACT_DIRECTORY/versions/0.31.0/x86_64-unknown-linux-musl" \
+ && compact --version \
+ && compact compile +0.31.0 --version
+
+# Hardhat native/WASM and Forge SVM caches are independent. Seed both with the
+# same verified Solidity 0.8.30 release and immutable minimal compiler indexes.
+COPY .github/solc-cache/linux-amd64-list.json /opt/effectstream/cache/hardhat-nodejs/compilers-v3/linux-amd64/list.json
+COPY .github/solc-cache/wasm-list.json /opt/effectstream/cache/hardhat-nodejs/compilers-v3/wasm/list.json
+RUN curl -fsSL --retry 3 \
+      https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01 \
+      -o /opt/effectstream/cache/hardhat-nodejs/compilers-v3/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01 \
+ && echo "f3e987dc6ecebd4bd350c48edcbc320b46cf9e3109bd3fc3d88f1acaf4c428f7  /opt/effectstream/cache/hardhat-nodejs/compilers-v3/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01" | sha256sum -c - \
+ && chmod 0755 /opt/effectstream/cache/hardhat-nodejs/compilers-v3/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01 \
+ && curl -fsSL --retry 3 \
+      https://binaries.soliditylang.org/wasm/soljson-v0.8.30+commit.73712a01.js \
+      -o /opt/effectstream/cache/hardhat-nodejs/compilers-v3/wasm/soljson-v0.8.30+commit.73712a01.js \
+ && echo "81475c98b6d2094a821fd9d7b6278556d8095ccc23e0b8a1029b1c08a89cd4b2  /opt/effectstream/cache/hardhat-nodejs/compilers-v3/wasm/soljson-v0.8.30+commit.73712a01.js" | sha256sum -c - \
+ && mkdir -p "$SVM_HOME/0.8.30" \
+ && cp /opt/effectstream/cache/hardhat-nodejs/compilers-v3/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01 \
+      "$SVM_HOME/0.8.30/solc-0.8.30"
+
+# cargo-build-sbf otherwise downloads this 519 MB compiler payload on the first
+# explicit Solana program rebuild. Keep its Cargo registry in the image too.
+RUN mkdir -p "$EFFECTSTREAM_SOLANA_PLATFORM_TOOLS_DIR" /root/.cache/solana/v1.52 \
+ && curl -fsSL --retry 3 \
+      https://github.com/anza-xyz/platform-tools/releases/download/v1.52/platform-tools-linux-x86_64.tar.bz2 \
+      -o /tmp/solana-platform-tools.tar.bz2 \
+ && echo "8b3861e93daf085ec12b65c4fac374d9bec4587a3de16871da6b08ab0c1d907e  /tmp/solana-platform-tools.tar.bz2" | sha256sum -c - \
+ && tar -xjf /tmp/solana-platform-tools.tar.bz2 -C "$EFFECTSTREAM_SOLANA_PLATFORM_TOOLS_DIR" \
+ && rm /tmp/solana-platform-tools.tar.bz2 \
+ && ln -s "$EFFECTSTREAM_SOLANA_PLATFORM_TOOLS_DIR" /root/.cache/solana/v1.52/platform-tools \
+ && "$EFFECTSTREAM_SOLANA_PLATFORM_TOOLS_DIR/rust/bin/rustc" --version \
+ && "$EFFECTSTREAM_SOLANA_PLATFORM_TOOLS_DIR/rust/bin/cargo" --version
+
+# The enabled locks currently contain both Playwright lines. Each package
+# verifies its own pinned browser archive while installing into one shared path.
+RUN bunx playwright@1.61.0 install --with-deps chromium \
+ && bunx playwright@1.62.1 install --with-deps chromium \
+ && echo "2d18db9d8608b052b6a552ee00ec1e830f93692e928b65ecc67d693bd33fe801  $PLAYWRIGHT_BROWSERS_PATH/chromium-1228/chrome-linux64/chrome" | sha256sum -c - \
+ && echo "670ba079b75107746ba41abad131180a31a7c7219aa1bd4061fb471f4535d541  $PLAYWRIGHT_BROWSERS_PATH/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell" | sha256sum -c - \
+ && echo "0b20b130e7edd9dd51873be867761295fe0cfad490c2b9a64f95bd3cfc08fa71  $PLAYWRIGHT_BROWSERS_PATH/chromium-1234/chrome-linux64/chrome" | sha256sum -c - \
+ && echo "e11fc9ce65c96313476f7ee9844b6fb6a9220fb048693cfe9eee00acf4170a9f  $PLAYWRIGHT_BROWSERS_PATH/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell" | sha256sum -c - \
+ && echo "460d44f3416005662f528d4b92e7b94ace924e8a0288106d3803b73c56eaadc8  $PLAYWRIGHT_BROWSERS_PATH/ffmpeg-1011/ffmpeg-linux" | sha256sum -c - \
+ && CHROME_BIN="$(find "$PLAYWRIGHT_BROWSERS_PATH" -type f -name chrome -path '*chrome-linux*' | sort | tail -1)" \
+ && test -n "$CHROME_BIN" \
+ && ln -s "$CHROME_BIN" /usr/local/bin/chromium-test \
+ && /usr/local/bin/chromium-test --version \
+ && rm -rf /var/lib/apt/lists/*
+
+# Agave's SBF SDK runs its install script even with --skip-tools-install. Seed
+# the Criterion payload and marker it checks so that post-compile strip/dump
+# steps cannot make a hidden network request.
+RUN mkdir -p "$EFFECTSTREAM_SOLANA_CRITERION_DIR" \
+ && curl -fsSL --retry 3 \
+      https://github.com/Snaipe/Criterion/releases/download/v2.3.3/criterion-v2.3.3-linux-x86_64.tar.bz2 \
+      -o /tmp/solana-criterion.tar.bz2 \
+ && echo "ee7f92d7268563848aa3ae90bbf5df86604b8d0fb0e4942b0ecfbf6201596550  /tmp/solana-criterion.tar.bz2" | sha256sum -c - \
+ && tar --strip-components 1 -xjf /tmp/solana-criterion.tar.bz2 \
+      -C "$EFFECTSTREAM_SOLANA_CRITERION_DIR" \
+ && rm /tmp/solana-criterion.tar.bz2
+
+FROM toolchain AS builder
+
+ARG EFFECTSTREAM_VERSION=0.103.3
+ARG RELEASE_SHA=unknown
+
+WORKDIR /src
+COPY . .
+
+RUN test "$(jq -r .version package.json)" = "$EFFECTSTREAM_VERSION" \
+ && bun scripts/template-runtime-artifacts.ts --verify-only --profile templates --platform linux-amd64 \
+ && bun install --frozen-lockfile --backend hardlink \
+ && ./patch.sh \
+ && bun scripts/template-runtime-artifacts.ts \
+      --profile templates \
+      --platform linux-amd64 \
+      --cache-root "$EFFECTSTREAM_BINARY_CACHE_DIR" \
+ && mkdir -p "$EFFECTSTREAM_BINARY_CACHE_DIR/solana-node/3.0.14/linux-amd64/bin/platform-tools-sdk/sbf/dependencies" \
+ && ln -sfn "$EFFECTSTREAM_SOLANA_PLATFORM_TOOLS_DIR" \
+      "$EFFECTSTREAM_BINARY_CACHE_DIR/solana-node/3.0.14/linux-amd64/bin/platform-tools-sdk/sbf/dependencies/platform-tools" \
+ && ln -sfn "$EFFECTSTREAM_SOLANA_CRITERION_DIR" \
+      "$EFFECTSTREAM_BINARY_CACHE_DIR/solana-node/3.0.14/linux-amd64/bin/platform-tools-sdk/sbf/dependencies/criterion" \
+ && touch "$EFFECTSTREAM_BINARY_CACHE_DIR/solana-node/3.0.14/linux-amd64/bin/platform-tools-sdk/sbf/dependencies/criterion-v2.3.3.md" \
+ # Agave 3.0.14 hard-codes the v1.51 marker even when --tools-version v1.52 is selected.
+ && touch "$EFFECTSTREAM_BINARY_CACHE_DIR/solana-node/3.0.14/linux-amd64/bin/platform-tools-sdk/sbf/dependencies/platform-tools-v1.51.md" \
+ && cd /src/templates/solana-starter \
+ && bun install --frozen-lockfile --backend hardlink \
+ && EFFECTSTREAM_OFFLINE=0 CARGO_TARGET_DIR=/tmp/effectstream-solana-target bun run build:solana \
+ && rm -rf /tmp/effectstream-solana-target \
+ && cd /src \
+ && bun scripts/prepare-template-runtime.ts \
+      --source-root /src \
+      --output-root "$EFFECTSTREAM_HOME" \
+      --effectstream-version "$EFFECTSTREAM_VERSION" \
+      --release-sha "$RELEASE_SHA" \
+      --platform linux-amd64 \
+ && mkdir -p "$EFFECTSTREAM_HOME/licenses" \
+ && cp LICENSE-MIT LICENSE-APACHE "$EFFECTSTREAM_HOME/licenses/"
+
+FROM toolchain AS runtime
+
+ARG EFFECTSTREAM_VERSION=0.103.3
+ARG RELEASE_SHA=unknown
+ARG CREATED=unknown
+
+LABEL org.opencontainers.image.title="EffectStream template runtime" \
+      org.opencontainers.image.description="Offline-capable EffectStream release templates and pinned runtime toolchains" \
+      org.opencontainers.image.source="https://github.com/effectstream/effectstream" \
+      org.opencontainers.image.revision="$RELEASE_SHA" \
+      org.opencontainers.image.version="$EFFECTSTREAM_VERSION" \
+      org.opencontainers.image.created="$CREATED" \
+      org.opencontainers.image.licenses="MIT OR Apache-2.0"
+
+COPY --from=builder /opt/effectstream/ /opt/effectstream/
+COPY scripts/template-runtime-entrypoint.ts /opt/effectstream/bin/template-runtime.ts
+COPY scripts/verify-template-runtime-public.ts /opt/effectstream/bin/verify-template-runtime-public.ts
+
+ENV HOME=/home/effectstream \
+    EFFECTSTREAM_OFFLINE=1 \
+    EFFECTSTREAM_RUNTIME_DIR=/home/effectstream/.effectstream/runtime \
+    EFFECTSTREAM_WORKSPACE=/workspace \
+    CHROME_PATH=/usr/local/bin/chromium-test \
+    EFFECTSTREAM_STDOUT=true \
+    POLKADOTJS_DISABLE_ESM_CJS_WARNING=1 \
+    CELESTIA_FORCE_NO_BBR=1 \
+    E2E_MAX_RETRIES=3
+
+# Keep final image ENV declarations above this audit so persisted sensitive
+# values are caught before an image can be pushed to the public registry.
+RUN useradd --create-home --uid 10001 --shell /bin/bash effectstream \
+ && mkdir -p /workspace /home/effectstream/.effectstream/runtime \
+ && touch /workspace/.effectstream-volume \
+ && chown -R effectstream:effectstream /workspace /home/effectstream/.effectstream \
+ && chmod 0755 /opt/effectstream/bin/template-runtime.ts \
+ && ln -s /opt/effectstream/bin/template-runtime.ts /usr/local/bin/template-runtime \
+ # Source file modes can differ by contributor checkout. The embedded payload
+ # must always remain readable by the non-root runtime user. Bun installs the
+ # dependency trees with umask 022; rewriting their millions of file modes in
+ # this final stage would create a second multi-gigabyte metadata layer.
+ && find /opt/effectstream/templates -type d -exec chmod a+rx {} + \
+ && find /opt/effectstream/templates -type f -exec chmod a+r {} + \
+ && find /opt/effectstream/template-deps -mindepth 1 -maxdepth 1 -type d \
+      -exec test -r {} \; -exec test -x {} \; \
+ && find /opt/effectstream/cache/binaries -type f -path '*/bin/*' -exec chmod a+x {} + \
+ && bun /opt/effectstream/bin/verify-template-runtime-public.ts --root /opt/effectstream
+
+USER effectstream
+WORKDIR /workspace
+ENTRYPOINT ["/usr/local/bin/template-runtime"]
+CMD ["help"]

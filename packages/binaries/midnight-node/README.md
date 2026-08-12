@@ -31,6 +31,21 @@ bunx npm-midnight-node --clean-binaries
 bunx npm-midnight-node --only-clean
 ```
 
+### Shared release-image cache
+
+Set `EFFECTSTREAM_BINARY_CACHE_DIR` to resolve the executable from a shared,
+versioned location instead of this package's `vendor` directory. For node 1.0.0
+on Linux amd64 the path is:
+
+```text
+<cache>/midnight-node/1.0.0/linux-amd64/bin/midnight-node
+```
+
+Use `--download-only`, `--verify`, or `--path` for image preparation and
+diagnostics. `EFFECTSTREAM_OFFLINE=1` fails before a network request when the
+payload is missing or invalid. Runtime chain data is kept below
+`EFFECTSTREAM_RUNTIME_DIR`; cleaning a shared cache is deliberately refused.
+
 ## Inside EffectStream
 
 The orchestrator's Midnight step starts this binary, plus

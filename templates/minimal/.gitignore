@@ -5,4 +5,3 @@ packages/contracts-evm/mod.ts
 packages/contracts-evm/build/
 packages/contracts-evm/remappings.txt
 packages/frontend/dist/
-bun.lock

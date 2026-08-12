@@ -22,6 +22,13 @@ bun add @effectstream/solana-node
 The pinned archive is downloaded on first run (not at install time) for the
 current OS/arch.
 
+Set `EFFECTSTREAM_BINARY_CACHE_DIR` to use the shared release-image layout
+`<cache>/solana-node/3.0.14/<platform>/bin/solana-test-validator`. The complete
+Agave payload is retained there, including `cargo-build-sbf`. The CLI supports
+`--download-only`, `--verify`, and `--path`; `EFFECTSTREAM_OFFLINE=1` turns a
+missing payload into an immediate error. The release image also sets
+`EFFECTSTREAM_SOLANA_PLATFORM_TOOLS_DIR` to its verified v1.52 compiler payload.
+
 ## Standalone usage
 
 ```bash

@@ -1,0 +1,287 @@
+{
+  "schemaVersion": 1,
+  "templateBaselineVersion": "0.103.3",
+  "defaultProfile": "templates",
+  "platforms": [
+    "linux-amd64"
+  ],
+  "artifacts": [
+    {
+      "id": "cardano-node",
+      "version": "10.1.4",
+      "platform": "linux-amd64",
+      "profiles": [
+        "templates"
+      ],
+      "url": "https://github.com/IntersectMBO/cardano-node/releases/download/10.1.4/cardano-node-10.1.4-linux.tar.gz",
+      "sha256": "afb82f3025a4c1b845ce08c2eb89c8dc8692e8326f478e4ea37ce1e2063fe3f6",
+      "archiveType": "tar.gz",
+      "extractedPath": "bin/cardano-node",
+      "executable": "cardano-node",
+      "executableSha256": "39286426ae792ced0893ccc6a4aa1cffe8a8c5e6837e62f2eebbe325f3efad6b",
+      "consumers": [
+        "cardano-delegation",
+        "evm-cardano",
+        "preorder",
+        "projected-nft-preorder",
+        "zk-cardano"
+      ],
+      "phase": "first-run",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "dolos",
+      "version": "1.2.0",
+      "platform": "linux-amd64",
+      "profiles": [
+        "templates"
+      ],
+      "url": "https://github.com/txpipe/dolos/releases/download/v1.2.0/dolos-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "a73bf926fcd72df4ace410cdc75b7b382194f3bcf915408e9f3c24c30ba5f824",
+      "archiveType": "tar.gz",
+      "stripComponents": 1,
+      "extractedPath": "dolos",
+      "executable": "dolos",
+      "executableSha256": "e5131007d5a4f11a3f4bb8ac18f00f2f273496e45e0954d4c7320081e854c314",
+      "consumers": [
+        "cardano-delegation",
+        "evm-cardano",
+        "preorder",
+        "projected-nft-preorder",
+        "zk-cardano"
+      ],
+      "phase": "npm-postinstall",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "bitcoin-core",
+      "version": "28.1",
+      "platform": "linux-amd64",
+      "profiles": [
+        "templates",
+        "e2e"
+      ],
+      "url": "https://bitcoincore.org/bin/bitcoin-core-28.1/bitcoin-28.1-x86_64-linux-gnu.tar.gz",
+      "sha256": "07f77afd326639145b9ba9562912b2ad2ccec47b8a305bd075b4f4cb127b7ed7",
+      "archiveType": "tar.gz",
+      "stripComponents": 1,
+      "extractedPath": "bin/bitcoind",
+      "executable": "bitcoind",
+      "executableSha256": "c2e73c31a0b371bd0721bc8bb6d199736fa1f3d2bb45edb7c8056eab3cec168a",
+      "consumers": [
+        "night-bitcoin-v2",
+        "e2e/bitcoin"
+      ],
+      "phase": "first-run",
+      "license": "MIT"
+    },
+    {
+      "id": "solana-node",
+      "version": "3.0.14",
+      "platform": "linux-amd64",
+      "profiles": [
+        "templates",
+        "e2e"
+      ],
+      "url": "https://github.com/anza-xyz/agave/releases/download/v3.0.14/solana-release-x86_64-unknown-linux-gnu.tar.bz2",
+      "sha256": "65614325423316a48f57f1ceeaa91ca78f4516e165e305b38c01873cf8c6b8b4",
+      "archiveType": "tar.bz2",
+      "stripComponents": 1,
+      "extractedPath": "bin/solana-test-validator",
+      "executable": "solana-test-validator",
+      "executableSha256": "80f3bc0e3fa6a3090e69bafbfe00b249eaa655c5874ac83aebb6acdb157140ab",
+      "consumers": [
+        "solana-starter",
+        "e2e/solana"
+      ],
+      "phase": "first-run",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "midnight-node",
+      "version": "1.0.0",
+      "platform": "linux-amd64",
+      "profiles": [
+        "templates",
+        "e2e"
+      ],
+      "url": "https://github.com/effectstream/binaries/releases/download/0.3.120/midnight-node-linux-amd64-1.0.0.zip",
+      "sha256": "3826cefd5e50d3755f8d32ceb0fcf8a7c7165d35fe964bdb26b3b16657c339e4",
+      "archiveType": "zip",
+      "extractedPath": "midnight-node-linux-amd64-1.0.0",
+      "executable": "midnight-node",
+      "executableSha256": "e8b0fd19c106a6b9d5eb4b1497f7b9b9a9aebde8cf9b81f5146240420bbaa3c6",
+      "consumers": [
+        "evm-midnight-v2",
+        "night-bitcoin-v2",
+        "zk-cardano",
+        "e2e/midnight"
+      ],
+      "phase": "first-run",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "midnight-indexer",
+      "version": "v4.3.3",
+      "platform": "linux-amd64",
+      "profiles": [
+        "templates",
+        "e2e"
+      ],
+      "url": "https://github.com/effectstream/binaries/releases/download/0.3.120/indexer-standalone-linux-amd64-v4.3.3.zip",
+      "sha256": "467a496dde5794180eb3b25ce7544428cf214b05fc51f95d34cc703826f0c1e4",
+      "archiveType": "zip",
+      "extractedPath": "indexer-standalone-linux-amd64-v4.3.3",
+      "executable": "indexer-standalone",
+      "executableSha256": "79744f23e9f58b6562131c07d938c17cfff0856c8f476745b820a57cf8892fb5",
+      "consumers": [
+        "evm-midnight-v2",
+        "night-bitcoin-v2",
+        "zk-cardano",
+        "e2e/midnight"
+      ],
+      "phase": "first-run",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "midnight-proof-server",
+      "version": "ledger-8.1.0",
+      "platform": "linux-amd64",
+      "profiles": [
+        "templates",
+        "e2e"
+      ],
+      "url": "https://github.com/effectstream/binaries/releases/download/0.3.120/midnight-proof-server-linux-amd64-ledger-8.1.0.zip",
+      "sha256": "21d9893c947948fd183711d15db3e0b16563ef44fb2849f417fe36724f9df279",
+      "archiveType": "zip",
+      "extractedPath": "midnight-proof-server-linux-amd64-ledger-8.1.0",
+      "executable": "midnight-proof-server",
+      "executableSha256": "fccaa8f517ba425e8a2a0ff2b291713a82b1fcc87a77c79cd4bc016dd976341e",
+      "consumers": [
+        "evm-midnight-v2",
+        "night-bitcoin-v2",
+        "zk-cardano",
+        "e2e/midnight"
+      ],
+      "phase": "first-run",
+      "license": "Apache-2.0"
+    }
+  ],
+  "baseImages": [
+    {
+      "id": "bun",
+      "version": "1.3.10-debian",
+      "platform": "linux-amd64",
+      "reference": "oven/bun:1.3.10-debian@sha256:367842b35abbdf23f39e23c71f3a08eee940ff2679a14e08a5afcf4a1436cd89"
+    },
+    {
+      "id": "node",
+      "version": "22.22.0-bookworm-slim",
+      "platform": "linux-amd64",
+      "reference": "node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94"
+    }
+  ],
+  "toolchains": [
+    {
+      "id": "foundry",
+      "version": "1.3.0-rc1",
+      "platform": "linux-amd64",
+      "url": "https://github.com/foundry-rs/foundry/releases/download/v1.3.0-rc1/foundry_v1.3.0-rc1_linux_amd64.tar.gz",
+      "sha256": "a2d34849b6cf318f2a15421538012f24c8d2e22ee0b3f01bfb58fe2a8504acf4",
+      "license": "MIT OR Apache-2.0"
+    },
+    {
+      "id": "compact",
+      "version": "0.5.1",
+      "platform": "linux-amd64",
+      "url": "https://github.com/midnightntwrk/compact/releases/download/compact-v0.5.1/compact-x86_64-unknown-linux-musl.tar.xz",
+      "sha256": "684c6b3d2eef9484aabba7a0820c166ae5c169f3aecf28cbea2074840263ba66",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "compactc",
+      "version": "0.31.0",
+      "platform": "linux-amd64",
+      "url": "https://github.com/midnightntwrk/compact/releases/download/compactc-v0.31.0/compactc_v0.31.0_x86_64-unknown-linux-musl.zip",
+      "sha256": "ddbb4bb227c6a9c67098e65663648d8647097404ae094fdc0abe660839ea3ee8",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "solc-native",
+      "version": "0.8.30+commit.73712a01",
+      "platform": "linux-amd64",
+      "url": "https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01",
+      "sha256": "f3e987dc6ecebd4bd350c48edcbc320b46cf9e3109bd3fc3d88f1acaf4c428f7",
+      "license": "GPL-3.0"
+    },
+    {
+      "id": "solc-wasm",
+      "version": "0.8.30+commit.73712a01",
+      "platform": "linux-amd64",
+      "url": "https://binaries.soliditylang.org/wasm/soljson-v0.8.30+commit.73712a01.js",
+      "sha256": "81475c98b6d2094a821fd9d7b6278556d8095ccc23e0b8a1029b1c08a89cd4b2",
+      "license": "GPL-3.0"
+    },
+    {
+      "id": "solana-platform-tools",
+      "version": "v1.52",
+      "platform": "linux-amd64",
+      "url": "https://github.com/anza-xyz/platform-tools/releases/download/v1.52/platform-tools-linux-x86_64.tar.bz2",
+      "sha256": "8b3861e93daf085ec12b65c4fac374d9bec4587a3de16871da6b08ab0c1d907e",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "solana-criterion",
+      "version": "v2.3.3",
+      "platform": "linux-amd64",
+      "url": "https://github.com/Snaipe/Criterion/releases/download/v2.3.3/criterion-v2.3.3-linux-x86_64.tar.bz2",
+      "sha256": "ee7f92d7268563848aa3ae90bbf5df86604b8d0fb0e4942b0ecfbf6201596550",
+      "license": "MIT"
+    },
+    {
+      "id": "playwright-chromium-1228",
+      "version": "149.0.7827.55",
+      "platform": "linux-amd64",
+      "url": "https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip",
+      "sha256": "13113b963ac22fffdad898a677591028e4397c46c1daa9e61811258eed6e35b5",
+      "executableSha256": "2d18db9d8608b052b6a552ee00ec1e830f93692e928b65ecc67d693bd33fe801",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "id": "playwright-headless-shell-1228",
+      "version": "149.0.7827.55",
+      "platform": "linux-amd64",
+      "url": "https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-headless-shell-linux64.zip",
+      "sha256": "410c9407d5de3fea80d9398666be06f2aa09154a3fa7b327dc254e336bb4c4b7",
+      "executableSha256": "670ba079b75107746ba41abad131180a31a7c7219aa1bd4061fb471f4535d541",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "id": "playwright-chromium-1234",
+      "version": "151.0.7922.34",
+      "platform": "linux-amd64",
+      "url": "https://cdn.playwright.dev/builds/cft/151.0.7922.34/linux64/chrome-linux64.zip",
+      "sha256": "ae8736ac28bc69278551500f219fc749575648263c43ec5990749eff43b9fcf8",
+      "executableSha256": "0b20b130e7edd9dd51873be867761295fe0cfad490c2b9a64f95bd3cfc08fa71",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "id": "playwright-headless-shell-1234",
+      "version": "151.0.7922.34",
+      "platform": "linux-amd64",
+      "url": "https://cdn.playwright.dev/builds/cft/151.0.7922.34/linux64/chrome-headless-shell-linux64.zip",
+      "sha256": "3cfc2bd00d1bafcf8a68dc74c9c92bb7150ddc8d26ade948a776316e1cec4f14",
+      "executableSha256": "e11fc9ce65c96313476f7ee9844b6fb6a9220fb048693cfe9eee00acf4170a9f",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "id": "playwright-ffmpeg-1011",
+      "version": "1011",
+      "platform": "linux-amd64",
+      "url": "https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-linux.zip",
+      "sha256": "ebc74fc5b94830176a3c2914ae96bd8bc7f6a91f4f33890230f84a172ee61ccc",
+      "executableSha256": "460d44f3416005662f528d4b92e7b94ace924e8a0288106d3803b73c56eaadc8",
+      "license": "LGPL-2.1-or-later"
+    }
+  ]
+}

@@ -19,7 +19,6 @@
     "@effectstream/sm": "0.103.3",
     "@effectstream/coroutine": "0.103.3",
     "@effectstream/db": "0.103.3",
-    "@effectstream/explorer": "*",
     "@sinclair/typebox": "0.34.41",
     "@utxorpc/spec": "^0.18.1",
     "effection": "^3.5.0",

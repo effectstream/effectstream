@@ -17,7 +17,6 @@
     "@effectstream/sm": "0.103.3",
     "@effectstream/coroutine": "0.103.3",
     "@effectstream/db": "0.103.3",
-    "@effectstream/explorer": "*",
     "fastify": "^5.4.0",
     "pg": "^8.14.0",
     "@sinclair/typebox": "^0.34.30",

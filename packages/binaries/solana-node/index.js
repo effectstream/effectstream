@@ -1,5 +1,9 @@
 import BinWrapper from '@xhmikosr/bin-wrapper';
 import { verifyBinaryChecksum } from '@effectstream/binary-checksum';
+import {
+  artifactDirectory,
+  assertDownloadAllowed,
+} from '@effectstream/binary-runtime';
 import { CHECKSUMS } from './checksums.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,7 +47,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // at all, and no seccomp setting helps there.)
 const version = '3.0.14';
 const base = `https://github.com/anza-xyz/agave/releases/download/v${version}`;
-const dest = path.join(__dirname, 'vendor');
+const dest = artifactDirectory({
+  id: 'solana-node',
+  version,
+  legacyDirectory: path.join(__dirname, 'vendor'),
+});
 
 // NOTE: upstream ships NO aarch64-unknown-linux-gnu build — only the three
 // targets below (plus Windows, which this repo doesn't support). Adding a
@@ -56,6 +64,28 @@ const bin = new BinWrapper()
   .use('bin/solana-test-validator');
 
 export default bin;
+
+export const binaryVersion = version;
+export const binaryPath = () => bin.path();
+export const toolPath = (name) => path.join(dest, 'bin', name);
+
+export async function downloadOnly() {
+  if (!fs.existsSync(bin.path())) {
+    assertDownloadAllowed('solana-node');
+    await bin.download();
+  }
+  verifyChecksum(bin.path());
+  return bin.path();
+}
+
+export async function verify() {
+  if (!fs.existsSync(bin.path())) {
+    assertDownloadAllowed('solana-node');
+    await bin.download();
+  }
+  verifyChecksum(bin.path());
+  return bin.path();
+}
 
 /**
  * Fail closed if the downloaded validator isn't one of the builds we pinned.
@@ -106,6 +136,7 @@ export async function run(options = {}) {
   // would execute the binary to check its version first, which defeats the
   // point of verifying it.
   if (!fs.existsSync(bin.path())) {
+    assertDownloadAllowed('solana-node');
     await bin.download();
   }
   const flavour = verifyChecksum(bin.path());
@@ -205,6 +236,18 @@ if (import.meta.main) {
 
   (async () => {
     try {
+      if (cliArgs.includes('--path')) {
+        console.log(bin.path());
+        return;
+      }
+      if (cliArgs.includes('--download-only')) {
+        console.log(await downloadOnly());
+        return;
+      }
+      if (cliArgs.includes('--verify')) {
+        console.log(await verify());
+        return;
+      }
       console.log("Starting Solana test validator...");
       await run({ verbose });
     } catch (error) {

@@ -9,7 +9,7 @@
  * `core` is true when `packages/**` or `e2e/**` change, plus the build-infra
  * files the e2e image itself depends on (so a Dockerfile / lockfile change still
  * re-runs e2e). `templates` is the set of changed `templates/<name>/...` dirs
- * intersected with the ENABLED list in templates/run-template-tests.ts — the
+ * intersected with the list in templates/enabled.ts — the
  * single source of truth. Unknown / disabled templates drop out here, so a push
  * touching only those produces an empty list and the template job is skipped.
  *
@@ -26,7 +26,7 @@
  * any git call fails, we fall back to running everything — over-run rather than
  * miss a real change.
  */
-import { ENABLED } from "../templates/run-template-tests.ts";
+import { ENABLED_TEMPLATES as ENABLED } from "../templates/enabled.ts";
 
 export interface ChangeClassification {
   core: boolean;

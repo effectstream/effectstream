@@ -25,6 +25,7 @@
 import { exit } from "process";
 import fs from "fs";
 import path from "path";
+import { ENABLED_TEMPLATES } from "./enabled.ts";
 
 const __dirname = import.meta.dirname!;
 
@@ -32,36 +33,7 @@ const LINK_LOCAL = ["1", "true", "yes"].includes(
   (process.env.LINK_LOCAL ?? "").toLowerCase(),
 );
 
-export const ENABLED = [
-  "cardano-delegation",
-  "evm-cardano",
-  "evm-midnight-v2",
-  "preorder",
-  "projected-nft-preorder",
-  "shinkai-v2",
-  "zk-cardano",
-  "batcher-validations",
-  "night-bitcoin-v2",
-  "hex-battle",
-  "solana-starter",
-  "chess-v2",
-  // "chess",           // TODO: migrate to effectstream-bun
-  // "dice",            // TODO: migrate to effectstream-bun
-  // "evm-midnight",    // TODO: migrate to effectstream-bun
-  "minimal",
-  // "multi-chain-token-transfer", // TODO: migrate to effectstream-bun
-  // "rock-paper-scissors", // TODO: migrate to effectstream-bun
-  // "zswap-da",         // Frontend-only since 3fae2d91 extracted the backend to
-  //                     // github.com/effectstream/zswap-offerfiles-kernel. It now
-  //                     // installs and builds standalone (contract compiled from
-  //                     // src/contract/offer-files.compact; the out-of-repo `file:`
-  //                     // dep and the missing link.sh are both fixed), but there is
-  //                     // still no meaningful `test`: exercising it needs that
-  //                     // backend live on :9999 for Midnight config, ZK assets and
-  //                     // the batcher, which CI can't stand up. A typecheck-only
-  //                     // smoke test is the realistic way back in.
-  "world-map-2d",
-];
+export const ENABLED = ENABLED_TEMPLATES;
 
 interface Result {
   name: string;
@@ -79,7 +51,7 @@ async function runTemplate(name: string): Promise<Result> {
 
   try {
     console.log(`> bun install\n`);
-    const install = Bun.spawn(["bun", "install"], {
+    const install = Bun.spawn(["bun", "install", "--frozen-lockfile"], {
       cwd: dir,
       stdout: "inherit",
       stderr: "inherit",

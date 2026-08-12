@@ -1,0 +1,19 @@
+{
+  "builds": [
+    {
+      "path": "solc-linux-amd64-v0.8.30+commit.73712a01",
+      "version": "0.8.30",
+      "build": "commit.73712a01",
+      "longVersion": "0.8.30+commit.73712a01",
+      "keccak256": "0xc47307cc6d212f7d86af1ad07800f9ed4715454a1c327a7258e62d769ec8bdc1",
+      "sha256": "0xf3e987dc6ecebd4bd350c48edcbc320b46cf9e3109bd3fc3d88f1acaf4c428f7",
+      "urls": [
+        "dweb:/ipfs/QmPsmKxpd5berCgcTBXXPBC4PLHrb56tr3f6ZMxPGEf6vn"
+      ]
+    }
+  ],
+  "releases": {
+    "0.8.30": "solc-linux-amd64-v0.8.30+commit.73712a01"
+  },
+  "latestRelease": "0.8.30"
+}

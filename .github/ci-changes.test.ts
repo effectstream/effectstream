@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { classify, diffArgs } from "./ci-changes.ts";
 
 // A fixed enabled set so these assertions don't shift as templates are
-// enabled/disabled in run-template-tests.ts.
+// enabled/disabled in templates/enabled.ts.
 const ENABLED = ["preorder", "evm-cardano", "world-map-2d"];
 
 describe("classify — core", () => {

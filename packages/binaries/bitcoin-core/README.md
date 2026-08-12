@@ -39,6 +39,11 @@ The package downloads the pinned tarball for your OS/arch on first run:
 | linux  | x64, arm64 |
 | darwin | x64, arm64 |
 
+Set `EFFECTSTREAM_BINARY_CACHE_DIR` to use the shared release-image layout
+`<cache>/bitcoin-core/28.1/<platform>/bin/bitcoind`. The CLI also supports
+`--download-only`, `--verify`, and `--path`; `EFFECTSTREAM_OFFLINE=1` turns a
+missing payload into an immediate error.
+
 Pair with [`@effectstream/bitcoin-contracts`](https://www.npmjs.com/package/@effectstream/bitcoin-contracts)
 for the `generate-blocks` and `wait-for-block` helpers.
 

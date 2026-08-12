@@ -1,0 +1,76 @@
+name: Sync Template Baseline
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published EffectStream npm version to adopt in enabled templates
+        required: true
+        type: string
+      ref:
+        description: Branch to update
+        required: true
+        default: v-next
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  # Serialize every workflow that can push release metadata to v-next.
+  group: release-publish
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Synchronize template pins and locks
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${REQUESTED_VERSION#v}"
+          test "$(npm view "@effectstream/runtime@$VERSION" version)" = "$VERSION"
+          test "$(npm view "@effectstream/npm-midnight-node@$VERSION" version)" = "$VERSION"
+          bun scripts/sync-template-release.ts --version "$VERSION"
+          for template in $(bun -e 'import { ENABLED_TEMPLATES } from "./templates/enabled.ts"; console.log(ENABLED_TEMPLATES.join(" "))'); do
+            (cd "templates/$template" && bun install --lockfile-only --ignore-scripts)
+          done
+          bun scripts/sync-template-release.ts --version "$VERSION" --check
+          bun scripts/template-runtime-artifacts.ts --verify-only --profile templates --platform linux-amd64
+
+      - name: Commit template baseline
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          TARGET_REF: ${{ inputs.ref }}
+        run: |
+          VERSION="${REQUESTED_VERSION#v}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ':(glob)templates/**/package.json' \
+            ':(glob)templates/*/bun.lock' \
+            .github/template-runtime-artifacts.json
+          while IFS= read -r file; do
+            case "$file" in
+              templates/*/package.json|templates/*/bun.lock|.github/template-runtime-artifacts.json) ;;
+              *) echo "::error::Unexpected template baseline file staged: $file"; exit 1 ;;
+            esac
+          done < <(git diff --cached --name-only)
+          if git diff --cached --quiet; then
+            echo "Template baseline already matches $VERSION"
+          else
+            git commit -m "chore(templates): adopt EffectStream $VERSION"
+            git push origin "HEAD:$TARGET_REF"
+          fi

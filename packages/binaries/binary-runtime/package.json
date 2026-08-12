@@ -1,0 +1,28 @@
+{
+  "name": "@effectstream/binary-runtime",
+  "version": "0.103.3",
+  "description": "Shared external binary-cache and offline-runtime helpers for EffectStream wrappers",
+  "license": "(MIT OR Apache-2.0)",
+  "type": "commonjs",
+  "main": "./index.cjs",
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.cjs"
+    }
+  },
+  "files": [
+    "index.cjs",
+    "index.mjs",
+    "runtime.cjs"
+  ],
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/effectstream/effectstream",
+    "directory": "packages/binaries/binary-runtime"
+  },
+  "bugs": {
+    "url": "https://github.com/effectstream/effectstream/issues"
+  }
+}

@@ -439,6 +439,24 @@ if (import.meta.main) {
     process.stdout.write(`  ${name} (${rel}) ... `);
 
     try {
+      if (isPublish) {
+        const published = Bun.spawnSync(
+          ["npm", "view", `${name}@${version}`, "version", "--json"],
+          { cwd: ROOT, stdout: "pipe", stderr: "pipe" },
+        );
+        if (published.exitCode === 0) {
+          const found = JSON.parse(published.stdout.toString());
+          if (found === version || (Array.isArray(found) && found.includes(version))) {
+            console.log("already published, skipped ✓");
+            continue;
+          }
+        } else {
+          const error = published.stderr.toString();
+          if (!/E404|is not in this registry|No match found/i.test(error)) {
+            throw new Error(`unable to check npm publication state: ${error.trim()}`);
+          }
+        }
+      }
       await $`cd ${dir} && bun publish ${dryRunArgs} --access public`.quiet();
       console.log("✓");
     } catch (e: any) {
