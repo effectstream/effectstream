@@ -17,6 +17,23 @@ export type ValidationResult = {
   valid: boolean;
   /** Error message if validation failed */
   error?: string;
+  /**
+   * Stable, machine-readable reason (e.g. `"NOT_WELL_FORMED"`). Prefer this over
+   * parsing `error`, whose text may include detail derived from the submitted
+   * transaction.
+   */
+  errorCode?: string;
+  /**
+   * HTTP status to return. Defaults to 400.
+   *
+   * Use 503 when validation could not be *completed* — the check's own
+   * dependency was unavailable — rather than when the input was judged and
+   * found wanting. Telling a caller their transaction is malformed because our
+   * indexer is down is both wrong and unactionable.
+   */
+  statusCode?: number;
+  /** True when re-submitting the identical input could later succeed. */
+  retryable?: boolean;
 };
 
 /**

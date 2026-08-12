@@ -167,6 +167,10 @@ async function registerOpenApiDocumentation(
         success: false,
         error: "Validation failed",
         message: error.message,
+        // Branch on errorCode, not on message: the message may carry detail
+        // derived from the submitted input, the code is stable.
+        ...(error.errorCode !== undefined ? { errorCode: error.errorCode } : {}),
+        ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
       });
     }
 
@@ -396,11 +400,30 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           transactionHash: Type.Optional(Type.String()),
           rollup: Type.Optional(Type.Number()),
         }),
+        // A rejected input. `errorCode` is the stable discriminator; `retryable`
+        // says whether the identical input could succeed later.
+        400: Type.Object({
+          success: Type.Boolean(),
+          error: Type.String(),
+          message: Type.String(),
+          errorCode: Type.Optional(Type.String()),
+          retryable: Type.Optional(Type.Boolean()),
+        }),
         429: Type.Object({
           success: Type.Boolean(),
           error: Type.String(),
           message: Type.String(),
           retryAfter: Type.Optional(Type.Number()),
+        }),
+        // Validation could not be COMPLETED — a dependency of the check was
+        // unavailable. Distinct from 400: the input was never judged, so the
+        // caller should retry rather than change it.
+        503: Type.Object({
+          success: Type.Boolean(),
+          error: Type.String(),
+          message: Type.String(),
+          errorCode: Type.Optional(Type.String()),
+          retryable: Type.Optional(Type.Boolean()),
         }),
       },
     },
@@ -515,6 +538,8 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           success: false,
           error: "Validation failed",
           message: error.message,
+          ...(error.errorCode !== undefined ? { errorCode: error.errorCode } : {}),
+          ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
         });
       }
 
