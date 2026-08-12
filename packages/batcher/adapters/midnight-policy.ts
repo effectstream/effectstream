@@ -39,6 +39,12 @@ export interface PolicyIntent {
   actions?: PolicyContractAction[];
   guaranteedUnshieldedOffer?: PolicyUnshieldedOffer | undefined;
   fallibleUnshieldedOffer?: PolicyUnshieldedOffer | undefined;
+  /**
+   * Expiry. TTL lives HERE, not on the transaction — which is why a pure
+   * shielded transfer (zero intents) has no TTL and cannot expire. Arrives as
+   * a Date, epoch ms or bigint depending on the delegated stage.
+   */
+  ttl?: Date | number | bigint | undefined;
 }
 
 export interface PolicyContractAction {
