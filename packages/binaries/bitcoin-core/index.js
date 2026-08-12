@@ -5,6 +5,10 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import { verifyBinaryChecksum } from '@effectstream/binary-checksum';
+import {
+  artifactDirectory,
+  assertDownloadAllowed,
+} from '@effectstream/binary-runtime';
 import { CHECKSUMS } from './checksums.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -14,7 +18,11 @@ const version = '28.1';
 // binaries live on bitcoincore.org, which is the canonical host upstream links.
 // The artifacts are byte-identical, so CHECKSUMS below is unchanged.
 const base = `https://bitcoincore.org/bin/bitcoin-core-${version}`;
-const dest = path.join(__dirname, 'vendor');
+const dest = artifactDirectory({
+  id: 'bitcoin-core',
+  version,
+  legacyDirectory: path.join(__dirname, 'vendor'),
+});
 
 const bin = new BinWrapper()
   .src(`${base}/bitcoin-${version}-x86_64-linux-gnu.tar.gz`, 'linux', 'x64')
@@ -25,6 +33,27 @@ const bin = new BinWrapper()
   .use('bin/bitcoind');
 
 export default bin;
+
+export const binaryVersion = version;
+export const binaryPath = () => bin.path();
+
+export async function downloadOnly() {
+  if (!fs.existsSync(bin.path())) {
+    assertDownloadAllowed('bitcoin-core');
+    await bin.download();
+  }
+  verifyDownload(true);
+  return bin.path();
+}
+
+export async function verify() {
+  if (!fs.existsSync(bin.path())) {
+    assertDownloadAllowed('bitcoin-core');
+    await bin.download();
+  }
+  verifyDownload(false);
+  return bin.path();
+}
 
 const DEFAULT_CONFIG = `
 server=1
@@ -106,6 +135,7 @@ export async function run(options = {}) {
   // `bin.run()` alone would try to execute the unsigned binary and be killed.
   const needsDownload = !fs.existsSync(bin.path());
   if (needsDownload) {
+    assertDownloadAllowed('bitcoin-core');
     await bin.download();
   }
   const flavour = verifyDownload(needsDownload);
@@ -162,6 +192,18 @@ if (import.meta.main) {
 
   (async () => {
     try {
+      if (cliArgs.includes('--path')) {
+        console.log(bin.path());
+        return;
+      }
+      if (cliArgs.includes('--download-only')) {
+        console.log(await downloadOnly());
+        return;
+      }
+      if (cliArgs.includes('--verify')) {
+        console.log(await verify());
+        return;
+      }
       console.log("Starting Bitcoin Core regtest...");
       await run({ verbose });
     } catch (error) {

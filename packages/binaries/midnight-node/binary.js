@@ -1,142 +1,149 @@
-const os = require("os");
 const fs = require("fs");
 const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
+const {
+  artifactDirectory,
+  assertCacheCanBeCleaned,
+  assertDownloadAllowed,
+  binaryPath,
+  platformKey,
+  usesExternalCache,
+  verifyFile,
+} = require("@effectstream/binary-runtime");
 
 const CURRENT_BINARY_VERSION = "1.0.0";
 const FINAL_BINARY_NAME = "midnight-node";
+const RELEASE = "0.3.120";
 
-/*
-@returns {string} The platform and architecture of the current machine.
-*/
+const CHECKSUMS = {
+  "linux-amd64": {
+    archive: "3826cefd5e50d3755f8d32ceb0fcf8a7c7165d35fe964bdb26b3b16657c339e4",
+    executable: "e8b0fd19c106a6b9d5eb4b1497f7b9b9a9aebde8cf9b81f5146240420bbaa3c6",
+  },
+  "linux-arm64": {
+    archive: "37ed130900b24df881e527cdb7ea21c124251d4b819d3b139a4a4252ec3dc603",
+    executable: "ac61dad689798543c4ba76351e1628ba7979232e68927de93832211424c95e0f",
+  },
+  "macos-arm64": {
+    archive: "614f1009f10adb050935061e3f0e405fc86abfc851718257d5a3a82a1a67b6ed",
+    executable: "03bec991c5a55250332b532e7080e49ca761a50497ad4472316d9ff69294d369",
+  },
+};
+
 function getPlatform() {
-  let platform = os.platform();
-  let arch = os.arch();
-  if (platform === "darwin") platform = "macos";
-  if (arch === "x64") arch = "amd64";
-  return `${platform}-${arch}`;
+  return platformKey();
 }
 
-const FILE_NAME =
-  `midnight-node-${getPlatform()}-${CURRENT_BINARY_VERSION}.zip`;
-
-/*
-@returns {string} The URL to download the binary for the current platform.
-*/
-function getBinaryUrl() {
-  const platform = getPlatform();
+function getBinaryUrl(platform = getPlatform()) {
   const supportedPlatforms = require("./package.json").supportedPlatforms;
   if (!supportedPlatforms.includes(platform)) {
     throw new Error(`Unsupported platform: ${platform}`);
   }
-
-  return `https://github.com/effectstream/binaries/releases/download/0.3.120/${FILE_NAME}`;
+  return `https://github.com/effectstream/binaries/releases/download/${RELEASE}/midnight-node-${platform}-${CURRENT_BINARY_VERSION}.zip`;
 }
 
-/*
-@returns {Promise<void>} Downloads and saves the binary for the current platform.
-*/
-async function downloadAndSaveBinary() {
-  const url = getBinaryUrl();
-  try {
-    console.error(`Downloading... ${url}`);
-
-    const response = await axios.get(url, { responseType: "stream" });
-    const writer = fs.createWriteStream(
-      path.join(
-        __dirname,
-        FILE_NAME,
-      ),
-    );
-
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on("finish", resolve);
-      writer.on("error", reject);
-    });
-  } catch (error) {
-    console.error("Error downloading binary:", error);
-    throw error;
-  }
-}
-
-/*
-@returns {Promise<void>} Unzips the binary for the current platform.
-*/
-async function unzipBinary() {
-  const binaryDir = path.join(__dirname, "midnight-node");
-  await extract(path.join(__dirname, FILE_NAME), { dir: binaryDir });
+function paths(env = process.env) {
   const platform = getPlatform();
-  const extractedBinaryPath = path.join(
-    binaryDir,
-    `midnight-node-${platform}-${CURRENT_BINARY_VERSION}`,
+  const legacyDirectory = path.join(__dirname, "midnight-node");
+  const options = {
+    id: "midnight-node",
+    version: CURRENT_BINARY_VERSION,
+    platform,
+    executable: FINAL_BINARY_NAME,
+    legacyDirectory,
+    legacyBinaryPath: path.join(legacyDirectory, FINAL_BINARY_NAME),
+    env,
+  };
+  const root = artifactDirectory(options);
+  return {
+    platform,
+    root,
+    binary: binaryPath(options),
+    archive: usesExternalCache(env)
+      ? path.join(root, ".download.zip")
+      : path.join(__dirname, `midnight-node-${platform}-${CURRENT_BINARY_VERSION}.zip`),
+  };
+}
+
+async function downloadAndSaveBinary(env = process.env) {
+  assertDownloadAllowed("midnight-node", env);
+  const resolved = paths(env);
+  const url = getBinaryUrl(resolved.platform);
+  fs.mkdirSync(path.dirname(resolved.archive), { recursive: true });
+  console.error(`Downloading... ${url}`);
+  const response = await axios.get(url, { responseType: "stream" });
+  const writer = fs.createWriteStream(resolved.archive);
+  response.data.pipe(writer);
+  await new Promise((resolve, reject) => {
+    writer.on("finish", resolve);
+    writer.on("error", reject);
+  });
+  verifyFile(resolved.archive, CHECKSUMS[resolved.platform].archive, "midnight-node archive");
+  return resolved;
+}
+
+async function unzipBinary(env = process.env) {
+  const resolved = paths(env);
+  fs.mkdirSync(resolved.root, { recursive: true });
+  await extract(resolved.archive, { dir: resolved.root });
+  const extracted = path.join(
+    resolved.root,
+    `midnight-node-${resolved.platform}-${CURRENT_BINARY_VERSION}`,
   );
-  const finalBinaryPath = path.join(binaryDir, FINAL_BINARY_NAME);
-
-  // Rename the extracted file to midnight-node
-  if (fs.existsSync(extractedBinaryPath)) {
-    if (fs.existsSync(finalBinaryPath)) {
-      fs.unlinkSync(finalBinaryPath);
-    }
-    fs.renameSync(extractedBinaryPath, finalBinaryPath);
-  } else {
-    throw new Error(`Extracted binary not found at: ${extractedBinaryPath}`);
+  if (!fs.existsSync(extracted)) {
+    throw new Error(`Extracted binary not found at: ${extracted}`);
   }
-
-  // Clean up any other extracted files (e.g., readme.md)
-  const files = fs.readdirSync(binaryDir);
-  for (const file of files) {
-    const filePath = path.join(binaryDir, file);
-    if (filePath !== finalBinaryPath && fs.statSync(filePath).isFile()) {
-      fs.unlinkSync(filePath);
-    }
-  }
-
-  if (!fs.existsSync(finalBinaryPath)) {
-    throw new Error(`Expected binary not found: ${finalBinaryPath}`);
-  }
-
-  fs.chmodSync(finalBinaryPath, 0o755);
-
-  fs.unlinkSync(path.join(__dirname, FILE_NAME));
+  fs.mkdirSync(path.dirname(resolved.binary), { recursive: true });
+  if (fs.existsSync(resolved.binary)) fs.unlinkSync(resolved.binary);
+  fs.renameSync(extracted, resolved.binary);
+  fs.chmodSync(resolved.binary, 0o755);
+  verifyBinary(env);
+  fs.unlinkSync(resolved.archive);
+  return resolved.binary;
 }
 
-async function binary() {
-  await downloadAndSaveBinary();
-  await unzipBinary();
+function verifyBinary(env = process.env) {
+  const resolved = paths(env);
+  return verifyFile(
+    resolved.binary,
+    CHECKSUMS[resolved.platform].executable,
+    "midnight-node",
+  );
 }
 
-async function cleanBinaries() {
-  const binaryDir = path.join(__dirname, "midnight-node");
-  const zipPath = path.join(__dirname, FILE_NAME);
+async function binary(env = process.env) {
+  await downloadAndSaveBinary(env);
+  return unzipBinary(env);
+}
 
-  let deletedFiles = [];
+async function ensureBinary(env = process.env) {
+  const resolved = paths(env);
+  if (!fs.existsSync(resolved.binary)) await binary(env);
+  return verifyBinary(env);
+}
 
-  if (fs.existsSync(binaryDir)) {
-    try {
-      fs.rmSync(binaryDir, { recursive: true, force: true });
-      deletedFiles.push(binaryDir);
-    } catch (error) {
-      console.error(`Error removing directory ${binaryDir}:`, error.message);
-    }
+async function cleanBinaries(env = process.env) {
+  assertCacheCanBeCleaned("midnight-node", env);
+  const resolved = paths(env);
+  const deletedFiles = [];
+  for (const target of [resolved.root, resolved.archive]) {
+    if (!fs.existsSync(target)) continue;
+    fs.rmSync(target, { recursive: true, force: true });
+    deletedFiles.push(target);
   }
-
-  if (fs.existsSync(zipPath)) {
-    try {
-      fs.unlinkSync(zipPath);
-      deletedFiles.push(zipPath);
-    } catch (error) {
-      console.error(`Error removing file ${zipPath}:`, error.message);
-    }
-  }
-
   return deletedFiles;
 }
 
 module.exports = {
+  CHECKSUMS,
+  CURRENT_BINARY_VERSION,
   binary,
-  getPlatform,
   cleanBinaries,
+  ensureBinary,
+  getBinaryPath: (env = process.env) => paths(env).binary,
+  getBinaryRoot: (env = process.env) => paths(env).root,
+  getBinaryUrl,
+  getPlatform,
+  verifyBinary,
 };

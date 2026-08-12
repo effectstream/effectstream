@@ -12,7 +12,25 @@ const BUILD_DIR = path.join(ROOT, "build");
 const OUT_SO = path.join(BUILD_DIR, "counter.so");
 
 function resolveCargoBuildSbf(): string {
-  // 1. Check the engine's vendored binaries (co-iteration with the monorepo).
+  // 1. Use the release image's shared, versioned cache when configured. Keep
+  // this path independent of the wrapper's JS exports so an image can also be
+  // rebuilt for an already-published EffectStream release whose wrapper
+  // predates the shared-cache API.
+  const cacheRoot = process.env.EFFECTSTREAM_BINARY_CACHE_DIR;
+  if (cacheRoot) {
+    const platform = process.env.EFFECTSTREAM_BINARY_PLATFORM ?? "linux-amd64";
+    const shared = path.join(
+      cacheRoot,
+      "solana-node",
+      "3.0.14",
+      platform,
+      "bin",
+      "cargo-build-sbf",
+    );
+    if (fs.existsSync(shared)) return shared;
+  }
+
+  // 2. Check legacy package-local binaries (ordinary npm installs).
   const candidates = [
     path.join(
       ROOT,
@@ -26,7 +44,7 @@ function resolveCargoBuildSbf(): string {
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
-  // 2. Fall back to whatever is on PATH.
+  // 3. Fall back to whatever is on PATH.
   return "cargo-build-sbf";
 }
 
@@ -48,6 +66,8 @@ function main() {
   // Docker at all (see the io_uring note in solana-node/index.js), so the newer
   // toolchain isn't available to us.
   const toolsVersion = process.env.SOLANA_PLATFORM_TOOLS_VERSION ?? "v1.52";
+  const preinstalledTools = process.env.EFFECTSTREAM_SOLANA_PLATFORM_TOOLS_DIR;
+  const offline = process.env.EFFECTSTREAM_OFFLINE === "1";
   const args = [
     "--manifest-path",
     PROGRAM_MANIFEST,
@@ -56,9 +76,12 @@ function main() {
     "--tools-version",
     toolsVersion,
   ];
-  if (process.env.SKIP_FORCE_TOOLS_INSTALL !== "1") {
+  if (preinstalledTools) {
+    args.push("--skip-tools-install", "--no-rustup-override");
+  } else if (process.env.SKIP_FORCE_TOOLS_INSTALL !== "1") {
     args.push("--force-tools-install");
   }
+  if (offline) args.push("--offline");
   console.log(`[contracts-solana] $ ${bin} ${args.join(" ")}`);
 
   const result = spawnSync(bin, args, {
@@ -66,6 +89,12 @@ function main() {
     env: {
       ...process.env,
       CARGO_TERM_COLOR: "always",
+      ...(preinstalledTools
+        ? {
+            PATH: `${path.join(preinstalledTools, "rust", "bin")}:${process.env.PATH ?? ""}`,
+            RUSTC: path.join(preinstalledTools, "rust", "bin", "rustc"),
+          }
+        : {}),
     },
   });
 

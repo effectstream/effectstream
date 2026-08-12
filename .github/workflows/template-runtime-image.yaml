@@ -1,0 +1,195 @@
+name: Template Runtime Image
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: EffectStream npm version, with optional leading v
+        required: true
+        type: string
+      ref:
+        description: Git ref containing the committed template baseline
+        required: true
+        type: string
+      promote_latest:
+        description: Move latest after all offline gates pass
+        required: false
+        default: false
+        type: boolean
+      runner:
+        description: Larger-runner label with at least 50 GiB initially free
+        required: false
+        default: ""
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Already-published EffectStream npm version
+        required: true
+        type: string
+      ref:
+        description: Git ref containing the committed template baseline
+        required: true
+        default: v-next
+        type: string
+      promote_latest:
+        description: Move latest after all offline gates pass
+        required: true
+        default: false
+        type: boolean
+      runner:
+        description: Larger-runner label with at least 50 GiB initially free
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+concurrency:
+  group: template-runtime-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  build-test-promote:
+    runs-on: ${{ inputs.runner || vars.TEMPLATE_RUNTIME_RUNNER || 'ubuntu-22.04' }}
+    timeout-minutes: 120
+    steps:
+      - name: Require release-image runner capacity
+        shell: bash
+        run: |
+          MINIMUM_FREE_KIB=$((50 * 1024 * 1024))
+          AVAILABLE_KIB="$(df --output=avail -k / | tail -n 1 | tr -d ' ')"
+          df -h /
+          if [ "$AVAILABLE_KIB" -lt "$MINIMUM_FREE_KIB" ]; then
+            echo "::error::Template runtime image builds require at least 50 GiB initially free. Configure the TEMPLATE_RUNTIME_RUNNER repository variable or pass the runner input with a larger-runner label."
+            exit 1
+          fi
+
+      - name: Checkout synchronized release
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Validate release contract
+        id: release
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${REQUESTED_VERSION#v}"
+          test "$VERSION" = "$(jq -r .version package.json)"
+          bun scripts/template-runtime-artifacts.ts --verify-only --profile templates --platform linux-amd64
+          test "$(npm view "@effectstream/runtime@$VERSION" version)" = "$VERSION"
+          test "$(npm view "@effectstream/npm-midnight-node@$VERSION" version)" = "$VERSION"
+          SHA="$(git rev-parse HEAD)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push candidate with attestations
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: .github/Dockerfile.template-runtime
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/effectstream/template-runtime:candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          build-args: |
+            EFFECTSTREAM_VERSION=${{ steps.release.outputs.version }}
+            RELEASE_SHA=${{ steps.release.outputs.sha }}
+            CREATED=${{ steps.release.outputs.created }}
+          cache-from: type=gha,scope=template-runtime-linux-amd64
+          cache-to: type=gha,mode=max,scope=template-runtime-linux-amd64
+          provenance: mode=max
+          sbom: true
+
+      - name: Release builder disk before candidate pull
+        run: |
+          docker buildx prune --all --force --verbose
+          df -h /
+          docker system df
+
+      - name: Require anonymous candidate pull
+        env:
+          CANDIDATE: ghcr.io/effectstream/template-runtime:candidate-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          docker logout ghcr.io
+          if ! docker pull "$CANDIDATE"; then
+            echo "::error::Anonymous GHCR pull failed. Change ghcr.io/effectstream/template-runtime visibility to public in GitHub Packages settings, then rerun this job."
+            exit 1
+          fi
+
+      - name: Test candidate with outbound networking disabled
+        env:
+          IMAGE: ghcr.io/effectstream/template-runtime
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          docker pull "$IMAGE@$DIGEST"
+          docker run --rm --network none "$IMAGE@$DIGEST" list
+          docker run --rm --network none --entrypoint bun "$IMAGE@$DIGEST" \
+            /opt/effectstream/bin/verify-template-runtime-public.ts --root /opt/effectstream
+          docker run --rm --network none \
+            --env EXPECTED_VERSION=${{ steps.release.outputs.version }} \
+            "$IMAGE@$DIGEST" run minimal -- bun -e \
+            'const m=JSON.parse(await Bun.file(".effectstream-template.json").text()); if (m.effectstreamVersion !== process.env.EXPECTED_VERSION) process.exit(1)'
+          docker run --rm --network none "$IMAGE@$DIGEST" run evm-midnight-v2 -- bun -e \
+            'import fs from "node:fs"; const glob=new Bun.Glob("node_modules/.bun/@effectstream+npm-midnight-node@*/node_modules/@effectstream/npm-midnight-node/midnight-node/midnight-node"); const binary=[...glob.scanSync({cwd:"."})][0]; const expected="/opt/effectstream/cache/binaries/midnight-node/1.0.0/linux-amd64/bin/midnight-node"; if (!binary || fs.realpathSync(binary)!==expected) process.exit(1)'
+          docker run --rm --network none \
+            --entrypoint /opt/effectstream/cache/binaries/midnight-node/1.0.0/linux-amd64/bin/midnight-node \
+            "$IMAGE@$DIGEST" --version
+
+      - name: Login to GHCR for promotion
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote immutable version and latest tags
+        env:
+          IMAGE: ghcr.io/effectstream/template-runtime
+          DIGEST: ${{ steps.build.outputs.digest }}
+          VERSION: ${{ steps.release.outputs.version }}
+          PROMOTE_LATEST: ${{ inputs.promote_latest }}
+        run: |
+          for TAG in "$VERSION" "sha-${{ steps.release.outputs.sha }}"; do
+            TARGET="$IMAGE:$TAG"
+            EXISTING="$(docker buildx imagetools inspect "$TARGET" 2>/dev/null | awk '/^Digest:/ { print $2; exit }' || true)"
+            if [ -n "$EXISTING" ] && [ "$EXISTING" != "$DIGEST" ]; then
+              echo "::error::$TARGET already exists at immutable digest $EXISTING"
+              exit 1
+            fi
+            if [ -z "$EXISTING" ]; then
+              docker buildx imagetools create --tag "$TARGET" "$IMAGE@$DIGEST"
+            fi
+          done
+          if [ "$PROMOTE_LATEST" = "true" ]; then
+            docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
+          fi
+
+      - name: Verify anonymous public pull
+        env:
+          IMAGE: ghcr.io/effectstream/template-runtime
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          docker logout ghcr.io
+          docker image rm "$IMAGE:$VERSION" 2>/dev/null || true
+          docker pull "$IMAGE:$VERSION"

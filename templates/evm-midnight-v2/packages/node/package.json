@@ -20,7 +20,6 @@
     "@effectstream/sm": "0.103.3",
     "@effectstream/coroutine": "0.103.3",
     "@effectstream/db": "0.103.3",
-    "@effectstream/explorer": "*",
     "@effectstream/midnight-contracts": "0.103.3",
     "@evm-midnight/contracts-evm": "workspace:*",
     "@evm-midnight/database": "workspace:*",

@@ -5,7 +5,9 @@ on:
 name: Effectstream Release Publish
 
 permissions:
-  contents: write          # needed to push the version-bump commit
+  contents: write
+  packages: write
+  id-token: write
 
 concurrency:
   group: release-publish
@@ -14,7 +16,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout v-next
         uses: actions/checkout@v7
@@ -44,27 +46,37 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Refresh root release lockfile
+        run: bun install --lockfile-only --ignore-scripts
+
+      - name: Remove npm credentials before image build
+        run: rm -f .npmrc
+
       - name: Commit & push version bumps
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Stage ONLY package.json files (root + every package, ANY depth).
-          # Quote the pathspec and use git's :(glob) magic so `**` matches nested
-          # dirs (packages/node-sdk/node/...) — bash globstar is off in CI, which
-          # would otherwise collapse `**` to one level and miss most packages.
-          git add package.json ':(glob)packages/**/package.json'
-          # Safety net: if anything other than a `version:` line slipped into the
-          # staged diff, abort rather than commit unexpected content.
-          if git diff --cached -U0 -- package.json ':(glob)packages/**/package.json' \
-               | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
-               | grep -vqE '^[+-][[:space:]]*"version":'; then
-            echo "::error::Staged diff contains non-version changes — aborting commit."
-            git --no-pager diff --cached
-            exit 1
-          fi
+          git add package.json bun.lock \
+            ':(glob)packages/**/package.json'
+          while IFS= read -r file; do
+            case "$file" in
+              package.json|bun.lock|packages/*/package.json) ;;
+              *) echo "::error::Unexpected release file staged: $file"; exit 1 ;;
+            esac
+          done < <(git diff --cached --name-only)
           if git diff --cached --quiet; then
             echo "no version changes to commit"
           else
             git commit -m "chore(release): ${{ github.event.release.tag_name }}"
             git push origin v-next
           fi
+
+  template-runtime-image:
+    needs: publish
+    uses: ./.github/workflows/template-runtime-image.yaml
+    with:
+      version: ${{ github.event.release.tag_name }}
+      ref: v-next
+      promote_latest: true
+      runner: ${{ vars.TEMPLATE_RUNTIME_RUNNER }}
+    secrets: inherit

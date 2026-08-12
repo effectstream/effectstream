@@ -3,34 +3,14 @@ const path = require("path");
 const fs = require("fs");
 const yaml = require("js-yaml");
 const axios = require("axios");
+const { ensureRuntimeDirectory } = require("@effectstream/binary-runtime");
 
-const BINARY_NAME = "indexer-standalone";
-
-/**
- * Waits until the Midnight node has produced at least `minBlock`.
- *
- * The v4.3.3 indexer bundles an spo-indexer that, on a fresh DB, reads block #1
- * to anchor the first epoch and exits(1) — killing the whole indexer — if that
- * block does not exist yet. Gating startup on block #1 avoids that startup race.
- * 
- * @param {Object} env - Environment variables (used to resolve the node URL)
- * @param {Object} [opts]
- * @param {number} [opts.minBlock=1] - Block number that must exist
- * @param {number} [opts.timeoutMs=120000] - Give up (and proceed) after this
- * @param {number} [opts.intervalMs=1000] - Poll interval
- * @returns {Promise<void>}
- */
 async function waitForNodeBlock(env, opts = {}) {
   const { minBlock = 1, timeoutMs = 120000, intervalMs = 1000 } = opts;
-  const wsUrl = env.SUBSTRATE_NODE_WS_URL ||
-    env.APP__INFRA__NODE__URL ||
-    "ws://localhost:9944";
+  const wsUrl = env.SUBSTRATE_NODE_WS_URL || env.APP__INFRA__NODE__URL || "ws://localhost:9944";
   const httpUrl = wsUrl.replace(/^ws:/, "http:").replace(/^wss:/, "https:");
-
   const deadline = Date.now() + timeoutMs;
-  console.log(
-    `Waiting for node to produce block #${minBlock} at ${httpUrl} (spo-indexer startup guard)...`,
-  );
+  console.log(`Waiting for node to produce block #${minBlock} at ${httpUrl}...`);
   while (Date.now() < deadline) {
     try {
       const { data } = await axios.post(
@@ -38,83 +18,45 @@ async function waitForNodeBlock(env, opts = {}) {
         { jsonrpc: "2.0", id: 1, method: "chain_getBlockHash", params: [minBlock] },
         { headers: { "Content-Type": "application/json" }, timeout: 5000 },
       );
-      if (data && data.result) {
-        console.log(`Node has block #${minBlock} (${data.result}); starting indexer.`);
-        return;
-      }
-    } catch {
-      // node not reachable yet; keep polling
-    }
-    await new Promise((r) => setTimeout(r, intervalMs));
+      if (data?.result) return;
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
-  console.warn(
-    `Timed out waiting for node block #${minBlock} after ${timeoutMs}ms; starting indexer anyway.`,
-  );
+  console.warn(`Timed out waiting for node block #${minBlock}; starting indexer anyway.`);
 }
 
-/**
- * Resolves the configuration file path
- * @param {Object} env - Environment variables
- * @param {string} workingDir - The working directory where the indexer runs
- * @returns {string} The resolved configuration file path
- */
 function resolveConfigPath(env, workingDir) {
-  if (env.CONFIG_FILE) {
-    return path.isAbsolute(env.CONFIG_FILE)
-      ? env.CONFIG_FILE
-      : path.resolve(workingDir, env.CONFIG_FILE);
-  }
-  // Fall back to config.yaml in the current working directory
-  return path.join(workingDir, "config.yaml");
+  if (!env.CONFIG_FILE) return path.join(workingDir, "config.yaml");
+  return path.isAbsolute(env.CONFIG_FILE) ? env.CONFIG_FILE : path.resolve(workingDir, env.CONFIG_FILE);
 }
 
-/**
- * Ensures that a configuration file exists at the given path
- * @param {string} configPath - The path to the configuration file
- * @param {Object} env - Environment variables
- */
 function ensureConfigExists(configPath, env) {
-  if (fs.existsSync(configPath)) {
-    return;
-  }
-
-  console.log(
-    `Config file not found. Generating default config at: ${configPath}`,
-  );
-
+  if (fs.existsSync(configPath)) return;
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
   const networkId = env.LEDGER_NETWORK_ID || "Undeployed";
-  const nodeUrl = env.SUBSTRATE_NODE_WS_URL ||
-    env.APP__INFRA__NODE__URL ||
-    "ws://localhost:9944";
+  const nodeUrl = env.SUBSTRATE_NODE_WS_URL || env.APP__INFRA__NODE__URL || "ws://localhost:9944";
   const cnnUrl = env.APP__INFRA__STORAGE__CNN_URL || "./data/indexer.sqlite";
   const apiPort = env.APP__INFRA__API__PORT || 8088;
-
-  const defaultConfig = `
-run_migrations: true
+  fs.writeFileSync(configPath, `run_migrations: true
 network_id: &network_id "${networkId}"
-
 chain_indexer_application:
   network_id: *network_id
   blocks_buffer: 60
   save_zswap_state_after: 1000
   caught_up_max_distance: 60
   caught_up_leeway: 30
-
 wallet_indexer_application:
   network_id: *network_id
   active_wallets_repeat_delay: "100ms"
   active_wallets_ttl: "30m"
   transaction_batch_size: 10
-
 infra:
   node:
     url: "${nodeUrl}"
     reconnect_max_delay: "10s"
     reconnect_max_attempts: 30
-
   storage:
     cnn_url: "${cnnUrl}"
-
   api:
     address: "0.0.0.0"
     port: ${apiPort}
@@ -122,7 +64,6 @@ infra:
     max_complexity: 200
     max_depth: 15
     network_id: *network_id
-
 telemetry:
   tracing:
     enabled: false
@@ -131,171 +72,51 @@ telemetry:
     enabled: false
     address: "0.0.0.0"
     port: 9000
-`;
-
-  fs.writeFileSync(configPath, defaultConfig.trim());
+`);
 }
 
-/**
- * Resolves the SQLite database path using the midnight-indexer configuration rules
- * @param {Object} env - Environment variables
- * @param {string} workingDir - The working directory where the indexer runs
- * @returns {string|null} The resolved SQLite database path, or null if not found
- */
 function resolveSqlitePath(env, workingDir) {
-  // First check the APP__INFRA__STORAGE__CNN_URL environment variable
-  const envCnnUrl = env.APP__INFRA__STORAGE__CNN_URL;
-  if (envCnnUrl) {
-    console.log(`Found SQLite path from environment variable: ${envCnnUrl}`);
-    return envCnnUrl;
-  }
-
+  const configured = env.APP__INFRA__STORAGE__CNN_URL;
+  if (configured) return configured;
   const configPath = resolveConfigPath(env, workingDir);
-  console.log(`Looking for config file at: ${configPath}`);
-
-  // Check if config file exists
-  if (!fs.existsSync(configPath)) {
-    console.warn(`Config file not found at: ${configPath}`);
-    return null;
-  }
-
-  try {
-    // Parse the YAML config file
-    const configContent = fs.readFileSync(configPath, "utf8");
-    const config = yaml.load(configContent);
-
-    // Extract the cnn_url from infra.storage
-    const cnnUrl = config?.infra?.storage?.cnn_url;
-    if (!cnnUrl) {
-      console.warn("No cnn_url found in config file under infra.storage");
-      return null;
-    }
-
-    console.log(`Found SQLite path from config file: ${cnnUrl}`);
-
-    // If the path is relative, resolve it against the binary working directory (indexer-standalone)
-    if (!path.isAbsolute(cnnUrl)) {
-      const resolvedPath = path.resolve(workingDir, cnnUrl);
-      console.log(`Resolved relative path to: ${resolvedPath}`);
-      return resolvedPath;
-    }
-
-    return cnnUrl;
-  } catch (error) {
-    console.error(`Failed to parse config file: ${error.message}`);
-    return null;
-  }
+  if (!fs.existsSync(configPath)) return path.join(workingDir, "data", "indexer.sqlite");
+  const parsed = yaml.load(fs.readFileSync(configPath, "utf8"));
+  const value = parsed?.infra?.storage?.cnn_url || "./data/indexer.sqlite";
+  return path.isAbsolute(value) ? value : path.resolve(workingDir, value);
 }
 
-/**
- * Resolves the SQLite database path with a fallback to the default location
- * @param {Object} env - Environment variables
- * @param {string} workingDir - The working directory where the indexer runs
- * @returns {string} The resolved SQLite database path
- */
-function resolveSqlitePathWithFallback(env, workingDir) {
-  const sqlitePath = resolveSqlitePath(env, workingDir);
-  if (sqlitePath) {
-    return sqlitePath;
-  }
-
-  // Fallback to default indexer location: data/indexer.sqlite
-  const defaultPath = path.join(workingDir, "data", "indexer.sqlite");
-  console.log(`Using default SQLite path: ${defaultPath}`);
-  return defaultPath;
-}
-
-/**
- * Handles the --clean flag by deleting the SQLite database file
- * @param {Object} env - Environment variables
- * @param {string} workingDir - The working directory where the indexer runs
- */
 function handleCleanFlag(env, workingDir) {
-  console.log("Processing --clean flag...");
-
-  const sqlitePath = resolveSqlitePathWithFallback(env, workingDir);
-
-  // Handle sqlite:// URLs and extract the file path
-  let filePath = sqlitePath;
-  if (sqlitePath.startsWith("sqlite://")) {
-    filePath = sqlitePath.replace("sqlite://", "");
-  } else if (sqlitePath.startsWith("sqlite:///")) {
-    filePath = sqlitePath.replace("sqlite:///", "/");
-  }
-
-  console.log(`Attempting to clean SQLite database at: ${filePath}`);
-
-  if (fs.existsSync(filePath)) {
-    try {
-      fs.unlinkSync(filePath);
-      console.log(`Successfully deleted SQLite database: ${filePath}`);
-    } catch (error) {
-      console.error(`Failed to delete SQLite database: ${error.message}`);
-    }
-  } else {
-    console.log(
-      `SQLite database does not exist (will be created fresh): ${filePath}`,
-    );
-  }
+  let value = resolveSqlitePath(env, workingDir);
+  if (value.startsWith("sqlite:///")) value = value.slice("sqlite://".length);
+  else if (value.startsWith("sqlite://")) value = value.slice("sqlite://".length);
+  if (fs.existsSync(value)) fs.unlinkSync(value);
 }
 
-/**
- * Executes the midnight-indexer binary as a child process
- * @param {Object} env - Environment variables to pass to the child process
- * @param {Array} args - Optional arguments to pass to the binary
- * @returns {ChildProcess} The spawned child process
- */
-function runMidnightIndexer(env = process.env, args = []) {
-  const binaryPath = path.join(
-    __dirname,
-    "indexer-standalone",
-    BINARY_NAME,
-  );
-  const workingDir = path.join(__dirname, "indexer-standalone");
-
+function runMidnightIndexer(binaryPath, env = process.env, args = []) {
+  const workingDir = ensureRuntimeDirectory("midnight-indexer", env);
   const configPath = resolveConfigPath(env, workingDir);
   ensureConfigExists(configPath, env);
-
-  // Check for --clean flag and handle it
-  const cleanFlagIndex = args.indexOf("--clean");
-  if (cleanFlagIndex !== -1) {
+  const forwarded = [...args];
+  const cleanIndex = forwarded.indexOf("--clean");
+  if (cleanIndex !== -1) {
     handleCleanFlag(env, workingDir);
-    // Remove the --clean flag from args since the binary doesn't expect it
-    args.splice(cleanFlagIndex, 1);
+    forwarded.splice(cleanIndex, 1);
   }
-
-  console.log(`Starting midnight-indexer binary at: ${binaryPath}`);
-
-  const dataDir = path.join(workingDir, "data");
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-
-  const childProcess = spawn(binaryPath, args, {
-    env: env,
-    stdio: "inherit", // Inherit stdin, stdout, stderr from parent process
-    cwd: workingDir, // Run from inside the indexer-standalone directory
-  });
-
-  childProcess.on("spawn", () => {
-    console.log(
-      `midnight-indexer process spawned with PID: ${childProcess.pid}`,
-    );
-  });
-
-  childProcess.on("error", (error) => {
-    console.error("Failed to start midnight-indexer:", error);
-  });
-
+  fs.mkdirSync(path.join(workingDir, "data"), { recursive: true });
+  const childProcess = spawn(binaryPath, forwarded, { env, stdio: "inherit", cwd: workingDir });
+  childProcess.on("error", (error) => console.error("Failed to start midnight-indexer:", error));
   childProcess.on("exit", (code, signal) => {
-    if (code !== null) {
-      console.log(`midnight-indexer process exited with code: ${code}`);
-    } else {
-      console.log(`midnight-indexer process terminated by signal: ${signal}`);
-    }
+    if (code !== null) console.log(`midnight-indexer process exited with code: ${code}`);
+    else console.log(`midnight-indexer process terminated by signal: ${signal}`);
   });
-
   return childProcess;
 }
 
-module.exports = { runMidnightIndexer, waitForNodeBlock };
+module.exports = {
+  ensureConfigExists,
+  handleCleanFlag,
+  resolveConfigPath,
+  resolveSqlitePath,
+  runMidnightIndexer,
+  waitForNodeBlock,
+};

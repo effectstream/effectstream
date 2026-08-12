@@ -17,6 +17,7 @@
     "macos-arm64"
   ],
   "dependencies": {
+    "@effectstream/binary-runtime": "workspace:*",
     "axios": "^1.6.8",
     "extract-zip": "^2.0.1"
   },

@@ -49,9 +49,22 @@ The Docker path pulls `midnightntwrk/indexer-standalone` and maps container port
 | `APP__INFRA__PROOF_SERVER__URL` | no | `http://proof-server:6300` | `http://localhost:6300` | Proof server. |
 | `APP__INFRA__NODE__URL` | no | `ws://node:9944` | `ws://localhost:9944` | Node URL. |
 
+### Shared release-image cache
+
+With `EFFECTSTREAM_BINARY_CACHE_DIR` set, indexer v4.3.3 resolves from:
+
+```text
+<cache>/midnight-indexer/v4.3.3/linux-amd64/bin/indexer-standalone
+```
+
+`--download-only`, `--verify`, and `--path` prepare or inspect that payload.
+`EFFECTSTREAM_OFFLINE=1` disables download and Docker fallbacks. Configuration,
+SQLite data, and logs live under `EFFECTSTREAM_RUNTIME_DIR/midnight-indexer`,
+separate from the immutable executable cache.
+
 ### Path resolution
 
-`CONFIG_FILE` and `infra.storage.cnn_url` are both resolved relative to the process's current working directory when they are not absolute. Prefer absolute paths if your launch script's CWD is non-obvious. In binary mode this package sets the CWD to the bundled `indexer-standalone` folder, so a default `cnn_url: "./indexer.sqlite"` lands next to the binary. In Docker mode the image's `WORKDIR` is `/opt/indexer-standalone`; bind-mount accordingly.
+`CONFIG_FILE` and `infra.storage.cnn_url` are both resolved relative to the process's current working directory when they are not absolute. Prefer absolute paths if your launch script's CWD is non-obvious. The wrapper's generated native configuration uses the writable runtime directory, never the executable cache.
 
 ### Supported binary platforms
 

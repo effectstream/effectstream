@@ -29,6 +29,20 @@ bunx npm-midnight-proof-server --clean-binaries
 bunx npm-midnight-proof-server --only-clean
 ```
 
+### Shared release-image cache
+
+With `EFFECTSTREAM_BINARY_CACHE_DIR` set, ledger 8.1.0 on Linux amd64 resolves
+from:
+
+```text
+<cache>/midnight-proof-server/ledger-8.1.0/linux-amd64/bin/midnight-proof-server
+```
+
+Use `--download-only`, `--verify`, or `--path` for image preparation and
+diagnostics. `EFFECTSTREAM_OFFLINE=1` fails immediately when the verified native
+payload is unavailable and never uses the mutable Docker fallback. Writable
+proof-server state is kept below `EFFECTSTREAM_RUNTIME_DIR`.
+
 ## Inside EffectStream
 
 The orchestrator's Midnight step starts the proof server together with

@@ -69,5 +69,6 @@ Commerce, batching and other non-game applications.
 
 | Page | What it covers |
 | --- | --- |
+| [Template runtime image](./1201-template-runtime-image.md) | Run exact release templates with dependencies, compilers, browsers, and local-chain binaries preinstalled. |
 | [Wallet integrations](./wallets.md) | Every supported wallet mode, demonstrated by the `e2e/wallets-ui` app. |
 | [Tarochi (case study)](./example-tarochi.md) | A production game built on Effectstream. Not a template in this repository. |

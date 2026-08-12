@@ -1,217 +1,151 @@
-const os = require("os");
 const fs = require("fs");
 const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
+const {
+  artifactDirectory,
+  assertCacheCanBeCleaned,
+  assertDownloadAllowed,
+  binaryPath,
+  platformKey,
+  usesExternalCache,
+  verifyFile,
+} = require("@effectstream/binary-runtime");
 
 const CURRENT_BINARY_VERSION = "v4.3.3";
 const FINAL_BINARY_NAME = "indexer-standalone";
+const RELEASE = "0.3.120";
 
-/*
-@returns {string} The platform and architecture of the current machine. Example: "linux-amd64"
-*/
+const CHECKSUMS = {
+  "linux-amd64": {
+    archive: "467a496dde5794180eb3b25ce7544428cf214b05fc51f95d34cc703826f0c1e4",
+    executable: "79744f23e9f58b6562131c07d938c17cfff0856c8f476745b820a57cf8892fb5",
+  },
+  "linux-arm64": {
+    archive: "244fc6b1dde1dc4400ac2ea27f1ef4ce3794776cb7d153b85b93cb1ff8764212",
+    executable: "f36cf632d9c2a62f9cfa13fe71d50e309fea352cf009d24490b1de0e606955df",
+  },
+  "macos-arm64": {
+    archive: "bb44742626bf741ca4eb33d76e495b9460a693e34c3129886243ec2ed081491c",
+    executable: "012fd1019c48f2e90624ea8ca861f19680f7cfbdea1bb1ebc1ab9d6071c44f77",
+  },
+};
+
 function getPlatform() {
-  const platform = os.platform();
-  const arch = os.arch();
-
-  if (platform === "darwin") {
-    // For macOS, return the full platform-arch combination
-    if (arch === "x64") {
-      return "macos-amd64"; // Will not be in supportedPlatforms, so will fall back to Docker
-    } else {
-      return `macos-${arch}`;
-    }
-  } else {
-    // For Linux and other platforms, only arch is needed
-    if (arch === "x64") {
-      return `${platform}-amd64`;
-    }
-    return `${platform}-${arch}`;
-  }
+  return platformKey();
 }
 
-/*
-@returns {string} The URL to download the binary for the current platform.
-*/
-function getBinaryUrl() {
+function getBinaryUrl(platform = getPlatform()) {
+  const supported = require("./package.json").supportedPlatforms;
+  if (!supported.includes(platform)) throw new Error(`Unsupported platform: ${platform}`);
+  return `https://github.com/effectstream/binaries/releases/download/${RELEASE}/indexer-standalone-${platform}-${CURRENT_BINARY_VERSION}.zip`;
+}
+
+function paths(env = process.env) {
   const platform = getPlatform();
-  const supportedPlatforms = require("./package.json").supportedPlatforms;
-  // Check if platform is supported
-  if (!supportedPlatforms.includes(platform)) {
-    throw new Error(`Unsupported platform: ${platform}`);
-  }
-
-  return `https://github.com/effectstream/binaries/releases/download/0.3.120/indexer-standalone-${platform}-${CURRENT_BINARY_VERSION}.zip`;
+  const legacyDirectory = path.join(__dirname, "indexer-standalone");
+  const options = {
+    id: "midnight-indexer",
+    version: CURRENT_BINARY_VERSION,
+    platform,
+    executable: FINAL_BINARY_NAME,
+    legacyDirectory,
+    legacyBinaryPath: path.join(legacyDirectory, FINAL_BINARY_NAME),
+    env,
+  };
+  const root = artifactDirectory(options);
+  return {
+    platform,
+    root,
+    binary: binaryPath(options),
+    archive: usesExternalCache(env)
+      ? path.join(root, ".download.zip")
+      : path.join(__dirname, "indexer-standalone.zip"),
+  };
 }
 
-const ZIP_FILE_PATH = path.join(__dirname, "indexer-standalone.zip");
-
-/*
-@returns {Promise<void>} Downloads and saves the binary for the current platform.
-*/
-async function downloadAndSaveBinary() {
-  const url = getBinaryUrl();
-  try {
-    console.error(`Downloading... ${url}`);
-    const response = await axios.get(url, { responseType: "stream" });
-    const writer = fs.createWriteStream(ZIP_FILE_PATH);
-
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on("finish", resolve);
-      writer.on("error", reject);
-    });
-  } catch (error) {
-    console.error("Error downloading binary:", error);
-    throw error;
-  }
+async function downloadAndSaveBinary(env = process.env) {
+  assertDownloadAllowed("midnight-indexer", env);
+  const resolved = paths(env);
+  const url = getBinaryUrl(resolved.platform);
+  fs.mkdirSync(path.dirname(resolved.archive), { recursive: true });
+  console.error(`Downloading... ${url}`);
+  const response = await axios.get(url, { responseType: "stream" });
+  const writer = fs.createWriteStream(resolved.archive);
+  response.data.pipe(writer);
+  await new Promise((resolve, reject) => {
+    writer.on("finish", resolve);
+    writer.on("error", reject);
+  });
+  verifyFile(resolved.archive, CHECKSUMS[resolved.platform].archive, "midnight-indexer archive");
+  return resolved;
 }
 
-/*
-@returns {Promise<void>} Unzips the binary for the current platform.
-*/
-async function unzipBinary() {
-  const dir = path.join(__dirname, "indexer-standalone");
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  await extract(ZIP_FILE_PATH, { dir });
-  const dataDir = path.join(dir, "data");
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-
-  const platform = getPlatform();
-  const possibleBinaryNames = [
-    `indexer-standalone-${platform}-${CURRENT_BINARY_VERSION}`,
-    `indexer-standalone`,
-    `indexer-standalone-${platform}`
+async function unzipBinary(env = process.env) {
+  const resolved = paths(env);
+  fs.mkdirSync(resolved.root, { recursive: true });
+  await extract(resolved.archive, { dir: resolved.root });
+  const candidates = [
+    `indexer-standalone-${resolved.platform}-${CURRENT_BINARY_VERSION}`,
+    "indexer-standalone",
+    `indexer-standalone-${resolved.platform}`,
   ];
-
-  let extractedBinaryPath = null;
-  for (const name of possibleBinaryNames) {
-    const p = path.join(dir, name);
-    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
-      extractedBinaryPath = p;
-      break;
-    }
+  const extracted = candidates
+    .map((name) => path.join(resolved.root, name))
+    .find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile());
+  if (!extracted) throw new Error(`Extracted binary not found in: ${resolved.root}`);
+  fs.mkdirSync(path.dirname(resolved.binary), { recursive: true });
+  if (extracted !== resolved.binary) {
+    if (fs.existsSync(resolved.binary)) fs.unlinkSync(resolved.binary);
+    fs.renameSync(extracted, resolved.binary);
   }
-
-  const finalBinaryPath = path.join(dir, FINAL_BINARY_NAME);
-
-  // Rename the extracted file to indexer-standalone
-  if (extractedBinaryPath) {
-    if (extractedBinaryPath !== finalBinaryPath) {
-      if (fs.existsSync(finalBinaryPath)) {
-        fs.unlinkSync(finalBinaryPath);
-      }
-      fs.renameSync(extractedBinaryPath, finalBinaryPath);
-    }
-  } else {
-    throw new Error(`Extracted binary not found in: ${dir}. Expected one of: ${possibleBinaryNames.join(", ")}`);
-  }
-
-  // Clean up any other extracted files (e.g., readme.md)
-  const files = fs.readdirSync(dir);
-  for (const file of files) {
-    const filePath = path.join(dir, file);
-    // Explicitly protect config.yaml and other potential config files
-    const isConfigFile =
-      file === "config.yaml" ||
-      file === "config.yml" ||
-      file.endsWith(".yaml") ||
-      file.endsWith(".yml") ||
-      file.endsWith(".toml") ||
-      file.endsWith(".json");
-
-    if (
-      filePath !== finalBinaryPath &&
-      file !== "data" &&
-      !isConfigFile &&
-      fs.existsSync(filePath) &&
-      fs.statSync(filePath).isFile()
-    ) {
-      console.log(`Cleaning up extracted file: ${file}`);
-      fs.unlinkSync(filePath);
-    }
-  }
-
-  if (!fs.existsSync(finalBinaryPath)) {
-    throw new Error(`Expected binary not found: ${finalBinaryPath}`);
-  }
-
-  fs.chmodSync(finalBinaryPath, 0o755);
-  fs.unlinkSync(ZIP_FILE_PATH);
+  fs.chmodSync(resolved.binary, 0o755);
+  verifyBinary(env);
+  fs.unlinkSync(resolved.archive);
+  return resolved.binary;
 }
 
-async function binary() {
-  await downloadAndSaveBinary();
-  await unzipBinary();
+function verifyBinary(env = process.env) {
+  const resolved = paths(env);
+  return verifyFile(
+    resolved.binary,
+    CHECKSUMS[resolved.platform].executable,
+    "midnight-indexer",
+  );
 }
 
-async function cleanBinaries() {
-  const binaryDir = path.join(__dirname, "indexer-standalone");
-  const binaryPath = path.join(binaryDir, FINAL_BINARY_NAME);
-  const zipPath = path.join(__dirname, "indexer-standalone.zip");
+async function binary(env = process.env) {
+  await downloadAndSaveBinary(env);
+  return unzipBinary(env);
+}
 
-  let deletedFiles = [];
+async function ensureBinary(env = process.env) {
+  const resolved = paths(env);
+  if (!fs.existsSync(resolved.binary)) await binary(env);
+  return verifyBinary(env);
+}
 
-  // Delete the binary executable if it exists
-  if (fs.existsSync(binaryPath)) {
-    try {
-      fs.unlinkSync(binaryPath);
-      deletedFiles.push(binaryPath);
-    } catch (error) {
-      console.error(`Error removing binary ${binaryPath}:`, error.message);
-    }
+async function cleanBinaries(env = process.env) {
+  assertCacheCanBeCleaned("midnight-indexer", env);
+  const resolved = paths(env);
+  const deletedFiles = [];
+  for (const target of [resolved.binary, resolved.archive]) {
+    if (!fs.existsSync(target)) continue;
+    fs.rmSync(target, { force: true });
+    deletedFiles.push(target);
   }
-
-  // Delete the zip file if it exists
-  if (fs.existsSync(zipPath)) {
-    try {
-      fs.unlinkSync(zipPath);
-      deletedFiles.push(zipPath);
-    } catch (error) {
-      console.error(`Error removing file ${zipPath}:`, error.message);
-    }
-  }
-
-  // Delete any other binary-related files from the directory, preserving config files
-  if (fs.existsSync(binaryDir)) {
-    const files = fs.readdirSync(binaryDir);
-    for (const file of files) {
-      const filePath = path.join(binaryDir, file);
-      const stat = fs.statSync(filePath);
-
-      // Preserve config files and readme
-      const isConfigFile =
-        file === "config.yaml" ||
-        file === "config.yml" ||
-        file.endsWith(".yaml") ||
-        file.endsWith(".yml") ||
-        file.endsWith(".toml") ||
-        file.endsWith(".json") ||
-        file.toLowerCase().startsWith("readme") ||
-        file.toLowerCase().startsWith("license") ||
-        file.toLowerCase().startsWith("changelog");
-
-      if (!isConfigFile && stat.isFile() && fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-          deletedFiles.push(filePath);
-        } catch (error) {
-          console.error(`Error removing file ${filePath}:`, error.message);
-        }
-      }
-    }
-  }
-
   return deletedFiles;
 }
 
 module.exports = {
+  CHECKSUMS,
+  CURRENT_BINARY_VERSION,
   binary,
-  getPlatform,
   cleanBinaries,
+  ensureBinary,
+  getBinaryPath: (env = process.env) => paths(env).binary,
+  getBinaryRoot: (env = process.env) => paths(env).root,
+  getBinaryUrl,
+  getPlatform,
+  verifyBinary,
 };

@@ -10,6 +10,7 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "@effectstream/binary-runtime": "workspace:*",
     "@effectstream/binary-checksum": "workspace:*",
     "@xhmikosr/bin-wrapper": "^5.0.0"
   },
