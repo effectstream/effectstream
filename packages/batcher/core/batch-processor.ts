@@ -1,8 +1,12 @@
 import type {
+  BatchInputRejection,
+  BatchOutcome,
+  BatchSubmitResult,
   BlockchainAdapter,
   BlockchainTransactionReceipt,
 } from "../adapters/adapter.ts";
 import type { DefaultBatcherInput } from "./types.ts";
+import { InputValidationError } from "./errors.ts";
 import * as fs from "node:fs";
 
 // Custom logger for debugging
@@ -20,6 +24,20 @@ function debugLog(message: string) {
     }
   }
   console.log(message);
+}
+
+/**
+ * Read an adapter's `submitBatch` result as an outcome.
+ *
+ * A bare hash is the original all-or-nothing contract and normalises to an
+ * outcome with no verdicts, which the processor then handles by exactly the
+ * pre-existing code path.
+ */
+export function normalizeBatchOutcome<T extends DefaultBatcherInput>(
+  result: BatchSubmitResult<DefaultBatcherInput>,
+): BatchOutcome<T> {
+  if (typeof result === "string") return { hash: result };
+  return result as BatchOutcome<T>;
 }
 
 /**
@@ -127,9 +145,9 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
 
       const { maxRetries, retryDelayMs } = this.batcher.getRetryPolicy(target);
 
-      let hash: string;
+      let submitResult: BatchSubmitResult<DefaultBatcherInput>;
       try {
-        hash = await adapter.submitBatch(data, estimatedFee);
+        submitResult = await adapter.submitBatch(data, estimatedFee);
       } catch (error) {
         if (BatchProcessor.isInfraFailure(error)) {
           // PARK, don't drop: the environment failed, not the inputs. Leave
@@ -157,7 +175,65 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           );
         throw error;
       }
-      debugLog(`[BatchProcessor] adapter.submitBatch returned hash: ${hash}`);
+      const outcome = normalizeBatchOutcome<T>(submitResult);
+      // A bare hash is the original contract: every selected input shares the
+      // transaction's fate, and the legacy mutation-diff below still governs.
+      const adapterJudgedInputs = typeof submitResult !== "string";
+      debugLog(
+        `[BatchProcessor] adapter.submitBatch returned ${
+          adapterJudgedInputs ? "an outcome" : "hash"
+        }: ${outcome.hash ?? "(no transaction)"}`,
+      );
+
+      // A broken invariant is not a verdict on any input: the batcher cannot
+      // tell which one (if any) is at fault, so it charges nothing, removes
+      // nothing, and stops the target for inspection.
+      if (outcome.invariantFailure) {
+        const cooldownMs = Math.max(retryDelayMs, 1000);
+        this.batcher.setTargetCooldown(target, cooldownMs);
+        const invariantError = new Error(
+          `Batch invariant failure for target ${target}: ` +
+            outcome.invariantFailure.message,
+        );
+        console.error(
+          `🛑 [BatchProcessor] ${invariantError.message} — parking ` +
+            `${inputsSnapshot.length} input(s) untouched, cooldown ${cooldownMs}ms`,
+        );
+        this.batcher.emitStateTransition("error", {
+          phase: "batch",
+          target,
+          error: invariantError,
+          time: Date.now(),
+        });
+        throw invariantError;
+      }
+
+      if (outcome.permanentRejected && outcome.permanentRejected.length > 0) {
+        await this.rejectInputsPermanently(outcome.permanentRejected, target);
+      }
+
+      if (outcome.retryable && outcome.retryable.length > 0) {
+        // Left in storage with retry counts untouched: these inputs were never
+        // judged, so charging them for our own trouble would eventually drop a
+        // perfectly valid transaction.
+        console.warn(
+          `[BatchProcessor] Deferring ${outcome.retryable.length} input(s) for ` +
+            `target ${target} without charging a retry: ${
+              outcome.retryable.map((d) => d.reason).join("; ")
+            }`,
+        );
+      }
+
+      const hash = outcome.hash;
+      if (hash === undefined) {
+        // Every input was rejected or deferred. There is no transaction, so
+        // there is nothing to confirm and no callback left to resolve.
+        debugLog(
+          `[BatchProcessor] No transaction submitted for target ${target}; ` +
+            `nothing to confirm`,
+        );
+        return;
+      }
 
       this.batcher.emitStateTransition("batch:submit", {
         target,
@@ -166,31 +242,43 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         time: Date.now(),
       });
 
-      // Check if the adapter mutated selectedInputs in the data object
-      // This is a pattern used by some adapters (like midnight-balancing) to handle partial failures
-      let finalSelectedInputs = selectedInputs;
-      if (
-        data && typeof data === "object" && "selectedInputs" in data &&
-        Array.isArray((data as any).selectedInputs)
-      ) {
-        finalSelectedInputs = (data as any).selectedInputs as T[];
-        debugLog(
-          `[BatchProcessor] Adapter mutated selectedInputs. New length: ${finalSelectedInputs.length}`,
-        );
-        // Diff against the snapshot (not the mutated selectedInputs) to find failed inputs
-        const finalSet = new Set(finalSelectedInputs);
-        const failedInputs = inputsSnapshot.filter((i) => !finalSet.has(i));
-        if (failedInputs.length > 0) {
+      let finalSelectedInputs: T[];
+      if (adapterJudgedInputs) {
+        // The adapter said exactly what it carried. Anything it did not
+        // mention, and did not reject or defer, rode along with the hash.
+        const accountedFor = new Set<T>([
+          ...(outcome.permanentRejected ?? []).map((r) => r.input),
+          ...(outcome.retryable ?? []).map((d) => d.input),
+        ]);
+        finalSelectedInputs = outcome.submitted ??
+          inputsSnapshot.filter((input) => !accountedFor.has(input));
+      } else {
+        // Check if the adapter mutated selectedInputs in the data object
+        // This is a pattern used by some adapters (like midnight-balancing) to handle partial failures
+        finalSelectedInputs = selectedInputs;
+        if (
+          data && typeof data === "object" && "selectedInputs" in data &&
+          Array.isArray((data as any).selectedInputs)
+        ) {
+          finalSelectedInputs = (data as any).selectedInputs as T[];
           debugLog(
-            `[BatchProcessor] Incrementing retry count for ${failedInputs.length} failed inputs (maxRetries=${maxRetries})`,
+            `[BatchProcessor] Adapter mutated selectedInputs. New length: ${finalSelectedInputs.length}`,
           );
-          await this.batcher.storage
-            .incrementRetryCount(failedInputs, target, maxRetries)
-            .catch((e) =>
-              debugLog(
-                `[BatchProcessor] Failed to increment retry counts: ${e}`,
-              )
+          // Diff against the snapshot (not the mutated selectedInputs) to find failed inputs
+          const finalSet = new Set(finalSelectedInputs);
+          const failedInputs = inputsSnapshot.filter((i) => !finalSet.has(i));
+          if (failedInputs.length > 0) {
+            debugLog(
+              `[BatchProcessor] Incrementing retry count for ${failedInputs.length} failed inputs (maxRetries=${maxRetries})`,
             );
+            await this.batcher.storage
+              .incrementRetryCount(failedInputs, target, maxRetries)
+              .catch((e) =>
+                debugLog(
+                  `[BatchProcessor] Failed to increment retry counts: ${e}`,
+                )
+              );
+          }
         }
       }
 
@@ -227,6 +315,55 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           );
         }
       }
+    }
+  }
+
+  /**
+   * Drop inputs that can never succeed and tell whoever is waiting.
+   *
+   * Removal is attempted first but never blocks the rejection: a caller
+   * holding an open request must not be left hanging because storage
+   * misbehaved. A row that survives removal is re-picked and rejected again,
+   * which is noisy but not wrong — hence the warning rather than a silent
+   * `debugLog`.
+   */
+  private async rejectInputsPermanently(
+    rejections: BatchInputRejection<T>[],
+    target: string,
+  ): Promise<void> {
+    console.warn(
+      `🚫 [BatchProcessor] Permanently rejecting ${rejections.length} input(s) ` +
+        `for target ${target}: ${
+          rejections.map((r) => r.errorCode ?? r.error).join("; ")
+        }`,
+    );
+
+    await this.batcher.storage
+      .removeProcessedInputs(rejections.map((r) => r.input), target)
+      .catch((e) =>
+        console.warn(
+          `[BatchProcessor] Failed to remove permanently rejected inputs for ` +
+            `target ${target}; they will be re-picked and rejected again: ${e}`,
+        )
+      );
+
+    for (const rejection of rejections) {
+      const callbackKey = this.batcher.getCallbackKey(rejection.input);
+      const callbacks = this.batcher.submissionCallbacks.get(callbackKey);
+      if (!callbacks) continue;
+
+      // Rejected with the input's own verdict — never resolved against some
+      // other transaction's receipt.
+      callbacks.reject(
+        new InputValidationError(
+          rejection.error,
+          rejection.statusCode ?? 400,
+          rejection.errorCode,
+          false,
+        ),
+      );
+      clearTimeout(callbacks.timeoutId);
+      this.batcher.submissionCallbacks.delete(callbackKey);
     }
   }
 

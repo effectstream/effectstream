@@ -37,6 +37,81 @@ export type ValidationResult = {
 };
 
 /**
+ * One input that can never succeed, however many times it is retried.
+ *
+ * Its row is removed and any caller waiting on it is rejected with these
+ * fields. Reserve this for verdicts about the *input*: if our own environment
+ * is what failed, the input has not been judged — use {@link BatchInputDeferral}.
+ */
+export interface BatchInputRejection<TInput = DefaultBatcherInput> {
+  input: TInput;
+  /** Human-readable reason, surfaced to the caller. */
+  error: string;
+  /** Stable, machine-readable reason (e.g. `"NOT_WELL_FORMED"`). */
+  errorCode?: string;
+  /** HTTP status for the waiting caller. Defaults to 400. */
+  statusCode?: number;
+}
+
+/**
+ * One input the batcher could not carry this round through no fault of its
+ * own — a saturated validation queue, an unreachable dependency.
+ *
+ * The row is left untouched and **no retry is charged**: a user's retry budget
+ * exists to bound bad inputs, not to absorb our outages.
+ */
+export interface BatchInputDeferral<TInput = DefaultBatcherInput> {
+  input: TInput;
+  /** Why this input could not be carried right now. */
+  reason: string;
+}
+
+/**
+ * What actually happened to each input in a batch.
+ *
+ * An adapter may keep returning a bare {@link BlockchainHash}, which means
+ * "every selected input was submitted" and behaves exactly as before. Return
+ * this object instead when inputs can have differing fates.
+ *
+ * Every list is optional so an adapter states only what applies. Inputs
+ * omitted from all three are treated as submitted when a `hash` is present.
+ */
+export interface BatchOutcome<TInput = DefaultBatcherInput> {
+  /**
+   * Hash of the transaction that was submitted, if one was. Absent when every
+   * input was rejected or deferred — there is then nothing to confirm.
+   *
+   * Its presence means "submitted, awaiting confirmation", never "confirmed":
+   * rows are still removed only after a receipt arrives.
+   */
+  hash?: BlockchainHash;
+  /** Inputs carried by `hash`. Defaults to the batch's selected inputs. */
+  submitted?: TInput[];
+  /** Inputs that can never succeed. Removed; their callers are rejected. */
+  permanentRejected?: BatchInputRejection<TInput>[];
+  /** Inputs to leave queued, uncharged, for a later round. */
+  retryable?: BatchInputDeferral<TInput>[];
+  /**
+   * The batch broke an invariant the batcher cannot reason about — for
+   * example a transaction that validated, failed after finalization, and then
+   * validated again.
+   *
+   * Nothing is removed and nothing is charged; the target is paused for
+   * inspection. This is deliberately not a per-input verdict, because the
+   * batcher does not know which input (if any) is at fault.
+   */
+  invariantFailure?: { message: string; errorCode?: string };
+}
+
+/**
+ * What `submitBatch` may return: a bare hash (all-or-nothing, the original
+ * contract) or a per-input {@link BatchOutcome}.
+ */
+export type BatchSubmitResult<TInput = DefaultBatcherInput> =
+  | BlockchainHash
+  | BatchOutcome<TInput>;
+
+/**
  * Generic blockchain transaction receipt type
  * Contains common fields that most blockchains have
  */
@@ -76,11 +151,21 @@ export interface BatchBuildingResult<TOutput> {
 export interface BlockchainAdapter<TOutput> {
   /**
    * Submit a batch transaction to the blockchain.
+   *
+   * Returning a bare hash means every selected input was submitted — the
+   * original contract, and still the right answer for adapters whose inputs
+   * share one fate. Return a {@link BatchOutcome} when they do not, so the
+   * batcher can reject the doomed, leave the merely deferred alone, and
+   * confirm the rest.
+   *
    * @param data - The type-safe batch data, as constructed by buildBatchData.
    * @param fee - The fee to pay for the transaction.
-   * @returns Promise resolving to transaction hash
+   * @returns Promise resolving to a transaction hash or a per-input outcome
    */
-  submitBatch(data: TOutput, fee: string | bigint): Promise<BlockchainHash>;
+  submitBatch(
+    data: TOutput,
+    fee: string | bigint,
+  ): Promise<BatchSubmitResult<DefaultBatcherInput>>;
 
   /**
    * Estimate the fee for submitting a batch.
