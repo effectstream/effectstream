@@ -18,6 +18,7 @@ import {
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
 import { BatcherFileStorage } from "./mod.ts";
 import { BatchProcessor } from "./batch-processor.ts";
+import { InputValidationError } from "./errors.ts";
 import {
   type BatcherShutdownState,
   type ShutdownHooks,
@@ -31,23 +32,10 @@ import { ENV } from "@effectstream/utils/node-env";
  * Custom error class for input validation failures
  * Provides structured error information with appropriate HTTP status codes
  */
-export class InputValidationError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number = 400,
-    /**
-     * Stable, machine-readable reason. Clients should branch on this rather
-     * than on `message`, whose text can include detail derived from the
-     * submitted input.
-     */
-    public errorCode?: string,
-    /** True when re-submitting the identical input could later succeed. */
-    public retryable?: boolean,
-  ) {
-    super(message);
-    this.name = "InputValidationError";
-  }
-}
+// Defined in ./errors.ts so `batch-processor.ts` can throw the same class
+// without importing this module back. Re-exported here because it has always
+// been part of this module's public surface.
+export { InputValidationError } from "./errors.ts";
 
 export interface AuthenticatedInputContext {
   /** Adapter target resolved and verified by the batcher. */
