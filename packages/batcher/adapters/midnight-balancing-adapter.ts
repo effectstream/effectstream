@@ -72,6 +72,11 @@ import {
   DEFAULT_SHAPE_LIMITS,
   type ShapeLimits,
 } from "./shape-limits.ts";
+import {
+  LedgerParamsCache,
+  type LedgerParamsCacheConfig,
+  type LedgerParamsLookup,
+} from "./ledger-params-cache.ts";
 
 // ---------------------------------------------------------------------------
 // Config & types
@@ -128,6 +133,19 @@ export interface MidnightBalancingAdapterConfig {
    * workload needs more; pass `{}` to disable enforcement deliberately.
    */
   shapeLimits?: ShapeLimits;
+  /**
+   * Live ledger parameters, needed to validate a transaction against the
+   * network's actual limits and pricing rather than a build-time snapshot.
+   *
+   * The cache refreshes in the background and `get()` never performs I/O, so a
+   * request path can never trigger a network call. When it has no usable
+   * parameters the adapter fails CLOSED — 503 at intake, park at pre-spend —
+   * because validating against parameters we know to be wrong is worse than
+   * admitting we cannot validate.
+   *
+   * `indexer` defaults to this adapter's own indexer URL.
+   */
+  ledgerParams?: Partial<LedgerParamsCacheConfig>;
   /**
    * Log label for this adapter instance, e.g. the product name. Defaults to
    * "balancing". In a multi-product process this is what makes each product's
@@ -425,6 +443,8 @@ export class MidnightBalancingAdapter
   private claimedWalletKeys: object[] = [];
   /** Proof of this adapter's seed claim; the only thing that can release it. */
   private readonly seedClaim: WalletSeedClaim;
+  /** Live ledger parameters. Fails closed when it has none. */
+  private readonly ledgerParams: LedgerParamsCache;
   /**
    * True where the wallet was handed in via `config.walletResult`. An injected
    * wallet belongs to the caller: this adapter must not stop it on close.
@@ -468,6 +488,11 @@ export class MidnightBalancingAdapter
     this.seedClaim = claimWalletSeeds(seeds, config.logLabel);
     this.walletSeeds = seeds;
     this.config = config;
+    this.ledgerParams = new LedgerParamsCache({
+      indexer: config.indexer,
+      ...config.ledgerParams,
+    });
+    this.ledgerParams.start();
     this.log = new AdapterLogger(
       config.logLabel ? `balancing:${config.logLabel}` : "balancing",
     );
@@ -1718,6 +1743,9 @@ export class MidnightBalancingAdapter
       workersBusy: this.pool.getTotalWorkerCount() - this.pool.getFreeWorkerCount(),
       workersTotal: this.pool.getTotalWorkerCount(),
       inFlightInputs: this.inFlightInputKeys.size,
+      // Without this a 503 is a mystery: an operator cannot tell "indexer
+      // unreachable" from "misconfigured" from "only just started".
+      ledgerParams: this.ledgerParams.health(),
       policy: !isPolicyEnforced(this.config.policy as MidnightTxPolicy<never> | undefined)
         ? "allow-all"
         : {
@@ -1747,6 +1775,9 @@ export class MidnightBalancingAdapter
   }
 
   async close(): Promise<void> {
+    // Before anything that can throw: a leaked interval keeps the process
+    // alive after shutdown.
+    this.ledgerParams.close();
     releaseWalletSeeds(this.seedClaim);
     // Only keys this adapter claimed are in the list, so this cannot drop
     // another adapter's claim even if two share a log label.
@@ -1838,6 +1869,16 @@ export class MidnightBalancingAdapter
         }`,
       };
     }
+    // Cache readiness, checked LAST: a transaction that policy would refuse
+    // anyway should be told so, rather than being handed a 503 that invites it
+    // to come back and be refused later.
+    //
+    // Failing closed here means the queue never accepts work we would not be
+    // able to validate at spend time — otherwise the failure is merely
+    // deferred past the point where it is cheap to report.
+    const paramsVerdict = ledgerParamsGateVerdict(this.ledgerParams.get());
+    if (paramsVerdict) return paramsVerdict;
+
     // Report what this input will actually cost to verify, so the batcher can
     // charge it rather than the flat unit it paid on arrival.
     return {
@@ -1919,4 +1960,32 @@ export class MidnightBalancingAdapter
     const body = await response.json();
     return BigInt(body.data?.block?.height ?? 0);
   }
+}
+
+/**
+ * Translate a ledger-parameter lookup into an intake verdict.
+ *
+ * Returns `undefined` when parameters are usable, or a rejection when they are
+ * not. Separate from the adapter because the adapter's constructor builds an
+ * indexer provider, which would make this untestable without a chain — and an
+ * untested fail-closed path is one that quietly fails open.
+ *
+ * The status is the point. A check that could not COMPLETE is 503, not 400:
+ * the input was never judged, so telling the caller their transaction is
+ * malformed is both wrong and unactionable. Only "retry shortly" is true.
+ */
+export function ledgerParamsGateVerdict(
+  lookup: LedgerParamsLookup,
+): ValidationResult | undefined {
+  if (lookup.ok) return undefined;
+  return {
+    valid: false,
+    error:
+      `Cannot validate transactions right now: live ledger parameters are ` +
+      `unavailable (${lookup.reason}). This is a batcher-side condition; ` +
+      `retry shortly.`,
+    errorCode: "LEDGER_PARAMS_UNAVAILABLE",
+    statusCode: 503,
+    retryable: true,
+  };
 }
