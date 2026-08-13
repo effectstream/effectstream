@@ -138,11 +138,16 @@ test("a weight of 1 behaves exactly like no weight at all", async () => {
   });
 });
 
-test("an input too heavy for the budget never reaches storage", async () => {
+test("a refused input never reaches storage", async () => {
   // The surcharge is charged BEFORE the storage write. Getting this ordering
   // wrong would queue the expensive input and only then complain.
+  //
+  // Weight 50 against a budget of 10 cannot fit at any future moment, so the
+  // refusal is the permanent 413 rather than a 429 — the retryable/permanent
+  // split is asserted separately below. What this test pins is the ordering:
+  // validation ran, the write did not.
   await withServer(50, 10, async (post, storage, order) => {
-    expect((await post()).statusCode).toBe(429);
+    expect((await post()).statusCode).toBe(413);
     expect(storage.inputs.length).toBe(0);
     expect(order).toEqual(["validate"]);
     expect(order).not.toContain("store");
@@ -156,5 +161,45 @@ test("the surcharge is charged after validation, before the write", async () => 
     // and the write must follow both.
     expect(order).toEqual(["validate", "store"]);
     expect(storage.inputs.length).toBe(1);
+  });
+});
+
+// --- Too expensive, ever --------------------------------------------------
+
+test("a transaction heavier than the whole budget is refused permanently", async () => {
+  // The limiter reports no retry time when a request cannot fit its bucket at
+  // any point in the future. Returning 429 there would tell the caller to keep
+  // retrying something that can never succeed.
+  await withServer(500, 10, async (post, storage) => {
+    const res = await post() as { statusCode: number; json: () => any };
+    expect(res.statusCode).toBe(413);
+    expect(res.json().errorCode).toBe("TRANSACTION_TOO_EXPENSIVE");
+    expect(res.json().retryable).toBe(false);
+    expect(storage.inputs.length).toBe(0);
+  });
+});
+
+test("ordinary saturation is still a retryable 429", async () => {
+  // The distinction that matters: this one WOULD succeed later, so it must not
+  // be reported as permanently too expensive.
+  await withServer(6, 10, async (post) => {
+    expect((await post()).statusCode).toBe(200);
+    const res = await post() as { statusCode: number; json: () => any };
+    expect(res.statusCode).toBe(429);
+    expect(res.json().errorCode).not.toBe("TRANSACTION_TOO_EXPENSIVE");
+  });
+});
+
+test("an unmeasurable transaction is refused as too expensive", async () => {
+  // admissionWeight returns UNMEASURABLE_ADMISSION_WEIGHT when the shape
+  // cannot be read, which lands on exactly this path by arithmetic.
+  const { UNMEASURABLE_ADMISSION_WEIGHT } = await import(
+    "../adapters/shape-limits.ts"
+  );
+  await withServer(UNMEASURABLE_ADMISSION_WEIGHT, 1000, async (post, storage) => {
+    const res = await post() as { statusCode: number; json: () => any };
+    expect(res.statusCode).toBe(413);
+    expect(res.json().errorCode).toBe("TRANSACTION_TOO_EXPENSIVE");
+    expect(storage.inputs.length).toBe(0);
   });
 });

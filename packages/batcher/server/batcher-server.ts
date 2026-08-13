@@ -508,9 +508,23 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
               weight: surcharge,
             })),
           );
-          if (!rateLimitResult.allowed) {
-            throw new RateLimitExceededError(rateLimitResult);
+          if (rateLimitResult.allowed) return;
+
+          // The limiter reports no retry time when a request is heavier than
+          // the bucket itself — waiting cannot make it fit. That is a property
+          // of the transaction, not of current load, so it is a permanent
+          // rejection rather than a 429 the caller would retry forever.
+          if (rateLimitResult.retryAfterSeconds === undefined) {
+            throw new InputValidationError(
+              `Transaction is too expensive to validate: it costs ${weight} ` +
+                `units, more than this target's entire admission budget. ` +
+                `Reduce the number of shielded inputs, outputs and transients.`,
+              413,
+              "TRANSACTION_TOO_EXPENSIVE",
+              false,
+            );
           }
+          throw new RateLimitExceededError(rateLimitResult);
         },
       );
 
