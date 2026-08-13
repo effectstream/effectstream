@@ -5,6 +5,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   admissionWeight,
+  UNMEASURABLE_ADMISSION_WEIGHT,
   checkShapeLimits,
   type ShapeLimits,
 } from "../adapters/shape-limits.ts";
@@ -91,12 +92,23 @@ describe("admission weight", () => {
     expect(admissionWeight(tx(0, 0))).toBe(1);
   });
 
-  test("an unreadable shape is not charged as free", () => {
+  test("an unreadable shape is charged as heavy, not merely non-zero", () => {
     const hostile = {
       get guaranteedOffer(): never {
         throw new Error("nope");
       },
     } as unknown as PolicyInspectableTx;
-    expect(admissionWeight(hostile)).toBeGreaterThanOrEqual(1);
+
+    // The previous assertion here was `toBeGreaterThanOrEqual(1)`, which is
+    // satisfied by the cheapest weight there is. It passed while the function
+    // returned 1 for an unmeasurable transaction — the exact opposite of what
+    // its comment promised — so it is asserted concretely now.
+    expect(admissionWeight(hostile)).toBe(UNMEASURABLE_ADMISSION_WEIGHT);
+
+    // And "heavy" has to mean something: it must not fit in a realistic
+    // bucket, or an attacker buys a cheap rate with bytes we cannot measure.
+    expect(admissionWeight(hostile)).toBeGreaterThan(
+      admissionWeight(tx(100, 100)),
+    );
   });
 });

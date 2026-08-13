@@ -38,6 +38,15 @@ export interface ShapeVerdict {
 }
 
 /**
+ * Weight charged for a transaction whose shape could not be read.
+ *
+ * Deliberately larger than any sane per-request ceiling, so an unmeasurable
+ * transaction is refused rather than admitted cheaply. It is a rejection by
+ * arithmetic: the limiter cannot fit it in any bucket.
+ */
+export const UNMEASURABLE_ADMISSION_WEIGHT = 1_000_000;
+
+/**
  * The admission weight of a transaction: its proof-bearing element count,
  * floored at 1 so every request costs something.
  *
@@ -52,7 +61,12 @@ export function admissionWeight(tx: PolicyInspectableTx): number {
   } catch {
     // Unreadable shape is charged as heavy, not free: an attacker must not be
     // able to buy a cheap rate by submitting something we cannot measure.
-    return 1;
+    //
+    // `checkShapeLimits` also fails closed here, but only when a product has
+    // configured limits at all — with none set it returns early and never
+    // looks at the shape, so this path is the only thing standing between an
+    // unreadable transaction and the cheapest possible rate.
+    return UNMEASURABLE_ADMISSION_WEIGHT;
   }
 }
 
