@@ -325,3 +325,215 @@ test("omitting rateLimit does not disable rate limiting", () => {
     windowMs: 86400000,
   });
 });
+
+// --- Weighted admission ---
+//
+// Requests are not uniformly expensive: validating a 46-output Midnight
+// transaction costs seconds of CPU against milliseconds for a simple
+// transfer. Weight lets an expensive shape draw down the budget it actually
+// consumes instead of a flat one request.
+
+test("weighted consume charges the weight, not one request", async () => {
+  const store = new InMemoryRateLimitStore();
+
+  // 3 of a budget of 5.
+  expect(
+    (await store.consume([{ key: "k", maxRequests: 5, weight: 3 }], 1000, 1000))
+      .allowed,
+  ).toBe(true);
+  expect(await store.count("k", 1000, 1000)).toEqual(3);
+
+  // A second weight-3 request needs 6 of 5: refused.
+  const heavy = await store.consume(
+    [{ key: "k", maxRequests: 5, weight: 3 }],
+    1000,
+    1000,
+  );
+  expect(heavy.allowed).toBe(false);
+  expect(heavy.limitedKey).toEqual("k");
+
+  // The refusal charged nothing, so a weight-2 request still fits exactly.
+  expect(
+    (await store.consume([{ key: "k", maxRequests: 5, weight: 2 }], 1000, 1000))
+      .allowed,
+  ).toBe(true);
+  expect(await store.count("k", 1000, 1000)).toEqual(5);
+});
+
+test("omitted weight consumes exactly one unit", async () => {
+  const store = new InMemoryRateLimitStore();
+  for (let i = 0; i < 3; i += 1) {
+    expect(
+      (await store.consume([{ key: "k", maxRequests: 3 }], 1000, 1000)).allowed,
+    ).toBe(true);
+  }
+  expect(await store.count("k", 1000, 1000)).toEqual(3);
+  expect(
+    (await store.consume([{ key: "k", maxRequests: 3 }], 1000, 1000)).allowed,
+  ).toBe(false);
+});
+
+test("a mixed-weight request is all-or-nothing across buckets", async () => {
+  const store = new InMemoryRateLimitStore();
+
+  // "tight" has room for 1 more unit; "roomy" has plenty.
+  await store.consume([{ key: "tight", maxRequests: 4, weight: 3 }], 1000, 1000);
+
+  const result = await store.consume(
+    [
+      { key: "roomy", maxRequests: 100, weight: 2 },
+      { key: "tight", maxRequests: 4, weight: 2 },
+    ],
+    1000,
+    1000,
+  );
+
+  expect(result.allowed).toBe(false);
+  expect(result.limitedKey).toEqual("tight");
+  // Neither bucket moved: the roomy one must not be charged for a request
+  // that was refused.
+  expect(await store.count("roomy", 1000, 1000)).toEqual(0);
+  expect(await store.count("tight", 1000, 1000)).toEqual(3);
+});
+
+test("the same key named twice sums its weights", async () => {
+  const store = new InMemoryRateLimitStore();
+
+  // 2 + 2 = 4 against a ceiling of 5 fits once, but not twice.
+  const first = await store.consume(
+    [
+      { key: "k", maxRequests: 5, weight: 2 },
+      { key: "k", maxRequests: 5, weight: 2 },
+    ],
+    1000,
+    1000,
+  );
+  expect(first.allowed).toBe(true);
+  expect(await store.count("k", 1000, 1000)).toEqual(4);
+
+  const second = await store.consume(
+    [
+      { key: "k", maxRequests: 5, weight: 2 },
+      { key: "k", maxRequests: 5, weight: 2 },
+    ],
+    1000,
+    1000,
+  );
+  expect(second.allowed).toBe(false);
+});
+
+test("a duplicated key keeps the stricter ceiling while summing weight", async () => {
+  const store = new InMemoryRateLimitStore();
+  const result = await store.consume(
+    [
+      { key: "k", maxRequests: 10, weight: 1 },
+      { key: "k", maxRequests: 3, weight: 1 },
+    ],
+    1000,
+    1000,
+  );
+  // Weight 2 against the stricter ceiling of 3 still fits.
+  expect(result.allowed).toBe(true);
+  expect(await store.count("k", 1000, 1000)).toEqual(2);
+
+  // But the next unit does not: 2 + 2 > 3.
+  expect(
+    (await store.consume([{ key: "k", maxRequests: 3, weight: 2 }], 1000, 1000))
+      .allowed,
+  ).toBe(false);
+});
+
+test("expiring units return their weight to the budget", async () => {
+  const store = new InMemoryRateLimitStore();
+  await store.consume([{ key: "k", maxRequests: 5, weight: 4 }], 1000, 1000);
+  expect(
+    (await store.consume([{ key: "k", maxRequests: 5, weight: 4 }], 1500, 1000))
+      .allowed,
+  ).toBe(false);
+
+  // All four units left the window together, freeing four units of budget —
+  // not a single request's worth.
+  const afterExpiry = await store.consume(
+    [{ key: "k", maxRequests: 5, weight: 4 }],
+    2500,
+    1000,
+  );
+  expect(afterExpiry.allowed).toBe(true);
+  expect(await store.count("k", 2500, 1000)).toEqual(4);
+});
+
+test("retry-after waits for enough units to expire, not just the oldest", async () => {
+  const store = new InMemoryRateLimitStore();
+  // Three separate single units at 1000, 2000 and 3000.
+  await store.consume([{ key: "k", maxRequests: 3 }], 1000, 5000);
+  await store.consume([{ key: "k", maxRequests: 3 }], 2000, 5000);
+  await store.consume([{ key: "k", maxRequests: 3 }], 3000, 5000);
+
+  // A weight-3 request needs all three to go. The last one to expire is the
+  // unit from 3000, which leaves the window at 8000 — 5s after now=3000.
+  const heavy = await store.consume(
+    [{ key: "k", maxRequests: 3, weight: 3 }],
+    3000,
+    5000,
+  );
+  expect(heavy.allowed).toBe(false);
+  expect(heavy.retryAfterSeconds).toEqual(5);
+
+  // A weight-1 request only needs the 1000 unit to go, at 6000 — 3s away.
+  const light = await store.consume(
+    [{ key: "k", maxRequests: 3, weight: 1 }],
+    3000,
+    5000,
+  );
+  expect(light.allowed).toBe(false);
+  expect(light.retryAfterSeconds).toEqual(3);
+});
+
+test("a request heavier than its bucket reports no retry time", async () => {
+  const store = new InMemoryRateLimitStore();
+  const result = await store.consume(
+    [{ key: "k", maxRequests: 2, weight: 5 }],
+    1000,
+    1000,
+  );
+  // Waiting cannot help: even an empty bucket cannot hold 5 units.
+  expect(result.allowed).toBe(false);
+  expect(result.retryAfterSeconds).toBeUndefined();
+  expect(result.limitedKey).toEqual("k");
+});
+
+test("an invalid weight throws instead of silently under-charging", async () => {
+  const store = new InMemoryRateLimitStore();
+  for (const weight of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    await expect(
+      store.consume([{ key: "k", maxRequests: 5, weight }], 1000, 1000),
+    ).rejects.toThrow(/invalid weight/);
+  }
+  // The rejected calls charged nothing.
+  expect(await store.count("k", 1000, 1000)).toEqual(0);
+});
+
+test("an invalid weight is rejected before any bucket is charged", async () => {
+  const store = new InMemoryRateLimitStore();
+  await expect(
+    store.consume(
+      [
+        { key: "good", maxRequests: 5, weight: 1 },
+        { key: "bad", maxRequests: 5, weight: 0 },
+      ],
+      1000,
+      1000,
+    ),
+  ).rejects.toThrow(/invalid weight/);
+  expect(await store.count("good", 1000, 1000)).toEqual(0);
+});
+
+test("RateLimiter.checkBuckets passes weight through to the store", async () => {
+  const store = new InMemoryRateLimitStore();
+  const limiter = new RateLimiter(store, 10, 60_000);
+
+  expect((await limiter.checkBuckets([{ key: "k", maxRequests: 10, weight: 7 }]))
+    .allowed).toBe(true);
+  expect((await limiter.checkBuckets([{ key: "k", maxRequests: 10, weight: 7 }]))
+    .allowed).toBe(false);
+});

@@ -19,6 +19,35 @@ export type RateLimitKeyStrategy = "ip" | "ip-and-address" | "composite";
 export interface RateLimitBucket {
   key: string;
   maxRequests: number;
+  /**
+   * Cost of this request against the bucket, in the same units as
+   * `maxRequests`. Must be an integer >= 1. Defaults to 1, so callers that
+   * do not set it behave exactly as before.
+   *
+   * Requests are not uniformly expensive. Validating a 46-output Midnight
+   * transaction costs seconds of CPU against milliseconds for a simple
+   * transfer, so charging both a single request lets the expensive shape
+   * exhaust a sponsor's capacity while staying inside its request allowance.
+   */
+  weight?: number;
+}
+
+/**
+ * Resolve and validate a bucket's cost.
+ *
+ * A bad weight is a programming error in the caller, not a client problem:
+ * throw rather than clamp, so it surfaces at the call site instead of
+ * silently under-charging every request through that path.
+ */
+function bucketWeight(bucket: RateLimitBucket): number {
+  const weight = bucket.weight ?? 1;
+  if (!Number.isInteger(weight) || weight < 1) {
+    throw new Error(
+      `rate limit bucket "${bucket.key}" has invalid weight ` +
+        `${String(bucket.weight)}: expected an integer >= 1`,
+    );
+  }
+  return weight;
 }
 
 export interface RateLimitCheckResult {
@@ -37,6 +66,12 @@ export interface RateLimitCheckResult {
  * with the appropriate row/advisory locks. A split count-then-hit contract is
  * not sufficient: concurrent callers can all observe spare capacity and exceed
  * a sponsor budget.
+ *
+ * Implementations must honour `RateLimitBucket.weight` (default 1): a bucket
+ * admits a request only when its consumed weight plus the request's weight
+ * stays within `maxRequests`, and it records the weight rather than a single
+ * hit. A store that ignores the field silently under-charges expensive
+ * requests.
  */
 export interface RateLimitStore {
   consume(
@@ -50,10 +85,42 @@ export interface RateLimitStore {
 }
 
 /**
+ * Seconds until a rejected request could fit, or `undefined` when it never
+ * can.
+ *
+ * With weights, waiting for the single oldest entry is not enough: a request
+ * costing 3 against a full bucket needs three units to leave the window.
+ * `hits` is oldest-first, so the unit at index `mustFree - 1` is the last one
+ * that has to expire.
+ */
+function retryAfterSecondsFor(
+  hits: readonly number[],
+  bucket: Required<RateLimitBucket>,
+  nowMs: number,
+  windowMs: number,
+): number | undefined {
+  // A request heavier than the entire bucket can never be admitted, however
+  // long the caller waits. Report no retry time rather than a misleading one.
+  if (bucket.weight > bucket.maxRequests) return undefined;
+
+  const mustFree = hits.length + bucket.weight - bucket.maxRequests;
+  const lastToExpire = hits[mustFree - 1];
+  const retryAfterMs = lastToExpire === undefined
+    ? windowMs
+    : (lastToExpire + windowMs) - nowMs;
+  return Math.ceil(Math.max(retryAfterMs, 0) / 1000);
+}
+
+/**
  * In-memory sliding-window rate limit store.
  *
  * `consume` contains no await points: checking and recording every bucket is a
  * single synchronous critical section in the JavaScript event loop.
+ *
+ * Weight is recorded as one timestamp per consumed unit, so a key's stored
+ * entries are its consumed weight and stay bounded by `maxRequests` — a
+ * request is never admitted past the ceiling, so the array cannot grow past
+ * it either.
  */
 export class InMemoryRateLimitStore implements RateLimitStore {
   private readonly hits: Map<string, number[]> = new Map();
@@ -68,7 +135,11 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     arr.push(nowMs);
   }
 
-  /** Count hits in the current window. Exposed for diagnostics and tests. */
+  /**
+   * Consumed weight in the current window. Exposed for diagnostics and tests.
+   *
+   * For unweighted callers this is the hit count, unchanged.
+   */
   async count(key: string, nowMs: number, windowMs: number): Promise<number> {
     return this.prune(key, nowMs, windowMs).length;
   }
@@ -87,13 +158,25 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     nowMs: number,
     windowMs: number,
   ): Promise<RateLimitCheckResult> {
-    // A duplicate key must never be charged twice. If callers provide
-    // conflicting ceilings, the stricter one wins.
-    const unique = new Map<string, RateLimitBucket>();
+    // A duplicate key must never be charged at two different ceilings: the
+    // stricter ceiling wins. Weights sum, because one request that names the
+    // same key twice really does cost both against it.
+    //
+    // Every weight is validated here, before any bucket is inspected or
+    // written, so an invalid weight cannot leave a request partially charged.
+    const unique = new Map<string, Required<RateLimitBucket>>();
     for (const bucket of buckets) {
+      const weight = bucketWeight(bucket);
       const previous = unique.get(bucket.key);
-      if (!previous || bucket.maxRequests < previous.maxRequests) {
-        unique.set(bucket.key, bucket);
+      if (!previous) {
+        unique.set(bucket.key, {
+          key: bucket.key,
+          maxRequests: bucket.maxRequests,
+          weight,
+        });
+      } else {
+        previous.maxRequests = Math.min(previous.maxRequests, bucket.maxRequests);
+        previous.weight += weight;
       }
     }
 
@@ -101,14 +184,10 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     for (const bucket of unique.values()) {
       const hits = this.prune(bucket.key, nowMs, windowMs);
       active.set(bucket.key, hits);
-      if (hits.length >= bucket.maxRequests) {
-        const oldest = hits[0];
-        const retryAfterMs = oldest === undefined
-          ? windowMs
-          : (oldest + windowMs) - nowMs;
+      if (hits.length + bucket.weight > bucket.maxRequests) {
         return {
           allowed: false,
-          retryAfterSeconds: Math.ceil(Math.max(retryAfterMs, 0) / 1000),
+          retryAfterSeconds: retryAfterSecondsFor(hits, bucket, nowMs, windowMs),
           limitedKey: bucket.key,
         };
       }
@@ -117,7 +196,9 @@ export class InMemoryRateLimitStore implements RateLimitStore {
     // No await occurs between the checks above and these writes.
     for (const bucket of unique.values()) {
       const hits = active.get(bucket.key) ?? [];
-      hits.push(nowMs);
+      for (let unit = 0; unit < bucket.weight; unit += 1) {
+        hits.push(nowMs);
+      }
       this.hits.set(bucket.key, hits);
     }
 
