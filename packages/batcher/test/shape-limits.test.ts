@@ -7,6 +7,7 @@ import {
   admissionWeight,
   UNMEASURABLE_ADMISSION_WEIGHT,
   checkShapeLimits,
+  DEFAULT_SHAPE_LIMITS,
   type ShapeLimits,
 } from "../adapters/shape-limits.ts";
 import type { PolicyInspectableTx } from "../adapters/midnight-policy.ts";
@@ -110,5 +111,33 @@ describe("admission weight", () => {
     expect(admissionWeight(hostile)).toBeGreaterThan(
       admissionWeight(tx(100, 100)),
     );
+  });
+});
+
+describe("the default ceiling", () => {
+  test("is ON, so a product that configures nothing is still bounded", () => {
+    // The whole point of a default: protection that does not depend on the
+    // operator having already known to ask for it.
+    expect(DEFAULT_SHAPE_LIMITS.maxProofElements).toBe(64);
+    expect(checkShapeLimits(tx(1, 200), DEFAULT_SHAPE_LIMITS).valid).toBe(false);
+  });
+
+  test("clears the measured worst case with headroom", () => {
+    // 47 elements = the 2.21 s p50 shape. It must still be accepted, or the
+    // default breaks legitimate high-fan-out transfers on day one.
+    expect(checkShapeLimits(tx(1, 46), DEFAULT_SHAPE_LIMITS).valid).toBe(true);
+  });
+
+  test("sits exactly at 64 elements", () => {
+    expect(checkShapeLimits(tx(32, 32), DEFAULT_SHAPE_LIMITS).valid).toBe(true);
+    expect(checkShapeLimits(tx(32, 33), DEFAULT_SHAPE_LIMITS).valid).toBe(false);
+  });
+
+  test("only the aggregate is set — per-field ceilings stay open", () => {
+    // What bounds the work is the total; the per-field limits exist for
+    // products that want to constrain a specific dimension deliberately.
+    expect(DEFAULT_SHAPE_LIMITS.maxInputs).toBeUndefined();
+    expect(DEFAULT_SHAPE_LIMITS.maxOutputs).toBeUndefined();
+    expect(DEFAULT_SHAPE_LIMITS.maxTransients).toBeUndefined();
   });
 });

@@ -59,12 +59,19 @@ import type { NetworkId as WalletNetworkId } from "@midnightntwrk/wallet-sdk-abs
 import { AdapterLogger } from "./adapter-logger.ts";
 import { WorkerPool } from "./worker-pool.ts";
 import {
+  contractActions,
   evaluateDeclarativePolicy,
   evaluatePolicy,
   isPolicyEnforced,
   type MidnightTxPolicy,
   type PolicyInspectableTx,
 } from "./midnight-policy.ts";
+import {
+  admissionWeight,
+  checkShapeLimits,
+  DEFAULT_SHAPE_LIMITS,
+  type ShapeLimits,
+} from "./shape-limits.ts";
 
 // ---------------------------------------------------------------------------
 // Config & types
@@ -109,6 +116,18 @@ export interface MidnightBalancingAdapterConfig {
    * See `./midnight-policy.ts` for the helpers custom filters should use.
    */
   policy?: MidnightTxPolicy<DelegatedTx>;
+  /**
+   * Structural ceilings on a submitted transaction. Bounds the verification
+   * WORK a caller can ask for, which `maxInputChars` cannot: a 46-output and a
+   * 1-output transfer both fit under the size cap while costing ~2.21 s and
+   * ~128 ms of unconditional zswap proof verification.
+   *
+   * Defaults to {@link DEFAULT_SHAPE_LIMITS} rather than "off", because a
+   * ceiling that only protects operators who already knew to set it is not
+   * protecting the people it is for. Raise it per product if a legitimate
+   * workload needs more; pass `{}` to disable enforcement deliberately.
+   */
+  shapeLimits?: ShapeLimits;
   /**
    * Log label for this adapter instance, e.g. the product name. Defaults to
    * "balancing". In a multi-product process this is what makes each product's
@@ -1785,6 +1804,18 @@ export class MidnightBalancingAdapter
       };
     }
 
+    // HARD gates, before any policy runs. A custom filter may tighten what a
+    // product sponsors, but must never be able to raise the ceilings that
+    // protect the process — so these are not expressible as policy.
+    const hardVerdict = this.hardGateVerdict(entry);
+    if (hardVerdict) {
+      this.log.warn(
+        `Refused #${inputContentHash(input.input)} at intake ` +
+          `[${hardVerdict.errorCode}]: ${hardVerdict.error}`,
+      );
+      return hardVerdict;
+    }
+
     // Content-based authorization: declarative rules first, then the custom
     // final filter. Both fail closed.
     const verdict = await evaluatePolicy(
@@ -1807,7 +1838,62 @@ export class MidnightBalancingAdapter
         }`,
       };
     }
-    return { valid: true };
+    // Report what this input will actually cost to verify, so the batcher can
+    // charge it rather than the flat unit it paid on arrival.
+    return {
+      valid: true,
+      admissionWeight: admissionWeight(entry.tx as unknown as PolicyInspectableTx),
+    };
+  }
+
+  /**
+   * The gates a policy cannot loosen: maintenance updates and structural
+   * ceilings. Returns a rejection, or `undefined` when the transaction clears
+   * them.
+   *
+   * Shared by intake and the pre-batch recheck, because storage rows are
+   * untrusted — they can be edited on disk, and the limits may have been
+   * tightened since the input was accepted. A gate enforced only at intake is
+   * not a gate.
+   */
+  private hardGateVerdict(entry: DelegatedTxEntry): ValidationResult | undefined {
+    const tx = entry.tx as unknown as PolicyInspectableTx;
+
+    // A maintenance update can rotate a contract's verifier keys and its
+    // maintenance authority. Refused outright, before anything else looks at
+    // it, and regardless of whether the contract is allowlisted.
+    let actions;
+    try {
+      actions = contractActions(tx);
+    } catch (e) {
+      return {
+        valid: false,
+        error: `could not read contract actions: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+        errorCode: "ACTION_INTROSPECTION_FAILED",
+      };
+    }
+    if (actions.some((action) => action.entryPoint === "")) {
+      return {
+        valid: false,
+        error:
+          "transaction contains a contract deploy or maintenance update; " +
+          "this batcher sponsors circuit calls only",
+        errorCode: "UNSUPPORTED_MAINTENANCE_UPDATE",
+      };
+    }
+
+    const shape = checkShapeLimits(tx, this.config.shapeLimits ?? DEFAULT_SHAPE_LIMITS);
+    if (!shape.valid) {
+      return {
+        valid: false,
+        error: shape.reason ?? "transaction shape exceeds this target's limits",
+        errorCode: shape.errorCode,
+      };
+    }
+
+    return undefined;
   }
 
   /**

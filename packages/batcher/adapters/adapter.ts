@@ -34,6 +34,17 @@ export type ValidationResult = {
   statusCode?: number;
   /** True when re-submitting the identical input could later succeed. */
   retryable?: boolean;
+  /**
+   * What this input should cost against the caller's admission budget, in the
+   * limiter's units (proof-bearing elements for Midnight).
+   *
+   * Only meaningful on a `valid: true` result. The batcher charges a flat unit
+   * at authentication — before the payload has been deserialized, when all it
+   * knows is that a request arrived — and charges the remainder here, once the
+   * adapter has measured the work the input will actually cause. Omit it and
+   * the input costs the flat unit, exactly as before.
+   */
+  admissionWeight?: number;
 };
 
 /**

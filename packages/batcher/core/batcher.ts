@@ -43,6 +43,26 @@ export interface AuthenticatedInputContext {
 }
 
 /**
+ * Context for the admission surcharge, once the input has been validated and
+ * its true cost is known.
+ *
+ * Admission is charged in two phases because the cost of a request cannot be
+ * known when it arrives. At authentication all we know is that *a* request
+ * turned up, so it is charged a flat unit; only after the adapter has
+ * deserialized the payload can we say how much verification work it will
+ * actually cause. Charging the difference here keeps the expensive shape from
+ * drawing down the same budget as a trivial one, while still refusing an
+ * unauthenticated caller a free deserialize.
+ */
+export interface AdmissionWeightContext {
+  target: string;
+  /** Total units this input should cost, as reported by the adapter. */
+  weight: number;
+  /** Units already charged at authentication. */
+  alreadyCharged: number;
+}
+
+/**
  * EffectStream Batcher - A type-safe, simplified blockchain batching system
  *
  * ARCHITECTURE:
@@ -489,6 +509,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     onAuthenticated?: (
       context: AuthenticatedInputContext,
     ) => Promise<void> | void,
+    onAdmissionWeight?: (
+      context: AdmissionWeightContext,
+    ) => Promise<void> | void,
   ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
     if (this.shutdownState.isShuttingDown) {
       // 503 Service Unavailable
@@ -558,6 +581,19 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // 2. Adapter-Specific Input Validation (Pre-Queue)
     if (adapter && typeof adapter.validateInput === "function") {
       const validationResult = await adapter.validateInput(input);
+      if (validationResult.valid) {
+        // The adapter has now measured what this input really costs. Charge
+        // the difference before anything is queued, so an expensive shape
+        // cannot slip past on the flat unit it paid at authentication.
+        //
+        // Deliberately AFTER the validity check: refusing an input we already
+        // rejected is not worth charging for, and a weight read off an invalid
+        // payload is not a measurement worth trusting.
+        const weight = validationResult.admissionWeight;
+        if (typeof weight === "number" && weight > 1 && onAdmissionWeight) {
+          await onAdmissionWeight({ target, weight, alreadyCharged: 1 });
+        }
+      }
       if (!validationResult.valid) {
         // Honour a status the adapter asked for. A gate that could not COMPLETE
         // — its own dependency was unavailable — reports 503, which is a

@@ -28,6 +28,25 @@ export interface ShapeLimits {
   maxProofElements?: number;
 }
 
+/**
+ * Ceilings applied when a product configures none.
+ *
+ * ON by default, not off: a limit that protects only operators who already
+ * knew to set it is not protecting the people it exists for. 64 proof
+ * elements is roughly 3 s of verification — about 1.4x the measured 46-output
+ * worst case (47 elements, 2.21 s p50), so today's heaviest observed shape
+ * clears it with headroom.
+ *
+ * Only the aggregate is set. The per-field ceilings exist for products that
+ * want to constrain a specific dimension; what bounds the WORK is the total,
+ * since every input, output and transient carries its own unconditionally
+ * verified proof.
+ *
+ * Raise it per product for a legitimate heavy workload; pass `{}` to disable
+ * enforcement deliberately.
+ */
+export const DEFAULT_SHAPE_LIMITS: ShapeLimits = { maxProofElements: 64 };
+
 export interface ShapeVerdict {
   valid: boolean;
   /** Stable code for the rejection, suitable for a client to branch on. */

@@ -466,23 +466,48 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
         target: batcherInput.target,
       };
 
+      // Both admission phases charge the SAME buckets, so they are built once
+      // here: a surcharge landing on a different key would leave the flat unit
+      // stranded on one budget and the real cost on another.
+      const bucketsFor = (target: string) => {
+        const adapter = batcher.getAdapter(target);
+        const strategy = adapter?.getRateLimitKeyStrategy?.() ?? "ip";
+        return buildRateLimitBuckets(
+          strategy,
+          target,
+          request.ip,
+          adaptedInput.address,
+          maxRequests,
+          globalMaxRequests,
+        );
+      };
+
       // Add input to batcher with confirmation level
       const result = await batcher.batchInput(
         adaptedInput as any,
         confirmationLevel,
         body.timeoutMs,
         async ({ target }) => {
-          const adapter = batcher.getAdapter(target);
-          const strategy = adapter?.getRateLimitKeyStrategy?.() ?? "ip";
-          const buckets = buildRateLimitBuckets(
-            strategy,
-            target,
-            request.ip,
-            adaptedInput.address,
-            maxRequests,
-            globalMaxRequests,
+          const rateLimitResult = await rateLimiter.checkBuckets(
+            bucketsFor(target),
           );
-          const rateLimitResult = await rateLimiter.checkBuckets(buckets);
+          if (!rateLimitResult.allowed) {
+            throw new RateLimitExceededError(rateLimitResult);
+          }
+        },
+        // Admission surcharge. The flat unit above was charged before the
+        // payload had been read; this charges what the input actually costs,
+        // now that the adapter has measured it, and still before anything is
+        // written to storage.
+        async ({ target, weight, alreadyCharged }) => {
+          const surcharge = weight - alreadyCharged;
+          if (surcharge <= 0) return;
+          const rateLimitResult = await rateLimiter.checkBuckets(
+            bucketsFor(target).map((bucket) => ({
+              ...bucket,
+              weight: surcharge,
+            })),
+          );
           if (!rateLimitResult.allowed) {
             throw new RateLimitExceededError(rateLimitResult);
           }
