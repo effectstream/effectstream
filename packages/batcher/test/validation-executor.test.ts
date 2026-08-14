@@ -268,7 +268,7 @@ test("releasing twice does not drop someone else's reference", async () => {
 // and deserialize on the far side, and that a failure there fails CLOSED.
 
 test("the real worker loads the ledger, survives the boundary, and fails closed", async () => {
-  const { LedgerParameters } = await import("@midnight-ntwrk/ledger-v8");
+  const { LedgerParameters, Transaction } = await import("@midnight-ntwrk/ledger-v8");
   const paramsBytes = LedgerParameters.initialParameters().serialize();
 
   const executor = new ValidationExecutor({
@@ -293,4 +293,28 @@ test("the real worker loads the ledger, survives the boundary, and fails closed"
   // A reason came back, and it is bounded rather than echoed wholesale.
   expect(typeof verdict.reason).toBe("string");
   expect(verdict.reason!.length).toBeLessThanOrEqual(513);
+
+  // A parseable transaction reaches makeStrictness even if a later
+  // well-formedness rule rejects it. The diagnostic is captured inside the
+  // child at that exact boundary, not reconstructed by this caller.
+  const traced = await executor.submit(job({
+    txBytes: Transaction.fromParts("undeployed").serialize(),
+    paramsBytes,
+    networkId: "undeployed",
+    phase: "pre-spend",
+    txStage: "unproven",
+    nowMs: Date.now(),
+    includeDiagnostics: true,
+  }));
+  expect(traced.diagnostics).toEqual({
+    phase: "pre-spend",
+    txStage: "unproven",
+    strictness: {
+      enforceBalancing: false,
+      verifySignatures: false,
+      enforceLimits: false,
+      verifyNativeProofs: false,
+      verifyContractProofs: false,
+    },
+  });
 }, 60_000);

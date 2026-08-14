@@ -32,6 +32,17 @@ export interface WellFormedVerdict {
   valid: boolean;
   errorCode?: "NOT_WELL_FORMED" | "TTL_TOO_SHORT" | "TTL_UNREADABLE";
   reason?: string;
+  /**
+   * Opt-in execution evidence from the child worker. Normal hot-path jobs do
+   * not request this. It exists so a live-stack verifier can prove which
+   * stage and exact flags reached the WASM binding instead of inferring them
+   * from the caller-side job alone.
+   */
+  diagnostics?: {
+    phase: ValidationPhase;
+    txStage: TxStage;
+    strictness: StrictnessFlags;
+  };
 }
 
 /**

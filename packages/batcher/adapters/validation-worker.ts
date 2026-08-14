@@ -29,6 +29,7 @@ interface IncomingJob {
   phase: ValidationPhase;
   txStage: TxStage;
   nowMs: number;
+  includeDiagnostics?: boolean;
 }
 
 /**
@@ -45,6 +46,8 @@ const MARKERS: Record<TxStage, [string, string, string]> = {
   finalized: ["signature", "proof", "binding"],
 };
 
+let appliedStrictness: StrictnessFlags | undefined;
+
 const ledgerBinding = {
   blankState(networkId: string, params: unknown) {
     const state = LedgerState.blank(networkId);
@@ -54,6 +57,7 @@ const ledgerBinding = {
     return state;
   },
   makeStrictness(flags: StrictnessFlags) {
+    appliedStrictness = { ...flags };
     // Every field is assigned: the constructor defaults ALL of them to true,
     // so anything left alone silently enables a check we measured to be either
     // inert or actively harmful.
@@ -74,6 +78,7 @@ const ledgerBinding = {
 process.on("message", (raw: unknown) => {
   const job = raw as IncomingJob;
   try {
+    appliedStrictness = undefined;
     const params = LedgerParameters.deserialize(job.paramsBytes);
     const [markerS, markerP, markerB] = MARKERS[job.txStage];
     const tx = (LedgerTransaction.deserialize as (
@@ -94,7 +99,18 @@ process.on("message", (raw: unknown) => {
       },
       ledgerBinding,
     );
-    process.send?.(verdict);
+    process.send?.(
+      job.includeDiagnostics && appliedStrictness
+        ? {
+          ...verdict,
+          diagnostics: {
+            phase: job.phase,
+            txStage: job.txStage,
+            strictness: appliedStrictness,
+          },
+        }
+        : verdict,
+    );
   } catch (error) {
     // Fails closed, including a failure to deserialize: bytes we cannot even
     // parse are not bytes we should sponsor.

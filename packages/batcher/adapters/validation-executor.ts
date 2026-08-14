@@ -61,6 +61,8 @@ export interface ValidationJob {
    */
   txStage: TxStage;
   nowMs: number;
+  /** Return the flags actually applied by the child at the WASM boundary. */
+  includeDiagnostics?: boolean;
 }
 
 export interface ValidationExecutorOptions {
@@ -319,6 +321,7 @@ function readVerdict(message: unknown): WellFormedVerdict | null {
     valid: candidate.valid,
     errorCode: candidate.errorCode as WellFormedVerdict["errorCode"],
     reason: typeof candidate.reason === "string" ? candidate.reason : undefined,
+    diagnostics: candidate.diagnostics as WellFormedVerdict["diagnostics"],
   };
 }
 

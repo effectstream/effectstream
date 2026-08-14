@@ -961,6 +961,25 @@ export function enforcePreSpendTtl(
   }
 }
 
+/**
+ * The spend-boundary ordering seam: dust may be unavailable long enough for
+ * an intent that passed the full pre-spend gate to become unsafe. Wait first,
+ * finish any spend preparation, sample the clock last, then enforce immediately
+ * before constructing the balancing recipe. Keeping these steps injectable
+ * makes that race deterministic in tests without weakening production.
+ */
+export async function waitForDustThenEnforceTtl(args: {
+  waitForDust: () => Promise<void>;
+  prepareForSpend?: () => Promise<void>;
+  tx: () => PolicyInspectableTx;
+  now: () => number;
+  minRemainingMs: number;
+}): Promise<void> {
+  await args.waitForDust();
+  await args.prepareForSpend?.();
+  enforcePreSpendTtl(args.tx(), args.now(), args.minRemainingMs);
+}
+
 // ---------------------------------------------------------------------------
 // Adapter
 // ---------------------------------------------------------------------------
@@ -1718,11 +1737,40 @@ export class MidnightBalancingAdapter
   ): Promise<BalancingRecipe> {
     const walletResult = this.walletResults[walletIndex]!;
 
+    let recipe: BalancingRecipe;
+
     // NOTE: no facade wallet.state() read here — under dust-only sync the aux
     // sub-wallets are suspended, so the combined observable never emits and a
     // timeout-guarded read silently burned its full timeout on EVERY balance.
     // waitForDustAvailability reads the dust sub-wallet state directly.
-    await this.waitForDustAvailability(walletIndex);
+    //
+    // Dust waiting is deliberately excluded from the TTL floor: it has already
+    // elapsed when the injected clock is sampled. Keep this immediately beside
+    // the SDK balance call so no new staleness window opens before dust is
+    // committed.
+    await waitForDustThenEnforceTtl({
+      waitForDust: () => this.waitForDustAvailability(walletIndex),
+      prepareForSpend: async () => {
+        if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
+          try {
+            const paddedTx = await this.applyShieldedPadding(
+              entry.tx as UnprovenTransaction,
+              true,
+              walletIndex,
+            );
+            entry = { tx: paddedTx, txStage: "unproven" };
+          } catch (e) {
+            this.log.warn(
+              "Shielded padding unavailable, submitting without padding. " +
+                `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
+            );
+          }
+        }
+      },
+      tx: () => entry.tx as unknown as PolicyInspectableTx,
+      now: Date.now,
+      minRemainingMs: preSpendTtlFloorMs(this.config),
+    });
 
     const keys = {
       shieldedSecretKeys: walletResult.walletZswapSecretKeys,
@@ -1741,33 +1789,6 @@ export class MidnightBalancingAdapter
     // Shielded padding (when enabled via addShieldedPadding) is added separately
     // via applyShieldedPadding(), so this restriction does not break it.
     const opts = { ttl: createTtl(), tokenKindsToBalance: ["dust"] as const };
-
-    if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
-      try {
-        const paddedTx = await this.applyShieldedPadding(
-          entry.tx as UnprovenTransaction,
-          true,
-          walletIndex,
-        );
-        entry = { tx: paddedTx, txStage: "unproven" };
-      } catch (e) {
-        this.log.warn(
-          "Shielded padding unavailable, submitting without padding. " +
-            `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
-        );
-      }
-    }
-
-    let recipe: BalancingRecipe;
-
-    // Dust waiting is deliberately excluded from the TTL floor: it has already
-    // elapsed. Keep this immediately beside the SDK balance call so no new
-    // staleness window opens between the check and committing dust.
-    enforcePreSpendTtl(
-      entry.tx as unknown as PolicyInspectableTx,
-      Date.now(),
-      preSpendTtlFloorMs(this.config),
-    );
 
     switch (entry.txStage) {
       case "unbound":

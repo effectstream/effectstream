@@ -18,6 +18,7 @@ import {
   runPreSpendGate,
   runPreSubmitGate,
   safeRevertFinalized,
+  waitForDustThenEnforceTtl,
 } from "../adapters/midnight-balancing-adapter.ts";
 
 const input: DefaultBatcherInput = {
@@ -328,6 +329,42 @@ describe("spend-boundary TTL margin", () => {
   test("the configured floor overrides submit plus proving allowance", () => {
     expect(preSpendTtlFloorMs({})).toBe(120_000);
     expect(preSpendTtlFloorMs({ minTtlRemainingMs: 345_678 })).toBe(345_678);
+  });
+
+  test("an intent that expires during the dust wait is rejected after the wait", async () => {
+    const floor = 120_000;
+    let nowMs = NOW;
+    const tx = withIntents(NOW + floor + 1_000);
+    const order: string[] = [];
+
+    // It is safe before the wait, which is the setup needed to catch a stale
+    // check accidentally moved ahead of dust availability.
+    expect(() => enforcePreSpendTtl(tx, nowMs, floor)).not.toThrow();
+
+    let thrown: unknown;
+    try {
+      await waitForDustThenEnforceTtl({
+        waitForDust: async () => {
+          order.push("wait");
+          nowMs += 2_000;
+        },
+        prepareForSpend: async () => {
+          order.push("prepare");
+        },
+        tx: () => {
+          order.push("ttl");
+          return tx;
+        },
+        now: () => nowMs,
+        minRemainingMs: floor,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(order).toEqual(["wait", "prepare", "ttl"]);
+    expect(thrown).toBeInstanceOf(PreSpendPermanent);
+    expect((thrown as PreSpendPermanent).errorCode).toBe("TTL_TOO_SHORT");
   });
 });
 
