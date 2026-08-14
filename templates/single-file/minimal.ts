@@ -1,10 +1,20 @@
-/** Requires Bun with auto-install enabled. Run: bun minimal.ts, then open http://localhost:9999. */
+/**
+ * One file, one dependency. Run: `bun install && bun start`, then open
+ * http://localhost:9999.
+ *
+ * The SDK version is pinned in package.json rather than in the import
+ * specifier. Bun's auto-install cache cannot resolve packages that import
+ * themselves by name (`@noble/hashes/crypto`, reached transitively via viem),
+ * because that resolution needs a node_modules anchor the cache never creates.
+ * `bun install` materializes one, so the import below stays a plain bare
+ * specifier.
+ */
 import {
   midnightContract,
   pglite,
   runNode,
   type MidnightNetwork,
-} from "@effectstream/node-sdk@0.103.4";
+} from "@effectstream/node-sdk";
 
 const NETWORK: MidnightNetwork = "preview"; // Change to "preprod" for the mirror.
 const CONTRACTS = {
