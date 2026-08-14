@@ -561,10 +561,18 @@ register("M11", "Corrupted proof is admitted, then permanently rejected pre-spen
       throw new Error(`legitimate finalized worker round trip failed: ${legitimate.reason}`);
     }
     finalizedDiagnostics = legitimate.diagnostics as unknown as Record<string, unknown>;
-    if (
-      legitimate.diagnostics?.txStage !== "finalized" ||
-      legitimate.diagnostics.strictness.verifySignatures !== true
-    ) {
+    const expectedDiagnostics = {
+      phase: "pre-spend",
+      txStage: "finalized",
+      strictness: {
+        enforceBalancing: false,
+        verifySignatures: true,
+        enforceLimits: false,
+        verifyNativeProofs: false,
+        verifyContractProofs: false,
+      },
+    };
+    if (JSON.stringify(legitimate.diagnostics) !== JSON.stringify(expectedDiagnostics)) {
       throw new Error(`finalized diagnostics were not strict: ${JSON.stringify(legitimate.diagnostics)}`);
     }
 
