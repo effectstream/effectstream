@@ -114,7 +114,8 @@ Per-adapter, you choose how `runBatcher` decides to submit:
 > **Breaking change for custom stores:** `RateLimitStore` now requires the
 > atomic `consume(buckets, nowMs, windowMs)` operation. Implementations of the
 > former split `count`/`hit` contract are incompatible and must be migrated
-> before upgrading.
+> before upgrading. A store must also honour each `RateLimitBucket.weight`;
+> treating every bucket as one request undercharges proof-heavy transactions.
 
 `POST /send-input` is rate limited. Configure it with the optional `rateLimit`
 block:
@@ -259,6 +260,46 @@ safe in a filter that runs twice because "spent" is monotone.
 > need a product to accept arbitrary shielded transfers, leave
 > `allowedTokenTypes` unset; if you need real per-token control, gate on an
 > allowlisted contract or circuit whose proof binds the token type.
+
+### Midnight validation boundaries and resource limits
+
+`MidnightBalancingAdapter` applies a cheap structural gate at intake, then
+rechecks untrusted stored rows and runs ledger well-formedness before spending
+dust. The default structural ceiling is
+`shapeLimits: { maxProofElements: 64 }`, where proof elements are shielded
+inputs, outputs and transients. Byte size alone does not bound validation work:
+each of those elements carries a zswap proof. Raise `maxProofElements` (or set
+the per-field `maxInputs`, `maxOutputs` and `maxTransients`) for a legitimate
+heavier product. Set `shapeLimits: {}` only when deliberately disabling the
+default ceiling.
+
+The HTTP outcomes distinguish permanent cost from temporary capacity:
+
+- `413 TRANSACTION_TOO_EXPENSIVE`, with `retryable: false`, means the
+  transaction's measured weight cannot fit inside the target's entire
+  admission budget. Waiting will not help.
+- `429` means the configured rate window is currently exhausted. It includes
+  `Retry-After` and can be retried after that delay.
+- `503 LEDGER_PARAMS_UNAVAILABLE`, with `retryable: true`, means the adapter
+  could not obtain fresh live ledger parameters and therefore refused to make
+  a transaction verdict.
+
+Three validation limits are security-relevant:
+
+1. Contract proofs and dust proofs are **not verified in this build**. Zswap
+   offer proofs are still verified unconditionally by the ledger binding.
+2. Well-formedness is checked against a blank ledger state carrying the live
+   parameters. That bounds and rejects malformed work, but it is not a promise
+   of node acceptance: a later state conflict can still reject a sponsored
+   transaction.
+3. As described above, `allowedTokenTypes` constrains unshielded offers only;
+   shielded deltas are net sums and cannot enumerate every coin type involved.
+
+If reverting the batcher's own finalized transaction fails, continuing could
+double-book a dust lane. The adapter therefore hard-pauses before touching any
+wallet again. Per-target `/queue-stats` exposes this as
+`health.hardPause: { active: true, reason: "..." }`; the reason is intended for
+manual recovery and must not be treated as an ordinary retry cooldown.
 
 Accepting that anyone may submit a *policy-conforming* transaction is the
 trade-off of tokenless authorization. Bound the blast radius with
