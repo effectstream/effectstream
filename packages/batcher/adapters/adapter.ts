@@ -91,6 +91,23 @@ export interface BatchInputFailure<TInput = DefaultBatcherInput> {
 }
 
 /**
+ * One or more inputs whose adapter pipeline broke an internal invariant.
+ *
+ * When `inputs` is present, independent workers' submitted/rejected/deferred
+ * outcomes remain trustworthy and are applied before the target is paused.
+ * Omitting it means the failure is unscoped, so the processor conservatively
+ * suppresses every verdict in the batch as defence-in-depth.
+ */
+export interface BatchInvariantFailure<TInput = DefaultBatcherInput> {
+  message: string;
+  errorCode?: string;
+  /** Inputs affected by the invariant; retained and charged no retry. */
+  inputs?: TInput[];
+  /** Infinite cooldown: operator intervention is required before retrying. */
+  hardPause?: boolean;
+}
+
+/**
  * What actually happened to each input in a batch.
  *
  * An adapter may keep returning a bare {@link BlockchainHash}, which means
@@ -123,11 +140,11 @@ export interface BatchOutcome<TInput = DefaultBatcherInput> {
    * example a transaction that validated, failed after finalization, and then
    * validated again.
    *
-   * Nothing is removed and nothing is charged; the target is paused for
-   * inspection. This is deliberately not a per-input verdict, because the
-   * batcher does not know which input (if any) is at fault.
+   * A scoped failure parks its `inputs` while independent worker outcomes are
+   * still applied. An unscoped failure parks the whole batch and suppresses
+   * its verdicts because the batcher cannot know which input is at fault.
    */
-  invariantFailure?: { message: string; errorCode?: string };
+  invariantFailure?: BatchInvariantFailure<TInput>;
 }
 
 /**

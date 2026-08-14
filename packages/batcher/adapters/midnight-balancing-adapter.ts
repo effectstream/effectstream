@@ -20,11 +20,12 @@
 //   2. Tiebreak: lowest usage count (balance load)
 
 import type {
+  BatchBuildingOptions,
+  BatchBuildingResult,
   BatchInputDeferral,
   BatchInputFailure,
   BatchInputRejection,
-  BatchBuildingOptions,
-  BatchBuildingResult,
+  BatchInvariantFailure,
   BatchOutcome,
   BatchSubmitResult,
   BlockchainAdapter,
@@ -69,8 +70,8 @@ import {
   evaluatePolicy,
   isPolicyEnforced,
   type MidnightTxPolicy,
-  type PolicyVerdict,
   type PolicyInspectableTx,
+  type PolicyVerdict,
 } from "./midnight-policy.ts";
 import {
   admissionWeight,
@@ -210,9 +211,25 @@ export class PreSpendDefer extends Error {
   }
 }
 
+/** Our finalized output broke an invariant: retain the row and pause. */
+export class PreSubmitInvariant extends Error {
+  constructor(
+    message: string,
+    readonly errorCode: string = "PRE_SUBMIT_INVARIANT",
+    readonly hardPause: boolean = false,
+  ) {
+    super(message);
+    this.name = "PreSubmitInvariant";
+  }
+}
+
 export type WorkerFailureClassification<TInput extends DefaultBatcherInput> =
   | { category: "permanentRejected"; value: BatchInputRejection<TInput> }
   | { category: "retryable"; value: BatchInputDeferral<TInput> }
+  | {
+    category: "invariantFailure";
+    value: BatchInvariantFailure<TInput> & { inputs: TInput[] };
+  }
   | { category: "failed"; value: BatchInputFailure<TInput> };
 
 /** Keep permanent, deferral and legacy retry-charged failures disjoint. */
@@ -237,6 +254,17 @@ export function classifyWorkerFailure<TInput extends DefaultBatcherInput>(
       value: { input, reason: error.reason },
     };
   }
+  if (error instanceof PreSubmitInvariant) {
+    return {
+      category: "invariantFailure",
+      value: {
+        inputs: [input],
+        message: error.message,
+        errorCode: error.errorCode,
+        hardPause: error.hardPause,
+      },
+    };
+  }
   return {
     category: "failed",
     value: {
@@ -256,6 +284,10 @@ export function buildWorkerBatchOutcome<TInput extends DefaultBatcherInput>(
   const submitted: TInput[] = [];
   const permanentRejected: BatchInputRejection<TInput>[] = [];
   const retryable: BatchInputDeferral<TInput>[] = [];
+  const invariantInputs: TInput[] = [];
+  const invariantMessages: string[] = [];
+  let invariantErrorCode: string | undefined;
+  let hardPause = false;
   const failed: BatchInputFailure<TInput>[] = invalidInputs.map((input) => ({
     input,
     error: "transaction failed to deserialize",
@@ -275,6 +307,11 @@ export function buildWorkerBatchOutcome<TInput extends DefaultBatcherInput>(
       permanentRejected.push(classified.value);
     } else if (classified.category === "retryable") {
       retryable.push(classified.value);
+    } else if (classified.category === "invariantFailure") {
+      invariantInputs.push(...classified.value.inputs);
+      invariantMessages.push(classified.value.message);
+      invariantErrorCode ??= classified.value.errorCode;
+      hardPause ||= classified.value.hardPause ?? false;
     } else {
       failed.push(classified.value);
     }
@@ -286,7 +323,66 @@ export function buildWorkerBatchOutcome<TInput extends DefaultBatcherInput>(
     permanentRejected,
     retryable,
     failed,
+    invariantFailure: invariantInputs.length > 0
+      ? {
+        inputs: invariantInputs,
+        message: invariantMessages.join("; "),
+        errorCode: invariantErrorCode,
+        hardPause,
+      }
+      : undefined,
   };
+}
+
+/** Outcome returned before touching a wallet once manual recovery is required. */
+export function hardPausedBatchOutcome<TInput extends DefaultBatcherInput>(
+  reason: string,
+  inputs: TInput[],
+): BatchOutcome<TInput> {
+  return {
+    submitted: [],
+    invariantFailure: {
+      inputs,
+      message: reason,
+      errorCode: "ADAPTER_HARD_PAUSED",
+      hardPause: true,
+    },
+  };
+}
+
+/** Stable health shape shared by the adapter and constructor-free tests. */
+export function hardPauseHealthInfo(reason: string | null): {
+  active: boolean;
+  reason: string | null;
+} {
+  return { active: reason !== null, reason };
+}
+
+/**
+ * Revert one finalized wallet entry without ever pretending a failure worked.
+ * The caller owns the pause state and logging so this helper stays
+ * constructor-free and the wallet seam can be exercised in unit tests.
+ */
+export async function safeRevertFinalized(args: {
+  revertTransaction: () => Promise<void>;
+  context: string;
+  onFailure: (reason: string) => void;
+  onSuccess?: () => void;
+  onError?: (reason: string) => void;
+}): Promise<boolean> {
+  try {
+    await args.revertTransaction();
+    args.onSuccess?.();
+    return true;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    const reason =
+      `finalized transaction rollback failed for ${args.context}: ${detail}; ` +
+      `manual wallet recovery required`;
+    args.onFailure(reason);
+    args.onError?.(reason);
+    return false;
+  }
 }
 
 function formatDust(specks: bigint): string {
@@ -580,6 +676,23 @@ export function buildPreSpendValidationJob(
   };
 }
 
+/** Build the strict pre-submit job from our finalized transaction bytes. */
+export function buildPreSubmitValidationJob(
+  finalizedBytes: Uint8Array,
+  paramsBytes: Uint8Array,
+  networkId: string,
+  nowMs: number,
+): ValidationJob {
+  return {
+    txBytes: finalizedBytes,
+    paramsBytes,
+    networkId,
+    phase: "pre-submit",
+    txStage: "finalized",
+    nowMs,
+  };
+}
+
 /** Hard gates shared by intake and the untrusted-storage pre-spend recheck. */
 export function hardGateVerdictFor(
   tx: PolicyInspectableTx,
@@ -623,6 +736,17 @@ interface PreSpendGateArgs {
   policyVerdict?: () => Promise<PolicyVerdict>;
   getParams: () => LedgerParamsLookup;
   validate: (
+    params: Extract<LedgerParamsLookup, { ok: true }>["params"],
+  ) => Promise<WellFormedVerdict>;
+}
+
+interface PreSubmitGateArgs {
+  getParams: () => LedgerParamsLookup;
+  validateFinalized: (
+    params: Extract<LedgerParamsLookup, { ok: true }>["params"],
+  ) => Promise<WellFormedVerdict>;
+  revertFinalized: () => Promise<boolean>;
+  revalidateOriginal: (
     params: Extract<LedgerParamsLookup, { ok: true }>["params"],
   ) => Promise<WellFormedVerdict>;
 }
@@ -678,6 +802,139 @@ export async function runPreSpendGate(args: PreSpendGateArgs): Promise<void> {
       400,
     );
   }
+}
+
+async function requireFinalizedRollback(
+  args: Pick<PreSubmitGateArgs, "revertFinalized">,
+  context: string,
+): Promise<void> {
+  let reverted = false;
+  let rollbackError: unknown;
+  try {
+    reverted = await args.revertFinalized();
+  } catch (error) {
+    rollbackError = error;
+  }
+  if (reverted) return;
+
+  const detail = rollbackError === undefined
+    ? "wallet revertTransaction returned failure"
+    : rollbackError instanceof Error
+    ? rollbackError.message
+    : String(rollbackError);
+  throw new PreSubmitInvariant(
+    `${context}; finalized rollback failed (${detail})`,
+    "FINALIZED_REVERT_FAILED",
+    true,
+  );
+}
+
+async function rollbackThenDefer(
+  args: Pick<PreSubmitGateArgs, "revertFinalized">,
+  reason: string,
+): Promise<never> {
+  await requireFinalizedRollback(args, reason);
+  throw new PreSpendDefer(reason);
+}
+
+/**
+ * Validate our finalized output and classify every rollback branch.
+ *
+ * A finalized transaction is already registered in the wallet's pending
+ * service. Every path that cannot submit it must therefore call
+ * `revertTransaction` first; a plain throw would strand its dust until the
+ * wallet's three-hour grace period expires.
+ */
+export async function runPreSubmitGate(
+  args: PreSubmitGateArgs,
+): Promise<void> {
+  let params: LedgerParamsLookup;
+  try {
+    params = args.getParams();
+  } catch (error) {
+    return await rollbackThenDefer(
+      args,
+      `live ledger parameters unavailable before submit: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  if (!params.ok) {
+    // Pre-submit is deliberately asymmetric with pre-spend: we must fail
+    // closed once a finalized entry exists, but cache/executor unavailability
+    // is still our fault, not a permanent verdict on the stored input.
+    return await rollbackThenDefer(
+      args,
+      `live ledger parameters unavailable before submit (${params.reason})`,
+    );
+  }
+
+  let finalizedVerdict: WellFormedVerdict;
+  try {
+    finalizedVerdict = await args.validateFinalized(params.params);
+  } catch (error) {
+    return await rollbackThenDefer(
+      args,
+      `pre-submit validation unavailable: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  if (finalizedVerdict.valid) return;
+
+  await requireFinalizedRollback(
+    args,
+    `finalized transaction failed pre-submit validation: ${
+      finalizedVerdict.reason ?? finalizedVerdict.errorCode ?? "unknown reason"
+    }`,
+  );
+
+  // Permanence is about the ORIGINAL stored bytes. A failure introduced by
+  // our own balancing/proving path is an invariant failure, never permission
+  // to delete a caller's otherwise-valid input.
+  let originalParams: LedgerParamsLookup;
+  try {
+    originalParams = args.getParams();
+  } catch (error) {
+    throw new PreSpendDefer(
+      `original input could not be revalidated after rollback: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (!originalParams.ok) {
+    throw new PreSpendDefer(
+      `original input could not be revalidated after rollback ` +
+        `(live ledger parameters ${originalParams.reason})`,
+    );
+  }
+
+  let originalVerdict: WellFormedVerdict;
+  try {
+    originalVerdict = await args.revalidateOriginal(originalParams.params);
+  } catch (error) {
+    throw new PreSpendDefer(
+      `original input revalidation unavailable after rollback: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  if (!originalVerdict.valid) {
+    throw new PreSpendPermanent(
+      originalVerdict.reason ?? "original transaction is not well formed",
+      originalVerdict.errorCode ?? "NOT_WELL_FORMED",
+      400,
+    );
+  }
+
+  throw new PreSubmitInvariant(
+    `finalized transaction failed pre-submit validation while the original ` +
+      `stored transaction remained well formed`,
+    "FINALIZED_OUTPUT_INVARIANT",
+  );
 }
 
 /** TTL budget remaining after dust wait: submit timeout plus proving allowance. */
@@ -742,6 +999,11 @@ export class MidnightBalancingAdapter
   private readonly ledgerParams: LedgerParamsCache;
   /** Process-global validation pool handle, acquired only when first needed. */
   private validationExecutorHandle: ValidationExecutorHandle | null = null;
+  /**
+   * Set when a finalized transaction could not be reverted. Restart/manual
+   * wallet recovery is required; no later batch may touch a wallet meanwhile.
+   */
+  private hardPausedReason: string | null = null;
   /**
    * True where the wallet was handed in via `config.walletResult`. An injected
    * wallet belongs to the caller: this adapter must not stop it on close.
@@ -1704,6 +1966,50 @@ export class MidnightBalancingAdapter
     const proveMs = Math.round(performance.now() - proveStart);
     this.log.log(`[${tag}] Proved (${proveMs}ms)`);
 
+    // Finalization registers this transaction in the wallet's pending service.
+    // Guard the WHOLE validation call (including serialization, parameter
+    // encoding and executor acquisition): any throw must revert the finalized
+    // entry before it can leave this method, or its dust stays booked for the
+    // wallet's three-hour grace period.
+    await runPreSubmitGate({
+      getParams: () => this.ledgerParams.get(),
+      validateFinalized: async (params) => {
+        const job = buildPreSubmitValidationJob(
+          finalized.serialize(),
+          params.serialize(),
+          this.walletNetworkId,
+          Date.now(),
+        );
+        this.validationExecutorHandle ??= acquireValidationExecutor();
+        return await this.validationExecutorHandle.executor.submit(job);
+      },
+      revertFinalized: () =>
+        safeRevertFinalized({
+          revertTransaction: () =>
+            walletResult.wallet.revertTransaction(finalized),
+          context: tag,
+          onFailure: (reason) => {
+            this.hardPausedReason ??= reason;
+          },
+          onSuccess: () =>
+            this.log.log(
+              `[${tag}] Reverted finalized transaction — dust lane is reusable`,
+            ),
+          onError: (reason) => this.log.error(`🛑 ${reason}`),
+        }),
+      revalidateOriginal: async (params) => {
+        const job = buildPreSpendValidationJob(
+          trace.input,
+          entry.txStage,
+          params.serialize(),
+          this.walletNetworkId,
+          Date.now(),
+        );
+        this.validationExecutorHandle ??= acquireValidationExecutor();
+        return await this.validationExecutorHandle.executor.submit(job);
+      },
+    });
+
     // --- Phase 3: Submit ---
     const txHash = finalized.transactionHash().toString();
 
@@ -1822,6 +2128,15 @@ export class MidnightBalancingAdapter
     if (!this.isInitialized) {
       throw new Error("Adapter not initialized");
     }
+    if (this.hardPausedReason !== null) {
+      this.log.error(
+        `Refusing batch while adapter is hard-paused: ${this.hardPausedReason}`,
+      );
+      return hardPausedBatchOutcome(
+        this.hardPausedReason,
+        batchData.selectedInputs,
+      );
+    }
 
     return await this._executeWorkerPipelines(batchData);
   }
@@ -1875,7 +2190,8 @@ export class MidnightBalancingAdapter
       `[${bTag}] Results: ${outcome.submitted?.length ?? 0} submitted, ` +
         `${outcome.permanentRejected?.length ?? 0} permanently rejected, ` +
         `${outcome.retryable?.length ?? 0} deferred, ` +
-        `${outcome.failed?.length ?? 0} retry-charged`,
+        `${outcome.failed?.length ?? 0} retry-charged, ` +
+        `${outcome.invariantFailure?.inputs?.length ?? 0} invariant-parked`,
     );
 
     if (outcome.hash) this.log.log(`[${bTag}] Hashes: ${outcome.hash}`);
@@ -2000,6 +2316,7 @@ export class MidnightBalancingAdapter
       // Without this a 503 is a mystery: an operator cannot tell "indexer
       // unreachable" from "misconfigured" from "only just started".
       ledgerParams: this.ledgerParams.health(),
+      hardPause: hardPauseHealthInfo(this.hardPausedReason),
       policy: !isPolicyEnforced(this.config.policy as MidnightTxPolicy<never> | undefined)
         ? "allow-all"
         : {
