@@ -245,8 +245,8 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
 
       const hash = outcome.hash;
       if (hash === undefined) {
-        // Every input was rejected or deferred. There is no transaction, so
-        // there is nothing to confirm and no callback left to resolve.
+        // Every input was rejected, deferred or retry-charged. There is no
+        // transaction, so there is nothing to confirm.
         debugLog(
           `[BatchProcessor] No transaction submitted for target ${target}; ` +
             `nothing to confirm`,
@@ -343,9 +343,10 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
    *
    * Removal is attempted first but never blocks the rejection: a caller
    * holding an open request must not be left hanging because storage
-   * misbehaved. A row that survives removal is re-picked and rejected again,
-   * which is noisy but not wrong — hence the warning rather than a silent
-   * `debugLog`.
+   * misbehaved. If a row survives removal, hard-pause the target in this
+   * process: repeatedly re-picking a known-doomed row would create an unbounded,
+   * uncounted loop, while charging the user's retry budget for our storage
+   * failure would violate permanent-rejection semantics.
    */
   private async rejectInputsPermanently(
     rejections: BatchInputRejection<T>[],
@@ -358,14 +359,19 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         }`,
     );
 
-    await this.batcher.storage
-      .removeProcessedInputs(rejections.map((r) => r.input), target)
-      .catch((e) =>
-        console.warn(
-          `[BatchProcessor] Failed to remove permanently rejected inputs for ` +
-            `target ${target}; they will be re-picked and rejected again: ${e}`,
-        )
+    try {
+      await this.batcher.storage.removeProcessedInputs(
+        rejections.map((r) => r.input),
+        target,
       );
+    } catch (error) {
+      this.batcher.setTargetCooldown(target, Number.POSITIVE_INFINITY);
+      console.error(
+        `🛑 [BatchProcessor] Failed to remove permanently rejected inputs for ` +
+          `target ${target}; hard-pausing the target while still rejecting its ` +
+          `waiting caller(s): ${error}`,
+      );
+    }
 
     for (const rejection of rejections) {
       const callbackKey = this.batcher.getCallbackKey(rejection.input);

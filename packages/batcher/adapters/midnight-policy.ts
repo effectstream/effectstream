@@ -122,7 +122,7 @@ export interface MidnightTxPolicy<TTx = PolicyInspectableTx> {
    * override). Throwing rejects the input (fail closed).
    *
    * MUST be deterministic and side-effect free: it runs at intake AND again
-   * pre-batch (storage rows are untrusted, and policy may change across a
+   * pre-spend (storage rows are untrusted, and policy may change across a
    * restart).
    */
   allowCustomFinalFilter?: CustomFinalFilter<TTx>;
@@ -247,7 +247,7 @@ function unshieldedOfferList(tx: PolicyInspectableTx): PolicyUnshieldedOffer[] {
  * }
  * ```
  *
- * Safe to run at intake AND again pre-batch even though it reads chain state:
+ * Safe to run at intake AND again pre-spend even though it reads chain state:
  * "spent" is monotone, so the recheck can only ever get stricter — it never
  * flips a rejected input back to accepted.
  */

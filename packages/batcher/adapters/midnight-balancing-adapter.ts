@@ -7,7 +7,8 @@
 // Each worker = {wallet, UTXO-slot} — an independent processing unit.
 // Workers run their tx pipeline in parallel:
 //
-//   acquire balance lock → balance → release lock → prove/finalize → submit
+//   pre-spend gate → acquire balance lock → balance → release lock
+//     → prove/finalize → submit
 //
 // The balance lock serializes balance calls within the same wallet
 // (speculative chaining requires sequential dust allocation). Prove,
@@ -19,8 +20,13 @@
 //   2. Tiebreak: lowest usage count (balance load)
 
 import type {
+  BatchInputDeferral,
+  BatchInputFailure,
+  BatchInputRejection,
   BatchBuildingOptions,
   BatchBuildingResult,
+  BatchOutcome,
+  BatchSubmitResult,
   BlockchainAdapter,
   BlockchainHash,
   BlockchainTransactionReceipt,
@@ -60,10 +66,10 @@ import { AdapterLogger } from "./adapter-logger.ts";
 import { WorkerPool } from "./worker-pool.ts";
 import {
   contractActions,
-  evaluateDeclarativePolicy,
   evaluatePolicy,
   isPolicyEnforced,
   type MidnightTxPolicy,
+  type PolicyVerdict,
   type PolicyInspectableTx,
 } from "./midnight-policy.ts";
 import {
@@ -77,6 +83,15 @@ import {
   type LedgerParamsCacheConfig,
   type LedgerParamsLookup,
 } from "./ledger-params-cache.ts";
+import {
+  checkTtlMargin,
+  type WellFormedVerdict,
+} from "./midnight-tx-validation.ts";
+import {
+  acquireValidationExecutor,
+  type ValidationExecutorHandle,
+  type ValidationJob,
+} from "./validation-executor.ts";
 
 // ---------------------------------------------------------------------------
 // Config & types
@@ -101,6 +116,12 @@ export interface MidnightBalancingAdapterConfig {
   // How long to wait for a spendable dust coin before letting the balance
   // attempt proceed (and likely fail + re-queue). Defaults to 60s.
   dustWaitTimeoutMs?: number;
+  /**
+   * Minimum TTL remaining at the true spend boundary. The dust wait is already
+   * over when this is checked, so the default covers only proving plus the
+   * submit timeout. Override per target when its proving budget differs.
+   */
+  minTtlRemainingMs?: number;
   // A dust coin only counts as spendable when its GENERATED value covers the
   // wallet's fee + per-coin overhead margin. Defaults to 1.5 × the 0.3 DUST
   // overhead (coins exist with ~0 generated value right after creation — a
@@ -116,7 +137,7 @@ export interface MidnightBalancingAdapterConfig {
    * calls to allowlisted contracts/circuits — plus an optional custom final
    * filter. Omit for allow-all (single-product / back-compatible behavior).
    *
-   * Enforced at intake (validateInput → 400) and re-checked pre-batch
+   * Enforced at intake (validateInput → 400) and re-checked pre-spend
    * (storage rows are untrusted and policy can change across a restart).
    * See `./midnight-policy.ts` for the helpers custom filters should use.
    */
@@ -156,6 +177,8 @@ export interface MidnightBalancingAdapterConfig {
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
 const SUBMIT_TX_TIMEOUT_MS = 90 * 1000;
+// Provisional budget for prove/finalize work still ahead at the spend boundary.
+const PROVE_ALLOWANCE_MS = 30_000;
 const SPECKS_PER_DUST = 1_000_000_000_000_000n; // 1 DUST = 10^15 Specks
 const DUST_REGISTRATION_PRECHECK_TIMEOUT_MS = 60_000;
 // Wallet-side per-coin fee margin (additionalFeeOverhead) is 0.3 DUST; a coin
@@ -166,6 +189,105 @@ const DEFAULT_MAX_INPUT_CHARS = 500_000;
 /** Throttle for background dust-state refreshes triggered by capacity checks. */
 const DUST_REFRESH_THROTTLE_MS = 5_000;
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
+
+/** A deterministic pre-spend verdict: remove the row and charge no retry. */
+export class PreSpendPermanent extends Error {
+  constructor(
+    readonly error: string,
+    readonly errorCode?: string,
+    readonly statusCode: number = 400,
+  ) {
+    super(error);
+    this.name = "PreSpendPermanent";
+  }
+}
+
+/** The gate could not reach a verdict: leave the row and charge no retry. */
+export class PreSpendDefer extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+    this.name = "PreSpendDefer";
+  }
+}
+
+export type WorkerFailureClassification<TInput extends DefaultBatcherInput> =
+  | { category: "permanentRejected"; value: BatchInputRejection<TInput> }
+  | { category: "retryable"; value: BatchInputDeferral<TInput> }
+  | { category: "failed"; value: BatchInputFailure<TInput> };
+
+/** Keep permanent, deferral and legacy retry-charged failures disjoint. */
+export function classifyWorkerFailure<TInput extends DefaultBatcherInput>(
+  input: TInput,
+  error: unknown,
+): WorkerFailureClassification<TInput> {
+  if (error instanceof PreSpendPermanent) {
+    return {
+      category: "permanentRejected",
+      value: {
+        input,
+        error: error.error,
+        errorCode: error.errorCode,
+        statusCode: error.statusCode,
+      },
+    };
+  }
+  if (error instanceof PreSpendDefer) {
+    return {
+      category: "retryable",
+      value: { input, reason: error.reason },
+    };
+  }
+  return {
+    category: "failed",
+    value: {
+      input,
+      error: error instanceof Error ? error.message : String(error),
+    },
+  };
+}
+
+/** Build the adapter's explicit mixed-fate outcome without splice-diff state. */
+export function buildWorkerBatchOutcome<TInput extends DefaultBatcherInput>(
+  invalidInputs: TInput[],
+  workerInputs: TInput[],
+  results: PromiseSettledResult<string>[],
+): BatchOutcome<TInput> {
+  const hashes: string[] = [];
+  const submitted: TInput[] = [];
+  const permanentRejected: BatchInputRejection<TInput>[] = [];
+  const retryable: BatchInputDeferral<TInput>[] = [];
+  const failed: BatchInputFailure<TInput>[] = invalidInputs.map((input) => ({
+    input,
+    error: "transaction failed to deserialize",
+  }));
+
+  for (let index = 0; index < results.length; index++) {
+    const result = results[index];
+    const input = workerInputs[index];
+    if (result.status === "fulfilled") {
+      hashes.push(result.value);
+      submitted.push(input);
+      continue;
+    }
+
+    const classified = classifyWorkerFailure(input, result.reason);
+    if (classified.category === "permanentRejected") {
+      permanentRejected.push(classified.value);
+    } else if (classified.category === "retryable") {
+      retryable.push(classified.value);
+    } else {
+      failed.push(classified.value);
+    }
+  }
+
+  return {
+    hash: hashes.length > 0 ? hashes.join(",") : undefined,
+    submitted,
+    permanentRejected,
+    retryable,
+    failed,
+  };
+}
 
 function formatDust(specks: bigint): string {
   const abs = specks < 0n ? -specks : specks;
@@ -363,7 +485,7 @@ function inputContentHash(input: string): string {
   return (h >>> 0).toString(16).padStart(8, "0");
 }
 
-type DelegatedTxStage = "unproven" | "unbound" | "finalized";
+export type DelegatedTxStage = "unproven" | "unbound" | "finalized";
 type DelegatedTx =
   | UnprovenTransaction
   | UnboundTransaction
@@ -395,18 +517,191 @@ interface DelegatedBatchData {
   workerAssignments: { walletIdx: number; slotIdx: number }[];
   /** Snapshot of reserved input keys, taken at buildBatchData time.
    *  Used by releaseBatchResources to clear inFlightInputKeys even
-   *  when submitBatch has mutated selectedInputs (e.g. spliced out failures). */
+   *  when submission returns mixed per-input outcomes. */
   reservedInputKeys: string[];
   /** Per-tx tracing metadata. */
   traceInfos: TxTraceInfo[];
   /** Batch sequence number. */
   batchId: number;
   /** Inputs whose payload failed to deserialize. They are included in
-   *  selectedInputs (reserved) and spliced out at submit time so the
-   *  processor's failure path increments their retry counts — a poison input
-   *  is retried a bounded number of times and then dropped WITH a log,
-   *  instead of being skipped-but-kept forever. */
+   *  selectedInputs (reserved) and reported through BatchOutcome.failed, so a
+   *  poison input is retried a bounded number of times and then dropped WITH a
+   *  log instead of being skipped-but-kept forever. */
   invalidInputs: DefaultBatcherInput[];
+}
+
+/** Parse the persisted envelope without re-serializing its live transaction. */
+export function parseHexInput(input: string): {
+  hex: string;
+  txStage?: DelegatedTxStage;
+  addShieldedPadding?: boolean;
+} {
+  const trimmed = input.trim();
+  if (trimmed.startsWith("{")) {
+    const parsed = JSON.parse(trimmed) as {
+      tx?: string;
+      txStage?: DelegatedTxStage;
+      addShieldedPadding?: boolean | null;
+    };
+    if (!parsed.tx) throw new Error("Missing tx field in JSON input");
+    if (
+      parsed.txStage !== undefined &&
+      parsed.txStage !== "unproven" &&
+      parsed.txStage !== "unbound" &&
+      parsed.txStage !== "finalized"
+    ) {
+      throw new Error(
+        "txStage must be 'unproven', 'unbound', or 'finalized'",
+      );
+    }
+    const hex = parsed.tx.startsWith("0x") ? parsed.tx.slice(2) : parsed.tx;
+    const addShieldedPadding = parsed.addShieldedPadding ?? undefined;
+    return { hex, txStage: parsed.txStage, addShieldedPadding };
+  }
+  const hex = trimmed.startsWith("0x") ? trimmed.slice(2) : trimmed;
+  return { hex };
+}
+
+/** Build the worker job from the ORIGINAL stored bytes, never a live re-serialization. */
+export function buildPreSpendValidationJob(
+  input: DefaultBatcherInput,
+  txStage: DelegatedTxStage,
+  paramsBytes: Uint8Array,
+  networkId: string,
+  nowMs: number,
+): ValidationJob {
+  return {
+    txBytes: fromHex(parseHexInput(input.input).hex),
+    paramsBytes,
+    networkId,
+    phase: "pre-spend",
+    txStage,
+    nowMs,
+  };
+}
+
+/** Hard gates shared by intake and the untrusted-storage pre-spend recheck. */
+export function hardGateVerdictFor(
+  tx: PolicyInspectableTx,
+  shapeLimits: ShapeLimits,
+): ValidationResult | undefined {
+  let actions;
+  try {
+    actions = contractActions(tx);
+  } catch (error) {
+    return {
+      valid: false,
+      error: `could not read contract actions: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      errorCode: "ACTION_INTROSPECTION_FAILED",
+    };
+  }
+  if (actions.some((action) => action.entryPoint === "")) {
+    return {
+      valid: false,
+      error:
+        "transaction contains a contract deploy or maintenance update; " +
+        "this batcher sponsors circuit calls only",
+      errorCode: "UNSUPPORTED_MAINTENANCE_UPDATE",
+    };
+  }
+
+  const shape = checkShapeLimits(tx, shapeLimits);
+  if (!shape.valid) {
+    return {
+      valid: false,
+      error: shape.reason ?? "transaction shape exceeds this target's limits",
+      errorCode: shape.errorCode,
+    };
+  }
+  return undefined;
+}
+
+interface PreSpendGateArgs {
+  hardGateVerdict: () => ValidationResult | undefined;
+  policyVerdict?: () => Promise<PolicyVerdict>;
+  getParams: () => LedgerParamsLookup;
+  validate: (
+    params: Extract<LedgerParamsLookup, { ok: true }>["params"],
+  ) => Promise<WellFormedVerdict>;
+}
+
+/**
+ * Run the cheap-to-expensive gate sequence before the wallet balance lock.
+ * Throws only the two typed channels understood by the batch outcome mapper.
+ */
+export async function runPreSpendGate(args: PreSpendGateArgs): Promise<void> {
+  const hardVerdict = args.hardGateVerdict();
+  if (hardVerdict) {
+    throw new PreSpendPermanent(
+      hardVerdict.error ?? "transaction failed a hard pre-spend gate",
+      hardVerdict.errorCode,
+      hardVerdict.statusCode ?? 400,
+    );
+  }
+
+  if (args.policyVerdict) {
+    const verdict = await args.policyVerdict();
+    if (!verdict.valid) {
+      throw new PreSpendPermanent(
+        `Rejected by policy (${verdict.rule ?? "unknown"}): ${
+          verdict.reason ?? "transaction not permitted for this target"
+        }`,
+        "POLICY_REJECTED",
+        400,
+      );
+    }
+  }
+
+  const params = args.getParams();
+  if (!params.ok) {
+    throw new PreSpendDefer(
+      `live ledger parameters unavailable (${params.reason})`,
+    );
+  }
+
+  let verdict: WellFormedVerdict;
+  try {
+    verdict = await args.validate(params.params);
+  } catch (error) {
+    throw new PreSpendDefer(
+      `validation unavailable: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (!verdict.valid) {
+    throw new PreSpendPermanent(
+      verdict.reason ?? "transaction is not well formed",
+      verdict.errorCode ?? "NOT_WELL_FORMED",
+      400,
+    );
+  }
+}
+
+/** TTL budget remaining after dust wait: submit timeout plus proving allowance. */
+export function preSpendTtlFloorMs(
+  config: Pick<MidnightBalancingAdapterConfig, "minTtlRemainingMs">,
+): number {
+  return config.minTtlRemainingMs ??
+    (SUBMIT_TX_TIMEOUT_MS + PROVE_ALLOWANCE_MS);
+}
+
+/** Convert the cheap TTL verdict into the permanent pre-spend channel. */
+export function enforcePreSpendTtl(
+  tx: PolicyInspectableTx,
+  nowMs: number,
+  minRemainingMs: number,
+): void {
+  const verdict = checkTtlMargin(tx, nowMs, minRemainingMs);
+  if (!verdict.valid) {
+    throw new PreSpendPermanent(
+      verdict.reason ?? "transaction TTL cannot cover the remaining pipeline",
+      verdict.errorCode,
+      400,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -445,6 +740,8 @@ export class MidnightBalancingAdapter
   private readonly seedClaim: WalletSeedClaim;
   /** Live ledger parameters. Fails closed when it has none. */
   private readonly ledgerParams: LedgerParamsCache;
+  /** Process-global validation pool handle, acquired only when first needed. */
+  private validationExecutorHandle: ValidationExecutorHandle | null = null;
   /**
    * True where the wallet was handed in via `config.walletResult`. An injected
    * wallet belongs to the caller: this adapter must not stop it on close.
@@ -899,8 +1196,8 @@ export class MidnightBalancingAdapter
     for (const wa of batchData.workerAssignments) {
       this.pool.releaseWorker(wa.walletIdx, wa.slotIdx);
     }
-    // Use the snapshot taken at buildBatchData time, not the possibly-mutated
-    // selectedInputs array (submitBatch splices out failed inputs).
+    // Use the snapshot taken at buildBatchData time so every reservation is
+    // released regardless of the input's outcome category.
     for (const key of batchData.reservedInputKeys) {
       this.inFlightInputKeys.delete(key);
     }
@@ -920,30 +1217,7 @@ export class MidnightBalancingAdapter
     txStage?: DelegatedTxStage;
     addShieldedPadding?: boolean;
   } {
-    const trimmed = input.trim();
-    if (trimmed.startsWith("{")) {
-      const parsed = JSON.parse(trimmed) as {
-        tx?: string;
-        txStage?: DelegatedTxStage;
-        addShieldedPadding?: boolean | null;
-      };
-      if (!parsed.tx) throw new Error("Missing tx field in JSON input");
-      if (
-        parsed.txStage !== undefined &&
-        parsed.txStage !== "unproven" &&
-        parsed.txStage !== "unbound" &&
-        parsed.txStage !== "finalized"
-      ) {
-        throw new Error(
-          "txStage must be 'unproven', 'unbound', or 'finalized'",
-        );
-      }
-      const hex = parsed.tx.startsWith("0x") ? parsed.tx.slice(2) : parsed.tx;
-      const addShieldedPadding = parsed.addShieldedPadding ?? undefined;
-      return { hex, txStage: parsed.txStage, addShieldedPadding };
-    }
-    const hex = trimmed.startsWith("0x") ? trimmed.slice(2) : trimmed;
-    return { hex };
+    return parseHexInput(input);
   }
 
   private deserializeTxEntry(input: DefaultBatcherInput): DelegatedTxEntry {
@@ -1058,20 +1332,6 @@ export class MidnightBalancingAdapter
         this.log.warn(
           `Deserialize failed for #${inputContentHash(input.input)} ` +
             `(retry=${input.retryCount ?? 0}) — marking failed: ${error}`,
-        );
-        invalidInputs.push(input);
-        selectedInputs.push(input);
-        continue;
-      }
-
-      // Defense in depth: re-check the declarative rules against the stored
-      // row. Catches on-disk tampering and policy tightened across a restart.
-      // (The custom filter half runs in processWorkerTx — it may be async.)
-      const verdict = this.declarativePolicyVerdict(entry);
-      if (!verdict.valid) {
-        this.log.warn(
-          `Policy rejected #${inputContentHash(input.input)} pre-batch ` +
-            `[${verdict.rule}]: ${verdict.reason ?? "no reason given"} — marking failed`,
         );
         invalidInputs.push(input);
         selectedInputs.push(input);
@@ -1237,6 +1497,16 @@ export class MidnightBalancingAdapter
     }
 
     let recipe: BalancingRecipe;
+
+    // Dust waiting is deliberately excluded from the TTL floor: it has already
+    // elapsed. Keep this immediately beside the SDK balance call so no new
+    // staleness window opens between the check and committing dust.
+    enforcePreSpendTtl(
+      entry.tx as unknown as PolicyInspectableTx,
+      Date.now(),
+      preSpendTtlFloorMs(this.config),
+    );
+
     switch (entry.txStage) {
       case "unbound":
         recipe = await walletResult.wallet.balanceUnboundTransaction(
@@ -1334,11 +1604,12 @@ export class MidnightBalancingAdapter
 
   /**
    * Process a single tx through the full pipeline on its assigned worker:
-   *   1. Acquire wallet balance lock
-   *   2. Balance (speculative chaining — serialized within wallet)
-   *   3. Release balance lock
-   *   4. Sign + Finalize / Prove (concurrent — proof server is multi-threaded)
-   *   5. Submit to mempool
+   *   1. Hard/policy/params/full validation gate (outside the lock)
+   *   2. Acquire wallet balance lock and wait for dust
+   *   3. Check TTL, then balance (speculative chaining — serialized per wallet)
+   *   4. Release balance lock
+   *   5. Sign + Finalize / Prove (concurrent — proof server is multi-threaded)
+   *   6. Submit to mempool
    *
    * Returns the tx hash on success, throws on failure.
    */
@@ -1354,27 +1625,40 @@ export class MidnightBalancingAdapter
     const retryTag = trace.retry > 0 ? ` [retry ${trace.retry}/3]` : "";
     const pipelineStart = performance.now();
 
-    // Final policy gate before any dust is spent: runs the FULL policy
-    // (declarative + custom filter). buildBatchData already re-checked the
-    // declarative half synchronously; this covers the async custom filter.
-    if (isPolicyEnforced(this.config.policy as MidnightTxPolicy<never> | undefined)) {
-      const verdict = await evaluatePolicy(
-        {
-          tx: entry.tx as unknown as PolicyInspectableTx,
-          txStage: entry.txStage,
-          input: trace.input,
-        },
-        this.config.policy as MidnightTxPolicy<PolicyInspectableTx> | undefined,
-      );
-      if (!verdict.valid) {
-        // Input failure (NOT infra): retry-charged and dropped with a warning.
-        throw new Error(
-          `Rejected by policy (${verdict.rule}): ${
-            verdict.reason ?? "transaction not permitted for this target"
-          }`,
+    // Recheck untrusted storage, then policy, cache readiness and full WASM
+    // validation — all before acquiring the wallet balance lock or waiting for
+    // dust. Deterministic verdicts and our own inability to judge travel on
+    // distinct typed channels into the per-input BatchOutcome.
+    await runPreSpendGate({
+      hardGateVerdict: () => this.hardGateVerdict(entry),
+      policyVerdict: isPolicyEnforced(
+          this.config.policy as MidnightTxPolicy<never> | undefined,
+        )
+        ? () =>
+          evaluatePolicy(
+            {
+              tx: entry.tx as unknown as PolicyInspectableTx,
+              txStage: entry.txStage,
+              input: trace.input,
+            },
+            this.config.policy as
+              | MidnightTxPolicy<PolicyInspectableTx>
+              | undefined,
+          )
+        : undefined,
+      getParams: () => this.ledgerParams.get(),
+      validate: async (params) => {
+        const job = buildPreSpendValidationJob(
+          trace.input,
+          entry.txStage,
+          params.serialize(),
+          this.walletNetworkId,
+          Date.now(),
         );
-      }
-    }
+        this.validationExecutorHandle ??= acquireValidationExecutor();
+        return await this.validationExecutorHandle.executor.submit(job);
+      },
+    });
 
     // --- Phase 1: Balance (under wallet lock) ---
     this.log.log(`[${tag}] Acquiring balance lock${retryTag}...`);
@@ -1520,7 +1804,7 @@ export class MidnightBalancingAdapter
 
   /**
    * Run per-worker pipelines in parallel. Each worker independently:
-   * balance (locked) → prove (unlocked) → submit.
+   * validate (unlocked) → balance (locked) → prove (unlocked) → submit.
    *
    * Workers are released by releaseBatchResources (called by BatchProcessor
    * in its finally block after all storage operations complete). Workers
@@ -1531,7 +1815,7 @@ export class MidnightBalancingAdapter
   async submitBatch(
     batchData: DelegatedBatchData,
     _fee?: string | bigint,
-  ): Promise<BlockchainHash> {
+  ): Promise<BatchSubmitResult<DefaultBatcherInput>> {
     if (this.initializationPromise) {
       await this.initializationPromise;
     }
@@ -1544,28 +1828,17 @@ export class MidnightBalancingAdapter
 
   private async _executeWorkerPipelines(
     batchData: DelegatedBatchData,
-  ): Promise<BlockchainHash> {
+  ): Promise<BatchOutcome<DefaultBatcherInput>> {
     const { txs, workerAssignments, traceInfos, batchId } = batchData;
     const bTag = `B${String(batchId).padStart(2, "0")}`;
 
-    // Fail invalid (undeserializable) inputs up front: splicing them out of
-    // selectedInputs makes the processor's diff path increment their retry
-    // counts, so they are bounded-retried and then dropped WITH a log.
+    // Intake normally prevents these. A tampered/corrupt stored row still gets
+    // the legacy bounded-retry treatment, now explicitly rather than through
+    // selectedInputs mutation.
     if (batchData.invalidInputs.length > 0) {
-      const invalidSet = new Set(batchData.invalidInputs);
-      for (let i = batchData.selectedInputs.length - 1; i >= 0; i--) {
-        if (invalidSet.has(batchData.selectedInputs[i])) {
-          batchData.selectedInputs.splice(i, 1);
-        }
-      }
       this.log.warn(
         `[${bTag}] ${batchData.invalidInputs.length} invalid input(s) marked failed (deserialize)`,
       );
-      if (txs.length === 0) {
-        throw new Error(
-          `All ${batchData.invalidInputs.length} inputs failed to deserialize (invalid input)`,
-        );
-      }
     }
 
     this.log.log(
@@ -1580,52 +1853,33 @@ export class MidnightBalancingAdapter
       }),
     );
 
-    // Collect successes and failures
-    const hashes: string[] = [];
-    const errors: { index: number; error: Error }[] = [];
-
+    const outcome = buildWorkerBatchOutcome(
+      batchData.invalidInputs,
+      traceInfos.map((trace) => trace.input),
+      results,
+    );
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
-      if (r.status === "fulfilled") {
-        hashes.push(r.value);
-      } else {
-        errors.push({
-          index: i,
-          error: r.reason instanceof Error
-            ? r.reason
-            : new Error(String(r.reason)),
-        });
+      if (r.status === "rejected") {
+        const classified = classifyWorkerFailure(traceInfos[i].input, r.reason);
+        this.log.warn(
+          `  ${traceInfos[i].label} #${traceInfos[i].contentHash} ` +
+            `[${classified.category}]: ${
+              r.reason instanceof Error ? r.reason.message : String(r.reason)
+            }`,
+        );
       }
     }
 
     this.log.log(
-      `[${bTag}] Results: ${hashes.length} succeeded, ${errors.length} failed`,
+      `[${bTag}] Results: ${outcome.submitted?.length ?? 0} submitted, ` +
+        `${outcome.permanentRejected?.length ?? 0} permanently rejected, ` +
+        `${outcome.retryable?.length ?? 0} deferred, ` +
+        `${outcome.failed?.length ?? 0} retry-charged`,
     );
 
-    if (errors.length > 0) {
-      for (const { index, error } of errors) {
-        const t = traceInfos[index];
-        this.log.warn(`  ${t.label} #${t.contentHash}: ${error.message}`);
-      }
-      // Remove failed inputs from selectedInputs so the batcher retries them
-      const failedIndices = new Set(errors.map((e) => e.index));
-      for (let i = batchData.selectedInputs.length - 1; i >= 0; i--) {
-        if (failedIndices.has(i)) {
-          batchData.selectedInputs.splice(i, 1);
-        }
-      }
-    }
-
-    if (hashes.length === 0) {
-      const firstError = errors[0]?.error.message ?? "unknown";
-      throw new Error(
-        `All ${txs.length} transactions failed. First error: ${firstError}`,
-      );
-    }
-
-    const finalHashes = hashes.join(",");
-    this.log.log(`[${bTag}] Hashes: ${finalHashes}`);
-    return finalHashes;
+    if (outcome.hash) this.log.log(`[${bTag}] Hashes: ${outcome.hash}`);
+    return outcome;
   }
 
   // -----------------------------------------------------------------------
@@ -1778,6 +2032,17 @@ export class MidnightBalancingAdapter
     // Before anything that can throw: a leaked interval keeps the process
     // alive after shutdown.
     this.ledgerParams.close();
+    const executorHandle = this.validationExecutorHandle;
+    this.validationExecutorHandle = null;
+    if (executorHandle) {
+      await executorHandle.release().catch((error) =>
+        this.log.warn(
+          `validation executor release failed during close: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        )
+      );
+    }
     releaseWalletSeeds(this.seedClaim);
     // Only keys this adapter claimed are in the list, so this cannot drop
     // another adapter's claim even if two share a log label.
@@ -1892,61 +2157,15 @@ export class MidnightBalancingAdapter
    * ceilings. Returns a rejection, or `undefined` when the transaction clears
    * them.
    *
-   * Shared by intake and the pre-batch recheck, because storage rows are
+   * Shared by intake and the pre-spend recheck, because storage rows are
    * untrusted — they can be edited on disk, and the limits may have been
    * tightened since the input was accepted. A gate enforced only at intake is
    * not a gate.
    */
   private hardGateVerdict(entry: DelegatedTxEntry): ValidationResult | undefined {
-    const tx = entry.tx as unknown as PolicyInspectableTx;
-
-    // A maintenance update can rotate a contract's verifier keys and its
-    // maintenance authority. Refused outright, before anything else looks at
-    // it, and regardless of whether the contract is allowlisted.
-    let actions;
-    try {
-      actions = contractActions(tx);
-    } catch (e) {
-      return {
-        valid: false,
-        error: `could not read contract actions: ${
-          e instanceof Error ? e.message : String(e)
-        }`,
-        errorCode: "ACTION_INTROSPECTION_FAILED",
-      };
-    }
-    if (actions.some((action) => action.entryPoint === "")) {
-      return {
-        valid: false,
-        error:
-          "transaction contains a contract deploy or maintenance update; " +
-          "this batcher sponsors circuit calls only",
-        errorCode: "UNSUPPORTED_MAINTENANCE_UPDATE",
-      };
-    }
-
-    const shape = checkShapeLimits(tx, this.config.shapeLimits ?? DEFAULT_SHAPE_LIMITS);
-    if (!shape.valid) {
-      return {
-        valid: false,
-        error: shape.reason ?? "transaction shape exceeds this target's limits",
-        errorCode: shape.errorCode,
-      };
-    }
-
-    return undefined;
-  }
-
-  /**
-   * Pre-batch DECLARATIVE re-check (synchronous, so it can run inside
-   * buildBatchData). Storage rows are untrusted — they can be tampered with on
-   * disk, and the policy may have been tightened since the input was accepted.
-   * The async half (custom filter) runs in processWorkerTx.
-   */
-  private declarativePolicyVerdict(entry: DelegatedTxEntry) {
-    return evaluateDeclarativePolicy(
+    return hardGateVerdictFor(
       entry.tx as unknown as PolicyInspectableTx,
-      this.config.policy as MidnightTxPolicy<never> | undefined,
+      this.config.shapeLimits ?? DEFAULT_SHAPE_LIMITS,
     );
   }
 

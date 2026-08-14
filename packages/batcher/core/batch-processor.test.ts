@@ -40,7 +40,7 @@ interface Harness {
   waitOn: (input: DefaultBatcherInput) => void;
 }
 
-function makeHarness(): Harness {
+function makeHarness(options: { removeError?: Error } = {}): Harness {
   const removed: DefaultBatcherInput[] = [];
   const retried: DefaultBatcherInput[] = [];
   const cooldowns: number[] = [];
@@ -51,6 +51,7 @@ function makeHarness(): Harness {
     emitStateTransition: async () => {},
     storage: {
       removeProcessedInputs: async (inputs) => {
+        if (options.removeError) throw options.removeError;
         removed.push(...inputs);
       },
       incrementRetryCount: async (inputs) => {
@@ -157,6 +158,28 @@ test("a permanent rejection defaults to status 400", async () => {
 
   expect((h.settled.get("doomed")?.value as InputValidationError).statusCode)
     .toEqual(400);
+});
+
+test("failed permanent-row removal rejects the caller and hard-pauses the target", async () => {
+  const h = makeHarness({ removeError: new Error("storage is read-only") });
+  const doomed = makeInput("doomed");
+  h.waitOn(doomed);
+
+  const adapter = makeAdapter([doomed], async () => ({
+    permanentRejected: [{
+      input: doomed,
+      error: "not well formed",
+      errorCode: "NOT_WELL_FORMED",
+    }],
+  }));
+
+  await h.processor.processBatchForTarget(adapter, TARGET, [doomed]);
+
+  expect(h.settled.get("doomed")?.status).toBe("rejected");
+  expect(h.retried).toEqual([]);
+  // The surviving row cannot be picked again in this process and loop without
+  // a retry count while the operator repairs storage.
+  expect(h.cooldowns).toEqual([Number.POSITIVE_INFINITY]);
 });
 
 // --- Deferral ----------------------------------------------------------
