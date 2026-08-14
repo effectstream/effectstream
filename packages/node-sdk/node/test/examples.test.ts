@@ -56,16 +56,21 @@ test("single-file facade rejects malformed declarations early", async () => {
   })).toThrow(/64 hexadecimal/);
 });
 
-test("single-file template contains one source file and one exact import", async () => {
+test("single-file template is one source file plus a manifest, importing only the SDK", async () => {
   const templateDir = new URL("../../../../templates/single-file/", import.meta.url);
   const files = [...new Bun.Glob("**/*").scanSync({
     cwd: templateDir.pathname,
     onlyFiles: true,
-  })];
-  expect(files).toEqual(["minimal.ts"]);
+  })].sort();
+  expect(files).toEqual(["minimal.ts", "package.json"]);
 
   const source = await Bun.file(new URL("minimal.ts", templateDir)).text();
   const imports = [...source.matchAll(/from\s+["']([^"']+)["']/g)].map((match) => match[1]);
-  expect(imports).toEqual(["@effectstream/node-sdk@0.103.4"]);
+  expect(imports).toEqual(["@effectstream/node-sdk"]);
   expect(source).not.toMatch(/contract-counter|wallet|proofServer|generated|child_process/);
+
+  // The version is pinned in the manifest, never in the import specifier, so
+  // `update-packages.ts` can bump it without a release turning this test red.
+  const manifest = await Bun.file(new URL("package.json", templateDir)).json();
+  expect(manifest.dependencies["@effectstream/node-sdk"]).toMatch(/^\d+\.\d+\.\d+$/);
 });
