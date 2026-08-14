@@ -10,6 +10,7 @@ import { args, cwd } from "@effectstream/utils/runtime";
 export interface PgliteHandle {
   server: net.Server;
   db: PGlite;
+  port: number;
   close: () => Promise<void>;
 }
 
@@ -67,18 +68,43 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
     });
   });
 
-  await new Promise<void>((resolve) => {
-    server.listen(port, () => {
-      console.info(`database: server listening on port ${port}`);
+  const sockets = new Set<net.Socket>();
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", () => {
+      server.off("error", reject);
       resolve();
     });
   });
 
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    await db.close();
+    throw new Error("Unable to determine the PGlite gateway port.");
+  }
+  const actualPort = address.port;
+  console.info(`database: server listening on port ${actualPort}`);
+
+  let closed = false;
+
   return {
     server,
     db,
+    port: actualPort,
     close: async () => {
-      server.close();
+      if (closed) return;
+      closed = true;
+      for (const socket of sockets) socket.destroy();
+      if (server.listening) {
+        await new Promise<void>((resolve, reject) => {
+          server.close((error) => error ? reject(error) : resolve());
+        });
+      }
       await db.close();
     },
   };

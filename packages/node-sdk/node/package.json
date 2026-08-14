@@ -94,7 +94,8 @@
     "@effectstream/chain-types": "workspace:*",
     "@effectstream/precompile": "workspace:*",
     "@effectstream/utils": "workspace:*",
-    "@effectstream/concise": "workspace:*"
+    "@effectstream/concise": "workspace:*",
+    "effection": "^3.5.0"
   },
   "description": "Main application node SDK for EffectStream"
 }

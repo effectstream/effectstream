@@ -2,8 +2,8 @@ import {
   BuiltinGrammar,
   BuiltinGrammarPrefix,
   KeyedBuiltinGrammar,
-  parseStmInput,
-} from "@effectstream/concise";
+} from "./v2/builtins/grammar.ts";
+import { parseStmInput } from "./v2/inputs.ts";
 import { privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import {

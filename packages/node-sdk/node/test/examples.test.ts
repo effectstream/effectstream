@@ -23,3 +23,49 @@ test("README: concise re-export keeps generateStmInput in shape", async () => {
   expect(typeof concise.generateStmInput).toBe("function");
   expect(typeof concise.parseStmInput).toBe("function");
 });
+
+test("single-file facade declares a typed Midnight source and embedded database", async () => {
+  const node = await import("../src/mod.ts");
+  expect(node.pglite()).toEqual({
+    kind: "pglite",
+    dataDir: "memory://",
+    port: 0,
+  });
+  expect(node.midnightContract({
+    network: "preview",
+    address: "a".repeat(64),
+    startBlockHeight: "latest",
+    ledger: { round: "uint128" },
+  })).toEqual({
+    kind: "midnight-contract",
+    network: "preview",
+    address: "a".repeat(64),
+    startBlockHeight: "latest",
+    ledger: { round: "uint128" },
+    indexer: "https://indexer.preview.midnight.network/api/v4/graphql",
+  });
+});
+
+test("single-file facade rejects malformed declarations early", async () => {
+  const { midnightContract } = await import("../src/mod.ts");
+  expect(() => midnightContract({
+    network: "preview",
+    address: "not-an-address",
+    startBlockHeight: "latest",
+    ledger: { round: "uint128" },
+  })).toThrow(/64 hexadecimal/);
+});
+
+test("single-file template contains one source file and one exact import", async () => {
+  const templateDir = new URL("../../../../templates/single-file/", import.meta.url);
+  const files = [...new Bun.Glob("**/*").scanSync({
+    cwd: templateDir.pathname,
+    onlyFiles: true,
+  })];
+  expect(files).toEqual(["minimal.ts"]);
+
+  const source = await Bun.file(new URL("minimal.ts", templateDir)).text();
+  const imports = [...source.matchAll(/from\s+["']([^"']+)["']/g)].map((match) => match[1]);
+  expect(imports).toEqual(["@effectstream/node-sdk@0.103.4"]);
+  expect(source).not.toMatch(/contract-counter|wallet|proofServer|generated|child_process/);
+});

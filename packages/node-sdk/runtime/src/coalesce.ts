@@ -20,7 +20,7 @@ import { Buffer } from "node:buffer";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import { generateEffectstreamBlockHash, Prando } from "@effectstream/crypto";
 import type { EffectstreamBlockHash } from "@effectstream/utils";
-import type { DBMigrations } from "@effectstream/runtime";
+import type { DBMigrations } from "./types.ts";
 import { mergeCoalescingBoundaries } from "@effectstream/sync";
 
 /** Scheduled-input boundaries sampled once at run start (stable until the next non-empty block). */
