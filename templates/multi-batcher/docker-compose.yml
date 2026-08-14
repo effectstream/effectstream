@@ -126,6 +126,9 @@ services:
       # Exposes the target-scoped admin routes (/clear-inputs, /force-batch)
       # the deep suite drives. Test stack only — never enable in production.
       ENABLE_DEV_AND_DEBUG_ENDPOINTS: 'true'
+      # Deep-suite evidence must come from the batcher's own event loop, not
+      # from the host-side driver process.
+      MEASURE_EVENT_LOOP_LAG: 'true'
       BATCHER_POLLING_INTERVAL_MS: '${BATCHER_POLLING_INTERVAL_MS:-500}'
       LANES_PER_PRODUCT: '${LANES_PER_PRODUCT:-10}'
       FUND_STARS_PER_PRODUCT: '${FUND_STARS_PER_PRODUCT:-5000000000000}'

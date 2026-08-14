@@ -19,8 +19,10 @@ reject per policy kind, plus the routing errors.
 5. product-b refuses a contract call
 6. product-c accepts a matched-delta swap (+native / −contract-issued token)
 7. product-c refuses a balanced transfer — it nets to zero deltas, so it is no swap (**custom filter**)
-8. unaddressed input → 400; unknown target → 404
-9. every queue drains
+8. a real finalized transaction with its serialized network id rewritten is
+   admitted under option B, then gets typed permanent 400 at pre-spend
+9. unaddressed input → 400; unknown target → 404
+10. every queue drains
 
 ## Deep suite — `bun run test:deep [-- --only M3,M7]`
 
@@ -38,11 +40,13 @@ Requires the Docker stack (`docker compose up -d`). Results append to
 | M7 | Per-product observability | `/queue-stats` reports each product's queue depth plus adapter health (workers busy/total, dust lanes, policy shape). |
 | M8 | Node outage | A 60s outage parks every product (infra failure, no retry charged), then all recover with zero drops. |
 | M9 | Restart with a mixed queue | Restarting the batcher mid-flight delivers each product's work exactly once — no loss, no double-submit. |
-| M10 | Mixed soak | All three products under concurrent load: zero dust errors, zero drops, everything delivered; TPS and memory recorded. |
+| M10 | Mixed soak | All three products under concurrent load: zero dust errors, zero drops, everything delivered; TPS, batcher event-loop p99, container memory and per-validation-child RSS recorded. |
+| M11 | Corrupted proof | A real finalized transfer first round-trips the child/WASM boundary with `verifySignatures: true`; a parseable corrupted zswap proof then gets intake 200, permanent pre-spend rejection, zero proving, unchanged dust lanes, zero retry charge, and typed late 400. |
+| M12 | TTL after dust wait | A real intent-bearing contract call passes before an injected dust wait, expires during that wait under a deterministic clock, and is rejected by the exact adapter spend-boundary seam. A transfer is never substituted because it has zero intents. |
 
 ### Border cases covered at unit level
 
-`bun test packages/batcher` — no chain required (124 tests):
+`bun test packages/batcher` — no chain required:
 
 - **Rule matching**: allowed contract + *disallowed* second call in another
   intent ⇒ reject; wrong/miscased entry point ⇒ reject; a deploy (no entry
@@ -85,6 +89,9 @@ Requires the Docker stack (`docker compose up -d`). Results append to
   batcher's own queue accounting — never a workload's self-report.
 - M2/M8/M10 assert **delivered == accepted** per product, which is the property
   that actually matters to a product owner.
-- Memory is sampled from `docker stats` every ~5s for the whole run; the `app`
-  container hosts the batcher and every product's fee wallet, so it is an upper
-  bound on the batcher itself.
+- Container memory is sampled from `docker stats` every ~5s for the whole run;
+  the `app` total is an upper bound on the batcher itself. The same sampler uses
+  `docker top` to record RSS for every `validation-worker.ts` child separately,
+  because each child owns an independent ledger WASM heap.
+- M10 reads event-loop-delay histograms emitted by the batcher process itself;
+  host-driver latency is not used as a proxy for the server's event loop.

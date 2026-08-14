@@ -7,6 +7,7 @@
 // happens to be first.
 
 import { main, suspend } from "effection";
+import { monitorEventLoopDelay } from "node:perf_hooks";
 import path from "node:path";
 import {
   type BatcherConfig,
@@ -47,6 +48,25 @@ const config: BatcherConfig<DefaultBatcherInput> = {
 
 const storage = new FileStorage(STORAGE_DIR);
 const batcher = createNewBatcher(config, storage);
+
+// The deep suite needs a measurement from THIS process: HTTP, adapter
+// orchestration and validation dispatch all share this event loop. A probe in
+// the host-side test runner would measure the wrong process. Reset each window
+// so the reported p99 is not diluted by the long idle funding bootstrap.
+if (process.env.MEASURE_EVENT_LOOP_LAG === "true") {
+  const windowMs = Number(process.env.EVENT_LOOP_LAG_WINDOW_MS ?? 5_000);
+  const delay = monitorEventLoopDelay({ resolution: 10 });
+  delay.enable();
+  const timer = setInterval(() => {
+    const ms = (ns: number | bigint) => (Number(ns) / 1_000_000).toFixed(2);
+    console.log(
+      `[event-loop-lag] window=${windowMs}ms p50=${ms(delay.percentile(50))}ms ` +
+        `p99=${ms(delay.percentile(99))}ms max=${ms(delay.max)}ms`,
+    );
+    delay.reset();
+  }, windowMs);
+  timer.unref();
+}
 
 for (const product of products) {
   const adapter = new MidnightBalancingAdapter(product.walletSeed, {

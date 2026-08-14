@@ -71,6 +71,26 @@ function countMatches(text: string, pattern: RegExp): number {
   return (text.match(new RegExp(pattern.source, flags)) ?? []).length;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Must stay identical to the adapter's trace hash. */
+function inputContentHash(input: string): string {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) {
+    h = Math.imul(31, h) + input.charCodeAt(i) | 0;
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+function corruptByteAt(hex: string, fraction: number): string {
+  const bytes = Buffer.from(hex, "hex");
+  const offset = Math.max(0, Math.min(bytes.length - 1, Math.floor(bytes.length * fraction)));
+  bytes[offset] = bytes[offset]! ^ 0x01;
+  return bytes.toString("hex");
+}
+
 /** Run a product workload; returns its trailing JSON summary. */
 async function workload(
   product: "a" | "b" | "c",
@@ -116,6 +136,8 @@ async function sinkBalance(seed: string): Promise<bigint> {
 
 // Memory sampling (same shape as the midnight-batcher suite).
 const memStats = { peakMiB: {} as Record<string, number>, finalMiB: {} as Record<string, number>, samples: 0 };
+const validationChildRss = { peakMiB: {} as Record<string, number>, samples: 0 };
+let appContainerId = "";
 let memStop = false;
 function parseMiB(usage: string): number {
   const m = usage.match(/([\d.]+)\s*([KMG])iB/);
@@ -130,14 +152,38 @@ async function sampleMemory(): Promise<void> {
     if (!line.trim().startsWith("{")) continue;
     try {
       const s = JSON.parse(line) as { Name: string; MemUsage: string };
-      if (!s.Name?.startsWith("multi-batcher-")) continue;
-      const name = s.Name.replace("multi-batcher-", "").replace(/-1$/, "");
+      const match = s.Name?.match(/-(app|indexer|node|proof-lb|proof-server(?:-2|-3)?)-\d+$/);
+      if (!match) continue;
+      const name = match[1]!;
       const mib = parseMiB(s.MemUsage);
       memStats.finalMiB[name] = mib;
       memStats.peakMiB[name] = Math.max(memStats.peakMiB[name] ?? 0, mib);
     } catch { /* skip */ }
   }
   memStats.samples += 1;
+
+  // Container totals hide the D6 residual: every validation child has its own
+  // ledger WASM heap. Sample the actual validation-worker processes via the
+  // host's `docker top` view and report RSS per PID.
+  if (!appContainerId) {
+    appContainerId = (await compose("ps", "-q", "app")).out.trim();
+  }
+  if (appContainerId) {
+    const top = await sh(["docker", "top", appContainerId, "-eo", "pid,ppid,rss,args"]);
+    if (top.code === 0) {
+      for (const line of top.out.split("\n")) {
+        const row = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.+)$/);
+        if (!row || !row[4]!.includes("validation-worker.ts")) continue;
+        const pid = row[1]!;
+        const mib = Number(row[3]) / 1024;
+        validationChildRss.peakMiB[pid] = Math.max(
+          validationChildRss.peakMiB[pid] ?? 0,
+          mib,
+        );
+      }
+      validationChildRss.samples += 1;
+    }
+  }
 }
 function startMemSampler(): void {
   void (async () => {
@@ -454,13 +500,234 @@ register("M10", "Mixed three-product soak", async () => {
   const logs = await appLogsSince(since);
   const dustErrors = countMatches(logs, /Insufficient Funds: could not balance dust/);
   const drops = countMatches(logs, /DROPPING input/);
+  const lagP99Samples = [...logs.matchAll(/\[event-loop-lag\][^\n]*p99=([\d.]+)ms/g)]
+    .map((match) => Number(match[1]));
+  const lagP99Ms = lagP99Samples.length > 0 ? Math.max(...lagP99Samples) : Number.NaN;
+  await sampleMemory();
+  const childRss = Object.values(validationChildRss.peakMiB).sort((x, y) => x - y);
+  const childRssMedian = childRss.length > 0 ? childRss[Math.floor(childRss.length / 2)]! : 0;
   const total = deliveredA + deliveredB + Number(c.accepted);
   return ok(
     "M10",
     dustErrors === 0 && drops === 0 && deliveredA === Number(a.accepted) &&
-      deliveredB === Number(b.accepted),
+      deliveredB === Number(b.accepted) && Number.isFinite(lagP99Ms) && childRss.length > 0,
     `a=${deliveredA}/${a.accepted} b=${deliveredB}/${b.accepted} c=${c.accepted} ` +
-      `wall=${wallS.toFixed(1)}s tps=${(total / wallS).toFixed(2)} dustErrors=${dustErrors} drops=${drops}`,
+      `wall=${wallS.toFixed(1)}s tps=${(total / wallS).toFixed(2)} ` +
+      `eventLoopLagP99(max 5s window)=${lagP99Ms.toFixed(2)}ms ` +
+      `validationChildRSS=${childRss.length} children ` +
+      `${childRss[0]?.toFixed(1) ?? "?"}/${childRssMedian.toFixed(1)}/${childRss[childRss.length - 1]?.toFixed(1) ?? "?"} MiB min/median/max ` +
+      `dustErrors=${dustErrors} drops=${drops}`,
+  );
+});
+
+// ── M11: corrupted zswap proof dies before dust/proving ───────────────────
+
+register("M11", "Corrupted proof is admitted, then permanently rejected pre-spend", async () => {
+  const { buildTransferHex } = await import("../product-b/workload.ts");
+  const { Transaction } = await import("@midnight-ntwrk/ledger-v8");
+  const { ValidationExecutor } = await import(
+    "../../../packages/batcher/adapters/validation-executor.ts"
+  );
+  const { makeIndexerBlockDataFetcher } = await import(
+    "../../../packages/batcher/adapters/ledger-params-cache.ts"
+  );
+
+  await retireProductCOffers();
+  await clearInputs("product-b").catch(() => {});
+  const originalHex = await buildTransferHex(1n);
+  const originalBytes = Buffer.from(originalHex, "hex");
+  const block = await makeIndexerBlockDataFetcher(NETWORK.indexer)();
+  const paramsBytes = block.ledgerParameters.serialize();
+  const executor = new ValidationExecutor({ concurrency: 1, jobTimeoutMs: 30_000 });
+
+  let corruptedHex = "";
+  let corruptReason = "";
+  let corruptFraction = 0;
+  let finalizedDiagnostics: Record<string, unknown> | undefined;
+  try {
+    // D7: these are the original bytes of a real finalized transaction built
+    // against this live stack. The optional diagnostic is captured inside the
+    // child when it constructs WellFormedStrictness at the WASM boundary.
+    const legitimate = await executor.submit({
+      txBytes: originalBytes,
+      paramsBytes,
+      networkId: NETWORK.id,
+      phase: "pre-spend",
+      txStage: "finalized",
+      nowMs: Date.now(),
+      includeDiagnostics: true,
+    });
+    if (!legitimate.valid) {
+      throw new Error(`legitimate finalized worker round trip failed: ${legitimate.reason}`);
+    }
+    finalizedDiagnostics = legitimate.diagnostics as unknown as Record<string, unknown>;
+    if (
+      legitimate.diagnostics?.txStage !== "finalized" ||
+      legitimate.diagnostics.strictness.verifySignatures !== true
+    ) {
+      throw new Error(`finalized diagnostics were not strict: ${JSON.stringify(legitimate.diagnostics)}`);
+    }
+
+    // The empirical spike found the proof body at 50/70/90% of this exact
+    // transaction shape. Select only a candidate that still typed-deserializes
+    // and that the real worker identifies specifically as an invalid zswap
+    // proof, so a structural corruption cannot make M11 pass accidentally.
+    for (const fraction of [0.5, 0.7, 0.9]) {
+      const candidate = corruptByteAt(originalHex, fraction);
+      try {
+        Transaction.deserialize(
+          "signature",
+          "proof",
+          "binding",
+          Buffer.from(candidate, "hex"),
+        );
+      } catch {
+        continue;
+      }
+      const verdict = await executor.submit({
+        txBytes: Buffer.from(candidate, "hex"),
+        paramsBytes,
+        networkId: NETWORK.id,
+        phase: "pre-spend",
+        txStage: "finalized",
+        nowMs: Date.now(),
+      });
+      if (!verdict.valid && /Invalid proof.*Zswap proof/i.test(verdict.reason ?? "")) {
+        corruptedHex = candidate;
+        corruptReason = verdict.reason ?? "";
+        corruptFraction = fraction;
+        break;
+      }
+    }
+  } finally {
+    await executor.close();
+  }
+  if (!corruptedHex) throw new Error("could not produce a parseable corrupted zswap proof");
+
+  const storedInput = JSON.stringify({ tx: corruptedHex, txStage: "finalized" });
+  const traceHash = inputContentHash(storedInput);
+  const hashPattern = escapeRegExp(traceHash);
+  const beforeDust = [...((await getTargetStats("product-b")).health?.dustUtxos ?? [])];
+  const since = new Date().toISOString();
+
+  const noWait = await sendTx(corruptedHex, {
+    target: "product-b",
+    txStage: "finalized",
+    confirmationLevel: "no-wait",
+  });
+  const firstDrained = await waitForDrained("product-b", 300_000);
+
+  // Re-submit only after removal so this is a fresh row, not a dedup hit.
+  const waitReceipt = await sendTx(corruptedHex, {
+    target: "product-b",
+    txStage: "finalized",
+    confirmationLevel: "wait-receipt",
+    timeoutMs: 300_000,
+  });
+  const secondDrained = await waitForDrained("product-b", 300_000);
+  const afterDust = [...((await getTargetStats("product-b")).health?.dustUtxos ?? [])];
+  const logs = await appLogsSince(since);
+  const receiptBody = waitReceipt.body as { errorCode?: string; retryable?: boolean } | null;
+
+  const proved = countMatches(logs, new RegExp(`#${hashPattern}.*Proved \\(`));
+  const proofRejects = countMatches(
+    logs,
+    new RegExp(`#${hashPattern}.*Invalid proof.*Zswap proof`, "i"),
+  );
+  const permanent = countMatches(
+    logs,
+    new RegExp(`#${hashPattern}.*\\[permanentRejected\\]`),
+  );
+  const wronglyRetryCharged = countMatches(
+    logs,
+    new RegExp(`#${hashPattern}.*\\[failed\\]`),
+  );
+  const zeroRetryOutcomes = countMatches(
+    logs,
+    /Results: 0 submitted, 1 permanently rejected, 0 deferred, 0 retry-charged/,
+  );
+  const dustUnchanged = JSON.stringify(afterDust) === JSON.stringify(beforeDust);
+  const typedLateRejection = !waitReceipt.ok && waitReceipt.status === 400 &&
+    receiptBody?.errorCode === "NOT_WELL_FORMED" && receiptBody.retryable === false;
+
+  return ok(
+    "M11",
+    noWait.ok && noWait.status === 200 && firstDrained && secondDrained &&
+      typedLateRejection && proved === 0 && proofRejects >= 2 &&
+      permanent >= 2 && wronglyRetryCharged === 0 && zeroRetryOutcomes >= 2 &&
+      beforeDust.length > 0 && dustUnchanged,
+    `hash=#${traceHash} corruptAt=${Math.round(corruptFraction * 100)}% ` +
+      `noWait=${noWait.status} waitReceipt=${waitReceipt.status}/${receiptBody?.errorCode ?? "?"} ` +
+      `proved=${proved} proofRejects=${proofRejects} permanent=${permanent} ` +
+      `retryCharged=${wronglyRetryCharged} zeroRetryOutcomes=${zeroRetryOutcomes} ` +
+      `dust=${JSON.stringify(beforeDust)}→${JSON.stringify(afterDust)} ` +
+      `D7=${JSON.stringify(finalizedDiagnostics)} reason=${corruptReason}`,
+  );
+});
+
+// ── M12: intent TTL is sampled after the dust wait ────────────────────────
+
+register("M12", "Intent-bearing call that expires during dust wait is refused", async () => {
+  const { buildIncrementHex } = await import("../product-a/workload.ts");
+  const { Transaction } = await import("@midnight-ntwrk/ledger-v8");
+  const {
+    enforcePreSpendTtl,
+    PreSpendPermanent,
+    waitForDustThenEnforceTtl,
+  } = await import("../../../packages/batcher/adapters/midnight-balancing-adapter.ts");
+
+  // Real live-stack bytes, not a transfer and not a fabricated transaction.
+  // The clock and dust wait are deterministic because waiting for a real
+  // contract call's default TTL to nearly expire would take many minutes.
+  const callHex = await buildIncrementHex();
+  const tx = Transaction.deserialize(
+    "signature",
+    "proof",
+    "pre-binding",
+    Buffer.from(callHex, "hex"),
+  );
+  const intents = [...(tx.intents?.values() ?? [])];
+  const ttlValues = intents.map((intent) => {
+    const ttl = (intent as { ttl?: Date | number | bigint }).ttl;
+    return ttl instanceof Date ? ttl.getTime() : Number(ttl);
+  }).filter(Number.isFinite);
+  if (intents.length === 0 || ttlValues.length !== intents.length) {
+    throw new Error(`real contract call did not expose readable intent TTLs (${intents.length})`);
+  }
+
+  const floor = 120_000;
+  const earliestTtl = Math.min(...ttlValues);
+  let nowMs = earliestTtl - floor - 1_000;
+  const beforeWaitMs = earliestTtl - nowMs;
+  enforcePreSpendTtl(tx as never, nowMs, floor); // safe immediately before the wait
+
+  const order: string[] = [];
+  let thrown: unknown;
+  try {
+    await waitForDustThenEnforceTtl({
+      waitForDust: async () => {
+        order.push("wait");
+        nowMs += 2_000;
+      },
+      tx: () => {
+        order.push("ttl");
+        return tx as never;
+      },
+      now: () => nowMs,
+      minRemainingMs: floor,
+    });
+  } catch (error) {
+    thrown = error;
+  }
+
+  const rejection = thrown as { errorCode?: string; message?: string } | undefined;
+  return ok(
+    "M12",
+    order.join("→") === "wait→ttl" && thrown instanceof PreSpendPermanent &&
+      rejection?.errorCode === "TTL_TOO_SHORT",
+    `realCallBytes=${callHex.length / 2} intents=${intents.length} ` +
+      `beforeWait=${beforeWaitMs}ms afterWait=${earliestTtl - nowMs}ms ` +
+      `floor=${floor}ms order=${order.join("→")} verdict=${rejection?.errorCode ?? "none"}`,
   );
 });
 
@@ -500,6 +767,14 @@ async function main() {
   memStop = true;
   await sampleMemory().catch(() => {});
   const services = Object.keys(memStats.peakMiB).sort();
+  const validationPids = Object.keys(validationChildRss.peakMiB)
+    .sort((a, b) => Number(a) - Number(b));
+  const validationRssValues = validationPids
+    .map((pid) => validationChildRss.peakMiB[pid]!)
+    .sort((a, b) => a - b);
+  const validationRssMedian = validationRssValues.length > 0
+    ? validationRssValues[Math.floor(validationRssValues.length / 2)]!
+    : 0;
   const lines = [
     ``,
     `## Deep run ${new Date().toISOString()}`,
@@ -513,6 +788,18 @@ async function main() {
     `| service | peak MiB | final MiB |`,
     `|---|---|---|`,
     ...services.map((s) => `| ${s} | ${memStats.peakMiB[s].toFixed(1)} | ${(memStats.finalMiB[s] ?? 0).toFixed(1)} |`),
+    ``,
+    `**Validation child RSS (${validationChildRss.samples} samples):**`,
+    ``,
+    `| host PID | peak RSS MiB |`,
+    `|---|---|`,
+    ...validationPids.map((pid) => `| ${pid} | ${validationChildRss.peakMiB[pid]!.toFixed(1)} |`),
+    ``,
+    validationRssValues.length > 0
+      ? `Per-child RSS min/median/max: ${validationRssValues[0]!.toFixed(1)} / ` +
+        `${validationRssMedian.toFixed(1)} / ${validationRssValues[validationRssValues.length - 1]!.toFixed(1)} MiB ` +
+        `across ${validationRssValues.length} children.`
+      : `Per-child RSS: no validation-worker process was observed.`,
   ];
   try {
     appendFileSync(RESULTS_FILE, lines.join("\n") + "\n");
