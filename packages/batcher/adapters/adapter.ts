@@ -78,6 +78,19 @@ export interface BatchInputDeferral<TInput = DefaultBatcherInput> {
 }
 
 /**
+ * One input that failed in the adapter's legacy balance/sign/submit pipeline.
+ *
+ * Unlike a deterministic rejection, this consumes one unit of the input's
+ * bounded retry budget. The row and callback remain pending unless storage
+ * drops the row at the configured retry limit.
+ */
+export interface BatchInputFailure<TInput = DefaultBatcherInput> {
+  input: TInput;
+  /** Human-readable diagnostic for logs; not a permanent input verdict. */
+  error: string;
+}
+
+/**
  * What actually happened to each input in a batch.
  *
  * An adapter may keep returning a bare {@link BlockchainHash}, which means
@@ -85,7 +98,8 @@ export interface BatchInputDeferral<TInput = DefaultBatcherInput> {
  * this object instead when inputs can have differing fates.
  *
  * Every list is optional so an adapter states only what applies. Inputs
- * omitted from all three are treated as submitted when a `hash` is present.
+ * omitted from every per-input list are treated as submitted when a `hash` is
+ * present.
  */
 export interface BatchOutcome<TInput = DefaultBatcherInput> {
   /**
@@ -102,6 +116,8 @@ export interface BatchOutcome<TInput = DefaultBatcherInput> {
   permanentRejected?: BatchInputRejection<TInput>[];
   /** Inputs to leave queued, uncharged, for a later round. */
   retryable?: BatchInputDeferral<TInput>[];
+  /** Inputs left queued after consuming one bounded retry. */
+  failed?: BatchInputFailure<TInput>[];
   /**
    * The batch broke an invariant the batcher cannot reason about — for
    * example a transaction that validated, failed after finalization, and then

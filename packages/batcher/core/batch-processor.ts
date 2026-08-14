@@ -224,6 +224,25 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         );
       }
 
+      if (outcome.failed && outcome.failed.length > 0) {
+        debugLog(
+          `[BatchProcessor] Charging one retry to ${outcome.failed.length} ` +
+            `adapter-judged failed input(s) for target ${target} ` +
+            `(maxRetries=${maxRetries}): ${
+              outcome.failed.map((failure) => failure.error).join("; ")
+            }`,
+        );
+        await this.batcher.storage
+          .incrementRetryCount(
+            outcome.failed.map((failure) => failure.input),
+            target,
+            maxRetries,
+          )
+          .catch((e) =>
+            debugLog(`[BatchProcessor] Failed to increment retry counts: ${e}`)
+          );
+      }
+
       const hash = outcome.hash;
       if (hash === undefined) {
         // Every input was rejected or deferred. There is no transaction, so
@@ -249,6 +268,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         const accountedFor = new Set<T>([
           ...(outcome.permanentRejected ?? []).map((r) => r.input),
           ...(outcome.retryable ?? []).map((d) => d.input),
+          ...(outcome.failed ?? []).map((failure) => failure.input),
         ]);
         finalSelectedInputs = outcome.submitted ??
           inputsSnapshot.filter((input) => !accountedFor.has(input));

@@ -180,6 +180,26 @@ test("a deferred input is left queued and charged no retry", async () => {
   expect(h.callbacks.has("deferred")).toBe(true);
 });
 
+// --- Retry-charged failure --------------------------------------------
+
+test("an adapter-judged legacy failure charges one retry and leaves the row", async () => {
+  const h = makeHarness();
+  const failed = makeInput("failed");
+  h.waitOn(failed);
+
+  const adapter = makeAdapter([failed], async () => ({
+    failed: [{ input: failed, error: "balance failed" }],
+  }));
+
+  await h.processor.processBatchForTarget(adapter, TARGET, [failed]);
+
+  expect(h.retried).toEqual([failed]);
+  expect(h.removed).toEqual([]);
+  // A bounded retry is neither a permanent verdict nor a successful receipt.
+  expect(h.settled.has("failed")).toBe(false);
+  expect(h.callbacks.has("failed")).toBe(true);
+});
+
 // --- Mixed batch -------------------------------------------------------
 
 test("one batch can submit, reject and defer different inputs", async () => {
@@ -215,6 +235,39 @@ test("one batch can submit, reject and defer different inputs", async () => {
   expect(h.settled.get("doomed")?.status).toEqual("rejected");
   expect(h.settled.get("good")?.status).toEqual("resolved");
   expect(h.settled.has("deferred")).toBe(false);
+});
+
+test("submitted, permanently rejected and retry-charged inputs stay distinct", async () => {
+  const h = makeHarness();
+  const good = makeInput("good");
+  const doomed = makeInput("doomed");
+  const failed = makeInput("failed");
+  for (const input of [good, doomed, failed]) h.waitOn(input);
+
+  const adapter = makeAdapter([good, doomed, failed], async () => ({
+    hash: "0xhash",
+    submitted: [good],
+    permanentRejected: [{
+      input: doomed,
+      error: "not well formed",
+      errorCode: "NOT_WELL_FORMED",
+    }],
+    failed: [{ input: failed, error: "submit failed" }],
+  }));
+
+  await h.processor.processBatchForTarget(adapter, TARGET, [
+    good,
+    doomed,
+    failed,
+  ]);
+
+  expect(h.removed).toContain(good);
+  expect(h.removed).toContain(doomed);
+  expect(h.removed).not.toContain(failed);
+  expect(h.retried).toEqual([failed]);
+  expect(h.settled.get("good")?.status).toEqual("resolved");
+  expect(h.settled.get("doomed")?.status).toEqual("rejected");
+  expect(h.settled.has("failed")).toBe(false);
 });
 
 test("inputs the adapter does not mention ride along with the hash", async () => {
