@@ -376,7 +376,7 @@ test("an invariant failure parks the whole batch and charges nothing", async () 
   expect(h.cooldowns.length).toEqual(1);
 });
 
-test("an invariant failure suppresses the batch's own per-input verdicts", async () => {
+test("an unscoped invariant suppresses the batch's own per-input verdicts", async () => {
   const h = makeHarness();
   const doomed = makeInput("doomed");
   h.waitOn(doomed);
@@ -392,6 +392,64 @@ test("an invariant failure suppresses the batch's own per-input verdicts", async
 
   expect(h.removed).toEqual([]);
   expect(h.settled.size).toEqual(0);
+});
+
+test("a scoped invariant parks its input but preserves independent worker outcomes", async () => {
+  const h = makeHarness();
+  const submitted = makeInput("submitted");
+  const doomed = makeInput("doomed");
+  const affected = makeInput("affected");
+  for (const input of [submitted, doomed, affected]) h.waitOn(input);
+
+  const adapter = makeAdapter([submitted, doomed, affected], async () => ({
+    hash: "0xhash",
+    submitted: [submitted],
+    permanentRejected: [{ input: doomed, error: "not well formed" }],
+    invariantFailure: {
+      message: "finalized output failed while original stayed valid",
+      inputs: [affected],
+    },
+  }));
+
+  await expect(
+    h.processor.processBatchForTarget(adapter, TARGET, [
+      submitted,
+      doomed,
+      affected,
+    ]),
+  ).rejects.toThrow(/invariant failure/i);
+
+  expect(h.removed).toContain(submitted);
+  expect(h.removed).toContain(doomed);
+  expect(h.removed).not.toContain(affected);
+  expect(h.settled.get("submitted")?.status).toBe("resolved");
+  expect(h.settled.get("doomed")?.status).toBe("rejected");
+  expect(h.settled.has("affected")).toBe(false);
+  expect(h.retried).toEqual([]);
+  expect(h.cooldowns).toHaveLength(1);
+});
+
+test("a hard invariant applies an infinite cooldown for manual recovery", async () => {
+  const h = makeHarness();
+  const affected = makeInput("affected");
+  h.waitOn(affected);
+
+  const adapter = makeAdapter([affected], async () => ({
+    invariantFailure: {
+      message: "finalized rollback failed",
+      inputs: [affected],
+      hardPause: true,
+    },
+  }));
+
+  await expect(
+    h.processor.processBatchForTarget(adapter, TARGET, [affected]),
+  ).rejects.toThrow(/invariant failure/i);
+
+  expect(h.cooldowns).toEqual([Number.POSITIVE_INFINITY]);
+  expect(h.removed).toEqual([]);
+  expect(h.retried).toEqual([]);
+  expect(h.settled.has("affected")).toBe(false);
 });
 
 // --- Bare-hash adapters are untouched ----------------------------------

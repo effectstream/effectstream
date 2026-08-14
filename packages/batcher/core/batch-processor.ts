@@ -185,19 +185,32 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         }: ${outcome.hash ?? "(no transaction)"}`,
       );
 
-      // A broken invariant is not a verdict on any input: the batcher cannot
-      // tell which one (if any) is at fault, so it charges nothing, removes
-      // nothing, and stops the target for inspection.
-      if (outcome.invariantFailure) {
-        const cooldownMs = Math.max(retryDelayMs, 1000);
+      // Phase C can scope an invariant to the worker that produced it. In that
+      // case other workers' verdicts remain independent and must still be
+      // honored; only the affected input stays queued and uncharged. Legacy
+      // unscoped invariants retain the conservative suppress-everything guard.
+      const invariant = outcome.invariantFailure;
+      const invariantInputs = invariant?.inputs ?? [];
+      const invariantInputSet = new Set<T>(invariantInputs);
+      let invariantError: Error | undefined;
+      if (invariant) {
+        const cooldownMs = invariant.hardPause
+          ? Number.POSITIVE_INFINITY
+          : Math.max(retryDelayMs, 1000);
         this.batcher.setTargetCooldown(target, cooldownMs);
-        const invariantError = new Error(
+        invariantError = new Error(
           `Batch invariant failure for target ${target}: ` +
-            outcome.invariantFailure.message,
+            invariant.message,
         );
+        const parkedCount = invariantInputs.length > 0
+          ? invariantInputs.length
+          : inputsSnapshot.length;
         console.error(
           `🛑 [BatchProcessor] ${invariantError.message} — parking ` +
-            `${inputsSnapshot.length} input(s) untouched, cooldown ${cooldownMs}ms`,
+            `${parkedCount} input(s) untouched, ` +
+            (invariant.hardPause
+              ? "hard-paused until manual recovery"
+              : `cooldown ${cooldownMs}ms`),
         );
         this.batcher.emitStateTransition("error", {
           phase: "batch",
@@ -205,36 +218,46 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           error: invariantError,
           time: Date.now(),
         });
-        throw invariantError;
+        if (invariantInputs.length === 0) throw invariantError;
       }
 
-      if (outcome.permanentRejected && outcome.permanentRejected.length > 0) {
-        await this.rejectInputsPermanently(outcome.permanentRejected, target);
+      const permanentRejected = (outcome.permanentRejected ?? []).filter(
+        (rejection) => !invariantInputSet.has(rejection.input),
+      );
+      const retryable = (outcome.retryable ?? []).filter(
+        (deferral) => !invariantInputSet.has(deferral.input),
+      );
+      const failed = (outcome.failed ?? []).filter(
+        (failure) => !invariantInputSet.has(failure.input),
+      );
+
+      if (permanentRejected.length > 0) {
+        await this.rejectInputsPermanently(permanentRejected, target);
       }
 
-      if (outcome.retryable && outcome.retryable.length > 0) {
+      if (retryable.length > 0) {
         // Left in storage with retry counts untouched: these inputs were never
         // judged, so charging them for our own trouble would eventually drop a
         // perfectly valid transaction.
         console.warn(
-          `[BatchProcessor] Deferring ${outcome.retryable.length} input(s) for ` +
+          `[BatchProcessor] Deferring ${retryable.length} input(s) for ` +
             `target ${target} without charging a retry: ${
-              outcome.retryable.map((d) => d.reason).join("; ")
+              retryable.map((d) => d.reason).join("; ")
             }`,
         );
       }
 
-      if (outcome.failed && outcome.failed.length > 0) {
+      if (failed.length > 0) {
         debugLog(
-          `[BatchProcessor] Charging one retry to ${outcome.failed.length} ` +
+          `[BatchProcessor] Charging one retry to ${failed.length} ` +
             `adapter-judged failed input(s) for target ${target} ` +
             `(maxRetries=${maxRetries}): ${
-              outcome.failed.map((failure) => failure.error).join("; ")
+              failed.map((failure) => failure.error).join("; ")
             }`,
         );
         await this.batcher.storage
           .incrementRetryCount(
-            outcome.failed.map((failure) => failure.input),
+            failed.map((failure) => failure.input),
             target,
             maxRetries,
           )
@@ -251,6 +274,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           `[BatchProcessor] No transaction submitted for target ${target}; ` +
             `nothing to confirm`,
         );
+        if (invariantError) throw invariantError;
         return;
       }
 
@@ -266,12 +290,14 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         // The adapter said exactly what it carried. Anything it did not
         // mention, and did not reject or defer, rode along with the hash.
         const accountedFor = new Set<T>([
-          ...(outcome.permanentRejected ?? []).map((r) => r.input),
-          ...(outcome.retryable ?? []).map((d) => d.input),
-          ...(outcome.failed ?? []).map((failure) => failure.input),
+          ...permanentRejected.map((r) => r.input),
+          ...retryable.map((d) => d.input),
+          ...failed.map((failure) => failure.input),
+          ...invariantInputs,
         ]);
-        finalSelectedInputs = outcome.submitted ??
-          inputsSnapshot.filter((input) => !accountedFor.has(input));
+        finalSelectedInputs = outcome.submitted
+          ? outcome.submitted.filter((input) => !invariantInputSet.has(input))
+          : inputsSnapshot.filter((input) => !accountedFor.has(input));
       } else {
         // Check if the adapter mutated selectedInputs in the data object
         // This is a pattern used by some adapters (like midnight-balancing) to handle partial failures
@@ -321,6 +347,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         finalSelectedInputs,
         adapterTimeout,
       );
+      if (invariantError) throw invariantError;
     } finally {
       // Release all batch resources (workers + input reservations).
       // This runs AFTER all storage operations (removeProcessedInputs on
