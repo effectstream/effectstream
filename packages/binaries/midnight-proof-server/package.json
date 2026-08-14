@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/npm-midnight-proof-server",
-  "version": "0.103.3",
+  "version": "0.104.0",
   "description": "A wrapper for the Midnight proof server binary",
   "main": "index.js",
   "bin": {

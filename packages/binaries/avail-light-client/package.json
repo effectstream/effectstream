@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/npm-avail-light-client",
-  "version": "0.103.3",
+  "version": "0.104.0",
   "description": "A wrapper for the Avail Light Client CLI",
   "main": "_index.js",
   "bin": {
