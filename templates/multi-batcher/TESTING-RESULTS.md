@@ -156,3 +156,125 @@ After the fix `cOffersReaped=0` — the race is gone at the root, not papered ov
 | proof-server | 788.2 | 785.8 |
 | proof-server-2 | 743.2 | 741.2 |
 | proof-server-3 | 710.1 | 700.3 |
+
+## Deep run 2026-08-14T23:48:06.952Z
+
+| # | Test | Outcome | Notes |
+|---|------|---------|-------|
+| M11 | Corrupted proof is admitted, then permanently rejected pre-spend | **pass** | hash=#9c3b8e2e corruptAt=50% noWait=200 waitReceipt=400/NOT_WELL_FORMED proved=0 proofRejects=2 permanent=2 retryCharged=0 zeroRetryOutcomes=2 dust=[10]→[10] D7={"phase":"pre-spend","txStage":"finalized","strictness":{"enforceBalancing":false,"verifySignatures":true,"enforceLimits":false,"verifyNativeProofs":false,"verifyContractProofs":false}} reason=Invalid proof -- while verifying Zswap proof |
+| M12 | Intent-bearing call that expires during dust wait is refused | **pass** | realCallBytes=3307 intents=1 beforeWait=121000ms afterWait=119000ms floor=120000ms order=wait→ttl verdict=TTL_TOO_SHORT |
+
+**Memory (docker stats, 7 samples):**
+
+| service | peak MiB | final MiB |
+|---|---|---|
+| app | 1911.8 | 1888.3 |
+| indexer | 36.5 | 26.6 |
+| node | 664.2 | 150.5 |
+| proof-lb | 4.5 | 4.5 |
+| proof-server | 685.1 | 4.4 |
+| proof-server-2 | 688.2 | 9.6 |
+| proof-server-3 | 711.4 | 4.0 |
+
+**Validation child RSS (7 samples):**
+
+| host PID | peak RSS MiB |
+|---|---|
+| 3524165 | 138.3 |
+| 3524166 | 115.2 |
+| 3524167 | 120.2 |
+| 3524168 | 115.1 |
+| 3524169 | 117.3 |
+| 3524170 | 122.7 |
+| 3524171 | 115.5 |
+| 3524172 | 115.7 |
+| 3524173 | 117.4 |
+| 3524176 | 121.0 |
+| 3524177 | 116.1 |
+| 3524179 | 115.7 |
+| 3524181 | 121.1 |
+| 3524183 | 116.8 |
+| 3524185 | 120.7 |
+
+Per-child RSS min/median/max: 115.1 / 117.3 / 138.3 MiB across 15 children.
+
+## Deep run 2026-08-14T23:51:42.839Z
+
+| # | Test | Outcome | Notes |
+|---|------|---------|-------|
+| M1 | Policy matrix: each product accepts only its own shape | **pass** | 8/8 cases correct |
+| M6 | Garbage and oversized payloads are refused at intake | **pass** | not-json-not-hex:rejected(400) empty:rejected(400) bad-stage:rejected(400) garbage-hex:rejected(400) huge:rejected(400) pending=0 |
+
+**Memory (docker stats, 13 samples):**
+
+| service | peak MiB | final MiB |
+|---|---|---|
+| app | 1650.7 | 1650.7 |
+| indexer | 38.6 | 26.8 |
+| node | 620.1 | 150.4 |
+| proof-lb | 4.5 | 4.5 |
+| proof-server | 665.0 | 4.4 |
+| proof-server-2 | 686.1 | 9.6 |
+| proof-server-3 | 678.2 | 4.0 |
+
+**Validation child RSS (13 samples):**
+
+| host PID | peak RSS MiB |
+|---|---|
+| 3524165 | 118.9 |
+| 3524166 | 98.0 |
+| 3524167 | 98.1 |
+| 3524168 | 98.0 |
+| 3524169 | 100.3 |
+| 3524170 | 100.7 |
+| 3524171 | 98.2 |
+| 3524172 | 98.7 |
+| 3524173 | 100.4 |
+| 3524176 | 98.8 |
+| 3524177 | 99.1 |
+| 3524179 | 98.3 |
+| 3524181 | 99.4 |
+| 3524183 | 99.5 |
+| 3524185 | 98.5 |
+
+Per-child RSS min/median/max: 98.0 / 98.8 / 118.9 MiB across 15 children.
+
+## Deep run 2026-08-14T23:57:50.502Z
+
+| # | Test | Outcome | Notes |
+|---|------|---------|-------|
+| M10 | Mixed three-product soak | **pass** | a=25/25 b=10/10 c=6 wall=279.4s tps=0.15 eventLoopLagP99(max 5s window)=106.04ms validationChildRSS=15 children 98.2/99.5/124.6 MiB min/median/max dustErrors=0 drops=0 |
+
+**Memory (docker stats, 51 samples):**
+
+| service | peak MiB | final MiB |
+|---|---|---|
+| app | 1681.4 | 1660.9 |
+| indexer | 42.1 | 27.4 |
+| node | 620.8 | 142.5 |
+| proof-lb | 5.6 | 4.5 |
+| proof-server | 785.2 | 4.4 |
+| proof-server-2 | 860.5 | 9.6 |
+| proof-server-3 | 791.9 | 4.0 |
+
+**Validation child RSS (50 samples):**
+
+| host PID | peak RSS MiB |
+|---|---|
+| 3524165 | 124.6 |
+| 3524166 | 119.5 |
+| 3524167 | 109.1 |
+| 3524168 | 108.3 |
+| 3524169 | 109.6 |
+| 3524170 | 100.7 |
+| 3524171 | 98.2 |
+| 3524172 | 98.7 |
+| 3524173 | 100.4 |
+| 3524176 | 98.8 |
+| 3524177 | 99.1 |
+| 3524179 | 98.3 |
+| 3524181 | 99.4 |
+| 3524183 | 99.5 |
+| 3524185 | 98.5 |
+
+Per-child RSS min/median/max: 98.2 / 99.5 / 124.6 MiB across 15 children.
