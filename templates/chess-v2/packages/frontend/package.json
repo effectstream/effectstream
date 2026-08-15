@@ -14,10 +14,10 @@
     "serve": "bun run build && bun run server:start"
   },
   "dependencies": {
-    "@effectstream/concise": "0.103.3",
-    "@effectstream/event-client": "0.103.3",
-    "@effectstream/utils": "0.103.3",
-    "@effectstream/wallets": "0.103.3",
+    "@effectstream/concise": "0.104.0",
+    "@effectstream/event-client": "0.104.0",
+    "@effectstream/utils": "0.104.0",
+    "@effectstream/wallets": "0.104.0",
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
     "@fastify/static": "^8.0.0",

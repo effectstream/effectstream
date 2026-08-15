@@ -9,10 +9,10 @@
     "start": "bun run index.ts"
   },
   "dependencies": {
-    "@effectstream/batcher-sdk": "0.103.3",
-    "@effectstream/midnight-contracts": "0.103.3",
-    "@effectstream/utils": "0.103.3",
-    "@effectstream/wallets": "0.103.3",
+    "@effectstream/batcher-sdk": "0.104.0",
+    "@effectstream/midnight-contracts": "0.104.0",
+    "@effectstream/utils": "0.104.0",
+    "@effectstream/wallets": "0.104.0",
     "@midnight-ntwrk/compact-js": "2.5.1",
     "@midnight-ntwrk/compact-runtime": "0.16.0",
     "@midnight-ntwrk/ledger-v8": "8.1.0",

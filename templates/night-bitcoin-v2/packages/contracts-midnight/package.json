@@ -18,10 +18,10 @@
     "mint-wallets": "bun run mint-wallets.ts"
   },
   "dependencies": {
-    "@effectstream/midnight-contracts": "0.103.3",
-    "@effectstream/npm-midnight-indexer": "0.103.3",
-    "@effectstream/npm-midnight-node": "0.103.3",
-    "@effectstream/npm-midnight-proof-server": "0.103.3",
+    "@effectstream/midnight-contracts": "0.104.0",
+    "@effectstream/npm-midnight-indexer": "0.104.0",
+    "@effectstream/npm-midnight-node": "0.104.0",
+    "@effectstream/npm-midnight-proof-server": "0.104.0",
     "@midnight-ntwrk/compact-js": "2.5.1",
     "@midnight-ntwrk/ledger-v8": "8.1.0",
     "@midnight-ntwrk/midnight-js-contracts": "4.1.1",

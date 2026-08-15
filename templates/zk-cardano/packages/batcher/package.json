@@ -6,7 +6,7 @@
     "start": "bun run batcher.dev.ts"
   },
   "dependencies": {
-    "@effectstream/batcher-sdk": "0.103.3",
+    "@effectstream/batcher-sdk": "0.104.0",
     "@zk-cardano/midnight-contract": "workspace:*",
     "effection": "^3.5.0"
   }

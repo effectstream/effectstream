@@ -19,7 +19,7 @@
     "transfer-funds": "bun run transfer-funds.ts"
   },
   "dependencies": {
-    "@effectstream/bitcoin-core": "0.103.3",
+    "@effectstream/bitcoin-core": "0.104.0",
     "bip32": "^5.0.0",
     "bitcoinjs-lib": "^6.1.5",
     "ecpair": "^2.1.0",
