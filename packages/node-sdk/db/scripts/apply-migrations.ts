@@ -1,7 +1,7 @@
 import { getConnection } from "../src/pg-connection.ts";
 import { getMigrations } from "../migrations/system-version.ts";
 import type { Client } from "pg";
-import { insertPaimaEngineMigration } from "@effectstream/db";
+import { insertPaimaEngineMigration } from "../src/sql/system.queries.ts";
 
 export async function applyMigrations(
   db: Client,

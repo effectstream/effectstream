@@ -3,7 +3,8 @@ import { ConfigNetworkType } from "../network/mod.ts";
 import type { ConfigSyncProtocolDecoratorType } from "./decorators/types.ts";
 import type { NetworkConfig } from "../../config/parts/network.ts";
 import type { ConfigSyncProtocolMapping } from "./all.ts";
-import type { UtxorpcTxPredicate, getEvmEvent } from "@effectstream/config";
+import type { getEvmEvent } from "../../config/configCheck.ts";
+import type { UtxorpcTxPredicate } from "./cardano/utxorpc.ts";
 import type { StateValue } from "@midnight-ntwrk/onchain-runtime"
 
 export enum ConfigSyncProtocolType {
@@ -100,6 +101,11 @@ type MidnightPrimitive = BasePrimitive & {
   contract?: {
     ledger: (data: StateValue) => Record<string, any>;
   };
+  /**
+   * Public ledger fields in Compact declaration order. This can be used in
+   * place of a compiler-generated `contract.ledger` decoder for simple data.
+   */
+  ledgerSchema?: LedgerSchema;
   /**
    * For Midnight:NullifierAndCommitment — which zswap ledger event kinds to
    * emit. Both kinds arrive in the same indexer response either way.

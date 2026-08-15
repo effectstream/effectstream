@@ -59,6 +59,8 @@ export type StartConfig = {
   apiRouter?: StartConfigApiRouter;
   grammar?: GrammarDefinition;
   userDefinedPrimitives?: Record<string, PrimitiveConstructor<any>>;
+  /** Publish MQTT events. Defaults to true; small read-only nodes may disable it. */
+  events?: boolean;
   /**
    * Automated database snapshot configuration via `pg_dump`.
    * An empty object `{}` enables snapshots with all defaults.
