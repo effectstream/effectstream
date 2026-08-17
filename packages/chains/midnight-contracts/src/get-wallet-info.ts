@@ -86,18 +86,52 @@ function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Array {
 // Wallet Configuration
 // ============================================================================
 
-/**
- * Resolve sync timeout from env or default.
- */
-export function resolveWalletSyncTimeoutMs(): number {
-  const envValue = getEnv("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");
-  if (!envValue) return CONSTANTS.WALLET_SYNC_TIMEOUT_MS;
+function resolveTimeoutMsEnv(name: string, fallbackMs: number): number {
+  const envValue = getEnv(name);
+  if (!envValue) return fallbackMs;
   const parsed = Number(envValue);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
-  log.warn(
-    `Invalid MIDNIGHT_WALLET_SYNC_TIMEOUT_MS="${envValue}", using default ${CONSTANTS.WALLET_SYNC_TIMEOUT_MS}ms`
+  log.warn(`Invalid ${name}="${envValue}", using default ${fallbackMs}ms`);
+  return fallbackMs;
+}
+
+/**
+ * How long a wallet may spend replaying the chain.
+ * `MIDNIGHT_WALLET_SYNC_TIMEOUT_MS`, default
+ * {@link CONSTANTS.WALLET_SYNC_TIMEOUT_MS} (4 h — a preprod dust cold sync
+ * measures ~66 min).
+ */
+export function resolveWalletSyncTimeoutMs(): number {
+  return resolveTimeoutMsEnv(
+    "MIDNIGHT_WALLET_SYNC_TIMEOUT_MS",
+    CONSTANTS.WALLET_SYNC_TIMEOUT_MS,
   );
-  return CONSTANTS.WALLET_SYNC_TIMEOUT_MS;
+}
+
+/**
+ * How long to wait for funds to arrive once the wallet is synced.
+ * `MIDNIGHT_WALLET_FUNDING_TIMEOUT_MS`, default
+ * {@link CONSTANTS.WALLET_FUNDING_TIMEOUT_MS} (10 min). Kept off the sync
+ * budget so an unfunded wallet fails in minutes instead of inheriting hours.
+ */
+export function resolveWalletFundingTimeoutMs(): number {
+  return resolveTimeoutMsEnv(
+    "MIDNIGHT_WALLET_FUNDING_TIMEOUT_MS",
+    CONSTANTS.WALLET_FUNDING_TIMEOUT_MS,
+  );
+}
+
+/**
+ * Deadline for {@link registerNightForDust}'s sync precheck.
+ * `MIDNIGHT_DUST_REGISTRATION_PRECHECK_TIMEOUT_MS`, default
+ * {@link CONSTANTS.DUST_REGISTRATION_PRECHECK_TIMEOUT_MS} (10 min). In
+ * dust-only mode the wait can never succeed, so it must stay small.
+ */
+export function resolveDustRegistrationPrecheckTimeoutMs(): number {
+  return resolveTimeoutMsEnv(
+    "MIDNIGHT_DUST_REGISTRATION_PRECHECK_TIMEOUT_MS",
+    CONSTANTS.DUST_REGISTRATION_PRECHECK_TIMEOUT_MS,
+  );
 }
 
 /**
@@ -570,7 +604,8 @@ export interface DustSyncWithRetryOptions {
   stallTimeoutMs?: number;
   /**
    * How long to wait for a non-zero façade dust balance after dust sync.
-   * Default: {@link resolveWalletSyncTimeoutMs} (not `stallTimeoutMs`).
+   * Default: {@link resolveWalletFundingTimeoutMs} (not `stallTimeoutMs`, and
+   * deliberately not the sync timeout — see the constant's docstring).
    */
   balanceWaitTimeoutMs?: number;
   /** Maximum retry attempts on stall. Default: 5. */
@@ -603,7 +638,7 @@ export async function waitForDustFundsWithRetry(
     seed,
     networkId,
     stallTimeoutMs = DUST_STALL_TIMEOUT_MS,
-    balanceWaitTimeoutMs = resolveWalletSyncTimeoutMs(),
+    balanceWaitTimeoutMs = resolveWalletFundingTimeoutMs(),
     maxRetries = DUST_MAX_RETRIES,
     throttleMs = CONSTANTS.WALLET_SYNC_THROTTLE_MS,
     syncMode = 'dust-only',
@@ -1215,10 +1250,10 @@ export function getInitialUnshieldedState(
 export interface RegisterNightForDustOptions {
   /**
    * Override for the wait-for-sync precheck timeout. The default
-   * (`resolveWalletSyncTimeoutMs()`, 10 min) is correct when the wallet has
-   * an active unshielded subscription. Callers that built the wallet with
-   * `syncMode: 'dust-only'` should pass a small value (e.g. 30s) — the
-   * unshielded sync is stopped, so this wait can never succeed and the
+   * ({@link resolveDustRegistrationPrecheckTimeoutMs}, 10 min) is correct when
+   * the wallet has an active unshielded subscription. Callers that built the
+   * wallet with `syncMode: 'dust-only'` should pass a small value (e.g. 30s) —
+   * the unshielded sync is stopped, so this wait can never succeed and the
    * full timeout is wasted.
    */
   precheckSyncTimeoutMs?: number;
@@ -1227,6 +1262,13 @@ export interface RegisterNightForDustOptions {
 /**
  * Register unshielded Night UTXOs for dust generation
  * This is required before the wallet can pay transaction fees
+ *
+ * Returns false on every failure, including a precheck timeout. That last one
+ * used to escape as an exception because the precheck sat outside the
+ * function's own try/catch — one failure mode out of several behaving
+ * differently from the boolean the signature promises, so callers that trusted
+ * the return value skipped their handling for exactly the case a stopped
+ * unshielded sub-wallet produces.
  */
 export async function registerNightForDust(
   walletResult: WalletResult,
@@ -1234,32 +1276,32 @@ export async function registerNightForDust(
 ): Promise<boolean> {
   log.info("Checking for unshielded Night UTXOs to register for dust generation...");
 
-  const state = await Rx.firstValueFrom(
-    walletResult.wallet.state().pipe(
-      Rx.filter((s: any) => {
-        const dustSynced = s.dust?.state?.progress?.isStrictlyComplete() ?? false;
-        const unshieldedSynced = s.unshielded?.progress?.isStrictlyComplete() ?? false;
-        return dustSynced && unshieldedSynced;
-      }),
-      Rx.timeout({
-        each: options?.precheckSyncTimeoutMs ?? resolveWalletSyncTimeoutMs(),
-        with: () => Rx.throwError(() => new Error("Timeout waiting for unshielded+dust sync for dust registration")),
-      })
-    )
-  );
-
-  const unregisteredNightUtxos =
-    (state as any).unshielded?.availableCoins?.filter((coin: any) => coin.meta.registeredForDustGeneration === false) ?? [];
-
-  if (unregisteredNightUtxos.length === 0) {
-    log.info("No unregistered unshielded Night UTXOs available.");
-    const dustBalance = await waitForDustFunds(walletResult.wallet, { timeoutMs: 5000 });
-    return dustBalance > 0n;
-  }
-
-  log.info(`Found ${unregisteredNightUtxos.length} unregistered Night UTXOs. Registering for dust...`);
-
   try {
+    const state = await Rx.firstValueFrom(
+      walletResult.wallet.state().pipe(
+        Rx.filter((s: any) => {
+          const dustSynced = s.dust?.state?.progress?.isStrictlyComplete() ?? false;
+          const unshieldedSynced = s.unshielded?.progress?.isStrictlyComplete() ?? false;
+          return dustSynced && unshieldedSynced;
+        }),
+        Rx.timeout({
+          each: options?.precheckSyncTimeoutMs ?? resolveDustRegistrationPrecheckTimeoutMs(),
+          with: () => Rx.throwError(() => new Error("Timeout waiting for unshielded+dust sync for dust registration")),
+        })
+      )
+    );
+
+    const unregisteredNightUtxos =
+      (state as any).unshielded?.availableCoins?.filter((coin: any) => coin.meta.registeredForDustGeneration === false) ?? [];
+
+    if (unregisteredNightUtxos.length === 0) {
+      log.info("No unregistered unshielded Night UTXOs available.");
+      const dustBalance = await waitForDustFunds(walletResult.wallet, { timeoutMs: 5000 });
+      return dustBalance > 0n;
+    }
+
+    log.info(`Found ${unregisteredNightUtxos.length} unregistered Night UTXOs. Registering for dust...`);
+
     const recipe = await (walletResult.wallet as any).registerNightUtxosForDustGeneration(
       unregisteredNightUtxos,
       walletResult.unshieldedKeystore.getPublicKey(),
@@ -1275,7 +1317,7 @@ export async function registerNightForDust(
     log.info("Waiting for dust to be generated...");
     await waitForDustFunds(walletResult.wallet, {
       waitNonZero: true,
-      timeoutMs: resolveWalletSyncTimeoutMs(),
+      timeoutMs: resolveWalletFundingTimeoutMs(),
     });
 
     log.info("Dust registration complete!");

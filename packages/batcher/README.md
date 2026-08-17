@@ -21,6 +21,28 @@ npm install @effectstream/batcher-sdk
 > `@midnightntwrk/wallet-sdk-dust-wallet` >= 4.0.0). Override with the
 > `MIDNIGHT_DUST_SYNC_BATCH_{SIZE,TIMEOUT_MS,SPACING_MS}` env vars.
 
+### Midnight wallet sync and funding timeouts
+
+A dust cold sync is the expensive part of starting a Midnight fee wallet: on
+preprod it measures ~66 minutes (~1.44 M dust indices), while the unshielded
+sync takes about a second. The three deadlines below are deliberately separate,
+because "the chain is still replaying" and "nobody has sent this wallet any
+NIGHT" want very different answers.
+
+| Env var | Default | What it bounds |
+| --- | --- | --- |
+| `MIDNIGHT_WALLET_SYNC_TIMEOUT_MS` | `14400000` (4 h) | A full chain replay. A backstop, not a health check — a genuinely stuck sync is caught within ~60 s by emission-silence detection, so this only needs to exceed a real cold sync with headroom. Raise it for chains longer than preprod. |
+| `MIDNIGHT_WALLET_FUNDING_TIMEOUT_MS` | `600000` (10 min) | Waiting for funds to arrive once the wallet is synced. Keep it short: an unfunded wallet should fail in minutes rather than inherit the sync budget. |
+| `MIDNIGHT_DUST_REGISTRATION_PRECHECK_TIMEOUT_MS` | `600000` (10 min) | The NIGHT→dust registration precheck ("unshielded and dust are both strictly complete"). In `dust-only` sync mode the unshielded sub-wallet has been stopped, so this wait can never succeed — it exists to give up in bounded time. |
+
+Dust wallet state is checkpointed to disk (`dust-state/`, one file per network
+and seed) so a restart resumes from the last snapshot instead of replaying the
+chain. A snapshot recorded on another network, one that fails to decode after
+an SDK upgrade, or one whose offset sits past the indexer's event log is
+rejected: it is renamed to `<snapshot>.rejected` and the wallet cold-syncs.
+That costs a resync, and it is logged at error level for exactly that reason —
+but it never wedges wallet init, which is what those cases used to do.
+
 ## Standalone usage
 
 A minimal end-to-end example using `FileStorage`, the EffectstreamL2 adapter, and the bundled HTTP server.
