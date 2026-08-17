@@ -34,6 +34,31 @@ NIGHT" want very different answers.
 | `MIDNIGHT_WALLET_SYNC_TIMEOUT_MS` | `14400000` (4 h) | A full chain replay. A backstop, not a health check — a genuinely stuck sync is caught within ~60 s by emission-silence detection, so this only needs to exceed a real cold sync with headroom. Raise it for chains longer than preprod. |
 | `MIDNIGHT_WALLET_FUNDING_TIMEOUT_MS` | `600000` (10 min) | Waiting for funds to arrive once the wallet is synced. Keep it short: an unfunded wallet should fail in minutes rather than inherit the sync budget. |
 | `MIDNIGHT_DUST_REGISTRATION_PRECHECK_TIMEOUT_MS` | `600000` (10 min) | The NIGHT→dust registration precheck ("unshielded and dust are both strictly complete"). In `dust-only` sync mode the unshielded sub-wallet has been stopped, so this wait can never succeed — it exists to give up in bounded time. |
+| `MIDNIGHT_DUST_STATE_SAVE_INTERVAL_MS` | `300000` (5 min) | How often a running wallet checkpoints its dust state. Bounds how much chain a crash makes it replay. `0` keeps only the shutdown checkpoint. |
+
+A stalled sync is detected separately and much sooner: if the dust wallet stops
+emitting state for 60 seconds the wallet is rebuilt from its last checkpoint and
+the sync retried. That is a *silence* check, not an elapsed-time one, so a cold
+sync that is progressing normally is never interrupted no matter how long it
+takes.
+
+### Midnight dust sync batching
+
+The dust wallet's sync batching is tuned for backend throughput rather than UI
+responsiveness. Dust sync runs on the main event loop, so these trade sync speed
+against how responsive the rest of the process (including the HTTP server, which
+accepts requests while wallets are still syncing) stays during a cold start.
+
+| Env var | Default | Browser SDK default |
+| --- | --- | --- |
+| `MIDNIGHT_DUST_SYNC_BATCH_SIZE` | `100` | 10 |
+| `MIDNIGHT_DUST_SYNC_BATCH_TIMEOUT_MS` | `1` | 1 |
+| `MIDNIGHT_DUST_SYNC_BATCH_SPACING_MS` | `1` | 4 |
+
+Larger batches mean fewer intermediate state snapshots and less memory churn.
+Keep spacing above `0`: at `0` the catch-up sync starves everything else on the
+loop. These defaults are not yet measured against a long chain — treat them as
+reasonable, not optimal.
 
 Dust wallet state is checkpointed to disk (`dust-state/`, one file per network
 and seed) so a restart resumes from the last snapshot instead of replaying the
