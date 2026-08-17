@@ -451,6 +451,29 @@ const DUST_STALL_TIMEOUT_MS = 60_000;
 const DUST_MAX_RETRIES = 5;
 const DUST_COMPLETION_GAP = 50n;
 
+/**
+ * Did this sync attempt move the wallet forward at all?
+ *
+ * The only honest baseline is where the attempt *started* — the offset it
+ * restored from — not "is appliedIndex non-zero". Phase 1 §2 measured why:
+ * a wallet restored from a snapshot whose offset is past the indexer's log
+ * sits at `appliedIndex === offset` forever, which is non-zero, so `gwi:712`'s
+ * `appliedIndex === 0n` check never fired and the useless state was written
+ * back to disk on every failed attempt (gwi:707, gwi:721). A snapshot that
+ * produced zero progress over a full attempt is worth nothing and must not
+ * displace whatever is already stored.
+ *
+ * A stalled-but-advancing sync is the opposite case and the reason the
+ * stall-path save exists at all: 128 -> 5000 means the next attempt resumes
+ * 4872 events further along.
+ */
+export function dustSyncAttemptMadeProgress(
+  attemptStartIndex: bigint,
+  lastAppliedIndex: bigint,
+): boolean {
+  return lastAppliedIndex > attemptStartIndex;
+}
+
 export interface DustSyncWithRetryOptions {
   networkUrls: Required<NetworkUrls>;
   seed: string;
@@ -504,8 +527,13 @@ export async function waitForDustFundsWithRetry(
   // Lazy import keeps node:fs out of the browser's static graph — this retry
   // flow is node-side (long-running dust sync with disk caching), while the
   // module as a whole is bundled for browsers via `./wallet-info`.
-  const { loadDustState, saveDustState, getDustStatePath, quarantineDustState } =
-    await import("./dust-state.ts");
+  const {
+    loadDustState,
+    saveDustState,
+    getDustStatePath,
+    quarantineDustState,
+    readDustSnapshotFacts,
+  } = await import("./dust-state.ts");
 
   // Pre-load cached state from disk before building any wallet.
   // Uses seed-based path so we don't need the dust address yet.
@@ -555,17 +583,38 @@ export async function waitForDustFundsWithRetry(
     }
   }
 
+  /** Where the wallet already was when this attempt began; see {@link dustSyncAttemptMadeProgress}. */
+  async function readDustAppliedIndex(wr: WalletResult): Promise<bigint> {
+    try {
+      const ds = await getInitialDustState(
+        (wr.wallet as any).dust as { state: Rx.Observable<unknown> },
+        { timeoutMs: 30_000 },
+      );
+      return dustProgressFromState(ds)?.appliedIndex ?? 0n;
+    } catch {
+      return 0n;
+    }
+  }
+
   // Build or reuse wallet
   let walletResult = existingWalletResult ?? null;
 
   let dustSyncedState: any = null;
   let lastAppliedIndex = 0n;
+  let attemptStartIndex = 0n;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     lastAppliedIndex = 0n;
+    attemptStartIndex = 0n;
     try {
       if (!walletResult) {
         const stateToRestore = inMemoryState ?? cachedState;
+        // Progress this attempt is measured against the offset we resume from.
+        // A rejected snapshot resets this to 0 below, because the wallet then
+        // cold-starts and genuinely does begin at genesis.
+        attemptStartIndex = stateToRestore
+          ? (readDustSnapshotFacts(stateToRestore)?.offset ?? 0n)
+          : 0n;
         if (attempt > 1) {
           if (stateToRestore) {
             log.info(`Retry ${attempt}/${maxRetries}: rebuilding wallet from ${inMemoryState ? 'in-memory' : 'cached'} state...`);
@@ -583,9 +632,16 @@ export async function waitForDustFundsWithRetry(
           stateToRestore,
           {
             stopAuxWalletsImmediately: syncMode !== 'dust-only',
-            onSnapshotRejected: discardSnapshot,
+            onSnapshotRejected: (reason) => {
+              discardSnapshot(reason);
+              attemptStartIndex = 0n;
+            },
           },
         );
+      } else if (attempt === 1) {
+        // A wallet handed in by the caller is already somewhere; progress has
+        // to be measured from there, not from zero.
+        attemptStartIndex = await readDustAppliedIndex(walletResult);
       }
 
 
@@ -720,24 +776,36 @@ export async function waitForDustFundsWithRetry(
       return { walletResult, dustBalance };
     } catch (e) {
       const isStall = e instanceof Error && e.message === "stall";
+      // A failed attempt may only write back state that moved forward. Phase 1
+      // §2 measured the alternative: a wallet frozen at a snapshot offset past
+      // the indexer's log was re-persisted on every failed attempt, so the
+      // outage survived restarts.
+      const madeProgress = dustSyncAttemptMadeProgress(attemptStartIndex, lastAppliedIndex);
+      if (!madeProgress) {
+        log.warn(
+          `Dust sync attempt ${attempt}/${maxRetries} applied no new events ` +
+            `(stuck at ${lastAppliedIndex}); refusing to persist that state.`,
+        );
+      }
 
       if (isStall && attempt < maxRetries) {
         log.warn(`Dust sync stalled on attempt ${attempt}/${maxRetries}. Stopping wallet and rebuilding from state...`);
         if (walletResult) {
-          await serializeAndSave(walletResult);
+          if (madeProgress) await serializeAndSave(walletResult);
           await stopWallet(walletResult);
           walletResult = null;
         }
-        // If target was 0 on this attempt, the state is likely invalid — don't restore it
-        if (lastAppliedIndex === 0n) {
-          log.warn("No sync progress was made (appliedIndex=0), discarding in-memory state for clean rebuild");
+        // State that produced nothing must not be restored again either —
+        // otherwise the next attempt repeats this one exactly.
+        if (!madeProgress) {
+          log.warn("No sync progress was made, discarding in-memory state for clean rebuild");
           inMemoryState = null;
         }
         continue;
       }
 
-      // Non-stall error or final attempt — save what we have and throw
-      if (walletResult) {
+      // Non-stall error or final attempt — checkpoint real progress and throw
+      if (walletResult && madeProgress) {
         await serializeAndSave(walletResult);
       }
 
