@@ -18,10 +18,18 @@
 // What it measures is therefore the SDK's restore semantics, not the
 // batcher wrapper's.
 //
+// Phase 2 note: `saveDustState`/`loadDustState` now check that the snapshot's
+// own `networkId` matches the id they are keyed under, so the split above has
+// to be declared explicitly via `snapshotNetworkId` — the harness is the one
+// caller that legitimately wants them to differ. `HARNESS_BYPASS_VALIDATION=1`
+// reads the file with no checks at all, which is how you still hand a
+// deliberately-broken snapshot to `DustWallet.restore` and watch what it does.
+//
 // Usage (see test/README-dust-restore-harness.md):
 //   bun test/dust-restore-harness.ts cold
 //   bun test/dust-restore-harness.ts restore
 import * as Rx from "rxjs";
+import { readFileSync } from "node:fs";
 import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { buildWalletFacade } from "../src/get-wallet-info.ts";
 import { getDustStatePath, loadDustState, saveDustState } from "../src/dust-state.ts";
@@ -34,6 +42,10 @@ const PROOF = process.env.HARNESS_PROOF ?? "http://127.0.0.1:47925";
 // be "undeployed" or every save/load silently no-ops. See header.
 const WALLET_NETWORK_ID = (process.env.HARNESS_WALLET_NETWORK_ID ?? "undeployed") as NetworkId.NetworkId;
 const PERSIST_NETWORK_ID = process.env.HARNESS_PERSIST_NETWORK_ID ?? "harness-named";
+/** The wallet id the snapshot body carries; see header for why they differ. */
+const PERSIST_OPTIONS = { snapshotNetworkId: String(WALLET_NETWORK_ID) };
+/** Skip every validity check, to measure what a bad snapshot does to restore. */
+const BYPASS_VALIDATION = process.env.HARNESS_BYPASS_VALIDATION === "1";
 const SEED = process.env.HARNESS_SEED ??
   "0000000000000000000000000000000000000000000000000000000000000001";
 const STATE_DIR = process.env.HARNESS_STATE_DIR ?? "/tmp/es00009-dust-state";
@@ -56,9 +68,19 @@ const bigintReplacer = (_k: string, v: unknown) => typeof v === "bigint" ? v.toS
 
 async function run(mode: "cold" | "restore" | "inspect"): Promise<void> {
   const statePath = getDustStatePath(STATE_DIR, PERSIST_NETWORK_ID, SEED);
+  const readSnapshot = (): string | null => {
+    if (!BYPASS_VALIDATION) {
+      return loadDustState(STATE_DIR, PERSIST_NETWORK_ID, SEED, PERSIST_OPTIONS);
+    }
+    try {
+      return readFileSync(statePath, "utf-8");
+    } catch {
+      return null;
+    }
+  };
 
   if (mode === "inspect") {
-    const raw = loadDustState(STATE_DIR, PERSIST_NETWORK_ID, SEED);
+    const raw = readSnapshot();
     if (!raw) {
       console.log(JSON.stringify({ mode, statePath, present: false }));
       return;
@@ -81,9 +103,7 @@ async function run(mode: "cold" | "restore" | "inspect"): Promise<void> {
   }
 
   // `cold` deliberately ignores any snapshot on disk; `restore` requires one.
-  const cached = mode === "restore"
-    ? loadDustState(STATE_DIR, PERSIST_NETWORK_ID, SEED)
-    : null;
+  const cached = mode === "restore" ? readSnapshot() : null;
   if (mode === "restore" && !cached) {
     throw new Error(`restore mode needs a snapshot at ${statePath} — run \`cold\` first`);
   }
@@ -162,7 +182,13 @@ async function run(mode: "cold" | "restore" | "inspect"): Promise<void> {
   };
 
   const serialized: string = await (walletResult.wallet as any).dust.serializeState();
-  const savedTo = saveDustState(STATE_DIR, PERSIST_NETWORK_ID, SEED, serialized);
+  const savedTo = saveDustState(
+    STATE_DIR,
+    PERSIST_NETWORK_ID,
+    SEED,
+    serialized,
+    PERSIST_OPTIONS,
+  );
 
   console.log(JSON.stringify({
     mode,

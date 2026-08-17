@@ -504,15 +504,32 @@ export async function waitForDustFundsWithRetry(
   // Lazy import keeps node:fs out of the browser's static graph — this retry
   // flow is node-side (long-running dust sync with disk caching), while the
   // module as a whole is bundled for browsers via `./wallet-info`.
-  const { loadDustState, saveDustState, getDustStatePath } = await import("./dust-state.ts");
+  const { loadDustState, saveDustState, getDustStatePath, quarantineDustState } =
+    await import("./dust-state.ts");
 
   // Pre-load cached state from disk before building any wallet.
   // Uses seed-based path so we don't need the dust address yet.
-  const cachedState: string | null = loadDustState(dustStateDir, networkIdStr, seed);
+  // `loadDustState` already refuses anything malformed or from another network,
+  // so a non-null value here is at worst *stale*, never unparseable.
+  let cachedState: string | null = loadDustState(dustStateDir, networkIdStr, seed);
   if (cachedState) {
     log.info(`Loaded cached dust state from disk (${getDustStatePath(dustStateDir, networkIdStr, seed)})`);
   }
   let inMemoryState: string | null = null;
+
+  /**
+   * A snapshot proved unusable at restore time. Drop it from both places it
+   * could come back from, and move the file aside so a restart does not walk
+   * into the same failure — otherwise the cold sync we just paid for is
+   * repeated on every start.
+   */
+  function discardSnapshot(reason: string): void {
+    inMemoryState = null;
+    if (cachedState) {
+      cachedState = null;
+      quarantineDustState(dustStateDir, networkIdStr, seed, reason);
+    }
+  }
 
   // Helper to serialize and save dust state
   async function serializeAndSave(wr: WalletResult): Promise<string | null> {
@@ -564,7 +581,10 @@ export async function waitForDustFundsWithRetry(
           networkId,
           syncMode,
           stateToRestore,
-          { stopAuxWalletsImmediately: syncMode !== 'dust-only' },
+          {
+            stopAuxWalletsImmediately: syncMode !== 'dust-only',
+            onSnapshotRejected: discardSnapshot,
+          },
         );
       }
 
@@ -816,10 +836,56 @@ function resolveDustBatchUpdates(): {
   };
 }
 
+/**
+ * Restore a dust wallet from a snapshot, or cold-start it if the snapshot will
+ * not decode. Never throws on account of the snapshot.
+ *
+ * `DustWallet.restore` decodes with `Either.getOrThrow`
+ * (`DustWallet.ts:295-300`), so a truncated file — or any snapshot written
+ * before a `@midnight-ntwrk/ledger-v8` bump, since the format carries no
+ * version envelope (master-plan Q4) — throws synchronously out of wallet
+ * construction. Phase 1 §2 measured the consequence: the throw escapes
+ * `buildWalletFacade`, `waitForDustFundsWithRetry` treats it as a non-stall
+ * error and rethrows without ever rebuilding from scratch, and wallet init
+ * stays broken until an operator deletes the file. A cold sync is expensive;
+ * a bricked batcher is worse.
+ *
+ * Kept as a standalone decision so the fallback fires for a *decode* failure
+ * and nothing else — wrapping the whole facade build would also swallow
+ * indexer and proof-server errors and throw away a good snapshot (and ~66 min
+ * of preprod resync) on a transient outage.
+ *
+ * `onSnapshotRejected` is how the caller learns the snapshot must not be
+ * reused: it stops the retry loop from restoring the same bytes again and
+ * moves the file aside.
+ */
+export function restoreDustWalletWithColdSyncFallback<W>(
+  serializedState: string | null | undefined,
+  restore: (serializedState: string) => W,
+  coldStart: () => W,
+  onSnapshotRejected?: (reason: string) => void,
+): W {
+  if (serializedState) {
+    try {
+      log.info("Restoring dust wallet from cached state");
+      return restore(serializedState);
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      log.error(
+        `Dust snapshot could not be restored (${reason}). Falling back to a full sync ` +
+          `from genesis — this can take a long time on a real network.`,
+      );
+      onSnapshotRejected?.(reason);
+    }
+  }
+  return coldStart();
+}
+
 function buildDustWallet(
   config: DefaultConfiguration,
   seed: Uint8Array,
   serializedState?: string | null,
+  onSnapshotRejected?: (reason: string) => void,
 ) {
   const dustConfig = {
     ...config,
@@ -830,12 +896,16 @@ function buildDustWallet(
       feeBlocksMargin: CONSTANTS.DUST_FEE_BLOCKS_MARGIN,
     },
   };
-  if (serializedState) {
-    log.info("Restoring dust wallet from cached state");
-    return DustWallet(dustConfig as any).restore(serializedState);
-  }
-  const dustParameters = LedgerParameters.initialParameters().dust;
-  return DustWallet(dustConfig as any).startWithSeed(seed, dustParameters);
+  return restoreDustWalletWithColdSyncFallback(
+    serializedState,
+    (state) => DustWallet(dustConfig as any).restore(state),
+    () =>
+      DustWallet(dustConfig as any).startWithSeed(
+        seed,
+        LedgerParameters.initialParameters().dust,
+      ),
+    onSnapshotRejected,
+  );
 }
 
 function buildUnshieldedWallet(
@@ -864,7 +934,15 @@ export async function buildWalletFacade(
   networkId: NetworkId.NetworkId,
   syncMode: WalletSyncMode = 'all',
   dustSerializedState?: string | null,
-  options?: { stopAuxWalletsImmediately?: boolean },
+  options?: {
+    stopAuxWalletsImmediately?: boolean;
+    /**
+     * Called when `dustSerializedState` could not be decoded and the dust
+     * wallet cold-started instead. The caller owns what happens next — at
+     * minimum it must stop reusing those bytes.
+     */
+    onSnapshotRejected?: (reason: string) => void;
+  },
 ): Promise<WalletResult> {
   const shieldedSeed = deriveSeedForRole(seed, Roles.Zswap);
   const dustSeed = deriveSeedForRole(seed, Roles.Dust);
@@ -875,7 +953,12 @@ export async function buildWalletFacade(
   const unshieldedKeystore = createKeystore(unshieldedSeed, networkId);
 
   const shieldedWallet = buildShieldedWallet(config, shieldedSeed);
-  const dustWallet = buildDustWallet(config, dustSeed, dustSerializedState);
+  const dustWallet = buildDustWallet(
+    config,
+    dustSeed,
+    dustSerializedState,
+    options?.onSnapshotRejected,
+  );
   const unshieldedWallet = buildUnshieldedWallet(config, unshieldedKeystore);
 
   const zswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);

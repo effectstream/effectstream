@@ -42,8 +42,155 @@ function isUndeployedNetwork(networkId: string): boolean {
 }
 
 /**
+ * Options shared by save/load.
+ *
+ * `snapshotNetworkId` exists for one caller and should stay that way: the
+ * dust-restore harness (test/dust-restore-harness.ts) deliberately drives a
+ * wallet bound to `undeployed` while keying persistence under a *named* id,
+ * because a local stack can only ever be `undeployed` and persistence no-ops
+ * there — the only way to exercise restore locally at all (Phase 1 §2). Every
+ * production caller wants the default, where the id the snapshot recorded must
+ * equal the id we are loading it for.
+ */
+export interface DustStateOptions {
+  /** Network id the snapshot body is expected to carry. Default: `networkId`. */
+  snapshotNetworkId?: string;
+}
+
+/** The facts we can check about a snapshot without the wallet SDK. */
+export interface DustSnapshotFacts {
+  /** Network id the snapshot recorded for itself. */
+  networkId: string;
+  /** `progress.appliedIndex` at save time; 0 when the field was absent. */
+  offset: bigint;
+  /**
+   * False when the SDK wrote no `offset`. The field is optional in
+   * `SnapshotSchema`, and a missing one silently degrades restore into a full
+   * replay (`Serialization.ts:100` reads `snapshot.offset ?? 0n`) — worth a
+   * warning, not a rejection: a full replay is what we would do anyway.
+   */
+  hasOffset: boolean;
+}
+
+function isHexString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length % 2 === 0 &&
+    /^[0-9a-fA-F]+$/.test(value);
+}
+
+function toOffset(value: unknown): bigint | null {
+  if (typeof value === "bigint") return value >= 0n ? value : null;
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value >= 0 ? BigInt(value) : null;
+  }
+  if (typeof value === "string" && /^\d+$/.test(value)) return BigInt(value);
+  return null;
+}
+
+/**
+ * Validate a serialized snapshot against the shape
+ * `wallet-sdk-dust-wallet@4.2.0` writes (`Serialization.ts:62-70`) and pull out
+ * the two facts we can act on. Returns null for anything we would rather
+ * cold-sync than hand to `DustWallet.restore`.
+ *
+ * This is a *shape* check, not a decode: `state` carries raw
+ * `ledger.DustLocalState` bytes whose meaning belongs to `@midnight-ntwrk/
+ * ledger-v8`, and there is no format-version envelope to check it against
+ * (master-plan Q4). A snapshot that passes here can still fail to decode after
+ * a ledger upgrade, which is why the restore call site *also* falls back to a
+ * cold sync instead of throwing.
+ *
+ * Deliberately not strict beyond the recorded fields: an SDK that adds a field
+ * must not silently disable persistence. An SDK that *renames* one will fail
+ * here — loudly, in the log, degrading to a cold sync rather than to garbage.
+ */
+export function readDustSnapshotFacts(serializedState: string): DustSnapshotFacts | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(serializedState);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const s = parsed as Record<string, unknown>;
+
+  const publicKey = s.publicKey;
+  if (!publicKey || typeof publicKey !== "object" || Array.isArray(publicKey)) return null;
+  if ((publicKey as Record<string, unknown>).publicKey === undefined) return null;
+
+  if (!isHexString(s.state)) return null;
+  if (s.protocolVersion === undefined || s.protocolVersion === null) return null;
+  if (typeof s.networkId !== "string" || s.networkId.length === 0) return null;
+
+  const hasOffset = s.offset !== undefined && s.offset !== null;
+  const offset = hasOffset ? toOffset(s.offset) : 0n;
+  if (offset === null) return null;
+
+  return { networkId: s.networkId, offset, hasOffset };
+}
+
+function sameNetwork(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+function readSnapshotFactsAt(filePath: string): DustSnapshotFacts | null {
+  try {
+    return readDustSnapshotFacts(fs.readFileSync(filePath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Move an unusable snapshot aside so the next process start cannot restore it
+ * again, without destroying the evidence an operator needs to explain a
+ * surprise cold sync. One `.rejected` file is kept per wallet; a second
+ * rejection overwrites it (rename is atomic, so there is never a window with
+ * neither file).
+ */
+export function quarantineDustState(
+  baseDir: string,
+  networkId: string,
+  seed: string,
+  reason: string,
+): string | null {
+  if (isUndeployedNetwork(networkId)) return null;
+  const filePath = getDustStatePath(baseDir, networkId, seed);
+  const rejectedPath = `${filePath}.rejected`;
+  try {
+    fs.renameSync(filePath, rejectedPath);
+    log.warn(
+      `Dust state ${filePath} was unusable (${reason}); moved to ${rejectedPath}. ` +
+        `This wallet will sync from scratch.`,
+    );
+    return rejectedPath;
+  } catch (e) {
+    if (!isMissingFile(e)) {
+      log.warn(
+        `Failed to quarantine unusable dust state ${filePath}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+    return null;
+  }
+}
+
+function isMissingFile(e: unknown): boolean {
+  return (e as { code?: string } | null)?.code === "ENOENT";
+}
+
+/**
  * Save serialized dust wallet state to disk.
  * No-ops for "undeployed" networks (chain resets make cached state invalid).
+ *
+ * Refuses to write a snapshot that is malformed, belongs to another network,
+ * or whose `offset` regresses below the one already on disk. The regression
+ * rule is the one that matters operationally: Phase 1 §2 measured the batcher
+ * re-persisting a *poisoned* snapshot on the stall path (gwi:707) and again on
+ * final failure (gwi:721), so an unusable state outlived the process and every
+ * restart repeated the same ~5-minute failure. A save may move a snapshot
+ * forward or leave it where it is; it may never move it backwards.
+ *
  * @param seed - Wallet seed hex string (used to derive stable file path)
  */
 export function saveDustState(
@@ -51,9 +198,35 @@ export function saveDustState(
   networkId: string,
   seed: string,
   serializedState: string,
+  options?: DustStateOptions,
 ): string | null {
   if (isUndeployedNetwork(networkId)) return null;
   const filePath = getDustStatePath(baseDir, networkId, seed);
+
+  const incoming = readDustSnapshotFacts(serializedState);
+  if (!incoming) {
+    log.warn(
+      `Refusing to save malformed dust state to ${filePath} — keeping whatever is already there.`,
+    );
+    return null;
+  }
+  const expectedNetworkId = options?.snapshotNetworkId ?? networkId;
+  if (!sameNetwork(incoming.networkId, expectedNetworkId)) {
+    log.warn(
+      `Refusing to save dust state to ${filePath}: snapshot records networkId ` +
+        `"${incoming.networkId}" but this wallet is on "${expectedNetworkId}".`,
+    );
+    return null;
+  }
+  const existing = readSnapshotFactsAt(filePath);
+  if (existing && incoming.offset < existing.offset) {
+    log.warn(
+      `Refusing to save dust state to ${filePath}: offset would regress ` +
+        `${existing.offset} -> ${incoming.offset}. Keeping the newer snapshot.`,
+    );
+    return null;
+  }
+
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     // Atomic: a torn write leaves a wallet unable to restore its state, and
@@ -73,18 +246,57 @@ export function saveDustState(
 /**
  * Load previously saved dust wallet state from disk.
  * Always returns null for "undeployed" networks.
+ *
+ * Returns null — i.e. "cold-sync this wallet" — for any snapshot we would
+ * otherwise hand to `DustWallet.restore` without knowing it is usable:
+ * malformed or truncated JSON, missing required fields, or a snapshot recorded
+ * on a different network. `networkId` is the one identity field the snapshot
+ * carries and Phase 1 §2 measured that nobody ever compared it: the SDK's
+ * `restore` only reads the configured id in `startWithSeed`/`startWithSecretKey`
+ * (`DustWallet.ts:295-300`), so a snapshot from another chain restored silently.
+ *
+ * Rejection is logged at warn level and never throws: a cold sync is expensive
+ * (~66 min on preprod) but survivable; handing bad state to `restore` is not —
+ * it throws synchronously out of wallet init.
+ *
  * @param seed - Wallet seed hex string (used to derive stable file path)
  */
 export function loadDustState(
   baseDir: string,
   networkId: string,
   seed: string,
+  options?: DustStateOptions,
 ): string | null {
   if (isUndeployedNetwork(networkId)) return null;
   const filePath = getDustStatePath(baseDir, networkId, seed);
+  let raw: string;
   try {
-    return fs.readFileSync(filePath, "utf-8");
+    raw = fs.readFileSync(filePath, "utf-8");
   } catch {
     return null;
   }
+
+  const facts = readDustSnapshotFacts(raw);
+  if (!facts) {
+    log.warn(
+      `Ignoring dust state at ${filePath}: malformed, truncated, or missing required ` +
+        `fields. Syncing this wallet from scratch.`,
+    );
+    return null;
+  }
+  const expectedNetworkId = options?.snapshotNetworkId ?? networkId;
+  if (!sameNetwork(facts.networkId, expectedNetworkId)) {
+    log.warn(
+      `Ignoring dust state at ${filePath}: recorded networkId "${facts.networkId}" ` +
+        `does not match "${expectedNetworkId}". Syncing this wallet from scratch.`,
+    );
+    return null;
+  }
+  if (!facts.hasOffset) {
+    log.warn(
+      `Dust state at ${filePath} carries no offset — restore will replay the whole ` +
+        `event log rather than resuming.`,
+    );
+  }
+  return raw;
 }
