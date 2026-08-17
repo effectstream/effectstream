@@ -9,6 +9,7 @@ export type {
 export {
     DEFAULT_DUST_STATE_DIR,
     deriveDustPublicKey,
+    dustProgressFromState,
     resolveDustCoinValuesAt,
     resolveDustRegistrationPrecheckTimeoutMs,
     resolveDustStateSaveIntervalMs,

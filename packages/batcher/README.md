@@ -43,6 +43,15 @@ rejected: it is renamed to `<snapshot>.rejected` and the wallet cold-syncs.
 That costs a resync, and it is logged at error level for exactly that reason —
 but it never wedges wallet init, which is what those cases used to do.
 
+`getHealthInfo()` (served by `/queue-stats`) reports a `dustSync` entry per
+wallet so a slow start is distinguishable from a broken one — `state` is
+`syncing` / `stalled` / `complete` / `unknown`, alongside `restoredFrom` (0
+means a full replay), `appliedIndex`, `target`, `behind`, `lastAdvanceAgeMs`,
+and `snapshot` (`cold` / `restored` / `rejected`). `dustClock` reports whether
+dust generation is being projected at wall clock (`live`) or has fallen back to
+the wallet's last applied event (`sync-time`), which on a quiet chain can look
+like starvation.
+
 ## Standalone usage
 
 A minimal end-to-end example using `FileStorage`, the EffectstreamL2 adapter, and the bundled HTTP server.

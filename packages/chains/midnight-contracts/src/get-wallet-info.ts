@@ -422,7 +422,8 @@ function dustWalletStateWithHeartbeat(
   ]).pipe(Rx.map(([s]) => s));
 }
 
-function dustProgressFromState(ds: unknown): {
+/** Pull sync progress out of a dust state emission, whatever shape it arrives in. */
+export function dustProgressFromState(ds: unknown): {
   appliedIndex: bigint;
   highestRelevantWalletIndex: bigint;
   isConnected: boolean;
@@ -825,6 +826,27 @@ export interface DustSyncWithRetryOptions {
   syncMode?: WalletSyncMode;
   /** Base directory for dust state files (relative to CWD). Default: "dust-state". */
   dustStateDir?: string;
+  /**
+   * Called (throttled) with each sync-progress sample while the wallet catches
+   * up. Init is the window where the difference between "syncing" and "stuck"
+   * matters most and is least visible — a preprod cold sync takes ~66 minutes,
+   * during which the caller otherwise knows only that the wallet is not ready
+   * yet.
+   */
+  onSyncProgress?: (sample: DustSyncProgressSample) => void;
+}
+
+/** One throttled observation of a dust wallet catching up. */
+export interface DustSyncProgressSample {
+  /** 1-based retry attempt this sample came from. */
+  attempt: number;
+  /** Offset this attempt resumed from; 0 for a cold sync. */
+  restoredFromOffset: bigint;
+  appliedIndex: bigint;
+  highestRelevantWalletIndex: bigint;
+  isConnected: boolean;
+  /** True once a snapshot has been rejected and this wallet is cold-syncing. */
+  snapshotRejected: boolean;
 }
 
 /**
@@ -853,6 +875,7 @@ export async function waitForDustFundsWithRetry(
     throttleMs = CONSTANTS.WALLET_SYNC_THROTTLE_MS,
     syncMode = 'dust-only',
     dustStateDir = DEFAULT_DUST_STATE_DIR,
+    onSyncProgress,
   } = options;
 
   const networkIdStr = String(networkId);
@@ -891,8 +914,10 @@ export async function waitForDustFundsWithRetry(
    * into the same failure — otherwise the cold sync we just paid for is
    * repeated on every start.
    */
+  let snapshotRejected = false;
   function discardSnapshot(reason: string): void {
     inMemoryState = null;
+    snapshotRejected = true;
     if (cachedState) {
       cachedState = null;
       quarantineDustState(dustStateDir, networkIdStr, seed, reason);
@@ -949,6 +974,7 @@ export async function waitForDustFundsWithRetry(
     lastAppliedIndex = 0n;
     attemptStartIndex = 0n;
     lastProgress = null;
+    let progressSub: Rx.Subscription | undefined;
     try {
       if (!walletResult) {
         const stateToRestore = inMemoryState ?? cachedState;
@@ -992,6 +1018,26 @@ export async function waitForDustFundsWithRetry(
       if (!dustWallet || !dustWallet.state) {
         log.warn("Dust wallet state not available; skipping dust sync.");
         return { walletResult, dustBalance: 0n };
+      }
+
+      // Report progress while the wallet catches up. Init is the window where
+      // "syncing" and "stuck" look identical from outside and where the
+      // difference is measured in hours.
+      if (onSyncProgress) {
+        progressSub = (dustWallet.state as Rx.Observable<unknown>)
+          .pipe(Rx.throttleTime(1_000, undefined, { leading: true, trailing: true }))
+          .subscribe((ds) => {
+            const p = dustProgressFromState(ds);
+            if (!p) return;
+            onSyncProgress({
+              attempt,
+              restoredFromOffset: attemptStartIndex,
+              appliedIndex: p.appliedIndex,
+              highestRelevantWalletIndex: p.highestRelevantWalletIndex,
+              isConnected: p.isConnected,
+              snapshotRejected,
+            });
+          });
       }
 
       // First, try the SDK's built-in waitForSyncedState with DUST_COMPLETION_GAP.
@@ -1192,6 +1238,11 @@ export async function waitForDustFundsWithRetry(
         );
       }
       throw e;
+    } finally {
+      // Per attempt: the next one rebuilds the wallet, and a subscription left
+      // on a stopped facade both leaks and reports progress that stopped being
+      // this wallet's.
+      progressSub?.unsubscribe();
     }
   }
 

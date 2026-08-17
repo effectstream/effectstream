@@ -50,6 +50,7 @@ import type {
 } from "@midnightntwrk/wallet-sdk-facade";
 import {
   type DustStateAutosaveHandle,
+  dustProgressFromState,
   getInitialDustState,
   getInitialShieldedState,
   type NetworkUrls,
@@ -100,6 +101,45 @@ import {
 // ---------------------------------------------------------------------------
 // Config & types
 // ---------------------------------------------------------------------------
+
+/** A wallet's dust sync as last observed. Cached; never re-read on demand. */
+export interface DustSyncSample {
+  appliedIndex: bigint;
+  /** Highest index the indexer told us about; 0 when it has told us nothing. */
+  target: bigint;
+  isConnected: boolean;
+  /** When this sample was taken. */
+  updatedAtMs: number;
+  /** When `appliedIndex` last increased. */
+  advancedAtMs: number;
+}
+
+export type DustSyncState = "syncing" | "stalled" | "complete" | "unknown";
+
+/**
+ * Is this wallet syncing, stuck, or done?
+ *
+ * A dust cold sync takes ~66 minutes on preprod, during which health info said
+ * only `walletsReady: 0` — indistinguishable from a wallet whose snapshot
+ * offset is past the indexer's event log and which will never start at all.
+ * Both look like a hang; one wants patience and the other wants the snapshot
+ * deleted.
+ *
+ * Order matters. Completeness is checked first because a caught-up wallet stops
+ * emitting: ageing it into "stalled" would page someone for a healthy batcher.
+ * `isConnected` is part of that check — the offset-past-log failure sits at a
+ * high `appliedIndex` with a target of 0, which would otherwise satisfy
+ * `applied >= target`.
+ */
+export function classifyDustSyncState(
+  sample: DustSyncSample | null | undefined,
+  nowMs: number,
+  stalledAfterMs: number,
+): DustSyncState {
+  if (!sample) return "unknown";
+  if (sample.isConnected && sample.appliedIndex >= sample.target) return "complete";
+  return nowMs - sample.advancedAtMs > stalledAfterMs ? "stalled" : "syncing";
+}
 
 export interface MidnightBalancingAdapterConfig {
   indexer: string;
@@ -206,6 +246,20 @@ const DEFAULT_MIN_SPENDABLE_DUST = (DUST_FEE_OVERHEAD_SPECKS * 3n) / 2n;
 const DEFAULT_MAX_INPUT_CHARS = 500_000;
 /** Throttle for background dust-state refreshes triggered by capacity checks. */
 const DUST_REFRESH_THROTTLE_MS = 5_000;
+/**
+ * How long a wallet may go without applying a dust event before health info
+ * calls it stalled rather than syncing. Matches the wallet's own stall timeout,
+ * so the two agree about what "stuck" means.
+ */
+const DUST_SYNC_STALLED_AFTER_MS = 60_000;
+
+/** Cached dust sync position for one wallet, plus where its restore resumed from. */
+interface WalletDustSyncHealth extends DustSyncSample {
+  /** Snapshot offset this wallet resumed from; 0 for a full cold sync. */
+  restoredFromOffset: bigint;
+  /** True when a snapshot was rejected and this wallet cold-synced instead. */
+  snapshotRejected: boolean;
+}
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
 /** A deterministic pre-spend verdict: remove the row and charge no retry. */
@@ -1050,6 +1104,12 @@ export class MidnightBalancingAdapter
    * wallet, which had no persistence of any kind.
    */
   private dustStateAutosaves: (DustStateAutosaveHandle | null)[];
+  /**
+   * Last observed dust sync position per wallet, plus where it resumed from.
+   * Sampled during init (where a cold sync can run for an hour with nothing
+   * else to show for it) and refreshed whenever dust state is read afterwards.
+   */
+  private walletSyncHealth: (WalletDustSyncHealth | null)[];
   private availableDustUtxoCounts: (number | null)[];
   /** Tracks wallets that recently failed due to missing dust. Cleared when dust is confirmed available. */
   private walletDustExhausted: boolean[];
@@ -1113,6 +1173,7 @@ export class MidnightBalancingAdapter
     this.walletAddresses = new Array(seeds.length).fill(null);
     this.walletIsInjected = new Array(seeds.length).fill(false);
     this.dustStateAutosaves = new Array(seeds.length).fill(null);
+    this.walletSyncHealth = new Array(seeds.length).fill(null);
     this.walletInitialized = new Array(seeds.length).fill(false);
     this.availableDustUtxoCounts = new Array(seeds.length).fill(null);
     this.walletDustExhausted = new Array(seeds.length).fill(false);
@@ -1194,6 +1255,7 @@ export class MidnightBalancingAdapter
           syncMode: 'dust-only',
           balanceWaitTimeoutMs: this.walletFundingTimeoutMs,
           dustStateDir: this.config.dustStateDir,
+          onSyncProgress: (sample) => this.recordDustSyncProgress(index, sample),
         });
 
         this.walletResults[index] = walletResult;
@@ -1228,6 +1290,38 @@ export class MidnightBalancingAdapter
     } catch (error) {
       this.log.error(`Wallet ${label}: initialization failed:`, error);
     }
+  }
+
+  /**
+   * Fold one sync observation into this wallet's cached health. Called with
+   * every throttled sample during init and again whenever dust state is read
+   * afterwards, so `getHealthInfo()` can answer "syncing or stuck?" without
+   * touching the chain.
+   */
+  private recordDustSyncProgress(
+    index: number,
+    sample: {
+      appliedIndex: bigint;
+      highestRelevantWalletIndex: bigint;
+      isConnected: boolean;
+      restoredFromOffset?: bigint;
+      snapshotRejected?: boolean;
+    },
+  ): void {
+    const previous = this.walletSyncHealth[index];
+    const now = Date.now();
+    const advanced = !previous || sample.appliedIndex > previous.appliedIndex;
+    this.walletSyncHealth[index] = {
+      appliedIndex: sample.appliedIndex,
+      target: sample.highestRelevantWalletIndex,
+      isConnected: sample.isConnected,
+      updatedAtMs: now,
+      advancedAtMs: advanced ? now : previous.advancedAtMs,
+      // Later samples (from a dust-state read) carry no restore context; keep
+      // what init established rather than reporting every wallet as cold.
+      restoredFromOffset: sample.restoredFromOffset ?? previous?.restoredFromOffset ?? 0n,
+      snapshotRejected: sample.snapshotRejected ?? previous?.snapshotRejected ?? false,
+    };
   }
 
   /**
@@ -1529,6 +1623,8 @@ export class MidnightBalancingAdapter
     // that actually has spendable dust.
     const { values, liveClock } = resolveDustCoinValuesAt(dustState, new Date());
     this.dustValuesUseLiveClock = liveClock;
+    const progress = dustProgressFromState(dustState);
+    if (progress) this.recordDustSyncProgress(walletIndex, progress);
     return {
       total: values.length,
       spendable: values.filter((v) => v >= minValue).length,
@@ -2391,9 +2487,41 @@ export class MidnightBalancingAdapter
    * Uses cached state only — no chain/indexer calls, safe to poll.
    */
   getHealthInfo(): Record<string, unknown> {
+    const now = Date.now();
     return {
       wallets: this.walletSeeds.length,
       walletsReady: this.walletInitialized.filter(Boolean).length,
+      // Without this a slow start and a permanently broken one look the same:
+      // a preprod dust cold sync runs for ~66 minutes, and a snapshot whose
+      // offset is past the indexer's log never finishes at all.
+      dustSync: this.walletSeeds.map((_seed, i) => {
+        const h = this.walletSyncHealth[i];
+        return {
+          wallet: i + 1,
+          state: classifyDustSyncState(h, now, DUST_SYNC_STALLED_AFTER_MS),
+          // Where the restore resumed from — 0 means this wallet replayed the
+          // whole chain, which is the number that explains a slow start.
+          restoredFrom: h ? h.restoredFromOffset.toString() : null,
+          appliedIndex: h ? h.appliedIndex.toString() : null,
+          target: h && h.target > 0n ? h.target.toString() : null,
+          behind: h && h.target > h.appliedIndex
+            ? (h.target - h.appliedIndex).toString()
+            : "0",
+          connected: h?.isConnected ?? false,
+          lastAdvanceAgeMs: h ? now - h.advancedAtMs : null,
+          snapshot: !h
+            ? "unknown"
+            : h.snapshotRejected
+            ? "rejected"
+            : h.restoredFromOffset > 0n
+            ? "restored"
+            : "cold",
+        };
+      }),
+      // "live" means dust generation was projected at wall clock. "sync-time"
+      // means it fell back to the wallet's last applied event, which on a quiet
+      // chain can be far in the past and reads as false starvation.
+      dustClock: this.dustValuesUseLiveClock ? "live" : "sync-time",
       dustUtxos: this.availableDustUtxoCounts.map((c) => c ?? 0),
       dustExhausted: this.walletInitialized.every(
         (ok, i) => !ok || this.walletDustExhausted[i],
