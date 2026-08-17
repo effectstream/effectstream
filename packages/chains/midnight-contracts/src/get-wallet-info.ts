@@ -324,6 +324,71 @@ export function resolveFacadeDustBalance(
   return w > b ? w : b;
 }
 
+export interface DustCoinValues {
+  /** Generated value of each available dust coin, in Specks. */
+  values: bigint[];
+  /** False when the values are the state's own stale reading rather than a projection at `at`. */
+  liveClock: boolean;
+}
+
+/**
+ * Read each available dust coin's generated value **projected at `at`**, not at
+ * the wallet's `syncTime`.
+ *
+ * `DustWalletState.availableCoins` takes no time argument, so `resolveTime`
+ * (`CoinsAndBalances.ts:105`) falls back to `state.state.syncTime` — which only
+ * advances when a dust event is applied. Phase 1 §2 measured a fully synced
+ * wallet reporting a syncTime 377 days behind wall clock on a quiet chain.
+ * Since dust generation is a projection from `ctime`, reading it at that clock
+ * under-reports it, and the batcher's spendability gate can then mark a wallet
+ * exhausted while spendable dust exists.
+ *
+ * The SDK treats this as a known hazard rather than an edge case:
+ * `waitForGeneratedDust` (`DustWallet.ts:443-458`) re-reads a clock every
+ * second precisely so the projection advances. The capability underneath takes
+ * the time as a parameter, so this asks it for the value now.
+ *
+ * Falls back to the stale getter — and says so — when the capability is absent
+ * or throws. A projection failure must never read as "this wallet has no
+ * dust": that flips the capacity gate off for the whole batcher.
+ */
+export function resolveDustCoinValuesAt(dustState: unknown, at: Date): DustCoinValues {
+  const toValues = (coins: unknown): bigint[] =>
+    Array.isArray(coins)
+      ? coins.map((c) => {
+        try {
+          return BigInt((c as { generatedNow?: bigint | string })?.generatedNow ?? 0);
+        } catch {
+          return 0n;
+        }
+      })
+      : [];
+
+  const s = dustState as {
+    state?: unknown;
+    availableCoins?: unknown;
+    capabilities?: {
+      coinsAndBalances?: {
+        getAvailableCoins?: (state: unknown, time?: Date) => unknown;
+      };
+    };
+  } | null | undefined;
+
+  const getAvailableCoins = s?.capabilities?.coinsAndBalances?.getAvailableCoins;
+  if (typeof getAvailableCoins === "function" && s?.state !== undefined) {
+    try {
+      return { values: toValues(getAvailableCoins(s.state, at)), liveClock: true };
+    } catch (e) {
+      log.warn(
+        `Dust generation could not be projected at wall clock (${
+          e instanceof Error ? e.message : String(e)
+        }); falling back to the wallet's last sync time.`,
+      );
+    }
+  }
+  return { values: toValues(s?.availableCoins), liveClock: false };
+}
+
 function resolveDustHeartbeatPollMs(waitNonZero: boolean, override?: number): number {
   if (override !== undefined) return Math.max(0, Math.floor(override));
   if (!waitNonZero) return 0;

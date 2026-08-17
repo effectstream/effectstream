@@ -54,6 +54,7 @@ import {
   getInitialShieldedState,
   type NetworkUrls,
   registerNightForDust,
+  resolveDustCoinValuesAt,
   resolveFacadeDustBalance,
   startDustStateAutosave,
   suspendAuxWalletSyncForFees,
@@ -1052,6 +1053,12 @@ export class MidnightBalancingAdapter
   private availableDustUtxoCounts: (number | null)[];
   /** Tracks wallets that recently failed due to missing dust. Cleared when dust is confirmed available. */
   private walletDustExhausted: boolean[];
+  /**
+   * Whether the last dust reading was projected at wall clock or fell back to
+   * the wallet's own (possibly stale) sync time. Surfaced in health info: a gate
+   * reading dust at a syncTime that is hours behind looks like starvation.
+   */
+  private dustValuesUseLiveClock = true;
   /** Timestamp of the last background dust-state refresh (throttling). */
   private lastDustRefreshAt = 0;
   /** True while a background dust refresh is in flight. */
@@ -1515,11 +1522,15 @@ export class MidnightBalancingAdapter
       wr.wallet.dust as { state: Rx.Observable<unknown> },
       { timeoutMs: 30_000 },
     );
-    const coins = (dustState as { availableCoins?: Array<{ generatedNow?: bigint | string }> })
-      .availableCoins ?? [];
-    const values = coins.map((c) => BigInt(c.generatedNow ?? 0));
+    // Project generation at wall clock. `availableCoins` evaluates at the
+    // wallet's syncTime, which only advances when a dust EVENT is applied —
+    // measured 377 days behind on a quiet chain — so reading it directly
+    // under-reports generated dust and can starve the coin picker on a wallet
+    // that actually has spendable dust.
+    const { values, liveClock } = resolveDustCoinValuesAt(dustState, new Date());
+    this.dustValuesUseLiveClock = liveClock;
     return {
-      total: coins.length,
+      total: values.length,
       spendable: values.filter((v) => v >= minValue).length,
       values,
     };
