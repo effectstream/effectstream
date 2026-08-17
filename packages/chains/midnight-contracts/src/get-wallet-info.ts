@@ -474,6 +474,46 @@ export function dustSyncAttemptMadeProgress(
   return lastAppliedIndex > attemptStartIndex;
 }
 
+/**
+ * Is this a well-formed snapshot whose `offset` sits past the end of the
+ * indexer's event log? Then it is not a stall to retry — it is a snapshot to
+ * throw away.
+ *
+ * `Sync.ts:271-303` opens the subscription at the inclusive cursor
+ * `appliedIndex - 1`, which re-delivers the boundary event and is what flips
+ * `isConnected` (`SyncProgress.ts:48` defaults it false and it is not
+ * serialized). If the cursor is past the end — a named-network reset, an
+ * indexer rollback or re-index — no event ever arrives, so the wallet sits at
+ * `appliedIndex === offset`, `highestRelevantWalletIndex === 0`, never
+ * connected, forever. Phase 1 §2 reproduced exactly that by tampering an
+ * offset to 999999 and watching a 45 s window pass with one emission.
+ *
+ * Retrying cannot help, because retrying restores the same bytes: `gwi:640`'s
+ * "nothing to sync" escape and `gwi:712`'s state-discard both require
+ * `appliedIndex === 0n`, which a restored wallet never satisfies.
+ *
+ * Every clause is a guard against discarding a snapshot that is merely slow —
+ * on preprod that mistake costs ~66 min of resync:
+ * - `restoredFromOffset > 0` — there is a snapshot to blame at all;
+ * - no progress — one applied event proves the cursor is inside the log;
+ * - `highestRelevantWalletIndex === 0` — a target index only appears once the
+ *   indexer delivered something;
+ * - not connected — a connected wallet is syncing, however slowly.
+ */
+export function isSnapshotOffsetPastLog(progress: {
+  restoredFromOffset: bigint;
+  appliedIndex: bigint;
+  highestRelevantWalletIndex: bigint;
+  isConnected: boolean;
+}): boolean {
+  return (
+    progress.restoredFromOffset > 0n &&
+    progress.appliedIndex <= progress.restoredFromOffset &&
+    progress.highestRelevantWalletIndex === 0n &&
+    !progress.isConnected
+  );
+}
+
 export interface DustSyncWithRetryOptions {
   networkUrls: Required<NetworkUrls>;
   seed: string;
@@ -602,10 +642,13 @@ export async function waitForDustFundsWithRetry(
   let dustSyncedState: any = null;
   let lastAppliedIndex = 0n;
   let attemptStartIndex = 0n;
+  /** Progress as of the last stall on this attempt; null if never read. */
+  let lastProgress: ReturnType<typeof dustProgressFromState> = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     lastAppliedIndex = 0n;
     attemptStartIndex = 0n;
+    lastProgress = null;
     try {
       if (!walletResult) {
         const stateToRestore = inMemoryState ?? cachedState;
@@ -708,6 +751,7 @@ export async function waitForDustFundsWithRetry(
         // Update lastAppliedIndex so the stall handler knows progress was made
         // and preserves the in-memory state for the next retry.
         lastAppliedIndex = applied;
+        lastProgress = dustProgressFromState(currentState);
 
         log.info(
           `Dust sync attempt ${attempt}/${maxRetries} (${elapsedSec}s): ${applied}/${target} connected=${progress?.isConnected ?? "?"}`,
@@ -786,6 +830,30 @@ export async function waitForDustFundsWithRetry(
           `Dust sync attempt ${attempt}/${maxRetries} applied no new events ` +
             `(stuck at ${lastAppliedIndex}); refusing to persist that state.`,
         );
+      }
+
+      // A snapshot whose offset is past the indexer's log is not a stall to
+      // retry — retrying restores the same bytes and fails identically, five
+      // times, and (before this) re-persisted them each time. Throw it away and
+      // let the next attempt sync from genesis.
+      if (
+        isStall && lastProgress &&
+        isSnapshotOffsetPastLog({
+          restoredFromOffset: attemptStartIndex,
+          appliedIndex: lastProgress.appliedIndex,
+          highestRelevantWalletIndex: lastProgress.highestRelevantWalletIndex,
+          isConnected: lastProgress.isConnected,
+        })
+      ) {
+        log.error(
+          `Dust snapshot offset ${attemptStartIndex} is past the end of the indexer's ` +
+            `event log (no events delivered, never connected). The chain was reset, ` +
+            `rolled back or re-indexed. Discarding the snapshot and syncing from genesis.`,
+        );
+        discardSnapshot(`offset ${attemptStartIndex} past the indexer's event log`);
+        await stopWallet(walletResult);
+        walletResult = null;
+        if (attempt < maxRetries) continue;
       }
 
       if (isStall && attempt < maxRetries) {
