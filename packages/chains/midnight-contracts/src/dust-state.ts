@@ -275,12 +275,12 @@ export function saveDustState(
     return null;
   }
 
+  // Atomic: a torn write leaves a wallet unable to restore its state, and
+  // concurrent writers (multi-wallet / multi-product processes) would
+  // otherwise interleave into one file.
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    // Atomic: a torn write leaves a wallet unable to restore its state, and
-    // concurrent writers (multi-wallet / multi-product processes) would
-    // otherwise interleave into one file.
-    const tmpPath = `${filePath}.${process.pid}.tmp`;
     // fsync before rename, and again on the directory afterwards. Phase 1's
     // kill -9 matrix (14/14 clean) proved rename atomicity against process
     // death, which is all the page cache needs to survive — but a kernel panic
@@ -299,6 +299,14 @@ export function saveDustState(
     return filePath;
   } catch (e) {
     log.warn(`Failed to save dust state to ${filePath}: ${e instanceof Error ? e.message : String(e)}`);
+    // A failed write or rename otherwise leaves the `.pid.tmp` behind forever
+    // (Phase 1's atomic-write review). Now that saves happen every few minutes
+    // rather than once at init, a leak here would accumulate.
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      /* nothing to clean up, or we cannot — either way the save already failed */
+    }
     return null;
   }
 }
