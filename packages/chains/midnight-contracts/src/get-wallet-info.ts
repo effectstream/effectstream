@@ -475,6 +475,54 @@ export function dustSyncAttemptMadeProgress(
 }
 
 /**
+ * Reject with `stall` once the wallet has gone `silenceMs` without emitting a
+ * state — the deadline is rearmed by every emission.
+ *
+ * This replaces a flat `setTimeout(stallTimeoutMs)` raced against
+ * `waitForSyncedState`, which was an absolute deadline on reaching *synced*,
+ * not on the wallet going quiet. With the 60 s default and 5 retries that
+ * capped total sync at ~5 minutes, against a measured 66-minute preprod cold
+ * sync — so a perfectly healthy sync was declared stalled, five times, and
+ * wallet init threw. Restarting did not converge either: each attempt only
+ * advanced the snapshot by ~60 s of sync.
+ *
+ * Silence is the signal that actually means "stuck": with
+ * `MIDNIGHT_DUST_SYNC_BATCH_SIZE` at 100 and a 1 ms batch timeout, a syncing
+ * dust wallet emits constantly, and a wallet whose subscription died emits
+ * nothing at all (Phase 1 §2's offset-past-log probe: one emission, then
+ * 45 s of nothing).
+ *
+ * `dispose()` must be called by whoever wins the race — otherwise a timer stays
+ * armed on a wallet that already finished and its rejection surfaces as an
+ * unhandled one.
+ */
+export function rejectOnDustSyncSilence(
+  state$: Rx.Observable<unknown>,
+  silenceMs: number,
+): { promise: Promise<never>; dispose: () => void } {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let subscription: Rx.Subscription | undefined;
+  const dispose = (): void => {
+    if (timer !== undefined) clearTimeout(timer);
+    timer = undefined;
+    subscription?.unsubscribe();
+    subscription = undefined;
+  };
+  const promise = new Promise<never>((_resolve, reject) => {
+    const rearm = (): void => {
+      if (timer !== undefined) clearTimeout(timer);
+      timer = setTimeout(() => {
+        dispose();
+        reject(new Error("stall"));
+      }, silenceMs);
+    };
+    rearm();
+    subscription = state$.subscribe({ next: rearm });
+  });
+  return { promise, dispose };
+}
+
+/**
  * Is this a well-formed snapshot whose `offset` sits past the end of the
  * indexer's event log? Then it is not a stall to retry — it is a snapshot to
  * throw away.
@@ -702,12 +750,20 @@ export async function waitForDustFundsWithRetry(
       const syncStartedAt = Date.now();
       try {
         if (typeof dustWallet.waitForSyncedState === "function") {
-          dustSyncedState = await Promise.race([
-            dustWallet.waitForSyncedState(DUST_COMPLETION_GAP),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error("stall")), stallTimeoutMs)
-            ),
-          ]);
+          // Silence, not elapsed time: a long cold sync emits constantly and
+          // must be allowed to finish, however many hours it takes.
+          const silence = rejectOnDustSyncSilence(
+            dustWallet.state as Rx.Observable<unknown>,
+            stallTimeoutMs,
+          );
+          try {
+            dustSyncedState = await Promise.race([
+              dustWallet.waitForSyncedState(DUST_COMPLETION_GAP),
+              silence.promise,
+            ]);
+          } finally {
+            silence.dispose();
+          }
         } else {
           // Fallback: RxJS pipeline for SDK versions without waitForSyncedState
     
