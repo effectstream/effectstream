@@ -49,11 +49,13 @@ import type {
   ShieldedTokenTransfer,
 } from "@midnightntwrk/wallet-sdk-facade";
 import {
+  type DustStateAutosaveHandle,
   getInitialDustState,
   getInitialShieldedState,
   type NetworkUrls,
   registerNightForDust,
   resolveFacadeDustBalance,
+  startDustStateAutosave,
   suspendAuxWalletSyncForFees,
   waitForDustFunds,
   waitForDustFundsWithRetry,
@@ -128,6 +130,20 @@ export interface MidnightBalancingAdapterConfig {
   // overhead (coins exist with ~0 generated value right after creation — a
   // bare `availableCoins.length > 0` check passes while balancing is doomed).
   minSpendableDustPerCoin?: bigint;
+  /**
+   * Directory for dust state snapshots, relative to CWD. Defaults to
+   * `dust-state`. One file per (network, seed); restoring one is what turns a
+   * multi-hour restart back into seconds.
+   */
+  dustStateDir?: string;
+  /**
+   * How often each wallet checkpoints its dust state while running. Defaults to
+   * `MIDNIGHT_DUST_STATE_SAVE_INTERVAL_MS` (5 minutes); 0 keeps only the
+   * shutdown checkpoint. Bounds how much chain a crash makes the batcher
+   * replay — before this, state was written during init and never again, so a
+   * week of uptime meant a week of replay.
+   */
+  dustStateSaveIntervalMs?: number;
   // Reject inputs whose serialized payload exceeds this many characters at
   // intake (pre-queue). Defaults to 500k chars (~250 KB of tx bytes) — well
   // above any legitimate balanced+padded tx, well below abuse territory.
@@ -1028,6 +1044,11 @@ export class MidnightBalancingAdapter
    * wallet belongs to the caller: this adapter must not stop it on close.
    */
   private walletIsInjected: boolean[];
+  /**
+   * Periodic dust-state checkpointing, one per wallet. Also covers the injected
+   * wallet, which had no persistence of any kind.
+   */
+  private dustStateAutosaves: (DustStateAutosaveHandle | null)[];
   private availableDustUtxoCounts: (number | null)[];
   /** Tracks wallets that recently failed due to missing dust. Cleared when dust is confirmed available. */
   private walletDustExhausted: boolean[];
@@ -1084,6 +1105,7 @@ export class MidnightBalancingAdapter
     this.walletResults = new Array(seeds.length).fill(null);
     this.walletAddresses = new Array(seeds.length).fill(null);
     this.walletIsInjected = new Array(seeds.length).fill(false);
+    this.dustStateAutosaves = new Array(seeds.length).fill(null);
     this.walletInitialized = new Array(seeds.length).fill(false);
     this.availableDustUtxoCounts = new Array(seeds.length).fill(null);
     this.walletDustExhausted = new Array(seeds.length).fill(false);
@@ -1164,6 +1186,7 @@ export class MidnightBalancingAdapter
           networkId: this.walletNetworkId,
           syncMode: 'dust-only',
           balanceWaitTimeoutMs: this.walletFundingTimeoutMs,
+          dustStateDir: this.config.dustStateDir,
         });
 
         this.walletResults[index] = walletResult;
@@ -1184,6 +1207,8 @@ export class MidnightBalancingAdapter
         await this.updateWorkerPoolForWallet(index);
       }
 
+      this.startDustStateCheckpointing(index, seed);
+
       const wr = this.walletResults[index]!;
       this.walletAddresses[index] = wr.zswapSecretKeys.coinPublicKey.toString();
       this.log.log(`Wallet ${label} addresses:`);
@@ -1196,6 +1221,37 @@ export class MidnightBalancingAdapter
     } catch (error) {
       this.log.error(`Wallet ${label}: initialization failed:`, error);
     }
+  }
+
+  /**
+   * Keep this wallet's dust snapshot advancing for as long as it runs.
+   *
+   * Without it the snapshot was written only during init, so an adapter that
+   * had been up for a week restored a week-old snapshot and replayed a week of
+   * chain. Covers the injected wallet too, which had no persistence at all —
+   * safe because the snapshot records its own dust public key and
+   * `saveDustState` refuses to write it under a seed it does not belong to, so
+   * a caller that pairs a wallet with the wrong seed gets a loud warning
+   * instead of another wallet's state on disk.
+   */
+  private startDustStateCheckpointing(index: number, seed: string): void {
+    // Persistence no-ops on `undeployed` by design (chain resets invalidate
+    // cached state), so serializing every few minutes there is pure waste.
+    if (String(this.walletNetworkId).toLowerCase() === "undeployed") return;
+    const dustWallet = (this.walletResults[index]?.wallet as {
+      dust?: { serializeState?: () => Promise<string> };
+    } | undefined)?.dust;
+    if (typeof dustWallet?.serializeState !== "function") return;
+    this.dustStateAutosaves[index] = startDustStateAutosave(
+      dustWallet as { serializeState: () => Promise<string> },
+      {
+        networkId: String(this.walletNetworkId),
+        seed,
+        dustStateDir: this.config.dustStateDir,
+        intervalMs: this.config.dustStateSaveIntervalMs,
+        label: `Wallet ${index + 1}/${this.walletSeeds.length}`,
+      },
+    );
   }
 
   private async ensureWalletFunds(walletIndex: number): Promise<void> {
@@ -2370,6 +2426,24 @@ export class MidnightBalancingAdapter
     // Before anything that can throw: a leaked interval keeps the process
     // alive after shutdown.
     this.ledgerParams.close();
+
+    // Checkpoint dust state BEFORE anything stops the wallets — a stopped
+    // wallet cannot serialize, which is why shutdown used to lose everything
+    // since the last init-time save. Each handle takes one final snapshot.
+    await Promise.all(
+      this.dustStateAutosaves.map(async (handle, index) => {
+        try {
+          await handle?.stop();
+        } catch (error) {
+          this.log.warn(
+            `Wallet ${index + 1}/${this.walletSeeds.length}: final dust checkpoint failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }),
+    );
+    this.dustStateAutosaves = new Array(this.walletSeeds.length).fill(null);
     const executorHandle = this.validationExecutorHandle;
     this.validationExecutorHandle = null;
     if (executorHandle) {

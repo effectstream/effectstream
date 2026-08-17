@@ -7,7 +7,13 @@ export type {
     InitialOwner,
 } from "./types.ts";
 export {
+    DEFAULT_DUST_STATE_DIR,
+    deriveDustPublicKey,
+    resolveDustRegistrationPrecheckTimeoutMs,
+    resolveDustStateSaveIntervalMs,
+    resolveWalletFundingTimeoutMs,
     resolveWalletSyncTimeoutMs,
+    startDustStateAutosave,
     suspendAuxWalletSyncForFees,
     resolveFacadeDustBalance,
     safeStringifyProgress,
@@ -27,6 +33,9 @@ export { saveDustState, loadDustState } from "./dust-state.ts";
 export type {
     WalletSyncMode,
     DustSyncWithRetryOptions,
+    DustStateAutosaveHandle,
+    DustStateAutosaveOptions,
+    SerializableDustWallet,
 } from "./get-wallet-info.ts";
 export { CONSTANTS } from "./constants.ts";
 export { 

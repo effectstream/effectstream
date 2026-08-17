@@ -55,12 +55,23 @@ function isUndeployedNetwork(networkId: string): boolean {
 export interface DustStateOptions {
   /** Network id the snapshot body is expected to carry. Default: `networkId`. */
   snapshotNetworkId?: string;
+  /**
+   * Dust public key this seed's wallet must have, as a decimal string — see
+   * `deriveDustPublicKey`. When given, a snapshot belonging to a different
+   * wallet is neither loaded nor written, which is what keeps a caller that
+   * pairs the wrong seed with a wallet (the adapter's injected-wallet path)
+   * from handing one wallet's dust state to another. Opt-in because it costs a
+   * key derivation; every caller in this package opts in.
+   */
+  expectedPublicKey?: string;
 }
 
 /** The facts we can check about a snapshot without the wallet SDK. */
 export interface DustSnapshotFacts {
   /** Network id the snapshot recorded for itself. */
   networkId: string;
+  /** Dust public key of the wallet that wrote it, as a decimal string. */
+  publicKey: string;
   /** `progress.appliedIndex` at save time; 0 when the field was absent. */
   offset: bigint;
   /**
@@ -115,7 +126,8 @@ export function readDustSnapshotFacts(serializedState: string): DustSnapshotFact
 
   const publicKey = s.publicKey;
   if (!publicKey || typeof publicKey !== "object" || Array.isArray(publicKey)) return null;
-  if ((publicKey as Record<string, unknown>).publicKey === undefined) return null;
+  const dustPublicKey = (publicKey as Record<string, unknown>).publicKey;
+  if (dustPublicKey === undefined || dustPublicKey === null) return null;
 
   if (!isHexString(s.state)) return null;
   if (s.protocolVersion === undefined || s.protocolVersion === null) return null;
@@ -125,7 +137,12 @@ export function readDustSnapshotFacts(serializedState: string): DustSnapshotFact
   const offset = hasOffset ? toOffset(s.offset) : 0n;
   if (offset === null) return null;
 
-  return { networkId: s.networkId, offset, hasOffset };
+  return {
+    networkId: s.networkId,
+    publicKey: String(dustPublicKey),
+    offset,
+    hasOffset,
+  };
 }
 
 function sameNetwork(a: string, b: string): boolean {
@@ -180,6 +197,30 @@ function isMissingFile(e: unknown): boolean {
 }
 
 /**
+ * Persist the directory entry created by a rename. Best-effort: opening a
+ * directory for fsync is a POSIX behaviour that not every platform or
+ * filesystem supports, and failing to durably record the rename is strictly
+ * better than failing the save.
+ */
+function syncDirectory(dirPath: string): void {
+  let dirFd: number | undefined;
+  try {
+    dirFd = fs.openSync(dirPath, "r");
+    fs.fsyncSync(dirFd);
+  } catch {
+    /* not supported here; the file's own fsync still happened */
+  } finally {
+    if (dirFd !== undefined) {
+      try {
+        fs.closeSync(dirFd);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+/**
  * Save serialized dust wallet state to disk.
  * No-ops for "undeployed" networks (chain resets make cached state invalid).
  *
@@ -218,6 +259,13 @@ export function saveDustState(
     );
     return null;
   }
+  if (options?.expectedPublicKey && incoming.publicKey !== options.expectedPublicKey) {
+    log.warn(
+      `Refusing to save dust state to ${filePath}: the snapshot belongs to dust wallet ` +
+        `${incoming.publicKey}, but this file is keyed for ${options.expectedPublicKey}.`,
+    );
+    return null;
+  }
   const existing = readSnapshotFactsAt(filePath);
   if (existing && incoming.offset < existing.offset) {
     log.warn(
@@ -233,8 +281,20 @@ export function saveDustState(
     // concurrent writers (multi-wallet / multi-product processes) would
     // otherwise interleave into one file.
     const tmpPath = `${filePath}.${process.pid}.tmp`;
-    fs.writeFileSync(tmpPath, serializedState, "utf-8");
+    // fsync before rename, and again on the directory afterwards. Phase 1's
+    // kill -9 matrix (14/14 clean) proved rename atomicity against process
+    // death, which is all the page cache needs to survive — but a kernel panic
+    // or power loss can still lose the data or reorder it past the rename, and
+    // the whole point of the snapshot is that it is there after a hard stop.
+    const fd = fs.openSync(tmpPath, "w");
+    try {
+      fs.writeFileSync(fd, serializedState, "utf-8");
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
     fs.renameSync(tmpPath, filePath);
+    syncDirectory(path.dirname(filePath));
     log.info(`Dust state saved to ${filePath}`);
     return filePath;
   } catch (e) {
@@ -289,6 +349,13 @@ export function loadDustState(
     log.warn(
       `Ignoring dust state at ${filePath}: recorded networkId "${facts.networkId}" ` +
         `does not match "${expectedNetworkId}". Syncing this wallet from scratch.`,
+    );
+    return null;
+  }
+  if (options?.expectedPublicKey && facts.publicKey !== options.expectedPublicKey) {
+    log.warn(
+      `Ignoring dust state at ${filePath}: it belongs to dust wallet ${facts.publicKey}, ` +
+        `not ${options.expectedPublicKey}. Syncing this wallet from scratch.`,
     );
     return null;
   }

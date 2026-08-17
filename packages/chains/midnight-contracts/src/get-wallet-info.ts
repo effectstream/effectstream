@@ -54,7 +54,26 @@ import { getEnv, args as getArgs, exit, isNotFoundError } from "@effectstream/ut
 // static re-export would pull node:fs right back into the browser graph.
 // ============================================================================
 
-const DEFAULT_DUST_STATE_DIR = "dust-state";
+/** Where dust snapshots live, relative to CWD, unless a caller says otherwise. */
+export const DEFAULT_DUST_STATE_DIR = "dust-state";
+
+/**
+ * How often a running wallet checkpoints its dust state.
+ * `MIDNIGHT_DUST_STATE_SAVE_INTERVAL_MS`, default 5 minutes; 0 disables
+ * periodic saving (shutdown saves still happen).
+ *
+ * Before this existed, dust state was written at exactly three places, all
+ * inside `waitForDustFundsWithRetry`, all during init (Phase 1 §1) — so the
+ * snapshot never advanced after startup and a week of uptime meant a week of
+ * replay on restart. The interval bounds how much replay a crash costs; the
+ * cost of shortening it is one serialize + fsync of a snapshot that is
+ * megabytes on a real network, on the same event loop the wallet syncs on.
+ */
+export function resolveDustStateSaveIntervalMs(): number {
+  const raw = getEnv("MIDNIGHT_DUST_STATE_SAVE_INTERVAL_MS");
+  if (raw === "0") return 0;
+  return resolveTimeoutMsEnv("MIDNIGHT_DUST_STATE_SAVE_INTERVAL_MS", 300_000);
+}
 
 // ============================================================================
 // Key Derivation
@@ -80,6 +99,132 @@ function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Array {
   }
 
   return Buffer.from(derivationResult.key);
+}
+
+/**
+ * The dust public key a seed's wallet will have — the same value the wallet
+ * writes into `publicKey.publicKey` when it serializes.
+ *
+ * Verified against the SDK 2026-08-17: a dust wallet started from
+ * `deriveSeedForRole(seed, Roles.Dust)` serializes exactly this key. It lets
+ * the persistence layer check that a seed-keyed snapshot file really belongs to
+ * that seed's wallet, which the file name (a hash of the seed) cannot: the
+ * balancing adapter's injected-wallet path pairs a wallet built by someone else
+ * with the seed the adapter was constructed with, and nothing enforced that
+ * they match.
+ */
+export function deriveDustPublicKey(seed: string): bigint {
+  return DustSecretKey.fromSeed(deriveSeedForRole(seed, Roles.Dust)).publicKey;
+}
+
+/** Anything that can hand us a serialized dust snapshot — i.e. `wallet.dust`. */
+export interface SerializableDustWallet {
+  serializeState: () => Promise<string>;
+}
+
+export interface DustStateAutosaveOptions {
+  networkId: string;
+  /** Seed this wallet was derived from; keys the snapshot file. */
+  seed: string;
+  /** Default: {@link DEFAULT_DUST_STATE_DIR}. */
+  dustStateDir?: string;
+  /** Default: {@link resolveDustStateSaveIntervalMs}. 0 disables the timer. */
+  intervalMs?: number;
+  /** Prefix for log lines, e.g. `"Wallet 2/5"`. */
+  label?: string;
+}
+
+export interface DustStateAutosaveHandle {
+  /** Checkpoint now. Concurrent calls share the in-flight save. */
+  saveNow(): Promise<string | null>;
+  /** Stop the timer and take one final checkpoint. Idempotent. */
+  stop(): Promise<string | null>;
+}
+
+/**
+ * Keep a running wallet's dust snapshot advancing, and take a final one at
+ * shutdown.
+ *
+ * Phase 1 §1 found dust state was written at exactly three places, all inside
+ * `waitForDustFundsWithRetry`, all during init: nothing periodic, nothing on
+ * shutdown (`close()` stopped wallets without saving), and nothing at all on
+ * the adapter's injected-wallet path. A week of uptime therefore left a
+ * week-old snapshot and a restart replayed a week of chain — the incident this
+ * project exists for.
+ *
+ * Takes the dust sub-wallet rather than a `WalletResult` so it can be driven by
+ * anything that serializes, which is what makes the cadence testable at all.
+ */
+export function startDustStateAutosave(
+  dustWallet: SerializableDustWallet,
+  options: DustStateAutosaveOptions,
+): DustStateAutosaveHandle {
+  const intervalMs = options.intervalMs ?? resolveDustStateSaveIntervalMs();
+  const dustStateDir = options.dustStateDir ?? DEFAULT_DUST_STATE_DIR;
+  const label = options.label ? `${options.label}: ` : "";
+  const expectedPublicKey = (() => {
+    try {
+      return deriveDustPublicKey(options.seed).toString();
+    } catch {
+      // A seed we cannot derive from is a caller error, not a reason to stop
+      // checkpointing — the network-id and offset guards still apply.
+      return undefined;
+    }
+  })();
+
+  let timer: ReturnType<typeof setInterval> | undefined;
+  let inFlight: Promise<string | null> | null = null;
+  let stopped = false;
+
+  async function persist(): Promise<string | null> {
+    try {
+      const serialized = await dustWallet.serializeState();
+      const { saveDustState } = await import("./dust-state.ts");
+      return saveDustState(dustStateDir, options.networkId, options.seed, serialized, {
+        expectedPublicKey,
+      });
+    } catch (e) {
+      // One bad checkpoint must not stop the next one: the wallet is mid-sync
+      // and transient serialization failures are expected.
+      log.warn(
+        `${label}dust state checkpoint failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    }
+  }
+
+  function saveNow(): Promise<string | null> {
+    // Never stack saves. A preprod snapshot is large enough that a serialize
+    // can outlast the interval, and queueing one per tick would pile work onto
+    // the same event loop the wallet syncs on.
+    if (inFlight) return inFlight;
+    const run = persist().finally(() => {
+      inFlight = null;
+    });
+    inFlight = run;
+    return run;
+  }
+
+  if (intervalMs > 0) {
+    timer = setInterval(() => {
+      if (!stopped) void saveNow();
+    }, intervalMs);
+    // A checkpoint timer must never be the reason a process stays alive.
+    (timer as unknown as { unref?: () => void }).unref?.();
+  }
+
+  return {
+    saveNow,
+    async stop(): Promise<string | null> {
+      if (stopped) return null;
+      stopped = true;
+      if (timer !== undefined) clearInterval(timer);
+      // Let an in-flight save finish, then take a fresh one: the last state is
+      // the whole reason to save at shutdown.
+      if (inFlight) await inFlight.catch(() => null);
+      return persist();
+    },
+  };
 }
 
 // ============================================================================
@@ -660,9 +805,16 @@ export async function waitForDustFundsWithRetry(
 
   // Pre-load cached state from disk before building any wallet.
   // Uses seed-based path so we don't need the dust address yet.
-  // `loadDustState` already refuses anything malformed or from another network,
-  // so a non-null value here is at worst *stale*, never unparseable.
-  let cachedState: string | null = loadDustState(dustStateDir, networkIdStr, seed);
+  // `loadDustState` already refuses anything malformed, from another network,
+  // or belonging to another wallet, so a non-null value here is at worst
+  // *stale*, never unparseable.
+  const persistOptions = { expectedPublicKey: deriveDustPublicKey(seed).toString() };
+  let cachedState: string | null = loadDustState(
+    dustStateDir,
+    networkIdStr,
+    seed,
+    persistOptions,
+  );
   if (cachedState) {
     log.info(`Loaded cached dust state from disk (${getDustStatePath(dustStateDir, networkIdStr, seed)})`);
   }
@@ -688,7 +840,7 @@ export async function waitForDustFundsWithRetry(
 
       const serialized: string = await (wr.wallet as any).dust.serializeState();
       inMemoryState = serialized;
-      saveDustState(dustStateDir, networkIdStr, seed, serialized);
+      saveDustState(dustStateDir, networkIdStr, seed, serialized, persistOptions);
       return serialized;
     } catch (e) {
       log.warn(`Failed to serialize dust state: ${e instanceof Error ? e.message : String(e)}`);
