@@ -493,6 +493,55 @@ async function waitForDustWalletProgressCatchUp(
   log.info("Dust wallet sync catch-up complete");
 }
 
+/**
+ * Wait for the shielded sub-wallet to be strictly complete. Resolves `true` if
+ * it got there within `timeoutMs`, `false` otherwise — never throws.
+ *
+ * Needed before `suspendAuxWalletSyncForFees` on any wallet that will do a
+ * shielded spend. Master-plan Q2: fee wallets run `syncMode: 'dust-only'`,
+ * which keeps the aux wallets running (`stopAuxWalletsImmediately: false`) but
+ * stops them the moment *dust* sync completes — however far behind shielded
+ * still is. Shielded state is not persisted either, so every start replays it
+ * from genesis and truncates it again. `applyShieldedPadding` then spends
+ * against that partial state and its failure is swallowed with a warn per
+ * transaction, which is how a padding-enabled deployment degrades silently.
+ *
+ * Returns a boolean rather than throwing because padding is per-input on some
+ * targets: a slow shielded sync should be visible and survivable, not fatal to
+ * a batcher that may never need padding.
+ */
+export async function waitForShieldedSyncComplete(
+  wallet: WalletFacade,
+  timeoutMs: number,
+): Promise<boolean> {
+  if (timeoutMs <= 0) return false;
+  const startedAt = Date.now();
+  try {
+    await Rx.firstValueFrom(
+      wallet.state().pipe(
+        Rx.filter((s: any) =>
+          s?.shielded?.state?.progress?.isStrictlyComplete?.() ?? false
+        ),
+        Rx.timeout({
+          first: timeoutMs,
+          with: () => Rx.throwError(() => new Error("shielded sync timeout")),
+        }),
+      ),
+    );
+    log.info(
+      `Shielded wallet sync complete after ${((Date.now() - startedAt) / 1000).toFixed(0)}s`,
+    );
+    return true;
+  } catch (e) {
+    log.warn(
+      `Shielded wallet did not finish syncing (${
+        e instanceof Error ? e.message : String(e)
+      })`,
+    );
+    return false;
+  }
+}
+
 /** Stop shielded + unshielded sync after dust is ready (dust-only ergonomics). */
 export async function suspendAuxWalletSyncForFees(wallet: WalletFacade): Promise<void> {
   log.info("Stopping shielded and unshielded wallet sync (dust-only mode)");
@@ -834,6 +883,20 @@ export interface DustSyncWithRetryOptions {
    * yet.
    */
   onSyncProgress?: (sample: DustSyncProgressSample) => void;
+  /**
+   * Wait for the shielded sub-wallet to finish syncing before suspending it.
+   * Set this whenever the wallet will make a shielded spend (the batcher's
+   * shielded padding): dust-only mode otherwise stops shielded the moment DUST
+   * sync completes, leaving a partially replayed shielded state that padding
+   * silently fails against. Costs whatever shielded sync still needs; skip it
+   * when nothing will spend shielded coins. Default: false.
+   */
+  requireShieldedSync?: boolean;
+  /**
+   * Deadline for {@link requireShieldedSync}. Default:
+   * {@link resolveWalletSyncTimeoutMs}. Exceeding it is logged, not fatal.
+   */
+  shieldedSyncTimeoutMs?: number;
 }
 
 /** One throttled observation of a dust wallet catching up. */
@@ -876,6 +939,8 @@ export async function waitForDustFundsWithRetry(
     syncMode = 'dust-only',
     dustStateDir = DEFAULT_DUST_STATE_DIR,
     onSyncProgress,
+    requireShieldedSync = false,
+    shieldedSyncTimeoutMs = resolveWalletSyncTimeoutMs(),
   } = options;
 
   const networkIdStr = String(networkId);
@@ -1165,6 +1230,23 @@ export async function waitForDustFundsWithRetry(
       }
 
       if (syncMode === 'dust-only') {
+        // Dust-only stops shielded the moment DUST is done. A wallet that will
+        // spend shielded coins needs its shielded state whole first, or the
+        // spend fails against a half-replayed one.
+        if (requireShieldedSync) {
+          log.info("Waiting for shielded sync before suspending aux wallets (padding enabled)...");
+          const complete = await waitForShieldedSyncComplete(
+            walletResult!.wallet,
+            shieldedSyncTimeoutMs,
+          );
+          if (!complete) {
+            log.error(
+              "Shielded wallet is still behind and is being suspended anyway. " +
+                "Shielded padding will fail for this wallet until it is restarted " +
+                "with more time to sync.",
+            );
+          }
+        }
         await suspendAuxWalletSyncForFees(walletResult!.wallet);
       }
 

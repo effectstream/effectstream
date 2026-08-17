@@ -26,6 +26,7 @@ export {
     getInitialDustState,
     waitForDustFunds,
     waitForDustFundsWithRetry,
+    waitForShieldedSyncComplete,
 } from "./get-wallet-info.ts";
 // Disk-backed dust persistence lives in its own node-only module so the
 // browser-reachable ./wallet-info subpath carries no node:fs. This barrel is

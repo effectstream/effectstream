@@ -57,9 +57,11 @@ import {
   registerNightForDust,
   resolveDustCoinValuesAt,
   resolveFacadeDustBalance,
+  resolveWalletSyncTimeoutMs,
   startDustStateAutosave,
   suspendAuxWalletSyncForFees,
   waitForDustFunds,
+  waitForShieldedSyncComplete,
   waitForDustFundsWithRetry,
   type WalletResult,
 } from "@effectstream/midnight-contracts";
@@ -1235,6 +1237,21 @@ export class MidnightBalancingAdapter
         this.log.log(`Wallet ${label}: waiting for funds...`);
         await this.ensureWalletFunds(index);
 
+        // Same rule as the built path: never suspend a shielded wallet that
+        // padding still needs, while it is mid-replay.
+        if (this.shieldedPaddingPossible()) {
+          this.log.log(`Wallet ${label}: waiting for shielded sync (padding enabled)...`);
+          const complete = await waitForShieldedSyncComplete(
+            this.walletResults[index]!.wallet,
+            resolveWalletSyncTimeoutMs(),
+          );
+          if (!complete) {
+            this.log.error(
+              `Wallet ${label}: shielded wallet is still behind and is being suspended ` +
+                `anyway — shielded padding will fail for this wallet`,
+            );
+          }
+        }
         await suspendAuxWalletSyncForFees(this.walletResults[index]!.wallet);
       } else {
         this.log.log(`Wallet ${label}: building with retry-aware dust sync...`);
@@ -1256,6 +1273,9 @@ export class MidnightBalancingAdapter
           balanceWaitTimeoutMs: this.walletFundingTimeoutMs,
           dustStateDir: this.config.dustStateDir,
           onSyncProgress: (sample) => this.recordDustSyncProgress(index, sample),
+          // Padding is a real shielded spend, so it needs shielded state that
+          // was not cut off mid-replay.
+          requireShieldedSync: this.shieldedPaddingPossible(),
         });
 
         this.walletResults[index] = walletResult;
@@ -1427,9 +1447,7 @@ export class MidnightBalancingAdapter
       // enable padding even if the config default is off, so budget for the
       // worst case (2 UTXOs/slot) to avoid over-committing.
       const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
-      const paddingPossible = !!(this.config.addShieldedPadding ||
-        this.config.shieldedPaddingTokenID);
-      const costPerTx = paddingPossible ? 2 : 1;
+      const costPerTx = this.shieldedPaddingPossible() ? 2 : 1;
       const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
       const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
       this.pool.setSlots(walletIndex, slots);
@@ -1475,9 +1493,7 @@ export class MidnightBalancingAdapter
       );
 
       const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
-      const paddingPossible = !!(this.config.addShieldedPadding ||
-        this.config.shieldedPaddingTokenID);
-      const costPerTx = paddingPossible ? 2 : 1;
+      const costPerTx = this.shieldedPaddingPossible() ? 2 : 1;
       const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
       const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
       this.pool.setSlots(walletIndex, slots);
@@ -1487,6 +1503,19 @@ export class MidnightBalancingAdapter
     } catch (e) {
       this.log.warn(`Wallet ${label}: could not read dust UTXO count:`, e);
     }
+  }
+
+  /**
+   * Can any transaction on this target get shielded padding?
+   *
+   * The token ID alone is enough: per-input `addShieldedPadding` overrides can
+   * turn padding on for a single transaction even when the adapter default is
+   * off. Whatever answers this question decides both worker-slot cost and
+   * whether the shielded wallet must finish syncing before being suspended, and
+   * those two must never disagree.
+   */
+  private shieldedPaddingPossible(): boolean {
+    return !!(this.config.addShieldedPadding || this.config.shieldedPaddingTokenID);
   }
 
   private async getDustBalance(walletIndex: number): Promise<bigint> {
