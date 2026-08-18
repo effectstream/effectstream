@@ -540,15 +540,15 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           return {
             success: true,
             message: "Input processed successfully",
-            transactionHash: result?.hash,
+            transactionHash: result.receipt?.hash,
             inputsProcessed: 1,
           };
         case "wait-effectstream-processed":
           return {
             success: true,
             message: "Input processed and validated by EffectStream",
-            transactionHash: result?.hash,
-            rollup: result?.rollup,
+            transactionHash: result.receipt?.hash,
+            rollup: result.receipt?.rollup,
             inputsProcessed: 1,
           };
         default:

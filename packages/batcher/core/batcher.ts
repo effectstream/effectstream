@@ -18,7 +18,8 @@ import {
 } from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
 import { DatabaseStorage } from "./storage.ts";
-import { buildRequestKey } from "./request-id.ts";
+import { isTrackingStorage } from "./storage.ts";
+import { buildRequestKey, computeRequestId } from "./request-id.ts";
 import { BatchProcessor } from "./batch-processor.ts";
 import { InputValidationError } from "./errors.ts";
 import {
@@ -42,6 +43,26 @@ export { InputValidationError } from "./errors.ts";
 export interface AuthenticatedInputContext {
   /** Adapter target resolved and verified by the batcher. */
   target: string;
+}
+
+/**
+ * What an accepted submission returns.
+ *
+ * The id and the receipt are separate fields rather than one merged object
+ * because they answer different questions and arrive at different times: the id
+ * exists the moment the input is journaled (which is what `no-wait` waits for),
+ * while the receipt only exists once a batch reached the chain. An envelope
+ * says that plainly — `receipt: null` is "accepted, nothing on chain yet", not
+ * "nothing happened".
+ */
+export interface BatchInputResult {
+  /**
+   * Deterministic id for this request (spec FR-006), returned at EVERY
+   * confirmation level. Recomputable from the payload; poll with it.
+   */
+  requestId: string;
+  /** The transaction receipt, or null when the caller did not wait for one. */
+  receipt: (BlockchainTransactionReceipt & { rollup?: number }) | null;
 }
 
 /**
@@ -520,7 +541,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * @param input - The input to add to the batch queue
    * @param confirmationLevel - The level of confirmation to wait for
    * @param timeoutMs - Timeout in milliseconds for confirmation (default: 300000)
-   * @returns Promise resolving to transaction receipt or null based on confirmation level
+   * @returns the request's id, plus its receipt when the caller waited for one
    */
   async batchInput(
     input: T,
@@ -533,7 +554,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     onAdmissionWeight?: (
       context: AdmissionWeightContext,
     ) => Promise<void> | void,
-  ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
+  ): Promise<BatchInputResult> {
     if (this.shutdownState.isShuttingDown) {
       // 503 Service Unavailable
       throw new InputValidationError(
@@ -630,14 +651,19 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     // 3. Add to Storage (Only if all validation passes)
-    await this.addInput(input);
+    //
+    // Acceptance is the moment the promise in the spec is made: from here on
+    // the request is either sent or reaches a terminal failure, and either way
+    // its id resolves. Everything above this line can still refuse it, and a
+    // refusal mints nothing at all (FR-001).
+    const requestId = await this.acceptInput(input, target);
     const { count, size } = await this.storage.getInputCountAndSize();
     console.log(
       `✅ Added input from ${input.address} to batch queue. Queue size: ${count} inputs, ${size} bytes`,
     );
 
     if (confirmationLevel === "no-wait") {
-      return null;
+      return { requestId, receipt: null };
     }
 
     // Create promise for callback with timeout
@@ -667,7 +693,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     // If only waiting for receipt, return now
     if (confirmationLevel === "wait-receipt") {
-      return receipt;
+      return { requestId, receipt };
     }
 
     // If waiting for EffectStream processing, continue waiting
@@ -686,8 +712,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         );
         if (processingResult) {
           return {
-            ...receipt,
-            rollup: processingResult.rollup,
+            requestId,
+            receipt: { ...receipt, rollup: processingResult.rollup },
           };
         } else {
           throw new Error("EffectStream processing validation failed");
@@ -701,7 +727,31 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       }
     }
 
-    return receipt;
+    return { requestId, receipt };
+  }
+
+  /**
+   * Journal an accepted input, together with the record that answers for it.
+   *
+   * On a tracking backend this is ONE transaction (`recordAccepted` writes both
+   * the queue row and the status), so there is no window in which a caller
+   * holds an id for a request the store has never heard of — the `no-wait` +
+   * immediate-poll race in the spec's edge cases.
+   *
+   * On a queue-only backend (`FileStorage`) the id is still computed and
+   * returned; only the record is missing. Refusing to accept would punish a
+   * deployment for a storage choice, and the id is exactly as valid — it is a
+   * pure function of the payload. The server declines to advertise polling for
+   * such a deployment.
+   */
+  private async acceptInput(input: T, target: string): Promise<string> {
+    const requestId = computeRequestId(input, target);
+    if (isTrackingStorage(this.storage)) {
+      await this.storage.recordAccepted(requestId, input, target);
+    } else {
+      await this.storage.addInput(input, target);
+    }
+    return requestId;
   }
 
   /**
