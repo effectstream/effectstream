@@ -11,6 +11,7 @@ import type { BatchingCriteriaConfig, BatcherConfig } from "./config.ts";
 import {
   applyBatcherConfigDefaults,
   DEFAULT_BATCHING_CRITERIA,
+  DEFAULT_CONFIG_VALUES,
   validateBatcherConfig,
   validateBatchingCriteria,
   validatePreInit,
@@ -113,6 +114,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   private readonly port: number;
   /** Whether to enable HTTP server */
   private readonly enableHttpServer: boolean;
+  /** How long `init()` waits for adapters to become servable before binding. */
+  private readonly httpServerReadinessTimeoutMs: number;
   /** Whether to enable event system */
   private readonly enableEventSystem: boolean;
   /** Shutdown state tracking */
@@ -260,6 +263,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     );
     this.port = this.config.port!;
     this.enableHttpServer = this.config.enableHttpServer!;
+    this.httpServerReadinessTimeoutMs =
+      this.config.httpServerReadinessTimeoutMs ??
+        DEFAULT_CONFIG_VALUES.httpServerReadinessTimeoutMs;
     this.enableEventSystem = this.config.enableEventSystem!;
     this.namespace = this.config.namespace ?? this.namespace;
   }
@@ -483,7 +489,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       );
     }
 
-    // Start HTTP server if enabled
+    // Start HTTP server if enabled. `startHttpServer()` itself waits for every
+    // adapter to be past its loop-blocking startup — see there for why.
     if (this.enableHttpServer) {
       await this.startHttpServer();
     }
@@ -1042,14 +1049,78 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
+   * Hold the HTTP port closed until every adapter that implements
+   * `whenServable()` reports it is past its loop-blocking startup work.
+   *
+   * A refused connection is a better answer than a hung one: the client finds
+   * out immediately instead of holding a socket open against a process that
+   * cannot run a handler at all. Bounded by `httpServerReadinessTimeoutMs` and
+   * never fatal — a gate that could stop the server from ever starting would be
+   * a worse failure than the one it prevents.
+   */
+  private async waitForAdaptersServable(): Promise<void> {
+    const gates: Promise<void>[] = [];
+    for (const [target, adapter] of Object.entries(this.adapters)) {
+      if (typeof adapter.whenServable !== "function") continue;
+      try {
+        gates.push(
+          Promise.resolve(adapter.whenServable()).catch((error) => {
+            console.warn(
+              `⚠️ Adapter '${target}' failed to report readiness; ` +
+                `treating it as ready to serve:`,
+              error,
+            );
+          }),
+        );
+      } catch (error) {
+        console.warn(
+          `⚠️ Adapter '${target}' threw from whenServable(); ` +
+            `treating it as ready to serve:`,
+          error,
+        );
+      }
+    }
+    if (gates.length === 0) return;
+
+    const timeoutMs = this.httpServerReadinessTimeoutMs;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const outcome = await Promise.race([
+        Promise.all(gates).then(() => "ready" as const),
+        new Promise<"timeout">((resolve) => {
+          timer = setTimeout(() => resolve("timeout"), timeoutMs);
+          (timer as unknown as { unref?: () => void }).unref?.();
+        }),
+      ]);
+      if (outcome === "timeout") {
+        console.warn(
+          `⚠️ Adapters did not report readiness within ${timeoutMs}ms; ` +
+            `starting the HTTP server anyway. Requests may stall if an adapter ` +
+            `is still blocking the event loop.`,
+        );
+      }
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  /**
    * Start the HTTP server for the batcher
    * This provides REST API endpoints for interacting with the batcher
+   *
+   * Binding is held until every adapter is past its loop-blocking startup —
+   * the wait lives HERE rather than in `init()` because there are three ways
+   * to reach this method (`init()`, the Effection `runBatcher` path via
+   * `runHttpServer()`, and a direct call), and a gate on only one of them
+   * leaves the black hole open on the others.
    */
   async startHttpServer(): Promise<void> {
     if (this.httpServer) {
       console.log("⚠️ HTTP server already running");
       return;
     }
+
+    await this.waitForAdaptersServable();
 
     try {
       this.httpServer = await startBatcherHttpServer(this, this.port);

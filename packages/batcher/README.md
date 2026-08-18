@@ -21,6 +21,91 @@ npm install @effectstream/batcher-sdk
 > `@midnightntwrk/wallet-sdk-dust-wallet` >= 4.0.0). Override with the
 > `MIDNIGHT_DUST_SYNC_BATCH_{SIZE,TIMEOUT_MS,SPACING_MS}` env vars.
 
+### Midnight wallet sync and funding timeouts
+
+A dust cold sync is the expensive part of starting a Midnight fee wallet: on
+preprod it measures ~66 minutes (~1.44 M dust indices), while the unshielded
+sync takes about a second. The three deadlines below are deliberately separate,
+because "the chain is still replaying" and "nobody has sent this wallet any
+NIGHT" want very different answers.
+
+| Env var | Default | What it bounds |
+| --- | --- | --- |
+| `MIDNIGHT_WALLET_SYNC_TIMEOUT_MS` | `14400000` (4 h) | A full chain replay. A backstop, not a health check — a genuinely stuck sync is caught within ~60 s by emission-silence detection, so this only needs to exceed a real cold sync with headroom. Raise it for chains longer than preprod. |
+| `MIDNIGHT_WALLET_FUNDING_TIMEOUT_MS` | `600000` (10 min) | Waiting for funds to arrive once the wallet is synced. Keep it short: an unfunded wallet should fail in minutes rather than inherit the sync budget. |
+| `MIDNIGHT_DUST_REGISTRATION_PRECHECK_TIMEOUT_MS` | `600000` (10 min) | The NIGHT→dust registration precheck ("unshielded and dust are both strictly complete"). In `dust-only` sync mode the unshielded sub-wallet has been stopped, so this wait can never succeed — it exists to give up in bounded time. |
+| `MIDNIGHT_DUST_STATE_SAVE_INTERVAL_MS` | `300000` (5 min) | How often a running wallet checkpoints its dust state. Bounds how much chain a crash makes it replay. `0` keeps only the shutdown checkpoint. |
+
+A stalled sync is detected separately and much sooner: if the dust wallet stops
+emitting state for 60 seconds the wallet is rebuilt from its last checkpoint and
+the sync retried. That is a *silence* check, not an elapsed-time one, so a cold
+sync that is progressing normally is never interrupted no matter how long it
+takes.
+
+### Midnight dust sync batching
+
+The dust wallet's sync batching is tuned for backend throughput rather than UI
+responsiveness. Dust sync runs on the main event loop, so these trade sync speed
+against how responsive the rest of the process (including the HTTP server, which
+accepts requests while wallets are still syncing) stays during a cold start.
+
+| Env var | Default | Browser SDK default |
+| --- | --- | --- |
+| `MIDNIGHT_DUST_SYNC_BATCH_SIZE` | `100` | 10 |
+| `MIDNIGHT_DUST_SYNC_BATCH_TIMEOUT_MS` | `1` | 1 |
+| `MIDNIGHT_DUST_SYNC_BATCH_SPACING_MS` | `1` | 4 |
+
+Larger batches mean fewer intermediate state snapshots and less memory churn.
+Keep spacing above `0`: at `0` the catch-up sync starves everything else on the
+loop.
+
+**These defaults are now measured on preprod (1.44 M dust indices) and every
+direction of change is worse for a process that serves HTTP while syncing.**
+Raising `size` to 500 buys 21% throughput and costs 3.7× the worst event-loop
+stall (430 ms → 1 577 ms); 2000 buys 18% and costs 3 814 ms, and is unreachable
+anyway because the 1 ms batch window closes batches long before 2 000 events
+arrive. Dropping `size` to 50 costs 12% throughput for a 246 ms worst stall —
+offered as a deliberate latency-first setting, not a better default. `timeout`
+1 → 25 is noise and 1 → 100 costs 5%. `spacing` 1 → 0 buys 2.4% and costs 5×
+the median stall; 1 → 5 or 25 costs 3% for no tail-latency benefit.
+
+Dust wallet state is checkpointed to disk (`dust-state/`, one file per network
+and seed) so a restart resumes from the last snapshot instead of replaying the
+chain. A snapshot recorded on another network, one that fails to decode after
+an SDK upgrade, or one whose offset sits past the indexer's event log is
+rejected: it is renamed to `<snapshot>.rejected` and the wallet cold-syncs.
+That costs a resync, and it is logged at error level for exactly that reason —
+but it never wedges wallet init, which is what those cases used to do.
+
+### The HTTP port waits for adapters to be servable
+
+Restoring a preprod dust snapshot is one **synchronous** WASM deserialize —
+measured at ~46 s for 5.1 MB — during which no request handler can run at all.
+The server used to be listening throughout, so every restart was a ~46-second
+window where connections were accepted and nothing answered.
+
+`Batcher.init()` therefore holds the port closed until every adapter that
+implements `whenServable()` reports it is past that work, then starts the
+server for the rest of startup — including the ~58-minute cold sync, which
+yields between batches and stays serveable (and is precisely when `/health` and
+`/queue-stats` matter most). A refused connection is a better answer than a
+hung one: the client finds out immediately and can retry or fail over.
+
+`httpServerReadinessTimeoutMs` (default `300000`, 5 min) bounds that wait; on
+expiry the server starts anyway and says so. It is a backstop against a broken
+adapter, not a startup knob — while the loop is inside a synchronous restore
+this timer cannot fire either, so it effectively expires the moment the block
+ends. Adapters that do not implement `whenServable()` are unaffected.
+
+`getHealthInfo()` (served by `/queue-stats`) reports a `dustSync` entry per
+wallet so a slow start is distinguishable from a broken one — `state` is
+`syncing` / `stalled` / `complete` / `unknown`, alongside `restoredFrom` (0
+means a full replay), `appliedIndex`, `target`, `behind`, `lastAdvanceAgeMs`,
+and `snapshot` (`cold` / `restored` / `rejected`). `dustClock` reports whether
+dust generation is being projected at wall clock (`live`) or has fallen back to
+the wallet's last applied event (`sync-time`), which on a quiet chain can look
+like starvation.
+
 ## Standalone usage
 
 A minimal end-to-end example using `FileStorage`, the EffectstreamL2 adapter, and the bundled HTTP server.

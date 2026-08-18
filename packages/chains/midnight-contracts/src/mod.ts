@@ -7,7 +7,15 @@ export type {
     InitialOwner,
 } from "./types.ts";
 export {
+    DEFAULT_DUST_STATE_DIR,
+    deriveDustPublicKey,
+    dustProgressFromState,
+    resolveDustCoinValuesAt,
+    resolveDustRegistrationPrecheckTimeoutMs,
+    resolveDustStateSaveIntervalMs,
+    resolveWalletFundingTimeoutMs,
     resolveWalletSyncTimeoutMs,
+    startDustStateAutosave,
     suspendAuxWalletSyncForFees,
     resolveFacadeDustBalance,
     safeStringifyProgress,
@@ -18,6 +26,7 @@ export {
     getInitialDustState,
     waitForDustFunds,
     waitForDustFundsWithRetry,
+    waitForShieldedSyncComplete,
 } from "./get-wallet-info.ts";
 // Disk-backed dust persistence lives in its own node-only module so the
 // browser-reachable ./wallet-info subpath carries no node:fs. This barrel is
@@ -27,6 +36,9 @@ export { saveDustState, loadDustState } from "./dust-state.ts";
 export type {
     WalletSyncMode,
     DustSyncWithRetryOptions,
+    DustStateAutosaveHandle,
+    DustStateAutosaveOptions,
+    SerializableDustWallet,
 } from "./get-wallet-info.ts";
 export { CONSTANTS } from "./constants.ts";
 export { 
