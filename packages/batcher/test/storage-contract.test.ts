@@ -33,6 +33,12 @@ type Storage = BatcherStorage<DefaultBatcherInput>;
 interface Backend {
   readonly name: string;
   make(dataDirectory: string): Storage;
+  /**
+   * Backends whose store outlives the temp directory need the slate wiped
+   * between cases; the file- and PgLite-backed ones get a fresh directory and
+   * do not.
+   */
+  reset?(storage: Storage): Promise<void>;
 }
 
 const BACKENDS: Backend[] = [
@@ -45,6 +51,33 @@ const BACKENDS: Backend[] = [
     make: (dir) => new DatabaseStorage({ dataDirectory: dir }),
   },
 ];
+
+// The Postgres opt-in runs the SAME statements as the embedded default, so it
+// gets held to the SAME contract rather than to a smoke test — a second driver
+// nobody exercises is a claim, not a feature.
+//
+// Off unless a server is pointed at it, because the suite must stay runnable
+// with no infrastructure:
+//   docker run --rm -e POSTGRES_PASSWORD=pw -p <port>:5432 postgres:16-alpine
+//   BATCHER_TEST_POSTGRES_URL=postgres://postgres:pw@127.0.0.1:<port>/postgres \
+//     bun test packages/batcher/test/storage-contract.test.ts
+const POSTGRES_URL = process.env.BATCHER_TEST_POSTGRES_URL;
+if (POSTGRES_URL) {
+  BACKENDS.push({
+    name: "DatabaseStorage(postgres)",
+    make: (dir) =>
+      new DatabaseStorage({ dataDirectory: dir, connectionString: POSTGRES_URL }),
+    // One server serves every case, so each case starts by emptying it.
+    reset: async (storage) => {
+      const db = (storage as unknown as {
+        db: { query(sql: string, params?: unknown[]): Promise<unknown[]> };
+      }).db;
+      await db.query(
+        "TRUNCATE pending_inputs, request_status, replay_keys RESTART IDENTITY",
+      );
+    },
+  });
+}
 
 const input = (
   overrides: Partial<DefaultBatcherInput> = {},
@@ -86,6 +119,14 @@ async function withStorage(
   const dir = mkdtempSync(path.join(tmpdir(), "batcher-storage-contract-"));
   const open: Storage[] = [];
   try {
+    if (backend.reset) {
+      // Before the legacy file is seeded, so emptying the shared store cannot
+      // wipe the very rows an import test is about to bring in.
+      const scratch = backend.make(dir);
+      await scratch.init();
+      await backend.reset(scratch);
+      await scratch.close?.();
+    }
     if (opts.seedLegacyQueue) {
       writeFileSync(
         path.join(dir, "pending-inputs.jsonl"),
