@@ -362,13 +362,41 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
             timeSinceLastProcess: Type.Number(),
             health: Type.Optional(Type.Any()),
           })),
+          // Batcher-level, beside totalPendingInputs rather than inside a
+          // target: retention and boot reconciliation are properties of this
+          // process, not of any one product's adapter.
+          //
+          // `enabled: false` is a real answer, not a missing one — a sweep that
+          // silently stopped working looks exactly like a sweep with nothing to
+          // do, and the difference only shows up as unbounded growth weeks
+          // later.
+          retention: Type.Object({
+            enabled: Type.Boolean(),
+            keepCount: Type.Number(),
+            ttlMs: Type.Number(),
+            intervalMs: Type.Number(),
+            prunedLastRun: Type.Number(),
+            prunedTotal: Type.Number(),
+            lastRunAt: Type.Optional(Type.String()),
+            lastError: Type.Optional(Type.String()),
+          }),
+          // Counters that moved at boot are evidence the previous process did
+          // not stop cleanly. Absent entirely on a queue-only backend, which
+          // has nothing to reconcile.
+          reconciliation: Type.Optional(Type.Object({
+            synthesizedFromRows: Type.Number(),
+            orphanedStatuses: Type.Number(),
+          })),
         }),
       },
     },
   }, async () => {
     const status = await batcher.getBatchingStatus();
+    const reconciliation = batcher.getReconciliationReport();
     return {
       totalPendingInputs: status.totalPendingInputs,
+      retention: batcher.getRetentionStatus(),
+      ...(reconciliation ? { reconciliation } : {}),
       // Adapters may expose an operational snapshot (fee capacity, workers,
       // policy shape). In a multi-product batcher this is how you tell WHICH
       // product is degraded without reading logs.

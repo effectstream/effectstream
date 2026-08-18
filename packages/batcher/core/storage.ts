@@ -295,6 +295,27 @@ export interface TrackingStorage<
 
   /** What the last `init()` reconciled, or undefined if it has not run. */
   getReconciliationReport(): ReconciliationReport | undefined;
+
+  /**
+   * Drop terminal records beyond `keepCount` or older than `ttlMs`, and the
+   * replay keys that belong to them (spec FR-007).
+   *
+   * OPTIONAL so that a third-party tracking backend written before this method
+   * existed keeps compiling — this is a published package, and the alternative
+   * is a fourth breaking interface change for a capability the batcher can
+   * feature-detect. A backend that does not implement it simply grows, and the
+   * `/queue-stats` retention block reports `enabled: false` rather than
+   * claiming a bound it is not enforcing.
+   *
+   * Retention and replay protection share fate deliberately: the keys are
+   * deleted WITH their records, so a request whose record has aged out can be
+   * submitted again rather than being permanently refused as a duplicate with
+   * nothing left to poll.
+   */
+  pruneTerminal?(
+    keepCount: number,
+    ttlMs: number,
+  ): Promise<{ prunedByAge: number; prunedByCount: number }>;
 }
 
 /**

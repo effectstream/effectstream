@@ -1,7 +1,11 @@
 import { CryptoManager } from "@effectstream/crypto";
 import { call, lift, resource, sleep, spawn, suspend } from "effection";
 import type { Operation } from "effection";
-import type { BatcherStorage, RequestStatusRecord } from "./storage.ts";
+import type {
+  BatcherStorage,
+  ReconciliationReport,
+  RequestStatusRecord,
+} from "./storage.ts";
 import type { DefaultBatcherInput } from "./types.ts";
 import type {
   BlockchainAdapter,
@@ -184,6 +188,21 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * property of the target, not of the request, so it is said once.
    */
   private readonly replayKeylessTargetsLogged = new Set<string>();
+
+  /** Timer driving the retention sweep; absent on a queue-only backend. */
+  private retentionIntervalID?: ReturnType<typeof setInterval>;
+  /**
+   * What retention has done so far. Exposed through `/queue-stats` because a
+   * sweep that silently stopped working looks exactly like one that has
+   * nothing to do, and the difference only becomes visible as unbounded growth
+   * weeks later.
+   */
+  private readonly retentionMetrics: {
+    prunedLastRun: number;
+    prunedTotal: number;
+    lastRunAt?: string;
+    lastError?: string;
+  } = { prunedLastRun: 0, prunedTotal: 0 };
 
   /**
    * Create a new Batcher with type-safe configuration
@@ -563,6 +582,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         this.config.pollingIntervalMs,
       );
     }
+
+    this.startRetentionSweep();
 
     // Start HTTP server if enabled. `startHttpServer()` itself waits for every
     // adapter to be past its loop-blocking startup — see there for why.
@@ -1456,6 +1477,134 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
+   * Begin the periodic retention sweep (spec FR-007).
+   *
+   * Owned by the Batcher rather than the HTTP server, because tracking exists
+   * without HTTP — `enableHttpServer: false` is a supported deployment, and
+   * hanging retention off the server would leave exactly those batchers
+   * growing without bound.
+   *
+   * The timer is `unref`ed where the runtime supports it: retention is
+   * housekeeping, and an embedding process should be free to exit without
+   * waiting for the next sweep. It is still cleared explicitly at shutdown —
+   * unref stops it holding the process open, it does not stop it firing.
+   */
+  private startRetentionSweep(): void {
+    if (this.retentionIntervalID) return;
+    if (!isTrackingStorage(this.storage)) return;
+    const storage = this.storage;
+    if (typeof storage.pruneTerminal !== "function") {
+      console.warn(
+        `⚠️ [Batcher] Storage tracks requests but cannot prune them ` +
+          `(no pruneTerminal). Terminal records will accumulate without bound.`,
+      );
+      return;
+    }
+
+    const intervalMs = this.config.statusPruneIntervalMs ??
+      DEFAULT_CONFIG_VALUES.statusPruneIntervalMs;
+    const keepCount = this.config.statusRetentionKeepCount ??
+      DEFAULT_CONFIG_VALUES.statusRetentionKeepCount;
+    const ttlMs = this.config.statusRetentionTtlMs ??
+      DEFAULT_CONFIG_VALUES.statusRetentionTtlMs;
+
+    this.retentionIntervalID = setInterval(() => {
+      // Never let this reject into the timer. An unhandled rejection inside a
+      // bare setInterval callback takes the PROCESS down, and a retention
+      // hiccup must not be able to stop the batcher accepting work.
+      void this.runRetentionSweep(keepCount, ttlMs);
+    }, intervalMs);
+    (this.retentionIntervalID as { unref?: () => void }).unref?.();
+  }
+
+  /**
+   * One retention sweep. Failures are recorded and swallowed — the next tick
+   * tries again, and the error is visible in `/queue-stats` rather than only in
+   * a log line that scrolled past.
+   */
+  private async runRetentionSweep(
+    keepCount: number,
+    ttlMs: number,
+  ): Promise<void> {
+    const storage = this.storage as BatcherStorage<T> & {
+      pruneTerminal?: (
+        keepCount: number,
+        ttlMs: number,
+      ) => Promise<{ prunedByAge: number; prunedByCount: number }>;
+    };
+    if (typeof storage.pruneTerminal !== "function") return;
+    try {
+      const { prunedByAge, prunedByCount } = await storage.pruneTerminal(
+        keepCount,
+        ttlMs,
+      );
+      const pruned = prunedByAge + prunedByCount;
+      this.retentionMetrics.prunedLastRun = pruned;
+      this.retentionMetrics.prunedTotal += pruned;
+      this.retentionMetrics.lastRunAt = new Date().toISOString();
+      if (pruned > 0) {
+        console.log(
+          `🧹 [Batcher] Retention pruned ${pruned} terminal request record(s) ` +
+            `(${prunedByAge} by age, ${prunedByCount} over the cap).`,
+        );
+      }
+    } catch (error) {
+      this.retentionMetrics.lastError = error instanceof Error
+        ? error.message
+        : String(error);
+      console.error("[Batcher] Retention sweep failed:", error);
+    }
+  }
+
+  /**
+   * Run a retention sweep now, outside the schedule.
+   *
+   * Public so an operator (or a test) can force one without waiting out an
+   * interval; the timer remains the normal path.
+   */
+  async pruneTerminalRecords(): Promise<void> {
+    await this.runRetentionSweep(
+      this.config.statusRetentionKeepCount ??
+        DEFAULT_CONFIG_VALUES.statusRetentionKeepCount,
+      this.config.statusRetentionTtlMs ??
+        DEFAULT_CONFIG_VALUES.statusRetentionTtlMs,
+    );
+  }
+
+  /** What retention is configured to do, and what it has done. */
+  getRetentionStatus(): {
+    enabled: boolean;
+    keepCount: number;
+    ttlMs: number;
+    intervalMs: number;
+    prunedLastRun: number;
+    prunedTotal: number;
+    lastRunAt?: string;
+    lastError?: string;
+  } {
+    return {
+      enabled: this.retentionIntervalID !== undefined,
+      keepCount: this.config.statusRetentionKeepCount ??
+        DEFAULT_CONFIG_VALUES.statusRetentionKeepCount,
+      ttlMs: this.config.statusRetentionTtlMs ??
+        DEFAULT_CONFIG_VALUES.statusRetentionTtlMs,
+      intervalMs: this.config.statusPruneIntervalMs ??
+        DEFAULT_CONFIG_VALUES.statusPruneIntervalMs,
+      ...this.retentionMetrics,
+    };
+  }
+
+  /**
+   * What the last `init()` had to repair after an unclean stop, or undefined on
+   * a backend that keeps no status. Counters moving after a restart are
+   * evidence the previous process did not shut down cleanly.
+   */
+  getReconciliationReport(): ReconciliationReport | undefined {
+    if (!isTrackingStorage(this.storage)) return undefined;
+    return this.storage.getReconciliationReport();
+  }
+
+  /**
    * Can this batcher answer "what happened to request X"?
    *
    * False on a queue-only backend (`FileStorage`), which still queues, batches
@@ -1514,10 +1663,24 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
   }
 
+  /** Stop the retention sweep. Idempotent; safe before `init()`. */
+  private stopRetentionSweep(): void {
+    if (this.retentionIntervalID) {
+      clearInterval(this.retentionIntervalID);
+      this.retentionIntervalID = undefined;
+    }
+  }
+
   /**
    * Cleanup additional resources (can be overridden by subclasses)
    */
   protected async cleanupResources(): Promise<void> {
+    // Stop retention BEFORE the storage handle is released below. A sweep that
+    // fires after `storage.close()` would run its DELETE against a closed
+    // database — an error per interval, forever, from an object nobody
+    // believes is still alive.
+    this.stopRetentionSweep();
+
     // Give every adapter a chance to release process-wide resources. The
     // Midnight balancing adapter holds an exclusive claim on its wallet seeds;
     // without this, a batcher reconfigured or restarted inside one process can
