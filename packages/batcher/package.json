@@ -23,7 +23,9 @@
   },
   "dependencies": {
     "@sinclair/typebox": "0.34.41",
-    "viem": "^2.21.3",
+    "@electric-sql/pglite": "^0.3.14",
+    "pg": "8.21.0",
+    "viem": "2.37.3",
     "effection": "^3.5.0",
     "fastify": "^5.4.0",
     "@fastify/cors": "^11.0.1",

@@ -113,6 +113,15 @@ export interface BatcherStorage<
    * Clear all inputs (useful for testing)
    */
   clearAllInputs(): Promise<void>;
+
+  /**
+   * Release whatever the backend holds open (database handles, sockets).
+   *
+   * Optional: a file-backed queue has nothing to release, so it does not
+   * implement this. Callers must treat it as optional and call it at shutdown —
+   * a backend that keeps a handle open outlives the process that owns it.
+   */
+  close?(): Promise<void>;
 }
 
 /**
@@ -413,40 +422,11 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
 }
 
 /**
- * TODO: database storage implementation.
- * This could be implemented with PostgreSQL,
- * Perhaps passing the connection string as an argument.
+ * Database-backed storage (embedded PgLite by default, Postgres on opt-in).
+ *
+ * Lives in its own module because it carries a schema, a driver abstraction and
+ * a legacy-import path; re-exported here so `BatcherStorage`'s implementations
+ * stay discoverable from one place.
  */
-export class DatabaseStorage<
-  T extends DefaultBatcherInput = DefaultBatcherInput,
-> implements BatcherStorage<T> {
-  constructor(private connectionString: string) {}
-
-  // TODO: Implement database storage
-  init(_defaultTarget?: string): Promise<void> {
-    throw new Error("DatabaseStorage not implemented yet");
-  }
-  addInput(input: T): Promise<void> {
-    throw new Error("DatabaseStorage not implemented yet");
-  }
-  getAllInputs(): Promise<T[]> {
-    throw new Error("DatabaseStorage not implemented yet");
-  }
-  removeProcessedInputs(
-    processedInputs: T[],
-  ): Promise<void> {
-    throw new Error("DatabaseStorage not implemented yet");
-  }
-  getInputCountAndSize(): Promise<{ count: number; size: number }> {
-    throw new Error("DatabaseStorage not implemented yet");
-  }
-  getInputsByTarget(target: string, defaultTarget: string): Promise<T[]> {
-    throw new Error("DatabaseStorage not implemented yet");
-  }
-  incrementRetryCount(_inputs: T[], _target: string, _maxRetries: number): Promise<void> {
-    throw new Error("DatabaseStorage not implemented yet");
-  }
-  clearAllInputs(): Promise<void> {
-    throw new Error("DatabaseStorage not implemented yet");
-  }
-}
+export { DatabaseStorage } from "./database-storage.ts";
+export type { DatabaseStorageOptions } from "./database-storage.ts";
