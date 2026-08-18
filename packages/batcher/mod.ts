@@ -52,6 +52,11 @@ export {
   requestIdFromKey,
 } from "./core/request-id.ts";
 
+// Replay identity: the SEPARATE question of whether this spend was already
+// paid for. Exported so an adapter author writing `getReplayKey` can see what
+// the default does and why it is not the request id.
+export { defaultReplayKey, resolveReplayKey } from "./core/replay-key.ts";
+
 // Chain adapter interface and implementations
 export type { BlockchainAdapter, BatchBuildingOptions, BatchBuildingResult } from "./adapters/adapter.ts";
 export { EffectstreamL2DefaultAdapter } from "./adapters/effectstream-l2-adapter.ts";
