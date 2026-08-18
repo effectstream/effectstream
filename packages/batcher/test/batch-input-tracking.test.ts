@@ -160,13 +160,22 @@ describe("batchInput acceptance", () => {
 
   test("two targets, two ids, two independent records", async () => {
     await withBatcher(async ({ batcher, storage }) => {
-      const a = await batcher.batchInput(input({ target: TARGET }), "no-wait");
+      // Two SIGNATURES, because that is what two genuine submissions look
+      // like: the default signing message includes the target, so a wallet
+      // addressing two products signs twice. Reusing one signature across
+      // targets is the replay the Phase 3 gate exists to catch — covered in
+      // `dedup-gate.test.ts`, and deliberately not conflated with this case.
+      const a = await batcher.batchInput(
+        input({ target: TARGET, signature: "sig-for-product-a" }),
+        "no-wait",
+      );
       const b = await batcher.batchInput(
-        input({ target: "product-b" }),
+        input({ target: "product-b", signature: "sig-for-product-b" }),
         "no-wait",
       );
 
       expect(b.requestId).not.toBe(a.requestId);
+      expect(b.duplicate).toBeFalsy();
       expect((await storage.getStatus(a.requestId))?.target).toBe(TARGET);
       expect((await storage.getStatus(b.requestId))?.target).toBe("product-b");
     }, {}, [TARGET, "product-b"]);

@@ -20,6 +20,7 @@ import { startBatcherHttpServer } from "../server/batcher-server.ts";
 import { DatabaseStorage } from "./storage.ts";
 import { isTrackingStorage } from "./storage.ts";
 import { buildRequestKey, computeRequestId } from "./request-id.ts";
+import { resolveReplayKey } from "./replay-key.ts";
 import { BatchProcessor } from "./batch-processor.ts";
 import { InputValidationError } from "./errors.ts";
 import {
@@ -63,6 +64,17 @@ export interface BatchInputResult {
   requestId: string;
   /** The transaction receipt, or null when the caller did not wait for one. */
   receipt: (BlockchainTransactionReceipt & { rollup?: number }) | null;
+  /**
+   * This submission was recognised as a REPLAY of one already tracked, so
+   * nothing new was queued (spec FR-006b). `requestId` is the ORIGINAL
+   * request's — poll that, it is the one with a fate.
+   *
+   * A duplicate always comes back with `receipt: null` whatever confirmation
+   * level was asked for. The receipt-callback map holds one waiter per content
+   * key, so a second waiter would silently evict the first; the caller holds
+   * the id instead, and is in any case usually the same client retrying.
+   */
+  duplicate?: boolean;
 }
 
 /**
@@ -165,6 +177,12 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     string,
     (payload: any) => void | Promise<void>
   > = new Map();
+  /**
+   * Targets already warned about having no derivable replay key. The warning
+   * matters — that deployment has no duplicate protection — but it is a
+   * property of the target, not of the request, so it is said once.
+   */
+  private readonly replayKeylessTargetsLogged = new Set<string>();
 
   /**
    * Create a new Batcher with type-safe configuration
@@ -240,35 +258,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     this.lastProcessTime = new Map();
 
     this.batchProcessor = new BatchProcessor<T>({
-      emitStateTransition: async (prefix: string, payload: any) => {
-        // For async contexts, we need to handle this differently
-        // Since we're in an async method but need to call an Effection operation,
-        // we'll create a simple non-blocking implementation
-        if (this.enableEventSystem) {
-          const listener = this.stateTransitionListeners.get(prefix);
-          if (listener) {
-            try {
-              // Execute the listener asynchronously without blocking
-              await listener(payload);
-            } catch (error) {
-              const hasErrorListener = this.stateTransitionListeners.has(
-                "error",
-              );
-              if (prefix !== "error" && hasErrorListener) {
-                try {
-                  await this.stateTransitionListeners.get("error")!({
-                    phase: `event-listener:${prefix}`,
-                    error,
-                    time: Date.now(),
-                  });
-                } catch {
-                  // swallow
-                }
-              }
-            }
-          }
-        }
-      },
+      emitStateTransition: (prefix: string, payload: any) =>
+        this.emitStateTransitionAsync(prefix, payload),
       storage: this.storage,
       submissionCallbacks: this.submissionCallbacks,
       getCallbackKey: (input: T) => this.getInputCallbackKey(input),
@@ -325,6 +316,54 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Remove a previously registered state transition listener. */
   removeStateTransition(prefix: string): void {
     this.stateTransitionListeners.delete(prefix);
+  }
+
+  /**
+   * Emit a state transition from an ordinary async context.
+   *
+   * `emitStateTransition` below is a generator, meant to be driven with `yield*`
+   * inside an Effection operation. `await`ing it does NOT run its body — it
+   * resolves to the generator object — so async callers need this instead. The
+   * batch processor has always used this path; the per-request events use it
+   * for the same reason.
+   *
+   * A listener that throws is reported to the `error` listener and otherwise
+   * swallowed: events are observability, and nothing the batcher does may
+   * depend on one having been delivered.
+   */
+  private async emitStateTransitionAsync(
+    prefix: string,
+    payload: any,
+  ): Promise<void> {
+    if (!this.enableEventSystem) return;
+    const listener = this.stateTransitionListeners.get(prefix);
+    if (!listener) return;
+    try {
+      await listener(payload);
+    } catch (error) {
+      const hasErrorListener = this.stateTransitionListeners.has("error");
+      if (prefix !== "error" && hasErrorListener) {
+        try {
+          await this.stateTransitionListeners.get("error")!({
+            phase: `event-listener:${prefix}`,
+            error,
+            time: Date.now(),
+          });
+        } catch {
+          // swallow
+        }
+      }
+    }
+  }
+
+  /**
+   * Per-request lifecycle event. Observability only — no batcher logic may
+   * branch on one, and a listener's failure never affects the request.
+   */
+  private async emitRequestEvent<
+    Prefix extends "request:accepted" | "request:terminal",
+  >(prefix: Prefix, payload: BatcherGrammar[Prefix]): Promise<void> {
+    await this.emitStateTransitionAsync(prefix, payload);
   }
 
   /**
@@ -650,13 +689,53 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       }
     }
 
-    // 3. Add to Storage (Only if all validation passes)
+    // 3. Replay gate (spec FR-006b): never pay twice for one signed spend.
+    //
+    // After validation — an input we would refuse anyway is not worth a lookup,
+    // and a replay key derived from a payload we have not judged is not a
+    // measurement worth trusting — and before anything is queued.
+    const replayKey = this.replayKeyFor(adapter, input, target);
+    if (replayKey !== undefined && isTrackingStorage(this.storage)) {
+      const known = await this.storage.findByReplayKey(replayKey);
+      if (known) {
+        // Not an error and not a refusal: the work is already tracked, so the
+        // caller gets a 200 carrying the id that answers for it. Client retries
+        // are therefore idempotent and free.
+        console.log(
+          `♻️ Duplicate submission from ${input.address} for target ${target}; ` +
+            `returning the original request ${known.requestId.substring(0, 12)}… ` +
+            `(state=${known.state}) without queueing it again.`,
+        );
+        await this.emitRequestEvent("request:accepted", {
+          requestId: known.requestId,
+          target,
+          duplicate: true,
+          time: Date.now(),
+        });
+        return { requestId: known.requestId, receipt: null, duplicate: true };
+      }
+    }
+
+    // 4. Add to Storage (Only if all validation passes)
     //
     // Acceptance is the moment the promise in the spec is made: from here on
     // the request is either sent or reaches a terminal failure, and either way
     // its id resolves. Everything above this line can still refuse it, and a
     // refusal mints nothing at all (FR-001).
-    const requestId = await this.acceptInput(input, target);
+    const accepted = await this.acceptInput(input, target, replayKey);
+    const requestId = accepted.requestId;
+    await this.emitRequestEvent("request:accepted", {
+      requestId,
+      target,
+      duplicate: accepted.duplicate === true,
+      time: Date.now(),
+    });
+    if (accepted.duplicate) {
+      // The pre-check above is a READ, so concurrent copies of one request all
+      // pass it; the claim inside the acceptance transaction is what actually
+      // stops the second. Same answer, arrived at one layer down.
+      return { requestId, receipt: null, duplicate: true };
+    }
     const { count, size } = await this.storage.getInputCountAndSize();
     console.log(
       `✅ Added input from ${input.address} to batch queue. Queue size: ${count} inputs, ${size} bytes`,
@@ -744,14 +823,58 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * pure function of the payload. The server declines to advertise polling for
    * such a deployment.
    */
-  private async acceptInput(input: T, target: string): Promise<string> {
+  private async acceptInput(
+    input: T,
+    target: string,
+    replayKey?: string,
+  ): Promise<{ requestId: string; duplicate: boolean }> {
     const requestId = computeRequestId(input, target);
     if (isTrackingStorage(this.storage)) {
-      await this.storage.recordAccepted(requestId, input, target);
-    } else {
-      await this.storage.addInput(input, target);
+      const outcome = await this.storage.recordAccepted(
+        requestId,
+        input,
+        target,
+        replayKey,
+      );
+      // On a duplicate the outcome carries the ORIGINAL request's id, not the
+      // one computed above — that request is the one with a fate to report.
+      return {
+        requestId: outcome.requestId,
+        duplicate: outcome.duplicate === true,
+      };
     }
-    return requestId;
+    await this.storage.addInput(input, target);
+    return { requestId, duplicate: false };
+  }
+
+  /**
+   * The replay key for an input, or `undefined` when none can be derived.
+   *
+   * `undefined` admits the input with no replay protection — deliberately, and
+   * never a refusal (plan Q-P4). Failing closed here would break every custom
+   * adapter written before the hook existed, and a batcher that refuses inputs
+   * it cannot fingerprint is worse than one that occasionally pays twice for a
+   * spend the chain will reject anyway. Logged once per target, because the
+   * operator should know their deployment has no replay protection, and should
+   * not learn it once per request.
+   */
+  private replayKeyFor(
+    adapter: BlockchainAdapter<any>,
+    input: T,
+    target: string,
+  ): string | undefined {
+    const key = resolveReplayKey(adapter, input);
+    if (key === undefined && !this.replayKeylessTargetsLogged.has(target)) {
+      this.replayKeylessTargetsLogged.add(target);
+      console.warn(
+        `⚠️ [Batcher] Target "${target}" produced no replay key for an input ` +
+          `(no signature, and its adapter supplies none). Submissions to this ` +
+          `target are accepted WITHOUT duplicate protection — a resubmitted ` +
+          `request will be balanced and paid for again. Implement ` +
+          `getReplayKey() on the adapter to close this.`,
+      );
+    }
+    return key;
   }
 
   /**

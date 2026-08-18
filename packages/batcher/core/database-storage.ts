@@ -854,9 +854,16 @@ export class DatabaseStorage<
    * A request id that is already tracked is NOT reopened: ids are deterministic
    * (spec FR-006), so a byte-identical resubmission is the same request, and
    * resetting its record to `queued` would erase a verdict that already
-   * happened. The queue still takes the second row — `FileStorage` has always
-   * accepted duplicate rows and removes them together, and refusing to queue it
-   * is a dedup DECISION that belongs to the replay gate, not to storage.
+   * happened. Where no replay key is supplied the queue still takes the second
+   * row — `FileStorage` has always accepted duplicate rows and removes them
+   * together.
+   *
+   * With a replay key, the key is CLAIMED first and an already-claimed key
+   * aborts the acceptance: nothing is written and the claimant's record is
+   * returned with `duplicate: true` (spec FR-006b). This is the half of the
+   * replay gate that survives concurrency — `Batcher`'s `findByReplayKey`
+   * pre-check is a read, and N simultaneous copies of one request all pass it.
+   * Claiming first also means the abort costs no wasted insert.
    */
   async recordAccepted(
     requestId: string,
@@ -865,7 +872,38 @@ export class DatabaseStorage<
     replayKey?: string,
   ): Promise<AcceptanceOutcome> {
     try {
-      const { row, created } = await this.db.transaction(async (tx) => {
+      const outcome = await this.db.transaction(async (tx) => {
+        if (replayKey !== undefined) {
+          // The key belongs to whoever claimed it FIRST. A later claimant must
+          // not steal it, or the original request's dedup record would end up
+          // answering for someone else's payment.
+          const claimed = await tx.query<{ request_id: string }>(
+            `INSERT INTO replay_keys (replay_key, request_id, row_target)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (replay_key) DO NOTHING
+             RETURNING request_id`,
+            [replayKey, requestId, input.target ?? target],
+          );
+          if (claimed.length === 0) {
+            const [owner] = await tx.query<StatusRow>(
+              `SELECT s.* FROM replay_keys k
+                 JOIN request_status s ON s.request_id = k.request_id
+                WHERE k.replay_key = $1`,
+              [replayKey],
+            );
+            // A key whose owning record has been pruned is a tombstone with
+            // nothing to report; treat it as free rather than refusing work on
+            // the strength of a record that no longer exists.
+            if (owner) {
+              return { row: owner, created: false, duplicate: true } as const;
+            }
+            await tx.query(
+              "UPDATE replay_keys SET request_id = $2, row_target = $3 WHERE replay_key = $1",
+              [replayKey, requestId, input.target ?? target],
+            );
+          }
+        }
+
         const { resolvedTarget } = await this.insertRow(tx, input, target);
         const inserted = await tx.query<StatusRow>(
           `INSERT INTO request_status
@@ -881,32 +919,37 @@ export class DatabaseStorage<
             replayKey ?? null,
           ],
         );
-        if (replayKey !== undefined) {
-          // The key points at the request that FIRST claimed it; a later
-          // claimant must not steal it, or the original request's dedup record
-          // would answer for someone else's payment.
-          await tx.query(
-            `INSERT INTO replay_keys (replay_key, request_id, row_target)
-             VALUES ($1, $2, $3)
-             ON CONFLICT (replay_key) DO NOTHING`,
-            [replayKey, requestId, resolvedTarget],
-          );
+        if (inserted.length > 0) {
+          return { row: inserted[0], created: true, duplicate: false } as const;
         }
-        if (inserted.length > 0) return { row: inserted[0], created: true };
         const [existing] = await tx.query<StatusRow>(
           "SELECT * FROM request_status WHERE request_id = $1",
           [requestId],
         );
-        return { row: existing, created: false };
+        return { row: existing, created: false, duplicate: false } as const;
       });
 
-      if (!created) {
+      const record = toStatusRecord(outcome.row);
+      if (outcome.duplicate) {
+        console.log(
+          `[Storage] Replay key already claimed by request ` +
+            `${record.requestId.substring(0, 12)}… (state=${record.state}); ` +
+            `nothing queued for the resubmission.`,
+        );
+        return {
+          requestId: record.requestId,
+          created: false,
+          record,
+          duplicate: true,
+        };
+      }
+      if (!outcome.created) {
         console.log(
           `[Storage] Request ${requestId.substring(0, 12)}… was already tracked ` +
-            `(state=${row.state}); keeping its existing record.`,
+            `(state=${record.state}); keeping its existing record.`,
         );
       }
-      return { requestId, created, record: toStatusRecord(row) };
+      return { requestId, created: outcome.created, record };
     } catch (error) {
       console.error("Error recording accepted request:", error);
       throw new Error(`Failed to record accepted request: ${error}`);
