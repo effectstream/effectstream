@@ -399,6 +399,24 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           inputsProcessed: Type.Number(),
           transactionHash: Type.Optional(Type.String()),
           rollup: Type.Optional(Type.Number()),
+          // Fields are ADDED here, never removed (spec FR-009): an existing
+          // client keeps reading exactly what it read before.
+          //
+          // `requestId` is not optional. It is a pure function of the payload,
+          // so it exists at every confirmation level and on every backend — the
+          // point of FR-001 is that a 200 is never an answer you cannot follow
+          // up on. Poll it at `GET /input-status/:requestId`.
+          requestId: Type.String({
+            description:
+              "Stable id for this request; poll GET /input-status/{requestId}.",
+          }),
+          // Present only when true. A client testing presence should not be
+          // told a duplicate check happened on a backend that cannot do one.
+          duplicate: Type.Optional(Type.Boolean({
+            description:
+              "This submission replayed a request already tracked; nothing new " +
+              "was queued and `requestId` is the ORIGINAL request's.",
+          })),
         }),
         // A rejected input. `errorCode` is the stable discriminator; `retryable`
         // says whether the identical input could succeed later.
@@ -528,6 +546,28 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
         },
       );
 
+      // A duplicate short-circuits the confirmation levels, because there is
+      // nothing left to wait FOR: the replay gate recognised this spend as one
+      // already tracked, queued nothing, and therefore has no receipt coming at
+      // any level (Phase 3 — `receipt` is null by construction). Rendering it
+      // through the `wait-receipt` branch would produce a 200 with no hash and
+      // no explanation, which reads exactly like a batch that never landed.
+      //
+      // It is still a SUCCESS: the caller's request is tracked, under the id in
+      // this body, and their retry cost them nothing. That is the idempotency
+      // FR-006b promises.
+      if (result.duplicate) {
+        return {
+          success: true,
+          message:
+            "Duplicate submission: this request is already tracked. Poll " +
+            "requestId for its outcome; nothing was queued or charged again.",
+          inputsProcessed: 1,
+          requestId: result.requestId,
+          duplicate: true,
+        };
+      }
+
       // Return appropriate response based on confirmation level
       switch (confirmationLevel) {
         case "no-wait":
@@ -535,6 +575,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
             success: true,
             message: "Input queued for batching",
             inputsProcessed: 1,
+            requestId: result.requestId,
           };
         case "wait-receipt":
           return {
@@ -542,6 +583,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
             message: "Input processed successfully",
             transactionHash: result.receipt?.hash,
             inputsProcessed: 1,
+            requestId: result.requestId,
           };
         case "wait-effectstream-processed":
           return {
@@ -550,12 +592,14 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
             transactionHash: result.receipt?.hash,
             rollup: result.receipt?.rollup,
             inputsProcessed: 1,
+            requestId: result.requestId,
           };
         default:
           return {
             success: true,
             message: "Input processed successfully",
             inputsProcessed: 1,
+            requestId: result.requestId,
           };
       }
     } catch (error) {
