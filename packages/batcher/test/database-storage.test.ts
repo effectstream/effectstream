@@ -21,7 +21,7 @@ import type { DefaultBatcherInput } from "../core/types.ts";
 
 const legacyRow = (
   overrides: Partial<DefaultBatcherInput> = {},
-): Record<string, unknown> => ({
+): DefaultBatcherInput => ({
   addressType: 5,
   address: "addr-1",
   input: "payload",
@@ -105,7 +105,7 @@ describe("legacy queue import", () => {
   test("a queue file that reappears next to a non-empty table is refused", async () => {
     await withDir(async ({ queueFile, open }) => {
       const first = await open("product-a");
-      await first.addInput(legacyRow({ timestamp: "live" }) as DefaultBatcherInput, "product-a");
+      await first.addInput(legacyRow({ timestamp: "live" }), "product-a");
 
       // Something dropped an old queue file back into the data directory.
       seedQueueFile(queueFile, [legacyRow({ timestamp: "stale" })]);

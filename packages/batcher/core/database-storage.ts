@@ -70,7 +70,14 @@ class PostgresDriver implements SqlDriver {
 
   static async open(connectionString: string): Promise<PostgresDriver> {
     // Imported lazily so a default (PgLite) deployment never loads the driver.
-    const pg: any = await import("pg");
+    //
+    // The specifier goes through a variable deliberately: `pg` ships no type
+    // declarations and this repo does not carry `@types/pg`, so a literal
+    // import makes the type checker demand one for every consumer — to describe
+    // a module that only the opt-in path ever loads. The shape actually used is
+    // one constructor and three methods, checked at the call sites below.
+    const specifier = "pg";
+    const pg: any = await import(specifier);
     const Pool = pg.Pool ?? pg.default?.Pool;
     if (!Pool) {
       throw new Error(

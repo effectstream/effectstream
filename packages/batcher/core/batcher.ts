@@ -17,7 +17,7 @@ import {
   validatePreInit,
 } from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
-import { BatcherFileStorage } from "./mod.ts";
+import { DatabaseStorage } from "./storage.ts";
 import { BatchProcessor } from "./batch-processor.ts";
 import { InputValidationError } from "./errors.ts";
 import {
@@ -148,7 +148,20 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Create a new Batcher with type-safe configuration
    *
    * @param config - Type-safe configuration with unified batching criteria
-   * @param storage - The storage system for persisting inputs (default: file storage)
+   * @param storage - The storage system for persisting inputs.
+   *
+   * Defaults to `DatabaseStorage` over an embedded PgLite database in
+   * `./batcher-data`. It replaced `FileStorage` as the default because request
+   * tracking needs the queue, each request's status and its replay key to be
+   * written together or not at all, and separate files cannot be. Zero-config
+   * is preserved: the database is embedded, so there is still nothing to
+   * install and nothing to configure.
+   *
+   * BREAKING for anyone relying on the default: an existing
+   * `./batcher-data/pending-inputs.jsonl` is imported on first `init()` and
+   * renamed to `.imported`, and the queue afterwards lives in the database.
+   * Pass `new FileStorage(dir)` explicitly to keep the old backend — it is
+   * still exported and still fully supported for the queue.
    *
    * Runtime validation ensures:
    * - At least one adapter is provided
@@ -165,7 +178,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       T,
       Record<string, BlockchainAdapter<any>>
     >,
-    private readonly storage: BatcherStorage<T> = new BatcherFileStorage<T>(
+    private readonly storage: BatcherStorage<T> = new DatabaseStorage<T>(
       "./batcher-data",
     ),
   ) {
@@ -1297,6 +1310,15 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       } catch (error) {
         console.error(`Error closing adapter for target ${target}:`, error);
       }
+    }
+
+    // The storage backend may hold a database handle. A file-backed queue has
+    // nothing to release and does not implement this; a database one outlives
+    // the batcher that owns it if nobody asks it to stop.
+    try {
+      await this.storage.close?.();
+    } catch (error) {
+      console.error("Error closing storage:", error);
     }
   }
 
