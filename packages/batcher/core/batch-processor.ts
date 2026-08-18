@@ -140,11 +140,18 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     state: RequestState,
     detail?: RequestTransitionDetail,
   ): Promise<void> {
-    const record = this.batcher.storage.recordTransition;
-    if (typeof record !== "function") return; // queue-only backend
+    // Call THROUGH the storage object, never through a detached reference:
+    // `DatabaseStorage.recordTransition` reaches for `this.db`, so a bare
+    // `const record = storage.recordTransition; record(...)` throws on every
+    // single transition — and does it invisibly, because this method swallows
+    // its own failures by design. Every stub in the unit tests is an arrow
+    // function that ignores `this`, so nothing below the integration level can
+    // see the difference (test/processor-real-storage.test.ts exists for this).
+    const storage = this.batcher.storage;
+    if (typeof storage.recordTransition !== "function") return; // queue-only backend
     const requestId = computeRequestId(input, target);
     try {
-      const outcome = await record(requestId, state, detail);
+      const outcome = await storage.recordTransition(requestId, state, detail);
       if (!outcome.applied) {
         debugLog(
           `[BatchProcessor] Status transition → ${state} refused for request ` +
