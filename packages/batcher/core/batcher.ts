@@ -18,6 +18,7 @@ import {
 } from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
 import { DatabaseStorage } from "./storage.ts";
+import { buildRequestKey } from "./request-id.ts";
 import { BatchProcessor } from "./batch-processor.ts";
 import { InputValidationError } from "./errors.ts";
 import {
@@ -812,6 +813,15 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     return await cryptoManager.verifySignature(input.address, message, input.signature);
   }
 
+  /**
+   * Key under which a caller waits for its receipt.
+   *
+   * Same serialization as a storage row's identity and as the request id — see
+   * `request-id.ts`. It has to be: the caller registers under this key with the
+   * payload it submitted, and the processor looks it up with the row it read
+   * back out of storage. Two hand-written copies of that string is one edit
+   * away from a caller that waits forever.
+   */
   private getInputCallbackKey(input: T): string {
     const target = input.target || this.defaultTarget;
     if (!target) {
@@ -819,14 +829,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         "Cannot generate callback key: no target specified and no default target configured.",
       );
     }
-    return [
-      input.addressType,
-      target,
-      input.address,
-      input.timestamp,
-      input.signature ?? "",
-      input.input,
-    ].join("|");
+    return buildRequestKey(input, target);
   }
 
   async pollBatcher(): Promise<void> {

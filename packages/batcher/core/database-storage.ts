@@ -1,5 +1,6 @@
 import type { DefaultBatcherInput } from "./types.ts";
 import type { BatcherStorage } from "./storage.ts";
+import { buildRequestKey, requestIdFromKey } from "./request-id.ts";
 import { mkdirSync } from "node:fs";
 import { readFile, rename } from "node:fs/promises";
 import { isNotFoundError } from "@effectstream/utils/runtime";
@@ -157,14 +158,7 @@ const EMBEDDED_DB_SUBDIR = "pglite";
  * the raw payload it was handed.
  */
 function contentKeyOf(input: DefaultBatcherInput, target: string): string {
-  return [
-    input.addressType,
-    input.target ?? target,
-    input.address,
-    input.timestamp,
-    input.signature ?? "",
-    input.input,
-  ].join("|");
+  return buildRequestKey(input, target);
 }
 
 /** `$1, $2, …` for `count` values starting at `from`. */

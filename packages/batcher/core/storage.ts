@@ -1,4 +1,5 @@
 import type { DefaultBatcherInput } from "./types.ts";
+import { buildRequestKey } from "./request-id.ts";
 import { mkdirSync } from "node:fs";
 import { mkdir, readFile, writeFile, rm, rename } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -331,16 +332,13 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
    * reading it, which is the very collision this key exists to prevent. New
    * rows are always stamped, so the fallback stops applying once a pre-existing
    * queue has drained.
+   *
+   * The serialization itself lives in `request-id.ts`: the `Batcher`'s
+   * receipt-callback key and the request id are the same string, and three
+   * copies of a key that must agree byte-for-byte is a bug waiting to happen.
    */
   private createInputKey(input: T, target: string): string {
-    return [
-      input.addressType,
-      input.target ?? target,
-      input.address,
-      input.timestamp,
-      input.signature ?? "",
-      input.input,
-    ].join("|");
+    return buildRequestKey(input, target);
   }
 
   async getInputCountAndSize(): Promise<{ count: number; size: number }> {

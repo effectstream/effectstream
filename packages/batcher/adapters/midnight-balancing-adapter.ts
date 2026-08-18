@@ -1685,6 +1685,25 @@ export class MidnightBalancingAdapter
   // Concurrent capacity
   // -----------------------------------------------------------------------
 
+  /**
+   * In-flight reservation key — deliberately NOT the batcher's request key.
+   *
+   * `core/request-id.ts` owns the identity the queue, the receipt callbacks and
+   * the request id all share (`addressType|target|address|timestamp|signature|
+   * input`). This one is narrower on purpose and stays that way:
+   *
+   *  - it never leaves this adapter instance (`inFlightInputKeys` is a private
+   *    Set, dropped when the batch finishes), so it needs no cross-component
+   *    agreement;
+   *  - the adapter serves ONE target, so a target field would be a constant;
+   *  - being narrower is the safe direction for a "don't work on this twice"
+   *    reservation: it can only over-match, never under-match. Two submissions
+   *    identical but for the signature reserve as one, which is what we want
+   *    from a wallet that re-signed the same transaction.
+   *
+   * Widening it to the full request key would be a behaviour change (that pair
+   * would then be balanced twice), which is why it is not done here.
+   */
   private getInputKey(input: DefaultBatcherInput): string {
     return `${input.address}|${input.timestamp}|${input.input}`;
   }
