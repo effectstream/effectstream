@@ -207,7 +207,17 @@ describe("validation results can carry a status code", () => {
   const statusOf = async (result: unknown): Promise<number | string> => {
     try {
       await build(result).batchInput(
-        { address: "0xabc", addressType: 1, input: "x", timestamp: "1" } as DefaultBatcherInput,
+        // Fresh: the admission window rejects a stale signed timestamp with its
+        // own 400 BEFORE the adapter is consulted, which would make this test
+        // measure the freshness gate instead of the status code it is about.
+        // (The sibling "defaults to 400" case would then have passed for the
+        // wrong reason — same number, different gate.)
+        {
+          address: "0xabc",
+          addressType: 1,
+          input: "x",
+          timestamp: String(Date.now()),
+        } as DefaultBatcherInput,
       );
       return "no-throw";
     } catch (e) {

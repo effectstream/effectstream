@@ -21,6 +21,7 @@ import { DatabaseStorage } from "./storage.ts";
 import { isTrackingStorage } from "./storage.ts";
 import { buildRequestKey, computeRequestId } from "./request-id.ts";
 import { resolveReplayKey } from "./replay-key.ts";
+import { assertInputIsFresh } from "./input-freshness.ts";
 import { BatchProcessor } from "./batch-processor.ts";
 import { InputValidationError } from "./errors.ts";
 import {
@@ -635,6 +636,23 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     if (!adapter) {
       throw new InputValidationError(`Adapter for target ${target} not found. Available targets: ${Object.keys(this.adapters).join(", ")}`, 404);
     }
+
+    // 0. Freshness window (spec FR-011).
+    //
+    // First, because it is the cheapest check there is — a string read and a
+    // subtraction — and it stands in front of the most expensive thing an
+    // unauthenticated caller can make us do (signature verification, and behind
+    // it a full transaction deserialization). The pre-auth rate-limit charge
+    // has already happened server-side; this is the first check on the payload
+    // itself.
+    //
+    // It is also what gives the replay gate a floor: a signature we would still
+    // accept must be one whose record we would still have. See
+    // `input-freshness.ts` and the `statusRetentionTtlMs >= 4x` boot check.
+    assertInputIsFresh(
+      input.timestamp,
+      this.config.maxInputAgeMs ?? DEFAULT_CONFIG_VALUES.maxInputAgeMs,
+    );
 
     // 1. Signature Validation (Pre-Queue, Adapter-Driven)
     let verifiedSignature: boolean;

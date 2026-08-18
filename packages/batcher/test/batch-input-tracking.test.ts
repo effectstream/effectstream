@@ -25,6 +25,11 @@ import { DatabaseStorage, FileStorage } from "../core/storage.ts";
 import { computeRequestId } from "../core/request-id.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
 
+// Fresh: the admission window (spec FR-011) refuses a signed timestamp older
+// than `maxInputAgeMs`, so a fixture pinned to a fixed instant would fail for
+// a reason it is not about. Read once, so ids stay stable within a run.
+const FRESH = String(Date.now());
+
 const TARGET = "product-a";
 
 const input = (
@@ -33,7 +38,7 @@ const input = (
   addressType: 5,
   address: "addr-1",
   input: JSON.stringify({ tx: "aa".repeat(8) }),
-  timestamp: "1754350000000",
+  timestamp: FRESH,
   signature: "sig-1",
   target: TARGET,
   ...overrides,

@@ -3,6 +3,11 @@ import { Batcher, InputValidationError } from "./batcher.ts";
 import type { BatcherStorage } from "./storage.ts";
 import type { DefaultBatcherInput } from "./types.ts";
 
+// Fresh: the admission window (spec FR-011) refuses a signed timestamp older
+// than `maxInputAgeMs`, so a fixture pinned to a fixed instant would fail for
+// a reason it is not about. Read once, so ids stay stable within a run.
+const FRESH = String(Date.now());
+
 class MemoryStorage implements BatcherStorage<DefaultBatcherInput> {
   readonly inputs: DefaultBatcherInput[] = [];
 
@@ -31,7 +36,7 @@ const input: DefaultBatcherInput = {
   addressType: 0,
   input: "payload",
   signature: "signature",
-  timestamp: "1",
+  timestamp: FRESH,
   target: "test",
 };
 

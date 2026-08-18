@@ -31,13 +31,26 @@ import type { DefaultBatcherInput } from "../core/types.ts";
 const TARGET = "product-a";
 const OTHER = "product-b";
 
+// Fresh, and read from the clock ONCE.
+//
+// The admission window refuses a stale signed timestamp, so these fixtures
+// cannot be pinned to a fixed instant any more. But the request id is a hash of
+// the payload INCLUDING this string, so calling `Date.now()` per input would
+// make two supposedly byte-identical submissions two different requests a
+// millisecond apart — and every dedup assertion in this file would decay into a
+// coin flip. One read, reused.
+const NOW = Date.now();
+const FRESH = String(NOW);
+const FRESH_A = String(NOW - 1_000);
+const FRESH_B = String(NOW - 2_000);
+
 const input = (
   overrides: Partial<DefaultBatcherInput> = {},
 ): DefaultBatcherInput => ({
   addressType: 5,
   address: "addr-1",
   input: JSON.stringify({ tx: "aa".repeat(8) }),
-  timestamp: "1754350000000",
+  timestamp: FRESH,
   signature: "0xsignature-1",
   target: TARGET,
   ...overrides,
@@ -231,7 +244,7 @@ describe("the replay gate at the accept path", () => {
       // would break every custom adapter written before the hook existed.
       const payload = input({ signature: undefined });
       const a = await batcher.batchInput(payload, "no-wait");
-      const b = await batcher.batchInput({ ...payload, timestamp: "2" }, "no-wait");
+      const b = await batcher.batchInput({ ...payload, timestamp: FRESH_A }, "no-wait");
 
       expect(a.duplicate).toBeFalsy();
       expect(b.duplicate).toBeFalsy();
@@ -256,8 +269,8 @@ describe("the replay gate at the accept path", () => {
     await withBatcher(async ({ batcher, storage }) => {
       // Two payloads that share nothing the core could see, which the adapter
       // says are the same spend.
-      const a = input({ timestamp: "1", signature: "0xsig-a" });
-      const b = input({ timestamp: "2", signature: "0xsig-b" });
+      const a = input({ timestamp: FRESH_A, signature: "0xsig-a" });
+      const b = input({ timestamp: FRESH_B, signature: "0xsig-b" });
 
       const first = await batcher.batchInput(a, "no-wait");
       const second = await batcher.batchInput(b, "no-wait");
