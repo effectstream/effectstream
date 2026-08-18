@@ -340,14 +340,47 @@ describe("the replay gate without a tracking backend", () => {
   });
 });
 
-describe("the atomic claim in the storage layer", () => {
+// The claim is a race, and PgLite is single-connection: it can show the
+// statements are right but not that they hold under a real server's
+// concurrency. So the storage half also runs against Postgres when one is
+// pointed at it — the SAME statements, held to the same behaviour.
+//   docker run --rm -e POSTGRES_PASSWORD=pw -p <port>:5432 postgres:16-alpine
+//   BATCHER_TEST_POSTGRES_URL=postgres://postgres:pw@127.0.0.1:<port>/postgres \
+//     bun test packages/batcher/test/dedup-gate.test.ts
+const POSTGRES_URL = process.env.BATCHER_TEST_POSTGRES_URL;
+const STORAGE_BACKENDS: {
+  name: string;
+  make: (dir: string) => DatabaseStorage;
+  reset?: boolean;
+}[] = [
+  { name: "DatabaseStorage", make: (dir) => new DatabaseStorage({ dataDirectory: dir }) },
+];
+if (POSTGRES_URL) {
+  STORAGE_BACKENDS.push({
+    name: "DatabaseStorage(postgres)",
+    make: (dir) =>
+      new DatabaseStorage({ dataDirectory: dir, connectionString: POSTGRES_URL }),
+    reset: true,
+  });
+}
+
+for (const backend of STORAGE_BACKENDS) {
+  describe(`the atomic claim in the storage layer [${backend.name}]`, () => {
   const withStorage = async (
     fn: (storage: DatabaseStorage) => Promise<void>,
   ): Promise<void> => {
     const dir = mkdtempSync(path.join(tmpdir(), "batcher-dedup-storage-"));
-    const storage = new DatabaseStorage({ dataDirectory: dir });
+    const storage = backend.make(dir);
     try {
       await storage.init(TARGET);
+      if (backend.reset) {
+        // One server serves every case, so each case starts from empty.
+        await (storage as unknown as {
+          db: { query(sql: string, params?: unknown[]): Promise<unknown[]> };
+        }).db.query(
+          "TRUNCATE pending_inputs, request_status, replay_keys RESTART IDENTITY",
+        );
+      }
       await fn(storage);
     } finally {
       await storage.close().catch(() => {});
@@ -432,4 +465,27 @@ describe("the atomic claim in the storage layer", () => {
       expect((await storage.getAllInputs()).length).toBe(2);
     });
   });
-});
+
+  test("simultaneous claims on one key leave exactly one owner", async () => {
+    await withStorage(async (storage) => {
+      // Eight independent acceptances, all claiming the same spend at once.
+      // On a real server these are eight concurrent transactions racing for
+      // one primary key; exactly one may write a row.
+      const payloads = Array.from({ length: 8 }, (_, i) =>
+        input({ timestamp: String(1_700_000_000_000 + i) }));
+
+      const outcomes = await Promise.all(
+        payloads.map((p) =>
+          storage.recordAccepted(computeRequestId(p, TARGET), p, TARGET, "one-spend")
+        ),
+      );
+
+      expect((await storage.getAllInputs()).length).toBe(1);
+      expect(outcomes.filter((o) => o.duplicate === true).length).toBe(7);
+      // …and every loser is told about the SAME winner.
+      const owner = (await storage.findByReplayKey("one-spend"))!.requestId;
+      expect(new Set(outcomes.map((o) => o.requestId))).toEqual(new Set([owner]));
+    });
+  });
+  });
+}
