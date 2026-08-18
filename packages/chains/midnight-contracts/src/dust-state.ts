@@ -196,6 +196,101 @@ function isMissingFile(e: unknown): boolean {
   return (e as { code?: string } | null)?.code === "ENOENT";
 }
 
+/** The exact shape {@link saveDustState} gives its temp file, and only that. */
+const TMP_SUFFIX_PATTERN = /^\.(\d+)\.tmp$/;
+
+/**
+ * Is this pid running? `EPERM` means the process exists and belongs to someone
+ * else — very much alive — so only `ESRCH` counts as gone.
+ */
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as { code?: string }).code === "EPERM";
+  }
+}
+
+/**
+ * Delete `<snapshot>.<pid>.tmp` siblings left behind by processes that died
+ * mid-save, and report what went.
+ *
+ * `saveDustState`'s `catch` block already unlinks the temp file when a *write*
+ * fails. It cannot help when the process is killed: `SIGKILL` runs no catch
+ * block, and the preprod kill matrix measured **8 of 14 `kill -9`s leaking a
+ * full 5.1 MB temp file** (sweep brief §2 step 4). A crash-looping batcher
+ * therefore leaks a whole snapshot per restart, unbounded. Phase 1 predicted
+ * this from code review but could not observe it at a 13.7 KB payload, where
+ * the write is over too fast to be caught.
+ *
+ * Two files are deliberately never swept:
+ *
+ * - **Anything owned by a live pid.** That temp file is that process's
+ *   in-flight write, and removing it makes its `rename` fail — trading an
+ *   unbounded leak for a lost checkpoint is not an improvement.
+ * - **Anything owned by THIS pid.** It is either the write currently in
+ *   flight, or the residue of one whose `catch` block already tried; deleting
+ *   our own active temp file would be self-inflicted.
+ *
+ * A dead pid that has since been *reused* by an unrelated process makes us skip
+ * a file we could have removed. That is the safe direction: the leak survives
+ * one more cycle, nobody's write is destroyed, and the next sweep sees a
+ * different pid table.
+ *
+ * Scoped to siblings of this wallet's snapshot: every wallet sweeps its own on
+ * save and on load, so a shared state directory is covered without one wallet
+ * reaching into another's files.
+ */
+export function sweepStaleDustStateTmpFiles(
+  baseDir: string,
+  networkId: string,
+  seed: string,
+): string[] {
+  if (isUndeployedNetwork(networkId)) return [];
+  const filePath = getDustStatePath(baseDir, networkId, seed);
+  const dirPath = path.dirname(filePath);
+  const base = path.basename(filePath);
+
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(dirPath);
+  } catch {
+    // No directory yet, or unreadable. Nothing to sweep either way.
+    return [];
+  }
+
+  const removed: string[] = [];
+  for (const entry of entries) {
+    if (!entry.startsWith(`${base}.`)) continue;
+    const match = TMP_SUFFIX_PATTERN.exec(entry.slice(base.length));
+    if (!match) continue;
+    const pid = Number(match[1]);
+    // `process.kill(0, ...)` signals the entire process group, so a
+    // non-positive "pid" must never reach the liveness check. Nothing we write
+    // can produce one; a file that claims otherwise is not ours to delete.
+    if (!Number.isSafeInteger(pid) || pid <= 0) continue;
+    if (pid === process.pid) continue;
+    if (isProcessAlive(pid)) continue;
+
+    const orphanPath = path.join(dirPath, entry);
+    try {
+      fs.unlinkSync(orphanPath);
+      removed.push(orphanPath);
+    } catch {
+      // Raced with the owner's own cleanup, or we lack permission. Either way
+      // the next save or load tries again.
+    }
+  }
+  if (removed.length > 0) {
+    log.info(
+      `Swept ${removed.length} stale dust-state temp file(s) left by killed ` +
+        `processes: ${removed.join(", ")}`,
+    );
+  }
+  return removed;
+}
+
 /**
  * Persist the directory entry created by a rename. Best-effort: opening a
  * directory for fsync is a POSIX behaviour that not every platform or
@@ -243,6 +338,11 @@ export function saveDustState(
 ): string | null {
   if (isUndeployedNetwork(networkId)) return null;
   const filePath = getDustStatePath(baseDir, networkId, seed);
+
+  // Before the validity guards, not after: a batcher that crash-loops while
+  // its snapshot is being rejected (offset regression, network mismatch) still
+  // returns here every checkpoint, and that is exactly the process that leaks.
+  sweepStaleDustStateTmpFiles(baseDir, networkId, seed);
 
   const incoming = readDustSnapshotFacts(serializedState);
   if (!incoming) {
@@ -337,6 +437,13 @@ export function loadDustState(
 ): string | null {
   if (isUndeployedNetwork(networkId)) return null;
   const filePath = getDustStatePath(baseDir, networkId, seed);
+
+  // Startup is the one moment we know the previous run's writer is gone, so it
+  // is where a leak from a killed process is cheapest to clear — and it runs
+  // even when there is no snapshot to load, which is the crash-loop case that
+  // never reached a successful save.
+  sweepStaleDustStateTmpFiles(baseDir, networkId, seed);
+
   let raw: string;
   try {
     raw = fs.readFileSync(filePath, "utf-8");
