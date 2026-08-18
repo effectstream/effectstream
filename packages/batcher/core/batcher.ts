@@ -1,7 +1,7 @@
 import { CryptoManager } from "@effectstream/crypto";
 import { call, lift, resource, sleep, spawn, suspend } from "effection";
 import type { Operation } from "effection";
-import type { BatcherStorage } from "./storage.ts";
+import type { BatcherStorage, RequestStatusRecord } from "./storage.ts";
 import type { DefaultBatcherInput } from "./types.ts";
 import type {
   BlockchainAdapter,
@@ -1435,6 +1435,33 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
   getAdapter(target: string): BlockchainAdapter<any> | undefined {
     return this.adapters[target];
+  }
+
+  /**
+   * Can this batcher answer "what happened to request X"?
+   *
+   * False on a queue-only backend (`FileStorage`), which still queues, batches
+   * and retries exactly as before but keeps no status record. The HTTP layer
+   * asks this to decide whether to advertise polling at all: a registered
+   * endpoint that always 404s would be worse than no endpoint, because a 404
+   * is the same answer it gives for an id that genuinely expired.
+   */
+  isRequestTrackingEnabled(): boolean {
+    return isTrackingStorage(this.storage);
+  }
+
+  /**
+   * The tracked status of a request, or undefined if this batcher has no record
+   * of it — never accepted, or accepted and since aged out of retention.
+   *
+   * Returns undefined rather than throwing on a queue-only backend, so a caller
+   * does not have to branch on the storage type to ask a question.
+   */
+  async getRequestStatus(
+    requestId: string,
+  ): Promise<RequestStatusRecord | undefined> {
+    if (!isTrackingStorage(this.storage)) return undefined;
+    return await this.storage.getStatus(requestId);
   }
 
   /**

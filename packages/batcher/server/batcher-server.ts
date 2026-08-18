@@ -634,6 +634,150 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     }
   });
 
+  // Poll a request by id (spec FR-003).
+  //
+  // Registered only when the backend can actually answer. A route that always
+  // 404s would be strictly worse than no route: 404 is also the honest answer
+  // for an id that expired, so a client could never tell "your id aged out"
+  // from "this deployment does not track anything".
+  if (batcher.isRequestTrackingEnabled()) {
+    server.get("/input-status/:requestId", {
+      schema: {
+        tags: ["batcher"],
+        params: Type.Object({
+          requestId: Type.String({
+            description: "The id returned in the /send-input 200 body.",
+          }),
+        }),
+        response: {
+          200: Type.Object({
+            // The three answers the user asked for. Everything the store knows
+            // collapses onto these; `subState` carries the detail.
+            status: Type.Union([
+              Type.Literal("complete"),
+              Type.Literal("incomplete"),
+              Type.Literal("failed"),
+            ]),
+            subState: Type.String({
+              description:
+                "Lifecycle state: queued | batching | submitted | confirmed | failed.",
+            }),
+            transactionHash: Type.Optional(Type.String()),
+            blockNumber: Type.Optional(Type.Number()),
+            errorCode: Type.Optional(Type.String()),
+            message: Type.Optional(Type.String()),
+            retryCount: Type.Number(),
+            acceptedAt: Type.String({ description: "ISO-8601." }),
+          }),
+          400: Type.Object({
+            success: Type.Boolean(),
+            error: Type.String(),
+            message: Type.String(),
+            reason: Type.String(),
+          }),
+          404: Type.Object({
+            success: Type.Boolean(),
+            error: Type.String(),
+            message: Type.String(),
+            reason: Type.String(),
+          }),
+          429: Type.Object({
+            success: Type.Boolean(),
+            error: Type.String(),
+            message: Type.String(),
+            retryAfter: Type.Optional(Type.Number()),
+          }),
+        },
+      },
+    }, async (request: FastifyRequest, reply) => {
+      // Same pre-auth IP bucket as /send-input (spec FR-008). The read is cheap,
+      // but "cheap" times "unauthenticated and unbounded" is an amplification
+      // vector, and it is the one budget a scraper would otherwise skip
+      // entirely by never submitting anything.
+      const preAuthRateLimitResult = await rateLimiter.checkBuckets(
+        buildPreAuthRateLimitBuckets(request.ip, preAuthMaxRequests),
+      );
+      if (!preAuthRateLimitResult.allowed) {
+        const retryAfter = preAuthRateLimitResult.retryAfterSeconds ?? 60;
+        reply.header("Retry-After", String(retryAfter));
+        return reply.status(429).send({
+          success: false,
+          error: "Rate limit exceeded",
+          message:
+            `Too many requests. Please retry after ${retryAfter} seconds.`,
+          retryAfter,
+        });
+      }
+
+      const { requestId } = request.params as { requestId: string };
+
+      // Refuse a shape that cannot be an id before spending a database round
+      // trip on it. It also gives the caller the right diagnosis: "your id is
+      // malformed" and "we have no record of that request" are very different
+      // bugs, and answering both with 404 would conflate them.
+      if (!/^[0-9a-f]{64}$/.test(requestId)) {
+        return reply.status(400).send({
+          success: false,
+          error: "Invalid request id",
+          message:
+            "A requestId is 64 lowercase hexadecimal characters, as returned " +
+            "in the /send-input response.",
+          reason: "malformed-id",
+        });
+      }
+
+      const record = await batcher.getRequestStatus(requestId);
+      if (!record) {
+        // Deliberately ONE reason, not the unknown-vs-expired split the spec
+        // permits: retention deletes the status record and its replay key
+        // together (Phase 3), so nothing survives a prune to distinguish an
+        // aged-out id from one we never saw. Inventing the distinction would
+        // mean keeping tombstones forever — unbounded growth, to answer a
+        // question with the same remedy either way (resubmit).
+        return reply.status(404).send({
+          success: false,
+          error: "Unknown request",
+          message:
+            "No record for this requestId: it was never accepted here, or it " +
+            "has aged out of the status retention window.",
+          reason: "unknown-or-expired",
+        });
+      }
+
+      return {
+        status: record.state === "confirmed"
+          ? "complete" as const
+          : record.state === "failed"
+          ? "failed" as const
+          : "incomplete" as const,
+        subState: record.state,
+        ...(record.transactionHash !== undefined
+          ? { transactionHash: record.transactionHash }
+          : {}),
+        // Block numbers are bigint in the store and cannot be JSON; a missed
+        // conversion is a 500 on a request that succeeded.
+        ...(record.blockNumber !== undefined && record.blockNumber !== null
+          ? { blockNumber: Number(record.blockNumber) }
+          : {}),
+        ...(record.errorCode !== undefined ? { errorCode: record.errorCode } : {}),
+        ...(record.message !== undefined ? { message: record.message } : {}),
+        retryCount: record.retryCount,
+        acceptedAt: record.acceptedAt.toISOString(),
+      };
+    });
+  } else {
+    // Said once, at startup, naming the remedy. The alternative — discovering
+    // it one 404 at a time — is how an operator concludes the feature is broken
+    // rather than switched off.
+    console.warn(
+      `⚠️ [Batcher] Request polling is DISABLED: GET /input-status/:requestId ` +
+        `is not registered because this batcher runs on a queue-only storage ` +
+        `backend (FileStorage). Inputs are still queued, batched and retried, ` +
+        `and /send-input still returns a requestId — but no status is kept, so ` +
+        `there is nothing to poll. Use the default DatabaseStorage to enable it.`,
+    );
+  }
+
   if (ENV.ENABLE_DEV_AND_DEBUG_ENDPOINTS) {
     // Force process current batch (useful for testing/debugging)
     server.post("/force-batch", {
