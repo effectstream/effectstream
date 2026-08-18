@@ -6,8 +6,27 @@ import type {
   BlockchainTransactionReceipt,
 } from "../adapters/adapter.ts";
 import type { DefaultBatcherInput } from "./types.ts";
+import type {
+  RequestState,
+  RequestTransitionDetail,
+  TransitionOutcome,
+} from "./storage.ts";
+import { computeRequestId } from "./request-id.ts";
 import { InputValidationError } from "./errors.ts";
 import * as fs from "node:fs";
+
+/**
+ * The input's bounded retry budget ran out and its row was deleted.
+ *
+ * Stable because it is the one terminal state a caller cannot see coming: the
+ * transaction never reached the chain, so there is no hash to look up and
+ * nothing to inspect. Clients branch on this rather than on the message, whose
+ * text carries the adapter's last diagnostic.
+ */
+export const RETRIES_EXHAUSTED = "RETRIES_EXHAUSTED";
+
+/** The transaction was mined and the chain reported it failed (`status: 0`). */
+export const ONCHAIN_FAILED = "ONCHAIN_FAILED";
 
 // Custom logger for debugging
 // File logging is opt-in: appendFileSync blocks the event loop on every line,
@@ -50,11 +69,22 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       emitStateTransition: (prefix: string, payload: any) => Promise<void>;
       storage: {
         removeProcessedInputs: (inputs: T[], target: string) => Promise<void>;
+        /** Returns the rows it DROPPED at the retry limit — see `chargeRetries`. */
         incrementRetryCount: (
           inputs: T[],
           target: string,
           maxRetries: number,
-        ) => Promise<void>;
+        ) => Promise<T[]>;
+        /**
+         * Optional: present only on a tracking backend. Everything the
+         * processor writes through it is feature-detected, so a queue-only
+         * `FileStorage` behaves exactly as it did before request tracking.
+         */
+        recordTransition?: (
+          requestId: string,
+          state: RequestState,
+          detail?: RequestTransitionDetail,
+        ) => Promise<TransitionOutcome>;
       };
       submissionCallbacks: Map<
         string,
@@ -88,6 +118,172 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       .test(message);
   }
 
+  // ─────────────────────────── request tracking ────────────────────────────
+  //
+  // Everything below is OBSERVATION. The processor's judgements — what to
+  // remove, what to charge, whom to reject — are made exactly as they were
+  // before; these methods only write down what was decided. So each one
+  // swallows its own failures: a status store that cannot be written must not
+  // become a reason a transaction does not reach the chain.
+
+  /**
+   * Move one request forward in the status store, if there is one.
+   *
+   * A REFUSED transition is normal operation, not a fault: a batch that
+   * confirmed on chain and died before its rows were removed is re-picked on
+   * restart, and every transition it then writes is correctly refused by the
+   * append-only guard. That is the guard working, so it is logged and ignored.
+   */
+  private async transition(
+    input: T,
+    target: string,
+    state: RequestState,
+    detail?: RequestTransitionDetail,
+  ): Promise<void> {
+    const record = this.batcher.storage.recordTransition;
+    if (typeof record !== "function") return; // queue-only backend
+    const requestId = computeRequestId(input, target);
+    try {
+      const outcome = await record(requestId, state, detail);
+      if (!outcome.applied) {
+        debugLog(
+          `[BatchProcessor] Status transition → ${state} refused for request ` +
+            `${requestId.substring(0, 12)}… (${outcome.refused}); the record ` +
+            `already knows better.`,
+        );
+      }
+    } catch (error) {
+      console.warn(
+        `[BatchProcessor] Could not record ${state} for request ` +
+          `${requestId.substring(0, 12)}…: ${error}`,
+      );
+    }
+  }
+
+  /** Record the same transition for a whole set of inputs. */
+  private async transitionAll(
+    inputs: T[],
+    target: string,
+    state: RequestState,
+    detail?: (input: T) => RequestTransitionDetail | undefined,
+  ): Promise<void> {
+    for (const input of inputs) {
+      await this.transition(input, target, state, detail?.(input));
+    }
+  }
+
+  /** Announce an ending. Observability only; nothing may depend on delivery. */
+  private async emitTerminal(
+    input: T,
+    target: string,
+    state: "confirmed" | "failed",
+    extra: { transactionHash?: string; errorCode?: string } = {},
+  ): Promise<void> {
+    try {
+      await this.batcher.emitStateTransition("request:terminal", {
+        requestId: computeRequestId(input, target),
+        target,
+        state,
+        ...extra,
+        time: Date.now(),
+      });
+    } catch {
+      // An event listener's failure is never the request's problem.
+    }
+  }
+
+  /**
+   * Charge a retry to each input, and answer for whatever storage dropped.
+   *
+   * The silent-drop fix (spec FR-004) lives here rather than in storage: the
+   * storage layer must never touch callbacks — it has no business knowing that
+   * an HTTP request is open — but it is the only place that knows a row hit its
+   * limit. So it reports, and this decides what that means: a terminal
+   * `failed/RETRIES_EXHAUSTED` record for pollers, and a prompt rejection for
+   * whoever is still holding the connection.
+   *
+   * `reasons` maps a request id to the adapter's last diagnostic. Keyed by id
+   * and not by object identity on purpose: the dropped rows come back out of
+   * storage as fresh objects, so nothing the adapter returned is reference-
+   * equal to them any more.
+   */
+  private async chargeRetries(
+    inputs: T[],
+    target: string,
+    maxRetries: number,
+    reasons?: Map<string, string>,
+  ): Promise<void> {
+    let reported: T[] | undefined;
+    try {
+      reported = await this.batcher.storage.incrementRetryCount(
+        inputs,
+        target,
+        maxRetries,
+      );
+    } catch (error) {
+      debugLog(`[BatchProcessor] Failed to increment retry counts: ${error}`);
+      return;
+    }
+    if (!Array.isArray(reported)) {
+      // A third-party backend still on the old `Promise<void>` contract. It
+      // behaves exactly as it always did — charge and drop — but cannot tell us
+      // what it dropped, so its callers keep hanging. Said out loud rather than
+      // crashing the batch loop on it.
+      console.warn(
+        `[BatchProcessor] Storage backend for target ${target} does not report ` +
+          `dropped inputs from incrementRetryCount(); callers waiting on a ` +
+          `retry-exhausted input will not be notified. Update the backend to ` +
+          `return the rows it dropped.`,
+      );
+      return;
+    }
+    const dropped = reported;
+    if (dropped.length === 0) return;
+
+    console.warn(
+      `🚫 [BatchProcessor] ${dropped.length} input(s) for target ${target} ` +
+        `exhausted their retry budget and were dropped; rejecting any waiting ` +
+        `caller and recording the terminal state.`,
+    );
+
+    for (const input of dropped) {
+      const retryCount = input.retryCount ?? maxRetries;
+      const diagnostic = reasons?.get(computeRequestId(input, target));
+      const message = `Input dropped after ${retryCount} failed submission ` +
+        `attempt(s) for target ${target}` +
+        (diagnostic ? `: ${diagnostic}` : ".");
+
+      await this.transition(input, target, "failed", {
+        errorCode: RETRIES_EXHAUSTED,
+        message,
+        retryCount,
+      });
+
+      // The callback key excludes `retryCount`, so the row storage handed back
+      // still finds the caller that submitted it.
+      const callbackKey = this.batcher.getCallbackKey(input);
+      const callbacks = this.batcher.submissionCallbacks.get(callbackKey);
+      if (callbacks) {
+        callbacks.reject(
+          new InputValidationError(
+            message,
+            500,
+            RETRIES_EXHAUSTED,
+            // Not retryable: the row is gone, and a resubmission of the same
+            // signed request is recognised as a duplicate by the replay gate.
+            false,
+          ),
+        );
+        clearTimeout(callbacks.timeoutId);
+        this.batcher.submissionCallbacks.delete(callbackKey);
+      }
+
+      await this.emitTerminal(input, target, "failed", {
+        errorCode: RETRIES_EXHAUSTED,
+      });
+    }
+  }
+
   async processBatchForTarget(
     adapter: BlockchainAdapter<any>,
     target: string,
@@ -105,6 +301,11 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     }
 
     const { selectedInputs, data } = batchResult; // data is 'unknown'
+
+    // Selected, not judged. `batching` is the one thing that is true of every
+    // input here whatever happens next, and it is what makes a poll during a
+    // long proof say something more useful than `queued`.
+    await this.transitionAll(selectedInputs as T[], target, "batching");
 
     await this.submitAndConfirmTransaction(
       adapter,
@@ -163,16 +364,24 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           this.batcher.setTargetCooldown(target, cooldownMs);
           throw error;
         }
-        // Input failure — increment retry counts; storage drops (with a
-        // warning) those that hit the configured limit.
+        // Input failure — increment retry counts; storage drops those that hit
+        // the configured limit and says which, so their callers are told.
         debugLog(
           `[BatchProcessor] submitBatch threw for target ${target}, incrementing retry counts for ${inputsSnapshot.length} inputs (maxRetries=${maxRetries})`,
         );
-        await this.batcher.storage
-          .incrementRetryCount(inputsSnapshot, target, maxRetries)
-          .catch((e) =>
-            debugLog(`[BatchProcessor] Failed to increment retry counts: ${e}`)
-          );
+        const thrownMessage = error instanceof Error
+          ? error.message
+          : String(error);
+        await this.chargeRetries(
+          inputsSnapshot,
+          target,
+          maxRetries,
+          new Map(
+            inputsSnapshot.map((
+              input,
+            ) => [computeRequestId(input, target), thrownMessage]),
+          ),
+        );
         throw error;
       }
       const outcome = normalizeBatchOutcome<T>(submitResult);
@@ -255,15 +464,16 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
               failed.map((failure) => failure.error).join("; ")
             }`,
         );
-        await this.batcher.storage
-          .incrementRetryCount(
-            failed.map((failure) => failure.input),
-            target,
-            maxRetries,
-          )
-          .catch((e) =>
-            debugLog(`[BatchProcessor] Failed to increment retry counts: ${e}`)
-          );
+        await this.chargeRetries(
+          failed.map((failure) => failure.input),
+          target,
+          maxRetries,
+          new Map(
+            failed.map((
+              failure,
+            ) => [computeRequestId(failure.input, target), failure.error]),
+          ),
+        );
       }
 
       const hash = outcome.hash;
@@ -317,19 +527,25 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
             debugLog(
               `[BatchProcessor] Incrementing retry count for ${failedInputs.length} failed inputs (maxRetries=${maxRetries})`,
             );
-            await this.batcher.storage
-              .incrementRetryCount(failedInputs, target, maxRetries)
-              .catch((e) =>
-                debugLog(
-                  `[BatchProcessor] Failed to increment retry counts: ${e}`,
-                )
-              );
+            // The legacy protocol says nothing about WHY an input was spliced
+            // out, so the exhaustion report carries no diagnostic here.
+            await this.chargeRetries(failedInputs, target, maxRetries);
           }
         }
       }
 
       debugLog(
         `[BatchProcessor] Submitting ${finalSelectedInputs.length} inputs for target ${target} with hash ${hash}`,
+      );
+
+      // Recorded before the receipt wait, which can take a minute: a poll in
+      // that window should say "submitted, here is the hash" rather than
+      // "batching", so the caller can watch the chain themselves.
+      await this.transitionAll(
+        finalSelectedInputs,
+        target,
+        "submitted",
+        () => ({ transactionHash: hash }),
       );
 
       // Wait for confirmation and EffectStream processing
@@ -401,6 +617,17 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     }
 
     for (const rejection of rejections) {
+      // The adapter's own verdict, recorded verbatim: a poller and a waiting
+      // caller must be told the same thing, and the errorCode is what a client
+      // is supposed to branch on.
+      await this.transition(rejection.input, target, "failed", {
+        errorCode: rejection.errorCode,
+        message: rejection.error,
+      });
+      await this.emitTerminal(rejection.input, target, "failed", {
+        errorCode: rejection.errorCode,
+      });
+
       const callbackKey = this.batcher.getCallbackKey(rejection.input);
       const callbacks = this.batcher.submissionCallbacks.get(callbackKey);
       if (!callbacks) continue;
@@ -440,6 +667,13 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       blockNumber: receipt.blockNumber,
       time: Date.now(),
     });
+
+    // Record the verdict BEFORE the rows go. Under kill -9 this ordering is
+    // the safe one: a `confirmed` record with a surviving row is repaired by
+    // the append-only guard when the row is re-picked, whereas removing first
+    // can leave a `submitted` record with no row behind it — an in-flight
+    // request nothing will ever resolve.
+    await this.recordChainOutcome(selectedInputs, target, receipt);
 
     // Remove processed inputs from storage after successful receipt
     debugLog(
@@ -511,12 +745,83 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     }
   }
 
+  /**
+   * Write down what the chain said about each input.
+   *
+   * Per-input hashes come from the same multi-hash split `resolveInputCallbacks`
+   * uses, so a poller and a waiting caller are told about the same transaction.
+   *
+   * The `status: 0` branch deliberately does NOT copy that method's extra
+   * `&& !isMultiHash` condition. `resolveInputCallbacks` hands the caller the
+   * raw receipt, so a caller who is resolved on a failed transaction can still
+   * read `status` and see it — nothing is claimed on their behalf. A status
+   * RECORD is a summarised verdict with nowhere to hide that nuance: writing
+   * `confirmed` for a transaction the chain marked failed would be a plain
+   * false statement, and this feature exists so that "complete" means it. (The
+   * `!isMultiHash` guard also makes the callback path treat a ONE-input batch
+   * as multi-hash — one hash, one input — so a single failed transaction
+   * resolves rather than rejects. Pre-existing; not changed here.)
+   */
+  private async recordChainOutcome(
+    selectedInputs: T[],
+    target: string,
+    receipt: BlockchainTransactionReceipt,
+  ): Promise<void> {
+    const { hashes, isMultiHash } = this.splitReceiptHashes(
+      selectedInputs,
+      receipt,
+    );
+
+    for (let i = 0; i < selectedInputs.length; i++) {
+      const input = selectedInputs[i];
+      const inputHash = isMultiHash ? hashes[i] : receipt.hash;
+
+      if (receipt.status === 0) {
+        const message = `Transaction failed on-chain: ${inputHash}`;
+        await this.transition(input, target, "failed", {
+          transactionHash: inputHash,
+          errorCode: ONCHAIN_FAILED,
+          message,
+        });
+        await this.emitTerminal(input, target, "failed", {
+          transactionHash: inputHash,
+          errorCode: ONCHAIN_FAILED,
+        });
+        continue;
+      }
+
+      await this.transition(input, target, "confirmed", {
+        transactionHash: inputHash,
+        blockNumber: receipt.blockNumber,
+      });
+      await this.emitTerminal(input, target, "confirmed", {
+        transactionHash: inputHash,
+      });
+    }
+  }
+
+  /**
+   * One transaction for the whole batch, or one per input?
+   *
+   * Adapters that submit per input report a comma-joined hash whose parts line
+   * up with `selectedInputs`. Any other count means the batch shares one hash.
+   */
+  private splitReceiptHashes(
+    selectedInputs: T[],
+    receipt: BlockchainTransactionReceipt,
+  ): { hashes: string[]; isMultiHash: boolean } {
+    const hashes = receipt.hash.split(",");
+    return { hashes, isMultiHash: hashes.length === selectedInputs.length };
+  }
+
   private resolveInputCallbacks(
     selectedInputs: T[],
     receipt: BlockchainTransactionReceipt,
   ): void {
-    const hashes = receipt.hash.split(",");
-    const isMultiHash = hashes.length === selectedInputs.length;
+    const { hashes, isMultiHash } = this.splitReceiptHashes(
+      selectedInputs,
+      receipt,
+    );
 
     for (let i = 0; i < selectedInputs.length; i++) {
       const input = selectedInputs[i];

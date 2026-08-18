@@ -56,6 +56,9 @@ function makeHarness(options: { removeError?: Error } = {}): Harness {
       },
       incrementRetryCount: async (inputs) => {
         retried.push(...inputs);
+        // Nothing hits its limit in these cases; exhaustion is covered in
+        // `batch-processor-status.test.ts`.
+        return [];
       },
     },
     submissionCallbacks: callbacks,
