@@ -36,7 +36,13 @@ class MemoryStorage implements BatcherStorage<DefaultBatcherInput> {
   async getInputsByTarget(): Promise<DefaultBatcherInput[]> {
     return [...this.inputs];
   }
-  async incrementRetryCount(): Promise<void> {}
+  // Returns the rows it dropped (none — this stub never drops). The
+  // interface changed when storage became responsible for REPORTING
+  // dropped inputs, which is what lets the processor reject a waiting
+  // caller instead of letting it hang to its own timeout.
+  async incrementRetryCount(): Promise<DefaultBatcherInput[]> {
+    return [];
+  }
   async clearAllInputs(): Promise<void> {
     this.inputs.length = 0;
   }
