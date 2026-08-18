@@ -107,8 +107,20 @@ export interface BatcherStorage<
   /**
    * Increment the retry count for the given inputs.
    * Inputs whose retry count reaches or exceeds maxRetries are removed from storage.
+   *
+   * @returns the rows that were DROPPED, each carrying the retry count that
+   * caused it. This is the silent-drop fix (spec FR-004): deleting a user's
+   * input used to be visible only as a `console.warn`, so a caller holding an
+   * open `wait-receipt` request hung until its own timeout for a request that
+   * no longer existed. Storage still does not touch callbacks — telling the
+   * waiting caller is the processor's job — but it cannot be done at all
+   * unless storage says what it dropped.
    */
-  incrementRetryCount(inputs: T[], target: string, maxRetries: number): Promise<void>;
+  incrementRetryCount(
+    inputs: T[],
+    target: string,
+    maxRetries: number,
+  ): Promise<T[]>;
 
   /**
    * Clear all inputs (useful for testing)
@@ -548,13 +560,14 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
     inputs: T[],
     target: string,
     maxRetries: number,
-  ): Promise<void> {
-    if (inputs.length === 0) return;
-    await this.mutex.run(async () => {
+  ): Promise<T[]> {
+    if (inputs.length === 0) return [];
+    return await this.mutex.run(async () => {
       try {
         const allInputs = await this.getAllInputs();
         const keySet = new Set(inputs.map((i) => this.createInputKey(i, target)));
         const updated: T[] = [];
+        const dropped: T[] = [];
         for (const input of allInputs) {
           const key = this.createInputKey(input, target);
           if (!keySet.has(key)) {
@@ -568,6 +581,9 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
               `[Storage] DROPPING input after ${newRetryCount} failed retries ` +
                 `(address=${input.address}, target=${target}): ${key.substring(0, 100)}...`,
             );
+            // Reported, not just logged: the caller waiting on this input can
+            // only be told it is gone if something tells the batcher first.
+            dropped.push({ ...input, retryCount: newRetryCount });
             continue; // drop it from storage
           }
           updated.push({ ...input, retryCount: newRetryCount });
@@ -576,6 +592,7 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
         await this.atomicWrite(
           content + (updated.length > 0 ? "\n" : ""),
         );
+        return dropped;
       } catch (error) {
         console.error("Error incrementing retry counts:", error);
         throw new Error(`Failed to increment retry counts: ${error}`);

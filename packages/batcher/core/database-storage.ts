@@ -713,12 +713,13 @@ export class DatabaseStorage<
     inputs: T[],
     target: string,
     maxRetries: number,
-  ): Promise<void> {
-    if (inputs.length === 0) return;
+  ): Promise<T[]> {
+    if (inputs.length === 0) return [];
     try {
       const keys = [
         ...new Set(inputs.map((input) => contentKeyOf(input, target))),
       ];
+      const dropped: T[] = [];
       await this.db.transaction(async (tx) => {
         const rows = await tx.query<
           { content_key: string; seq: string; retry_count: number; payload: string }
@@ -748,6 +749,9 @@ export class DatabaseStorage<
               "DELETE FROM pending_inputs WHERE content_key = $1 AND seq = $2",
               [row.content_key, row.seq],
             );
+            // Reported, not just logged: the caller waiting on this input can
+            // only be told it is gone if something tells the batcher first.
+            dropped.push({ ...parsed, retryCount: newRetryCount } as T);
             continue;
           }
           const parsed = JSON.parse(row.payload) as DefaultBatcherInput;
@@ -762,6 +766,7 @@ export class DatabaseStorage<
           );
         }
       });
+      return dropped;
     } catch (error) {
       console.error("Error incrementing retry counts:", error);
       throw new Error(`Failed to increment retry counts: ${error}`);

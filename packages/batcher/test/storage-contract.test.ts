@@ -324,10 +324,64 @@ for (const backend of BACKENDS) {
       });
     });
 
+    test("incrementRetryCount REPORTS what it dropped", async () => {
+      await withStorage(backend, async ({ storage }) => {
+        const doomed = input({ timestamp: "1", target: "product-a" });
+        const spared = input({ timestamp: "2", target: "product-a" });
+        await storage.addInput(doomed, "product-a");
+        await storage.addInput(spared, "product-a");
+
+        // Below the limit nothing goes, so nothing is reported.
+        expect(await storage.incrementRetryCount([doomed], "product-a", 2))
+          .toEqual([]);
+
+        // At the limit the row is deleted — and until now that deletion was
+        // observable only as a console.warn, which is why a caller waiting on
+        // this input hung until its own timeout. The caller is the batcher's
+        // problem to notify, but it cannot notify what it is never told.
+        const dropped = await storage.incrementRetryCount(
+          [doomed],
+          "product-a",
+          2,
+        );
+        expect(dropped.length).toBe(1);
+        expect(dropped[0].timestamp).toBe("1");
+        // Carrying the count that caused the drop, so the report can say how
+        // many attempts were spent.
+        expect(dropped[0].retryCount).toBe(2);
+        expect(dropped[0].target).toBe("product-a");
+        // …and it really is gone, not merely reported.
+        expect((await storage.getAllInputs()).map((r) => r.timestamp))
+          .toEqual(["2"]);
+      });
+    });
+
+    test("dropping duplicate rows reports every row, not every key", async () => {
+      await withStorage(backend, async ({ storage }) => {
+        const row = input({ target: "product-a" });
+        await storage.addInput(row, "product-a");
+        await storage.addInput(row, "product-a");
+
+        const dropped = await storage.incrementRetryCount([row], "product-a", 1);
+
+        // Two submissions were accepted, so two callers may be waiting.
+        expect(dropped.length).toBe(2);
+        expect(await storage.getAllInputs()).toEqual([]);
+      });
+    });
+
+    test("charging rows that are already gone reports no drops", async () => {
+      await withStorage(backend, async ({ storage }) => {
+        const gone = input({ timestamp: "1", target: "product-a" });
+        expect(await storage.incrementRetryCount([gone], "product-a", 1))
+          .toEqual([]);
+      });
+    });
+
     test("incrementRetryCount with no inputs is a no-op", async () => {
       await withStorage(backend, async ({ storage }) => {
         await storage.addInput(input({ target: "product-a" }), "product-a");
-        await storage.incrementRetryCount([], "product-a", 5);
+        expect(await storage.incrementRetryCount([], "product-a", 5)).toEqual([]);
         expect((await storage.getAllInputs()).length).toBe(1);
       });
     });
