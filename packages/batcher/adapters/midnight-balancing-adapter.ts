@@ -1058,6 +1058,59 @@ export async function waitForDustThenEnforceTtl(args: {
 // ---------------------------------------------------------------------------
 
 /**
+ * A latch that opens once every wallet has finished the startup work that
+ * blocks the event loop. Backs `whenServable()`; see
+ * `BlockchainAdapter.whenServable` for why the HTTP port waits on it.
+ *
+ * Extracted from the adapter so the semantics — all-of, idempotent, openable
+ * in bulk — can be tested without building wallets against a network.
+ */
+export interface ServableGate {
+  /** Resolves when the last wallet is marked. Never rejects. */
+  readonly promise: Promise<void>;
+  /** Mark one wallet past its blocking startup. Safe to call repeatedly. */
+  mark(index: number): void;
+  /** Open the gate regardless — the failure backstop. */
+  markAll(): void;
+  /** How many wallets are still unaccounted for. Diagnostics and tests. */
+  pending(): number;
+}
+
+export function createServableGate(count: number): ServableGate {
+  const marked = new Array<boolean>(Math.max(0, count)).fill(false);
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // A gate nobody will ever mark must start open, not closed: an adapter with
+  // no wallets blocks nothing.
+  if (marked.length === 0) release();
+
+  const openIfComplete = (): void => {
+    if (marked.every(Boolean)) release();
+  };
+  return {
+    promise,
+    mark(index: number): void {
+      // Out of range is ignored rather than thrown: this is called from
+      // `finally` blocks, and a gate must never be the thing that turns a
+      // failed wallet into a failed process.
+      if (!Number.isInteger(index) || index < 0 || index >= marked.length) return;
+      if (marked[index]) return;
+      marked[index] = true;
+      openIfComplete();
+    },
+    markAll(): void {
+      marked.fill(true);
+      release();
+    },
+    pending(): number {
+      return marked.filter((m) => !m).length;
+    },
+  };
+}
+
+/**
  * Midnight Balancing Adapter (Party B)
  *
  * Receives serialized delegated transactions (hex), balances them with local
@@ -1133,6 +1186,16 @@ export class MidnightBalancingAdapter
 
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
+  /**
+   * Per wallet: has it finished the startup work that blocks the event loop?
+   *
+   * That work is `DustWallet.restore` — one synchronous WASM deserialize of the
+   * whole snapshot, measured at ~46 s for preprod's 5.1 MB (sweep brief §2). The
+   * dust *sync* that follows is not in this set: it yields between batches, with
+   * a worst measured stall of 906 ms, so a server can serve through it. Only the
+   * restore is a true black hole.
+   */
+  private readonly servableGate: ServableGate;
   private publicDataProvider: PublicDataProvider | null = null;
   private batchCounter = 0;
 
@@ -1183,7 +1246,35 @@ export class MidnightBalancingAdapter
     // Start with 0 slots per wallet; updated in ensureWalletFunds once UTXO counts are known.
     this.pool = new WorkerPool(new Array(seeds.length).fill(0));
 
+    this.servableGate = createServableGate(seeds.length);
+
     this.initializationPromise = this.initialize();
+  }
+
+  /**
+   * Resolves when no wallet is still inside a blocking restore, so the batcher
+   * can bind its HTTP port (see `BlockchainAdapter.whenServable`).
+   *
+   * Never rejects, and never waits for sync to *finish*: a cold sync runs for
+   * ~58 minutes on preprod and an operator needs `/health` for every one of
+   * them — that visibility is exactly what Phase 2's `3fd156dd` added.
+   */
+  whenServable(): Promise<void> {
+    return this.servableGate.promise;
+  }
+
+  /**
+   * Mark one wallet as past its blocking startup, idempotently.
+   *
+   * Called from three places on purpose, because "the restore is over" has three
+   * endings: the wallet emitted its first sync sample (the normal one — the
+   * progress subscription is attached *after* `buildWalletFacade` returns, so a
+   * sample proves the deserialize is done), the wallet was handed in already
+   * built, or `initializeWallet` returned by any path including failure. A gate
+   * that only closed on success would hold the port shut on a broken wallet.
+   */
+  private markWalletServable(index: number): void {
+    this.servableGate.mark(index);
   }
 
   // -----------------------------------------------------------------------
@@ -1219,6 +1310,11 @@ export class MidnightBalancingAdapter
     } catch (error) {
       this.log.error("Initialization failed:", error);
       throw error;
+    } finally {
+      // Last backstop: something before the per-wallet loop threw (a bad
+      // network id, an indexer provider that would not construct), so no
+      // wallet ever ran its own `finally`. The port must still open.
+      this.servableGate.markAll();
     }
   }
 
@@ -1229,6 +1325,9 @@ export class MidnightBalancingAdapter
         this.log.log(`Wallet ${label}: using shared wallet...`);
         this.walletResults[index] = await this.config.walletResult;
         this.walletIsInjected[index] = true;
+        // An injected wallet was built — and restored — by whoever handed it
+        // in, so this adapter never blocks the loop for it.
+        this.markWalletServable(index);
         // The seed registry never saw this wallet — it was handed in, not
         // derived. Claim it by identity or two adapters with different nominal
         // seeds end up on the same coins.
@@ -1309,6 +1408,11 @@ export class MidnightBalancingAdapter
       this.log.log(`Wallet ${label}: ready`);
     } catch (error) {
       this.log.error(`Wallet ${label}: initialization failed:`, error);
+    } finally {
+      // Backstop for every path that never produced a sync sample: a wallet
+      // whose dust state was unavailable, or one that threw. Whatever happened,
+      // nothing of ours is blocking the loop for this wallet any more.
+      this.markWalletServable(index);
     }
   }
 
@@ -1328,6 +1432,10 @@ export class MidnightBalancingAdapter
       snapshotRejected?: boolean;
     },
   ): void {
+    // The progress subscription is attached after `buildWalletFacade` returns,
+    // so the first sample is proof that the synchronous restore is behind us.
+    this.markWalletServable(index);
+
     const previous = this.walletSyncHealth[index];
     const now = Date.now();
     const advanced = !previous || sample.appliedIndex > previous.appliedIndex;

@@ -178,6 +178,20 @@ export interface BatcherConfig<
   enableHttpServer?: boolean;
   enableEventSystem?: boolean;
 
+  /**
+   * How long `init()` will hold the HTTP port closed waiting for adapters that
+   * implement `whenServable()` (see {@link BlockchainAdapter.whenServable}).
+   * On expiry the server starts anyway, loudly — a listening batcher is more
+   * useful to an operator than one with no endpoints at all.
+   *
+   * This is a backstop against a broken adapter, not a tuning knob for slow
+   * startup. It barely constrains the case it was written for: while the event
+   * loop is inside a synchronous restore, this timer cannot fire either, so it
+   * effectively expires when the block ends — the same moment `whenServable()`
+   * resolves. It bites only on an adapter that stays unready *while yielding*.
+   */
+  httpServerReadinessTimeoutMs?: number;
+
   // Batching behavior
   batchingCriteria?: PerAdapterBatchingCriteria<TInput, TAdapters>;
 
@@ -235,6 +249,9 @@ export const DEFAULT_CONFIG_VALUES = {
   port: 3000,
   enableHttpServer: true,
   enableEventSystem: false,
+  // 5 minutes: ~6.5× the measured 46 s preprod dust restore, and only ever
+  // reached by an adapter that is unready while yielding — see the field docs.
+  httpServerReadinessTimeoutMs: 300000,
   maxRetries: 3,
   retryDelayMs: 1000,
   rateLimit: {
@@ -308,6 +325,12 @@ export const BatcherConfigSchema = Type.Object({
   ),
   enableEventSystem: Type.Optional(
     Type.Boolean({ default: DEFAULT_CONFIG_VALUES.enableEventSystem }),
+  ),
+  httpServerReadinessTimeoutMs: Type.Optional(
+    Type.Number({
+      minimum: 0,
+      default: DEFAULT_CONFIG_VALUES.httpServerReadinessTimeoutMs,
+    }),
   ),
 
   rateLimit: Type.Optional(RateLimitConfigSchema),

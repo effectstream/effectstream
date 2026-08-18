@@ -300,6 +300,31 @@ export interface BlockchainAdapter<TOutput> {
   getHealthInfo?(): Record<string, unknown>;
 
   /**
+   * (Optional) Resolves once this adapter is past any startup work that blocks
+   * the main event loop, so it is safe to accept HTTP traffic.
+   *
+   * The batcher holds the HTTP port closed until every adapter that implements
+   * this says so. Adapters that do not implement it are treated as immediately
+   * servable, which is the previous behaviour.
+   *
+   * Why this exists: the Midnight balancing adapter restores its dust wallet by
+   * deserializing the snapshot in WASM **synchronously on the main thread** —
+   * measured at ~46 s for a 5.1 MB preprod snapshot. The server used to be
+   * listening throughout, so every restart was a ~46-second window in which
+   * connections were accepted and no handler could run, because no handler can
+   * run while the loop is blocked. A refused connection is strictly better than
+   * one that hangs: the client learns immediately and can retry or fail over.
+   *
+   * Contract: resolve when the blocking phase is over, **however it ended** —
+   * including on failure. This gate must never be the reason a batcher has no
+   * endpoints; a rejection or a throw is logged and treated as servable, and a
+   * promise that never settles is bounded by `httpServerReadinessTimeoutMs`.
+   * It says nothing about whether the adapter can submit transactions yet —
+   * that is `isReady()`.
+   */
+  whenServable?(): Promise<void>;
+
+  /**
    * (Optional) Recover adapter state after batcher initialization.
    * This is called after storage.init() but before processing starts,
    * allowing adapters to rebuild internal state from persisted inputs.
