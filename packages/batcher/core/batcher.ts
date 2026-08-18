@@ -489,12 +489,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       );
     }
 
-    // Start HTTP server if enabled — but not before every adapter is past the
-    // startup work that can freeze the event loop. Binding the port first turns
-    // a Midnight restart into a ~46-second window where connections are
-    // accepted and nothing answers (see `BlockchainAdapter.whenServable`).
+    // Start HTTP server if enabled. `startHttpServer()` itself waits for every
+    // adapter to be past its loop-blocking startup — see there for why.
     if (this.enableHttpServer) {
-      await this.waitForAdaptersServable();
       await this.startHttpServer();
     }
 
@@ -1110,12 +1107,20 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Start the HTTP server for the batcher
    * This provides REST API endpoints for interacting with the batcher
+   *
+   * Binding is held until every adapter is past its loop-blocking startup —
+   * the wait lives HERE rather than in `init()` because there are three ways
+   * to reach this method (`init()`, the Effection `runBatcher` path via
+   * `runHttpServer()`, and a direct call), and a gate on only one of them
+   * leaves the black hole open on the others.
    */
   async startHttpServer(): Promise<void> {
     if (this.httpServer) {
       console.log("⚠️ HTTP server already running");
       return;
     }
+
+    await this.waitForAdaptersServable();
 
     try {
       this.httpServer = await startBatcherHttpServer(this, this.port);

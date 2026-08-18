@@ -212,6 +212,36 @@ describe("the HTTP port is not bound until adapters are past their blocking star
     await batcher.stopHttpServer();
   });
 
+  test("startHttpServer() waits too, not just init()", async () => {
+    // There are three ways to reach the listener: init(), the Effection
+    // `runBatcher` path (which spawns runHttpServer() → startHttpServer()
+    // and never goes through init()), and a direct call. The first version of
+    // this fix gated only init(), which left the black hole wide open on the
+    // Effection path. The wait belongs at the choke point.
+    const port = await freePort();
+    const restore = deferred();
+
+    const batcher = createNewBatcher(
+      { pollingIntervalMs: 1000, port, enableHttpServer: true, enableEventSystem: false },
+      storage(),
+    );
+    batcher.addBlockchainAdapter(
+      "stub",
+      stubAdapter({ whenServable: () => restore.promise }),
+    );
+
+    const started = batcher.startHttpServer();
+
+    expect((await pollUntilAnswered(port, ORDERING_WINDOW_MS)).result)
+      .toEqual("stayed-closed");
+
+    restore.resolve();
+    await started;
+
+    expect((await probeRequest(port)).outcome).toEqual("answered");
+    await batcher.stopHttpServer();
+  });
+
   test("every adapter must be servable before the port opens", async () => {
     // One slow wallet is enough to freeze the loop, so the gate is the slowest
     // adapter, not the first one to finish.
