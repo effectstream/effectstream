@@ -300,6 +300,7 @@ export class DatabaseStorage<
       }
       await this.migrate();
       await this.importLegacyQueue(defaultTarget);
+      await this.reconcile();
     } catch (error) {
       // A half-open storage is worse than none: the next call would report an
       // empty queue and the batcher would happily accept inputs into nothing.
@@ -499,6 +500,78 @@ export class DatabaseStorage<
         `(${untargeted} stamped with target "${defaultTarget}"); ` +
         `renamed the file to ${LEGACY_QUEUE_FILE}.imported.`,
     );
+  }
+
+  /**
+   * Make the queue and the status store agree about what is in flight.
+   *
+   * Acceptance writes both in one transaction, so they cannot drift apart
+   * through the accept path. They still can through the OTHER paths: a legacy
+   * queue imported from `FileStorage`, an input written with the untracked
+   * `addInput`, or a row removed by a batch whose outcome was never recorded
+   * because the process died first.
+   *
+   * The row wins. A row that exists WILL be batched, so a request with no
+   * record gets the `queued` one it should always have had — otherwise the
+   * batcher would send a transaction it cannot answer any question about.
+   *
+   * The reverse is deliberately NOT symmetrical. A non-terminal record whose
+   * row is gone is left exactly as it is: the honest options are "the batch
+   * confirmed and we lost the write" and "the row was dropped", and marking it
+   * failed would report a verdict the chain never gave. It is counted and
+   * logged so an operator can see it; Phase 3 removes the cause by recording
+   * the verdict at its source.
+   */
+  private async reconcile(): Promise<void> {
+    // GROUP BY, not one INSERT per row: duplicate submissions are two rows with
+    // ONE identity, and inserting per row would collide on the primary key and
+    // take the whole boot down.
+    const synthesized = await this.db.query<{ request_id: string }>(
+      `INSERT INTO request_status
+         (request_id, row_target, address, state, terminal, retry_count, accepted_at, updated_at)
+       SELECT p.request_id,
+              min(p.row_target),
+              min(p.address),
+              'queued',
+              false,
+              min(p.retry_count),
+              min(p.created_at),
+              now()
+         FROM pending_inputs p
+         LEFT JOIN request_status s ON s.request_id = p.request_id
+        WHERE s.request_id IS NULL
+        GROUP BY p.request_id
+       RETURNING request_id`,
+    );
+
+    const [orphans] = await this.db.query<{ count: number }>(
+      `SELECT count(*)::int AS count
+         FROM request_status s
+        WHERE NOT s.terminal
+          AND NOT EXISTS (
+            SELECT 1 FROM pending_inputs p WHERE p.request_id = s.request_id
+          )`,
+    );
+
+    this.lastReconciliation = {
+      synthesizedFromRows: synthesized.length,
+      orphanedStatuses: Number(orphans?.count ?? 0),
+    };
+
+    if (synthesized.length > 0) {
+      console.warn(
+        `[Storage] Reconciled ${synthesized.length} queued request(s) that had no ` +
+          `status record (imported or untracked rows); they are pollable now.`,
+      );
+    }
+    if (this.lastReconciliation.orphanedStatuses > 0) {
+      console.warn(
+        `⚠️ [Storage] ${this.lastReconciliation.orphanedStatuses} in-flight request ` +
+          `record(s) have no queue row: their batch's outcome was never recorded. ` +
+          `Left as-is rather than marked failed — a verdict the chain never gave ` +
+          `would be worse than none.`,
+      );
+    }
   }
 
   /**
