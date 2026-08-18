@@ -1,9 +1,42 @@
-// graphql-ws has a dangling promise in its subscribe flow: when a subscription ends,
-// the socket closes normally (code 1000) but the internal throwOnClose promise rejects
-// with no handler. In Bun, unhandled rejections crash the process (exit 1).
+// graphql-ws has a dangling promise in its subscribe flow: when a subscription
+// ends, the socket's `throwOnClose` promise rejects with no handler.
+// `dist/client.js:309-318` (6.2.1) does
+//   const [socket, release, waitForReleaseOrThrowOnClose] = await connect();
+//   if (done) return release();
+// and never awaits the `Promise.race([released, throwOnClose])` it was just
+// handed. In Bun, unhandled rejections crash the process (exit 1).
+//
+// The rejection reason is whatever the websocket last emitted: a `close` event
+// when the subscription ended gracefully, an `error` event when the socket died
+// first. Both are the SAME dangling promise, and neither is a reason to kill a
+// batcher — the wallet SDK's sync stream retries the subscription itself
+// (`RunningV1Variant.js`, `Stream.retry` with exponential backoff), and
+// `waitForDustFundsWithRetry` rebuilds the wallet from its last checkpoint when
+// the wallet goes quiet.
+//
+// Exempting only `close` is what Phase 3 §2.1 run 1 measured against live
+// preprod: a TLS handshake failure on the indexer socket exited the process
+// three minutes into a 58-minute cold sync — after the silence detector had
+// correctly fired and the checkpoint had correctly been written, and before
+// retry 2/5 could run. Every recovery path this project built was unreachable
+// behind it.
+//
+// A socket `error` is therefore reported to whoever is syncing (see
+// `onWalletSocketFailure`) instead of ending the process. Everything that is
+// NOT a socket lifecycle event keeps the old behaviour and still exits:
+// an unhandled rejection is a bug, and swallowing all of them to fix this one
+// would hide every other.
 if (globalThis.process?.versions?.bun) {
   process.on('unhandledRejection', (reason: unknown) => {
-    if (reason && typeof reason === 'object' && 'type' in reason && (reason as any).type === 'close') {
+    const socketEvent = classifyWalletSocketRejection(reason);
+    if (socketEvent === 'close') return;
+    if (socketEvent === 'error') {
+      console.warn(
+        `Indexer websocket failed (${describeWalletSocketRejection(reason)}). ` +
+          `The wallet SDK reconnects on its own; a dust sync in progress retries ` +
+          `from its last checkpoint.`,
+      );
+      reportWalletSocketFailure('error', reason);
       return;
     }
     console.error('Unhandled rejection:', reason);
@@ -744,6 +777,15 @@ export async function waitForDustFunds(
 const DUST_STALL_TIMEOUT_MS = 60_000;
 const DUST_MAX_RETRIES = 5;
 const DUST_COMPLETION_GAP = 50n;
+/**
+ * How long a dust sync attempt waits for a state emission after its indexer
+ * socket reported an error, before it counts as stalled.
+ *
+ * Long enough for the SDK's own reconnect (`Stream.retry`, exponential from
+ * 1 s) to land one, short enough that a dead socket does not cost the full
+ * 60 s silence budget.
+ */
+const DUST_SOCKET_FAILURE_GRACE_MS = 5_000;
 
 /**
  * Did this sync attempt move the wallet forward at all?
@@ -789,31 +831,140 @@ export function dustSyncAttemptMadeProgress(
  * `dispose()` must be called by whoever wins the race — otherwise a timer stays
  * armed on a wallet that already finished and its rejection surfaces as an
  * unhandled one.
+ *
+ * `nudge(ms)` is how a *known* failure (an indexer socket error) gets a say
+ * without a second detector: it re-arms the deadline shorter, so a socket we
+ * already know is dead does not get to burn the whole silence budget. It can
+ * only ever shorten, and the next emission restores the full budget — because
+ * the SDK's sync stream retries on its own, and a blip that recovers must cost
+ * nothing. Five blips that each cost an attempt would exhaust the retry budget
+ * across a 58-minute cold sync and fail init, which is the failure this project
+ * spent Phase 2 removing.
  */
+/** A websocket lifecycle event escaping graphql-ws's dangling promise. */
+export type WalletSocketEventKind = "close" | "error";
+
+export interface WalletSocketFailure {
+  kind: WalletSocketEventKind;
+  reason: unknown;
+}
+
+/**
+ * Is this rejection the indexer websocket's own lifecycle event, or a real bug?
+ *
+ * Classified by **shape**, deliberately, never by message text: graphql-ws
+ * rejects with whatever the socket emitted, and which `WebSocket`
+ * implementation is in play decides what that object looks like. What is
+ * constant is that it is a DOM-style event — `{ type: "close", code, reason }`
+ * or `{ type: "error", message, error }` — and that a real `Error` is never
+ * one, so an application error that happens to carry a `type` field stays
+ * fatal. See the top-of-file handler for why the exemption exists at all.
+ */
+export function classifyWalletSocketRejection(reason: unknown): WalletSocketEventKind | null {
+  if (reason === null || typeof reason !== "object") return null;
+  if (reason instanceof Error) return null;
+  const type = (reason as { type?: unknown }).type;
+  return type === "close" || type === "error" ? type : null;
+}
+
+/** A one-line description of a socket event, for logs. */
+export function describeWalletSocketRejection(reason: unknown): string {
+  const r = reason as
+    | { message?: unknown; code?: unknown; reason?: unknown; type?: unknown }
+    | null
+    | undefined;
+  if (typeof r?.message === "string" && r.message !== "") return r.message;
+  if (r?.code !== undefined) {
+    const detail = typeof r.reason === "string" && r.reason !== "" ? ` ${r.reason}` : "";
+    return `code ${String(r.code)}${detail}`;
+  }
+  return String(r?.type ?? reason);
+}
+
+const walletSocketFailureListeners = new Set<(failure: WalletSocketFailure) => void>();
+
+/**
+ * Listen for indexer socket failures for as long as you are the one syncing;
+ * the returned function unsubscribes.
+ *
+ * This is the seam that replaces killing the process. The rejection arrives
+ * with no call stack leading back to the wallet whose socket died — it is a
+ * promise nobody awaited — so the wallet cannot be found from the failure and
+ * has to announce itself instead.
+ *
+ * With nobody listening a socket error is logged and dropped, which is the
+ * right steady-state behaviour: after init the SDK's own sync stream reconnects
+ * and there is no attempt to fail.
+ *
+ * Delivery is to **every** listener, and that is a limitation worth knowing
+ * rather than a design goal. The batcher initialises its fee wallets
+ * concurrently (`Promise.all` over the seeds in the balancing adapter), so
+ * several attempts listen at once, and one wallet's socket error nudges all of
+ * their deadlines. It cannot be narrowed here: the rejection has no wallet
+ * identity to route on. It is safe in practice — a syncing dust wallet emits
+ * constantly at the shipped batch knobs, so a healthy wallet's next emission
+ * restores its full budget within milliseconds; a wallet quiet enough for the
+ * nudge to bite would have stalled anyway, and its retry resumes from the
+ * checkpoint; and every one of these sockets points at the same indexer, so a
+ * failure there is rarely one wallet's alone.
+ */
+export function onWalletSocketFailure(listener: (failure: WalletSocketFailure) => void): () => void {
+  walletSocketFailureListeners.add(listener);
+  return () => {
+    walletSocketFailureListeners.delete(listener);
+  };
+}
+
+/** Deliver a socket failure to every listener; returns how many took it. */
+export function reportWalletSocketFailure(kind: WalletSocketEventKind, reason: unknown): number {
+  let delivered = 0;
+  for (const listener of [...walletSocketFailureListeners]) {
+    try {
+      listener({ kind, reason });
+      delivered++;
+    } catch (e) {
+      // This runs inside an unhandled-rejection handler. A throw escaping here
+      // is the exact failure mode the whole path exists to remove.
+      log.warn(
+        `Wallet socket failure listener threw: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+  return delivered;
+}
+
 export function rejectOnDustSyncSilence(
   state$: Rx.Observable<unknown>,
   silenceMs: number,
-): { promise: Promise<never>; dispose: () => void } {
+): { promise: Promise<never>; dispose: () => void; nudge: (ms: number) => void } {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let subscription: Rx.Subscription | undefined;
+  let done = false;
   const dispose = (): void => {
+    done = true;
     if (timer !== undefined) clearTimeout(timer);
     timer = undefined;
     subscription?.unsubscribe();
     subscription = undefined;
   };
+  let arm: (ms: number) => void = () => {};
   const promise = new Promise<never>((_resolve, reject) => {
-    const rearm = (): void => {
+    arm = (ms: number): void => {
+      if (done) return;
       if (timer !== undefined) clearTimeout(timer);
       timer = setTimeout(() => {
         dispose();
         reject(new Error("stall"));
-      }, silenceMs);
+      }, ms);
     };
-    rearm();
-    subscription = state$.subscribe({ next: rearm });
+    arm(silenceMs);
+    subscription = state$.subscribe({ next: () => arm(silenceMs) });
   });
-  return { promise, dispose };
+  return {
+    promise,
+    dispose,
+    nudge: (ms: number) => arm(Math.min(Math.max(0, ms), silenceMs)),
+  };
 }
 
 /**
@@ -862,6 +1013,21 @@ export interface DustSyncWithRetryOptions {
   networkId: NetworkId.NetworkId;
   /** Per-emission stall timeout in ms. Default: 60_000 (1 minute). */
   stallTimeoutMs?: number;
+  /**
+   * Grace period after an indexer socket error before the attempt counts as
+   * stalled. Default: {@link DUST_SOCKET_FAILURE_GRACE_MS} (5 s). Only ever
+   * shortens the stall deadline, and a state emission restores it in full.
+   */
+  socketFailureGraceMs?: number;
+  /**
+   * Override for {@link buildWalletFacade}.
+   *
+   * Exists so the retry loop can be driven without a chain: the property that
+   * matters after a socket failure is that the *next attempt is built*, and
+   * every other seam in this function ends at a real wallet facade. Production
+   * callers should leave it alone.
+   */
+  buildWallet?: typeof buildWalletFacade;
   /**
    * How long to wait for a non-zero façade dust balance after dust sync.
    * Default: {@link resolveWalletFundingTimeoutMs} (not `stallTimeoutMs`, and
@@ -933,6 +1099,8 @@ export async function waitForDustFundsWithRetry(
     seed,
     networkId,
     stallTimeoutMs = DUST_STALL_TIMEOUT_MS,
+    socketFailureGraceMs = DUST_SOCKET_FAILURE_GRACE_MS,
+    buildWallet = buildWalletFacade,
     balanceWaitTimeoutMs = resolveWalletFundingTimeoutMs(),
     maxRetries = DUST_MAX_RETRIES,
     throttleMs = CONSTANTS.WALLET_SYNC_THROTTLE_MS,
@@ -1040,6 +1208,23 @@ export async function waitForDustFundsWithRetry(
     attemptStartIndex = 0n;
     lastProgress = null;
     let progressSub: Rx.Subscription | undefined;
+    /** The silence detector guarding this attempt's wait, while it is waiting. */
+    let activeSilence: { nudge: (ms: number) => void } | null = null;
+    // A dead indexer socket used to end the process before this loop could
+    // retry (Phase 3 §2.1 run 1). It is now delivered here instead: the attempt
+    // stops waiting out the full silence budget for a socket that already
+    // failed, and if the SDK reconnects, the next emission restores the budget
+    // and the nudge costs nothing.
+    const offSocketFailure = onWalletSocketFailure((failure) => {
+      if (failure.kind !== "error") return;
+      log.warn(
+        `Dust sync attempt ${attempt}/${maxRetries}: indexer websocket failed ` +
+          `(${describeWalletSocketRejection(failure.reason)}). Allowing ` +
+          `${socketFailureGraceMs}ms for another state emission before treating ` +
+          `this attempt as stalled.`,
+      );
+      activeSilence?.nudge(socketFailureGraceMs);
+    });
     try {
       if (!walletResult) {
         const stateToRestore = inMemoryState ?? cachedState;
@@ -1058,7 +1243,7 @@ export async function waitForDustFundsWithRetry(
         } else if (stateToRestore) {
           log.info("Building wallet from cached dust state...");
         }
-        walletResult = await buildWalletFacade(
+        walletResult = await buildWallet(
           networkUrls,
           seed,
           networkId,
@@ -1119,12 +1304,14 @@ export async function waitForDustFundsWithRetry(
             dustWallet.state as Rx.Observable<unknown>,
             stallTimeoutMs,
           );
+          activeSilence = silence;
           try {
             dustSyncedState = await Promise.race([
               dustWallet.waitForSyncedState(DUST_COMPLETION_GAP),
               silence.promise,
             ]);
           } finally {
+            activeSilence = null;
             silence.dispose();
           }
         } else {
@@ -1323,7 +1510,10 @@ export async function waitForDustFundsWithRetry(
     } finally {
       // Per attempt: the next one rebuilds the wallet, and a subscription left
       // on a stopped facade both leaks and reports progress that stopped being
-      // this wallet's.
+      // this wallet's. The socket listener goes the same way — a stale one
+      // would nudge a later attempt's detector on behalf of a wallet that no
+      // longer exists.
+      offSocketFailure();
       progressSub?.unsubscribe();
     }
   }
