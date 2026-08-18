@@ -105,7 +105,10 @@ async function withBatcher(
   try {
     await fn({ batcher, storage });
   } finally {
-    await batcher.cleanupResources?.();
+    // Same shutdown path `retention-timer.test.ts` uses: `cleanupResources`
+    // is protected, and shutting down through the public route also stops the
+    // retention sweep before the storage handle closes (F-P4.17).
+    await (batcher as any).gracefulShutdown().catch(() => {});
     await storage.close().catch(() => {});
     rmSync(dir, { recursive: true, force: true });
   }
