@@ -126,6 +126,165 @@ export interface BatcherStorage<
 }
 
 /**
+ * Lifecycle of a tracked request (spec FR-003).
+ *
+ * `queued → batching → submitted → confirmed` is the happy path; `failed` is
+ * the other ending. `confirmed` and `failed` are TERMINAL — nothing follows
+ * them, because a request that reached the chain (or was permanently rejected)
+ * cannot un-reach it.
+ */
+export type RequestState =
+  | "queued"
+  | "batching"
+  | "submitted"
+  | "confirmed"
+  | "failed";
+
+/** A tracked request as the store currently sees it. */
+export interface RequestStatusRecord {
+  requestId: string;
+  /** The target this request belongs to; part of its identity. */
+  target: string;
+  address?: string;
+  state: RequestState;
+  /** True for `confirmed` and `failed`; no transition may follow. */
+  terminal: boolean;
+  transactionHash?: string;
+  blockNumber?: bigint;
+  errorCode?: string;
+  message?: string;
+  retryCount: number;
+  replayKey?: string;
+  acceptedAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * What a transition knows beyond its name.
+ *
+ * Every field is optional and only OVERWRITES when supplied: a `confirmed`
+ * that carries no hash keeps the hash `submitted` recorded, rather than
+ * erasing the one piece of evidence a caller can act on.
+ */
+export interface RequestTransitionDetail {
+  transactionHash?: string;
+  blockNumber?: bigint | number;
+  errorCode?: string;
+  message?: string;
+  retryCount?: number;
+}
+
+/** Why a transition was refused. Terminal states and backwards moves are not errors — they are answers. */
+export type TransitionRefusal =
+  | "unknown-request"
+  | "regression"
+  | "already-terminal";
+
+export type TransitionOutcome =
+  | { applied: true; record: RequestStatusRecord }
+  | {
+    applied: false;
+    refused: TransitionRefusal;
+    /** The record that stood its ground; absent only for `unknown-request`. */
+    current?: RequestStatusRecord;
+  };
+
+export interface AcceptanceOutcome {
+  requestId: string;
+  /**
+   * False when this id was ALREADY tracked. Ids are deterministic (spec
+   * FR-006/Q1-B), so a byte-identical resubmission is the same request; its
+   * existing record — which may already be terminal — is left exactly as it
+   * was rather than being reset to `queued`.
+   */
+  created: boolean;
+  record: RequestStatusRecord;
+}
+
+/** What `init()` had to fix up after an unclean stop. */
+export interface ReconciliationReport {
+  /** Queue rows with no status record: a `queued` status was synthesized (the row wins). */
+  synthesizedFromRows: number;
+  /**
+   * Non-terminal statuses whose queue row is gone. Left exactly as they are:
+   * inventing a terminal verdict here would report a failure the chain never
+   * gave. Counted so an operator can see it happened.
+   */
+  orphanedStatuses: number;
+}
+
+/**
+ * Request tracking — a CAPABILITY of a storage backend, not part of the queue
+ * contract.
+ *
+ * Split out deliberately (plan Q-P2): tracking needs the queue row, the status
+ * record and the replay key to move together or not at all, which a database
+ * gives for free and two files cannot. `FileStorage` therefore stays exactly as
+ * it is — proven, frozen, queue-only — and core code feature-detects tracking
+ * with `isTrackingStorage`.
+ */
+export interface TrackingStorage<
+  T extends DefaultBatcherInput = DefaultBatcherInput,
+> {
+  /**
+   * Accept a request: queue the input AND open its status record, atomically.
+   *
+   * This is the acceptance write — it REPLACES `addInput` for a tracked
+   * request, rather than accompanying it. That is the whole point: a caller
+   * told "200, tracked" must never be able to find a queue row with no status
+   * (unpollable) or a status with no row (a request that will never be sent).
+   * One transaction makes the pair impossible to break, including under kill -9.
+   */
+  recordAccepted(
+    requestId: string,
+    input: T,
+    target: string,
+    replayKey?: string,
+  ): Promise<AcceptanceOutcome>;
+
+  /**
+   * Move a request forward. Append-only: a transition that would move it
+   * backwards, or move it at all after a terminal state, is REFUSED and
+   * reported (not thrown, not silently applied).
+   *
+   * This is the crash-replay guard. A batch that confirmed on chain but died
+   * before its rows were removed is re-picked on restart; the status must not
+   * fall back from `confirmed` to `batching`.
+   */
+  recordTransition(
+    requestId: string,
+    state: RequestState,
+    detail?: RequestTransitionDetail,
+  ): Promise<TransitionOutcome>;
+
+  /** The record for an id, or undefined if this batcher never accepted it (or it aged out). */
+  getStatus(requestId: string): Promise<RequestStatusRecord | undefined>;
+
+  /** The record a replay key points at, if any. Plain lookup; the dedup POLICY is not here. */
+  findByReplayKey(replayKey: string): Promise<RequestStatusRecord | undefined>;
+
+  /** What the last `init()` reconciled, or undefined if it has not run. */
+  getReconciliationReport(): ReconciliationReport | undefined;
+}
+
+/**
+ * Does this backend track requests?
+ *
+ * Structural, not `instanceof`: a deployment can supply its own backend, and
+ * the question core code needs answered is "can I record status here", not
+ * "which class is this".
+ */
+export function isTrackingStorage<T extends DefaultBatcherInput>(
+  storage: BatcherStorage<T>,
+): storage is BatcherStorage<T> & TrackingStorage<T> {
+  const candidate = storage as Partial<TrackingStorage<T>>;
+  return typeof candidate.recordAccepted === "function" &&
+    typeof candidate.recordTransition === "function" &&
+    typeof candidate.getStatus === "function" &&
+    typeof candidate.findByReplayKey === "function";
+}
+
+/**
  * File-based storage implementation using JSONL format
  */
 export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>

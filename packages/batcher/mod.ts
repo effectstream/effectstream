@@ -27,8 +27,30 @@ export {
 } from "./core/config.ts";
 
 // Storage interfaces and implementations
-export type { BatcherStorage } from "./core/storage.ts";
-export { DatabaseStorage, FileStorage } from "./core/storage.ts";
+export type {
+  AcceptanceOutcome,
+  BatcherStorage,
+  ReconciliationReport,
+  RequestState,
+  RequestStatusRecord,
+  RequestTransitionDetail,
+  TrackingStorage,
+  TransitionOutcome,
+  TransitionRefusal,
+} from "./core/storage.ts";
+export {
+  DatabaseStorage,
+  FileStorage,
+  isTrackingStorage,
+} from "./core/storage.ts";
+
+// Request identity: the id a caller polls with, and the serialization it and
+// every storage row are derived from.
+export {
+  buildRequestKey,
+  computeRequestId,
+  requestIdFromKey,
+} from "./core/request-id.ts";
 
 // Chain adapter interface and implementations
 export type { BlockchainAdapter, BatchBuildingOptions, BatchBuildingResult } from "./adapters/adapter.ts";

@@ -1,5 +1,14 @@
 import type { DefaultBatcherInput } from "./types.ts";
-import type { BatcherStorage } from "./storage.ts";
+import type {
+  AcceptanceOutcome,
+  BatcherStorage,
+  ReconciliationReport,
+  RequestState,
+  RequestStatusRecord,
+  RequestTransitionDetail,
+  TrackingStorage,
+  TransitionOutcome,
+} from "./storage.ts";
 import { buildRequestKey, requestIdFromKey } from "./request-id.ts";
 import { mkdirSync } from "node:fs";
 import { readFile, rename } from "node:fs/promises";
@@ -161,6 +170,27 @@ function contentKeyOf(input: DefaultBatcherInput, target: string): string {
   return buildRequestKey(input, target);
 }
 
+/**
+ * The target a row belongs to: its own, or the one the caller routed it to.
+ *
+ * Throws rather than storing a targetless row — such a row is adopted by
+ * whichever product reads it, which is exactly the multi-product collision the
+ * stamp exists to prevent.
+ */
+function resolveRowTarget(
+  input: DefaultBatcherInput,
+  target?: string,
+): string {
+  const resolved = input.target ?? target;
+  if (resolved === undefined) {
+    throw new Error(
+      "Cannot store input: no target on the input and no target supplied. " +
+        "Every row must record the target it belongs to.",
+    );
+  }
+  return resolved;
+}
+
 /** `$1, $2, …` for `count` values starting at `from`. */
 function placeholders(count: number, from = 1): string {
   return Array.from({ length: count }, (_, i) => `$${from + i}`).join(", ");
@@ -170,14 +200,73 @@ interface PayloadRow {
   payload: string;
 }
 
+/** A `request_status` row as the driver hands it back. */
+interface StatusRow {
+  request_id: string;
+  row_target: string;
+  address: string | null;
+  state: string;
+  terminal: boolean;
+  transaction_hash: string | null;
+  block_number: string | number | null;
+  error_code: string | null;
+  message: string | null;
+  retry_count: number | string;
+  replay_key: string | null;
+  accepted_at: string | Date;
+  updated_at: string | Date;
+}
+
+function toStatusRecord(row: StatusRow): RequestStatusRecord {
+  return {
+    requestId: row.request_id,
+    target: row.row_target,
+    address: row.address ?? undefined,
+    state: row.state as RequestState,
+    terminal: row.terminal === true,
+    transactionHash: row.transaction_hash ?? undefined,
+    blockNumber: row.block_number === null || row.block_number === undefined
+      ? undefined
+      : BigInt(String(row.block_number)),
+    errorCode: row.error_code ?? undefined,
+    message: row.message ?? undefined,
+    retryCount: Number(row.retry_count),
+    replayKey: row.replay_key ?? undefined,
+    acceptedAt: new Date(row.accepted_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+/**
+ * How far along the lifecycle a state is. Transitions may only move UP, and
+ * nothing moves at all once a terminal state is reached.
+ *
+ * `confirmed` and `failed` share a rank because they are alternative endings,
+ * not successive steps: neither may follow the other.
+ */
+const STATE_RANK: Record<RequestState, number> = {
+  queued: 0,
+  batching: 1,
+  submitted: 2,
+  confirmed: 3,
+  failed: 3,
+};
+
+const TERMINAL_STATES: ReadonlySet<RequestState> = new Set<RequestState>([
+  "confirmed",
+  "failed",
+]);
+
 export class DatabaseStorage<
   T extends DefaultBatcherInput = DefaultBatcherInput,
-> implements BatcherStorage<T> {
+> implements BatcherStorage<T>, TrackingStorage<T> {
   private readonly dataDirectory: string;
   private readonly connectionString?: string;
   private driver?: SqlDriver;
   /** Memoised so the two `init()` call sites in `Batcher` cannot double-import. */
   private initPromise?: Promise<void>;
+  /** What the last `init()` had to repair; surfaced via `getReconciliationReport()`. */
+  private lastReconciliation?: ReconciliationReport;
 
   /**
    * @param options a data directory (embedded PgLite), a `postgres://` URL, or
@@ -243,6 +332,7 @@ export class DatabaseStorage<
     await this.db.query(`
       CREATE TABLE IF NOT EXISTS pending_inputs (
         content_key  text   NOT NULL,
+        request_id   text   NOT NULL DEFAULT '',
         seq          bigserial NOT NULL,
         row_target   text   NOT NULL,
         address      text   NOT NULL,
@@ -260,6 +350,20 @@ export class DatabaseStorage<
       `CREATE INDEX IF NOT EXISTS pending_inputs_target_seq_idx
          ON pending_inputs (row_target, seq)`,
     );
+    // A row knows its own request id. Without it, matching a queue row back to
+    // its status record after an unclean stop would mean re-hashing every row
+    // in SQL — a second implementation of the identity that must not drift.
+    // `IF NOT EXISTS` because a database created before this column exists in
+    // the wild (this branch's own earlier phase) must migrate, not restart.
+    await this.db.query(
+      `ALTER TABLE pending_inputs
+         ADD COLUMN IF NOT EXISTS request_id text NOT NULL DEFAULT ''`,
+    );
+    await this.db.query(
+      `CREATE INDEX IF NOT EXISTS pending_inputs_request_idx
+         ON pending_inputs (request_id)`,
+    );
+    await this.backfillRequestIds();
 
     // Per-request lifecycle. Written from the request-tracking phases; created
     // here so the queue and the status it belongs to live in one database and
@@ -300,6 +404,32 @@ export class DatabaseStorage<
     await this.db.query(
       `CREATE INDEX IF NOT EXISTS replay_keys_request_idx
          ON replay_keys (request_id)`,
+    );
+  }
+
+  /**
+   * Give rows written before the column existed the id they always had.
+   *
+   * Done in TypeScript rather than in SQL on purpose: the hash has exactly one
+   * implementation (`request-id.ts`), and a second one written in Postgres —
+   * even a correct one — is a second thing to keep correct. Bounded by the
+   * pending queue, which is small by construction.
+   */
+  private async backfillRequestIds(): Promise<void> {
+    const stale = await this.db.query<{ content_key: string; seq: string }>(
+      "SELECT content_key, seq FROM pending_inputs WHERE request_id = ''",
+    );
+    if (stale.length === 0) return;
+    await this.db.transaction(async (tx) => {
+      for (const row of stale) {
+        await tx.query(
+          "UPDATE pending_inputs SET request_id = $1 WHERE content_key = $2 AND seq = $3",
+          [requestIdFromKey(row.content_key), row.content_key, row.seq],
+        );
+      }
+    });
+    console.log(
+      `[Storage] Stamped ${stale.length} queue row(s) with their request id.`,
     );
   }
 
@@ -382,24 +512,21 @@ export class DatabaseStorage<
     tx: SqlExecutor,
     input: DefaultBatcherInput,
     target?: string,
-  ): Promise<void> {
-    const resolvedTarget = input.target ?? target;
-    if (resolvedTarget === undefined) {
-      throw new Error(
-        "Cannot store input: no target on the input and no target supplied. " +
-          "Every row must record the target it belongs to.",
-      );
-    }
+  ): Promise<{ requestId: string; resolvedTarget: string }> {
+    const resolvedTarget = resolveRowTarget(input, target);
     const row = input.target === undefined
       ? { ...input, target: resolvedTarget }
       : input;
     const payload = JSON.stringify(row);
+    const contentKey = contentKeyOf(row, resolvedTarget);
+    const requestId = requestIdFromKey(contentKey);
     await tx.query(
       `INSERT INTO pending_inputs
-         (content_key, row_target, address, address_type, ts, signature, input, retry_count, payload)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+         (content_key, request_id, row_target, address, address_type, ts, signature, input, retry_count, payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
-        contentKeyOf(row, resolvedTarget),
+        contentKey,
+        requestId,
         resolvedTarget,
         row.address,
         row.addressType,
@@ -410,6 +537,7 @@ export class DatabaseStorage<
         payload,
       ],
     );
+    return { requestId, resolvedTarget };
   }
 
   async addInput(input: T, target?: string): Promise<void> {
@@ -638,52 +766,209 @@ export class DatabaseStorage<
     }
   }
 
+  // ────────────────────────────── request tracking ──────────────────────────
+
+  /**
+   * Queue the input and open its status record — one transaction, one fate.
+   *
+   * The caller is told "accepted" only after this returns, so the pair it
+   * writes is what "accepted" MEANS: a queue row that will be batched, and a
+   * status record that can answer for it. Splitting them across two writes
+   * would leave a kill -9 window in which a request is queued but unpollable
+   * (a 404 for an id we handed out) or pollable but unqueued (a request that
+   * never goes anywhere).
+   *
+   * A request id that is already tracked is NOT reopened: ids are deterministic
+   * (spec FR-006), so a byte-identical resubmission is the same request, and
+   * resetting its record to `queued` would erase a verdict that already
+   * happened. The queue still takes the second row — `FileStorage` has always
+   * accepted duplicate rows and removes them together, and refusing to queue it
+   * is a dedup DECISION that belongs to the replay gate, not to storage.
+   */
+  async recordAccepted(
+    requestId: string,
+    input: T,
+    target: string,
+    replayKey?: string,
+  ): Promise<AcceptanceOutcome> {
+    try {
+      const { row, created } = await this.db.transaction(async (tx) => {
+        const { resolvedTarget } = await this.insertRow(tx, input, target);
+        const inserted = await tx.query<StatusRow>(
+          `INSERT INTO request_status
+             (request_id, row_target, address, state, terminal, retry_count, replay_key)
+           VALUES ($1, $2, $3, 'queued', false, $4, $5)
+           ON CONFLICT (request_id) DO NOTHING
+           RETURNING *`,
+          [
+            requestId,
+            resolvedTarget,
+            input.address,
+            input.retryCount ?? 0,
+            replayKey ?? null,
+          ],
+        );
+        if (replayKey !== undefined) {
+          // The key points at the request that FIRST claimed it; a later
+          // claimant must not steal it, or the original request's dedup record
+          // would answer for someone else's payment.
+          await tx.query(
+            `INSERT INTO replay_keys (replay_key, request_id, row_target)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (replay_key) DO NOTHING`,
+            [replayKey, requestId, resolvedTarget],
+          );
+        }
+        if (inserted.length > 0) return { row: inserted[0], created: true };
+        const [existing] = await tx.query<StatusRow>(
+          "SELECT * FROM request_status WHERE request_id = $1",
+          [requestId],
+        );
+        return { row: existing, created: false };
+      });
+
+      if (!created) {
+        console.log(
+          `[Storage] Request ${requestId.substring(0, 12)}… was already tracked ` +
+            `(state=${row.state}); keeping its existing record.`,
+        );
+      }
+      return { requestId, created, record: toStatusRecord(row) };
+    } catch (error) {
+      console.error("Error recording accepted request:", error);
+      throw new Error(`Failed to record accepted request: ${error}`);
+    }
+  }
+
+  /**
+   * Move a request forward, or refuse and say why.
+   *
+   * Refusals are returned rather than thrown because they are ANSWERS, not
+   * faults: a re-picked input after a confirmed batch is normal operation, and
+   * the correct handling is "the record already knows better", not an exception
+   * that aborts a batch.
+   */
+  async recordTransition(
+    requestId: string,
+    state: RequestState,
+    detail: RequestTransitionDetail = {},
+  ): Promise<TransitionOutcome> {
+    try {
+      return await this.db.transaction(async (tx) => {
+        // FOR UPDATE: two workers reporting on the same request must not both
+        // read the pre-transition state and both decide they may write.
+        const [currentRow] = await tx.query<StatusRow>(
+          "SELECT * FROM request_status WHERE request_id = $1 FOR UPDATE",
+          [requestId],
+        );
+        if (!currentRow) {
+          // Deliberately does NOT create the record: `recordAccepted` is the
+          // only way one comes into existence, because a status with no queue
+          // row behind it describes a request nobody will ever send.
+          console.warn(
+            `[Storage] Refusing transition → ${state} for unknown request ` +
+              `${requestId.substring(0, 12)}…: no accepted record exists.`,
+          );
+          return { applied: false, refused: "unknown-request" as const };
+        }
+
+        const current = toStatusRecord(currentRow);
+        if (current.terminal) {
+          console.warn(
+            `[Storage] Refusing transition ${current.state} → ${state} for request ` +
+              `${requestId.substring(0, 12)}…: ${current.state} is terminal.`,
+          );
+          return {
+            applied: false,
+            refused: "already-terminal" as const,
+            current,
+          };
+        }
+        if (STATE_RANK[state] < STATE_RANK[current.state]) {
+          // The crash-replay guard. Loud on purpose: it means a batch was
+          // re-picked after its outcome was already known, which an operator
+          // should see even though the store handled it correctly.
+          console.warn(
+            `⚠️ [Storage] Refusing BACKWARDS transition ${current.state} → ${state} ` +
+              `for request ${requestId.substring(0, 12)}…: status is append-only. ` +
+              `(A batch whose rows outlived its outcome was re-picked.)`,
+          );
+          return { applied: false, refused: "regression" as const, current };
+        }
+
+        const [updated] = await tx.query<StatusRow>(
+          `UPDATE request_status SET
+             state            = $2,
+             terminal         = $3,
+             transaction_hash = COALESCE($4, transaction_hash),
+             block_number     = COALESCE($5::bigint, block_number),
+             error_code       = COALESCE($6, error_code),
+             message          = COALESCE($7, message),
+             retry_count      = COALESCE($8::int, retry_count),
+             updated_at       = now()
+           WHERE request_id = $1
+           RETURNING *`,
+          [
+            requestId,
+            state,
+            TERMINAL_STATES.has(state),
+            detail.transactionHash ?? null,
+            // Every detail field is COALESCEd: a transition that knows less
+            // than its predecessor must not erase the hash a caller needs.
+            detail.blockNumber === undefined
+              ? null
+              : String(detail.blockNumber),
+            detail.errorCode ?? null,
+            detail.message ?? null,
+            detail.retryCount ?? null,
+          ],
+        );
+        return { applied: true as const, record: toStatusRecord(updated) };
+      });
+    } catch (error) {
+      console.error("Error recording request transition:", error);
+      throw new Error(`Failed to record request transition: ${error}`);
+    }
+  }
+
+  async getStatus(requestId: string): Promise<RequestStatusRecord | undefined> {
+    try {
+      const [row] = await this.db.query<StatusRow>(
+        "SELECT * FROM request_status WHERE request_id = $1",
+        [requestId],
+      );
+      return row ? toStatusRecord(row) : undefined;
+    } catch (error) {
+      console.error("Error reading request status:", error);
+      throw new Error(`Failed to read request status: ${error}`);
+    }
+  }
+
+  async findByReplayKey(
+    replayKey: string,
+  ): Promise<RequestStatusRecord | undefined> {
+    try {
+      const [row] = await this.db.query<StatusRow>(
+        `SELECT s.* FROM replay_keys k
+           JOIN request_status s ON s.request_id = k.request_id
+          WHERE k.replay_key = $1`,
+        [replayKey],
+      );
+      return row ? toStatusRecord(row) : undefined;
+    } catch (error) {
+      console.error("Error reading request status by replay key:", error);
+      throw new Error(`Failed to read request status by replay key: ${error}`);
+    }
+  }
+
+  getReconciliationReport(): ReconciliationReport | undefined {
+    return this.lastReconciliation;
+  }
+
   async close(): Promise<void> {
     const driver = this.driver;
     this.driver = undefined;
     this.initPromise = undefined;
     await driver?.close();
-  }
-}
-
-/**
- * TEST SEAM — not part of the storage contract and deliberately not exported
- * from any `mod.ts`.
- *
- * `pruneTerminal` needs terminal rows to prune, and the real writer of those
- * rows belongs to a later phase. This inserts them directly so retention can be
- * proven now; delete it once the status write path exists.
- */
-export async function __seedTerminalStatusForTest(
-  storage: DatabaseStorage<any>,
-  rows: Array<{
-    requestId: string;
-    target?: string;
-    state?: string;
-    terminal?: boolean;
-    updatedAt?: Date;
-    replayKey?: string;
-  }>,
-): Promise<void> {
-  const db = (storage as unknown as { db: SqlDriver }).db;
-  for (const row of rows) {
-    await db.query(
-      `INSERT INTO request_status (request_id, row_target, state, terminal, updated_at)
-       VALUES ($1, $2, $3, $4, COALESCE($5::timestamptz, now()))`,
-      [
-        row.requestId,
-        row.target ?? "product-a",
-        row.state ?? (row.terminal === false ? "queued" : "confirmed"),
-        row.terminal ?? true,
-        row.updatedAt?.toISOString() ?? null,
-      ],
-    );
-    if (row.replayKey) {
-      await db.query(
-        `INSERT INTO replay_keys (replay_key, request_id, row_target)
-         VALUES ($1, $2, $3)`,
-        [row.replayKey, row.requestId, row.target ?? "product-a"],
-      );
-    }
   }
 }

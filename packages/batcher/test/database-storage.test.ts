@@ -13,10 +13,8 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import {
-  __seedTerminalStatusForTest,
-  DatabaseStorage,
-} from "../core/database-storage.ts";
+import { DatabaseStorage } from "../core/database-storage.ts";
+import { computeRequestId } from "../core/request-id.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
 
 const legacyRow = (
@@ -170,15 +168,16 @@ describe("terminal-record retention", () => {
     await withDir(async ({ open }) => {
       const storage = await open("product-a");
       const now = Date.now();
-      await __seedTerminalStatusForTest(storage, [
-        { requestId: "old", updatedAt: new Date(now - 2 * ONE_DAY_MS) },
-        { requestId: "fresh", updatedAt: new Date(now - 60_000) },
+      const [old, fresh] = await seedStatuses(storage, [
+        { label: "old", updatedAt: new Date(now - 2 * ONE_DAY_MS) },
+        { label: "fresh", updatedAt: new Date(now - 60_000) },
       ]);
 
       const pruned = await storage.pruneTerminal(1_000_000, ONE_DAY_MS);
 
       expect(pruned.prunedByAge).toBe(1);
-      expect(await terminalIds(storage)).toEqual(["fresh"]);
+      expect(await terminalIds(storage)).toEqual([fresh]);
+      expect(await storage.getStatus(old)).toBeUndefined();
     });
   });
 
@@ -186,34 +185,32 @@ describe("terminal-record retention", () => {
     await withDir(async ({ open }) => {
       const storage = await open("product-a");
       const now = Date.now();
-      // 150 records, one second apart; record i is i seconds old.
-      await __seedTerminalStatusForTest(
+      // 60 records, one second apart; record i is i seconds old.
+      const ids = await seedStatuses(
         storage,
-        Array.from({ length: 150 }, (_, i) => ({
-          requestId: `req-${String(i).padStart(3, "0")}`,
+        Array.from({ length: 60 }, (_, i) => ({
+          label: `req-${String(i).padStart(3, "0")}`,
           updatedAt: new Date(now - i * 1000),
         })),
       );
 
-      const pruned = await storage.pruneTerminal(100, ONE_DAY_MS);
+      const pruned = await storage.pruneTerminal(40, ONE_DAY_MS);
 
       expect(pruned.prunedByAge).toBe(0);
-      expect(pruned.prunedByCount).toBe(50);
-      // Exact survivor set, by recency: req-000 (newest) through req-099.
-      expect(await terminalIds(storage)).toEqual(
-        Array.from({ length: 100 }, (_, i) => `req-${String(i).padStart(3, "0")}`),
-      );
+      expect(pruned.prunedByCount).toBe(20);
+      // Exact survivor set, by recency: the 40 newest, no more and no fewer.
+      expect(new Set(await terminalIds(storage)))
+        .toEqual(new Set(ids.slice(0, 40)));
     });
   });
 
   test("in-flight records are never pruned, however old", async () => {
     await withDir(async ({ open }) => {
       const storage = await open("product-a");
-      await __seedTerminalStatusForTest(storage, [
+      const [queued] = await seedStatuses(storage, [
         {
-          requestId: "still-queued",
+          label: "still-queued",
           terminal: false,
-          state: "queued",
           updatedAt: new Date(Date.now() - 30 * ONE_DAY_MS),
         },
       ]);
@@ -222,20 +219,21 @@ describe("terminal-record retention", () => {
       const pruned = await storage.pruneTerminal(0, 1);
 
       expect(pruned).toEqual({ prunedByAge: 0, prunedByCount: 0 });
-      expect(await allStatusIds(storage)).toEqual(["still-queued"]);
+      expect(await allStatusIds(storage)).toEqual([queued]);
+      expect((await storage.getStatus(queued))?.state).toBe("queued");
     });
   });
 
   test("a replay key dies with the record it belongs to", async () => {
     await withDir(async ({ open }) => {
       const storage = await open("product-a");
-      await __seedTerminalStatusForTest(storage, [
+      await seedStatuses(storage, [
         {
-          requestId: "expired",
+          label: "expired",
           replayKey: "replay-expired",
           updatedAt: new Date(Date.now() - 2 * ONE_DAY_MS),
         },
-        { requestId: "kept", replayKey: "replay-kept" },
+        { label: "kept", replayKey: "replay-kept" },
       ]);
 
       await storage.pruneTerminal(1_000_000, ONE_DAY_MS);
@@ -243,6 +241,7 @@ describe("terminal-record retention", () => {
       // A dedup key outliving its status would refuse a resubmission while
       // having nothing to say about the original.
       expect(await replayKeys(storage)).toEqual(["replay-kept"]);
+      expect(await storage.findByReplayKey("replay-expired")).toBeUndefined();
     });
   });
 
@@ -256,6 +255,47 @@ describe("terminal-record retention", () => {
     });
   });
 });
+
+/**
+ * Records built through the REAL write path — `recordAccepted`, then a
+ * transition to a terminal state — and only then aged.
+ *
+ * Phase 1 seeded these rows with raw INSERTs because no write path existed yet;
+ * that seam is gone. Only the CLOCK is still forced here, because retention is
+ * about the passage of a day and a test cannot wait one. Everything else about
+ * the row is whatever the production code writes.
+ */
+async function seedStatuses(
+  storage: DatabaseStorage,
+  rows: Array<{
+    label: string;
+    terminal?: boolean;
+    updatedAt?: Date;
+    replayKey?: string;
+  }>,
+): Promise<string[]> {
+  const ids: string[] = [];
+  for (const row of rows) {
+    const input = legacyRow({ timestamp: row.label, target: "product-a" });
+    const requestId = computeRequestId(input, "product-a");
+    await storage.recordAccepted(requestId, input, "product-a", row.replayKey);
+    if (row.terminal !== false) {
+      await storage.recordTransition(requestId, "confirmed", {
+        transactionHash: `0x${row.label}`,
+        blockNumber: 1n,
+      });
+    }
+    if (row.updatedAt) {
+      await query(
+        storage,
+        `UPDATE request_status SET updated_at = '${row.updatedAt.toISOString()}'
+          WHERE request_id = '${requestId}'`,
+      );
+    }
+    ids.push(requestId);
+  }
+  return ids;
+}
 
 // Small readers over the status tables. Phase 1 has no status API yet, and
 // inventing one here would prejudge its shape.
