@@ -1,3 +1,5 @@
+// MUST stay first: it sets the flag @polkadot/util reads while loading.
+import "@effectstream/utils/polkadot-esm-cjs-warning";
 import {
   type Signature,
   type SubstrateAddress,
