@@ -1,3 +1,6 @@
+// MUST stay first: avail-js-sdk requires the CJS @polkadot build, and
+// @polkadot/util reads the flag this sets while loading.
+import "@effectstream/utils/polkadot-esm-cjs-warning";
 import { SDK } from "avail-js-sdk";
 import { DEFAULT_REQUEST_TIMEOUT_MS, fetchWithTimeout } from "../common/http.ts";
 import type {

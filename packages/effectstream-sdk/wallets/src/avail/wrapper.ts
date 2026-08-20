@@ -1,3 +1,6 @@
+// MUST stay first: avail-js-sdk requires the CJS @polkadot build, and
+// @polkadot/util reads the flag this sets while loading.
+import "@effectstream/utils/polkadot-esm-cjs-warning";
 import type { Result } from "@effectstream/utils/types";
 import type { IProvider } from "../IProvider.ts";
 import type { WalletMode, ApiForMode } from "../utils.ts";

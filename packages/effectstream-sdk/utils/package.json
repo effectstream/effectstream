@@ -17,7 +17,8 @@
     "./node-env": "./src/config.ts",
     "./runtime": "./src/runtime.ts",
     "./runtime-spawn": "./src/runtime-spawn.ts",
-    "./fs": "./src/fs.ts"
+    "./fs": "./src/fs.ts",
+    "./polkadot-esm-cjs-warning": "./src/polkadot-esm-cjs-warning.ts"
   },
   "dependencies": {
     "@coderspirit/nominal": "^4.1.1",
