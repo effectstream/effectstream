@@ -2,7 +2,10 @@ import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { type Static, Type } from "@sinclair/typebox";
 import type { Batcher, DefaultBatcherInput } from "../core/mod.ts";
-import { InputValidationError } from "../core/batcher.ts";
+import {
+  InputTerminalError,
+  InputValidationError,
+} from "../core/batcher.ts";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
 } from "@fastify/swagger";
@@ -158,6 +161,18 @@ async function registerOpenApiDocumentation(
         error: "Validation failed",
         message: "Invalid request data",
         details: (error as any).validation
+      });
+    }
+
+    if (error instanceof InputTerminalError) {
+      return reply.status(error.statusCode).send({
+        success: false,
+        error: "On-chain transaction failed",
+        message: error.message,
+        requestId: error.requestId,
+        transactionHash: error.transactionHash,
+        errorCode: error.errorCode,
+        retryable: error.retryable,
       });
     }
 
@@ -461,6 +476,29 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           message: Type.String(),
           retryAfter: Type.Optional(Type.Number()),
         }),
+        // The input was accepted and submitted, but its shared transaction was
+        // mined unsuccessfully. This is terminal execution, not validation.
+        422: Type.Union([
+          Type.Object({
+            success: Type.Boolean(),
+            error: Type.String(),
+            message: Type.String(),
+            requestId: Type.String(),
+            transactionHash: Type.String(),
+            errorCode: Type.Literal("ONCHAIN_FAILED"),
+            retryable: Type.Literal(false),
+          }),
+          // Existing adapters may use 422 for a deterministic late validation
+          // verdict. Preserve that additive contract alongside terminal chain
+          // execution without requiring transaction fields it cannot have.
+          Type.Object({
+            success: Type.Boolean(),
+            error: Type.String(),
+            message: Type.String(),
+            errorCode: Type.Optional(Type.String()),
+            retryable: Type.Optional(Type.Boolean()),
+          }),
+        ]),
         // Validation could not be COMPLETED — a dependency of the check was
         // unavailable. Distinct from 400: the input was never judged, so the
         // caller should retry rather than change it.
@@ -643,6 +681,18 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
       }
 
       console.error("Error adding input to batcher:", error);
+
+      if (error instanceof InputTerminalError) {
+        return reply.status(error.statusCode).send({
+          success: false,
+          error: "On-chain transaction failed",
+          message: error.message,
+          requestId: error.requestId,
+          transactionHash: error.transactionHash,
+          errorCode: error.errorCode,
+          retryable: error.retryable,
+        });
+      }
 
       if (error instanceof InputValidationError) {
         return reply.status(error.statusCode).send({

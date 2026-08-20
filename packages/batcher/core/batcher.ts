@@ -44,7 +44,7 @@ import { ENV } from "@effectstream/utils/node-env";
 // Defined in ./errors.ts so `batch-processor.ts` can throw the same class
 // without importing this module back. Re-exported here because it has always
 // been part of this module's public surface.
-export { InputValidationError } from "./errors.ts";
+export { InputTerminalError, InputValidationError } from "./errors.ts";
 
 export interface AuthenticatedInputContext {
   /** Adapter target resolved and verified by the batcher. */

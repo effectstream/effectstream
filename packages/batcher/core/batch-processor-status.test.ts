@@ -18,7 +18,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { BatchProcessor } from "./batch-processor.ts";
-import { InputValidationError } from "./errors.ts";
+import { InputTerminalError, InputValidationError } from "./errors.ts";
 import { computeRequestId } from "./request-id.ts";
 import type {
   RequestState,
@@ -295,14 +295,19 @@ describe("recording a batch that reaches the chain", () => {
 
     await h.processor.processBatchForTarget(adapter, TARGET, [lonely]);
 
-    // The callback path reads one hash for one input as "multi-hash" and so
-    // RESOLVES this caller — pre-existing, and defensible there because it
-    // hands over the raw receipt, `status: 0` and all. A status record has
-    // nowhere to put that nuance, so it says what the chain said.
+    // One input is shared/single-transaction semantics. A failed receipt must
+    // reject the waiter with the same verdict already written for polling.
     expect(h.statesOf(lonely).at(-1)).toBe("failed");
     expect(h.detailOf(lonely, "failed")?.errorCode).toBe("ONCHAIN_FAILED");
-    const outcome = await settlesPromptly(waiting) as { ok?: { status: number } };
-    expect(outcome.ok?.status).toBe(0);
+    const outcome = await settlesPromptly(waiting) as { err?: unknown };
+    expect(outcome.err).toBeInstanceOf(InputTerminalError);
+    expect(outcome.err).toMatchObject({
+      statusCode: 422,
+      errorCode: "ONCHAIN_FAILED",
+      requestId: computeRequestId(lonely, TARGET),
+      transactionHash: "0xhash",
+      retryable: false,
+    });
   });
 });
 

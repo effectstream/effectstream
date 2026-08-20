@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { BatchProcessor, normalizeBatchOutcome } from "./batch-processor.ts";
-import { InputValidationError } from "./errors.ts";
+import { InputTerminalError, InputValidationError } from "./errors.ts";
+import { computeRequestId } from "./request-id.ts";
 import type { DefaultBatcherInput } from "./types.ts";
 import type {
   BatchSubmitResult,
@@ -103,8 +104,6 @@ function makeAdapter(
     getBlockNumber: async () => 1n,
   };
 }
-
-const redProofTest = process.env.BATCHER_RED_PROOF === "1" ? test : test.skip;
 
 // --- normalizeBatchOutcome --------------------------------------------
 
@@ -477,7 +476,7 @@ test("a bare-hash adapter still resolves every input from the receipt", async ()
 
 // --- Receipt settlement classification --------------------------------
 
-redProofTest("a failed one-input receipt rejects its waiting caller", async () => {
+test("a failed one-input receipt rejects its waiting caller", async () => {
   const h = makeHarness();
   const input = makeInput("single-failed");
   h.waitOn(input);
@@ -487,10 +486,40 @@ redProofTest("a failed one-input receipt rejects its waiting caller", async () =
     blockNumber: 2n,
     status: 0,
   });
+  const startedAt = performance.now();
+  await h.processor.processBatchForTarget(adapter, TARGET, [input]);
+
+  const settled = h.settled.get(input.address);
+  expect(settled?.status).toBe("rejected");
+  expect(settled?.value).toBeInstanceOf(InputTerminalError);
+  expect(settled?.value).toMatchObject({
+    statusCode: 422,
+    errorCode: "ONCHAIN_FAILED",
+    requestId: computeRequestId(input, TARGET),
+    transactionHash: "0xfailed",
+    retryable: false,
+  });
+  expect(performance.now() - startedAt).toBeLessThan(1_000);
+  expect(h.callbacks.has(input.address)).toBe(false);
+});
+
+test("a failed one-input receipt with a comma hash keeps shared semantics", async () => {
+  const h = makeHarness();
+  const input = makeInput("single-comma");
+  h.waitOn(input);
+
+  const adapter = makeAdapter([input], async () => "0xpart-a,0xpart-b", {
+    hash: "0xpart-a,0xpart-b",
+    blockNumber: 2n,
+    status: 0,
+  });
   await h.processor.processBatchForTarget(adapter, TARGET, [input]);
 
   expect(h.settled.get(input.address)?.status).toBe("rejected");
-  expect(h.callbacks.has(input.address)).toBe(false);
+  expect(h.settled.get(input.address)?.value).toMatchObject({
+    transactionHash: "0xpart-a,0xpart-b",
+    errorCode: "ONCHAIN_FAILED",
+  });
 });
 
 test("a successful one-input receipt still resolves its waiting caller", async () => {
@@ -545,6 +574,28 @@ test("per-input hashes retain their existing receipt settlement behavior", async
   expect((h.settled.get("multi-a")?.value as BlockchainTransactionReceipt).hash)
     .toBe("0xa");
   expect((h.settled.get("multi-b")?.value as BlockchainTransactionReceipt).hash)
+    .toBe("0xb");
+});
+
+test("successful per-input hashes still resolve each waiting caller", async () => {
+  const h = makeHarness();
+  const inputs = [makeInput("multi-success-a"), makeInput("multi-success-b")];
+  for (const input of inputs) h.waitOn(input);
+
+  const adapter = makeAdapter(inputs, async () => "0xa,0xb", {
+    hash: "0xa,0xb",
+    blockNumber: 6n,
+    status: 1,
+  });
+  await h.processor.processBatchForTarget(adapter, TARGET, inputs);
+
+  expect(inputs.map((input) => h.settled.get(input.address)?.status)).toEqual([
+    "resolved",
+    "resolved",
+  ]);
+  expect((h.settled.get("multi-success-a")?.value as BlockchainTransactionReceipt).hash)
+    .toBe("0xa");
+  expect((h.settled.get("multi-success-b")?.value as BlockchainTransactionReceipt).hash)
     .toBe("0xb");
 });
 

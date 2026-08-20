@@ -30,3 +30,25 @@ export class InputValidationError extends Error {
     this.name = "InputValidationError";
   }
 }
+
+/**
+ * An accepted input reached a definitive unsuccessful terminal state.
+ *
+ * This is deliberately not an {@link InputValidationError}: intake succeeded,
+ * the request was queued and submitted, and the chain later mined a reverted
+ * transaction. SDK and HTTP callers receive the same stable terminal verdict.
+ */
+export class InputTerminalError extends Error {
+  public readonly statusCode = 422;
+  public readonly errorCode = "ONCHAIN_FAILED";
+  public readonly retryable = false;
+
+  constructor(
+    message: string,
+    public readonly requestId: string,
+    public readonly transactionHash: string,
+  ) {
+    super(message);
+    this.name = "InputTerminalError";
+  }
+}
