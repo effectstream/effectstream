@@ -1,6 +1,6 @@
 {
   "name": "effectstream",
-  "version": "0.104.0",
+  "version": "0.104.1",
   "private": true,
   "license": "(MIT OR Apache-2.0)",
   "workspaces": [
