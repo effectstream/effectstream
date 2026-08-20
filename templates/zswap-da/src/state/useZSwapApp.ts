@@ -457,9 +457,9 @@ export function useZSwapApp(): ZSwapApp {
       const blob = await w.buildOfferBlob(cfg.networkId, gives, wants);
       opts?.onStatus?.('Posting to Celestia…');
 
-      // 409 DUPLICATE_OFFER isn't a failure from the user's point of view — the
-      // offer exists — so adopt the existing offer's id and status. The node
-      // rejects it before paying a Celestia fee.
+      // 409 DUPLICATE_OFFER / DUPLICATE_MARKERS isn't a failure from the
+      // user's point of view — the offer already exists — so adopt the existing
+      // offer's id and status. The node rejects it before paying a Celestia fee.
       //
       // Everything in TERMINAL_SUBMIT_CODES is unretryable by construction, so
       // there is no retry loop here any more. ROOT_UNKNOWN in particular used to
@@ -472,10 +472,10 @@ export function useZSwapApp(): ZSwapApp {
         const submitted = await api.submitSwapOffer(blob);
         offerId = submitted?.offerId ?? null;
       } catch (e: any) {
-        if (e?.code === 'DUPLICATE_OFFER') {
-          offerId = e.data?.offerId ?? null;
+        if (e?.code === 'DUPLICATE_OFFER' || e?.code === 'DUPLICATE_MARKERS') {
+          offerId = e.data?.activeOfferId ?? e.data?.offerId ?? null;
           duplicateStatus = (e.data?.status as OfferStatus) ?? null;
-          dlog('createOffer: duplicate offer', { offerId, status: duplicateStatus });
+          dlog('createOffer: duplicate offer', { code: e.code, offerId, status: duplicateStatus });
         } else if (e?.code === 'ROOT_UNKNOWN' && e.data?.hint) {
           dlog('createOffer: root unknown', e.data?.diagnostics);
           throw new Error(e.data.hint);
@@ -501,7 +501,7 @@ export function useZSwapApp(): ZSwapApp {
       toast(
         duplicateStatus
           ? `This offer was already posted (${duplicateStatus})`
-          : 'Offer created',
+          : `This intent was already active (${offerId ?? 'existing offer'})`,
         duplicateStatus ? undefined : 'ok',
       );
       zapi.fetchOffers();
