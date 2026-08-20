@@ -86,12 +86,12 @@ function makeHarness(options: { removeError?: Error } = {}): Harness {
 function makeAdapter(
   inputs: DefaultBatcherInput[],
   submit: () => Promise<BatchSubmitResult<DefaultBatcherInput>>,
-): BlockchainAdapter<any> {
-  const receipt: BlockchainTransactionReceipt = {
+  receipt: BlockchainTransactionReceipt = {
     hash: "0xhash",
     blockNumber: 1n,
     status: 1,
-  };
+  },
+): BlockchainAdapter<any> {
   return {
     buildBatchData: () => ({ selectedInputs: inputs, data: { selectedInputs: [...inputs] } }),
     estimateBatchFee: () => "1",
@@ -103,6 +103,8 @@ function makeAdapter(
     getBlockNumber: async () => 1n,
   };
 }
+
+const redProofTest = process.env.BATCHER_RED_PROOF === "1" ? test : test.skip;
 
 // --- normalizeBatchOutcome --------------------------------------------
 
@@ -471,6 +473,79 @@ test("a bare-hash adapter still resolves every input from the receipt", async ()
   expect(h.retried).toEqual([]);
   expect(h.settled.get("a")?.status).toEqual("resolved");
   expect(h.settled.get("b")?.status).toEqual("resolved");
+});
+
+// --- Receipt settlement classification --------------------------------
+
+redProofTest("a failed one-input receipt rejects its waiting caller", async () => {
+  const h = makeHarness();
+  const input = makeInput("single-failed");
+  h.waitOn(input);
+
+  const adapter = makeAdapter([input], async () => "0xfailed", {
+    hash: "0xfailed",
+    blockNumber: 2n,
+    status: 0,
+  });
+  await h.processor.processBatchForTarget(adapter, TARGET, [input]);
+
+  expect(h.settled.get(input.address)?.status).toBe("rejected");
+  expect(h.callbacks.has(input.address)).toBe(false);
+});
+
+test("a successful one-input receipt still resolves its waiting caller", async () => {
+  const h = makeHarness();
+  const input = makeInput("single-success");
+  h.waitOn(input);
+
+  const adapter = makeAdapter([input], async () => "0xsuccess", {
+    hash: "0xsuccess",
+    blockNumber: 3n,
+    status: 1,
+  });
+  await h.processor.processBatchForTarget(adapter, TARGET, [input]);
+
+  expect(h.settled.get(input.address)?.status).toBe("resolved");
+});
+
+test("a failed shared receipt rejects every waiting caller in a multi-input batch", async () => {
+  const h = makeHarness();
+  const inputs = [makeInput("shared-a"), makeInput("shared-b")];
+  for (const input of inputs) h.waitOn(input);
+
+  const adapter = makeAdapter(inputs, async () => "0xshared", {
+    hash: "0xshared",
+    blockNumber: 4n,
+    status: 0,
+  });
+  await h.processor.processBatchForTarget(adapter, TARGET, inputs);
+
+  expect(inputs.map((input) => h.settled.get(input.address)?.status)).toEqual([
+    "rejected",
+    "rejected",
+  ]);
+});
+
+test("per-input hashes retain their existing receipt settlement behavior", async () => {
+  const h = makeHarness();
+  const inputs = [makeInput("multi-a"), makeInput("multi-b")];
+  for (const input of inputs) h.waitOn(input);
+
+  const adapter = makeAdapter(inputs, async () => "0xa,0xb", {
+    hash: "0xa,0xb",
+    blockNumber: 5n,
+    status: 0,
+  });
+  await h.processor.processBatchForTarget(adapter, TARGET, inputs);
+
+  expect(inputs.map((input) => h.settled.get(input.address)?.status)).toEqual([
+    "resolved",
+    "resolved",
+  ]);
+  expect((h.settled.get("multi-a")?.value as BlockchainTransactionReceipt).hash)
+    .toBe("0xa");
+  expect((h.settled.get("multi-b")?.value as BlockchainTransactionReceipt).hash)
+    .toBe("0xb");
 });
 
 test("a bare-hash adapter that splices inputs still charges them a retry", async () => {
