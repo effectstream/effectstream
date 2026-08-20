@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "effectstream",
+      "dependencies": {
+        "@xhmikosr/decompress": "10.2.1",
+      },
       "devDependencies": {
         "@effectstream/db": "workspace:*",
         "@effectstream/grafana-alloy": "workspace:*",
@@ -510,7 +513,7 @@
     },
     "packages/batcher": {
       "name": "@effectstream/batcher-sdk",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/crypto": "workspace:*",
         "@effectstream/event-client": "workspace:*",
@@ -555,7 +558,7 @@
     },
     "packages/binaries/avail-light-client": {
       "name": "@effectstream/npm-avail-light-client",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "npm-avail-light-client": "index.js",
       },
@@ -566,7 +569,7 @@
     },
     "packages/binaries/avail-node": {
       "name": "@effectstream/npm-avail-node",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "npm-avail-node": "index.js",
       },
@@ -577,11 +580,11 @@
     },
     "packages/binaries/binary-checksum": {
       "name": "@effectstream/binary-checksum",
-      "version": "0.103.3",
+      "version": "0.104.1",
     },
     "packages/binaries/bitcoin-core": {
       "name": "@effectstream/bitcoin-core",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "bitcoin-core": "./index.js",
       },
@@ -592,7 +595,7 @@
     },
     "packages/binaries/celestia": {
       "name": "@effectstream/celestia",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "celestia": "./index.js",
       },
@@ -602,7 +605,7 @@
     },
     "packages/binaries/grafana-alloy": {
       "name": "@effectstream/grafana-alloy",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "grafana-alloy": "index.js",
       },
@@ -613,7 +616,7 @@
     },
     "packages/binaries/grafana-loki": {
       "name": "@effectstream/grafana-loki",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "grafana-loki": "index.js",
       },
@@ -624,7 +627,7 @@
     },
     "packages/binaries/midnight-indexer": {
       "name": "@effectstream/npm-midnight-indexer",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "npm-midnight-indexer": "index.js",
       },
@@ -637,7 +640,7 @@
     },
     "packages/binaries/midnight-node": {
       "name": "@effectstream/npm-midnight-node",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "npm-midnight-node": "index.js",
       },
@@ -649,7 +652,7 @@
     },
     "packages/binaries/midnight-proof-server": {
       "name": "@effectstream/npm-midnight-proof-server",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "npm-midnight-proof-server": "index.js",
       },
@@ -660,7 +663,7 @@
     },
     "packages/binaries/near-sandbox": {
       "name": "@effectstream/near-sandbox",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "near-sandbox": "./index.js",
       },
@@ -670,7 +673,7 @@
     },
     "packages/binaries/ord": {
       "name": "@effectstream/ord",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "ord": "./index.js",
       },
@@ -680,7 +683,7 @@
     },
     "packages/binaries/solana-node": {
       "name": "@effectstream/solana-node",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "solana-node": "./index.js",
       },
@@ -716,7 +719,7 @@
     },
     "packages/build-tools/orchestrator": {
       "name": "@effectstream/orchestrator",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "bin": {
         "orchestrator": "src/cli.ts",
       },
@@ -726,11 +729,11 @@
     },
     "packages/chains/avail-contracts": {
       "name": "@effectstream/avail-contracts",
-      "version": "0.103.3",
+      "version": "0.104.1",
     },
     "packages/chains/bitcoin-contracts": {
       "name": "@effectstream/bitcoin-contracts",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "bitcoinjs-lib": "^7.0.0",
         "ecpair": "^3.0.0",
@@ -739,11 +742,11 @@
     },
     "packages/chains/cardano-contracts": {
       "name": "@effectstream/cardano-contracts",
-      "version": "0.103.3",
+      "version": "0.104.1",
     },
     "packages/chains/evm-contracts": {
       "name": "@effectstream/evm-contracts",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@nomicfoundation/hardhat-ignition": "3.0.2",
         "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
@@ -758,7 +761,7 @@
     },
     "packages/chains/evm-hardhat": {
       "name": "@effectstream/evm-hardhat",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/log": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -776,7 +779,7 @@
     },
     "packages/chains/midnight-contracts": {
       "name": "@effectstream/midnight-contracts",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/utils": "workspace:*",
         "@midnight-ntwrk/compact-js": "2.5.1",
@@ -805,14 +808,14 @@
     },
     "packages/effectstream-sdk/chain-types": {
       "name": "@effectstream/chain-types",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "js-sha3": "^0.9.3",
       },
     },
     "packages/effectstream-sdk/concise": {
       "name": "@effectstream/concise",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/crypto": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -823,7 +826,7 @@
     },
     "packages/effectstream-sdk/config": {
       "name": "@effectstream/config",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@dcspark/carp-client": "^3.3.0",
         "@dcspark/cip34-js": "3.0.1",
@@ -840,7 +843,7 @@
     },
     "packages/effectstream-sdk/coroutine": {
       "name": "@effectstream/coroutine",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@coderspirit/nominal": "^4.1.1",
         "@pgtyped/parser": "2.4.2",
@@ -852,7 +855,7 @@
     },
     "packages/effectstream-sdk/crypto": {
       "name": "@effectstream/crypto",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@cardano-foundation/cardano-verify-datasignature": "1.0.11",
         "@effectstream/utils": "workspace:*",
@@ -881,7 +884,7 @@
     },
     "packages/effectstream-sdk/events": {
       "name": "@effectstream/event-client",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/utils": "workspace:*",
         "@seriousme/opifex": "^1.11.2",
@@ -895,7 +898,7 @@
     },
     "packages/effectstream-sdk/log": {
       "name": "@effectstream/log",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/utils": "workspace:*",
         "@opentelemetry/api": "^1.9.0",
@@ -917,14 +920,14 @@
     },
     "packages/effectstream-sdk/precompile": {
       "name": "@effectstream/precompile",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "js-sha3": "^0.9.3",
       },
     },
     "packages/effectstream-sdk/utils": {
       "name": "@effectstream/utils",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@coderspirit/nominal": "^4.1.1",
         "@foxglove/crc": "^1.0.1",
@@ -945,7 +948,7 @@
     },
     "packages/effectstream-sdk/wallets": {
       "name": "@effectstream/wallets",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@aurowallet/mina-provider": "^1.0.12",
         "@effectstream/concise": "workspace:*",
@@ -1004,14 +1007,14 @@
     },
     "packages/frontend": {
       "name": "@effectstream/frontend-sdk",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/wallets": "workspace:*",
       },
     },
     "packages/node-sdk/db": {
       "name": "@effectstream/db",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/coroutine": "workspace:*",
         "@effectstream/log": "workspace:*",
@@ -1034,7 +1037,7 @@
     },
     "packages/node-sdk/db-emulator": {
       "name": "@effectstream/db-emulator",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@pgtyped/runtime": "2.4.2",
         "effection": "^3.5.0",
@@ -1043,7 +1046,7 @@
     },
     "packages/node-sdk/events": {
       "name": "@effectstream/event-server",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/utils": "workspace:*",
         "@seriousme/opifex": "^1.11.2",
@@ -1051,7 +1054,7 @@
     },
     "packages/node-sdk/node": {
       "name": "@effectstream/node-sdk",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/chain-types": "workspace:*",
         "@effectstream/concise": "workspace:*",
@@ -1070,7 +1073,7 @@
     },
     "packages/node-sdk/runtime": {
       "name": "@effectstream/runtime",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
@@ -1102,7 +1105,7 @@
     },
     "packages/node-sdk/sm": {
       "name": "@effectstream/sm",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
@@ -1124,7 +1127,7 @@
     },
     "packages/node-sdk/sync": {
       "name": "@effectstream/sync",
-      "version": "0.103.3",
+      "version": "0.104.1",
       "dependencies": {
         "@cardano-sdk/core": "^0.46.11",
         "@cardano-sdk/util": "^0.17.1",
@@ -2541,7 +2544,7 @@
 
     "@xhmikosr/bin-wrapper": ["@xhmikosr/bin-wrapper@5.0.1", "", { "dependencies": { "@xhmikosr/downloader": "^9.0.0", "bin-check": "^4.1.0", "bin-version-check": "^5.0.0", "os-filter-obj": "^2.0.0" } }, "sha512-p7GzmlOFIJERRJOsHPAMPDZ5nY7dZC+MLif+4iME8qAIK/mFwrbu61hFXf8MACm1fT/qLmWpOj3kZPFsEbzE4w=="],
 
-    "@xhmikosr/decompress": ["@xhmikosr/decompress@5.0.0", "", { "dependencies": { "decompress-tar": "^4.1.1", "decompress-tarbz2": "^4.1.1", "decompress-targz": "^4.1.1", "decompress-unzip": "^4.0.1", "graceful-fs": "^4.2.10", "make-dir": "^3.1.0", "pify": "^5.0.0", "strip-dirs": "^3.0.0" } }, "sha512-2bcQXuPmtxlodAHdD0DVM/HTMwqaCiOAtqSBcqUhZVp+pGNCuwgaZfixlzFqb4h/o4ZVdMuFXfNdwkVBgzUxUA=="],
+    "@xhmikosr/decompress": ["@xhmikosr/decompress@10.2.1", "", { "dependencies": { "@xhmikosr/decompress-tar": "^8.1.0", "@xhmikosr/decompress-tarbz2": "^8.1.0", "@xhmikosr/decompress-targz": "^8.1.0", "@xhmikosr/decompress-unzip": "^7.1.0", "graceful-fs": "^4.2.11", "strip-dirs": "^3.0.0" } }, "sha512-ceGT3K2JR73Usj5o+HM2RRZw0XPUes4rhb7uVTY9PefUQQMpuj8x+V29XVG09JnS7EOj9SIBhHn3K4bFNNb7hA=="],
 
     "@xhmikosr/decompress-tar": ["@xhmikosr/decompress-tar@8.1.0", "", { "dependencies": { "file-type": "^20.5.0", "is-stream": "^2.0.1", "tar-stream": "^3.1.7" } }, "sha512-m0q8x6lwxenh1CrsTby0Jrjq4vzW/QU1OLhTHMQLEdHpmjR1lgahGz++seZI0bXF3XcZw3U3xHfqZSz+JPP2Gg=="],
 
@@ -3071,7 +3074,7 @@
 
     "fflate": ["fflate@0.8.3", "", {}, "sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA=="],
 
-    "file-type": ["file-type@12.4.2", "", {}, "sha512-UssQP5ZgIOKelfsaB5CuGAL+Y+q7EmONuiwF3N5HAH0t27rvrttgi6Ra9k/+DVaY9UF6+ybxu5pOXLUdA8N7Vg=="],
+    "file-type": ["file-type@20.5.0", "", { "dependencies": { "@tokenizer/inflate": "^0.2.6", "strtok3": "^10.2.0", "token-types": "^6.0.0", "uint8array-extras": "^1.4.0" } }, "sha512-BfHZtG/l9iMm4Ecianu7P8HRD2tBHLtjXinm4X62XBOYzi7CYA7jyqfJzOvXHqzVrVPYqBo2/GvbARMaaJkKVg=="],
 
     "file-uri-to-path": ["file-uri-to-path@1.0.0", "", {}, "sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw=="],
 
@@ -3799,7 +3802,7 @@
 
     "secure-json-parse": ["secure-json-parse@4.1.0", "", {}, "sha512-l4KnYfEyqYJxDwlNVyRfO2E4NTHfMKAWdUuA8J0yve2Dz/E/PdBepY03RvyJpssIpRFwJoCD55wA+mEDs6ByWA=="],
 
-    "seek-bzip": ["seek-bzip@1.0.6", "", { "dependencies": { "commander": "^2.8.1" }, "bin": { "seek-bunzip": "bin/seek-bunzip", "seek-table": "bin/seek-bzip-table" } }, "sha512-e1QtP3YL5tWww8uKaOCQ18UxIT2laNBXHjV/S2WYCiK4udiv8lkG89KRIoCjUagnAmCBurjF4zEVX2ByBbnCjQ=="],
+    "seek-bzip": ["seek-bzip@2.0.0", "", { "dependencies": { "commander": "^6.0.0" }, "bin": { "seek-bunzip": "bin/seek-bunzip", "seek-table": "bin/seek-bzip-table" } }, "sha512-SMguiTnYrhpLdk3PwfzHeotrcwi8bNV4iemL9tx9poR/yeaMYwB9VzR1w7b57DuWpuqR8n6oZboi0hj3AxZxQg=="],
 
     "semver": ["semver@7.8.4", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-rUCObTnP32Q08R2uuIrt7r9PlEonuTmtuXYcW6s5kjdlj3xbnwe+21yXptAUYcMAABLkYYTtnmzb3w3EDZfueA=="],
 
@@ -3917,7 +3920,7 @@
 
     "tar": ["tar@6.2.1", "", { "dependencies": { "chownr": "^2.0.0", "fs-minipass": "^2.0.0", "minipass": "^5.0.0", "minizlib": "^2.1.1", "mkdirp": "^1.0.3", "yallist": "^4.0.0" } }, "sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A=="],
 
-    "tar-stream": ["tar-stream@1.6.2", "", { "dependencies": { "bl": "^1.0.0", "buffer-alloc": "^1.2.0", "end-of-stream": "^1.0.0", "fs-constants": "^1.0.0", "readable-stream": "^2.3.0", "to-buffer": "^1.1.1", "xtend": "^4.0.0" } }, "sha512-rzS0heiNf8Xn7/mpdSVVSMAWAoy9bfb1WOTYC78Z0UQKeKa/CWS8FOq0lKGNa8DWKAn9gxjCvMLYc5PGXYlK2A=="],
+    "tar-stream": ["tar-stream@3.2.0", "", { "dependencies": { "b4a": "^1.6.4", "bare-fs": "^4.5.5", "fast-fifo": "^1.2.0", "streamx": "^2.15.0" } }, "sha512-ojzvCvVaNp6aOTFmG7jaRD0meowIAuPc3cMMhSgKiVWws1GyHbGd/xvnyuRKcKlMpt3qvxx6r0hreCNITP9hIg=="],
 
     "teex": ["teex@1.0.1", "", { "dependencies": { "streamx": "^2.12.5" } }, "sha512-eYE6iEI62Ni1H8oIa7KlDU6uQBtqr4Eajni3wX7rpfXD8ysFx8z0+dri+KWEPWpBsxXfxu58x/0jvTVT1ekOSg=="],
 
@@ -4675,25 +4678,15 @@
 
     "@walletconnect/window-metadata/tslib": ["tslib@1.14.1", "", {}, "sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg=="],
 
-    "@xhmikosr/archive-type/file-type": ["file-type@20.5.0", "", { "dependencies": { "@tokenizer/inflate": "^0.2.6", "strtok3": "^10.2.0", "token-types": "^6.0.0", "uint8array-extras": "^1.4.0" } }, "sha512-BfHZtG/l9iMm4Ecianu7P8HRD2tBHLtjXinm4X62XBOYzi7CYA7jyqfJzOvXHqzVrVPYqBo2/GvbARMaaJkKVg=="],
-
     "@xhmikosr/bin-check/execa": ["execa@5.1.1", "", { "dependencies": { "cross-spawn": "^7.0.3", "get-stream": "^6.0.0", "human-signals": "^2.1.0", "is-stream": "^2.0.0", "merge-stream": "^2.0.0", "npm-run-path": "^4.0.1", "onetime": "^5.1.2", "signal-exit": "^3.0.3", "strip-final-newline": "^2.0.0" } }, "sha512-8uSpZZocAZRBAPIEINJj3Lo9HyGitllczc27Eh5YYojjMFMn8yHMDMaUHE2Jqfq05D/wucwI4JGURyXt1vchyg=="],
-
-    "@xhmikosr/decompress-tar/file-type": ["file-type@20.5.0", "", { "dependencies": { "@tokenizer/inflate": "^0.2.6", "strtok3": "^10.2.0", "token-types": "^6.0.0", "uint8array-extras": "^1.4.0" } }, "sha512-BfHZtG/l9iMm4Ecianu7P8HRD2tBHLtjXinm4X62XBOYzi7CYA7jyqfJzOvXHqzVrVPYqBo2/GvbARMaaJkKVg=="],
-
-    "@xhmikosr/decompress-tar/tar-stream": ["tar-stream@3.2.0", "", { "dependencies": { "b4a": "^1.6.4", "bare-fs": "^4.5.5", "fast-fifo": "^1.2.0", "streamx": "^2.15.0" } }, "sha512-ojzvCvVaNp6aOTFmG7jaRD0meowIAuPc3cMMhSgKiVWws1GyHbGd/xvnyuRKcKlMpt3qvxx6r0hreCNITP9hIg=="],
-
-    "@xhmikosr/decompress-tarbz2/file-type": ["file-type@20.5.0", "", { "dependencies": { "@tokenizer/inflate": "^0.2.6", "strtok3": "^10.2.0", "token-types": "^6.0.0", "uint8array-extras": "^1.4.0" } }, "sha512-BfHZtG/l9iMm4Ecianu7P8HRD2tBHLtjXinm4X62XBOYzi7CYA7jyqfJzOvXHqzVrVPYqBo2/GvbARMaaJkKVg=="],
-
-    "@xhmikosr/decompress-tarbz2/seek-bzip": ["seek-bzip@2.0.0", "", { "dependencies": { "commander": "^6.0.0" }, "bin": { "seek-bunzip": "bin/seek-bunzip", "seek-table": "bin/seek-bzip-table" } }, "sha512-SMguiTnYrhpLdk3PwfzHeotrcwi8bNV4iemL9tx9poR/yeaMYwB9VzR1w7b57DuWpuqR8n6oZboi0hj3AxZxQg=="],
-
-    "@xhmikosr/decompress-targz/file-type": ["file-type@20.5.0", "", { "dependencies": { "@tokenizer/inflate": "^0.2.6", "strtok3": "^10.2.0", "token-types": "^6.0.0", "uint8array-extras": "^1.4.0" } }, "sha512-BfHZtG/l9iMm4Ecianu7P8HRD2tBHLtjXinm4X62XBOYzi7CYA7jyqfJzOvXHqzVrVPYqBo2/GvbARMaaJkKVg=="],
-
-    "@xhmikosr/decompress-unzip/file-type": ["file-type@20.5.0", "", { "dependencies": { "@tokenizer/inflate": "^0.2.6", "strtok3": "^10.2.0", "token-types": "^6.0.0", "uint8array-extras": "^1.4.0" } }, "sha512-BfHZtG/l9iMm4Ecianu7P8HRD2tBHLtjXinm4X62XBOYzi7CYA7jyqfJzOvXHqzVrVPYqBo2/GvbARMaaJkKVg=="],
 
     "@xhmikosr/decompress-unzip/get-stream": ["get-stream@6.0.1", "", {}, "sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg=="],
 
     "@xhmikosr/decompress-unzip/yauzl": ["yauzl@3.4.0", "", { "dependencies": { "pend": "~1.2.0" } }, "sha512-jIH9yLR9wqr0wOS0TpBvo/g/2UgZH5qePVbjgRliiF0BYvOZyaBknKsF+x9Iht0O6sqgnB93rCICdOZFecJuDw=="],
+
+    "@xhmikosr/downloader/@xhmikosr/decompress": ["@xhmikosr/decompress@5.0.0", "", { "dependencies": { "decompress-tar": "^4.1.1", "decompress-tarbz2": "^4.1.1", "decompress-targz": "^4.1.1", "decompress-unzip": "^4.0.1", "graceful-fs": "^4.2.10", "make-dir": "^3.1.0", "pify": "^5.0.0", "strip-dirs": "^3.0.0" } }, "sha512-2bcQXuPmtxlodAHdD0DVM/HTMwqaCiOAtqSBcqUhZVp+pGNCuwgaZfixlzFqb4h/o4ZVdMuFXfNdwkVBgzUxUA=="],
+
+    "@xhmikosr/downloader/file-type": ["file-type@12.4.2", "", {}, "sha512-UssQP5ZgIOKelfsaB5CuGAL+Y+q7EmONuiwF3N5HAH0t27rvrttgi6Ra9k/+DVaY9UF6+ybxu5pOXLUdA8N7Vg=="],
 
     "@xhmikosr/downloader/get-stream": ["get-stream@6.0.1", "", {}, "sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg=="],
 
@@ -4735,9 +4728,13 @@
 
     "decompress-tar/is-stream": ["is-stream@1.1.0", "", {}, "sha512-uQPm8kcs47jx38atAcWTVxyltQYoPT68y9aWYdV6yWXSyW8mzSat0TL6CiWdZeCdF3KrAvpVtnHbTv4RN+rqdQ=="],
 
+    "decompress-tar/tar-stream": ["tar-stream@1.6.2", "", { "dependencies": { "bl": "^1.0.0", "buffer-alloc": "^1.2.0", "end-of-stream": "^1.0.0", "fs-constants": "^1.0.0", "readable-stream": "^2.3.0", "to-buffer": "^1.1.1", "xtend": "^4.0.0" } }, "sha512-rzS0heiNf8Xn7/mpdSVVSMAWAoy9bfb1WOTYC78Z0UQKeKa/CWS8FOq0lKGNa8DWKAn9gxjCvMLYc5PGXYlK2A=="],
+
     "decompress-tarbz2/file-type": ["file-type@6.2.0", "", {}, "sha512-YPcTBDV+2Tm0VqjybVd32MHdlEGAtuxS3VAYsumFokDSMG+ROT5wawGlnHDoz7bfMcMDt9hxuXvXwoKUx2fkOg=="],
 
     "decompress-tarbz2/is-stream": ["is-stream@1.1.0", "", {}, "sha512-uQPm8kcs47jx38atAcWTVxyltQYoPT68y9aWYdV6yWXSyW8mzSat0TL6CiWdZeCdF3KrAvpVtnHbTv4RN+rqdQ=="],
+
+    "decompress-tarbz2/seek-bzip": ["seek-bzip@1.0.6", "", { "dependencies": { "commander": "^2.8.1" }, "bin": { "seek-bunzip": "bin/seek-bunzip", "seek-table": "bin/seek-bzip-table" } }, "sha512-e1QtP3YL5tWww8uKaOCQ18UxIT2laNBXHjV/S2WYCiK4udiv8lkG89KRIoCjUagnAmCBurjF4zEVX2ByBbnCjQ=="],
 
     "decompress-targz/file-type": ["file-type@5.2.0", "", {}, "sha512-Iq1nJ6D2+yIO4c8HHg4fyVb8mAJieo1Oloy1mLLaB2PvezNedhBVm+QU7g0qM42aiMbRXTxKKwGD17rjKNJYVQ=="],
 
@@ -4905,7 +4902,7 @@
 
     "rpc-websockets/ws": ["ws@8.21.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g=="],
 
-    "seek-bzip/commander": ["commander@2.20.3", "", {}, "sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ=="],
+    "seek-bzip/commander": ["commander@6.2.1", "", {}, "sha512-U7VdrJFnJgo4xjrHpTzu0yrHPGImdsmD95ZlgYSEajAn2JKzDhDTPG9kBTefmObL2w/ngeZnilk+OV9CG3d7UA=="],
 
     "smoldot/ws": ["ws@8.21.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g=="],
 
@@ -4914,10 +4911,6 @@
     "stream-browserify/readable-stream": ["readable-stream@3.6.2", "", { "dependencies": { "inherits": "^2.0.3", "string_decoder": "^1.1.1", "util-deprecate": "^1.0.1" } }, "sha512-9u/sniCrY3D5WdsERHzHE4G2YCXqoG5FTHUiCC4SIbr6XcLZBY05ya9EKjYek9O5xOAwjGq+1JdGBAS7Q9ScoA=="],
 
     "stream-http/readable-stream": ["readable-stream@3.6.2", "", { "dependencies": { "inherits": "^2.0.3", "string_decoder": "^1.1.1", "util-deprecate": "^1.0.1" } }, "sha512-9u/sniCrY3D5WdsERHzHE4G2YCXqoG5FTHUiCC4SIbr6XcLZBY05ya9EKjYek9O5xOAwjGq+1JdGBAS7Q9ScoA=="],
-
-    "tar-stream/bl": ["bl@1.2.3", "", { "dependencies": { "readable-stream": "^2.3.5", "safe-buffer": "^5.1.1" } }, "sha512-pvcNpa0UU69UT341rO6AYy4FVAIkUHuZXRIWbq+zHnsVcRzDDjIAhGuuYoi0d//cwIwtt4pkpKycWEfjdV+vww=="],
-
-    "tar-stream/readable-stream": ["readable-stream@2.3.8", "", { "dependencies": { "core-util-is": "~1.0.0", "inherits": "~2.0.3", "isarray": "~1.0.0", "process-nextick-args": "~2.0.0", "safe-buffer": "~5.1.1", "string_decoder": "~1.1.1", "util-deprecate": "~1.0.1" } }, "sha512-8p0AUk4XODgIewSi0l8Epjs+EVnWiK7NoDIEGU0HhE7+ZyY8D1IMY7odu5lRrFXGg71L15KG8QrPmum45RTtdA=="],
 
     "thread-stream/real-require": ["real-require@1.0.0", "", {}, "sha512-P4nbQYQfePJxRSmY+v/KINxVucm4NF3p3s7pJveMTtom52FR4YGltUQLB8idDXwDDWW+eYrWDFbuzUnjoWHF7g=="],
 
@@ -5469,8 +5462,6 @@
 
     "@xhmikosr/bin-check/execa/signal-exit": ["signal-exit@3.0.7", "", {}, "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ=="],
 
-    "@xhmikosr/decompress-tarbz2/seek-bzip/commander": ["commander@6.2.1", "", {}, "sha512-U7VdrJFnJgo4xjrHpTzu0yrHPGImdsmD95ZlgYSEajAn2JKzDhDTPG9kBTefmObL2w/ngeZnilk+OV9CG3d7UA=="],
-
     "bin-version/execa/get-stream": ["get-stream@6.0.1", "", {}, "sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg=="],
 
     "bin-version/execa/npm-run-path": ["npm-run-path@4.0.1", "", { "dependencies": { "path-key": "^3.0.0" } }, "sha512-S48WzZW777zhNIrn7gxOlISNAqi9ZC/uQFnRdbeIHhZhCA6UqpkOT8T1G7BvfdgP4Er8gF4sUbaS0i7QvIfCWw=="],
@@ -5486,6 +5477,12 @@
     "browserify-sign/readable-stream/string_decoder": ["string_decoder@1.1.1", "", { "dependencies": { "safe-buffer": "~5.1.0" } }, "sha512-n/ShnvDi6FHbbVfviro+WojiFzv+s8MPMHBczVePfUpDJLwoLT0ht1l4YwBCbi8pJAveEEdnkHyPyTP/mzRfwg=="],
 
     "concurrently/chalk/supports-color": ["supports-color@7.2.0", "", { "dependencies": { "has-flag": "^4.0.0" } }, "sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw=="],
+
+    "decompress-tar/tar-stream/bl": ["bl@1.2.3", "", { "dependencies": { "readable-stream": "^2.3.5", "safe-buffer": "^5.1.1" } }, "sha512-pvcNpa0UU69UT341rO6AYy4FVAIkUHuZXRIWbq+zHnsVcRzDDjIAhGuuYoi0d//cwIwtt4pkpKycWEfjdV+vww=="],
+
+    "decompress-tar/tar-stream/readable-stream": ["readable-stream@2.3.8", "", { "dependencies": { "core-util-is": "~1.0.0", "inherits": "~2.0.3", "isarray": "~1.0.0", "process-nextick-args": "~2.0.0", "safe-buffer": "~5.1.1", "string_decoder": "~1.1.1", "util-deprecate": "~1.0.1" } }, "sha512-8p0AUk4XODgIewSi0l8Epjs+EVnWiK7NoDIEGU0HhE7+ZyY8D1IMY7odu5lRrFXGg71L15KG8QrPmum45RTtdA=="],
+
+    "decompress-tarbz2/seek-bzip/commander": ["commander@2.20.3", "", {}, "sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ=="],
 
     "eth-block-tracker/@metamask/utils/superstruct": ["superstruct@1.0.4", "", {}, "sha512-7JpaAoX2NGyoFlI9NBh66BQXGONc+uE+MRS5i2iOBKuS4e+ccgMDjATgZldkah+33DakBxDHiss9kvUcGAO8UQ=="],
 
@@ -5542,12 +5539,6 @@
     "rimraf/glob/minipass": ["minipass@7.1.3", "", {}, "sha512-tEBHqDnIoM/1rXME1zgka9g6Q2lcoCkxHLuc7ODJ5BxbP5d4c2Z5cGgtXAku59200Cx7diuHTOYfSBD8n6mm8A=="],
 
     "ripemd160/hash-base/readable-stream": ["readable-stream@2.3.8", "", { "dependencies": { "core-util-is": "~1.0.0", "inherits": "~2.0.3", "isarray": "~1.0.0", "process-nextick-args": "~2.0.0", "safe-buffer": "~5.1.1", "string_decoder": "~1.1.1", "util-deprecate": "~1.0.1" } }, "sha512-8p0AUk4XODgIewSi0l8Epjs+EVnWiK7NoDIEGU0HhE7+ZyY8D1IMY7odu5lRrFXGg71L15KG8QrPmum45RTtdA=="],
-
-    "tar-stream/readable-stream/isarray": ["isarray@1.0.0", "", {}, "sha512-VLghIWNM6ELQzo7zwmcg0NmTVyWKYjvIeM83yjp0wRDTmUnrM678fQbcKBo6n2CJEF0szoG//ytg+TKla89ALQ=="],
-
-    "tar-stream/readable-stream/safe-buffer": ["safe-buffer@5.1.2", "", {}, "sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g=="],
-
-    "tar-stream/readable-stream/string_decoder": ["string_decoder@1.1.1", "", { "dependencies": { "safe-buffer": "~5.1.0" } }, "sha512-n/ShnvDi6FHbbVfviro+WojiFzv+s8MPMHBczVePfUpDJLwoLT0ht1l4YwBCbi8pJAveEEdnkHyPyTP/mzRfwg=="],
 
     "tsx/esbuild/@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.28.1", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Svl7tq8k/08+p6CXPpRjQ1fKX+1odH/BQbb48fV6fj3CWHhsoIOoY87w1oHXm0qEpkIK3ZfVgp0hed3XBXzXMQ=="],
 
@@ -5631,19 +5622,11 @@
 
     "@effectstream/bitcoin-contracts/bitcoinjs-lib/varuint-bitcoin/uint8array-tools": ["uint8array-tools@0.0.8", "", {}, "sha512-xS6+s8e0Xbx++5/0L+yyexukU7pz//Yg6IHg3BKhXotg1JcYtgxVcUctQ0HxLByiJzpAkNFawz1Nz5Xadzo82g=="],
 
-    "@effectstream/grafana-alloy/@xhmikosr/bin-wrapper/@xhmikosr/downloader/@xhmikosr/decompress": ["@xhmikosr/decompress@10.2.1", "", { "dependencies": { "@xhmikosr/decompress-tar": "^8.1.0", "@xhmikosr/decompress-tarbz2": "^8.1.0", "@xhmikosr/decompress-targz": "^8.1.0", "@xhmikosr/decompress-unzip": "^7.1.0", "graceful-fs": "^4.2.11", "strip-dirs": "^3.0.0" } }, "sha512-ceGT3K2JR73Usj5o+HM2RRZw0XPUes4rhb7uVTY9PefUQQMpuj8x+V29XVG09JnS7EOj9SIBhHn3K4bFNNb7hA=="],
-
-    "@effectstream/grafana-alloy/@xhmikosr/bin-wrapper/@xhmikosr/downloader/file-type": ["file-type@20.5.0", "", { "dependencies": { "@tokenizer/inflate": "^0.2.6", "strtok3": "^10.2.0", "token-types": "^6.0.0", "uint8array-extras": "^1.4.0" } }, "sha512-BfHZtG/l9iMm4Ecianu7P8HRD2tBHLtjXinm4X62XBOYzi7CYA7jyqfJzOvXHqzVrVPYqBo2/GvbARMaaJkKVg=="],
-
     "@effectstream/grafana-alloy/@xhmikosr/bin-wrapper/@xhmikosr/downloader/filenamify": ["filenamify@6.0.0", "", { "dependencies": { "filename-reserved-regex": "^3.0.0" } }, "sha512-vqIlNogKeyD3yzrm0yhRMQg8hOVwYcYRfjEoODd49iCprMn4HL85gK3HcykQE53EPIpX3HcAbGA5ELQv216dAQ=="],
 
     "@effectstream/grafana-alloy/@xhmikosr/bin-wrapper/@xhmikosr/downloader/get-stream": ["get-stream@6.0.1", "", {}, "sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg=="],
 
     "@effectstream/grafana-alloy/@xhmikosr/bin-wrapper/@xhmikosr/downloader/got": ["got@13.0.0", "", { "dependencies": { "@sindresorhus/is": "^5.2.0", "@szmarczak/http-timer": "^5.0.1", "cacheable-lookup": "^7.0.0", "cacheable-request": "^10.2.8", "decompress-response": "^6.0.0", "form-data-encoder": "^2.1.2", "get-stream": "^6.0.1", "http2-wrapper": "^2.1.10", "lowercase-keys": "^3.0.0", "p-cancelable": "^3.0.0", "responselike": "^3.0.0" } }, "sha512-XfBk1CxOOScDcMr9O1yKkNaQyy865NbYs+F7dr4H0LZMVgCj2Le59k6PqbNHoL5ToeaEQUYh6c6yMfVcc6SJxA=="],
-
-    "@effectstream/grafana-loki/@xhmikosr/bin-wrapper/@xhmikosr/downloader/@xhmikosr/decompress": ["@xhmikosr/decompress@10.2.1", "", { "dependencies": { "@xhmikosr/decompress-tar": "^8.1.0", "@xhmikosr/decompress-tarbz2": "^8.1.0", "@xhmikosr/decompress-targz": "^8.1.0", "@xhmikosr/decompress-unzip": "^7.1.0", "graceful-fs": "^4.2.11", "strip-dirs": "^3.0.0" } }, "sha512-ceGT3K2JR73Usj5o+HM2RRZw0XPUes4rhb7uVTY9PefUQQMpuj8x+V29XVG09JnS7EOj9SIBhHn3K4bFNNb7hA=="],
-
-    "@effectstream/grafana-loki/@xhmikosr/bin-wrapper/@xhmikosr/downloader/file-type": ["file-type@20.5.0", "", { "dependencies": { "@tokenizer/inflate": "^0.2.6", "strtok3": "^10.2.0", "token-types": "^6.0.0", "uint8array-extras": "^1.4.0" } }, "sha512-BfHZtG/l9iMm4Ecianu7P8HRD2tBHLtjXinm4X62XBOYzi7CYA7jyqfJzOvXHqzVrVPYqBo2/GvbARMaaJkKVg=="],
 
     "@effectstream/grafana-loki/@xhmikosr/bin-wrapper/@xhmikosr/downloader/filenamify": ["filenamify@6.0.0", "", { "dependencies": { "filename-reserved-regex": "^3.0.0" } }, "sha512-vqIlNogKeyD3yzrm0yhRMQg8hOVwYcYRfjEoODd49iCprMn4HL85gK3HcykQE53EPIpX3HcAbGA5ELQv216dAQ=="],
 
@@ -5774,6 +5757,12 @@
     "@walletconnect/universal-provider/@walletconnect/utils/viem/ws": ["ws@8.18.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw=="],
 
     "bitcoinjs-lib/bs58check/bs58/base-x": ["base-x@4.0.1", "", {}, "sha512-uAZ8x6r6S3aUM9rbHGVOIsR15U/ZSc82b3ymnCPsT45Gk1DDvhDPdIgB5MrhirZWt+5K0EEPQH985kNqZgNPFw=="],
+
+    "decompress-tar/tar-stream/readable-stream/isarray": ["isarray@1.0.0", "", {}, "sha512-VLghIWNM6ELQzo7zwmcg0NmTVyWKYjvIeM83yjp0wRDTmUnrM678fQbcKBo6n2CJEF0szoG//ytg+TKla89ALQ=="],
+
+    "decompress-tar/tar-stream/readable-stream/safe-buffer": ["safe-buffer@5.1.2", "", {}, "sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g=="],
+
+    "decompress-tar/tar-stream/readable-stream/string_decoder": ["string_decoder@1.1.1", "", { "dependencies": { "safe-buffer": "~5.1.0" } }, "sha512-n/ShnvDi6FHbbVfviro+WojiFzv+s8MPMHBczVePfUpDJLwoLT0ht1l4YwBCbi8pJAveEEdnkHyPyTP/mzRfwg=="],
 
     "execa/cross-spawn/lru-cache/yallist": ["yallist@2.1.2", "", {}, "sha512-ncTzHV7NvsQZkYe1DW7cbDLm0YpzHmZF5r/iyP3ZnQtMiJ+pjzisCiMNI+Sj+xQF5pXhSHxSB3uDbsBTzY/c2A=="],
 
