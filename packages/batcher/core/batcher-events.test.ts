@@ -1,12 +1,13 @@
 import { expect, test } from "bun:test";
 import { run, sleep } from "effection";
+import { readFileSync } from "node:fs";
 import type { BlockchainAdapter } from "../adapters/adapter.ts";
 import { Batcher } from "./batcher.ts";
+import { attachDefaultConsoleListeners } from "./batcher-events.ts";
 import type { BatcherStorage } from "./storage.ts";
 import type { DefaultBatcherInput } from "./types.ts";
 
 const TARGET = "events-test";
-const redProofTest = process.env.BATCHER_RED_PROOF === "1" ? test : test.skip;
 
 function makeInput(address = "event-wallet"): DefaultBatcherInput {
   return {
@@ -93,7 +94,7 @@ function listenForAsyncEvents(
   });
 }
 
-redProofTest("ordinary async lifecycle sites deliver all seven emissions", async () => {
+test("ordinary async lifecycle sites deliver all seven emissions", async () => {
   const seen: string[] = [];
   const storage = new MemoryStorage([makeInput()]);
   const port = Number(process.env.BATCHER_TEST_PORT ?? "18372");
@@ -171,4 +172,103 @@ test("the Effection generator emitter still invokes its listener", async () => {
   });
 
   expect(calls).toBe(1);
+});
+
+test("ordinary async code never awaits the Effection generator emitter", () => {
+  const source = readFileSync(new URL("./batcher.ts", import.meta.url), "utf8");
+  expect(source.match(/await this\.emitStateTransition\(/g) ?? []).toHaveLength(0);
+  expect(source.match(/yield\* (?:this|batcher)\.emitStateTransition\(/g) ?? [])
+    .toHaveLength(5);
+});
+
+test("disabling the event system suppresses async and Effection listeners", async () => {
+  const batcher = new Batcher({
+    adapters: { [TARGET]: makeAdapter() },
+    defaultTarget: TARGET,
+    enableHttpServer: false,
+    enableEventSystem: false,
+    pollingIntervalMs: 1_000_000,
+  }, new MemoryStorage());
+  let calls = 0;
+  batcher.addStateTransition("startup", () => {
+    calls += 1;
+  });
+  const payload = {
+    publicConfig: batcher.getPublicConfig(),
+    time: Date.now(),
+  };
+
+  await (batcher as any).emitStateTransitionAsync("startup", payload);
+  await run(function* () {
+    yield* batcher.emitStateTransition("startup", payload);
+    yield* sleep(10);
+  });
+
+  expect(calls).toBe(0);
+});
+
+test("the default startup listener prints its banner on async init", async () => {
+  const batcher = new Batcher({
+    adapters: { [TARGET]: makeAdapter() },
+    defaultTarget: TARGET,
+    enableHttpServer: false,
+    enableEventSystem: true,
+    pollingIntervalMs: 1_000_000,
+  }, new MemoryStorage());
+  attachDefaultConsoleListeners(batcher);
+  const logs: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => logs.push(args.map(String).join(" "));
+  try {
+    await batcher.init({ startPolling: false });
+  } finally {
+    console.log = originalLog;
+  }
+
+  expect(logs.filter((line) => line.includes("Batcher started"))).toHaveLength(1);
+});
+
+test("throwing async listeners do not break init, poll, or batch work", async () => {
+  const storage = new MemoryStorage([makeInput("throwing-listener")]);
+  const batcher = new Batcher({
+    adapters: { [TARGET]: makeAdapter() },
+    defaultTarget: TARGET,
+    enableHttpServer: false,
+    enableEventSystem: true,
+    pollingIntervalMs: 1_000_000,
+  }, storage);
+  const reportedPhases: string[] = [];
+  batcher.addStateTransition("startup", () => {
+    throw new Error("startup-listener");
+  });
+  batcher.addStateTransition("poll:targets-ready", () => {
+    throw new Error("poll-listener");
+  });
+  batcher.addStateTransition("batch:process:start", () => {
+    throw new Error("batch-listener");
+  });
+  batcher.addStateTransition("error", ({ phase }) => {
+    reportedPhases.push(phase);
+  });
+
+  await batcher.init({ startPolling: false });
+  const internals = batcher as any;
+  const processTargets = internals.processBatchesForTargets.bind(batcher);
+  internals.isTargetReadyForBatching = async () => true;
+  internals.processBatchesForTargets = async () => {};
+  await batcher.pollBatcher();
+  internals.processBatchesForTargets = processTargets;
+
+  let batchesProcessed = 0;
+  internals.batchProcessor.processBatchForTarget = async () => {
+    batchesProcessed += 1;
+  };
+  await batcher.processBatchesForTargets([TARGET]);
+
+  expect(batchesProcessed).toBe(1);
+  expect(reportedPhases).toEqual([
+    "event-listener:startup",
+    "event-listener:poll:targets-ready",
+    "event-listener:batch:process:start",
+  ]);
 });
