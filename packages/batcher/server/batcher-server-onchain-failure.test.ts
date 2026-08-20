@@ -152,7 +152,7 @@ test("HTTP wait-receipt returns structured 422 and its id polls failed", async (
 
       const response = await pending;
       expect(response.statusCode).toBe(422);
-      expect(response.json()).toEqual({
+      expect(response.json() as Record<string, unknown>).toEqual({
         success: false,
         error: "On-chain transaction failed",
         message: "Transaction failed on-chain: 0xreverted",

@@ -41,7 +41,9 @@ class MemoryStorage implements BatcherStorage<DefaultBatcherInput> {
   async getInputsByTarget(): Promise<DefaultBatcherInput[]> {
     return [...this.inputs];
   }
-  async incrementRetryCount(): Promise<void> {}
+  async incrementRetryCount(): Promise<DefaultBatcherInput[]> {
+    return [];
+  }
   async clearAllInputs(): Promise<void> {
     this.inputs.length = 0;
   }
@@ -78,16 +80,26 @@ function listenForAsyncEvents(
   batcher: Batcher<DefaultBatcherInput>,
   seen: string[],
 ): void {
-  batcher.addStateTransition("startup", () => seen.push("startup"));
-  batcher.addStateTransition("http:start", () => seen.push("http:start"));
-  batcher.addStateTransition("http:stop", () => seen.push("http:stop"));
+  batcher.addStateTransition("startup", () => {
+    seen.push("startup");
+  });
+  batcher.addStateTransition("http:start", () => {
+    seen.push("http:start");
+  });
+  batcher.addStateTransition("http:stop", () => {
+    seen.push("http:stop");
+  });
   batcher.addStateTransition(
     "poll:targets-ready",
-    () => seen.push("poll:targets-ready"),
+    () => {
+      seen.push("poll:targets-ready");
+    },
   );
   batcher.addStateTransition(
     "batch:process:start",
-    () => seen.push("batch:process:start"),
+    () => {
+      seen.push("batch:process:start");
+    },
   );
   batcher.addStateTransition("error", ({ error }) => {
     seen.push(`error:${error instanceof Error ? error.message : String(error)}`);
