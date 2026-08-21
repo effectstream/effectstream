@@ -7,7 +7,7 @@
     "start:mainnet": "bun run batcher.mainnet.ts"
   },
   "dependencies": {
-    "@effectstream/batcher-sdk": "0.103.3",
+    "@effectstream/batcher-sdk": "0.104.0",
     "@shinkai-v2/contracts-evm": "workspace:*",
     "effection": "^3.5.0",
     "viem": "2.37.3"

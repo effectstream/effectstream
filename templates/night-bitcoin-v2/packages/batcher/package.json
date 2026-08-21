@@ -7,9 +7,9 @@
     "start": "bun run batcher.dev.ts"
   },
   "dependencies": {
-    "@effectstream/batcher-sdk": "0.103.3",
-    "@effectstream/midnight-contracts": "0.103.3",
-    "@effectstream/utils": "0.103.3",
+    "@effectstream/batcher-sdk": "0.104.0",
+    "@effectstream/midnight-contracts": "0.104.0",
+    "@effectstream/utils": "0.104.0",
     "effection": "^3.5.0"
   }
 }
