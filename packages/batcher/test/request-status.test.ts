@@ -462,6 +462,66 @@ for (const backend of BACKENDS) {
         expect(moved!.acceptedAt.getTime()).toBe(opened!.acceptedAt.getTime());
       });
     });
+
+    test("bulk transitions preserve ordered independent outcomes and detail", async () => {
+      await withStorage(backend, async ({ storage, accept }) => {
+        const regression = await accept(input({ timestamp: "bulk-1" }));
+        const terminal = await accept(input({ timestamp: "bulk-2" }));
+        const valid = await accept(input({ timestamp: "bulk-3" }));
+        await storage.recordTransition(regression.requestId, "submitted", {
+          transactionHash: "0xkept",
+        });
+        await storage.recordTransition(terminal.requestId, "confirmed", {
+          transactionHash: "0xterminal",
+          blockNumber: 1n,
+        });
+
+        const outcomes = await storage.recordTransitions([
+          { requestId: "d".repeat(64), state: "confirmed" },
+          { requestId: regression.requestId, state: "batching" },
+          { requestId: terminal.requestId, state: "failed" },
+          {
+            requestId: valid.requestId,
+            state: "submitted",
+            detail: { transactionHash: "0xvalid", retryCount: 2 },
+          },
+        ]);
+
+        expect(outcomes.map((outcome) =>
+          outcome.applied === true ? "applied" : outcome.refused
+        )).toEqual([
+          "unknown-request",
+          "regression",
+          "already-terminal",
+          "applied",
+        ]);
+        expect((await storage.getStatus(regression.requestId))?.transactionHash)
+          .toBe("0xkept");
+        expect((await storage.getStatus(terminal.requestId))?.state)
+          .toBe("confirmed");
+        expect(await storage.getStatus(valid.requestId)).toMatchObject({
+          state: "submitted",
+          transactionHash: "0xvalid",
+          retryCount: 2,
+        });
+        expect(await storage.recordTransitions([])).toEqual([]);
+        expect(storage.recordTransitions([
+          { requestId: valid.requestId, state: "submitted" },
+          { requestId: valid.requestId, state: "confirmed" },
+        ])).rejects.toThrow(/duplicate request id/);
+      });
+    });
+
+    test("racing bulk calls never regress a request", async () => {
+      await withStorage(backend, async ({ storage, accept }) => {
+        const { requestId } = await accept(input({ timestamp: "bulk-race" }));
+        await Promise.all([
+          storage.recordTransitions([{ requestId, state: "submitted" }]),
+          storage.recordTransitions([{ requestId, state: "batching" }]),
+        ]);
+        expect((await storage.getStatus(requestId))?.state).toBe("submitted");
+      });
+    });
   });
 }
 

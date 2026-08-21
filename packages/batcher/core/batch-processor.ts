@@ -8,6 +8,7 @@ import type {
 import type { DefaultBatcherInput } from "./types.ts";
 import type {
   RequestState,
+  RequestTransition,
   RequestTransitionDetail,
   TransitionOutcome,
 } from "./storage.ts";
@@ -85,6 +86,9 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           state: RequestState,
           detail?: RequestTransitionDetail,
         ) => Promise<TransitionOutcome>;
+        recordTransitions?: (
+          transitions: readonly RequestTransition[],
+        ) => Promise<TransitionOutcome[]>;
       };
       submissionCallbacks: Map<
         string,
@@ -152,7 +156,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     const requestId = computeRequestId(input, target);
     try {
       const outcome = await storage.recordTransition(requestId, state, detail);
-      if (!outcome.applied) {
+      if (outcome.applied === false) {
         debugLog(
           `[BatchProcessor] Status transition → ${state} refused for request ` +
             `${requestId.substring(0, 12)}… (${outcome.refused}); the record ` +
@@ -174,8 +178,48 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     state: RequestState,
     detail?: (input: T) => RequestTransitionDetail | undefined,
   ): Promise<void> {
-    for (const input of inputs) {
-      await this.transition(input, target, state, detail?.(input));
+    const storage = this.batcher.storage;
+    if (inputs.length === 0 || typeof storage.recordTransition !== "function") {
+      return;
+    }
+    const transitions = inputs.map((input): RequestTransition => ({
+      requestId: computeRequestId(input, target),
+      state,
+      detail: detail?.(input),
+    }));
+    if (typeof storage.recordTransitions === "function") {
+      try {
+        const outcomes = await storage.recordTransitions(transitions);
+        if (outcomes.length !== transitions.length) {
+          throw new Error(
+            `bulk backend returned ${outcomes.length} outcomes for ` +
+              `${transitions.length} transitions`,
+          );
+        }
+        outcomes.forEach((outcome, index) => {
+          if (outcome.applied === false) {
+            debugLog(
+              `[BatchProcessor] Status transition → ${state} refused for request ` +
+                `${transitions[index].requestId.substring(0, 12)}… ` +
+                `(${outcome.refused}); the record already knows better.`,
+            );
+          }
+        });
+        return;
+      } catch (error) {
+        console.warn(
+          `[BatchProcessor] Bulk status transition → ${state} failed for ` +
+            `${transitions.length} request(s); retrying individual status writes: ${error}`,
+        );
+      }
+    }
+    for (let index = 0; index < inputs.length; index++) {
+      await this.transition(
+        inputs[index],
+        target,
+        state,
+        transitions[index].detail,
+      );
     }
   }
 
@@ -253,18 +297,29 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         `caller and recording the terminal state.`,
     );
 
+    const terminalDetails = new Map<string, RequestTransitionDetail>();
     for (const input of dropped) {
       const retryCount = input.retryCount ?? maxRetries;
       const diagnostic = reasons?.get(computeRequestId(input, target));
       const message = `Input dropped after ${retryCount} failed submission ` +
         `attempt(s) for target ${target}` +
         (diagnostic ? `: ${diagnostic}` : ".");
-
-      await this.transition(input, target, "failed", {
+      terminalDetails.set(computeRequestId(input, target), {
         errorCode: RETRIES_EXHAUSTED,
         message,
         retryCount,
       });
+    }
+    await this.transitionAll(
+      dropped,
+      target,
+      "failed",
+      (input) => terminalDetails.get(computeRequestId(input, target)),
+    );
+
+    for (const input of dropped) {
+      const detail = terminalDetails.get(computeRequestId(input, target))!;
+      const message = detail.message!;
 
       // The callback key excludes `retryCount`, so the row storage handed back
       // still finds the caller that submitted it.
@@ -623,14 +678,23 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       );
     }
 
+    const rejectionDetails = new Map<string, RequestTransitionDetail>(
+      rejections.map((rejection) => [
+        computeRequestId(rejection.input, target),
+        { errorCode: rejection.errorCode, message: rejection.error },
+      ]),
+    );
+    await this.transitionAll(
+      rejections.map((rejection) => rejection.input),
+      target,
+      "failed",
+      (input) => rejectionDetails.get(computeRequestId(input, target)),
+    );
+
     for (const rejection of rejections) {
       // The adapter's own verdict, recorded verbatim: a poller and a waiting
       // caller must be told the same thing, and the errorCode is what a client
       // is supposed to branch on.
-      await this.transition(rejection.input, target, "failed", {
-        errorCode: rejection.errorCode,
-        message: rejection.error,
-      });
       await this.emitTerminal(rejection.input, target, "failed", {
         errorCode: rejection.errorCode,
       });
@@ -773,17 +837,32 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       receipt,
     );
 
+    const details = new Map<string, RequestTransitionDetail>();
+    selectedInputs.forEach((input, index) => {
+      const inputHash = isMultiHash ? hashes[index] : receipt.hash;
+      details.set(
+        computeRequestId(input, target),
+        receipt.status === 0
+          ? {
+            transactionHash: inputHash,
+            errorCode: ONCHAIN_FAILED,
+            message: `Transaction failed on-chain: ${inputHash}`,
+          }
+          : { transactionHash: inputHash, blockNumber: receipt.blockNumber },
+      );
+    });
+    await this.transitionAll(
+      selectedInputs,
+      target,
+      receipt.status === 0 ? "failed" : "confirmed",
+      (input) => details.get(computeRequestId(input, target)),
+    );
+
     for (let i = 0; i < selectedInputs.length; i++) {
       const input = selectedInputs[i];
       const inputHash = isMultiHash ? hashes[i] : receipt.hash;
 
       if (receipt.status === 0) {
-        const message = `Transaction failed on-chain: ${inputHash}`;
-        await this.transition(input, target, "failed", {
-          transactionHash: inputHash,
-          errorCode: ONCHAIN_FAILED,
-          message,
-        });
         await this.emitTerminal(input, target, "failed", {
           transactionHash: inputHash,
           errorCode: ONCHAIN_FAILED,
@@ -791,10 +870,6 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         continue;
       }
 
-      await this.transition(input, target, "confirmed", {
-        transactionHash: inputHash,
-        blockNumber: receipt.blockNumber,
-      });
       await this.emitTerminal(input, target, "confirmed", {
         transactionHash: inputHash,
       });

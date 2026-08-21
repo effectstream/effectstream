@@ -186,6 +186,13 @@ export interface RequestTransitionDetail {
   retryCount?: number;
 }
 
+/** One requested lifecycle move in an ordered bulk status write. */
+export interface RequestTransition {
+  requestId: string;
+  state: RequestState;
+  detail?: RequestTransitionDetail;
+}
+
 /** Why a transition was refused. Terminal states and backwards moves are not errors — they are answers. */
 export type TransitionRefusal =
   | "unknown-request"
@@ -285,6 +292,15 @@ export interface TrackingStorage<
     state: RequestState,
     detail?: RequestTransitionDetail,
   ): Promise<TransitionOutcome>;
+
+  /**
+   * Move several independent requests in one set-based database statement.
+   * OPTIONAL: older/custom tracking backends remain valid and the processor
+   * falls back to `recordTransition` when this capability is absent.
+   */
+  recordTransitions?(
+    transitions: readonly RequestTransition[],
+  ): Promise<TransitionOutcome[]>;
 
   /** The record for an id, or undefined if this batcher never accepted it (or it aged out). */
   getStatus(requestId: string): Promise<RequestStatusRecord | undefined>;

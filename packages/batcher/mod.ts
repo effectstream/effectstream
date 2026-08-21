@@ -38,6 +38,7 @@ export type {
   ReconciliationReport,
   RequestState,
   RequestStatusRecord,
+  RequestTransition,
   RequestTransitionDetail,
   TrackingStorage,
   TransitionOutcome,

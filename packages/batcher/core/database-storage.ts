@@ -5,6 +5,7 @@ import type {
   ReconciliationReport,
   RequestState,
   RequestStatusRecord,
+  RequestTransition,
   RequestTransitionDetail,
   TrackingStorage,
   TransitionOutcome,
@@ -1114,6 +1115,139 @@ export class DatabaseStorage<
     } catch (error) {
       console.error("Error recording request transition:", error);
       throw new Error(`Failed to record request transition: ${error}`);
+    }
+  }
+
+  /** Set-based counterpart to `recordTransition`; one statement, N outcomes. */
+  async recordTransitions(
+    transitions: readonly RequestTransition[],
+  ): Promise<TransitionOutcome[]> {
+    if (transitions.length === 0) return [];
+    const seen = new Set<string>();
+    for (const transition of transitions) {
+      if (seen.has(transition.requestId)) {
+        throw new Error(
+          `recordTransitions received duplicate request id ${transition.requestId}; ` +
+            `each target row may appear only once per bulk statement.`,
+        );
+      }
+      seen.add(transition.requestId);
+    }
+
+    const encoded = JSON.stringify(
+      transitions.map((transition) => ({
+        requestId: transition.requestId,
+        state: transition.state,
+        detail: transition.detail === undefined
+          ? undefined
+          : {
+            ...transition.detail,
+            blockNumber: transition.detail.blockNumber === undefined
+              ? undefined
+              : String(transition.detail.blockNumber),
+          },
+      })),
+    );
+
+    try {
+      const rows = await this.db.query<StatusRow & {
+        ord: number | string;
+        applied: boolean;
+        refused: "unknown-request" | "regression" | "already-terminal" | null;
+      }>(
+        `WITH input AS MATERIALIZED (
+           SELECT
+             ordinality::int AS ord,
+             item->>'requestId' AS requested_id,
+             item->>'state' AS next_state,
+             item->'detail'->>'transactionHash' AS next_transaction_hash,
+             NULLIF(item->'detail'->>'blockNumber', '')::bigint AS next_block_number,
+             item->'detail'->>'errorCode' AS next_error_code,
+             item->'detail'->>'message' AS next_message,
+             NULLIF(item->'detail'->>'retryCount', '')::int AS next_retry_count
+           FROM jsonb_array_elements($1::jsonb) WITH ORDINALITY AS source(item, ordinality)
+         ), locked AS MATERIALIZED (
+           SELECT
+             i.*,
+             s.request_id, s.row_target, s.address, s.state, s.terminal,
+             s.transaction_hash, s.block_number, s.error_code, s.message,
+             s.retry_count, s.replay_key, s.accepted_at, s.updated_at
+           FROM input i
+           JOIN request_status s ON s.request_id = i.requested_id
+           ORDER BY s.request_id
+           FOR UPDATE OF s
+         ), evaluated AS MATERIALIZED (
+           SELECT l.*,
+             CASE
+               WHEN l.terminal THEN 'already-terminal'
+               WHEN
+                 CASE l.next_state
+                   WHEN 'queued' THEN 0 WHEN 'batching' THEN 1
+                   WHEN 'submitted' THEN 2 ELSE 3
+                 END <
+                 CASE l.state
+                   WHEN 'queued' THEN 0 WHEN 'batching' THEN 1
+                   WHEN 'submitted' THEN 2 ELSE 3
+                 END THEN 'regression'
+               ELSE NULL
+             END AS refusal
+           FROM locked l
+         ), updated AS (
+           UPDATE request_status s SET
+             state = e.next_state,
+             terminal = e.next_state IN ('confirmed', 'failed'),
+             transaction_hash = COALESCE(e.next_transaction_hash, s.transaction_hash),
+             block_number = COALESCE(e.next_block_number, s.block_number),
+             error_code = COALESCE(e.next_error_code, s.error_code),
+             message = COALESCE(e.next_message, s.message),
+             retry_count = COALESCE(e.next_retry_count, s.retry_count),
+             updated_at = now()
+           FROM evaluated e
+           WHERE s.request_id = e.requested_id AND e.refusal IS NULL
+           RETURNING e.ord, true AS applied, NULL::text AS refused,
+             s.request_id, s.row_target, s.address, s.state, s.terminal,
+             s.transaction_hash, s.block_number, s.error_code, s.message,
+             s.retry_count, s.replay_key, s.accepted_at, s.updated_at
+         ), refused AS (
+           SELECT e.ord, false AS applied, e.refusal AS refused,
+             e.request_id, e.row_target, e.address, e.state, e.terminal,
+             e.transaction_hash, e.block_number, e.error_code, e.message,
+             e.retry_count, e.replay_key, e.accepted_at, e.updated_at
+           FROM evaluated e WHERE e.refusal IS NOT NULL
+         ), unknown AS (
+           SELECT i.ord, false AS applied, 'unknown-request'::text AS refused,
+             NULL::text AS request_id, NULL::text AS row_target,
+             NULL::text AS address, NULL::text AS state, NULL::boolean AS terminal,
+             NULL::text AS transaction_hash, NULL::bigint AS block_number,
+             NULL::text AS error_code, NULL::text AS message,
+             NULL::integer AS retry_count, NULL::text AS replay_key,
+             NULL::timestamptz AS accepted_at, NULL::timestamptz AS updated_at
+           FROM input i LEFT JOIN locked l ON l.ord = i.ord
+           WHERE l.ord IS NULL
+         )
+         SELECT * FROM updated
+         UNION ALL SELECT * FROM refused
+         UNION ALL SELECT * FROM unknown
+         ORDER BY ord`,
+        [encoded],
+      );
+
+      return rows.map((row): TransitionOutcome => {
+        if (row.applied) {
+          return { applied: true, record: toStatusRecord(row) };
+        }
+        if (row.refused === "unknown-request") {
+          return { applied: false, refused: "unknown-request" };
+        }
+        return {
+          applied: false,
+          refused: row.refused!,
+          current: toStatusRecord(row),
+        };
+      });
+    } catch (error) {
+      console.error("Error recording bulk request transitions:", error);
+      throw new Error(`Failed to record bulk request transitions: ${error}`);
     }
   }
 
