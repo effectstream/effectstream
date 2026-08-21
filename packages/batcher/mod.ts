@@ -7,7 +7,12 @@
  */
 
 // Core batcher functionality
-export { Batcher, createNewBatcher } from "./core/batcher.ts";
+export {
+  Batcher,
+  createNewBatcher,
+  InputTerminalError,
+  InputValidationError,
+} from "./core/batcher.ts";
 
 // Configuration types and validation
 export type {

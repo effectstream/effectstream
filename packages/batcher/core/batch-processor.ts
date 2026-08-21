@@ -12,7 +12,7 @@ import type {
   TransitionOutcome,
 } from "./storage.ts";
 import { computeRequestId } from "./request-id.ts";
-import { InputValidationError } from "./errors.ts";
+import { InputTerminalError, InputValidationError } from "./errors.ts";
 import * as fs from "node:fs";
 
 /**
@@ -691,7 +691,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
 
     // Resolve all callbacks with the receipt
     // Individual callers will decide if they want to continue waiting for EffectStream
-    this.resolveInputCallbacks(selectedInputs, receipt);
+    this.resolveInputCallbacks(selectedInputs, target, receipt);
 
     // Optional: Still trigger EffectStream processing check for event emission
     this.waitForEffectStreamProcessing(
@@ -758,16 +758,10 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
    * Per-input hashes come from the same multi-hash split `resolveInputCallbacks`
    * uses, so a poller and a waiting caller are told about the same transaction.
    *
-   * The `status: 0` branch deliberately does NOT copy that method's extra
-   * `&& !isMultiHash` condition. `resolveInputCallbacks` hands the caller the
-   * raw receipt, so a caller who is resolved on a failed transaction can still
-   * read `status` and see it — nothing is claimed on their behalf. A status
-   * RECORD is a summarised verdict with nowhere to hide that nuance: writing
-   * `confirmed` for a transaction the chain marked failed would be a plain
-   * false statement, and this feature exists so that "complete" means it. (The
-   * `!isMultiHash` guard also makes the callback path treat a ONE-input batch
-   * as multi-hash — one hash, one input — so a single failed transaction
-   * resolves rather than rejects. Pre-existing; not changed here.)
+   * A failed chain receipt is terminal for a shared transaction and is
+   * recorded with the same hash/classification the waiting caller receives.
+   * Genuinely per-input hashes remain the adapter's existing protocol: one
+   * shared receipt cannot reveal an individual hash's status.
    */
   private async recordChainOutcome(
     selectedInputs: T[],
@@ -811,18 +805,25 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
    * One transaction for the whole batch, or one per input?
    *
    * Adapters that submit per input report a comma-joined hash whose parts line
-   * up with `selectedInputs`. Any other count means the batch shares one hash.
+   * up with a multi-input `selectedInputs` list. Any other count means the
+   * batch shares one hash. A one-input batch is always shared/single-
+   * transaction semantics, even for a pathological hash containing a comma.
    */
   private splitReceiptHashes(
     selectedInputs: T[],
     receipt: BlockchainTransactionReceipt,
   ): { hashes: string[]; isMultiHash: boolean } {
     const hashes = receipt.hash.split(",");
-    return { hashes, isMultiHash: hashes.length === selectedInputs.length };
+    return {
+      hashes,
+      isMultiHash: selectedInputs.length > 1 &&
+        hashes.length === selectedInputs.length,
+    };
   }
 
   private resolveInputCallbacks(
     selectedInputs: T[],
+    target: string,
     receipt: BlockchainTransactionReceipt,
   ): void {
     const { hashes, isMultiHash } = this.splitReceiptHashes(
@@ -837,9 +838,19 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       if (callbacks) {
         const inputHash = isMultiHash ? hashes[i] : receipt.hash;
 
+        // Consume the waiter before invoking user-owned resolve/reject code so
+        // re-entrancy cannot settle it twice. Both terminal branches cancel
+        // the timeout and release the map entry identically.
+        clearTimeout(callbacks.timeoutId);
+        this.batcher.submissionCallbacks.delete(callbackKey);
+
         if (receipt.status === 0 && !isMultiHash) {
           callbacks.reject(
-            new Error(`Transaction failed on-chain: ${inputHash}`),
+            new InputTerminalError(
+              `Transaction failed on-chain: ${inputHash}`,
+              computeRequestId(input, target),
+              inputHash,
+            ),
           );
         } else {
           const inputReceipt = isMultiHash
@@ -847,9 +858,6 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
             : receipt;
           callbacks.resolve(inputReceipt);
         }
-
-        clearTimeout(callbacks.timeoutId);
-        this.batcher.submissionCallbacks.delete(callbackKey);
       }
     }
   }

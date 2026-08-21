@@ -44,7 +44,7 @@ import { ENV } from "@effectstream/utils/node-env";
 // Defined in ./errors.ts so `batch-processor.ts` can throw the same class
 // without importing this module back. Re-exported here because it has always
 // been part of this module's public surface.
-export { InputValidationError } from "./errors.ts";
+export { InputTerminalError, InputValidationError } from "./errors.ts";
 
 export interface AuthenticatedInputContext {
   /** Adapter target resolved and verified by the batcher. */
@@ -592,7 +592,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     this.isInitialized = true;
-    await this.emitStateTransition("startup", {
+    await this.emitStateTransitionAsync("startup", {
       publicConfig: this.getPublicConfig(),
       time: Date.now(),
     });
@@ -1056,7 +1056,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     if (targetsToProcess.length === 0) return;
-    await this.emitStateTransition("poll:targets-ready", {
+    await this.emitStateTransitionAsync("poll:targets-ready", {
       targets: targetsToProcess,
       time: Date.now(),
     });
@@ -1352,7 +1352,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     try {
       this.httpServer = await startBatcherHttpServer(this, this.port);
-      await this.emitStateTransition("http:start", {
+      await this.emitStateTransitionAsync("http:start", {
         port: this.port,
         time: Date.now(),
       });
@@ -1369,7 +1369,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     if (this.httpServer) {
       await this.httpServer.close();
       this.httpServer = undefined;
-      await this.emitStateTransition("http:stop", { time: Date.now() });
+      await this.emitStateTransitionAsync("http:stop", { time: Date.now() });
     }
   }
 
@@ -1843,7 +1843,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
               `Error processing concurrent batch for target ${target}:`,
               error,
             );
-            await this.emitStateTransition("error", {
+            await this.emitStateTransitionAsync("error", {
               phase: "batch",
               target,
               error,
@@ -1862,7 +1862,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       } else {
         // Sequential path. processingAdapters was already added above.
         try {
-          await this.emitStateTransition("batch:process:start", {
+          await this.emitStateTransitionAsync("batch:process:start", {
             target,
             inputCount: targetInputs.length,
             time: Date.now(),
@@ -1877,7 +1877,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
             `Error processing batch for target ${target}:`,
             error,
           );
-          await this.emitStateTransition("error", {
+          await this.emitStateTransitionAsync("error", {
             phase: "batch",
             target,
             error,
