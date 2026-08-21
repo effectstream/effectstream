@@ -221,12 +221,11 @@ export interface AcceptanceOutcome {
    * queue row, no status record (spec FR-006b — the batcher must not pay twice
    * for one signed spend). `requestId` and `record` describe the claimant.
    *
-   * This is the atomic half of the replay gate. `Batcher` checks
-   * `findByReplayKey` first so the common duplicate never opens a write
-   * transaction, but that check is a READ: two concurrent copies of one request
-   * both pass it, and only the claim inside this transaction can stop the
-   * second. Absent when no replay key was supplied — there is then nothing to
-   * claim and the queue keeps its historical duplicate-rows behaviour.
+   * This is the replay gate. The claim inside this atomic acceptance is the
+   * sole authority: an earlier lookup cannot settle concurrent copies and only
+   * adds latency. Absent when no replay key was supplied — there is then
+   * nothing to claim and the queue keeps its historical duplicate-rows
+   * behaviour.
    */
   duplicate?: boolean;
 }

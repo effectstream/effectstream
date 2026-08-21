@@ -325,7 +325,7 @@ async function allStatusIds(storage: DatabaseStorage): Promise<string[]> {
 async function replayKeys(storage: DatabaseStorage): Promise<string[]> {
   const rows = await query<{ replay_key: string }>(
     storage,
-    "SELECT replay_key FROM replay_keys ORDER BY replay_key",
+    "SELECT replay_key FROM request_status WHERE replay_key IS NOT NULL ORDER BY replay_key",
   );
   return rows.map((row) => row.replay_key);
 }

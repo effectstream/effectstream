@@ -169,6 +169,51 @@ for (const backend of BACKENDS) {
       });
     });
 
+    test("a failure after the status claim rolls the whole acceptance back", async () => {
+      await withStorage(backend, async ({ storage }) => {
+        await rawQuery(storage, `
+          CREATE OR REPLACE FUNCTION batcher_test_reject_pending_insert()
+          RETURNS trigger LANGUAGE plpgsql AS $$
+          BEGIN
+            RAISE EXCEPTION 'injected pending insert failure';
+          END;
+          $$
+        `);
+        await rawQuery(
+          storage,
+          `CREATE TRIGGER batcher_test_reject_pending_insert_trigger
+             BEFORE INSERT ON pending_inputs
+             FOR EACH ROW EXECUTE FUNCTION batcher_test_reject_pending_insert()`,
+        );
+
+        const payload = input({ timestamp: "rollback" });
+        const requestId = computeRequestId(payload, "product-a");
+        try {
+          await expect(storage.recordAccepted(
+            requestId,
+            payload,
+            "product-a",
+            "replay-rollback",
+          )).rejects.toThrow(/injected pending insert failure/);
+
+          expect(await storage.getStatus(requestId)).toBeUndefined();
+          expect(await storage.findByReplayKey("replay-rollback")).toBeUndefined();
+          expect(await storage.getAllInputs()).toEqual([]);
+          expect(await statusCount(storage)).toBe(0);
+          expect(await replayKeyCount(storage)).toBe(0);
+        } finally {
+          await rawQuery(
+            storage,
+            "DROP TRIGGER IF EXISTS batcher_test_reject_pending_insert_trigger ON pending_inputs",
+          );
+          await rawQuery(
+            storage,
+            "DROP FUNCTION IF EXISTS batcher_test_reject_pending_insert()",
+          );
+        }
+      });
+    });
+
     test("an untracked addInput still stamps the row's request id", async () => {
       await withStorage(backend, async ({ storage }) => {
         const payload = input();
@@ -431,7 +476,7 @@ async function statusCount(storage: DatabaseStorage): Promise<number> {
 async function replayKeyCount(storage: DatabaseStorage): Promise<number> {
   const [row] = await rawQuery<{ count: number }>(
     storage,
-    "SELECT count(*)::int AS count FROM replay_keys",
+    "SELECT count(*)::int AS count FROM request_status WHERE replay_key IS NOT NULL",
   );
   return Number(row.count);
 }

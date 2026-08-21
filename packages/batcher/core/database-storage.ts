@@ -25,10 +25,10 @@ import { isNotFoundError } from "@effectstream/utils/runtime";
  * set of statements to keep correct.
  *
  * Why a database at all: the queue alone is happy in a JSONL file, but request
- * tracking needs the queue, the per-request status and the replay/dedup key to
- * move together or not at all. Two files cannot be written atomically; two
- * tables in one transaction can. The status and replay tables are created here
- * and stay empty — their write paths arrive with the request-tracking phases.
+ * tracking needs the queue, the per-request status and the replay/dedup owner
+ * to move together or not at all. Two files cannot be written atomically; one
+ * database statement can. The live status row owns its replay key so pruning
+ * the record releases ownership in the same atomic fate.
  */
 
 /** Anything that can run a parameterised statement (a pool, or one transaction). */
@@ -392,6 +392,12 @@ export class DatabaseStorage<
       `CREATE INDEX IF NOT EXISTS request_status_terminal_recency_idx
          ON request_status (terminal, updated_at DESC, seq DESC)`,
     );
+    // The live status row is the replay owner. This removes a redundant write
+    // from acceptance while making retention reclaim ownership automatically.
+    await this.db.query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS request_status_replay_key_unique_idx
+         ON request_status (replay_key) WHERE replay_key IS NOT NULL`,
+    );
 
     // Replay/dedup keys: "have we already paid for this signed request?".
     await this.db.query(`
@@ -406,6 +412,94 @@ export class DatabaseStorage<
       `CREATE INDEX IF NOT EXISTS replay_keys_request_idx
          ON replay_keys (request_id)`,
     );
+
+    // One public query for the whole acceptance. Keeping this logic in a
+    // VOLATILE database function is deliberate: after an INSERT waits on a
+    // concurrent replay-key claimant, the following SELECT gets a fresh
+    // command snapshot and can return that claimant's status. A writable CTE
+    // was measured and was slightly slower for PgLite's durable write floor.
+    await this.db.query(`
+      CREATE OR REPLACE FUNCTION batcher_record_accepted(
+        p_replay_key text,
+        p_request_id text,
+        p_row_target text,
+        p_address text,
+        p_address_type integer,
+        p_ts text,
+        p_signature text,
+        p_input text,
+        p_retry_count integer,
+        p_payload text,
+        p_content_key text,
+        p_queue_request_id text
+      ) RETURNS TABLE (
+        request_id text,
+        row_target text,
+        address text,
+        state text,
+        terminal boolean,
+        transaction_hash text,
+        block_number bigint,
+        error_code text,
+        message text,
+        retry_count integer,
+        replay_key text,
+        accepted_at timestamptz,
+        updated_at timestamptz,
+        outcome_created boolean,
+        outcome_duplicate boolean
+      ) LANGUAGE plpgsql VOLATILE AS $$
+      DECLARE
+        v_status request_status%ROWTYPE;
+        v_created boolean := false;
+      BEGIN
+        INSERT INTO request_status
+          (request_id, row_target, address, state, terminal, retry_count, replay_key)
+        VALUES
+          (p_request_id, p_row_target, p_address, 'queued', false,
+           p_retry_count, p_replay_key)
+        ON CONFLICT DO NOTHING
+        RETURNING * INTO v_status;
+        v_created := FOUND;
+
+        IF NOT v_created THEN
+          IF p_replay_key IS NOT NULL THEN
+            SELECT s.* INTO v_status
+              FROM request_status s
+             WHERE s.replay_key = p_replay_key;
+            IF FOUND THEN
+              RETURN QUERY SELECT
+                v_status.request_id, v_status.row_target, v_status.address,
+                v_status.state, v_status.terminal,
+                v_status.transaction_hash, v_status.block_number,
+                v_status.error_code, v_status.message, v_status.retry_count,
+                v_status.replay_key, v_status.accepted_at, v_status.updated_at,
+                false, true;
+              RETURN;
+            END IF;
+          END IF;
+          SELECT s.* INTO STRICT v_status
+            FROM request_status s
+           WHERE s.request_id = p_request_id;
+        END IF;
+
+        INSERT INTO pending_inputs
+          (content_key, request_id, row_target, address, address_type, ts,
+           signature, input, retry_count, payload)
+        VALUES
+          (p_content_key, p_queue_request_id, p_row_target, p_address,
+           p_address_type, p_ts, p_signature, p_input, p_retry_count, p_payload);
+
+        RETURN QUERY SELECT
+          v_status.request_id, v_status.row_target, v_status.address,
+          v_status.state, v_status.terminal,
+          v_status.transaction_hash, v_status.block_number,
+          v_status.error_code, v_status.message, v_status.retry_count,
+          v_status.replay_key, v_status.accepted_at, v_status.updated_at,
+          v_created, false;
+      END;
+      $$
+    `);
   }
 
   /**
@@ -865,10 +959,9 @@ export class DatabaseStorage<
    *
    * With a replay key, the key is CLAIMED first and an already-claimed key
    * aborts the acceptance: nothing is written and the claimant's record is
-   * returned with `duplicate: true` (spec FR-006b). This is the half of the
-   * replay gate that survives concurrency — `Batcher`'s `findByReplayKey`
-   * pre-check is a read, and N simultaneous copies of one request all pass it.
-   * Claiming first also means the abort costs no wasted insert.
+   * returned with `duplicate: true` (spec FR-006b). This atomic claim is the
+   * whole replay gate: it survives concurrency and claiming first means the
+   * abort costs no wasted queue/status insert.
    */
   async recordAccepted(
     requestId: string,
@@ -877,65 +970,37 @@ export class DatabaseStorage<
     replayKey?: string,
   ): Promise<AcceptanceOutcome> {
     try {
-      const outcome = await this.db.transaction(async (tx) => {
-        if (replayKey !== undefined) {
-          // The key belongs to whoever claimed it FIRST. A later claimant must
-          // not steal it, or the original request's dedup record would end up
-          // answering for someone else's payment.
-          const claimed = await tx.query<{ request_id: string }>(
-            `INSERT INTO replay_keys (replay_key, request_id, row_target)
-             VALUES ($1, $2, $3)
-             ON CONFLICT (replay_key) DO NOTHING
-             RETURNING request_id`,
-            [replayKey, requestId, input.target ?? target],
-          );
-          if (claimed.length === 0) {
-            const [owner] = await tx.query<StatusRow>(
-              `SELECT s.* FROM replay_keys k
-                 JOIN request_status s ON s.request_id = k.request_id
-                WHERE k.replay_key = $1`,
-              [replayKey],
-            );
-            // A key whose owning record has been pruned is a tombstone with
-            // nothing to report; treat it as free rather than refusing work on
-            // the strength of a record that no longer exists.
-            if (owner) {
-              return { row: owner, created: false, duplicate: true } as const;
-            }
-            await tx.query(
-              "UPDATE replay_keys SET request_id = $2, row_target = $3 WHERE replay_key = $1",
-              [replayKey, requestId, input.target ?? target],
-            );
-          }
-        }
+      const resolvedTarget = resolveRowTarget(input, target);
+      const row = input.target === undefined
+        ? { ...input, target: resolvedTarget }
+        : input;
+      const payload = JSON.stringify(row);
+      const contentKey = contentKeyOf(row, resolvedTarget);
+      const [outcome] = await this.db.query<StatusRow & {
+        outcome_created: boolean;
+        outcome_duplicate: boolean;
+      }>(
+        `SELECT * FROM batcher_record_accepted(
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+        )`,
+        [
+          replayKey ?? null,
+          requestId,
+          resolvedTarget,
+          row.address,
+          row.addressType,
+          row.timestamp,
+          row.signature ?? "",
+          row.input,
+          row.retryCount ?? 0,
+          payload,
+          contentKey,
+          requestIdFromKey(contentKey),
+        ],
+      );
 
-        const { resolvedTarget } = await this.insertRow(tx, input, target);
-        const inserted = await tx.query<StatusRow>(
-          `INSERT INTO request_status
-             (request_id, row_target, address, state, terminal, retry_count, replay_key)
-           VALUES ($1, $2, $3, 'queued', false, $4, $5)
-           ON CONFLICT (request_id) DO NOTHING
-           RETURNING *`,
-          [
-            requestId,
-            resolvedTarget,
-            input.address,
-            input.retryCount ?? 0,
-            replayKey ?? null,
-          ],
-        );
-        if (inserted.length > 0) {
-          return { row: inserted[0], created: true, duplicate: false } as const;
-        }
-        const [existing] = await tx.query<StatusRow>(
-          "SELECT * FROM request_status WHERE request_id = $1",
-          [requestId],
-        );
-        return { row: existing, created: false, duplicate: false } as const;
-      });
-
-      const record = toStatusRecord(outcome.row);
-      if (outcome.duplicate) {
+      const record = toStatusRecord(outcome);
+      if (outcome.outcome_duplicate) {
         console.log(
           `[Storage] Replay key already claimed by request ` +
             `${record.requestId.substring(0, 12)}… (state=${record.state}); ` +
@@ -948,13 +1013,13 @@ export class DatabaseStorage<
           duplicate: true,
         };
       }
-      if (!outcome.created) {
+      if (!outcome.outcome_created) {
         console.log(
           `[Storage] Request ${requestId.substring(0, 12)}… was already tracked ` +
             `(state=${record.state}); keeping its existing record.`,
         );
       }
-      return { requestId, created: outcome.created, record };
+      return { requestId, created: outcome.outcome_created, record };
     } catch (error) {
       console.error("Error recording accepted request:", error);
       throw new Error(`Failed to record accepted request: ${error}`);
@@ -1070,9 +1135,7 @@ export class DatabaseStorage<
   ): Promise<RequestStatusRecord | undefined> {
     try {
       const [row] = await this.db.query<StatusRow>(
-        `SELECT s.* FROM replay_keys k
-           JOIN request_status s ON s.request_id = k.request_id
-          WHERE k.replay_key = $1`,
+        `SELECT s.* FROM request_status s WHERE s.replay_key = $1`,
         [replayKey],
       );
       return row ? toStatusRecord(row) : undefined;

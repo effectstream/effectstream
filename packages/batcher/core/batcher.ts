@@ -728,32 +728,13 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       }
     }
 
-    // 3. Replay gate (spec FR-006b): never pay twice for one signed spend.
+    // 3. Replay key (spec FR-006b): never pay twice for one signed spend.
     //
-    // After validation — an input we would refuse anyway is not worth a lookup,
-    // and a replay key derived from a payload we have not judged is not a
-    // measurement worth trusting — and before anything is queued.
+    // After validation — an input we would refuse anyway is not worth deriving
+    // a key for. The acceptance write below is the one authoritative claim;
+    // an advisory lookup here only added a database round trip and could never
+    // settle concurrent duplicates safely.
     const replayKey = this.replayKeyFor(adapter, input, target);
-    if (replayKey !== undefined && isTrackingStorage(this.storage)) {
-      const known = await this.storage.findByReplayKey(replayKey);
-      if (known) {
-        // Not an error and not a refusal: the work is already tracked, so the
-        // caller gets a 200 carrying the id that answers for it. Client retries
-        // are therefore idempotent and free.
-        console.log(
-          `♻️ Duplicate submission from ${input.address} for target ${target}; ` +
-            `returning the original request ${known.requestId.substring(0, 12)}… ` +
-            `(state=${known.state}) without queueing it again.`,
-        );
-        await this.emitRequestEvent("request:accepted", {
-          requestId: known.requestId,
-          target,
-          duplicate: true,
-          time: Date.now(),
-        });
-        return { requestId: known.requestId, receipt: null, duplicate: true };
-      }
-    }
 
     // 4. Add to Storage (Only if all validation passes)
     //
@@ -770,15 +751,14 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       time: Date.now(),
     });
     if (accepted.duplicate) {
-      // The pre-check above is a READ, so concurrent copies of one request all
-      // pass it; the claim inside the acceptance transaction is what actually
-      // stops the second. Same answer, arrived at one layer down.
+      console.log(
+        `♻️ Duplicate submission from ${input.address} for target ${target}; ` +
+          `returning the original request ${requestId.substring(0, 12)}… ` +
+          `without queueing it again.`,
+      );
       return { requestId, receipt: null, duplicate: true };
     }
-    const { count, size } = await this.storage.getInputCountAndSize();
-    console.log(
-      `✅ Added input from ${input.address} to batch queue. Queue size: ${count} inputs, ${size} bytes`,
-    );
+    console.log(`✅ Added input from ${input.address} to batch queue.`);
 
     if (confirmationLevel === "no-wait") {
       return { requestId, receipt: null };

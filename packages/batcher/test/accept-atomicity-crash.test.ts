@@ -1,11 +1,11 @@
 // Acceptance is ONE write — probed with a signal, not argued in a comment.
 //
-// The construction argument is simple: `recordAccepted` issues the queue insert
-// and the status insert inside a single `db.transaction`, so there is no
-// instant at which one exists without the other. Constructions like that are
-// exactly where a WASM Postgres, a driver wrapper and an emulated filesystem
-// get to disagree quietly, so this kills a writer mid-flight and asks the store
-// what it kept.
+// The construction argument is simple: `recordAccepted` issues one database
+// function call whose queue/status/replay work shares the function transaction,
+// so there is no instant at which one exists without the other. Constructions
+// like that are exactly where a WASM Postgres, a driver wrapper and an emulated
+// filesystem get to disagree quietly, so this kills a writer mid-flight and
+// asks the store what it kept.
 //
 // The detector is the reconciliation counter itself: `init()` reports how many
 // queue rows it had to invent a status for, and how many in-flight statuses had
