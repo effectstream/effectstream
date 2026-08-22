@@ -385,7 +385,12 @@ for (const backend of STORAGE_BACKENDS) {
       if (backend.reset) {
         // One server serves every case, so each case starts from empty.
         await (storage as unknown as {
-          db: { query(sql: string, params?: unknown[]): Promise<unknown[]> };
+          db: {
+            query(
+              sql: string,
+              params?: unknown[],
+            ): Promise<{ rows: unknown[]; rowCount: number }>;
+          };
         }).db.query(
           "TRUNCATE pending_inputs, request_status, replay_keys RESTART IDENTITY",
         );

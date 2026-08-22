@@ -574,6 +574,7 @@
         "@midnightntwrk/wallet-sdk-unshielded-wallet": "3.1.0",
         "@noble/hashes": "^2.2.0",
         "@noble/secp256k1": "^3.1.0",
+        "@pgtyped/runtime": "2.4.2",
         "@sinclair/typebox": "0.34.41",
         "@solana/web3.js": "^1.95.0",
         "bitcoinjs-lib": "^6.1.5",
@@ -586,6 +587,9 @@
         "tiny-secp256k1": "^2.2.1",
         "tweetnacl": "^1.0.3",
         "viem": "2.37.3",
+      },
+      "devDependencies": {
+        "@paima/pgtyped-cli": "^2.4.5",
       },
     },
     "packages/binaries/avail-light-client": {

@@ -114,9 +114,14 @@ async function rawQuery<R>(
   params: unknown[] = [],
 ): Promise<R[]> {
   const db = (storage as unknown as {
-    db: { query<T>(sql: string, params?: unknown[]): Promise<T[]> };
+    db: {
+      query(
+        sql: string,
+        params?: unknown[],
+      ): Promise<{ rows: R[]; rowCount: number }>;
+    };
   }).db;
-  return await db.query<R>(sql, params);
+  return (await db.query(sql, params)).rows;
 }
 
 test("a DatabaseStorage advertises tracking; a FileStorage does not", async () => {
@@ -287,6 +292,51 @@ for (const backend of BACKENDS) {
     test("an id this batcher never accepted has no status", async () => {
       await withStorage(backend, async ({ storage }) => {
         expect(await storage.getStatus("f".repeat(64))).toBeUndefined();
+      });
+    });
+
+    test("pgtyped treats injection-shaped scalar and spread values as data", async () => {
+      await withStorage(backend, async ({ storage }) => {
+        const injection = "x'); DROP TABLE request_status; --";
+        const payload = input({
+          address: injection,
+          input: JSON.stringify({ statement: injection }),
+          signature: injection,
+          target: injection,
+          timestamp: injection,
+        });
+        const requestId = computeRequestId(payload, injection);
+
+        const accepted = await storage.recordAccepted(
+          requestId,
+          payload,
+          injection,
+          injection,
+        );
+        expect(accepted).toMatchObject({ requestId, created: true });
+        expect(await storage.findByReplayKey(injection)).toMatchObject({
+          requestId,
+          target: injection,
+          address: injection,
+          replayKey: injection,
+        });
+
+        await storage.recordTransition(requestId, "failed", {
+          errorCode: injection,
+          message: injection,
+        });
+        expect(await storage.getStatus(requestId)).toMatchObject({
+          state: "failed",
+          errorCode: injection,
+          message: injection,
+        });
+
+        // `removeProcessedInputs` passes the injection-shaped content key as a
+        // pgtyped array-spread parameter. If it were interpolated, the table
+        // damage would be visible in the status assertion below.
+        await storage.removeProcessedInputs([payload], injection);
+        expect(await storage.getAllInputs()).toEqual([]);
+        expect((await storage.getStatus(requestId))?.state).toBe("failed");
       });
     });
   });

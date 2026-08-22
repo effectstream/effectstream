@@ -301,9 +301,14 @@ async function seedStatuses(
 // inventing one here would prejudge its shape.
 async function query<R>(storage: DatabaseStorage, sql: string): Promise<R[]> {
   const db = (storage as unknown as {
-    db: { query<T>(sql: string, params?: unknown[]): Promise<T[]> };
+    db: {
+      query<T>(
+        sql: string,
+        params?: unknown[],
+      ): Promise<{ rows: T[]; rowCount: number }>;
+    };
   }).db;
-  return await db.query<R>(sql);
+  return (await db.query<R>(sql)).rows;
 }
 
 async function terminalIds(storage: DatabaseStorage): Promise<string[]> {
