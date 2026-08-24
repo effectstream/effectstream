@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
 import {
-  LEDGER_V9_DIST_TAG,
   STABLE_DIST_TAG,
   compareSemver,
   parseSemver,
@@ -13,13 +12,13 @@ import {
 
 describe("parseSemver", () => {
   test("parses and normalizes stable, prerelease, and build forms", () => {
-    const parsed = parseSemver("0.105.0-v9.0+build.007");
+    const parsed = parseSemver("0.105.0-beta.1+build.007");
     expect(parsed.major).toBe(0n);
     expect(parsed.minor).toBe(105n);
     expect(parsed.patch).toBe(0n);
-    expect(parsed.prerelease.map((part) => part.raw)).toEqual(["v9", "0"]);
+    expect(parsed.prerelease.map((part) => part.raw)).toEqual(["beta", "1"]);
     expect(parsed.build).toEqual(["build", "007"]);
-    expect(parsed.normalized).toBe("0.105.0-v9.0+build.007");
+    expect(parsed.normalized).toBe("0.105.0-beta.1+build.007");
   });
 
   test("strips an optional leading v", () => {
@@ -80,8 +79,8 @@ describe("compareSemver", () => {
   });
 
   test("orders the approved release correctly and ignores build metadata", () => {
-    expect(compare("0.105.0-v9.0", "0.104.1")).toBeGreaterThan(0);
-    expect(compare("0.105.0-v9.0", "0.105.0")).toBeLessThan(0);
+    expect(compare("0.105.0-beta.1", "0.104.1")).toBeGreaterThan(0);
+    expect(compare("0.105.0-beta.1", "0.105.0")).toBeLessThan(0);
     expect(compare("1.0.0+one", "1.0.0+two")).toBe(0);
   });
 });
@@ -92,7 +91,7 @@ describe("resolveReleaseVersion", () => {
   });
 
   test("accepts a greater version without a prefix", () => {
-    expect(resolveReleaseVersion("0.105.0-v9.0", "0.104.1")).toBe("0.105.0-v9.0");
+    expect(resolveReleaseVersion("0.105.0-beta.1", "0.104.1")).toBe("0.105.0-beta.1");
   });
 
   test("accepts minor and major boundary increments", () => {
@@ -117,7 +116,7 @@ describe("resolveReleaseVersion", () => {
   });
 
   test("rejects a prerelease that is lower than its stable current version", () => {
-    expect(() => resolveReleaseVersion("0.105.0-v9.0", "0.105.0")).toThrow(
+    expect(() => resolveReleaseVersion("0.105.0-beta.1", "0.105.0")).toThrow(
       /strictly greater/,
     );
   });
@@ -126,27 +125,34 @@ describe("resolveReleaseVersion", () => {
 describe("resolveDistTag", () => {
   test("maps stable releases only to latest", () => {
     expect(resolveDistTag("0.105.0", STABLE_DIST_TAG)).toBe("latest");
-    expect(() => resolveDistTag("0.105.0", LEDGER_V9_DIST_TAG)).toThrow(/Stable release/);
+    expect(() => resolveDistTag("0.105.0", "next")).toThrow(/Stable release/);
   });
 
-  test("maps only the approved -v9.* prerelease line to ledger-v9", () => {
-    expect(resolveDistTag("0.105.0-v9.0", LEDGER_V9_DIST_TAG)).toBe("ledger-v9");
-    expect(resolveDistTag("v0.105.0-v9.1.rc.2", LEDGER_V9_DIST_TAG)).toBe("ledger-v9");
-    expect(() => resolveDistTag("0.105.0-v9", LEDGER_V9_DIST_TAG)).toThrow(
-      /approved -v9\.\*/,
-    );
-    expect(() => resolveDistTag("0.105.0-alpha.1", LEDGER_V9_DIST_TAG)).toThrow(
-      /approved -v9\.\*/,
-    );
+  test("accepts generic prerelease channels", () => {
+    for (const tag of ["next", "beta", "canary", "preview.2", "rc-1"]) {
+      expect(resolveDistTag("0.105.0-beta.1", tag)).toBe(tag);
+    }
   });
 
-  test("rejects prerelease latest, missing, unknown, and SemVer-like tags", () => {
-    expect(() => resolveDistTag("0.105.0-v9.0", STABLE_DIST_TAG)).toThrow(
+  test("rejects prerelease latest and a missing tag", () => {
+    expect(() => resolveDistTag("0.105.0-beta.1", STABLE_DIST_TAG)).toThrow(
       /must not use dist-tag latest/,
     );
-    expect(() => resolveDistTag("0.105.0-v9.0")).toThrow(/--dist-tag is required/);
-    for (const tag of ["next", "beta", "v9", "v9.0", "1.2.3", " ledger-v9"] ) {
-      expect(() => resolveDistTag("0.105.0-v9.0", tag)).toThrow();
+    expect(() => resolveDistTag("0.105.0-beta.1")).toThrow(/--dist-tag is required/);
+    expect(() => resolveDistTag("0.105.0-beta.1", "")).toThrow(/--dist-tag is required/);
+  });
+
+  test("rejects whitespace and invalid npm tag characters", () => {
+    for (const tag of [" next", "next ", "next tag", "next/tag", "next+tag", "@next"]) {
+      expect(() => resolveDistTag("0.105.0-beta.1", tag)).toThrow(/Invalid dist-tag/);
+    }
+  });
+
+  test("rejects digit- and v-prefixed SemVer-like tags", () => {
+    for (const tag of ["1.2.3", "9beta", "v1", "version", "Vnext"]) {
+      expect(() => resolveDistTag("0.105.0-beta.1", tag)).toThrow(
+        /must not begin with a digit or v/,
+      );
     }
   });
 });
@@ -180,7 +186,7 @@ describe("CLI release guard", () => {
   }
 
   test("missing dist-tag rejects before any package mutation", async () => {
-    const result = await runGuard(["--release-version", "0.105.0-v9.0"]);
+    const result = await runGuard(["--release-version", "0.105.0-beta.1"]);
     expect(result.exitCode).not.toBe(0);
     expect(result.output).toContain("--dist-tag is required");
   });
@@ -188,12 +194,36 @@ describe("CLI release guard", () => {
   test("prerelease paired with latest rejects before any package mutation", async () => {
     const result = await runGuard([
       "--release-version",
-      "0.105.0-v9.0",
+      "0.105.0-beta.1",
       "--dist-tag",
       "latest",
     ]);
     expect(result.exitCode).not.toBe(0);
     expect(result.output).toContain("must not use dist-tag latest");
+  });
+
+  test("stable release paired with a non-latest tag rejects before mutation", async () => {
+    const result = await runGuard([
+      "--release-version",
+      "0.105.0",
+      "--dist-tag",
+      "next",
+    ]);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.output).toContain("must use dist-tag latest");
+  });
+
+  test("invalid npm tags reject before any package mutation", async () => {
+    for (const tag of [" next", "next/tag", "1.2.3", "v1"]) {
+      const result = await runGuard([
+        "--release-version",
+        "0.105.0-beta.1",
+        "--dist-tag",
+        tag,
+      ]);
+      expect(result.exitCode).not.toBe(0);
+      expect(result.output).toContain("Invalid dist-tag");
+    }
   });
 });
 
@@ -211,6 +241,9 @@ describe("release workflow", () => {
     expect(workflow).toContain("runs-on: ubuntu-22.04");
     expect(workflow).toContain("ref: ${{ github.event.release.tag_name }}");
     expect(workflow).toContain("RELEASE_TARGET_COMMITISH: ${{ github.event.release.target_commitish }}");
+    expect(workflow).toContain(
+      "affd55aab609d4db7d6c6f38925859586d1ce67fd50f790d97c5dc027214af11",
+    );
     expect(workflow).toContain("bash .github/verify-release-source.sh");
     expect(workflow).toContain("git push origin HEAD:refs/heads/v-next");
     expect(workflow).not.toContain("git push origin v-next");
@@ -220,7 +253,7 @@ describe("release workflow", () => {
       "Setup Bun",
       "Install dependencies",
       "Configure npm auth",
-      "Select release channel candidate",
+      "Select release channel",
       "name: Publish",
       "git add package.json",
     ].map((needle) => workflow.indexOf(needle));
@@ -228,10 +261,20 @@ describe("release workflow", () => {
     expect(ordered).toEqual([...ordered].sort((a, b) => a - b));
   });
 
-  test("passes an explicit fail-closed channel to the publisher", () => {
+  test("maps GitHub prerelease metadata to a generic explicit publisher channel", () => {
     const workflow = readFileSync(join(import.meta.dir, "workflows", "release.yaml"), "utf8");
-    expect(workflow).toContain('DIST_TAG="ledger-v9"');
-    expect(workflow).toContain('DIST_TAG="latest"');
+    const channelStart = workflow.indexOf("- name: Select release channel");
+    const channelEnd = workflow.indexOf("- name: Publish", channelStart);
+    const channelBlock = workflow.slice(channelStart, channelEnd);
+
+    expect(channelStart).toBeGreaterThanOrEqual(0);
+    expect(channelEnd).toBeGreaterThan(channelStart);
+    expect(channelBlock).toContain("PRERELEASE: ${{ github.event.release.prerelease }}");
+    expect(channelBlock).toContain('[[ "$PRERELEASE" == "true" ]]');
+    expect(channelBlock).toContain('DIST_TAG="next"');
+    expect(channelBlock).toContain('DIST_TAG="latest"');
+    expect(channelBlock).not.toContain("github.event.release.tag_name");
+    expect(channelBlock).not.toContain("RELEASE_TAG");
     expect(workflow).toContain('--dist-tag "${{ steps.release-channel.outputs.dist-tag }}"');
   });
 });
@@ -243,7 +286,7 @@ describe("setVersionInText", () => {
       '  "name": "@effectstream/node-sdk",',
       '  "version": "0.100.17",',
       '  "peerDependenciesMeta": {',
-      '    "@midnight-ntwrk/ledger-v8": { "optional": true }',
+      '    "@effectstream/example": { "optional": true }',
       "  }",
       "}",
       "",

@@ -14,7 +14,8 @@ Flags:
   --publish                real publish (default is dry-run via \`bun publish --dry-run\`)
   --release-version <ver>  validate <ver> (SemVer, must be > current root version) and
                            use it as the version to publish; also writes it into root package.json
-  --dist-tag <tag>         required release channel: stable uses latest; -v9.* uses ledger-v9
+  --dist-tag <tag>         required release channel: stable uses latest; prereleases use
+                           a non-latest npm tag (for example next, beta, or canary)
   --allow-uncommitted      skip the git-clean check
   --allow-missing-readme   skip the per-package README presence / 400-char check
 `;
@@ -178,11 +179,11 @@ export function resolveReleaseVersion(tag: string, current: string): string {
 }
 
 export const STABLE_DIST_TAG = "latest";
-export const LEDGER_V9_DIST_TAG = "ledger-v9";
+const NPM_DIST_TAG_RE = /^[A-Za-z][A-Za-z0-9._-]*$/;
 
 /**
  * Enforce the complete release-channel contract before any package mutation:
- * stable releases use `latest`; only `-v9.*` prereleases use `ledger-v9`.
+ * stable releases use `latest`; prereleases use an explicit non-`latest` npm tag.
  */
 export function resolveDistTag(version: string, requestedTag?: string): string {
   if (requestedTag === undefined || requestedTag.length === 0) {
@@ -191,9 +192,14 @@ export function resolveDistTag(version: string, requestedTag?: string): string {
   if (requestedTag !== requestedTag.trim()) {
     throw new Error(`Invalid dist-tag "${requestedTag}": surrounding whitespace is not allowed`);
   }
-  if (requestedTag !== STABLE_DIST_TAG && requestedTag !== LEDGER_V9_DIST_TAG) {
+  if (/^[0-9v]/i.test(requestedTag)) {
     throw new Error(
-      `Unknown or SemVer-like dist-tag "${requestedTag}"; allowed tags are ${STABLE_DIST_TAG} and ${LEDGER_V9_DIST_TAG}`,
+      `Invalid dist-tag "${requestedTag}": npm tags must not begin with a digit or v`,
+    );
+  }
+  if (!NPM_DIST_TAG_RE.test(requestedTag)) {
+    throw new Error(
+      `Invalid dist-tag "${requestedTag}": use letters, digits, dots, underscores, or hyphens`,
     );
   }
 
@@ -207,14 +213,6 @@ export function resolveDistTag(version: string, requestedTag?: string): string {
 
   if (requestedTag === STABLE_DIST_TAG) {
     throw new Error(`Prerelease ${parsed.normalized} must not use dist-tag ${STABLE_DIST_TAG}`);
-  }
-
-  const isApprovedV9Line =
-    parsed.prerelease.length >= 2 && parsed.prerelease[0].raw === "v9";
-  if (!isApprovedV9Line || requestedTag !== LEDGER_V9_DIST_TAG) {
-    throw new Error(
-      `Prerelease ${parsed.normalized} is not on the approved -v9.* release line for dist-tag ${LEDGER_V9_DIST_TAG}`,
-    );
   }
   return requestedTag;
 }

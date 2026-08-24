@@ -52,21 +52,22 @@ jobs:
 
       # All version validation (semver + strictly-greater), root bump, per-package
       # bump, channel validation, dep pinning, publish, and version-only cleanup
-      # live in the script. This rough channel selection is intentionally
-      # fail-closed by the script's strict SemVer and exact mapping checks.
+      # live in the script. GitHub's release metadata selects the generic channel,
+      # and the script independently enforces stable/prerelease safety.
       # No --allow-uncommitted: the tree is clean at the script's git-check, since
       # it writes the root version only after that check (.npmrc is gitignored).
-      - name: Select release channel candidate
+      - name: Select release channel
         id: release-channel
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           set -euo pipefail
-          case "${RELEASE_TAG#v}" in
-            *-v9.*) DIST_TAG="ledger-v9" ;;
-            *) DIST_TAG="latest" ;;
-          esac
+          if [[ "$PRERELEASE" == "true" ]]; then
+            DIST_TAG="next"
+          else
+            DIST_TAG="latest"
+          fi
           echo "dist-tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Publish
