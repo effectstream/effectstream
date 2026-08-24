@@ -4,7 +4,7 @@
   "description": "Downloads and runs the Midnight Indexer. It needs a running Midnight Node",
   "main": "index.js",
   "scripts": {
-    "test": "bun test binary.test.js run_midnight_indexer.test.js",
+    "test": "bun test run_midnight_indexer.test.js",
     "clean": "node index.js --clean-binaries",
     "clean-only": "node index.js --only-clean"
   },

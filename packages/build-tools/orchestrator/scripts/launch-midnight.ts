@@ -20,7 +20,7 @@ function assertCompactInstalled(): void {
       "  Install Compact from:  https://github.com/midnightntwrk/compact",
       "",
       "  (quick install)        curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh",
-      "                         compact update 0.33.0-rc.2",
+      "                         compact update 0.31.0",
       "",
     ].join("\n"),
   );

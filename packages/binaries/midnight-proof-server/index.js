@@ -1,19 +1,20 @@
 #!/usr/bin/env node
+const fs = require("fs");
+const path = require("path");
 const os = require("os");
 
-const {
-  binary,
-  getPlatform,
-  cleanBinaries,
-  isBinaryCacheValid,
-} = require("./binary.js");
+const { binary, getPlatform, cleanBinaries } = require("./binary.js");
 const { runMidnightProofServer } = require("./run_midnight_proof_server.js");
 const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
   "./docker.js",
 );
 
+const FINAL_BINARY_NAME = "midnight-proof-server";
+
 function checkIfBinaryExists() {
-  return isBinaryCacheValid();
+  return fs.existsSync(
+    path.join(__dirname, "proof-server", FINAL_BINARY_NAME),
+  );
 }
 
 function isBinarySupported() {
@@ -70,8 +71,8 @@ async function runWithDocker(env, args) {
     console.error("Docker is required but not installed or not running.");
     process.exit(1);
   }
-  const targetImage = await pullDockerImage();
-  return runDockerContainer(env, args, undefined, targetImage);
+  await pullDockerImage();
+  return runDockerContainer(env, args);
 }
 
 (async () => {

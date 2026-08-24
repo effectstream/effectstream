@@ -4,7 +4,6 @@ NPM wrapper that runs the [Midnight](https://midnight.network) Indexer either as
 
 - Pinned Midnight indexer `4.4.0-rc.1`.
 - Native targets are `macos-arm64` and `linux-amd64`; no Linux arm64 asset is published.
-- The published ZIP SHA-256 and the extracted executable cache are verified before execution.
 - Docker or binary mode, with platform-aware defaults (macOS arm64 and Linux can use either; Windows is Docker-only).
 - One env var to set: `APP__INFRA__SECRET`, as a hex-encoded 32-byte value (64 hex characters). Everything else has a default that works against the local Midnight stack.
 - Used by the orchestrator's Midnight step; sits in front of `MidnightFetcher` on the sync side.

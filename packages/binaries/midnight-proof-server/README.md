@@ -7,7 +7,6 @@ Midnight node depends on.
 
 - Pinned Midnight proof-server sidecar (`9.0.0-rc.5`).
 - Native targets are `macos-arm64` and `linux-amd64`; no Linux arm64 asset is published.
-- The published ZIP SHA-256 and the extracted executable cache are verified before execution.
 - Boots alongside `@effectstream/npm-midnight-node`; no app-code import needed.
 - Cache management via `--clean-binaries` / `--only-clean`.
 - Required by ZK-heavy Midnight templates.

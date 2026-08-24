@@ -8,7 +8,6 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "bun test binary.test.js",
     "clean": "node index.js --clean-binaries",
     "clean-only": "node index.js --only-clean"
   },
