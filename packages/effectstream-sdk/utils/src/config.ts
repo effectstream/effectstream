@@ -140,6 +140,21 @@ const definitions: Record<string, ConfigDefinition> = {
     defaultValue: 3334,
     description: "Batcher Port. Example: '3334'",
   },
+  BATCHER_DB_SCHEMA: {
+    key: "BATCHER_DB_SCHEMA",
+    type: "string",
+    defaultValue: undefined,
+    description:
+      "Schema SUFFIX owned by this batcher in the shared engine database (DB_HOST/DB_PORT/DB_USER/DB_NAME). " +
+      "The code applies the fixed 'batcher_' prefix, so 'chess_v2' means the schema 'batcher_chess_v2'; " +
+      "the value must match ^[a-z0-9_]{1,55}$ (lowercase letters, digits and underscores; 55 chars is Postgres' " +
+      "63-character identifier budget minus the prefix). Setting it is what enables durable request tracking: " +
+      "the batcher connects to the engine's database and owns that schema. An invalid value, or a database it " +
+      "cannot reach, REFUSES TO BOOT rather than silently running untracked. Leaving it unset (or empty) falls " +
+      "back to queue-only FileStorage in ./batcher-data with NO request tracking, NO replay/dedup double-payment " +
+      "protection and NO GET /input-status — development only; production deployments must set this. " +
+      "Example: 'chess_v2'",
+  },
   STORE_HISTORICAL_GAME_INPUTS: {
     key: "STORE_HISTORICAL_GAME_INPUTS",
     type: "boolean",
@@ -417,6 +432,17 @@ export class ENV {
   }
   static get BATCHER_PORT(): number {
     return ENV.getConfig(definitions.BATCHER_PORT);
+  }
+  /**
+   * Schema suffix owned by this batcher, or "" when unset.
+   *
+   * "" and "unset" are deliberately the same answer: `getString` returns
+   * `value ?? ""` for a key with no default, and an env var set to the empty
+   * string is not nullish, so both arrive here as "". The batcher reads "" as
+   * "no schema configured" and falls back to queue-only FileStorage.
+   */
+  static get BATCHER_DB_SCHEMA(): string {
+    return ENV.getConfig(definitions.BATCHER_DB_SCHEMA);
   }
   static get EFFECTSTREAM_EXPLORER_PORT(): number {
     return ENV.getConfig(definitions.EFFECTSTREAM_EXPLORER_PORT);
