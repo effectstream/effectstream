@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
+import { dirname, resolve } from "node:path";
 import * as Rx from "rxjs";
 import {
   Transaction,
@@ -44,6 +45,47 @@ function makeInput(transactionHex: string): DefaultBatcherInput {
 }
 
 describe("Midnight ledger-v9 migration", () => {
+  test("migrated consumers load one Ledger-v9 generation and no Ledger-v8", async () => {
+    const workspaceRoot = resolve(import.meta.dir, "../../..");
+    const consumerRoots = [
+      resolve(workspaceRoot, "packages/batcher"),
+      resolve(workspaceRoot, "packages/effectstream-sdk/config"),
+      resolve(workspaceRoot, "packages/effectstream-sdk/crypto"),
+      resolve(workspaceRoot, "packages/effectstream-sdk/wallets"),
+    ];
+    const ledgerConsumers = consumerRoots.filter(
+      (root) => !root.endsWith("/config"),
+    );
+    const v9Entries = ledgerConsumers.map((root) =>
+      Bun.resolveSync("@midnightntwrk/ledger-v9", root),
+    );
+
+    expect(new Set(v9Entries).size).toBe(1);
+    expect(v9Entries[0]).toContain(
+      "@midnightntwrk+ledger-v9@1.0.0-rc.3/node_modules/@midnightntwrk/ledger-v9",
+    );
+    for (const root of consumerRoots) {
+      expect(() => Bun.resolveSync("@midnight-ntwrk/ledger-v8", root)).toThrow();
+    }
+
+    const runtimeEntry = Bun.resolveSync(
+      "@midnight-ntwrk/onchain-runtime",
+      resolve(workspaceRoot, "packages/effectstream-sdk/config"),
+    );
+    expect(runtimeEntry).toContain(
+      "@midnightntwrk+onchain-runtime-v4@4.0.0-rc.3",
+    );
+
+    const ledgerRoot = dirname(v9Entries[0]);
+    const wasmFiles = await Array.fromAsync(
+      new Bun.Glob("**/*.wasm").scan({ cwd: ledgerRoot, onlyFiles: true }),
+    );
+    expect(wasmFiles).toEqual(["midnight_ledger_wasm_v9_bg.wasm"]);
+
+    const loaded = await Promise.all(v9Entries.map((entry) => import(entry)));
+    expect(new Set(loaded).size).toBe(1);
+  });
+
   test("deserializes a real ledger-v9 unproven third-party transaction", () => {
     const original = makeUnprovenV9Transaction();
     const adapter = Object.create(MidnightBalancingAdapter.prototype) as any;
