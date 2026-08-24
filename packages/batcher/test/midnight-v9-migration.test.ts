@@ -199,6 +199,77 @@ describe("Midnight ledger-v9 migration", () => {
     expect(adapter.availableDustUtxoCounts).toEqual([1]);
     expect(adapter.pool.hasAvailableWorker()).toBe(true);
   });
+
+  test("balancing adapter publicly recovers from zero-slot startup when DUST becomes value-sufficient", async () => {
+    const complete = { isStrictlyComplete: () => true };
+    const state = new Rx.BehaviorSubject({
+      progress: complete,
+      availableCoins: [] as Array<{ generatedNow: bigint }>,
+      balance: () => 0n,
+    });
+    const adapter = Object.create(MidnightBalancingAdapter.prototype) as any;
+    adapter.walletSeeds = ["seed"];
+    adapter.walletResults = [{ wallet: { dust: { state } } }];
+    adapter.walletInitialized = [true];
+    adapter.walletDustExhausted = [true];
+    adapter.availableDustUtxoCounts = [0];
+    adapter.pool = new WorkerPool([0]);
+    adapter.config = { minSpendableDustPerCoin: 10n, maxSlotsPerWallet: 1 };
+    adapter.lastDustRefreshAt = 0;
+    adapter.dustRefreshInFlight = false;
+    adapter.isInitialized = true;
+    adapter.inFlightInputKeys = new Set<string>();
+    adapter.batchCounter = 0;
+    adapter.log = silentLog;
+
+    expect(adapter.hasAvailableCapacity()).toBe(false);
+    await delay(0);
+    expect(adapter.pool.getTotalWorkerCount()).toBe(0);
+
+    state.next({
+      progress: complete,
+      availableCoins: [{ generatedNow: 10n }],
+      balance: () => 0n,
+    });
+    adapter.lastDustRefreshAt = 0;
+    expect(adapter.hasAvailableCapacity()).toBe(false);
+    await delay(0);
+
+    expect(adapter.hasAvailableCapacity()).toBe(true);
+    expect(adapter.pool.getTotalWorkerCount()).toBe(1);
+    const batch = adapter.buildBatchData([
+      makeInput(Buffer.from(makeUnprovenV9Transaction().serialize()).toString("hex")),
+    ]);
+    expect(batch?.data.workerAssignments).toEqual([{ walletIdx: 0, slotIdx: 0 }]);
+    adapter.releaseBatchResources(batch!.data);
+  });
+
+  test("balancing capacity and acquisition both reject an exhausted free wallet while the ready wallet is busy", () => {
+    const adapter = Object.create(MidnightBalancingAdapter.prototype) as any;
+    adapter.walletSeeds = ["ready", "exhausted"];
+    adapter.walletInitialized = [true, true];
+    adapter.walletDustExhausted = [false, true];
+    adapter.pool = new WorkerPool([1, 1]);
+    adapter.config = {};
+    adapter.lastDustRefreshAt = Date.now();
+    adapter.dustRefreshInFlight = false;
+    adapter.isInitialized = true;
+    adapter.inFlightInputKeys = new Set<string>();
+    adapter.batchCounter = 0;
+    adapter.log = silentLog;
+
+    const readyWorker = adapter.pool.acquireWorker(
+      (walletIdx: number) => walletIdx === 0,
+    );
+    expect(readyWorker).toMatchObject({ walletIdx: 0, slotIdx: 0 });
+    expect(adapter.hasAvailableCapacity()).toBe(false);
+    expect(adapter.buildBatchData([
+      makeInput(Buffer.from(makeUnprovenV9Transaction().serialize()).toString("hex")),
+    ])).toBeNull();
+
+    adapter.pool.releaseWorker(0, 0);
+    expect(adapter.hasAvailableCapacity()).toBe(true);
+  });
 });
 
 interface PipelineHarness {

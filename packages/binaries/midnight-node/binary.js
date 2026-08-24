@@ -12,6 +12,7 @@ const CURRENT_BINARY_VERSION = "2.0.0-rc.4";
 const FINAL_BINARY_NAME = "midnight-node";
 const CACHE_DIR_NAME = "midnight-node";
 const CACHE_METADATA_NAME = ".effectstream-binary.json";
+const RESOURCE_MANIFEST_VERSION = 1;
 
 const ASSETS = Object.freeze({
   "macos-arm64": Object.freeze({
@@ -72,6 +73,92 @@ function sha256File(filePath) {
     .digest("hex");
 }
 
+function sha256Value(value) {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function normalizedRelativePath(relativePath) {
+  return relativePath.split(path.sep).join("/");
+}
+
+/**
+ * Build a deterministic, non-following manifest for every required runtime
+ * resource. Paths, types, modes, file bytes, and symlink targets are all part
+ * of the cache identity.
+ */
+function buildRequiredResourceManifest(
+  cacheDir,
+  requiredDirectories = [],
+) {
+  const entries = [];
+
+  const visit = (absolutePath, relativePath) => {
+    const stat = fs.lstatSync(absolutePath);
+    const entry = {
+      path: normalizedRelativePath(relativePath),
+      mode: stat.mode & 0o7777,
+    };
+
+    if (stat.isDirectory()) {
+      entries.push({ ...entry, type: "directory" });
+      const children = fs.readdirSync(absolutePath).sort((a, b) =>
+        a.localeCompare(b, "en")
+      );
+      for (const child of children) {
+        visit(
+          path.join(absolutePath, child),
+          path.join(relativePath, child),
+        );
+      }
+      return;
+    }
+
+    if (stat.isFile()) {
+      entries.push({
+        ...entry,
+        type: "file",
+        size: stat.size,
+        sha256: sha256File(absolutePath),
+      });
+      return;
+    }
+
+    if (stat.isSymbolicLink()) {
+      entries.push({
+        ...entry,
+        type: "symlink",
+        target: fs.readlinkSync(absolutePath),
+      });
+      return;
+    }
+
+    throw new Error(
+      `[${COMPONENT}] unsupported runtime resource type: ${relativePath}`,
+    );
+  };
+
+  for (const directory of [...new Set(requiredDirectories)].sort()) {
+    if (
+      path.isAbsolute(directory) ||
+      directory.split(/[\\/]/).includes("..")
+    ) {
+      throw new Error(
+        `[${COMPONENT}] invalid required runtime resource path: ${directory}`,
+      );
+    }
+    const absolutePath = path.join(cacheDir, directory);
+    const rootStat = fs.lstatSync(absolutePath);
+    if (!rootStat.isDirectory()) {
+      throw new Error(
+        `[${COMPONENT}] required runtime resource is not a directory: ${directory}`,
+      );
+    }
+    visit(absolutePath, directory);
+  }
+
+  return entries.sort((a, b) => a.path.localeCompare(b.path, "en"));
+}
+
 function removePath(target) {
   fs.rmSync(target, { force: true, recursive: true });
 }
@@ -125,7 +212,8 @@ function verifyArchiveIntegrity(archivePath, asset = getAsset()) {
   return actual;
 }
 
-function expectedMetadata(asset, executableSha256) {
+function expectedMetadata(asset, executableSha256, resourceManifest) {
+  const serializedResourceManifest = JSON.stringify(resourceManifest);
   return {
     component: COMPONENT,
     platform: asset.platform,
@@ -134,6 +222,9 @@ function expectedMetadata(asset, executableSha256) {
     archiveSha256: asset.sha256,
     executableName: asset.executableName,
     executableSha256,
+    resourceManifestVersion: RESOURCE_MANIFEST_VERSION,
+    resourceManifestSha256: sha256Value(serializedResourceManifest),
+    resourceManifest,
   };
 }
 
@@ -145,17 +236,18 @@ function isBinaryCacheValid({
   try {
     const stat = fs.statSync(binaryPath);
     if (!stat.isFile() || (stat.mode & 0o111) === 0) return false;
-    for (const directory of asset.requiredDirectories || []) {
-      if (!fs.statSync(path.join(cacheDir, directory)).isDirectory()) {
-        return false;
-      }
-    }
     const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-    const expected = expectedMetadata(asset, metadata.executableSha256);
-    for (const [key, value] of Object.entries(expected)) {
-      if (metadata[key] !== value) return false;
-    }
-    return sha256File(binaryPath) === metadata.executableSha256;
+    const executableSha256 = sha256File(binaryPath);
+    const resourceManifest = buildRequiredResourceManifest(
+      cacheDir,
+      asset.requiredDirectories || [],
+    );
+    const expected = expectedMetadata(
+      asset,
+      executableSha256,
+      resourceManifest,
+    );
+    return JSON.stringify(metadata) === JSON.stringify(expected);
   } catch {
     return false;
   }
@@ -210,10 +302,19 @@ async function unzipBinary({
       fs.renameSync(path.join(stagingDir, directory), finalDirectory);
     }
 
+    const resourceManifest = buildRequiredResourceManifest(
+      cacheDir,
+      asset.requiredDirectories || [],
+    );
+
     const metadataTemp = `${metadataPath}.install-${process.pid}`;
     fs.writeFileSync(
       metadataTemp,
-      `${JSON.stringify(expectedMetadata(asset, executableSha256), null, 2)}\n`,
+      `${JSON.stringify(
+        expectedMetadata(asset, executableSha256, resourceManifest),
+        null,
+        2,
+      )}\n`,
     );
     removePath(metadataPath);
     fs.renameSync(metadataTemp, metadataPath);
@@ -278,7 +379,9 @@ module.exports = {
   ASSETS,
   CURRENT_BINARY_VERSION,
   FINAL_BINARY_NAME,
+  RESOURCE_MANIFEST_VERSION,
   binary,
+  buildRequiredResourceManifest,
   cleanBinaries,
   downloadAndSaveBinary,
   getAsset,

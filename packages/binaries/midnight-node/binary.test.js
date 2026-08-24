@@ -3,6 +3,7 @@ const wrapper = require("./binary");
 
 defineWrapperContractTests(wrapper, {
   label: "midnight-node",
+  verifyResourceManifest: true,
   assets: {
     "macos-arm64": {
       platform: "macos-arm64",
