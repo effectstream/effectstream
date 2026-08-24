@@ -9,12 +9,9 @@
 //   request". The signature does not. Without this gate the batcher balances,
 //   proves and submits that spend a second time, out of its own dust.
 //
-// Two layers, deliberately:
-//   1. a `findByReplayKey` pre-check in `batchInput`, so the common duplicate
-//      never opens a write transaction;
-//   2. an atomic claim inside `recordAccepted`, because the pre-check is a
-//      read and two concurrent copies of one request both pass it. The claim is
-//      the truth; the pre-check is only an optimisation.
+// One authoritative layer, deliberately: the atomic claim inside
+// `recordAccepted`. A pre-read cannot settle concurrent copies and only adds a
+// round trip to the common acceptance path.
 
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -225,9 +222,8 @@ describe("the replay gate at the accept path", () => {
     await withBatcher(async ({ batcher, storage }) => {
       const payload = input();
 
-      // Every one of these passes the `findByReplayKey` pre-check before any
-      // of them has written. Only the atomic claim inside the acceptance
-      // transaction can stop the rest.
+      // All eight race the same unique owner. Only the authoritative claim
+      // inside atomic acceptance can let one queue and stop the rest.
       const results = await Promise.all(
         Array.from({ length: 8 }, () => batcher.batchInput(payload, "no-wait")),
       );
@@ -389,7 +385,12 @@ for (const backend of STORAGE_BACKENDS) {
       if (backend.reset) {
         // One server serves every case, so each case starts from empty.
         await (storage as unknown as {
-          db: { query(sql: string, params?: unknown[]): Promise<unknown[]> };
+          db: {
+            query(
+              sql: string,
+              params?: unknown[],
+            ): Promise<{ rows: unknown[]; rowCount: number }>;
+          };
         }).db.query(
           "TRUNCATE pending_inputs, request_status, replay_keys RESTART IDENTITY",
         );

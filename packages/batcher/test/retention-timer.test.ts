@@ -133,11 +133,10 @@ describe("the retention sweep", () => {
     // duplicate, with nothing left to poll.
     //
     // Asserted end to end through `batchInput` rather than by looking for the
-    // absence of a `replay_keys` row. The property is upheld by TWO independent
-    // mechanisms (`findByReplayKey` JOINs through `request_status`, AND the
-    // prune deletes the keys), so an assertion phrased against the table would
-    // pass even with the deletion disabled — measured: probe K removed the
-    // deletion and changed nothing. This asserts the behaviour the user gets.
+    // absence of a storage row. The live `request_status` row now owns its
+    // replay key directly, so pruning that record atomically releases the key;
+    // an assertion phrased against the historical mirror table would no longer
+    // prove anything. This asserts the behaviour the user gets.
     await withBatcher(async ({ batcher, storage }) => {
       const payload = input({ signature: "0xspend-once" });
       const first = await batcher.batchInput(payload, "no-wait");

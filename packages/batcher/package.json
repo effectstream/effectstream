@@ -11,6 +11,9 @@
   "bugs": {
     "url": "https://github.com/effectstream/effectstream/issues"
   },
+  "scripts": {
+    "pgtyped:generate": "node ./node_modules/@paima/pgtyped-cli/lib/index.js -c pgtypedconfig.json"
+  },
   "exports": {
     ".": {
       "bun": "./mod.ts",
@@ -22,6 +25,7 @@
     }
   },
   "dependencies": {
+    "@pgtyped/runtime": "2.4.2",
     "@sinclair/typebox": "0.34.41",
     "@electric-sql/pglite": "^0.3.14",
     "pg": "8.21.0",
@@ -63,6 +67,9 @@
     "@effectstream/crypto": "workspace:*",
     "@effectstream/midnight-contracts": "workspace:*",
     "@effectstream/event-client": "workspace:*"
+  },
+  "devDependencies": {
+    "@paima/pgtyped-cli": "^2.4.5"
   },
   "description": "Cross-chain transaction batching SDK for EffectStream"
 }

@@ -301,9 +301,14 @@ async function seedStatuses(
 // inventing one here would prejudge its shape.
 async function query<R>(storage: DatabaseStorage, sql: string): Promise<R[]> {
   const db = (storage as unknown as {
-    db: { query<T>(sql: string, params?: unknown[]): Promise<T[]> };
+    db: {
+      query<T>(
+        sql: string,
+        params?: unknown[],
+      ): Promise<{ rows: T[]; rowCount: number }>;
+    };
   }).db;
-  return await db.query<R>(sql);
+  return (await db.query<R>(sql)).rows;
 }
 
 async function terminalIds(storage: DatabaseStorage): Promise<string[]> {
@@ -325,7 +330,7 @@ async function allStatusIds(storage: DatabaseStorage): Promise<string[]> {
 async function replayKeys(storage: DatabaseStorage): Promise<string[]> {
   const rows = await query<{ replay_key: string }>(
     storage,
-    "SELECT replay_key FROM replay_keys ORDER BY replay_key",
+    "SELECT replay_key FROM request_status WHERE replay_key IS NOT NULL ORDER BY replay_key",
   );
   return rows.map((row) => row.replay_key);
 }

@@ -60,11 +60,16 @@ interface HarnessOptions {
   transitionError?: Error;
   /** Drop `recordTransition` entirely — a queue-only backend. */
   untracked?: boolean;
+  /** Advertise the additive bulk transition capability. */
+  bulk?: boolean;
+  /** Throw only from the bulk capability; individual fallback stays healthy. */
+  bulkError?: Error;
 }
 
 interface Harness {
   processor: BatchProcessor<DefaultBatcherInput>;
   recorded: Recorded[];
+  bulkCalls: Recorded[][];
   events: { prefix: string; payload: any }[];
   removed: DefaultBatcherInput[];
   /** Transitions already recorded at the moment removal was attempted. */
@@ -88,6 +93,7 @@ interface Harness {
 
 function makeHarness(options: HarnessOptions = {}): Harness {
   const recorded: Recorded[] = [];
+  const bulkCalls: Recorded[][] = [];
   const events: { prefix: string; payload: any }[] = [];
   const removed: DefaultBatcherInput[] = [];
   let recordedAtRemoval: Recorded[] = [];
@@ -124,6 +130,21 @@ function makeHarness(options: HarnessOptions = {}): Harness {
       options.dropOnRetry?.(inputs) ?? [],
   };
   if (!options.untracked) storage.recordTransition = recordTransition;
+  if (!options.untracked && options.bulk) {
+    storage.recordTransitions = async (transitions: Recorded[]) => {
+      if (options.bulkError) throw options.bulkError;
+      bulkCalls.push(transitions.map((transition) => ({ ...transition })));
+      return await Promise.all(
+        transitions.map((transition) =>
+          recordTransition(
+            transition.requestId,
+            transition.state,
+            transition.detail,
+          )
+        ),
+      );
+    };
+  }
 
   const processor = new BatchProcessor<DefaultBatcherInput>({
     emitStateTransition: async (prefix: string, payload: any) => {
@@ -140,6 +161,7 @@ function makeHarness(options: HarnessOptions = {}): Harness {
   return {
     processor,
     recorded,
+    bulkCalls,
     events,
     removed,
     get recordedAtRemoval() {
@@ -553,6 +575,84 @@ describe("a mixed batch", () => {
 // --- Recording must never be able to break a batch ---------------------
 
 describe("the status write is observation, never judgement", () => {
+  test("a bulk-capable backend receives one call per common stage", async () => {
+    const h = makeHarness({ bulk: true });
+    const inputs = [makeInput("bulk-a"), makeInput("bulk-b")];
+
+    await h.processor.processBatchForTarget(
+      makeAdapter(inputs, async () => "0xhash"),
+      TARGET,
+      inputs,
+    );
+
+    expect(h.bulkCalls.map((call) => call.map((entry) => entry.state)))
+      .toEqual([
+        ["batching", "batching"],
+        ["submitted", "submitted"],
+        ["confirmed", "confirmed"],
+      ]);
+    expect(h.statesOf(inputs[0])).toEqual(["batching", "submitted", "confirmed"]);
+    expect(h.statesOf(inputs[1])).toEqual(["batching", "submitted", "confirmed"]);
+  });
+
+  test("same-reason terminal groups use one bulk call with per-input detail", async () => {
+    const rejected = [makeInput("reject-a"), makeInput("reject-b")];
+    const exhausted = [makeInput("exhaust-a"), makeInput("exhaust-b")];
+    const inputs = [...rejected, ...exhausted];
+    const h = makeHarness({
+      bulk: true,
+      dropOnRetry: (charged) =>
+        charged.map((input) => ({ ...input, retryCount: 3 })),
+    });
+
+    await h.processor.processBatchForTarget(
+      makeAdapter(inputs, async () => ({
+        permanentRejected: rejected.map((input, index) => ({
+          input,
+          error: `bad input ${index}`,
+          errorCode: `BAD_${index}`,
+        })),
+        failed: exhausted.map((input, index) => ({
+          input,
+          error: `retry diagnostic ${index}`,
+        })),
+      })),
+      TARGET,
+      inputs,
+    );
+
+    expect(h.bulkCalls.map((call) => call.map((entry) => entry.state)))
+      .toEqual([
+        ["batching", "batching", "batching", "batching"],
+        ["failed", "failed"],
+        ["failed", "failed"],
+      ]);
+    expect(h.detailOf(rejected[0], "failed")).toMatchObject({
+      errorCode: "BAD_0",
+      message: "bad input 0",
+    });
+    expect(h.detailOf(exhausted[1], "failed")).toMatchObject({
+      errorCode: "RETRIES_EXHAUSTED",
+      message: expect.stringContaining("retry diagnostic 1"),
+      retryCount: 3,
+    });
+  });
+
+  test("an exceptional bulk throw falls back without blocking chain work", async () => {
+    const h = makeHarness({ bulk: true, bulkError: new Error("bulk unavailable") });
+    const inputs = [makeInput("fallback-a"), makeInput("fallback-b")];
+
+    await h.processor.processBatchForTarget(
+      makeAdapter(inputs, async () => "0xhash"),
+      TARGET,
+      inputs,
+    );
+
+    expect(h.removed).toEqual(inputs);
+    expect(h.statesOf(inputs[0])).toEqual(["batching", "submitted", "confirmed"]);
+    expect(h.statesOf(inputs[1])).toEqual(["batching", "submitted", "confirmed"]);
+  });
+
   test("a refused transition is normal operation, not a batch failure", async () => {
     const h = makeHarness({ refuseTransitions: true });
     const good = makeInput("good");

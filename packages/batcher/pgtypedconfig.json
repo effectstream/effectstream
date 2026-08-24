@@ -1,0 +1,21 @@
+{
+  "transforms": [
+    {
+      "mode": "sql",
+      "include": "queries/*.sql",
+      "emitTemplate": "{{dir}}/{{name}}.queries.ts"
+    }
+  ],
+  "srcDir": "./core/sql",
+  "failOnError": true,
+  "camelCaseColumnNames": false,
+  "db": {
+    "dbName": "postgres",
+    "user": "postgres",
+    "password": "postgres",
+    "host": "postgres",
+    "port": 5432,
+    "ssl": false
+  },
+  "maxWorkerThreads": 1
+}

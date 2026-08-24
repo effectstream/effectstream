@@ -186,6 +186,13 @@ export interface RequestTransitionDetail {
   retryCount?: number;
 }
 
+/** One requested lifecycle move in an ordered bulk status write. */
+export interface RequestTransition {
+  requestId: string;
+  state: RequestState;
+  detail?: RequestTransitionDetail;
+}
+
 /** Why a transition was refused. Terminal states and backwards moves are not errors — they are answers. */
 export type TransitionRefusal =
   | "unknown-request"
@@ -221,12 +228,11 @@ export interface AcceptanceOutcome {
    * queue row, no status record (spec FR-006b — the batcher must not pay twice
    * for one signed spend). `requestId` and `record` describe the claimant.
    *
-   * This is the atomic half of the replay gate. `Batcher` checks
-   * `findByReplayKey` first so the common duplicate never opens a write
-   * transaction, but that check is a READ: two concurrent copies of one request
-   * both pass it, and only the claim inside this transaction can stop the
-   * second. Absent when no replay key was supplied — there is then nothing to
-   * claim and the queue keeps its historical duplicate-rows behaviour.
+   * This is the replay gate. The claim inside this atomic acceptance is the
+   * sole authority: an earlier lookup cannot settle concurrent copies and only
+   * adds latency. Absent when no replay key was supplied — there is then
+   * nothing to claim and the queue keeps its historical duplicate-rows
+   * behaviour.
    */
   duplicate?: boolean;
 }
@@ -286,6 +292,15 @@ export interface TrackingStorage<
     state: RequestState,
     detail?: RequestTransitionDetail,
   ): Promise<TransitionOutcome>;
+
+  /**
+   * Move several independent requests in one set-based database statement.
+   * OPTIONAL: older/custom tracking backends remain valid and the processor
+   * falls back to `recordTransition` when this capability is absent.
+   */
+  recordTransitions?(
+    transitions: readonly RequestTransition[],
+  ): Promise<TransitionOutcome[]>;
 
   /** The record for an id, or undefined if this batcher never accepted it (or it aged out). */
   getStatus(requestId: string): Promise<RequestStatusRecord | undefined>;
