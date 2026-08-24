@@ -657,4 +657,7 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
  * stay discoverable from one place.
  */
 export { DatabaseStorage } from "./database-storage.ts";
-export type { DatabaseStorageOptions } from "./database-storage.ts";
+export type {
+  DatabaseConnectionConfig,
+  DatabaseStorageOptions,
+} from "./database-storage.ts";

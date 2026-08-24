@@ -11,6 +11,7 @@ import type {
   TransitionOutcome,
 } from "./storage.ts";
 import { buildRequestKey, requestIdFromKey } from "./request-id.ts";
+import { quoteSchemaIdentifier, resolveBatcherSchema } from "./storage-schema.ts";
 import { mkdirSync } from "node:fs";
 import { readFile, rename } from "node:fs/promises";
 import { isNotFoundError } from "@effectstream/utils/runtime";
@@ -71,13 +72,27 @@ interface SqlDriver extends IDatabaseConnection {
 class PgliteDriver implements SqlDriver {
   private constructor(private readonly db: any) {}
 
-  static async open(dataDirectory: string): Promise<PgliteDriver> {
+  static async open(
+    dataDirectory: string,
+    schema?: string,
+  ): Promise<PgliteDriver> {
     const { PGlite } = await import("@electric-sql/pglite");
     // relaxedDurability is left at its default (off): a committed input must
     // still be there after a kill -9, which is the entire point of journaling
     // it before the caller is told 200.
     const db = new PGlite(dataDirectory);
     await db.waitReady;
+    if (schema) {
+      // Not required here — an embedded database has exactly one tenant, so
+      // there is nothing to isolate from (FR-015). Honoured anyway so that
+      // `schema` never means "ignored on this backend": a silently dropped
+      // isolation setting is the failure mode the whole feature exists to
+      // avoid. One session, so one SET holds for the life of the process.
+      const quoted = quoteSchemaIdentifier(schema);
+      await db.exec(
+        `CREATE SCHEMA IF NOT EXISTS ${quoted}; SET search_path TO ${quoted};`,
+      );
+    }
     return new PgliteDriver(db);
   }
 
@@ -114,27 +129,164 @@ class PgliteDriver implements SqlDriver {
   }
 }
 
-/** Opt-in: a real Postgres server, same statements. */
+/**
+ * Does this server give each connection its own session?
+ *
+ * It has to be asked, because the answer is NO for the launcher's development
+ * gateway: `start-pglite.ts` fronts ONE PgLite instance and forwards every
+ * client's protocol messages into it, so all clients share a single Postgres
+ * session. `SET search_path` there is not "my connection's schema", it is
+ * "everybody's schema" — including the engine's, whose next unqualified query
+ * then fails with `relation "..." does not exist`. Measured, not inferred.
+ *
+ * The canary is a custom GUC rather than `search_path` itself, deliberately:
+ * a probe that used `search_path` would corrupt the very client it is trying
+ * to protect in order to find out whether it can corrupt it. A namespaced GUC
+ * is inert — nothing reads it — so a leak costs nothing and a non-leak costs
+ * nothing.
+ *
+ * Two connections are held OPEN at the same time on purpose. Setting on one
+ * and reading on the other after releasing it would read the same physical
+ * connection back out of the pool and report a leak on a perfectly isolated
+ * server.
+ */
+async function sessionStateLeaksAcrossConnections(
+  Pool: new (config: Record<string, unknown>) => any,
+  config: Record<string, unknown>,
+): Promise<boolean> {
+  const pool = new Pool({ ...config, max: 2, onConnect: undefined });
+  pool.on("error", () => {});
+  try {
+    const [first, second] = await Promise.all([pool.connect(), pool.connect()]);
+    try {
+      // Hex only — this value is interpolated, and the point of this whole
+      // module is that identifiers and GUC values cannot be bind parameters.
+      const token = Array.from(
+        { length: 8 },
+        () => Math.floor(Math.random() * 16).toString(16),
+      ).join("");
+      await first.query(`SET batcher_schema_probe.token = '${token}'`);
+      const seen = await second.query(
+        "SELECT current_setting('batcher_schema_probe.token', true) AS token",
+      );
+      return seen?.rows?.[0]?.token === token;
+    } finally {
+      first.release();
+      second.release();
+    }
+  } finally {
+    await pool.end().catch(() => {});
+  }
+}
+
+/** A connected Postgres: the engine's database in production, its pg-gateway in dev. */
 class PostgresDriver implements SqlDriver {
   private constructor(private readonly pool: any) {}
 
-  static async open(connectionString: string): Promise<PostgresDriver> {
-    // Imported lazily so a default (PgLite) deployment never loads the driver.
+  static async open(
+    target: { connectionString?: string; connection?: DatabaseConnectionConfig },
+    schema?: string,
+  ): Promise<PostgresDriver> {
+    // Imported lazily so an embedded (PgLite) deployment never loads the
+    // driver.
     //
     // The specifier goes through a variable deliberately: `pg` ships no type
     // declarations and this repo does not carry `@types/pg`, so a literal
     // import makes the type checker demand one for every consumer — to describe
-    // a module that only the opt-in path ever loads. The shape actually used is
-    // one constructor and three methods, checked at the call sites below.
+    // a module that only the connected path ever loads. The shape actually used
+    // is one constructor and three methods, checked at the call sites below.
     const specifier = "pg";
     const pg: any = await import(specifier);
     const Pool = pg.Pool ?? pg.default?.Pool;
     if (!Pool) {
       throw new Error(
-        "DatabaseStorage: a connectionString was configured but the 'pg' driver could not be loaded.",
+        "DatabaseStorage: a database connection was configured but the 'pg' driver could not be loaded.",
       );
     }
-    return new PostgresDriver(new Pool({ connectionString }));
+
+    const config: Record<string, unknown> = target.connectionString
+      ? { connectionString: target.connectionString }
+      : { ...target.connection };
+
+    const quoted = schema ? quoteSchemaIdentifier(schema) : undefined;
+
+    if (quoted) {
+      // Refuse BEFORE pinning anything: on a session-multiplexing server the
+      // pin would hit every other client of that server, and the batcher is
+      // usually not the most important one connected to it.
+      if (await sessionStateLeaksAcrossConnections(Pool, config)) {
+        const where = target.connectionString ??
+          `${target.connection?.host}:${target.connection?.port}`;
+        throw new Error(
+          `Refusing to own the schema ${JSON.stringify(schema)} on the ` +
+            `database at ${where}: that server puts every client on ONE shared ` +
+            `session (measured — a setting made on one connection was visible ` +
+            `on another). This is what the development PgLite gateway does, ` +
+            `and it means "SET search_path" would silently repoint every OTHER ` +
+            `client of that database — including the engine, whose queries ` +
+            `would then fail with 'relation does not exist'. Either unset ` +
+            `BATCHER_DB_SCHEMA to run queue-only on FileStorage (development ` +
+            `only: no request tracking, no replay protection, no ` +
+            `/input-status), or point DB_HOST/DB_PORT at a real PostgreSQL ` +
+            `server, where each connection has its own session and the schema ` +
+            `isolation this key asks for is real.`,
+        );
+      }
+    }
+
+    if (quoted) {
+      // `onConnect` runs on EVERY connection this pool opens — the first one,
+      // the ones it grows into, and the replacements it makes after a
+      // reconnect — and pg-pool AWAITS it before handing the client to the
+      // caller, failing the checkout if it throws. That is what FR-014 needs:
+      // a connection that could not be pinned to this batcher's schema never
+      // serves a statement, rather than quietly serving it against `public`,
+      // where the engine's own tables live.
+      config.onConnect = async (client: { query: (sql: string) => Promise<unknown> }) => {
+        await client.query(`SET search_path TO ${quoted}`);
+      };
+    }
+
+    const pool = new Pool(config);
+    // Idle clients emit errors when the server goes away (a launcher restart
+    // drops every socket). Without a listener node treats that as unhandled
+    // and takes the process down — during housekeeping, on a batcher that was
+    // about to reconnect perfectly well.
+    pool.on("error", (error: unknown) => {
+      console.warn(
+        "⚠️ [Storage] idle database connection error (will reconnect):",
+        error instanceof Error ? error.message : error,
+      );
+    });
+
+    if (quoted && schema) {
+      try {
+        await pool.query(`CREATE SCHEMA IF NOT EXISTS ${quoted}`);
+
+        // Prove the pinning mechanism actually works with the driver that is
+        // installed, instead of assuming it. `onConnect` is a pg-pool feature;
+        // against a version without it every statement would silently land in
+        // `public` and the first symptom would be two batchers sharing a
+        // queue. Reading the answer back from the server costs one round trip
+        // at boot and turns that into a refusal.
+        const check = await pool.query("SELECT current_schema() AS schema");
+        const effective = check?.rows?.[0]?.schema;
+        if (effective !== schema) {
+          throw new Error(
+            `search_path was not applied to a pooled connection: unqualified ` +
+              `statements would run against ${JSON.stringify(effective)} ` +
+              `instead of ${JSON.stringify(schema)}. Refusing to start — this ` +
+              `batcher would otherwise share tables with whatever else lives ` +
+              `there.`,
+          );
+        }
+      } catch (error) {
+        await pool.end().catch(() => {});
+        throw error;
+      }
+    }
+
+    return new PostgresDriver(pool);
   }
 
   async query(sql: string, params: unknown[] = []) {
@@ -175,19 +327,58 @@ class PostgresDriver implements SqlDriver {
   }
 }
 
+/**
+ * How to reach the database, in the engine's own terms (`getConnection()`).
+ *
+ * Field-by-field rather than a URL because that is what the rest of the
+ * platform configures: `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_NAME`, with the
+ * password omitted and the pool capped at one connection when the launcher's
+ * single-instance PgLite gateway is what is listening.
+ */
+export interface DatabaseConnectionConfig {
+  host: string;
+  port: number;
+  user: string;
+  database: string;
+  /** Omitted against the dev gateway, which authenticates with `trust`. */
+  password?: string;
+  /** Pool size. 1 against the gateway — PgLite serialises everything anyway. */
+  max?: number;
+}
+
 export interface DatabaseStorageOptions {
   /**
-   * Directory for the embedded PgLite database (default engine), and the
+   * Directory for the embedded PgLite database (standalone opt-in), and the
    * directory scanned for a legacy `pending-inputs.jsonl` to import.
-   * Defaults to `./batcher-data` — the same place `FileStorage` wrote, so an
-   * existing queue is found without configuration.
+   *
+   * Defaults to `./batcher-data` ONLY when no connection is configured. A
+   * connected storage never defaults it (spec FR-016): it has no embedded
+   * engine to put anywhere, and probing a directory nobody asked about is how
+   * a connected deployment ends up importing a stale queue it had forgotten.
    */
   dataDirectory?: string;
-  /**
-   * Opt-in: run against a real Postgres instead of the embedded engine.
-   * `dataDirectory` is then used only to look for a legacy queue file.
-   */
+  /** Connect with a `postgres://` URL instead of the embedded engine. */
   connectionString?: string;
+  /**
+   * Connect with the engine's own connection fields (spec FR-012). Mutually
+   * exclusive with `connectionString`.
+   */
+  connection?: DatabaseConnectionConfig;
+  /**
+   * Schema SUFFIX this storage owns; the fixed `batcher_` prefix is applied by
+   * the code (spec FR-013). Set it and the storage creates
+   * `batcher_<value>` and pins `search_path` to it on every pooled connection,
+   * so several batchers can share one database without seeing each other.
+   * Omit it and nothing about schemas changes — the connection's own
+   * `search_path` applies, exactly as before.
+   */
+  schema?: string;
+  /**
+   * What to call the schema setting when refusing an invalid value. Defaults
+   * to the environment variable, because that is where it comes from in every
+   * deployment; a caller passing `schema` in code can name itself instead.
+   */
+  schemaSource?: string;
 }
 
 const LEGACY_QUEUE_FILE = "pending-inputs.jsonl";
@@ -304,8 +495,16 @@ const TERMINAL_STATES: ReadonlySet<RequestState> = new Set<RequestState>([
 export class DatabaseStorage<
   T extends DefaultBatcherInput = DefaultBatcherInput,
 > implements BatcherStorage<T>, TrackingStorage<T> {
-  private readonly dataDirectory: string;
+  /**
+   * Undefined when a connection is configured and no directory was asked for:
+   * a connected storage has no embedded engine and no legacy queue to find
+   * (spec FR-016).
+   */
+  private readonly dataDirectory?: string;
   private readonly connectionString?: string;
+  private readonly connection?: DatabaseConnectionConfig;
+  /** The effective, prefixed schema name — or undefined for "leave search_path alone". */
+  private readonly schema?: string;
   private driver?: SqlDriver;
   /** Memoised so the two `init()` call sites in `Batcher` cannot double-import. */
   private initPromise?: Promise<void>;
@@ -323,8 +522,71 @@ export class DatabaseStorage<
         ? { connectionString: options }
         : { dataDirectory: options })
       : options;
-    this.dataDirectory = resolved.dataDirectory ?? DEFAULT_DATA_DIRECTORY;
+
+    if (resolved.connectionString && resolved.connection) {
+      throw new Error(
+        "DatabaseStorage: pass either connectionString or connection, not both — " +
+          "two descriptions of where the database is can disagree.",
+      );
+    }
+
     this.connectionString = resolved.connectionString;
+    this.connection = resolved.connection;
+
+    // FR-016. The directory is defaulted only for the embedded engine, which
+    // needs somewhere to live. A connected storage that silently adopted
+    // `./batcher-data` would probe it for a legacy queue on every boot, and
+    // import one it was never told about.
+    const isConnected = this.connectionString !== undefined ||
+      this.connection !== undefined;
+    this.dataDirectory = resolved.dataDirectory ??
+      (isConnected ? undefined : DEFAULT_DATA_DIRECTORY);
+
+    if (resolved.schema !== undefined) {
+      // Throws on an invalid value: a batcher asked to isolate itself and
+      // unable to do so must not start (FR-013).
+      const { schema, warning } = resolveBatcherSchema(
+        resolved.schema,
+        resolved.schemaSource,
+      );
+      if (warning) console.warn(warning);
+      this.schema = schema;
+    }
+  }
+
+  /** The schema this storage owns, or undefined when it owns none. */
+  getSchema(): string | undefined {
+    return this.schema;
+  }
+
+  /**
+   * What this storage's connection actually resolves to right now.
+   *
+   * Diagnostic, and the only honest way to answer "is the isolation real":
+   * `schema` is what the NEXT unqualified statement would write to, read from
+   * the server rather than from configuration, and `backendPid` identifies the
+   * connection that answered — so N concurrent calls that report N pids and
+   * one schema are evidence that every pooled connection is pinned, not just
+   * the first one.
+   */
+  async describeConnection(): Promise<{
+    schema: string | null;
+    backendPid: number | null;
+  }> {
+    const result = await this.db.query(
+      "SELECT current_schema() AS schema, pg_backend_pid() AS pid",
+      [],
+    );
+    const row = (result.rows[0] ?? {}) as {
+      schema?: string | null;
+      pid?: number | string | null;
+    };
+    return {
+      schema: row.schema ?? null,
+      backendPid: row.pid === undefined || row.pid === null
+        ? null
+        : Number(row.pid),
+    };
   }
 
   async init(defaultTarget?: string): Promise<void> {
@@ -334,12 +596,20 @@ export class DatabaseStorage<
 
   private async doInit(defaultTarget?: string): Promise<void> {
     try {
-      if (this.connectionString) {
-        this.driver = await PostgresDriver.open(this.connectionString);
+      if (this.connectionString || this.connection) {
+        this.driver = await PostgresDriver.open(
+          {
+            connectionString: this.connectionString,
+            connection: this.connection,
+          },
+          this.schema,
+        );
       } else {
-        mkdirSync(this.dataDirectory, { recursive: true });
+        const directory = this.dataDirectory ?? DEFAULT_DATA_DIRECTORY;
+        mkdirSync(directory, { recursive: true });
         this.driver = await PgliteDriver.open(
-          `${this.dataDirectory}/${EMBEDDED_DB_SUBDIR}`,
+          `${directory}/${EMBEDDED_DB_SUBDIR}`,
+          this.schema,
         );
       }
       await this.migrate();
@@ -407,6 +677,9 @@ export class DatabaseStorage<
    * it is, so a later boot that knows its target can still recover the queue.
    */
   private async importLegacyQueue(defaultTarget?: string): Promise<void> {
+    // FR-016: no directory configured means no filesystem, full stop. A
+    // connected batcher does not go looking for queues it was not pointed at.
+    if (this.dataDirectory === undefined) return;
     const legacyPath = `${this.dataDirectory}/${LEGACY_QUEUE_FILE}`;
     let raw: string;
     try {
