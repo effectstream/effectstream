@@ -36,7 +36,7 @@ import {
   Intent,
   sampleSigningKey,
   Transaction,
-} from "@midnight-ntwrk/ledger-v8";
+} from "@midnightntwrk/ledger-v9";
 
 import { CONSTANTS } from "./constants.ts";
 import type { DeployConfig, WalletResult } from "./types.ts";
@@ -155,7 +155,7 @@ export async function deployMidnightContractPhased(
     const derivedSigningKey = initResult.private.signingKey;
     const fullContractState = initResult.public.contractState;
 
-    // Convert the compact-runtime contract state to a ledger-v8 contract state,
+    // Convert the compact-runtime contract state to a ledger-v9 contract state,
     // then build a stripped copy that keeps the initial data + maintenance
     // authority but drops every circuit operation (i.e. no verifier keys).
     const fullLedgerState = ContractState.deserialize(
@@ -187,7 +187,7 @@ export async function deployMidnightContractPhased(
     );
     const signedRecipe = await walletResult.wallet.signRecipe(
       recipe,
-      (payload) => walletResult.unshieldedKeystore.signData(payload),
+      (payload) => walletResult.unshieldedKeystore.signDataAsync(payload),
     );
     const finalizedTx = await walletResult.wallet.finalizeRecipe(signedRecipe);
     const txId = await walletResult.wallet.submitTransaction(finalizedTx);

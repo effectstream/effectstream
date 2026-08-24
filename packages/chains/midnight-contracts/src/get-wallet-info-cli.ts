@@ -10,9 +10,9 @@
 // Run: bun run src/get-wallet-info-cli.ts [--seed <hex>] [--balance]
 import dotenv from "dotenv";
 import { parseArgs } from "node:util";
-import { shieldedToken } from "@midnight-ntwrk/ledger-v8";
+import { nativeToken } from "@midnightntwrk/ledger-v9";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
+import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import * as Rx from "rxjs";
 import type { NetworkUrls } from "./types.ts";
 import { midnightNetworkConfig } from "./midnight-env.ts";
@@ -48,8 +48,9 @@ async function main() {
   }
 
   const envSeed = getEnv("MIDNIGHT_WALLET_SEED");
-  const argSeed = parsedArgs.seed;
-  let seed = argSeed || envSeed;
+  const argSeed =
+    typeof parsedArgs.seed === "string" ? parsedArgs.seed : undefined;
+  let seed: string | undefined = argSeed || envSeed;
 
   if (!seed) {
     log.info("No seed provided. Generating a new random 32-byte hex seed...");
@@ -78,38 +79,18 @@ async function main() {
   const node = getEnv("MIDNIGHT_NODE_URL") || midnightNetworkConfig.node;
   const proofServer = getEnv("MIDNIGHT_PROOF_SERVER_URL") || midnightNetworkConfig.proofServer;
 
+  const networkIdRaw = getEnv("MIDNIGHT_NETWORK_ID") || "undeployed";
+  // NetworkId intentionally accepts future/custom IDs; preserve the selected
+  // identifier instead of coercing supported IDs (for example qanet) to a
+  // different network.
+  const networkId = networkIdRaw.toLowerCase() as NetworkId.NetworkId;
   const networkUrls: Required<NetworkUrls> = {
-    id: "placeholder-value",
+    id: networkId,
     indexer,
     indexerWS,
     node,
-    proofServer
+    proofServer,
   };
-
-  const networkIdRaw = getEnv("MIDNIGHT_NETWORK_ID") || "undeployed";
-
-  let networkId: NetworkId.NetworkId;
-  switch (networkIdRaw.toLowerCase()) {
-    case "undeployed":
-      networkId = NetworkId.NetworkId.Undeployed;
-      break;
-    case "testnet":
-    case "testnet-02":
-      networkId = NetworkId.NetworkId.TestNet;
-      break;
-    case "devnet":
-    case "qanet":
-      networkId = NetworkId.NetworkId.DevNet;
-      break;
-    case "preview":
-      networkId = "preview" as NetworkId.NetworkId;
-      log.info(`Using preview network (addresses will have mn_addr_preview prefix)`);
-      break;
-    default:
-      log.warn(`Unknown network ID "${networkIdRaw}", using as-is. Valid values: undeployed, testnet, devnet, preview`);
-      networkId = networkIdRaw as NetworkId.NetworkId;
-  }
-  networkUrls.id = networkId;
 
   log.info(`Using network ID: ${networkId}`);
   log.info(`Indexer: ${indexer}`);
@@ -141,7 +122,7 @@ async function main() {
       let unshieldedBalance = 0n;
       let dustBalance = 0n;
 
-      const tokenId = shieldedToken().tag;
+      const tokenId = nativeToken().raw;
       shieldedBalance = initialState.balances[tokenId] ?? 0n;
 
       const syncTimeoutMs = resolveWalletSyncTimeoutMs();

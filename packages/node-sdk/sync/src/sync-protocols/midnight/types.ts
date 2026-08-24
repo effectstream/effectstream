@@ -64,9 +64,10 @@ interface Transaction {
 }
 
 export interface ZswapLedgerEvent {
-  id:    number;
-  raw:   string;
-  maxId: number;
+  id:              number;
+  raw:             string;
+  maxId:           number;
+  protocolVersion: number;
 }
 
 export interface Block {
@@ -79,6 +80,7 @@ export interface Block {
   };
   transactions:    {
     hash:            MidnightTxHash;
+    protocolVersion: number;
     contractActions: {
       address:    MidnightAddress;
       state:      string;

@@ -1,0 +1,14 @@
+{
+  "name": "effectstream-batcher-m5-gate",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "overrides": {
+    "@effect/platform": "0.96.1",
+    "arch": "3.0.0"
+  },
+  "devDependencies": {
+    "bun-types": "1.3.11"
+  }
+}

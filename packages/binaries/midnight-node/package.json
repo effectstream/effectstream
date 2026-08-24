@@ -4,7 +4,9 @@
   "description": "Downloads and starts the binary for Midnight Node",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "bun test binary.test.js run_midnight_node.test.js",
+    "test:binary-gate": "node binary-gate.js",
+    "test:binary-gate:linux-download": "node binary-gate-linux-download.js",
     "clean": "node index.js --clean-binaries",
     "clean-only": "node index.js --only-clean"
   },
@@ -23,7 +25,6 @@
     "url": "https://github.com/effectstream/effectstream/issues"
   },
   "supportedPlatforms": [
-    "linux-arm64",
     "linux-amd64",
     "macos-arm64"
   ],

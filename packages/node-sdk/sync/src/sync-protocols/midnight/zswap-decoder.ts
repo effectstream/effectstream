@@ -1,9 +1,9 @@
-import * as ledger from '@midnight-ntwrk/ledger-v8';
+import * as ledger from '@midnightntwrk/ledger-v9';
 
-// Wire format of a raw zswap ledger event, for reference (midnight-ledger 8.x,
+// Wire format of a raw zswap ledger event, for reference (midnight-ledger 9.x,
 // `midnight-ledger/ledger/src/events.rs` + `storage-core/src/arena.rs`):
 //
-//   19 bytes  outer tag "midnight:event[v9]:"
+//   20 bytes  outer tag "midnight:event[v14]:"
 //   then a TopoSortedNodes envelope (NOT the struct directly):
 //     compact_u32 node count, and per node: compact_u32 child count,
 //     compact_u64 child indices, compact_u32 data length, data bytes.
@@ -32,7 +32,7 @@ function hexToBytes(hex: string): Uint8Array {
   return arr;
 }
 
-/** A zswap ledger event decoded via the native ledger-v8 bindings. */
+/** A zswap ledger event decoded via the native ledger-v9 bindings. */
 export type DecodedZswapEvent =
   | {
     kind: "nullifier";
@@ -59,23 +59,37 @@ export type DecodedZswapEvent =
     contract?: string;
   };
 
+export class ZswapEventDecodeError extends Error {
+  override readonly name = "ZswapEventDecodeError";
+
+  constructor(
+    message: string,
+    readonly rawHex: string,
+    readonly decodeCause?: unknown,
+  ) {
+    super(message);
+  }
+}
+
 /**
  * Decode a raw zswap ledger event (ZswapInput or ZswapOutput) using the
- * native ledger-v8 WASM deserializer.  The indexer's `zswapLedgerEvents`
- * field only ever carries these two variants, so a `null` return means the
- * event could not be decoded (e.g. a ledger event-format version bump) and
- * is logged.
+ * native ledger-v9 WASM deserializer. The indexer's `zswapLedgerEvents`
+ * field only ever carries these two variants. A deserialization or variant
+ * mismatch is a hard error: silently skipping it would permanently omit a
+ * nullifier or commitment from the synchronized state.
  */
-export function decodeZswapEvent(rawHex: string): DecodedZswapEvent | null {
+export function decodeZswapEvent(rawHex: string): DecodedZswapEvent {
   let event: ledger.Event;
   try {
     event = ledger.Event.deserialize(hexToBytes(rawHex));
-  } catch (err) {
-    console.warn(
-      "[midnight] failed to deserialize zswap ledger event — ledger event format may have changed",
-      { raw: rawHex, error: String(err) },
+  } catch (decodeCause) {
+    throw new ZswapEventDecodeError(
+      `ledger-v9 could not deserialize protocolVersion 2000000 zswap event: ${
+        (decodeCause as Error)?.message ?? String(decodeCause)
+      }`,
+      rawHex,
+      decodeCause,
     );
-    return null;
   }
   // EventDetails is an open union ({ tag: string } catch-all), so narrow manually.
   const content = event.content as {
@@ -113,9 +127,8 @@ export function decodeZswapEvent(rawHex: string): DecodedZswapEvent | null {
       ...source,
     };
   }
-  console.warn(
-    "[midnight] unexpected zswap ledger event variant",
-    { raw: rawHex, tag: content.tag },
+  throw new ZswapEventDecodeError(
+    `ledger-v9 returned unexpected zswap event variant "${content.tag}" for protocolVersion 2000000`,
+    rawHex,
   );
-  return null;
 }

@@ -7,14 +7,14 @@
  *   1. Prefers wallets with the fewest busy workers (maximize wallet spread)
  *   2. Breaks ties by lowest usage count (balance load over time)
  *
- * Each wallet also has a balance mutex: the balance phase of a transaction
- * must be serialized within a single wallet (speculative chaining requires
- * sequential balance calls so each sees the prior call's pending dust
- * state). The prove/submit/confirm phases are independent and can overlap.
+ * Each wallet also has a transaction mutex. Ledger-v9 fee wallets must keep
+ * the lock from DUST selection through submission settlement; releasing it
+ * after balance can let another worker select the same pending DUST input.
+ * Different wallets use different mutexes and remain concurrent.
  */
 
 // ---------------------------------------------------------------------------
-// Per-wallet balance mutex
+// Per-wallet transaction mutex
 // ---------------------------------------------------------------------------
 
 /**
@@ -196,15 +196,14 @@ export class WorkerPool {
   }
 
   // -----------------------------------------------------------------------
-  // Balance lock
+  // Wallet transaction lock
   // -----------------------------------------------------------------------
 
   /**
-   * Acquire the per-wallet balance mutex.  Returns a release function.
+   * Acquire the per-wallet transaction mutex. Returns a release function.
    *
-   * Only one balance operation may run at a time per wallet (speculative
-   * chaining requires sequential balance calls).  The prove/submit/confirm
-   * phases do NOT hold this lock and can overlap freely.
+   * Callers decide the protected lifecycle. Midnight ledger-v9 callers hold
+   * this from balance through submit settlement to prevent DustDoubleSpend.
    */
   acquireBalanceLock(walletIdx: number): Promise<() => void> {
     let mutex = this.mutexes.get(walletIdx);

@@ -1,16 +1,25 @@
 import { Buffer } from "node:buffer";
-import * as ledger from "@midnight-ntwrk/ledger-v8";
+import * as ledger from "@midnightntwrk/ledger-v9";
 
 // Decodes custom token mints out of a raw Midnight transaction. A contract
 // call's transcript effects record mints as `domain_sep → amount` maps
 // (`shieldedMints` / `unshieldedMints`); the resulting token type ("color")
 // is `rawTokenType(domain_sep, contract_address)`. Neither the indexer's
 // GraphQL nor the wallet expose this mapping, so the only route is
-// deserializing the transaction bytes with ledger-v8 — same approach as
+// deserializing the transaction bytes with ledger-v9 — same approach as
 // zswap-decoder.ts for nullifier events.
-//
-// Mirrors zswap-decoder.ts tolerance: never throws — an undecodable
-// transaction logs a warning and contributes nothing.
+
+export class MintTransactionDecodeError extends Error {
+  override readonly name = "MintTransactionDecodeError";
+
+  constructor(
+    message: string,
+    readonly rawHex: string,
+    readonly decodeCause?: unknown,
+  ) {
+    super(message);
+  }
+}
 
 export interface TokenMintRecord {
   /** Address of the minting contract, hex */
@@ -67,13 +76,14 @@ export function decodeTokenMints(
       "binding",
       hexToBytes(rawHex),
     );
-  } catch (e) {
-    console.warn(
-      `[mint-decoder] undecodable transaction, skipping: ${
-        (e as Error)?.message ?? e
+  } catch (decodeCause) {
+    throw new MintTransactionDecodeError(
+      `ledger-v9 could not deserialize protocolVersion 2000000 transaction: ${
+        (decodeCause as Error)?.message ?? String(decodeCause)
       }`,
+      rawHex,
+      decodeCause,
     );
-    return [];
   }
 
   const records: TokenMintRecord[] = [];
@@ -87,11 +97,13 @@ export function decodeTokenMints(
       if (!(action instanceof ledger.ContractCall)) continue;
       try {
         records.push(...mintsOfCall(action, fallibleApplied));
-      } catch (e) {
-        console.warn(
-          `[mint-decoder] failed to read mints of call to ${
+      } catch (decodeCause) {
+        throw new MintTransactionDecodeError(
+          `ledger-v9 failed to read mint transcripts for contract ${
             (action as any)?.address ?? "?"
-          }: ${(e as Error)?.message ?? e}`,
+          }: ${(decodeCause as Error)?.message ?? String(decodeCause)}`,
+          rawHex,
+          decodeCause,
         );
       }
     }

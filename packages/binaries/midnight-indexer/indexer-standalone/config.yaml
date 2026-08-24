@@ -5,6 +5,8 @@ application:
   blocks_buffer: 10
   caught_up_max_distance: 10
   caught_up_leeway: 5
+  gc_bound: "200ms"
+  ledger_state_retention: 1000
   active_wallets_query_delay: "500ms"
   active_wallets_ttl: "30m"
   transaction_batch_size: 50
@@ -54,6 +56,8 @@ infra:
         batch_size: 20
       contract_actions:
         batch_size: 20
+      contract_events:
+        batch_size: 20
       dust_generations:
         batch_size: 20
       dust_ledger_events:
@@ -71,6 +75,9 @@ infra:
         progress_update_interval: "30s"
       zswap_ledger_events:
         batch_size: 20
+      progress_cache:
+        max_capacity: 10000
+        time_to_live: "5s"
     quota:
       max_concurrent_per_connection: 20
       max_session_subscriptions_per_minute: 10

@@ -1,4 +1,5 @@
-import type { ZswapSecretKeys, DustSecretKey } from "@midnight-ntwrk/ledger-v8";
+import type { ZswapSecretKeys, DustSecretKey } from "@midnightntwrk/ledger-v9";
+import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 import type { UnshieldedKeystore } from "@midnightntwrk/wallet-sdk-unshielded-wallet";
 
@@ -61,10 +62,10 @@ export interface DeployConfig {
  */
 export interface NetworkUrls {
   /** Optional network ID override */
-  id?: string;
-  /** GraphQL indexer HTTP endpoint (default: http://127.0.0.1:8088/api/v3/graphql)*/
+  id?: NetworkId.NetworkId;
+  /** GraphQL indexer HTTP endpoint (default: http://127.0.0.1:8088/api/v4/graphql)*/
   indexer?: string;
-  /** GraphQL indexer WebSocket endpoint (default: ws://127.0.0.1:8088/api/v3/graphql/ws)*/
+  /** GraphQL indexer WebSocket endpoint (default: ws://127.0.0.1:8088/api/v4/graphql/ws)*/
   indexerWS?: string;
   /** Midnight node RPC endpoint (default: http://127.0.0.1:9944)*/
   node?: string;

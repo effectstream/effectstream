@@ -2,9 +2,11 @@
 
 NPM wrapper that runs the [Midnight](https://midnight.network) Indexer either as a Docker container or as a native binary. Boots alongside `@effectstream/npm-midnight-node` and `@effectstream/npm-midnight-proof-server` to give Effectstream a local indexer to consume.
 
-- Pinned Midnight indexer v4.3.3.
+- Pinned Midnight indexer `4.4.0-rc.1`.
+- Native targets are `macos-arm64` and `linux-amd64`; no Linux arm64 asset is published.
+- The published ZIP SHA-256 and the extracted executable cache are verified before execution.
 - Docker or binary mode, with platform-aware defaults (macOS arm64 and Linux can use either; Windows is Docker-only).
-- One env var to set: `APP__INFRA__SECRET`. Everything else has a default that works against the local Midnight stack.
+- One env var to set: `APP__INFRA__SECRET`, as a hex-encoded 32-byte value (64 hex characters). Everything else has a default that works against the local Midnight stack.
 - Used by the orchestrator's Midnight step; sits in front of `MidnightFetcher` on the sync side.
 - Maps port 8088 (Docker) or runs on localhost (binary) so the rest of the local stack reaches it the same way.
 
@@ -24,13 +26,13 @@ Pick a mode and pass `APP__INFRA__SECRET`. Without a flag, the wrapper prompts i
 
 ```bash
 # Docker (recommended where available)
-APP__INFRA__SECRET=<secret> bunx npm-midnight-indexer --docker
+APP__INFRA__SECRET=<64-hex-characters> bunx npm-midnight-indexer --docker
 
 # Native binary (Linux, macOS arm64)
-APP__INFRA__SECRET=<secret> bunx npm-midnight-indexer --binary
+APP__INFRA__SECRET=<64-hex-characters> bunx npm-midnight-indexer --binary
 
 # Interactive: prompts for Docker vs binary
-APP__INFRA__SECRET=<secret> bunx npm-midnight-indexer
+APP__INFRA__SECRET=<64-hex-characters> bunx npm-midnight-indexer
 
 # Help
 bunx npm-midnight-indexer --help
@@ -42,7 +44,7 @@ The Docker path pulls `midnightntwrk/indexer-standalone` and maps container port
 
 | Variable | Required | Docker default | Binary default | Purpose |
 | --- | --- | --- | --- | --- |
-| `APP__INFRA__SECRET` | yes | - | - | Indexer secret. |
+| `APP__INFRA__SECRET` | yes | - | - | Hex-encoded 32-byte indexer secret. |
 | `LEDGER_NETWORK_ID` | no | `Undeployed` | `Undeployed` | Ledger network selector. |
 | `SUBSTRATE_NODE_WS_URL` | no | `ws://node:9944` | `ws://localhost:9944` | Substrate node WS. |
 | `FEATURES_WALLET_ENABLED` | no | `true` | `true` | Wallet features. |
@@ -55,7 +57,7 @@ The Docker path pulls `midnightntwrk/indexer-standalone` and maps container port
 
 ### Supported binary platforms
 
-Linux arm64, Linux amd64, macOS arm64.
+Linux amd64 and macOS arm64.
 
 ## Inside Effectstream
 

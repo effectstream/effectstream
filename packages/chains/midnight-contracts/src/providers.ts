@@ -3,11 +3,15 @@
 // ============================================================================
 
 import { Buffer } from "node:buffer";
-import type { ZswapSecretKeys, DustSecretKey, CoinPublicKey, EncPublicKey, FinalizedTransaction, TransactionId } from "@midnight-ntwrk/ledger-v8";
+import * as path from "node:path";
+import type { ZswapSecretKeys, DustSecretKey, CoinPublicKey, EncPublicKey, FinalizedTransaction, TransactionId } from "@midnightntwrk/ledger-v9";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
-import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
+import {
+  NodeZkConfigProvider,
+  nodeZkConfigRegistry,
+} from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import type { WalletProvider, MidnightProvider, MidnightProviders, UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
 import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 import type { NetworkUrls } from "./types.ts";
@@ -27,7 +31,7 @@ function createTtl(): Date {
  * Create wallet and midnight provider adapter for WalletFacade
  *
  * Implements the WalletProvider and MidnightProvider interfaces
- * as defined in @midnight-ntwrk/midnight-js-types v3.x
+ * as defined in @midnight-ntwrk/midnight-js-types v5.
  */
 function createWalletAndMidnightProvider(
     wallet: WalletFacade,
@@ -51,13 +55,15 @@ function createWalletAndMidnightProvider(
         ttl?: Date
       ): Promise<FinalizedTransaction> {
         console.log("✅ Balancing transaction", tx);
-        const bound = tx.bind();
-        const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(bound, {
+        const unboundTransactionRecipe = await wallet.balanceUnboundTransaction(tx, {
           shieldedSecretKeys: zswapSecretKeys, 
           dustSecretKey: dustSecretKey,
          }, { ttl: ttl ?? createTtl() } );
-        const x = await wallet.signRecipe(finalizedTransactionRecipe, (payload) => unshieldedKeystore.signData(payload));
-        return wallet.finalizeRecipe(x);
+        const signedRecipe = await wallet.signRecipe(
+          unboundTransactionRecipe,
+          (payload) => unshieldedKeystore.signDataAsync(payload),
+        );
+        return wallet.finalizeRecipe(signedRecipe);
       },
       submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
         console.log("✅ Submitting transaction", tx);
@@ -69,7 +75,7 @@ function createWalletAndMidnightProvider(
   /**
    * Configure all providers needed for contract deployment
    */
-  export function configureMidnightNodeProviders(
+  export async function configureMidnightNodeProviders(
     wallet: WalletFacade,
     zswapSecretKeys: ZswapSecretKeys,
     walletZswapSecretKeys: ZswapSecretKeys,
@@ -79,7 +85,7 @@ function createWalletAndMidnightProvider(
     privateStateStoreName: string,
     zkConfigPath: string,
     unshieldedKeystore: UnshieldedKeystore
-  ): MidnightProviders {
+  ): Promise<MidnightProviders> {
     const signingKeyStoreName = `${privateStateStoreName}-signing-keys`;
     const walletAndMidnightProvider = createWalletAndMidnightProvider(
       wallet,
@@ -89,7 +95,13 @@ function createWalletAndMidnightProvider(
       walletDustSecretKey,
       unshieldedKeystore
     );
-    const zkConfigProvider = new NodeZkConfigProvider(zkConfigPath);
+    const zkConfigProvider = new NodeZkConfigProvider(zkConfigPath, {
+      verify: "require",
+    });
+    // Midnight.js 5 resolves proof artifacts through a registry so transactions
+    // with cross-contract calls can select bundles by verifier key. Search from
+    // the managed-artifact parent to include sibling compiled contracts.
+    const zkConfigRegistry = await nodeZkConfigRegistry(path.dirname(zkConfigPath));
     return {
       // For deployment, we use full private state config because we may need to verify
       // the deployed contract state. For batcher/transaction submission use cases,
@@ -109,7 +121,10 @@ function createWalletAndMidnightProvider(
         networkUrls.indexerWS
       ),
       zkConfigProvider,
-      proofProvider: httpClientProofProvider(networkUrls.proofServer, zkConfigProvider),
+      proofProvider: httpClientProofProvider(
+        networkUrls.proofServer,
+        zkConfigRegistry,
+      ),
       walletProvider: walletAndMidnightProvider,
       midnightProvider: walletAndMidnightProvider,
     };

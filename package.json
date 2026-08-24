@@ -11,7 +11,8 @@
     "test:code": "bun test ./packages",
     "test:e2e": "cd e2e && bun run runner.ts",
     "assets:generate": "bun scripts/generate-assets.ts",
-    "assets:check": "bun scripts/generate-assets.ts --check"
+    "assets:check": "bun scripts/generate-assets.ts --check",
+    "check:templates": "bun scripts/assert-no-template-changes.ts b267fa2e795fcd1bd8e295d4d9b8eb65814b11ee"
   },
   "overrides": {
     "@effect/platform": "0.96.1",

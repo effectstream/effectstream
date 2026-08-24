@@ -18,7 +18,7 @@ const env = (key: string | string[], fallback?: string): string => {
   throw new Error('Invalid key type');
 }
 
-type NetworkConfig = {
+export type NetworkConfig = {
     indexer: string;
     indexerWS: string;
     node: string;
@@ -29,8 +29,8 @@ type NetworkConfig = {
 
 // Midnight Network default configurations
 const undeployedNetworkConfig: NetworkConfig = {
-    indexer: "http://127.0.0.1:8088/api/v3/graphql",
-    indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
+    indexer: "http://127.0.0.1:8088/api/v4/graphql",
+    indexerWS: "ws://127.0.0.1:8088/api/v4/graphql/ws",
     node: "http://127.0.0.1:9944",
     networkId: "undeployed" as NetworkId.NetworkId,
     proofServer: "http://127.0.0.1:6300",
@@ -47,22 +47,20 @@ const deployedNetworkConfig = (networkId: NetworkId.NetworkId): NetworkConfig =>
     genesisWalletSeed: '',
 });
 
-const networkId = env("MIDNIGHT_NETWORK_ID") || "undeployed";
-let selectedNetworkConfig: NetworkConfig;
-switch (networkId) {
-  case "undeployed":
-    selectedNetworkConfig = undeployedNetworkConfig;
-    break;
-  case "mainnet":
-  case "testnet":
-  case "devnet":
-  case "qanet":
-  case "preview":
-  case "preprod":
-  default:
-    selectedNetworkConfig = deployedNetworkConfig(networkId as NetworkId.NetworkId);
-    break;
-}
+/**
+ * Resolve defaults for every wallet-SDK network ID. Only `undeployed` uses
+ * loopback services; every deployed or future network ID follows the hosted
+ * Midnight endpoint convention instead of being restricted to `stagenet`.
+ */
+export const defaultMidnightNetworkConfig = (
+  networkId: NetworkId.NetworkId,
+): NetworkConfig =>
+  networkId === "undeployed"
+    ? undeployedNetworkConfig
+    : deployedNetworkConfig(networkId);
+
+const networkId = (env("MIDNIGHT_NETWORK_ID") || "undeployed") as NetworkId.NetworkId;
+const selectedNetworkConfig = defaultMidnightNetworkConfig(networkId);
 
 let walletSeed: string;
 if (env("MIDNIGHT_WALLET_SEED")) {
