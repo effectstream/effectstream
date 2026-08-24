@@ -243,12 +243,16 @@ test("the poll endpoint draws down the same pre-auth bucket as /send-input", asy
   }, { rateLimit: { maxRequests: 100, windowMs: 60_000, preAuthMaxRequests: 2 } });
 });
 
-test("with queue-only storage the route is not registered, and /send-input still hands out ids", async () => {
-  // Plan Q-P2: tracking is a capability of the database backend. A deployment
-  // that pinned FileStorage opted out of it, and must be told so ONCE at
-  // startup rather than discovering it as a 404 per poll. The id is still
-  // computed and returned — it is a pure function of the payload — so the
-  // caller's own bookkeeping keeps working.
+test("with queue-only storage the route answers 501 with a machine-readable reason", async () => {
+  // Spec Addendum A FR-012b, REVISING plan Q-P2 (which said "do not register
+  // the route"). An unregistered route answers 404 — the same answer this
+  // endpoint gives for an id that aged out — so a client could never tell
+  // "your id expired" from "this deployment tracks nothing", and the second
+  // has a one-variable fix worth naming. 501 says the honest thing: the
+  // endpoint exists in this API and is not implemented by this deployment.
+  //
+  // The id is still computed and returned by /send-input — it is a pure
+  // function of the payload — so the caller's own bookkeeping keeps working.
   const dir = mkdtempSync(path.join(tmpdir(), "batcher-input-status-file-"));
   const storage = new FileStorage<DefaultBatcherInput>(dir);
   const batcher = createNewBatcher({
@@ -276,13 +280,22 @@ test("with queue-only storage the route is not registered, and /send-input still
 
   try {
     const res = await poll(server, "d".repeat(64));
-    expect(res.statusCode).toBe(404);
-    // Fastify's router said no, not our handler: no `reason` field.
-    expect(res.json().reason).toBeUndefined();
+    expect(res.statusCode).toBe(501);
+    const body = res.json();
+    expect(body.reason).toBe("request-tracking-disabled");
+    expect(body.enableWith).toBe("BATCHER_DB_SCHEMA");
+    expect(body.success).toBe(false);
+    expect(String(body.message)).toContain("BATCHER_DB_SCHEMA");
+
+    // A malformed id gets the same 501, not a 400: the shape of the id is not
+    // this caller's problem when the deployment answers no id at all.
+    const malformed = await poll(server, "not-an-id");
+    expect(malformed.statusCode).toBe(501);
+    expect(malformed.json().reason).toBe("request-tracking-disabled");
 
     const said = warnings.filter((w) => w.includes("/input-status"));
     expect(said.length).toBe(1);
-    expect(said[0]).toContain("FileStorage");
+    expect(said[0]).toContain("BATCHER_DB_SCHEMA");
 
     const sent = await server.inject({
       method: "POST",
@@ -291,10 +304,35 @@ test("with queue-only storage the route is not registered, and /send-input still
     });
     expect(sent.statusCode).toBe(200);
     expect(sent.json().requestId).toMatch(/^[0-9a-f]{64}$/);
+
+    // The same fact on the health surface, so an operator can see it without
+    // provoking a 501 (FR-012b).
+    const stats = await server.inject({ method: "GET", url: "/queue-stats" });
+    expect(stats.statusCode).toBe(200);
+    expect(stats.json().requestTracking).toEqual({
+      enabled: false,
+      reason: "queue-only-storage",
+      enableWith: "BATCHER_DB_SCHEMA",
+      disabled: [
+        "durable request tracking (GET /input-status/:requestId)",
+        "replay/dedup protection against paying twice for one signed request",
+        "status retention and boot reconciliation",
+      ],
+    });
   } finally {
     await server!.close();
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("with tracking on, /queue-stats says so plainly", async () => {
+  // The other side of FR-012b. `enabled: true` with nothing else is the whole
+  // answer: there is no remedy to name when nothing is wrong.
+  await withServer(async ({ server }) => {
+    const stats = await server.inject({ method: "GET", url: "/queue-stats" });
+    expect(stats.statusCode).toBe(200);
+    expect(stats.json().requestTracking).toEqual({ enabled: true });
+  });
 });
 
 test("the endpoint is documented under the batcher tag", async () => {

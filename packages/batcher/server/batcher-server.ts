@@ -402,6 +402,16 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
             synthesizedFromRows: Type.Number(),
             orphanedStatuses: Type.Number(),
           })),
+          // FR-012b. Visible without provoking a 501, and carrying the remedy:
+          // "this deployment keeps no statuses" is a configuration fact, and
+          // an operator should be able to read it off a health surface rather
+          // than infer it from a poll that failed.
+          requestTracking: Type.Object({
+            enabled: Type.Boolean(),
+            reason: Type.Optional(Type.String()),
+            enableWith: Type.Optional(Type.String()),
+            disabled: Type.Optional(Type.Array(Type.String())),
+          }),
         }),
       },
     },
@@ -411,6 +421,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     return {
       totalPendingInputs: status.totalPendingInputs,
       retention: batcher.getRetentionStatus(),
+      requestTracking: batcher.getRequestTrackingInfo(),
       ...(reconciliation ? { reconciliation } : {}),
       // Adapters may expose an operational snapshot (fee capacity, workers,
       // policy shape). In a multi-product batcher this is how you tell WHICH
@@ -714,11 +725,13 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
 
   // Poll a request by id (spec FR-003).
   //
-  // Registered only when the backend can actually answer. A route that always
-  // 404s would be strictly worse than no route: 404 is also the honest answer
-  // for an id that expired, so a client could never tell "your id aged out"
-  // from "this deployment does not track anything".
-  if (batcher.isRequestTrackingEnabled()) {
+  // ALWAYS registered, and it answers 501 when this deployment keeps no
+  // statuses (spec FR-012b, revising plan Q-P2's "do not register it"). Not
+  // registering it means Fastify answers 404 — the same answer this endpoint
+  // gives for an id that aged out — so a client could never tell "your id
+  // expired" from "this deployment tracks nothing". Those have completely
+  // different remedies, and the second one is a single environment variable.
+  {
     server.get("/input-status/:requestId", {
       schema: {
         tags: ["batcher"],
@@ -765,6 +778,21 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
             message: Type.String(),
             retryAfter: Type.Optional(Type.Number()),
           }),
+          // Declared, not improvised: Fastify serialises through these schemas
+          // and silently drops any property they do not mention, so an
+          // undeclared 501 body would reach the caller stripped of the very
+          // fields that make it actionable.
+          501: Type.Object({
+            success: Type.Boolean(),
+            error: Type.String(),
+            message: Type.String(),
+            reason: Type.String({
+              description: "Stable code: request-tracking-disabled.",
+            }),
+            enableWith: Type.String({
+              description: "The single setting that enables tracking.",
+            }),
+          }),
         },
       },
     }, async (request: FastifyRequest, reply) => {
@@ -784,6 +812,25 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           message:
             `Too many requests. Please retry after ${retryAfter} seconds.`,
           retryAfter,
+        });
+      }
+
+      // Answered before the id is even looked at: when this deployment keeps
+      // no statuses, the shape of the caller's id is not the caller's problem.
+      const tracking = batcher.getRequestTrackingInfo();
+      if (!tracking.enabled) {
+        return reply.status(501).send({
+          success: false,
+          error: "Request tracking not enabled",
+          message:
+            `This batcher runs on queue-only storage, so no request status is ` +
+            `kept and there is nothing to poll. Inputs are still queued, ` +
+            `batched and retried, and /send-input still returns a requestId. ` +
+            `Set ${tracking.enableWith} to enable durable tracking (and with ` +
+            `it replay/dedup protection); leaving it unset is a ` +
+            `development-only configuration.`,
+          reason: "request-tracking-disabled",
+          enableWith: tracking.enableWith!,
         });
       }
 
@@ -843,16 +890,19 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
         acceptedAt: record.acceptedAt.toISOString(),
       };
     });
-  } else {
+  }
+
+  if (!batcher.isRequestTrackingEnabled()) {
     // Said once, at startup, naming the remedy. The alternative — discovering
-    // it one 404 at a time — is how an operator concludes the feature is broken
+    // it one 501 at a time — is how an operator concludes the feature is broken
     // rather than switched off.
+    const tracking = batcher.getRequestTrackingInfo();
     console.warn(
       `⚠️ [Batcher] Request polling is DISABLED: GET /input-status/:requestId ` +
-        `is not registered because this batcher runs on a queue-only storage ` +
-        `backend (FileStorage). Inputs are still queued, batched and retried, ` +
-        `and /send-input still returns a requestId — but no status is kept, so ` +
-        `there is nothing to poll. Use the default DatabaseStorage to enable it.`,
+        `answers 501 because this batcher runs on queue-only storage. Inputs ` +
+        `are still queued, batched and retried, and /send-input still returns ` +
+        `a requestId — but no status is kept, so there is nothing to poll. ` +
+        `Set ${tracking.enableWith} to enable it (development-only without it).`,
     );
   }
 
