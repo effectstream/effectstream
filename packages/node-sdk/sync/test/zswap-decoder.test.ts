@@ -34,16 +34,29 @@ function wrapEnvelope(data: Buffer): string {
   ]).toString("hex");
 }
 
+const NULLIFIER_RAW = wrapEnvelope(Buffer.concat([
+  TX_HASH,
+  SEGMENTS,
+  Buffer.from([0x00]),
+  BODY32,
+  CONTRACT_NONE,
+]));
+
+function expectDecodeFailure(raw: string): void {
+  try {
+    decodeZswapEvent(raw);
+    throw new Error("expected decodeZswapEvent to throw");
+  } catch (error) {
+    expect(error).toBeInstanceOf(ZswapEventDecodeError);
+    expect((error as ZswapEventDecodeError).rawHex).toBe(raw);
+    expect(String(error)).toContain("ledger-v9");
+    expect(String(error)).toContain("protocolVersion 2000000");
+  }
+}
+
 describe("decodeZswapEvent", () => {
   test("decodes a ZswapInput (nullifier) event", () => {
-    const raw = wrapEnvelope(Buffer.concat([
-      TX_HASH,
-      SEGMENTS,
-      Buffer.from([0x00]), // variant: ZswapInput
-      BODY32, // nullifier
-      CONTRACT_NONE,
-    ]));
-    expect(decodeZswapEvent(raw)).toEqual({
+    expect(decodeZswapEvent(NULLIFIER_RAW)).toEqual({
       kind: "nullifier",
       nullifier: "bb".repeat(32),
       txHash: "aa".repeat(32),
@@ -72,15 +85,20 @@ describe("decodeZswapEvent", () => {
 
   test("fails explicitly for undecodable input", () => {
     for (const raw of ["deadbeef", ""]) {
-      try {
-        decodeZswapEvent(raw);
-        throw new Error("expected decodeZswapEvent to throw");
-      } catch (error) {
-        expect(error).toBeInstanceOf(ZswapEventDecodeError);
-        expect((error as ZswapEventDecodeError).rawHex).toBe(raw);
-        expect(String(error)).toContain("ledger-v9");
-        expect(String(error)).toContain("protocolVersion 2000000");
-      }
+      expectDecodeFailure(raw);
+    }
+  });
+
+  test("rejects non-hex semantic bytes, invalid suffixes, and odd length", () => {
+    const nullifier = "bb".repeat(32);
+    const semanticByte = NULLIFIER_RAW.replace(
+      nullifier,
+      `zz${"bb".repeat(31)}`,
+    );
+    expect(semanticByte).not.toBe(NULLIFIER_RAW);
+
+    for (const raw of [semanticByte, `${NULLIFIER_RAW}zz`, `${NULLIFIER_RAW}0`]) {
+      expectDecodeFailure(raw);
     }
   });
 });

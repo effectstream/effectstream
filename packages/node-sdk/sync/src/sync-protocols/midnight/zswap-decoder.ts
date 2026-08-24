@@ -1,4 +1,5 @@
 import * as ledger from '@midnightntwrk/ledger-v9';
+import { strictHexToBytes } from "./strict-hex.ts";
 
 // Wire format of a raw zswap ledger event, for reference (midnight-ledger 9.x,
 // `midnight-ledger/ledger/src/events.rs` + `storage-core/src/arena.rs`):
@@ -21,15 +22,6 @@ import * as ledger from '@midnightntwrk/ledger-v9';
 
 function normalizeHex(hex: string): string {
   return (hex.startsWith("0x") ? hex.slice(2) : hex).toLowerCase();
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
-  const arr = new Uint8Array(clean.length / 2);
-  for (let i = 0; i < arr.length; i++) {
-    arr[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
-  }
-  return arr;
 }
 
 /** A zswap ledger event decoded via the native ledger-v9 bindings. */
@@ -81,7 +73,7 @@ export class ZswapEventDecodeError extends Error {
 export function decodeZswapEvent(rawHex: string): DecodedZswapEvent {
   let event: ledger.Event;
   try {
-    event = ledger.Event.deserialize(hexToBytes(rawHex));
+    event = ledger.Event.deserialize(strictHexToBytes(rawHex));
   } catch (decodeCause) {
     throw new ZswapEventDecodeError(
       `ledger-v9 could not deserialize protocolVersion 2000000 zswap event: ${

@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import * as ledger from "@midnightntwrk/ledger-v9";
+import { strictHexToBytes } from "./strict-hex.ts";
 
 // Decodes custom token mints out of a raw Midnight transaction. A contract
 // call's transcript effects record mints as `domain_sep → amount` maps
@@ -40,11 +41,6 @@ export interface TxResultLike {
   segments?: { id: number; success: boolean }[] | null;
 }
 
-function hexToBytes(hex: string): Uint8Array {
-  const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
-  return Uint8Array.from(Buffer.from(clean, "hex"));
-}
-
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -74,7 +70,7 @@ export function decodeTokenMints(
       "signature",
       "proof",
       "binding",
-      hexToBytes(rawHex),
+      strictHexToBytes(rawHex),
     );
   } catch (decodeCause) {
     throw new MintTransactionDecodeError(
@@ -150,7 +146,7 @@ function mintsOfCall(
       contractAddress: normalizeHex(String(call.address)),
       domainSep,
       rawTokenType: normalizeHex(
-        String(ledger.rawTokenType(hexToBytes(domainSep), call.address)),
+        String(ledger.rawTokenType(strictHexToBytes(domainSep), call.address)),
       ),
       kind,
       amount: amount.toString(),

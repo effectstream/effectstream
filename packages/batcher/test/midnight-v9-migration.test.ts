@@ -152,6 +152,53 @@ describe("Midnight ledger-v9 migration", () => {
       "finalize-recipe",
     ]);
   });
+
+  test("regular adapter accepts an available DUST coin with aggregate balance zero", async () => {
+    const complete = { isStrictlyComplete: () => true };
+    const dustState = {
+      progress: complete,
+      availableCoins: [{}],
+      balance: () => 0n,
+    };
+    const adapter = Object.create(MidnightAdapter.prototype) as any;
+    adapter.walletSeeds = ["seed"];
+    adapter.walletResults = [{ wallet: { dust: { state: Rx.of(dustState) } } }];
+    adapter.walletFundingTimeoutMs = 100;
+    adapter.hasFundsPerWallet = [false];
+    adapter.lastFundingBalancesPerWallet = [null];
+    adapter.walletDustExhausted = [true];
+    adapter.log = silentLog;
+
+    await adapter.ensureWalletFunds(0);
+
+    expect(adapter.hasFundsPerWallet).toEqual([true]);
+    expect(adapter.walletDustExhausted).toEqual([false]);
+    expect(adapter.lastFundingBalancesPerWallet[0].dustBalance).toBe(0n);
+  });
+
+  test("balancing adapter accepts a value-sufficient DUST coin with aggregate balance zero", async () => {
+    const complete = { isStrictlyComplete: () => true };
+    const dustState = {
+      progress: complete,
+      availableCoins: [{ generatedNow: 10n }],
+      balance: () => 0n,
+    };
+    const adapter = Object.create(MidnightBalancingAdapter.prototype) as any;
+    adapter.walletSeeds = ["seed"];
+    adapter.walletResults = [{ wallet: { dust: { state: Rx.of(dustState) } } }];
+    adapter.walletFundingTimeoutMs = 100;
+    adapter.config = { minSpendableDustPerCoin: 10n, maxSlotsPerWallet: 1 };
+    adapter.availableDustUtxoCounts = [null];
+    adapter.walletDustExhausted = [true];
+    adapter.pool = new WorkerPool([0]);
+    adapter.log = silentLog;
+
+    await adapter.ensureWalletFunds(0);
+
+    expect(adapter.walletDustExhausted).toEqual([false]);
+    expect(adapter.availableDustUtxoCounts).toEqual([1]);
+    expect(adapter.pool.hasAvailableWorker()).toBe(true);
+  });
 });
 
 interface PipelineHarness {
@@ -330,5 +377,42 @@ describe("per-wallet ledger-v9 serialization", () => {
       adapter.runSerializedWalletOperation(0, operation, 1000, "timeout"),
     ])).toEqual(["ok", "ok"]);
     expect(maxActive).toBe(1);
+  });
+
+  test("regular adapter re-admits a wallet after DUST timeout and recovery", async () => {
+    const complete = { isStrictlyComplete: () => true };
+    const state = new Rx.BehaviorSubject({
+      progress: complete,
+      availableCoins: [] as unknown[],
+      balance: () => 0n,
+    });
+    const adapter = Object.create(MidnightAdapter.prototype) as any;
+    adapter.pool = new WorkerPool([1]);
+    adapter.walletSeeds = ["seed"];
+    adapter.walletResults = [{ wallet: { dust: { state } } }];
+    adapter.walletInitialized = [true];
+    adapter.walletDustExhausted = [false];
+    adapter.lastDustRefreshAt = 0;
+    adapter.dustRefreshInFlight = false;
+    adapter.isInitialized = true;
+    adapter.log = silentLog;
+
+    await adapter.waitForDustAvailability(0, 0);
+    expect(adapter.walletDustExhausted).toEqual([true]);
+    expect(adapter.hasAvailableCapacity()).toBe(false);
+    await delay(0);
+    expect(adapter.pickNextWallet()).toBeNull();
+
+    state.next({
+      progress: complete,
+      availableCoins: [{}],
+      balance: () => 0n,
+    });
+    adapter.lastDustRefreshAt = 0;
+    expect(adapter.hasAvailableCapacity()).toBe(false);
+    await delay(0);
+
+    expect(adapter.hasAvailableCapacity()).toBe(true);
+    expect(adapter.pickNextWallet()).toMatchObject({ walletIdx: 0, slotIdx: 0 });
   });
 });

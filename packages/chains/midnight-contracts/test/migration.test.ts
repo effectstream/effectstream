@@ -16,6 +16,8 @@ import * as Rx from "rxjs";
 import {
   registerNightForDust,
   resolveFacadeDustAvailableCoins,
+  resolveFacadeDustFundsReadiness,
+  waitForDustFunds,
 } from "../src/get-wallet-info.ts";
 import { defaultMidnightNetworkConfig } from "../src/midnight-env.ts";
 import type { WalletResult } from "../src/types.ts";
@@ -83,6 +85,32 @@ describe("wallet-v2 migration", () => {
         dust: { availableCoins: [{}], balance: () => 0n },
       }),
     ).toBe(1);
+  });
+
+  test("DUST readiness carries available coins when aggregate balance is zero", async () => {
+    const complete = { isStrictlyComplete: () => true };
+    const dustState = {
+      progress: complete,
+      availableCoins: [{ generatedNow: 10n }],
+      balance: () => 0n,
+    };
+    const wallet = { dust: { state: Rx.of(dustState) } } as unknown as WalletFacade;
+
+    const funds = await waitForDustFunds(wallet, {
+      timeoutMs: 100,
+      waitNonZero: true,
+      skipCatchUp: true,
+      dustPollIntervalMs: 0,
+    });
+
+    expect(funds).toEqual({
+      balance: 0n,
+      availableCoins: 1,
+      spendableCoins: 1,
+      ready: true,
+    });
+    expect(resolveFacadeDustFundsReadiness(dustState, 11n).ready).toBe(false);
+    expect(resolveFacadeDustFundsReadiness(dustState, 10n).ready).toBe(true);
   });
 
   test("registration finalizes the returned UnprovenTransactionRecipe", async () => {

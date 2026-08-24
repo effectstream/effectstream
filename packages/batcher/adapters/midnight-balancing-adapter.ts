@@ -298,18 +298,30 @@ export class MidnightBalancingAdapter
 
         // Use waitForDustFundsWithRetry: builds wallet, restores cached state,
         // syncs with stall detection + retry, saves state to disk
-        const { walletResult, dustBalance } = await waitForDustFundsWithRetry({
+        const {
+          walletResult,
+          dustBalance,
+          availableDustCoins,
+          spendableDustCoins,
+          dustReady,
+        } = await waitForDustFundsWithRetry({
           networkUrls,
           seed,
           networkId: this.walletNetworkId,
           syncMode: 'dust-only',
           balanceWaitTimeoutMs: this.walletFundingTimeoutMs,
+          minSpendableDustPerCoin:
+            this.config.minSpendableDustPerCoin ?? DEFAULT_MIN_SPENDABLE_DUST,
         });
 
         this.walletResults[index] = walletResult;
+        this.walletDustExhausted[index] = !dustReady;
 
-        if (dustBalance > 0n) {
-          this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
+        if (dustReady) {
+          this.log.log(
+            `Wallet ${label}: DUST ready (${spendableDustCoins}/${availableDustCoins} ` +
+              `value-sufficient coins, balance=${dustBalance})`,
+          );
         } else {
           this.log.warn(
             `Wallet ${label}: dust balance still 0 — wallet needs dust or unshielded NIGHT to register`,
@@ -339,23 +351,32 @@ export class MidnightBalancingAdapter
     if (!walletResult) return;
     const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
 
-    let dustBalance = 0n;
+    const minSpendableDustPerCoin =
+      this.config.minSpendableDustPerCoin ?? DEFAULT_MIN_SPENDABLE_DUST;
+    let dustFunds = {
+      balance: 0n,
+      availableCoins: 0,
+      spendableCoins: 0,
+      ready: false,
+    };
     try {
-      dustBalance = await waitForDustFunds(walletResult.wallet, {
+      dustFunds = await waitForDustFunds(walletResult.wallet, {
         timeoutMs: this.walletFundingTimeoutMs,
         waitNonZero: true,
+        minSpendableDustPerCoin,
       });
     } catch {
       /* no dust within timeout */
     }
 
-    if (dustBalance === 0n) {
+    if (!dustFunds.ready) {
       this.log.log(`Wallet ${label}: no dust yet, trying unshielded→dust registration...`);
       try {
         if (await registerNightForDust(walletResult)) {
-          dustBalance = await waitForDustFunds(walletResult.wallet, {
+          dustFunds = await waitForDustFunds(walletResult.wallet, {
             timeoutMs: this.walletFundingTimeoutMs,
             waitNonZero: true,
+            minSpendableDustPerCoin,
           });
         }
       } catch (error) {
@@ -363,10 +384,15 @@ export class MidnightBalancingAdapter
       }
     }
 
-    this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
-    if (dustBalance === 0n) {
+    this.log.log(
+      `Wallet ${label}: DUST ready=${dustFunds.ready} ` +
+        `(${dustFunds.spendableCoins}/${dustFunds.availableCoins} value-sufficient coins, ` +
+        `balance=${dustFunds.balance})`,
+    );
+    this.walletDustExhausted[walletIndex] = !dustFunds.ready;
+    if (!dustFunds.ready) {
       this.log.warn(
-        `Wallet ${label}: WARNING: 0 dust balance, submissions will fail`,
+        `Wallet ${label}: WARNING: no value-sufficient DUST coin, submissions will fail`,
       );
     } else if (this.config.addShieldedPadding) {
       this.log.log(
@@ -406,7 +432,9 @@ export class MidnightBalancingAdapter
       // When shieldedPaddingTokenID is configured, per-input overrides can
       // enable padding even if the config default is off, so budget for the
       // worst case (2 UTXOs/slot) to avoid over-committing.
-      const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
+      const spendableInfo = await this.getSpendableDustInfo(walletIndex);
+      const utxoCount = spendableInfo.spendable;
+      this.walletDustExhausted[walletIndex] = utxoCount === 0;
       const paddingPossible = !!(this.config.addShieldedPadding ||
         this.config.shieldedPaddingTokenID);
       const costPerTx = paddingPossible ? 2 : 1;
@@ -414,7 +442,8 @@ export class MidnightBalancingAdapter
       const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
       this.pool.setSlots(walletIndex, slots);
       this.log.log(
-        `Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
+        `Wallet ${label}: worker slots: ${slots} (${utxoCount}/${spendableInfo.total} ` +
+          `value-sufficient UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
       );
     } catch (e) {
       this.log.warn(`Wallet ${label}: could not read dust UTXO count:`, e);
@@ -456,7 +485,9 @@ export class MidnightBalancingAdapter
         }`,
       );
 
-      const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
+      const spendableInfo = await this.getSpendableDustInfo(walletIndex);
+      const utxoCount = spendableInfo.spendable;
+      this.walletDustExhausted[walletIndex] = utxoCount === 0;
       const paddingPossible = !!(this.config.addShieldedPadding ||
         this.config.shieldedPaddingTokenID);
       const costPerTx = paddingPossible ? 2 : 1;
@@ -464,7 +495,8 @@ export class MidnightBalancingAdapter
       const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
       this.pool.setSlots(walletIndex, slots);
       this.log.log(
-        `Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
+        `Wallet ${label}: worker slots: ${slots} (${utxoCount}/${spendableInfo.total} ` +
+          `value-sufficient UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
       );
     } catch (e) {
       this.log.warn(`Wallet ${label}: could not read dust UTXO count:`, e);
@@ -496,10 +528,9 @@ export class MidnightBalancingAdapter
     if (!wr) return;
     try {
       // deno-lint-ignore no-explicit-any
-      const dustState = await getInitialDustState((wr.wallet as any).dust);
-      const count = resolveFacadeDustAvailableCoins(dustState);
-      this.availableDustUtxoCounts[walletIndex] = count;
-      this.walletDustExhausted[walletIndex] = count === 0;
+      const info = await this.getSpendableDustInfo(walletIndex);
+      this.availableDustUtxoCounts[walletIndex] = info.total;
+      this.walletDustExhausted[walletIndex] = info.spendable === 0;
     } catch {
       // ignore — next slow-path call will re-sync
     }

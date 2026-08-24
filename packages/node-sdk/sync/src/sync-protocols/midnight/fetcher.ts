@@ -18,9 +18,10 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
-import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
+import { StateValue } from "@midnight-ntwrk/onchain-runtime";
 import { decodeZswapEvent } from "./zswap-decoder.ts";
 import { decodeTokenMints } from "./mint-decoder.ts";
+import { decodeContractState } from "./contract-state-decoder.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -423,10 +424,7 @@ export class MidnightFetcher extends BaseDataFetcher<
         if (typeof ledgerFromTxStateHex === "function") {
           state = ledgerFromTxStateHex(rawState);
         } else {
-          const hexBytes = rawState.match(/.{1,2}/g);
-          if (!hexBytes) throw new Error("contract state is empty");
-          const byteState = new Uint8Array(hexBytes.map(byte => parseInt(byte, 16)));
-          const contractState = ContractState.deserialize(byteState);
+          const contractState = decodeContractState(rawState);
           const stateValue = contractState.data.state;
           const generatedFields = f?.ledger(stateValue) ?? {};
           const schemaFields = primitive.parseAdditionalLedgerFields?.(stateValue) ?? {};

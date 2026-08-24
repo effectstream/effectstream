@@ -163,6 +163,55 @@ export function resolveFacadeDustAvailableCoins(
   return Array.isArray(availableCoins) ? availableCoins.length : 0;
 }
 
+export interface DustFundsReadiness {
+  /** Aggregate wallet balance, retained for diagnostics only. */
+  balance: bigint;
+  /** Coins the Ledger-v9 DUST wallet currently exposes as available. */
+  availableCoins: number;
+  /** Available coins that meet the caller's optional per-coin value floor. */
+  spendableCoins: number;
+  /** The spendability signal adapters must use instead of aggregate balance. */
+  ready: boolean;
+}
+
+/**
+ * Resolve Ledger-v9 DUST spendability without inferring it from aggregate
+ * balance. Regular wallet flows count every available coin; fee-balancing
+ * callers can provide a value floor so newly-created, value-insufficient coins
+ * do not advertise readiness prematurely.
+ */
+export function resolveFacadeDustFundsReadiness(
+  facadeOrDustState: unknown,
+  minSpendableDustPerCoin?: bigint,
+): DustFundsReadiness {
+  const dust =
+    (facadeOrDustState as { dust?: unknown } | null | undefined)?.dust ??
+    facadeOrDustState;
+  const coins = dust && typeof dust === "object"
+    ? (dust as { availableCoins?: unknown }).availableCoins
+    : undefined;
+  const available = Array.isArray(coins) ? coins : [];
+  const spendableCoins = minSpendableDustPerCoin === undefined
+    ? available.length
+    : available.filter((coin) => {
+      try {
+        const generatedNow = (coin as { generatedNow?: bigint | string | number } | null)
+          ?.generatedNow;
+        return generatedNow !== undefined &&
+          BigInt(generatedNow) >= minSpendableDustPerCoin;
+      } catch {
+        return false;
+      }
+    }).length;
+
+  return {
+    balance: resolveFacadeDustBalance(facadeOrDustState),
+    availableCoins: available.length,
+    spendableCoins,
+    ready: spendableCoins > 0,
+  };
+}
+
 function resolveDustHeartbeatPollMs(waitNonZero: boolean, override?: number): number {
   if (override !== undefined) return Math.max(0, Math.floor(override));
   if (!waitNonZero) return 0;
@@ -394,8 +443,10 @@ export async function waitForDustFunds(
       dustPollIntervalMs?: number;
       /** When true with waitNonZero, skip catch-up wait (e.g. fresh 0/0 chain). */
       skipCatchUp?: boolean;
+      /** Optional generated-value floor for a coin to count as spendable. */
+      minSpendableDustPerCoin?: bigint;
     },
-): Promise<bigint> {
+): Promise<DustFundsReadiness> {
   log.info("Waiting for dust wallet to sync and receive funds...");
 
   const options = typeof optionsOrTimeout === 'number'
@@ -404,6 +455,7 @@ export async function waitForDustFunds(
 
   const syncTimeoutMs = options?.timeoutMs ?? resolveWalletSyncTimeoutMs();
   const waitNonZero = options?.waitNonZero ?? false;
+  const minSpendableDustPerCoin = options?.minSpendableDustPerCoin;
   const pollMs = resolveDustHeartbeatPollMs(waitNonZero, options?.dustPollIntervalMs);
   const deadline = Date.now() + syncTimeoutMs;
   const remainingMs = () => Math.max(0, deadline - Date.now());
@@ -434,7 +486,7 @@ export async function waitForDustFunds(
       ? state$
       : state$.pipe(Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS));
 
-  const dustBalance = (await Rx.firstValueFrom(
+  const dustFunds = await Rx.firstValueFrom(
     sampled$.pipe(
       Rx.tap((ds: unknown) => {
         try {
@@ -452,11 +504,10 @@ export async function waitForDustFunds(
           /* ignore */
         }
       }),
-      Rx.filter(
-        (ds: unknown) =>
-          !waitNonZero || resolveFacadeDustAvailableCoins(ds) >= 1,
+      Rx.map((ds: unknown) =>
+        resolveFacadeDustFundsReadiness(ds, minSpendableDustPerCoin)
       ),
-      Rx.map((ds: unknown) => resolveFacadeDustBalance(ds)),
+      Rx.filter((funds) => !waitNonZero || funds.ready),
       Rx.timeout({
         first: balanceBudgetMs,
         with: () =>
@@ -464,13 +515,16 @@ export async function waitForDustFunds(
             () => new Error(`Dust wallet sync timeout after ${syncTimeoutMs}ms`)
           ),
       }),
-      Rx.tap((balance: bigint) => {
-        if (balance > 0n) log.info(`Dust wallet balance: ${balance}`);
+      Rx.tap((funds) => {
+        log.info(
+          `Dust wallet ready=${funds.ready} balance=${funds.balance} ` +
+            `availableCoins=${funds.availableCoins} spendableCoins=${funds.spendableCoins}`,
+        );
       })
     )
-  )) as bigint;
+  );
 
-  return dustBalance;
+  return dustFunds;
 }
 
 // ============================================================================
@@ -499,6 +553,16 @@ export interface DustSyncWithRetryOptions {
   syncMode?: WalletSyncMode;
   /** Base directory for dust state files (relative to CWD). Default: "dust-state". */
   dustStateDir?: string;
+  /** Optional generated-value floor for a coin to count as spendable. */
+  minSpendableDustPerCoin?: bigint;
+}
+
+export interface DustSyncWithRetryResult {
+  walletResult: WalletResult;
+  dustBalance: bigint;
+  availableDustCoins: number;
+  spendableDustCoins: number;
+  dustReady: boolean;
 }
 
 /**
@@ -516,7 +580,7 @@ export interface DustSyncWithRetryOptions {
 export async function waitForDustFundsWithRetry(
   options: DustSyncWithRetryOptions,
   existingWalletResult?: WalletResult,
-): Promise<{ walletResult: WalletResult; dustBalance: bigint }> {
+): Promise<DustSyncWithRetryResult> {
   const {
     networkUrls,
     seed,
@@ -527,6 +591,7 @@ export async function waitForDustFundsWithRetry(
     throttleMs = CONSTANTS.WALLET_SYNC_THROTTLE_MS,
     syncMode = 'dust-only',
     dustStateDir = DEFAULT_DUST_STATE_DIR,
+    minSpendableDustPerCoin,
   } = options;
 
   const networkIdStr = String(networkId);
@@ -602,7 +667,13 @@ export async function waitForDustFundsWithRetry(
       const dustWallet = (walletResult.wallet as any).dust;
       if (!dustWallet || !dustWallet.state) {
         log.warn("Dust wallet state not available; skipping dust sync.");
-        return { walletResult, dustBalance: 0n };
+        return {
+          walletResult,
+          dustBalance: 0n,
+          availableDustCoins: 0,
+          spendableDustCoins: 0,
+          dustReady: false,
+        };
       }
 
       // First, try the SDK's built-in waitForSyncedState with DUST_COMPLETION_GAP.
@@ -687,27 +758,42 @@ export async function waitForDustFundsWithRetry(
       );
 
       // Sync complete — read balance from dust sub-wallet (not façade).
-      let dustBalance = 0n;
+      let dustFunds: DustFundsReadiness = {
+        balance: 0n,
+        availableCoins: 0,
+        spendableCoins: 0,
+        ready: false,
+      };
       try {
-        dustBalance = await waitForDustFunds(walletResult!.wallet, {
+        dustFunds = await waitForDustFunds(walletResult!.wallet, {
           timeoutMs: balanceWaitTimeoutMs,
           waitNonZero: true,
+          minSpendableDustPerCoin,
         });
       } catch {
-        // ignore — will return 0n
+        // ignore — explicit readiness remains false
       }
 
-      log.info(`Dust sync complete (attempt ${attempt}). Balance: ${dustBalance}`);
+      log.info(
+        `Dust sync complete (attempt ${attempt}). ` +
+          `ready=${dustFunds.ready} balance=${dustFunds.balance} ` +
+          `availableCoins=${dustFunds.availableCoins} spendableCoins=${dustFunds.spendableCoins}`,
+      );
 
-      if (dustBalance === 0n) {
+      if (!dustFunds.ready) {
         log.info("No dust after sync; attempting unshielded NIGHT registration...");
         try {
           if (await registerNightForDust(walletResult!)) {
-            dustBalance = await waitForDustFunds(walletResult!.wallet, {
+            dustFunds = await waitForDustFunds(walletResult!.wallet, {
               timeoutMs: balanceWaitTimeoutMs,
               waitNonZero: true,
+              minSpendableDustPerCoin,
             });
-            log.info(`Dust balance after registration: ${dustBalance}`);
+            log.info(
+              `Dust after registration: ready=${dustFunds.ready} ` +
+                `balance=${dustFunds.balance} availableCoins=${dustFunds.availableCoins} ` +
+                `spendableCoins=${dustFunds.spendableCoins}`,
+            );
           }
         } catch (e) {
           log.warn(
@@ -716,8 +802,8 @@ export async function waitForDustFundsWithRetry(
         }
       }
 
-      if (dustBalance === 0n) {
-        log.warn("Dust balance still 0 — wallet needs dust or unshielded NIGHT to register.");
+      if (!dustFunds.ready) {
+        log.warn("No spendable DUST coin — wallet needs DUST or unshielded NIGHT to register.");
       }
 
       if (syncMode === 'dust-only') {
@@ -727,7 +813,13 @@ export async function waitForDustFundsWithRetry(
       // Save final state to disk
       await serializeAndSave(walletResult);
 
-      return { walletResult, dustBalance };
+      return {
+        walletResult,
+        dustBalance: dustFunds.balance,
+        availableDustCoins: dustFunds.availableCoins,
+        spendableDustCoins: dustFunds.spendableCoins,
+        dustReady: dustFunds.ready,
+      };
     } catch (e) {
       const isStall = e instanceof Error && e.message === "stall";
 
