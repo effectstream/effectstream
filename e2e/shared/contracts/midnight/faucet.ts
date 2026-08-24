@@ -12,6 +12,7 @@ import {
   registerNightForDust as registerNightForDustV9,
   syncAndWaitForFunds as syncAndWaitForFundsV9,
   waitForDustFunds as waitForDustFundsV9,
+  type DustFundsReadiness,
   type WalletResult as WalletResultV9,
 } from "@effectstream/midnight-contracts";
 import { getEnv, exit } from "@effectstream/utils/runtime";
@@ -275,12 +276,12 @@ export async function waitForUnshieldedFunds(
 }
 
 /**
- * Wait for dust wallet sync and return dust balance if available.
+ * Wait for dust wallet sync and return explicit Ledger-v9 DUST readiness.
  */
 export async function waitForDustFunds(
   wallet: WalletFacade,
   optionsOrTimeout?: number | { timeoutMs?: number; waitNonZero?: boolean },
-): Promise<bigint> {
+): Promise<DustFundsReadiness> {
   return waitForDustFundsV9(wallet, optionsOrTimeout);
 }
 
@@ -447,10 +448,19 @@ export const faucet = async (
         const registered = await registerNightForDust(walletResult);
         if (registered) {
           try {
-            dustBalance = await waitForDustFunds(wallet, {
+            const dustFunds = await waitForDustFunds(wallet, {
               timeoutMs: resolveWalletSyncTimeoutMs(),
+              waitNonZero: true,
             });
-            console.log(`Dust balance (post-registration): ${dustBalance}`);
+            dustBalance = dustFunds.balance;
+            console.log(
+              `Dust readiness (post-registration): ready=${dustFunds.ready} ` +
+                `balance=${dustFunds.balance} availableCoins=${dustFunds.availableCoins} ` +
+                `spendableCoins=${dustFunds.spendableCoins}`,
+            );
+            if (!dustFunds.ready) {
+              throw new Error("DUST registration completed without a spendable coin");
+            }
           } catch (_error) {
             console.warn("Dust still not available after registration; continuing");
           }
@@ -776,11 +786,18 @@ export async function triggerUnshieldedSwap(
 
     // Fees are paid in dust; require at least one spendable DUST coin before
     // exercising the v9 swap flow.
-    const dustBalance = await waitForDustFunds(walletResult.wallet, {
+    const dustFunds = await waitForDustFunds(walletResult.wallet, {
       waitNonZero: true,
       timeoutMs: 60_000,
     });
-    console.log(`Dust balance before unshielded swap: ${dustBalance}`);
+    console.log(
+      `Dust readiness before unshielded swap: ready=${dustFunds.ready} ` +
+        `balance=${dustFunds.balance} availableCoins=${dustFunds.availableCoins} ` +
+        `spendableCoins=${dustFunds.spendableCoins}`,
+    );
+    if (!dustFunds.ready) {
+      throw new Error("Unshielded swap requires a spendable DUST coin");
+    }
 
     const tokenId = await resolveUnshieldedTokenId(walletResult.wallet);
     const receiverAddress = MidnightBech32m.parse(walletResult.unshieldedAddress)

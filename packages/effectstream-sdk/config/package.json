@@ -16,7 +16,7 @@
     "@effectstream/utils": "workspace:*",
     "@dcspark/carp-client": "^3.3.0",
     "@dcspark/cip34-js": "3.0.1",
-    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v3@3.0.0",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0-rc.3",
     "@sinclair/typebox": "0.34.41",
     "@utxorpc/spec": "^0.18.1",
     "abitype": "1.1.0",

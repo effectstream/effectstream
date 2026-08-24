@@ -76,6 +76,8 @@ export interface WorkerSlot {
 export class WorkerPool {
   private readonly workers: WorkerSlot[] = [];
   private readonly mutexes = new Map<number, BalanceMutex>();
+  /** Latest requested physical/acquirable slot budget for each wallet. */
+  private readonly desiredSlots = new Map<number, number>();
 
   /**
    * @param slotsPerWallet Array indexed by wallet index. `slotsPerWallet[i]`
@@ -86,6 +88,7 @@ export class WorkerPool {
   constructor(slotsPerWallet: number[]) {
     for (let w = 0; w < slotsPerWallet.length; w++) {
       this.mutexes.set(w, new BalanceMutex());
+      this.desiredSlots.set(w, slotsPerWallet[w]);
       for (let s = 0; s < slotsPerWallet[w]; s++) {
         this.workers.push({ walletIdx: w, slotIdx: s, busy: false, usageCount: 0 });
       }
@@ -103,26 +106,51 @@ export class WorkerPool {
    * left in place and will be cleaned up on release.
    */
   setSlots(walletIdx: number, count: number): void {
+    if (!Number.isSafeInteger(count) || count < 0) {
+      throw new RangeError(`Worker slot count must be a non-negative safe integer, got ${count}`);
+    }
     if (!this.mutexes.has(walletIdx)) {
       this.mutexes.set(walletIdx, new BalanceMutex());
     }
+    this.desiredSlots.set(walletIdx, count);
+    this.reconcileWalletSlots(walletIdx);
+  }
 
-    const existing = this.workers.filter((w) => w.walletIdx === walletIdx);
-    const currentCount = existing.length;
+  /**
+   * Converge a wallet's physical slots to its latest desired budget without
+   * interrupting in-flight work. Busy excess workers remain until release;
+   * free excess workers retire immediately. Growth always chooses the lowest
+   * unused slot ID so shrink/regrow cycles cannot create duplicate identities.
+   */
+  private reconcileWalletSlots(walletIdx: number): void {
+    const desired = this.desiredSlots.get(walletIdx) ?? 0;
+    let existing = this.workers.filter((w) => w.walletIdx === walletIdx);
 
-    if (count > currentCount) {
-      // Add new slots
-      for (let s = currentCount; s < count; s++) {
-        this.workers.push({ walletIdx, slotIdx: s, busy: false, usageCount: 0 });
-      }
-    } else if (count < currentCount) {
-      // Remove free slots from the end
-      let toRemove = currentCount - count;
-      for (let i = this.workers.length - 1; i >= 0 && toRemove > 0; i--) {
-        if (this.workers[i].walletIdx === walletIdx && !this.workers[i].busy) {
-          this.workers.splice(i, 1);
-          toRemove--;
+    if (existing.length > desired) {
+      const removable = existing
+        .filter((worker) => !worker.busy)
+        .sort((a, b) => b.slotIdx - a.slotIdx);
+      let excess = existing.length - desired;
+      for (const worker of removable) {
+        if (excess === 0) break;
+        const index = this.workers.indexOf(worker);
+        if (index >= 0) {
+          this.workers.splice(index, 1);
+          excess--;
         }
+      }
+      existing = this.workers.filter((w) => w.walletIdx === walletIdx);
+    }
+
+    if (existing.length < desired) {
+      const usedSlotIds = new Set(existing.map((worker) => worker.slotIdx));
+      let slotIdx = 0;
+      while (existing.length < desired) {
+        while (usedSlotIds.has(slotIdx)) slotIdx++;
+        const worker = { walletIdx, slotIdx, busy: false, usageCount: 0 };
+        this.workers.push(worker);
+        existing.push(worker);
+        usedSlotIds.add(slotIdx);
       }
     }
   }
@@ -194,6 +222,7 @@ export class WorkerPool {
     );
     if (w) {
       w.busy = false;
+      this.reconcileWalletSlots(walletIdx);
     }
   }
 
