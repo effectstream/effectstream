@@ -129,8 +129,28 @@ describe("resolveDistTag", () => {
   });
 
   test("accepts generic prerelease channels", () => {
-    for (const tag of ["next", "beta", "canary", "preview.2", "rc-1"]) {
+    for (const tag of ["next", "beta", "canary", "preview.2", "rc-1", "xray", "x-canary"]) {
       expect(resolveDistTag("0.105.0-beta.1", tag)).toBe(tag);
+    }
+  });
+
+  test("rejects lower-, upper-, mixed-, and qualified npm wildcard ranges", () => {
+    for (const tag of [
+      "x",
+      "X",
+      "x.x",
+      "X.X.X",
+      "x.1",
+      "X.1.2",
+      "x.x.1",
+      "X.1.x",
+      "x.1.x",
+      "x.x.x-beta",
+      "X.1.2-rc.1",
+    ]) {
+      expect(() => resolveDistTag("0.105.0-beta.1", tag)).toThrow(
+        /npm wildcard SemVer ranges are not allowed/,
+      );
     }
   });
 
@@ -223,6 +243,19 @@ describe("CLI release guard", () => {
       ]);
       expect(result.exitCode).not.toBe(0);
       expect(result.output).toContain("Invalid dist-tag");
+    }
+  });
+
+  test("npm wildcard ranges reject before any package mutation", async () => {
+    for (const tag of ["x", "X", "x.1", "X.1.2", "x.x.x-beta"]) {
+      const result = await runGuard([
+        "--release-version",
+        "0.105.0-beta.1",
+        "--dist-tag",
+        tag,
+      ]);
+      expect(result.exitCode).not.toBe(0);
+      expect(result.output).toContain("npm wildcard SemVer ranges are not allowed");
     }
   });
 });

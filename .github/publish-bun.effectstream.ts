@@ -180,6 +180,7 @@ export function resolveReleaseVersion(tag: string, current: string): string {
 
 export const STABLE_DIST_TAG = "latest";
 const NPM_DIST_TAG_RE = /^[A-Za-z][A-Za-z0-9._-]*$/;
+const NPM_WILDCARD_RANGE_RE = /^x(?:$|\.)/i;
 
 /**
  * Enforce the complete release-channel contract before any package mutation:
@@ -200,6 +201,11 @@ export function resolveDistTag(version: string, requestedTag?: string): string {
   if (!NPM_DIST_TAG_RE.test(requestedTag)) {
     throw new Error(
       `Invalid dist-tag "${requestedTag}": use letters, digits, dots, underscores, or hyphens`,
+    );
+  }
+  if (NPM_WILDCARD_RANGE_RE.test(requestedTag)) {
+    throw new Error(
+      `Invalid dist-tag "${requestedTag}": npm wildcard SemVer ranges are not allowed`,
     );
   }
 
