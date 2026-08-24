@@ -35,11 +35,26 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # All version validation (semver + strictly-greater), root bump, per-package
-      # bump, dep pinning, publish, and version-only cleanup live in the script.
+      # bump, channel validation, dep pinning, publish, and version-only cleanup
+      # live in the script. This rough channel selection is intentionally
+      # fail-closed by the script's strict SemVer and exact mapping checks.
       # No --allow-uncommitted: the tree is clean at the script's git-check, since
       # it writes the root version only after that check (.npmrc is gitignored).
+      - name: Select release channel candidate
+        id: release-channel
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          case "${RELEASE_TAG#v}" in
+            *-v9.*) DIST_TAG="ledger-v9" ;;
+            *) DIST_TAG="latest" ;;
+          esac
+          echo "dist-tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
+
       - name: Publish
-        run: bun run .github/publish-bun.effectstream.ts --publish --release-version "${{ github.event.release.tag_name }}"
+        run: bun run .github/publish-bun.effectstream.ts --publish --release-version "${{ github.event.release.tag_name }}" --dist-tag "${{ steps.release-channel.outputs.dist-tag }}"
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
