@@ -433,16 +433,16 @@ export class MidnightBalancingAdapter
       // enable padding even if the config default is off, so budget for the
       // worst case (2 UTXOs/slot) to avoid over-committing.
       const spendableInfo = await this.getSpendableDustInfo(walletIndex);
-      const utxoCount = spendableInfo.spendable;
-      this.walletDustExhausted[walletIndex] = utxoCount === 0;
+      const slots = this.updateWorkerCapacityFromDustInfo(
+        walletIndex,
+        spendableInfo,
+      );
       const paddingPossible = !!(this.config.addShieldedPadding ||
         this.config.shieldedPaddingTokenID);
       const costPerTx = paddingPossible ? 2 : 1;
       const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
-      const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
-      this.pool.setSlots(walletIndex, slots);
       this.log.log(
-        `Wallet ${label}: worker slots: ${slots} (${utxoCount}/${spendableInfo.total} ` +
+        `Wallet ${label}: worker slots: ${slots} (${spendableInfo.spendable}/${spendableInfo.total} ` +
           `value-sufficient UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
       );
     } catch (e) {
@@ -486,16 +486,16 @@ export class MidnightBalancingAdapter
       );
 
       const spendableInfo = await this.getSpendableDustInfo(walletIndex);
-      const utxoCount = spendableInfo.spendable;
-      this.walletDustExhausted[walletIndex] = utxoCount === 0;
+      const slots = this.updateWorkerCapacityFromDustInfo(
+        walletIndex,
+        spendableInfo,
+      );
       const paddingPossible = !!(this.config.addShieldedPadding ||
         this.config.shieldedPaddingTokenID);
       const costPerTx = paddingPossible ? 2 : 1;
       const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
-      const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
-      this.pool.setSlots(walletIndex, slots);
       this.log.log(
-        `Wallet ${label}: worker slots: ${slots} (${utxoCount}/${spendableInfo.total} ` +
+        `Wallet ${label}: worker slots: ${slots} (${spendableInfo.spendable}/${spendableInfo.total} ` +
           `value-sufficient UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
       );
     } catch (e) {
@@ -529,8 +529,7 @@ export class MidnightBalancingAdapter
     try {
       // deno-lint-ignore no-explicit-any
       const info = await this.getSpendableDustInfo(walletIndex);
-      this.availableDustUtxoCounts[walletIndex] = info.total;
-      this.walletDustExhausted[walletIndex] = info.spendable === 0;
+      this.updateWorkerCapacityFromDustInfo(walletIndex, info);
     } catch {
       // ignore — next slow-path call will re-sync
     }
@@ -567,19 +566,16 @@ export class MidnightBalancingAdapter
 
   hasAvailableCapacity(): boolean {
     if (!this.isReady()) return false;
-    if (!this.pool.hasAvailableWorker()) return false;
-    // Dust-aware gate: when every initialized wallet is known to be out of
-    // spendable dust, report no capacity so the poll loop SKIPS the target —
-    // inputs stay queued (no retry burn, no doomed 60s waits). A throttled
-    // background refresh flips the flags back as coins regain value.
-    const allExhausted = this.walletInitialized.every(
-      (ok, i) => !ok || this.walletDustExhausted[i],
+    const hasEligibleWorker = this.pool.hasAvailableWorker((walletIndex) =>
+      this.isWalletEligibleForWork(walletIndex)
     );
-    if (allExhausted) {
-      this.maybeRefreshDustState();
-      return false;
-    }
-    return true;
+    if (hasEligibleWorker) return true;
+
+    // Recovery must remain reachable even when every wallet currently has
+    // zero slots. The refresh can recreate slots from newly value-sufficient
+    // DUST, while the current poll remains fail-closed and leaves inputs queued.
+    this.maybeRefreshDustState();
+    return false;
   }
 
   /** Throttled background re-read of every wallet's dust state. */
@@ -596,12 +592,11 @@ export class MidnightBalancingAdapter
           if (!this.walletInitialized[i]) continue;
           const info = await this.getSpendableDustInfo(i);
           const wasExhausted = this.walletDustExhausted[i];
-          this.availableDustUtxoCounts[i] = info.total;
-          this.walletDustExhausted[i] = info.spendable === 0;
+          const slots = this.updateWorkerCapacityFromDustInfo(i, info);
           if (wasExhausted && info.spendable > 0) {
             this.log.log(
               `Wallet ${i + 1}/${this.walletSeeds.length}: dust recovered ` +
-                `(${info.spendable}/${info.total} spendable coins) — resuming`,
+                `(${info.spendable}/${info.total} spendable coins, ${slots} slots) — resuming`,
             );
           }
         }
@@ -637,6 +632,36 @@ export class MidnightBalancingAdapter
       spendable: values.filter((v) => v >= minValue).length,
       values,
     };
+  }
+
+  /** Convert current value-sufficient DUST into the safe worker-slot budget. */
+  private getWorkerSlotCount(spendableDustCoins: number): number {
+    const paddingPossible = !!(this.config.addShieldedPadding ||
+      this.config.shieldedPaddingTokenID);
+    const costPerTx = paddingPossible ? 2 : 1;
+    const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
+    return Math.min(
+      Math.floor(spendableDustCoins / costPerTx),
+      maxPerWallet,
+    );
+  }
+
+  /** Keep cached DUST readiness and pool slots derived from the same state. */
+  private updateWorkerCapacityFromDustInfo(
+    walletIndex: number,
+    info: { total: number; spendable: number },
+  ): number {
+    this.availableDustUtxoCounts[walletIndex] = info.total;
+    this.walletDustExhausted[walletIndex] = info.spendable === 0;
+    const slots = this.getWorkerSlotCount(info.spendable);
+    this.pool.setSlots(walletIndex, slots);
+    return slots;
+  }
+
+  /** Predicate shared by public capacity reporting and worker acquisition. */
+  private isWalletEligibleForWork(walletIndex: number): boolean {
+    return this.walletInitialized[walletIndex] === true &&
+      this.walletDustExhausted[walletIndex] === false;
   }
 
   isFullyIdle(): boolean {
@@ -793,7 +818,7 @@ export class MidnightBalancingAdapter
     // (No fallback to exhausted wallets — hasAvailableCapacity() gates the
     // all-exhausted case, so inputs simply stay queued until dust recovers.)
     const dustFilter = (walletIdx: number): boolean =>
-      !this.walletDustExhausted[walletIdx];
+      this.isWalletEligibleForWork(walletIdx);
 
     for (const input of availableInputs) {
       // Deserialize BEFORE acquiring a worker. Failures are selected as

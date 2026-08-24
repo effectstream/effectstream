@@ -70,8 +70,8 @@ async function runWithDocker(env, args) {
     console.error("Docker is required but not installed or not running.");
     process.exit(1);
   }
-  await pullDockerImage();
-  return runDockerContainer(env, args);
+  const targetImage = await pullDockerImage();
+  return runDockerContainer(env, args, undefined, targetImage);
 }
 
 (async () => {
