@@ -131,9 +131,11 @@ export class WorkerPool {
   // Worker lifecycle
   // -----------------------------------------------------------------------
 
-  /** Returns `true` when at least one worker is free. */
-  hasAvailableWorker(): boolean {
-    return this.workers.some((w) => !w.busy);
+  /** Returns `true` when at least one eligible worker is free. */
+  hasAvailableWorker(walletFilter?: (walletIdx: number) => boolean): boolean {
+    return this.workers.some(
+      (w) => !w.busy && (!walletFilter || walletFilter(w.walletIdx)),
+    );
   }
 
   /**

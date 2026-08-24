@@ -154,7 +154,10 @@ async function main() {
           if (dustBalance === 0n) {
             log.info("Dust balance is 0. Attempting to sync dust wallet...");
             try {
-              dustBalance = await waitForDustFunds(walletResult.wallet, { timeoutMs: syncTimeoutMs });
+              dustBalance = (await waitForDustFunds(
+                walletResult.wallet,
+                { timeoutMs: syncTimeoutMs },
+              )).balance;
             } catch(_e) {
               log.warn("Dust sync timed out or returned no funds.");
             }
@@ -164,7 +167,10 @@ async function main() {
             log.info("Dust is 0 but unshielded funds available. Registering for dust generation...");
             const success = await registerNightForDust(walletResult);
             if (success) {
-              dustBalance = await waitForDustFunds(walletResult.wallet, { timeoutMs: 30000 });
+              dustBalance = (await waitForDustFunds(
+                walletResult.wallet,
+                { timeoutMs: 30000 },
+              )).balance;
             }
           }
         } catch (_e) {
