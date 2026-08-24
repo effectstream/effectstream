@@ -10,7 +10,7 @@
     "./contract": "./src/managed/contract/index.js"
   },
   "scripts": {
-    "compact": "compact compile +0.31.0 src/counter.compact src/managed/",
+    "compact": "compact compile +0.33.0-rc.2 src/counter.compact src/managed/",
     "contract:compile": "bun run compact",
     "test": "vitest run",
     "test:compile": "bun run compact && vitest run",
@@ -19,8 +19,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@midnight-ntwrk/compact-runtime": "0.16.0",
-    "@midnight-ntwrk/compact-js": "2.5.1"
+    "@midnight-ntwrk/compact-runtime": "0.18.0-rc.1",
+    "@midnight-ntwrk/compact-js": "2.5.5-rc.7"
   },
   "devDependencies": {
     "vitest": "^3.2.4"

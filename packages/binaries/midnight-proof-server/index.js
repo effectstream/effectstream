@@ -1,20 +1,19 @@
 #!/usr/bin/env node
-const fs = require("fs");
-const path = require("path");
 const os = require("os");
 
-const { binary, getPlatform, cleanBinaries } = require("./binary.js");
+const {
+  binary,
+  getPlatform,
+  cleanBinaries,
+  isBinaryCacheValid,
+} = require("./binary.js");
 const { runMidnightProofServer } = require("./run_midnight_proof_server.js");
 const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
   "./docker.js",
 );
 
-const FINAL_BINARY_NAME = "midnight-proof-server";
-
 function checkIfBinaryExists() {
-  return fs.existsSync(
-    path.join(__dirname, "proof-server", FINAL_BINARY_NAME),
-  );
+  return isBinaryCacheValid();
 }
 
 function isBinarySupported() {
@@ -26,7 +25,7 @@ function showUsage() {
   console.log(`\nUsage: npm-midnight-proof-server [options] [args...]\n
 Options:
   --docker         Force use of Docker container
-  --binary         Force binary execution (Linux only)
+  --binary         Force binary execution (macOS arm64 or Linux amd64)
   --clean-binaries Delete downloaded binaries and download them again
   --only-clean     Only delete downloaded binaries without downloading them again
   --help, -h       Show this help message\n`);

@@ -15,15 +15,19 @@ import {
   DustSecretKey,
   LedgerParameters,
   ZswapSecretKeys,
-  shieldedToken,
-} from "@midnight-ntwrk/ledger-v8";
+  nativeToken,
+} from "@midnightntwrk/ledger-v9";
 
 const log = console;
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import * as Rx from "rxjs";
 import { HDWallet, Roles } from "@midnightntwrk/wallet-sdk-hd";
-import { type DefaultConfiguration, WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
+import {
+  type DefaultConfiguration,
+  type UnprovenTransactionRecipe,
+  WalletFacade,
+} from "@midnightntwrk/wallet-sdk-facade";
 import { DustWallet } from "@midnightntwrk/wallet-sdk-dust-wallet";
 import {
   UnshieldedWallet,
@@ -37,7 +41,7 @@ import {
   NetworkId,
   TransactionHistoryStorage,
 } from "@midnightntwrk/wallet-sdk-abstractions";
-import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
+import { DustAddress } from "@midnightntwrk/wallet-sdk-address-format";
 // No node:fs / node:path here — this module is reachable from BROWSER bundles
 // (MidnightLocal.connectFromSeed imports `./wallet-info` to build the wallet
 // facade), and browser bundlers shim those to empty/null modules. All disk I/O
@@ -79,7 +83,9 @@ function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Array {
     throw new Error(`Key derivation out of bounds for role: ${role}`);
   }
 
-  return Buffer.from(derivationResult.key);
+  const derivedKey = Buffer.from(derivationResult.key);
+  hdWalletResult.hdWallet.clear();
+  return derivedKey;
 }
 
 // ============================================================================
@@ -143,6 +149,18 @@ export function resolveFacadeDustBalance(
     /* ignore */
   }
   return w > b ? w : b;
+}
+
+/** Count spendable DUST UTXOs from a facade state or dust-wallet state. */
+export function resolveFacadeDustAvailableCoins(
+  facadeOrDustState: unknown,
+): number {
+  const dust =
+    (facadeOrDustState as { dust?: unknown } | null | undefined)?.dust ??
+    facadeOrDustState;
+  if (dust === undefined || dust === null || typeof dust !== "object") return 0;
+  const availableCoins = (dust as { availableCoins?: unknown }).availableCoins;
+  return Array.isArray(availableCoins) ? availableCoins.length : 0;
 }
 
 function resolveDustHeartbeatPollMs(waitNonZero: boolean, override?: number): number {
@@ -276,8 +294,8 @@ export async function syncAndWaitForFunds(
   let latestState: any = null;
   const periodicLogger = setInterval(() => {
     if (!latestState) return;
-    const shieldedSynced = latestState.shielded.state.progress.isStrictlyComplete();
-    const dustSynced = latestState.dust.state.progress.isStrictlyComplete();
+    const shieldedSynced = latestState.shielded.progress.isStrictlyComplete();
+    const dustSynced = latestState.dust.progress.isStrictlyComplete();
     const unshieldedSynced = latestState.unshielded?.progress?.isStrictlyComplete() ?? false;
     log.info(
       `[wait] shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
@@ -285,45 +303,51 @@ export async function syncAndWaitForFunds(
   }, CONSTANTS.WALLET_SYNC_THROTTLE_MS);
   const syncStartedAt = Date.now();
 
-  const state = await Rx.firstValueFrom(
-    wallet.state().pipe(
-      Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS),
-      Rx.tap((state: any) => {
-        const elapsedSec = ((Date.now() - syncStartedAt) / 1000).toFixed(0);
-        const shieldedSynced = state.shielded.state.progress.isStrictlyComplete();
-        const dustSynced = state.dust.state.progress.isStrictlyComplete();
-        const unshieldedSynced = state.unshielded?.progress?.isStrictlyComplete() ?? false;
-        log.info(
-          `Wallet sync progress (${elapsedSec}s): shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
-        );
-      }),
-      Rx.filter((state: any) => {
-        const shieldedSynced = skipShielded || state.shielded.state.progress.isStrictlyComplete();
-        const dustSynced = state.dust.state.progress.isStrictlyComplete();
-        const unshieldedSynced = state.unshielded?.progress?.isStrictlyComplete() ?? false;
+  let state: any;
+  try {
+    state = await Rx.firstValueFrom(
+      wallet.state().pipe(
+        Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS),
+        Rx.tap((nextState: any) => {
+          latestState = nextState;
+          const elapsedSec = ((Date.now() - syncStartedAt) / 1000).toFixed(0);
+          const shieldedSynced = nextState.shielded.progress.isStrictlyComplete();
+          const dustSynced = nextState.dust.progress.isStrictlyComplete();
+          const unshieldedSynced = nextState.unshielded?.progress?.isStrictlyComplete() ?? false;
+          log.info(
+            `Wallet sync progress (${elapsedSec}s): shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
+          );
+        }),
+        Rx.filter((nextState: any) => {
+          const shieldedSynced = skipShielded || nextState.shielded.progress.isStrictlyComplete();
+          const dustSynced = nextState.dust.progress.isStrictlyComplete();
+          const unshieldedSynced = nextState.unshielded?.progress?.isStrictlyComplete() ?? false;
 
-        if (!shieldedSynced || !dustSynced || !unshieldedSynced) return false;
+          if (!shieldedSynced || !dustSynced || !unshieldedSynced) return false;
 
-        if (waitNonZero && !skipShielded) {
-          const tokenId = shieldedToken().tag;
-          const shieldedBalance = state.shielded.balances[tokenId] ?? 0n;
-          return shieldedBalance > 0n;
-        }
+          if (waitNonZero && !skipShielded) {
+            const tokenId = nativeToken().raw;
+            const shieldedBalance = nextState.shielded.balances[tokenId] ?? 0n;
+            return shieldedBalance > 0n;
+          }
 
-        return true;
-      }),
-      Rx.tap(() => log.info("Wallet sync complete")),
-      Rx.timeout({
-        each: syncTimeoutMs,
-        with: () =>
-          Rx.throwError(
-            () => new Error(`Wallet sync timeout after ${syncTimeoutMs}ms`)
-          ),
-      })
-    )
-  );
+          return true;
+        }),
+        Rx.tap(() => log.info("Wallet sync complete")),
+        Rx.timeout({
+          each: syncTimeoutMs,
+          with: () =>
+            Rx.throwError(
+              () => new Error(`Wallet sync timeout after ${syncTimeoutMs}ms`)
+            ),
+        })
+      )
+    );
+  } finally {
+    clearInterval(periodicLogger);
+  }
 
-  const tokenId = shieldedToken().tag;
+  const tokenId = nativeToken().raw;
 
   const shieldedBalancesObj = state.shielded.balances || {};
   const availableKeys = Object.keys(shieldedBalancesObj);
@@ -356,7 +380,9 @@ export async function syncAndWaitForFunds(
  * stopped) does not wedge on façade `combineLatest`.
  *
  * When `waitNonZero` is true, first waits for dust appliedIndex to reach tip,
- * then polls the dust sub-wallet (heartbeat default 7500ms).
+ * then polls the dust sub-wallet until at least one spendable DUST UTXO exists.
+ * A positive accrued balance is not sufficient because it can precede coin
+ * availability after NIGHT registration.
  */
 export async function waitForDustFunds(
   wallet: WalletFacade,
@@ -416,17 +442,21 @@ export async function waitForDustFunds(
           const at = new Date();
           const p = dustProgressFromState(ds);
           const bal = resolveFacadeDustBalance(ds, at);
+          const availableCoins = resolveFacadeDustAvailableCoins(ds);
           log.info(
             `Dust wallet sync progress (${elapsedSec}s): ` +
               `${p?.appliedIndex ?? "?"}/${p?.highestRelevantWalletIndex ?? "?"} ` +
-              `balance=${bal}`,
+              `balance=${bal} availableCoins=${availableCoins}`,
           );
         } catch {
           /* ignore */
         }
       }),
+      Rx.filter(
+        (ds: unknown) =>
+          !waitNonZero || resolveFacadeDustAvailableCoins(ds) >= 1,
+      ),
       Rx.map((ds: unknown) => resolveFacadeDustBalance(ds)),
-      Rx.filter((balance: bigint) => !waitNonZero || balance > 0n),
       Rx.timeout({
         first: balanceBudgetMs,
         with: () =>
@@ -769,7 +799,7 @@ function createWalletConfiguration(
     relayURL: new URL(networkUrls.node.replace("http", "ws")),
     networkId: networkId,
     txHistoryStorage: new InMemoryTransactionHistoryStorage(
-      TransactionHistoryStorage.TransactionHistoryCommonSchema,
+      TransactionHistoryStorage.TransactionHistoryEntryCommonSchema,
     ),
     costParameters: {
       additionalFeeOverhead: CONSTANTS.DUST_FEE_OVERHEAD,
@@ -845,7 +875,7 @@ function buildUnshieldedWallet(
   return UnshieldedWallet({
     ...config,
     txHistoryStorage: new InMemoryTransactionHistoryStorage(
-      TransactionHistoryStorage.TransactionHistoryCommonSchema,
+      TransactionHistoryStorage.TransactionHistoryEntryCommonSchema,
     ),
   } as any).startWithPublicKey(PublicKey.fromKeyStore(keystore));
 }
@@ -866,26 +896,29 @@ export async function buildWalletFacade(
   dustSerializedState?: string | null,
   options?: { stopAuxWalletsImmediately?: boolean },
 ): Promise<WalletResult> {
+  setNetworkId(networkId);
   const shieldedSeed = deriveSeedForRole(seed, Roles.Zswap);
   const dustSeed = deriveSeedForRole(seed, Roles.Dust);
   const unshieldedSeed = deriveSeedForRole(seed, Roles.NightExternal);
 
   const config = createWalletConfiguration(networkUrls, networkId);
 
-  const unshieldedKeystore = createKeystore(unshieldedSeed, networkId);
-
-  const shieldedWallet = buildShieldedWallet(config, shieldedSeed);
-  const dustWallet = buildDustWallet(config, dustSeed, dustSerializedState);
-  const unshieldedWallet = buildUnshieldedWallet(config, unshieldedKeystore);
+  const unshieldedKeystore = createKeystore(
+    { kind: "schnorr", secret: unshieldedSeed },
+    networkId,
+  );
 
   const zswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
   const dustSecretKey = DustSecretKey.fromSeed(dustSeed);
 
   const wallet: WalletFacade = await WalletFacade.init({
-    configuration: config as any,
-    shielded: () => shieldedWallet,
-    unshielded: () => unshieldedWallet,
-    dust: () => dustWallet,
+    configuration: config,
+    shielded: (walletConfig) =>
+      buildShieldedWallet(walletConfig, shieldedSeed),
+    unshielded: (walletConfig) =>
+      buildUnshieldedWallet(walletConfig, unshieldedKeystore),
+    dust: (walletConfig) =>
+      buildDustWallet(walletConfig, dustSeed, dustSerializedState),
   });
 
   await wallet.start(zswapSecretKeys, dustSecretKey);
@@ -897,11 +930,10 @@ export async function buildWalletFacade(
   }
 
   const unshieldedAddress = unshieldedKeystore.getBech32Address().asString();
-  const dustState = await getInitialDustState(wallet.dust as { state: Rx.Observable<unknown> });
-  const dustAddress = MidnightBech32m.encode(
+  const dustAddress = DustAddress.encodePublicKey(
     networkId,
-    (dustState as { address: unknown }).address,
-  ).asString();
+    dustSecretKey.publicKey,
+  );
 
   return {
     wallet,
@@ -962,7 +994,7 @@ export async function registerNightForDust(
   const state = await Rx.firstValueFrom(
     walletResult.wallet.state().pipe(
       Rx.filter((s: any) => {
-        const dustSynced = s.dust?.state?.progress?.isStrictlyComplete() ?? false;
+        const dustSynced = s.dust?.progress?.isStrictlyComplete() ?? false;
         const unshieldedSynced = s.unshielded?.progress?.isStrictlyComplete() ?? false;
         return dustSynced && unshieldedSynced;
       }),
@@ -978,22 +1010,45 @@ export async function registerNightForDust(
 
   if (unregisteredNightUtxos.length === 0) {
     log.info("No unregistered unshielded Night UTXOs available.");
-    const dustBalance = await waitForDustFunds(walletResult.wallet, { timeoutMs: 5000 });
-    return dustBalance > 0n;
+    try {
+      await waitForDustFunds(walletResult.wallet, {
+        timeoutMs: 5000,
+        waitNonZero: true,
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   log.info(`Found ${unregisteredNightUtxos.length} unregistered Night UTXOs. Registering for dust...`);
 
   try {
-    const recipe = await (walletResult.wallet as any).registerNightUtxosForDustGeneration(
+    const { fee } = await walletResult.wallet.estimateRegistration(
+      unregisteredNightUtxos,
+    );
+    log.info(`Waiting for the NIGHT UTXOs to generate the registration fee: ${fee}`);
+    await walletResult.wallet.waitForGeneratedDust(
+      unregisteredNightUtxos,
+      fee,
+      { timeoutMs: resolveWalletSyncTimeoutMs() },
+    );
+
+    const recipe: UnprovenTransactionRecipe =
+      await walletResult.wallet.registerNightUtxosForDustGeneration(
       unregisteredNightUtxos,
       walletResult.unshieldedKeystore.getPublicKey(),
-      (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload)
+      (payload: Uint8Array) => walletResult.unshieldedKeystore.signDataAsync(payload),
     );
+    if (recipe.type !== "UNPROVEN_TRANSACTION") {
+      throw new Error(
+        `Unexpected DUST registration recipe type: ${(recipe as { type?: unknown }).type}`,
+      );
+    }
 
     log.info("Submitting dust registration transaction...");
     const txId = await walletResult.wallet.submitTransaction(
-      await (walletResult.wallet as any).finalizeRecipe(recipe),
+      await walletResult.wallet.finalizeRecipe(recipe),
     );
     log.info(`Dust registration submitted with tx id: ${txId}`);
 

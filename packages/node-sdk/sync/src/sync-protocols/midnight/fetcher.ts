@@ -215,7 +215,6 @@ export class MidnightFetcher extends BaseDataFetcher<
     for (const tx of block.block.transactions) {
       for (const event of tx.zswapLedgerEvents ?? []) {
         const decoded = decodeZswapEvent(event.raw);
-        if (!decoded) continue;
         if (decoded.kind === "nullifier" && capture === "commitments") continue;
         if (decoded.kind === "commitment" && capture === "nullifiers") continue;
         results.push({
@@ -346,7 +345,7 @@ export class MidnightFetcher extends BaseDataFetcher<
   }
 
   // Decode custom token mints out of each regular transaction's raw bytes
-  // (ledger-v8 deserialize → contract call transcript effects). One input per
+  // (ledger-v9 deserialize → contract call transcript effects). One input per
   // (tx, call, domainSep, kind) that actually applied on chain — see
   // mint-decoder.ts for the segment semantics. System transactions carry no
   // transactionResult and are skipped.

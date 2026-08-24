@@ -23,7 +23,7 @@
     "@effectstream/sm": "workspace:*",
     "@effectstream/utils": "workspace:*",
     "@effectstream/db": "workspace:*",
-    "@midnight-ntwrk/ledger-v8": "8.1.0",
+    "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
     "@sinclair/typebox": "^0.34.30",
     "effection": "^3.5.0",
     "pg": "^8.14.0"

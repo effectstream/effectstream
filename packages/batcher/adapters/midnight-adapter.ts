@@ -33,7 +33,7 @@ import type {
   TransactionId,
   UnprovenTransaction,
   ZswapSecretKeys,
-} from "@midnight-ntwrk/ledger-v8";
+} from "@midnightntwrk/ledger-v9";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -41,13 +41,17 @@ import {
 } from "@midnight-ntwrk/midnight-js-contracts";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
+import {
+  NodeZkConfigProvider,
+  nodeZkConfigRegistry,
+} from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
   getInitialDustState,
   type NetworkUrls,
   registerNightForDust,
+  resolveFacadeDustAvailableCoins,
   resolveFacadeDustBalance,
   suspendAuxWalletSyncForFees,
   waitForDustFunds,
@@ -59,6 +63,7 @@ import * as Rx from "rxjs";
 import type { NetworkId as WalletNetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { Buffer } from "node:buffer";
+import * as path from "node:path";
 import { AdapterLogger } from "./adapter-logger.ts";
 import { WorkerPool } from "./worker-pool.ts";
 
@@ -129,7 +134,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private contractsJoined: boolean[];
   private contractJoiningPromises: (Promise<void> | null)[];
 
-  /** Worker pool — 1 slot per wallet (callTx is atomic, no intra-wallet parallelism). */
+  /** Worker pool; state-changing callTx lifecycles are serialized per wallet. */
   private readonly pool: WorkerPool;
   /** Tracks wallets that recently failed due to missing dust. Cleared when dust is confirmed available. */
   private walletDustExhausted: boolean[];
@@ -162,7 +167,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
 
     try {
       const dustState = await getInitialDustState(walletResult.wallet.dust);
-      if ((dustState.availableCoins?.length ?? 0) > 0) {
+      if (resolveFacadeDustAvailableCoins(dustState) > 0) {
         this.walletDustExhausted[walletIndex] = false;
         return;
       }
@@ -178,7 +183,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       await new Promise((r) => setTimeout(r, 1_000));
       try {
         const dustState = await getInitialDustState(walletResult.wallet.dust);
-        if ((dustState.availableCoins?.length ?? 0) > 0) {
+        if (resolveFacadeDustAvailableCoins(dustState) > 0) {
           this.log.log(
             `Wallet ${label}: dust available after ${Date.now() - start}ms`,
           );
@@ -252,8 +257,9 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.contractJoiningPromises = new Array(seeds.length).fill(null);
     this.walletDustExhausted = new Array(seeds.length).fill(false);
 
-    // Default 1 worker per wallet — callTx is atomic (balance+prove+submit),
-    // so intra-wallet parallelism is limited.
+    // Default 1 worker per wallet. Higher configured slot counts may queue
+    // concurrent requests, but the wallet lock still serializes each complete
+    // state-changing callTx lifecycle (balance + prove + submit).
     const slotsPerWallet = config.maxSlotsPerWallet ?? 1;
     this.pool = new WorkerPool(new Array(seeds.length).fill(slotsPerWallet));
 
@@ -403,7 +409,16 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
 
         const walletAndMidnightProvider = this.walletProviders[walletIndex]!;
 
-        const zkConfigProvider = new NodeZkConfigProvider(this.config.zkConfigPath);
+        const zkConfigProvider = new NodeZkConfigProvider(
+          this.config.zkConfigPath,
+          { verify: "require" },
+        );
+        // Midnight.js 5 resolves proof artifacts by verifier key through a
+        // registry. Search from the managed-artifact parent so sibling
+        // contracts used by cross-contract calls are available as well.
+        const zkConfigRegistry = await nodeZkConfigRegistry(
+          path.dirname(this.config.zkConfigPath),
+        );
         const providers = {
           privateStateProvider: levelPrivateStateProvider({
             privateStateStoreName: this.config.privateStateStoreName,
@@ -412,7 +427,10 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           }),
           publicDataProvider: this.publicDataProvider,
           zkConfigProvider,
-          proofProvider: httpClientProofProvider(this.config.proofServer, zkConfigProvider),
+          proofProvider: httpClientProofProvider(
+            this.config.proofServer,
+            zkConfigRegistry,
+          ),
           walletProvider: walletAndMidnightProvider,
           midnightProvider: walletAndMidnightProvider,
         };
@@ -527,17 +545,20 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         ttl?: Date,
       ): Promise<FinalizedTransaction> {
         const dustBefore = await getDustBalanceFromWallet();
-        const bound = tx.bind();
-        const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(
-          bound, {
+        const unboundTransactionRecipe = await wallet.balanceUnboundTransaction(
+          tx, {
             shieldedSecretKeys: zswapSecretKeys,
             dustSecretKey: dustSecretKey,
           }, {
             ttl: ttl ?? createTtl(),
+            tokenKindsToBalance: ["dust"],
           }
         );
-        const x = await wallet.signRecipe(finalizedTransactionRecipe, (payload) => unshieldedKeystore.signData(payload));
-        const result = await wallet.finalizeRecipe(x);
+        const signedRecipe = await wallet.signRecipe(
+          unboundTransactionRecipe,
+          (payload) => unshieldedKeystore.signDataAsync(payload),
+        );
+        const result = await wallet.finalizeRecipe(signedRecipe);
         const dustAfter = await getDustBalanceFromWallet();
         const dustCost = dustBefore - dustAfter;
         log.log(`[balanceTx] dust cost: ${formatDust(dustCost)} DUST (${formatDust(dustAfter)} DUST remaining)`);
@@ -708,11 +729,48 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   }
 
   /**
+   * Run one state-changing wallet operation at a time for a wallet. A timed-out
+   * SDK promise is not cancelled, so ownership of the lock transfers to that
+   * promise until it actually settles. This prevents a retry from selecting
+   * the same DUST input while the prior call is still active.
+   */
+  private async runSerializedWalletOperation<T>(
+    walletIndex: number,
+    operation: () => Promise<T>,
+    timeoutMs: number,
+    timeoutMessage: string,
+  ): Promise<T> {
+    const releaseWalletLock = await this.pool.acquireBalanceLock(walletIndex);
+    const operationPromise = Promise.resolve().then(operation);
+    let timedOut = false;
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      return await Promise.race([
+        operationPromise,
+        new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            timedOut = true;
+            reject(new Error(timeoutMessage));
+          }, timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+      if (timedOut) {
+        void operationPromise.then(releaseWalletLock, releaseWalletLock);
+      } else {
+        releaseWalletLock();
+      }
+    }
+  }
+
+  /**
    * Submit a batch transaction to the Midnight contract.
    *
-   * A worker is acquired from the pool, used for the entire callTx
-   * (balance + prove + submit is atomic in the SDK), and released
-   * in the finally block.
+   * A worker is acquired from the pool and released in the finally block.
+   * State-changing callTx lifecycles are additionally serialized per wallet
+   * so no two requests can select the same DUST input.
    */
   async submitBatch(
     data: MidnightBatchPayload | null,
@@ -834,19 +892,16 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         await this.waitForDustAvailability(walletIndex);
 
         try {
-          const callTxPromise = this.deployedContracts[walletIndex].callTx[circuit](
-            ...parsedArgs,
+          result = await this.runSerializedWalletOperation(
+            walletIndex,
+            () => this.deployedContracts[walletIndex].callTx[circuit](
+              ...parsedArgs,
+            ),
+            this.callTxTimeoutMs,
+            `callTx timed out after ${this.callTxTimeoutMs}ms — the Midnight SDK ` +
+              `promise likely hung (e.g. "request body stream errored"). ` +
+              `The input will be retried.`,
           );
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => {
-              reject(new Error(
-                `callTx timed out after ${this.callTxTimeoutMs}ms — the Midnight SDK ` +
-                `promise likely hung (e.g. "request body stream errored"). ` +
-                `The input will be retried.`
-              ));
-            }, this.callTxTimeoutMs);
-          });
-          result = await Promise.race([callTxPromise, timeoutPromise]);
         } catch (callTxError) {
           this.log.error(`callTx threw an error:`);
           this.log.error(`  Error type:`, typeof callTxError);

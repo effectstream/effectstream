@@ -2,7 +2,7 @@ const log = console;
 import { Buffer } from "node:buffer";
 
 import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
-import { shieldedToken } from "@midnight-ntwrk/ledger-v8";
+import { nativeToken } from "@midnightntwrk/ledger-v9";
 import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 
 import { 
@@ -38,7 +38,7 @@ export async function buildWalletAndWaitForFunds(
     log.info(`Wallet address: ${address}`);
     log.info(`Dust address: ${result.dustAddress}`);
   
-    let balance = initialState.balances[shieldedToken().tag] ?? 0n;
+    let balance = initialState.balances[nativeToken().raw] ?? 0n;
     console.log("initialState", safeStringifyProgress(initialState));
     const syncTimeoutMs = resolveWalletSyncTimeoutMs();
     if (balance === 0n) {

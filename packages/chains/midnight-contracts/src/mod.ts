@@ -10,6 +10,7 @@ export {
     resolveWalletSyncTimeoutMs,
     suspendAuxWalletSyncForFees,
     resolveFacadeDustBalance,
+    resolveFacadeDustAvailableCoins,
     safeStringifyProgress,
     syncAndWaitForFunds,
     buildWalletFacade,

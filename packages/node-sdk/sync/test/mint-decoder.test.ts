@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { decodeTokenMints } from "../src/sync-protocols/midnight/mint-decoder.ts";
+import {
+  decodeTokenMints,
+  MintTransactionDecodeError,
+} from "../src/sync-protocols/midnight/mint-decoder.ts";
 
-// Tolerance contract: the decoder must never throw — an undecodable or
-// inapplicable transaction contributes nothing (the fetcher's per-height
-// error path would otherwise wedge the sync loop).
-describe("decodeTokenMints — tolerance", () => {
+describe("decodeTokenMints — result and failure semantics", () => {
   test("no transactionResult (system tx) → []", () => {
     expect(decodeTokenMints("deadbeef", undefined)).toEqual([]);
     expect(decodeTokenMints("deadbeef", null)).toEqual([]);
@@ -17,12 +17,17 @@ describe("decodeTokenMints — tolerance", () => {
     ).toEqual([]);
   });
 
-  test("garbage bytes with SUCCESS status → [] without throwing", () => {
-    expect(
-      decodeTokenMints("not-even-hex", { status: "SUCCESS" }),
-    ).toEqual([]);
-    expect(
-      decodeTokenMints("00".repeat(64), { status: "SUCCESS" }),
-    ).toEqual([]);
+  test("garbage bytes with SUCCESS status fail explicitly", () => {
+    for (const raw of ["not-even-hex", "00".repeat(64)]) {
+      try {
+        decodeTokenMints(raw, { status: "SUCCESS" });
+        throw new Error("expected decodeTokenMints to throw");
+      } catch (error) {
+        expect(error).toBeInstanceOf(MintTransactionDecodeError);
+        expect((error as MintTransactionDecodeError).rawHex).toBe(raw);
+        expect(String(error)).toContain("ledger-v9");
+        expect(String(error)).toContain("protocolVersion 2000000");
+      }
+    }
   });
 });

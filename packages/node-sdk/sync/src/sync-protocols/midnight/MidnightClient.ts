@@ -17,14 +17,16 @@ export interface MidnightGqlBlockState {
     };
     transactions:    {
       hash:            string;
+      protocolVersion: number;
       contractActions: {
         address:    string;
         state:      string;
       }[];
       zswapLedgerEvents?: {
-        id:    number;
-        raw:   string;
-        maxId: number;
+        id:              number;
+        raw:             string;
+        maxId:           number;
+        protocolVersion: number;
       }[];
       unshieldedSpentOutputs?: {
         intentHash:  string;
@@ -155,7 +157,7 @@ export class MidnightClient {
       ? `contractActions { address state }`
       : "";
     const zswapField = zswapLedgerEvents
-      ? `zswapLedgerEvents { id raw maxId }`
+      ? `zswapLedgerEvents { id raw maxId protocolVersion }`
       : "";
     const unshieldedSpentField = unshieldedSpentOutputs
       ? `unshieldedSpentOutputs { intentHash outputIndex owner value tokenType }`
@@ -187,6 +189,7 @@ export class MidnightClient {
         }
         transactions {
           hash
+          protocolVersion
           ${contractActionsField}
           ${zswapField}
           ${unshieldedSpentField}
