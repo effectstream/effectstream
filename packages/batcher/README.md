@@ -346,10 +346,13 @@ Other responses:
   submit again.
 - **429** — the endpoint draws down the same pre-authentication IP bucket as
   `/send-input`, so polling cannot be used as an amplification vector.
-
-The route is registered **only** when the storage backend can track requests. On
-plain `FileStorage` it is absent and the server says so once at startup;
-`/send-input` still returns a `requestId`.
+- **501** `{ "reason": "request-tracking-disabled", "enableWith":
+  "BATCHER_DB_SCHEMA" }` — this deployment keeps no statuses (see
+  [Choosing a storage backend](#choosing-a-storage-backend)). The route is
+  always registered so that this answer is distinguishable from the 404: an
+  expired id and a batcher that tracks nothing have completely different
+  remedies. `/send-input` still returns a `requestId`, and the same fact is
+  readable from `GET /queue-stats` as `requestTracking`.
 
 ### Duplicate submissions
 
@@ -432,27 +435,72 @@ stopped working does not look like a sweep with nothing to do:
 `reconciliation` counters that moved are evidence the previous process did not
 stop cleanly.
 
-### Storage migration
+### Choosing a storage backend
 
-The default backend is now **`DatabaseStorage`** over an embedded PgLite
-database in `./batcher-data`. Tracking needs the queue row, the status record
-and the replay key to be written together or not at all, which separate files
-cannot do. Zero-config is preserved: the database is embedded, so there is
-nothing to install.
+When you construct a `Batcher` **without** passing `storage`, the backend is
+resolved from one environment variable:
 
-- An existing `./batcher-data/pending-inputs.jsonl` is **imported on first
-  `init()`** and renamed to `.imported`. It is never imported twice, and an
-  untargeted queue with no configured `defaultTarget` is refused rather than
-  guessed at.
-- Pass a `connectionString` (or a `postgres://` URL) to run the same schema on a
-  real Postgres server instead.
-- `FileStorage` is still exported and fully supported for the queue. Construct
-  it explicitly to keep the old backend — you lose request tracking, and the
-  batcher tells you so at startup.
+| `BATCHER_DB_SCHEMA` | backend | request tracking |
+|---|---|---|
+| set to `chess_v2` | connected `DatabaseStorage` on `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_NAME`, owning the schema `batcher_chess_v2` | **on** |
+| unset or empty | `FileStorage` in `./batcher-data` | off — announced at startup |
+| set but invalid, or set and the database unreachable | **refuses to boot** | — |
+
+The value is a *suffix*: the code applies the fixed `batcher_` prefix, so the
+effective schema can never be `public` (where the engine's tables live) and can
+never collide with another component's. It must match `^[a-z0-9_]{1,55}$` — 55
+characters is Postgres' 63-character identifier budget minus the prefix.
+
+**The unset case is for development only.** It is exactly what this package
+defaulted to before request tracking existed: inputs are queued, batched,
+retried and submitted as always, but there is no status to poll, no
+replay/dedup protection against paying twice for one signed request, and
+`/input-status` answers 501. Production deployments must set the variable.
+
+**Never falls back.** A set-but-invalid value is refused at construction, and a
+set-but-unreachable database is refused at `init()`. Falling back there would
+leave an operator who deliberately enabled tracking running without it.
+
+**Schema isolation.** Each batcher owns its schema: `CREATE SCHEMA IF NOT
+EXISTS` at connect, then `search_path` pinned on *every* pooled connection —
+including replacements opened after a reconnect. All table names stay
+unqualified, so nothing about the SQL changes. This is what makes several
+batchers safe on one database even though target names collide across products
+(`paimaL2` is used by four of them).
+
+> **Development databases that multiplex clients onto one session are refused.**
+> The launcher's PgLite gateway forwards every client into a single Postgres
+> session, so `SET search_path` there would repoint *every other client of that
+> database*, including the engine — whose queries then fail with `relation ...
+> does not exist`. The batcher probes for this at boot (a canary setting made on
+> one connection and read on another) and refuses rather than break a bystander.
+> Against such a database, either leave `BATCHER_DB_SCHEMA` unset (queue-only,
+> development) or point `DB_HOST`/`DB_PORT` at a real PostgreSQL server.
+
+**Constructing storage explicitly bypasses all of this** — the environment is
+never consulted when you pass a `storage` argument:
+
+- `new FileStorage("./dir")` — the JSONL queue, no tracking.
+- `new DatabaseStorage("./dir")` — an **embedded** PgLite database in that
+  directory. Standalone SDK use: one process, one private database, nothing to
+  install. Never selected by the environment.
+- `new DatabaseStorage({ connection, schema })` or
+  `new DatabaseStorage({ connectionString })` — connected, with or without a
+  schema of its own.
+
+**Legacy queue files.** A `pending-inputs.jsonl` left by `FileStorage` is
+imported into a database backend on first `init()` and renamed to `.imported`;
+it is never imported twice, and an untargeted queue with no configured
+`defaultTarget` is refused rather than guessed at. A *connected* storage only
+does this when you pass `dataDirectory` explicitly — it defaults no directory
+and touches no filesystem, so it can never adopt a stale queue it was not
+pointed at.
 
 **Breaking changes** in this area, for anyone upgrading:
 
-1. Default storage is `DatabaseStorage`, not `FileStorage`.
+1. With `BATCHER_DB_SCHEMA` **unset**, the default backend is unchanged from
+   before this feature: `FileStorage` in `./batcher-data`, queue-only. Set the
+   variable (or pass `storage` explicitly) to enable request tracking.
 2. `batchInput` resolves to `{ requestId, receipt, duplicate? }`, not a receipt.
 3. `BatcherStorage.incrementRetryCount` returns the inputs it dropped. A backend
    still returning `void` keeps working and is warned once per batch.
@@ -624,7 +672,7 @@ batcher, with fast and deep test suites.
 The four interfaces you'd implement, in order of frequency:
 
 - `BlockchainAdapter`: submit, wait for receipt, estimate fee, report chain name. New chains plug in here.
-- `BatcherStorage`: persist + load inputs. The default is `FileStorage` (JSONL on disk). A `DatabaseStorage` class is exported but is **not implemented** — every method currently throws — so Postgres / Redis / S3 backends are yours to write against this interface.
+- `BatcherStorage`: persist + load inputs. Two implementations ship — `FileStorage` (JSONL on disk, queue only) and `DatabaseStorage` (queue, request status and replay keys in one Postgres schema, embedded or connected); which one a bare `new Batcher()` gets is decided by `BATCHER_DB_SCHEMA`, see [Choosing a storage backend](#choosing-a-storage-backend). Redis / S3 / anything else are yours to write against this interface; implement the optional `TrackingStorage` half too if you want `/input-status` to work on it.
 - `BatchDataBuilder<T>`: control how inputs are serialised into the bytes the adapter submits.
 - State-transition listeners: hook into `startup`, `batch:process:start`, `batch:submit`, `batch:confirmed`, `error`, and others for metrics or custom behaviour.
 
@@ -636,14 +684,14 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 
 - `createNewBatcher(config, storage)`: build a batcher instance.
 - `BatcherConfig`: configuration type. See `pollingIntervalMs`, `adapters`, `defaultTarget`, `batchingCriteria`, `confirmationLevel`, `enableHttpServer`, `port`, `enableEventSystem`, `namespace`, `batchBuilding`.
-- `DatabaseStorage(dir | options)`: the **default** backend — queue, request status and replay keys in one embedded PgLite database, or a real Postgres via `connectionString`. See [Storage migration](#storage-migration).
-- `BatcherFileStorage(dir)` (exported as `FileStorage` from `core/storage.ts`): the previous JSONL queue. Still supported, but queue-only: no request tracking.
+- `DatabaseStorage(dir | options)`: queue, request status and replay keys in one database — a connected Postgres via `{ connection, schema }` or `{ connectionString }` (the default when `BATCHER_DB_SCHEMA` is set), or an embedded PgLite database when given a directory. See [Choosing a storage backend](#choosing-a-storage-backend).
+- `BatcherFileStorage(dir)` (exported as `FileStorage` from `core/storage.ts`): the JSONL queue, and the default when `BATCHER_DB_SCHEMA` is unset. Fully supported, but queue-only: no request tracking, and development-only by policy.
 - Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`, `NearAdapter`, `NearIntentAdapter`.
 - Batcher operations: `runBatcher`, `batchInput`, `addStateTransition`, `gracefulShutdownOp`, `getPublicConfig`, `getBatchingStatus`.
 - Rate limiting: `RateLimiter`, `InMemoryRateLimitStore`, and the `RateLimitStore` / `RateLimitBucket` / `RateLimitKeyStrategy` / `RateLimitCheckResult` types. See [Rate limiting](#rate-limiting).
 - `MidnightBalancingAdapter`: a Midnight adapter variant that delegates transaction balancing, for setups where the batcher does not hold the funding wallet itself.
 - `WorkerPool`: the internal concurrency primitive the Midnight adapter uses to run one transaction per wallet UTXO slot in parallel, with a per-slot mutex.
-- HTTP endpoints (when enabled): `POST /send-input`, `GET /input-status/:requestId` (only on a tracking backend — see [Request tracking](#request-tracking)), `GET /health`, `GET /status`, `GET /queue-stats`. Two more are registered only when `ENABLE_DEV_AND_DEBUG_ENDPOINTS` is set: `POST /force-batch` and `DELETE /clear-inputs`. Both accept `?target=` to scope to one product.
+- HTTP endpoints (when enabled): `POST /send-input`, `GET /input-status/:requestId` (answers 501 on a queue-only backend — see [Request tracking](#request-tracking)), `GET /health`, `GET /status`, `GET /queue-stats`. Two more are registered only when `ENABLE_DEV_AND_DEBUG_ENDPOINTS` is set: `POST /force-batch` and `DELETE /clear-inputs`. Both accept `?target=` to scope to one product.
 - Policy helpers at `@effectstream/batcher-sdk/midnight-policy`: transaction introspection plus the declarative rule engine, shared by the built-in rules and your own `allowCustomFinalFilter`. See [One batcher, many products](#one-batcher-many-products).
 
 ## Examples

@@ -177,7 +177,7 @@ Built in and on by default: `BatcherConfig.rateLimit` (`{ maxRequests, windowMs 
 
 ## Storage
 
-Use `FileStorage`. `DatabaseStorage` is also exported but is an unimplemented stub — every method throws (`core/storage.ts`).
+Both `FileStorage` (JSONL queue) and `DatabaseStorage` (queue + request status + replay keys in one Postgres schema) are real and exported. When no `storage` argument is passed, the backend follows `BATCHER_DB_SCHEMA`: set ⇒ connected `DatabaseStorage` on the engine's `DB_*` keys owning the schema `batcher_<value>`; unset ⇒ `FileStorage` in `./batcher-data`, queue-only and development-only. Pass one explicitly to decide for yourself — `new DatabaseStorage("./dir")` also gives a standalone embedded database. See `packages/batcher/README.md`, "Choosing a storage backend".
 
 ## Two configuration patterns
 
