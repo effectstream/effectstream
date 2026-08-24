@@ -198,6 +198,36 @@ describe("CLI release guard", () => {
 });
 
 describe("release workflow", () => {
+  test("pins privileged actions/tools and verifies source identity before mutation", () => {
+    const workflow = readFileSync(join(import.meta.dir, "workflows", "release.yaml"), "utf8");
+    expect(workflow).toContain(
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
+    );
+    expect(workflow).toContain(
+      "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2",
+    );
+    expect(workflow).toContain("bun-version: 1.4.0");
+    expect(workflow).not.toContain("bun-version: latest");
+    expect(workflow).toContain("runs-on: ubuntu-22.04");
+    expect(workflow).toContain("ref: ${{ github.event.release.tag_name }}");
+    expect(workflow).toContain("RELEASE_TARGET_COMMITISH: ${{ github.event.release.target_commitish }}");
+    expect(workflow).toContain("bash .github/verify-release-source.sh");
+    expect(workflow).toContain("git push origin HEAD:refs/heads/v-next");
+    expect(workflow).not.toContain("git push origin v-next");
+
+    const ordered = [
+      "Verify immutable release source identity",
+      "Setup Bun",
+      "Install dependencies",
+      "Configure npm auth",
+      "Select release channel candidate",
+      "name: Publish",
+      "git add package.json",
+    ].map((needle) => workflow.indexOf(needle));
+    expect(ordered.every((position) => position >= 0)).toBe(true);
+    expect(ordered).toEqual([...ordered].sort((a, b) => a - b));
+  });
+
   test("passes an explicit fail-closed channel to the publisher", () => {
     const workflow = readFileSync(join(import.meta.dir, "workflows", "release.yaml"), "utf8");
     expect(workflow).toContain('DIST_TAG="ledger-v9"');

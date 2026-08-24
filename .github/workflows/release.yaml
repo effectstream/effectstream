@@ -16,15 +16,31 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
-      - name: Checkout v-next
-        uses: actions/checkout@v7
+      - name: Checkout exact release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: v-next
+          ref: ${{ github.event.release.tag_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
+      - name: Verify release source guard integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' 'affd55aab609d4db7d6c6f38925859586d1ce67fd50f790d97c5dc027214af11' '.github/verify-release-source.sh' \
+            | sha256sum --check --strict
+
+      - name: Verify immutable release source identity
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TARGET_COMMITISH: ${{ github.event.release.target_commitish }}
+        run: bash .github/verify-release-source.sh
+
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -81,5 +97,5 @@ jobs:
             echo "no version changes to commit"
           else
             git commit -m "chore(release): ${{ github.event.release.tag_name }}"
-            git push origin v-next
+            git push origin HEAD:refs/heads/v-next
           fi
