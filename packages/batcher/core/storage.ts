@@ -44,13 +44,18 @@ class Mutex {
 }
 
 // Custom logger for debugging
+// File logging is opt-in: appendFileSync blocks the event loop on every line,
+// which is a throughput tax when several adapters share one process.
+const FILE_LOGGING_ENABLED = process.env.BATCHER_DEBUG_LOG === "1";
+
 function debugLog(message: string) {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${message}\n`;
-  try {
-    fs.appendFileSync("batcher-debug.log", logMessage);
-  } catch (e) {
-    // Ignore if we can't write
+  if (FILE_LOGGING_ENABLED) {
+    const timestamp = new Date().toISOString();
+    try {
+      fs.appendFileSync("batcher-debug.log", `[${timestamp}] ${message}\n`);
+    } catch {
+      // Ignore if we can't write
+    }
   }
   console.log(message);
 }
@@ -62,9 +67,13 @@ export interface BatcherStorage<
   T extends DefaultBatcherInput = DefaultBatcherInput,
 > {
   /**
-   * Initialize the storage (create directories, tables, etc.)
+   * Initialize the storage (create directories, tables, etc.).
+   *
+   * `defaultTarget`, when given, is the target unaddressed input routes to.
+   * Implementations that persist a per-row target should use it to stamp rows
+   * written before targets were recorded — see `FileStorage.init`.
    */
-  init(): Promise<void>;
+  init(defaultTarget?: string): Promise<void>;
 
   /**
    * Add a new input to storage
@@ -131,20 +140,74 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
     await rename(tmpPath, this.filePath);
   }
 
-  async init(): Promise<void> {
+  async init(defaultTarget?: string): Promise<void> {
     try {
       await mkdir(this.dataDirectory, { recursive: true });
     } catch (error) {
       console.error("Error creating data directory:", error);
       throw new Error(`Failed to initialize storage: ${error}`);
     }
+    if (defaultTarget !== undefined) {
+      await this.stampLegacyRows(defaultTarget);
+    }
   }
 
-  async addInput(input: T): Promise<void> {
+  /**
+   * One-time migration: give rows written before targets were recorded the
+   * target they actually belong to.
+   *
+   * `createInputKey` falls back to the target currently being processed for a
+   * row that has none, so an untargeted row is read as belonging to whoever is
+   * asking. A queue carried across an upgrade can therefore have another
+   * product's identical row match — and remove or retry-charge — the legacy
+   * default-target row. Rewriting them once, under the mutex, ends that.
+   */
+  private async stampLegacyRows(defaultTarget: string): Promise<void> {
+    await this.mutex.run(async () => {
+      let content: string;
+      try {
+        content = await this.readFileContent();
+      } catch {
+        return; // no queue file yet
+      }
+      const lines = content.split("\n").filter((line) => line.trim());
+      if (lines.length === 0) return;
+
+      let stamped = 0;
+      const migrated = lines.map((line) => {
+        try {
+          const row = JSON.parse(line) as T;
+          if (row.target !== undefined) return line;
+          stamped += 1;
+          return JSON.stringify({ ...row, target: defaultTarget });
+        } catch {
+          return line; // leave unparseable lines exactly as found
+        }
+      });
+      if (stamped === 0) return;
+
+      await this.atomicWrite(migrated.join("\n") + "\n");
+      console.log(
+        `[Storage] Stamped ${stamped} legacy input(s) with target "${defaultTarget}" ` +
+          `(rows written before per-row targets were recorded).`,
+      );
+    });
+  }
+
+  async addInput(input: T, target?: string): Promise<void> {
     await this.mutex.run(async () => {
       try {
         const existing = await this.readFileContent();
-        await this.atomicWrite(existing + JSON.stringify(input) + "\n");
+        // Stamp the RESOLVED target onto the row. An input that arrived without
+        // one was routed to the default target, and if it is stored targetless
+        // then `createInputKey`'s fallback lets whichever product is currently
+        // being processed adopt it — so an identical row belonging to another
+        // product matches it and gets removed or retry-charged. A row's identity
+        // must not depend on who is reading it.
+        const row = input.target === undefined && target !== undefined
+          ? { ...input, target }
+          : input;
+        await this.atomicWrite(existing + JSON.stringify(row) + "\n");
       } catch (error) {
         console.error("Error adding input to storage:", error);
         throw new Error(`Failed to add input: ${error}`);
@@ -245,12 +308,25 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
   }
 
   /**
-   * Create a unique key for a DefaultBatcherInput for comparison
+   * Create a unique key for a DefaultBatcherInput for comparison.
+   *
+   * The key must use the INPUT's own target. Using the caller's target for
+   * every row makes it cancel out of the comparison, so in a multi-product
+   * batcher a byte-identical payload submitted to two targets would be treated
+   * as one row — and removing/retry-charging one product's input would hit the
+   * other product's copy.
+   *
+   * The `?? target` fallback exists only for rows written before `addInput`
+   * started stamping the resolved target. It is deliberately the LAST resort:
+   * while it applies, such a row takes on the identity of whichever product is
+   * reading it, which is the very collision this key exists to prevent. New
+   * rows are always stamped, so the fallback stops applying once a pre-existing
+   * queue has drained.
    */
   private createInputKey(input: T, target: string): string {
     return [
       input.addressType,
-      target,
+      input.target ?? target,
       input.address,
       input.timestamp,
       input.signature ?? "",
@@ -347,7 +423,7 @@ export class DatabaseStorage<
   constructor(private connectionString: string) {}
 
   // TODO: Implement database storage
-  init(): Promise<void> {
+  init(_defaultTarget?: string): Promise<void> {
     throw new Error("DatabaseStorage not implemented yet");
   }
   addInput(input: T): Promise<void> {

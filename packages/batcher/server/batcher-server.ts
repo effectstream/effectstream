@@ -167,6 +167,10 @@ async function registerOpenApiDocumentation(
         success: false,
         error: "Validation failed",
         message: error.message,
+        // Branch on errorCode, not on message: the message may carry detail
+        // derived from the submitted input, the code is stable.
+        ...(error.errorCode !== undefined ? { errorCode: error.errorCode } : {}),
+        ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
       });
     }
 
@@ -356,6 +360,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
             isReady: Type.Boolean(),
             criteriaType: Type.String(),
             timeSinceLastProcess: Type.Number(),
+            health: Type.Optional(Type.Any()),
           })),
         }),
       },
@@ -364,7 +369,21 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     const status = await batcher.getBatchingStatus();
     return {
       totalPendingInputs: status.totalPendingInputs,
-      targets: status.targets,
+      // Adapters may expose an operational snapshot (fee capacity, workers,
+      // policy shape). In a multi-product batcher this is how you tell WHICH
+      // product is degraded without reading logs.
+      targets: status.targets.map((t) => {
+        const adapter = batcher.getAdapter(t.target) as
+          | { getHealthInfo?: () => Record<string, unknown> }
+          | undefined;
+        let health: Record<string, unknown> | undefined;
+        try {
+          health = adapter?.getHealthInfo?.();
+        } catch {
+          health = undefined;
+        }
+        return health ? { ...t, health } : t;
+      }),
     };
   });
 
@@ -381,11 +400,30 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           transactionHash: Type.Optional(Type.String()),
           rollup: Type.Optional(Type.Number()),
         }),
+        // A rejected input. `errorCode` is the stable discriminator; `retryable`
+        // says whether the identical input could succeed later.
+        400: Type.Object({
+          success: Type.Boolean(),
+          error: Type.String(),
+          message: Type.String(),
+          errorCode: Type.Optional(Type.String()),
+          retryable: Type.Optional(Type.Boolean()),
+        }),
         429: Type.Object({
           success: Type.Boolean(),
           error: Type.String(),
           message: Type.String(),
           retryAfter: Type.Optional(Type.Number()),
+        }),
+        // Validation could not be COMPLETED — a dependency of the check was
+        // unavailable. Distinct from 400: the input was never judged, so the
+        // caller should retry rather than change it.
+        503: Type.Object({
+          success: Type.Boolean(),
+          error: Type.String(),
+          message: Type.String(),
+          errorCode: Type.Optional(Type.String()),
+          retryable: Type.Optional(Type.Boolean()),
         }),
       },
     },
@@ -428,26 +466,65 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
         target: batcherInput.target,
       };
 
+      // Both admission phases charge the SAME buckets, so they are built once
+      // here: a surcharge landing on a different key would leave the flat unit
+      // stranded on one budget and the real cost on another.
+      const bucketsFor = (target: string) => {
+        const adapter = batcher.getAdapter(target);
+        const strategy = adapter?.getRateLimitKeyStrategy?.() ?? "ip";
+        return buildRateLimitBuckets(
+          strategy,
+          target,
+          request.ip,
+          adaptedInput.address,
+          maxRequests,
+          globalMaxRequests,
+        );
+      };
+
       // Add input to batcher with confirmation level
       const result = await batcher.batchInput(
         adaptedInput as any,
         confirmationLevel,
         body.timeoutMs,
         async ({ target }) => {
-          const adapter = batcher.getAdapter(target);
-          const strategy = adapter?.getRateLimitKeyStrategy?.() ?? "ip";
-          const buckets = buildRateLimitBuckets(
-            strategy,
-            target,
-            request.ip,
-            adaptedInput.address,
-            maxRequests,
-            globalMaxRequests,
+          const rateLimitResult = await rateLimiter.checkBuckets(
+            bucketsFor(target),
           );
-          const rateLimitResult = await rateLimiter.checkBuckets(buckets);
           if (!rateLimitResult.allowed) {
             throw new RateLimitExceededError(rateLimitResult);
           }
+        },
+        // Admission surcharge. The flat unit above was charged before the
+        // payload had been read; this charges what the input actually costs,
+        // now that the adapter has measured it, and still before anything is
+        // written to storage.
+        async ({ target, weight, alreadyCharged }) => {
+          const surcharge = weight - alreadyCharged;
+          if (surcharge <= 0) return;
+          const rateLimitResult = await rateLimiter.checkBuckets(
+            bucketsFor(target).map((bucket) => ({
+              ...bucket,
+              weight: surcharge,
+            })),
+          );
+          if (rateLimitResult.allowed) return;
+
+          // The limiter reports no retry time when a request is heavier than
+          // the bucket itself — waiting cannot make it fit. That is a property
+          // of the transaction, not of current load, so it is a permanent
+          // rejection rather than a 429 the caller would retry forever.
+          if (rateLimitResult.retryAfterSeconds === undefined) {
+            throw new InputValidationError(
+              `Transaction is too expensive to validate: it costs ${weight} ` +
+                `units, more than this target's entire admission budget. ` +
+                `Reduce the number of shielded inputs, outputs and transients.`,
+              413,
+              "TRANSACTION_TOO_EXPENSIVE",
+              false,
+            );
+          }
+          throw new RateLimitExceededError(rateLimitResult);
         },
       );
 
@@ -500,6 +577,8 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           success: false,
           error: "Validation failed",
           message: error.message,
+          ...(error.errorCode !== undefined ? { errorCode: error.errorCode } : {}),
+          ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
         });
       }
 
@@ -516,6 +595,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     server.post("/force-batch", {
       schema: {
         tags: ["developer"],
+        querystring: Type.Object({ target: Type.Optional(Type.String()) }),
         response: {
           200: Type.Object({
             success: Type.Boolean(),
@@ -529,13 +609,16 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           }),
         },
       },
-    }, async (_, reply) => {
+    }, async (request, reply) => {
       try {
-        await batcher.forceProcessBatches();
+        const target = (request.query as { target?: string })?.target;
+        await batcher.forceProcessBatches(target);
         const status = await batcher.getBatchingStatus();
         return {
           success: true,
-          message: "Batch processing forced",
+          message: target
+            ? `Batch processing forced for target ${target}`
+            : "Batch processing forced",
           remainingInputs: status.totalPendingInputs,
         };
       } catch (error) {
@@ -548,10 +631,13 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
       }
     });
 
-    // Clear all pending inputs (administrative endpoint)
+    // Clear pending inputs (administrative endpoint).
+    // `?target=` scopes the wipe to one product — without it, a shared
+    // multi-product batcher would nuke every tenant's queue.
     server.delete("/clear-inputs", {
       schema: {
         tags: ["developer"],
+        querystring: Type.Object({ target: Type.Optional(Type.String()) }),
         response: {
           200: Type.Object({
             success: Type.Boolean(),
@@ -559,12 +645,15 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           }),
         },
       },
-    }, async () => {
+    }, async (request) => {
       try {
-        await batcher.clearPendingInputs();
+        const target = (request.query as { target?: string })?.target;
+        const cleared = await batcher.clearPendingInputs(target);
         return {
           success: true,
-          message: "All pending inputs cleared",
+          message: target
+            ? `Cleared ${cleared} pending input(s) for target ${target}`
+            : "All pending inputs cleared",
         };
       } catch (error) {
         console.error("Error clearing inputs:", error);

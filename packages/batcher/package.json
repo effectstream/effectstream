@@ -12,8 +12,14 @@
     "url": "https://github.com/effectstream/effectstream/issues"
   },
   "exports": {
-    "bun": "./mod.ts",
-    "default": "./mod.ts"
+    ".": {
+      "bun": "./mod.ts",
+      "default": "./mod.ts"
+    },
+    "./midnight-policy": {
+      "bun": "./adapters/midnight-policy.ts",
+      "default": "./adapters/midnight-policy.ts"
+    }
   },
   "dependencies": {
     "@sinclair/typebox": "0.34.41",

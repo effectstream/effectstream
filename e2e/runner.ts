@@ -11,6 +11,7 @@ const suites = [
   { name: "bitcoin", script: "./bitcoin/run-tests.ts" },
   { name: "cardano", script: "./cardano/run-tests.ts" },
   { name: "midnight", script: "./midnight/run-tests.ts" },
+  { name: "multi-batcher", script: "./multi-batcher/run-tests.ts" },
   { name: "avail", script: "./avail/run-tests.ts" },
   { name: "celestia", script: "./celestia/run-tests.ts" },
   { name: "near", script: "./near/run-tests.ts" },

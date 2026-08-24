@@ -57,11 +57,22 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.core == 'true' && (github.event_name == 'push' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-22.04
-    # 11 suites run serially and green runs already sit at 28-29 min, so a
-    # single E2E_MAX_RETRIES retry of any one suite blew the old 30-min budget —
-    # the job was killed mid-retry and reported as `cancelled`, which reads like
+    # Suites run serially and a retry has to fit inside the budget, or the job
+    # is killed mid-retry and reported as `cancelled` — which reads like
     # "superseded by a newer push" rather than "timed out".
-    timeout-minutes: 45
+    #
+    # Measured 2026-08-07 on a green 12-suite run: 42.2 min of suites plus
+    # ~2.8 min of image build and setup = 45.0 min, against the previous 45-min
+    # cap. Zero headroom: any flake triggered a retry that could not finish, so
+    # green runs passed with seconds to spare and one PR timed out twice.
+    #
+    #   midnight 1133s · multi-batcher 527s · avail 200s · bitcoin 131s ·
+    #   cardano 109s · sync-repro 111s · solana 103s · features 63s ·
+    #   wallets 60s · evm 44s · celestia 41s · near 13s
+    #
+    # 75 min leaves room for one E2E_MAX_RETRIES retry of the slowest suite
+    # (~64 min worst case). Revisit if the green run passes ~55 min.
+    timeout-minutes: 75
     steps:
       - name: Checkout
         uses: actions/checkout@v7

@@ -5,6 +5,14 @@ import * as fs from "node:fs";
 
 const LOG_FILE = "batcher-debug.log";
 
+/**
+ * File logging is opt-in (BATCHER_DEBUG_LOG=1). `appendFileSync` blocks the
+ * event loop on every line — with several adapters sharing a process that is a
+ * throughput tax paid on the hot path, and the file is unrotated/unbounded.
+ * Console output is unaffected.
+ */
+const FILE_LOGGING_ENABLED = process.env.BATCHER_DEBUG_LOG === "1";
+
 export class AdapterLogger {
   private readonly prefix: string;
 
@@ -43,6 +51,7 @@ export class AdapterLogger {
   }
 
   private writeToFile(message: string): void {
+    if (!FILE_LOGGING_ENABLED) return;
     const timestamp = new Date().toISOString();
     const logMessage = `[${timestamp}] ${message}\n`;
     try {

@@ -11,6 +11,7 @@ import type { BatchingCriteriaConfig, BatcherConfig } from "./config.ts";
 import {
   applyBatcherConfigDefaults,
   DEFAULT_BATCHING_CRITERIA,
+  DEFAULT_CONFIG_VALUES,
   validateBatcherConfig,
   validateBatchingCriteria,
   validatePreInit,
@@ -18,6 +19,7 @@ import {
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
 import { BatcherFileStorage } from "./mod.ts";
 import { BatchProcessor } from "./batch-processor.ts";
+import { InputValidationError } from "./errors.ts";
 import {
   type BatcherShutdownState,
   type ShutdownHooks,
@@ -31,16 +33,34 @@ import { ENV } from "@effectstream/utils/node-env";
  * Custom error class for input validation failures
  * Provides structured error information with appropriate HTTP status codes
  */
-export class InputValidationError extends Error {
-  constructor(message: string, public statusCode: number = 400) {
-    super(message);
-    this.name = "InputValidationError";
-  }
-}
+// Defined in ./errors.ts so `batch-processor.ts` can throw the same class
+// without importing this module back. Re-exported here because it has always
+// been part of this module's public surface.
+export { InputValidationError } from "./errors.ts";
 
 export interface AuthenticatedInputContext {
   /** Adapter target resolved and verified by the batcher. */
   target: string;
+}
+
+/**
+ * Context for the admission surcharge, once the input has been validated and
+ * its true cost is known.
+ *
+ * Admission is charged in two phases because the cost of a request cannot be
+ * known when it arrives. At authentication all we know is that *a* request
+ * turned up, so it is charged a flat unit; only after the adapter has
+ * deserialized the payload can we say how much verification work it will
+ * actually cause. Charging the difference here keeps the expensive shape from
+ * drawing down the same budget as a trivial one, while still refusing an
+ * unauthenticated caller a free deserialize.
+ */
+export interface AdmissionWeightContext {
+  target: string;
+  /** Total units this input should cost, as reported by the adapter. */
+  weight: number;
+  /** Units already charged at authentication. */
+  alreadyCharged: number;
 }
 
 /**
@@ -75,6 +95,13 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   private adapters: Record<string, BlockchainAdapter<any>>;
   /** Default target to use when input.target is not specified */
   public defaultTarget?: string;
+  /**
+   * True when the operator named the default target (config `defaultTarget` or
+   * `setDefaultTarget()`), false when it was inferred from the first adapter.
+   * Strict routing only guards the inferred case — an explicit default IS the
+   * operator saying where unaddressed input belongs.
+   */
+  private defaultTargetIsExplicit = false;
   /** Per-adapter batching criteria configuration */
   private readonly batchingCriteria: Map<string, BatchingCriteriaConfig<T>>;
   /** Track when the last batch was processed for time-based criteria (per adapter) */
@@ -87,6 +114,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   private readonly port: number;
   /** Whether to enable HTTP server */
   private readonly enableHttpServer: boolean;
+  /** How long `init()` waits for adapters to become servable before binding. */
+  private readonly httpServerReadinessTimeoutMs: number;
   /** Whether to enable event system */
   private readonly enableEventSystem: boolean;
   /** Shutdown state tracking */
@@ -151,6 +180,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       // Auto-set to first adapter if defaultTarget not explicitly provided
       this.defaultTarget = cfg.defaultTarget ||
         Object.keys(this.adapters)[0];
+      this.defaultTargetIsExplicit = !!cfg.defaultTarget;
       if (!cfg.defaultTarget) {
         console.log(
           `🎯 Auto-set default target to '${this.defaultTarget}' (first adapter from config)`,
@@ -159,6 +189,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     } else {
       // No adapters in config - will be set when first adapter is added via addBlockchainAdapter()
       this.defaultTarget = cfg.defaultTarget;
+      this.defaultTargetIsExplicit = !!cfg.defaultTarget;
     }
 
     // Initialize per-adapter batching criteria
@@ -211,10 +242,13 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         receipt: BlockchainTransactionReceipt,
         timeout: number,
       ) => this.waitForEffectStreamProcessed(target, receipt, timeout),
-      getRetryPolicy: () => ({
-        maxRetries: this.config.maxRetries ?? 3,
-        retryDelayMs: this.config.retryDelayMs ?? 1000,
-      }),
+      getRetryPolicy: (target?: string) => {
+        const override = target ? this.config.perTarget?.[target] : undefined;
+        return {
+          maxRetries: override?.maxRetries ?? this.config.maxRetries ?? 3,
+          retryDelayMs: override?.retryDelayMs ?? this.config.retryDelayMs ?? 1000,
+        };
+      },
       setTargetCooldown: (target: string, ms: number) =>
         this.setTargetCooldown(target, ms),
     });
@@ -229,6 +263,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     );
     this.port = this.config.port!;
     this.enableHttpServer = this.config.enableHttpServer!;
+    this.httpServerReadinessTimeoutMs =
+      this.config.httpServerReadinessTimeoutMs ??
+        DEFAULT_CONFIG_VALUES.httpServerReadinessTimeoutMs;
     this.enableEventSystem = this.config.enableEventSystem!;
     this.namespace = this.config.namespace ?? this.namespace;
   }
@@ -408,6 +445,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     this.defaultTarget = adapterName;
+    this.defaultTargetIsExplicit = true;
     return this;
   }
 
@@ -428,7 +466,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       this.lastProcessTime.set(target, now);
     }
 
-    await this.storage.init();
+    // Pass the default target so storage can stamp rows written before
+    // per-row targets existed (see FileStorage.init).
+    await this.storage.init(this.defaultTarget);
 
     for (const [target, adapter] of Object.entries(this.adapters)) {
       if (typeof adapter.recoverState === "function") {
@@ -449,7 +489,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       );
     }
 
-    // Start HTTP server if enabled
+    // Start HTTP server if enabled. `startHttpServer()` itself waits for every
+    // adapter to be past its loop-blocking startup — see there for why.
     if (this.enableHttpServer) {
       await this.startHttpServer();
     }
@@ -475,6 +516,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     onAuthenticated?: (
       context: AuthenticatedInputContext,
     ) => Promise<void> | void,
+    onAdmissionWeight?: (
+      context: AdmissionWeightContext,
+    ) => Promise<void> | void,
   ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
     if (this.shutdownState.isShuttingDown) {
       // 503 Service Unavailable
@@ -488,6 +532,26 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       throw new InputValidationError(
         "No default target configured and input.target not specified. " +
           "Add adapters using addBlockchainAdapter() before initialization.",
+        400,
+      );
+    }
+
+    // Strict routing: with more than one product registered and NO default the
+    // operator actually chose, an unaddressed input must not silently land in
+    // the first-registered product's queue (and on its wallet's dust) — that
+    // default was inferred from registration order, not intended.
+    //
+    // A default the operator named (config `defaultTarget` or
+    // `setDefaultTarget()`) is exactly the statement "unaddressed input goes
+    // here", so it is honoured. Force either behaviour with
+    // `requireExplicitTarget`.
+    const requireExplicitTarget = this.config.requireExplicitTarget ??
+      (Object.keys(this.adapters).length > 1 && !this.defaultTargetIsExplicit);
+    if (!input.target && requireExplicitTarget) {
+      throw new InputValidationError(
+        `Input is missing "target". This batcher serves multiple targets ` +
+          `(${Object.keys(this.adapters).join(", ")}) and has no explicit ` +
+          `default; name the one you mean, or call setDefaultTarget().`,
         400,
       );
     }
@@ -524,9 +588,29 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // 2. Adapter-Specific Input Validation (Pre-Queue)
     if (adapter && typeof adapter.validateInput === "function") {
       const validationResult = await adapter.validateInput(input);
+      if (validationResult.valid) {
+        // The adapter has now measured what this input really costs. Charge
+        // the difference before anything is queued, so an expensive shape
+        // cannot slip past on the flat unit it paid at authentication.
+        //
+        // Deliberately AFTER the validity check: refusing an input we already
+        // rejected is not worth charging for, and a weight read off an invalid
+        // payload is not a measurement worth trusting.
+        const weight = validationResult.admissionWeight;
+        if (typeof weight === "number" && weight > 1 && onAdmissionWeight) {
+          await onAdmissionWeight({ target, weight, alreadyCharged: 1 });
+        }
+      }
       if (!validationResult.valid) {
+        // Honour a status the adapter asked for. A gate that could not COMPLETE
+        // — its own dependency was unavailable — reports 503, which is a
+        // different claim from "your input is wrong" and is the only one a
+        // caller can act on by retrying.
         throw new InputValidationError(
           validationResult.error || "Invalid input for target adapter",
+          validationResult.statusCode ?? 400,
+          validationResult.errorCode,
+          validationResult.retryable,
         );
       }
     }
@@ -912,13 +996,22 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Force process current batch (useful for testing or manual triggers)
    */
-  async forceProcessBatches(): Promise<void> {
+  async forceProcessBatches(target?: string): Promise<void> {
     if (this.shutdownState.isShuttingDown) {
       throw new Error("Cannot force process batches during shutdown");
     }
 
-    console.log("🔧 Force processing batches for all targets...");
-    const allTargets = Object.keys(this.adapters);
+    if (target && !this.adapters[target]) {
+      throw new Error(
+        `Unknown target ${target}. Available: ${Object.keys(this.adapters).join(", ")}`,
+      );
+    }
+    const allTargets = target ? [target] : Object.keys(this.adapters);
+    console.log(
+      target
+        ? `🔧 Force processing batches for target ${target}...`
+        : "🔧 Force processing batches for all targets...",
+    );
     await this.processBatchesForTargets(allTargets);
 
     // Update last process times for all targets
@@ -931,23 +1024,103 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Clear all pending inputs (useful for testing)
    */
-  async clearPendingInputs(): Promise<void> {
+  async clearPendingInputs(target?: string): Promise<number> {
     if (this.shutdownState.isShuttingDown) {
       throw new Error("Cannot clear pending inputs during shutdown");
     }
 
-    await this.storage.clearAllInputs();
+    if (!target) {
+      const all = await this.storage.getAllInputs();
+      await this.storage.clearAllInputs();
+      return all.length;
+    }
+    if (!this.adapters[target]) {
+      throw new Error(
+        `Unknown target ${target}. Available: ${Object.keys(this.adapters).join(", ")}`,
+      );
+    }
+    // Scoped wipe: only this product's rows, so a shared batcher's other
+    // tenants keep their queues.
+    const scoped = await this.storage.getInputsByTarget(target, this.defaultTarget!);
+    if (scoped.length > 0) {
+      await this.storage.removeProcessedInputs(scoped, target);
+    }
+    return scoped.length;
+  }
+
+  /**
+   * Hold the HTTP port closed until every adapter that implements
+   * `whenServable()` reports it is past its loop-blocking startup work.
+   *
+   * A refused connection is a better answer than a hung one: the client finds
+   * out immediately instead of holding a socket open against a process that
+   * cannot run a handler at all. Bounded by `httpServerReadinessTimeoutMs` and
+   * never fatal — a gate that could stop the server from ever starting would be
+   * a worse failure than the one it prevents.
+   */
+  private async waitForAdaptersServable(): Promise<void> {
+    const gates: Promise<void>[] = [];
+    for (const [target, adapter] of Object.entries(this.adapters)) {
+      if (typeof adapter.whenServable !== "function") continue;
+      try {
+        gates.push(
+          Promise.resolve(adapter.whenServable()).catch((error) => {
+            console.warn(
+              `⚠️ Adapter '${target}' failed to report readiness; ` +
+                `treating it as ready to serve:`,
+              error,
+            );
+          }),
+        );
+      } catch (error) {
+        console.warn(
+          `⚠️ Adapter '${target}' threw from whenServable(); ` +
+            `treating it as ready to serve:`,
+          error,
+        );
+      }
+    }
+    if (gates.length === 0) return;
+
+    const timeoutMs = this.httpServerReadinessTimeoutMs;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const outcome = await Promise.race([
+        Promise.all(gates).then(() => "ready" as const),
+        new Promise<"timeout">((resolve) => {
+          timer = setTimeout(() => resolve("timeout"), timeoutMs);
+          (timer as unknown as { unref?: () => void }).unref?.();
+        }),
+      ]);
+      if (outcome === "timeout") {
+        console.warn(
+          `⚠️ Adapters did not report readiness within ${timeoutMs}ms; ` +
+            `starting the HTTP server anyway. Requests may stall if an adapter ` +
+            `is still blocking the event loop.`,
+        );
+      }
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   /**
    * Start the HTTP server for the batcher
    * This provides REST API endpoints for interacting with the batcher
+   *
+   * Binding is held until every adapter is past its loop-blocking startup —
+   * the wait lives HERE rather than in `init()` because there are three ways
+   * to reach this method (`init()`, the Effection `runBatcher` path via
+   * `runHttpServer()`, and a direct call), and a gate on only one of them
+   * leaves the black hole open on the others.
    */
   async startHttpServer(): Promise<void> {
     if (this.httpServer) {
       console.log("⚠️ HTTP server already running");
       return;
     }
+
+    await this.waitForAdaptersServable();
 
     try {
       this.httpServer = await startBatcherHttpServer(this, this.port);
@@ -1111,7 +1284,20 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Cleanup additional resources (can be overridden by subclasses)
    */
   protected async cleanupResources(): Promise<void> {
-    // Default implementation - can be extended by subclasses
+    // Give every adapter a chance to release process-wide resources. The
+    // Midnight balancing adapter holds an exclusive claim on its wallet seeds;
+    // without this, a batcher reconfigured or restarted inside one process can
+    // never re-acquire them and construction throws on the second attempt.
+    // A failing close must not block shutdown.
+    for (const [target, adapter] of Object.entries(this.adapters)) {
+      const close = (adapter as BlockchainAdapter<T>).close;
+      if (typeof close !== "function") continue;
+      try {
+        await close.call(adapter);
+      } catch (error) {
+        console.error(`Error closing adapter for target ${target}:`, error);
+      }
+    }
   }
 
   /**
@@ -1487,7 +1673,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     // 3. Perform sequential setup tasks
-    yield* call(() => this.storage.init());
+    yield* call(() => this.storage.init(this.defaultTarget));
 
     // 4. Recover adapter state from storage (e.g., Bitcoin reserved funds)
     if (this.defaultTarget) {
