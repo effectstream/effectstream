@@ -21,8 +21,12 @@ import {
   validatePreInit,
 } from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
-import { DatabaseStorage } from "./storage.ts";
 import { isTrackingStorage } from "./storage.ts";
+import {
+  describeRequestTracking,
+  type RequestTrackingInfo,
+  resolveDefaultStorage,
+} from "./default-storage.ts";
 import { buildRequestKey, computeRequestId } from "./request-id.ts";
 import { resolveReplayKey } from "./replay-key.ts";
 import { assertInputIsFresh } from "./input-freshness.ts";
@@ -210,18 +214,24 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * @param config - Type-safe configuration with unified batching criteria
    * @param storage - The storage system for persisting inputs.
    *
-   * Defaults to `DatabaseStorage` over an embedded PgLite database in
-   * `./batcher-data`. It replaced `FileStorage` as the default because request
-   * tracking needs the queue, each request's status and its replay key to be
-   * written together or not at all, and separate files cannot be. Zero-config
-   * is preserved: the database is embedded, so there is still nothing to
-   * install and nothing to configure.
+   * When omitted, the backend is resolved from the environment (spec
+   * Addendum A, FR-012) by `resolveDefaultStorage()`:
    *
-   * BREAKING for anyone relying on the default: an existing
-   * `./batcher-data/pending-inputs.jsonl` is imported on first `init()` and
-   * renamed to `.imported`, and the queue afterwards lives in the database.
-   * Pass `new FileStorage(dir)` explicitly to keep the old backend — it is
-   * still exported and still fully supported for the queue.
+   * - `BATCHER_DB_SCHEMA` set ⇒ a connected `DatabaseStorage` using the
+   *   engine's own `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_NAME`, owning the schema
+   *   `batcher_<value>`. Request tracking, replay protection and
+   *   `GET /input-status` all work.
+   * - unset ⇒ `FileStorage` at `./batcher-data`, which is exactly what this
+   *   package defaulted to before request tracking existed. It boots with no
+   *   environment at all, queues and batches as always, and keeps no status —
+   *   announced loudly at startup, and DEVELOPMENT ONLY by policy.
+   * - set but invalid, or set and the database unreachable ⇒ REFUSE TO BOOT.
+   *   The key states an intent; falling back would leave an operator who
+   *   believes tracking is on running without it.
+   *
+   * Passing `storage` explicitly means the environment is never consulted.
+   * Embedded PgLite remains available that way — `new DatabaseStorage("./dir")`
+   * — for standalone SDK use (FR-015).
    *
    * Runtime validation ensures:
    * - At least one adapter is provided
@@ -238,9 +248,10 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       T,
       Record<string, BlockchainAdapter<any>>
     >,
-    private readonly storage: BatcherStorage<T> = new DatabaseStorage<T>(
-      "./batcher-data",
-    ),
+    // Evaluated ONLY when the argument is absent, which is what makes
+    // "an explicit storage never consults the environment" true by
+    // construction rather than by a check that could be forgotten.
+    private readonly storage: BatcherStorage<T> = resolveDefaultStorage<T>(),
   ) {
     const cfg = applyBatcherConfigDefaults(config);
     this.config = cfg;
@@ -1595,6 +1606,19 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   isRequestTrackingEnabled(): boolean {
     return isTrackingStorage(this.storage);
+  }
+
+  /**
+   * Tracking, as an operator needs to read it: on or off, and if off, why and
+   * what turns it on (spec FR-012b).
+   *
+   * A bare boolean is not enough on a health surface. "No status for this id"
+   * and "this deployment keeps no statuses" are different problems with
+   * different remedies, and the second one has a one-variable fix that the
+   * answer should name rather than leave to the changelog.
+   */
+  getRequestTrackingInfo(): RequestTrackingInfo {
+    return describeRequestTracking(this.isRequestTrackingEnabled());
   }
 
   /**
