@@ -342,6 +342,26 @@ describe("connected storage against the development gateway", () => {
   });
 });
 
+/** Batcher tables currently sitting in `public`, whoever put them there. */
+async function tablesInPublic(): Promise<string[]> {
+  const specifier = "pg";
+  const pg: any = await import(specifier);
+  const Pool = pg.Pool ?? pg.default?.Pool;
+  const pool = new Pool({ ...postgresConnection(1) });
+  pool.on("error", () => {});
+  try {
+    const rows = await pool.query(
+      `SELECT table_name FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name IN ('pending_inputs','request_status','replay_keys')
+        ORDER BY table_name`,
+    );
+    return rows.rows.map((row: any) => row.table_name);
+  } finally {
+    await pool.end().catch(() => {});
+  }
+}
+
 describe.if(!!POSTGRES_URL)("connected storage against real Postgres", () => {
   beforeAll(async () => {
     // A real server keeps what the last run left, and several cases here
@@ -368,6 +388,12 @@ describe.if(!!POSTGRES_URL)("connected storage against real Postgres", () => {
   });
 
   test("it creates its own schema and puts every table inside it", async () => {
+    // What `public` contains BEFORE this storage exists. The other
+    // Postgres-backed suites in this package connect without a schema and
+    // legitimately create their tables there, so "public is empty" is not a
+    // claim this test may make — "this storage added nothing to public" is.
+    const publicBefore = await tablesInPublic();
+
     const storage = new DatabaseStorage({
       connection: postgresConnection(2),
       schema: "iso_tables",
@@ -388,13 +414,8 @@ describe.if(!!POSTGRES_URL)("connected storage against real Postgres", () => {
       expect(names).toContain("request_status");
       expect(names).toContain("replay_keys");
 
-      // And nothing landed in public, where the engine's own tables live.
-      const inPublic = await (storage as any).db.query(
-        `SELECT table_name FROM information_schema.tables
-          WHERE table_schema = 'public'
-            AND table_name IN ('pending_inputs','request_status','replay_keys')`,
-      );
-      expect(inPublic.rows.length).toBe(0);
+      // And it added nothing to public, where the engine's own tables live.
+      expect(await tablesInPublic()).toEqual(publicBefore);
     } finally {
       await storage.close?.();
     }
