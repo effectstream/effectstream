@@ -64,18 +64,26 @@ await build({
   alias: effectstreamAlias,
   plugins: [
     // @effectstream/wallets declares Cardano/Midnight wallet helpers as optional
-    // peer deps (@lucid-evolution/*, @midnight-ntwrk/*, @effectstream/midnight-contracts).
+    // peer deps (@lucid-evolution/*, @midnight-ntwrk/*, @midnightntwrk/*,
+    // @effectstream/midnight-contracts).
     // This template is EVM-only and never executes those branches. Bundling them
-    // fails (Lucid resolution, ledger-v8 .wasm, Node-only parseArgs), and marking
+    // fails (Lucid resolution, ledger .wasm, Node-only parseArgs), and marking
     // them `external` leaves bare ESM specifiers the browser can't resolve at load
     // time even when the code never runs (e.g. "Failed to resolve module specifier
     // @midnightntwrk/wallet-sdk-shielded"). Resolve them to an empty stub instead:
     // no bare specifiers, and the dead branches see undefined imports never touched.
+    //
+    // BOTH Midnight scopes must be listed. Ledger v9 moved the ledger and
+    // onchain-runtime packages from `@midnight-ntwrk/*` to `@midnightntwrk/*`
+    // (no hyphen), so a filter covering only the hyphenated scope stopped
+    // matching `@midnightntwrk/ledger-v9` — esbuild then followed it into
+    // midnight_ledger_wasm_v9_bg.wasm and failed with
+    // "No loader is configured for .wasm files".
     {
       name: "stub-optional-wallet-deps",
       setup(build) {
         const filter =
-          /^(@lucid-evolution\/|@midnight-ntwrk\/|@effectstream\/midnight-contracts(\/|$))/;
+          /^(@lucid-evolution\/|@midnight-ntwrk\/|@midnightntwrk\/|@effectstream\/midnight-contracts(\/|$))/;
         build.onResolve({ filter }, (args) => ({
           path: args.path,
           namespace: "optional-wallet-stub",
