@@ -69,6 +69,12 @@ jobs:
       - name: Build testing image
         run: docker build -t testing_image:${{ github.sha }} -f .github/Dockerfile .
 
+      - name: Run PGlite lifecycle regression
+        run: |
+          docker run --rm --name db_lifecycle_${{ github.run_number }} testing_image:${{ github.sha }} \
+            bun test packages/node-sdk/db/test/start-pglite.test.ts \
+              packages/node-sdk/db/test/start-pglite-multifile.test.ts
+
       - name: Run e2e tests
         run: docker run --rm --name e2e_${{ github.run_number }} testing_image:${{ github.sha }}
 
