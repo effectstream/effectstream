@@ -36,10 +36,11 @@ if (!process.env["E2E_MAX_TIMEOUT"]) {
 
 async function runInfraTests(): Promise<void> {
   console.log("\n--- Phase 1: Infrastructure Tests ---\n");
+  const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
 
-  await assert("Midnight node is responding on port 9944", async () => {
+  await assert(`Midnight node is responding at ${midnightNetworkConfig.node}`, async () => {
     try {
-      const response = await fetch("http://localhost:9944", {
+      const response = await fetch(midnightNetworkConfig.node, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -56,9 +57,9 @@ async function runInfraTests(): Promise<void> {
     }
   });
 
-  await assert("Midnight indexer is responding on port 8088", async () => {
+  await assert(`Midnight indexer is responding at ${midnightNetworkConfig.indexer}`, async () => {
     try {
-      const response = await fetch("http://localhost:8088/api/v3/graphql", {
+      const response = await fetch(midnightNetworkConfig.indexer, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -101,41 +102,33 @@ async function runContractTests(): Promise<void> {
 // -- Nullifier trigger: perform a shielded transfer to spend nullifiers ------
 
 async function doTriggerNullifiers(): Promise<void> {
-  try {
-    const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
-    const { triggerNullifiers } = await import("../shared/contracts/midnight/faucet.ts");
-    await triggerNullifiers(
-      {
-        indexer: midnightNetworkConfig.indexer,
-        indexerWS: midnightNetworkConfig.indexerWS,
-        node: midnightNetworkConfig.node,
-        proofServer: midnightNetworkConfig.proofServer,
-      },
-      midnightNetworkConfig.id,
-    );
-  } catch (e) {
-    console.error("Failed to trigger nullifiers (non-fatal):", e);
-  }
+  const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
+  const { triggerNullifiers } = await import("../shared/contracts/midnight/faucet.ts");
+  await triggerNullifiers(
+    {
+      indexer: midnightNetworkConfig.indexer,
+      indexerWS: midnightNetworkConfig.indexerWS,
+      node: midnightNetworkConfig.node,
+      proofServer: midnightNetworkConfig.proofServer,
+    },
+    midnightNetworkConfig.id,
+  );
 }
 
 // -- Unshielded-create trigger: unshielded self-transfer creates UTXOs --------
 
 async function doTriggerUnshieldedCreates(): Promise<void> {
-  try {
-    const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
-    const { triggerUnshieldedCreates } = await import("../shared/contracts/midnight/faucet.ts");
-    await triggerUnshieldedCreates(
-      {
-        indexer: midnightNetworkConfig.indexer,
-        indexerWS: midnightNetworkConfig.indexerWS,
-        node: midnightNetworkConfig.node,
-        proofServer: midnightNetworkConfig.proofServer,
-      },
-      midnightNetworkConfig.id,
-    );
-  } catch (e) {
-    console.error("Failed to trigger unshielded creates (non-fatal):", e);
-  }
+  const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
+  const { triggerUnshieldedCreates } = await import("../shared/contracts/midnight/faucet.ts");
+  await triggerUnshieldedCreates(
+    {
+      indexer: midnightNetworkConfig.indexer,
+      indexerWS: midnightNetworkConfig.indexerWS,
+      node: midnightNetworkConfig.node,
+      proofServer: midnightNetworkConfig.proofServer,
+    },
+    midnightNetworkConfig.id,
+  );
 }
 
 // -- Unshielded-swap trigger: initSwap deltas completed by a balancing intent --
@@ -146,52 +139,41 @@ async function doTriggerUnshieldedCreates(): Promise<void> {
 type UnshieldedSwapResult =
   import("../shared/contracts/midnight/faucet.ts").UnshieldedSwapResult;
 
-async function doTriggerUnshieldedSwap(): Promise<UnshieldedSwapResult | undefined> {
-  try {
-    const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
-    const { triggerUnshieldedSwap } = await import("../shared/contracts/midnight/faucet.ts");
-    return await triggerUnshieldedSwap(
-      {
-        indexer: midnightNetworkConfig.indexer,
-        indexerWS: midnightNetworkConfig.indexerWS,
-        node: midnightNetworkConfig.node,
-        proofServer: midnightNetworkConfig.proofServer,
-      },
-      midnightNetworkConfig.id,
-    );
-  } catch (e) {
-    console.error("Failed to trigger unshielded swap (swap assertions will fail):", e);
-    return undefined;
-  }
+async function doTriggerUnshieldedSwap(): Promise<UnshieldedSwapResult> {
+  const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
+  const { triggerUnshieldedSwap } = await import("../shared/contracts/midnight/faucet.ts");
+  return triggerUnshieldedSwap(
+    {
+      indexer: midnightNetworkConfig.indexer,
+      indexerWS: midnightNetworkConfig.indexerWS,
+      node: midnightNetworkConfig.node,
+      proofServer: midnightNetworkConfig.proofServer,
+    },
+    midnightNetworkConfig.id,
+  );
 }
 
 // -- Token-mint trigger: mint custom tokens via the counter contract ----------
 
-async function doTriggerTokenMints(): Promise<MintedTokens | undefined> {
-  try {
-    const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
-    const { triggerTokenMints } = await import("../shared/contracts/midnight/trigger-token-mints.ts");
-    return await triggerTokenMints(
-      {
-        indexer: midnightNetworkConfig.indexer,
-        indexerWS: midnightNetworkConfig.indexerWS,
-        node: midnightNetworkConfig.node,
-        proofServer: midnightNetworkConfig.proofServer,
-      },
-      midnightNetworkConfig.id,
-    );
-  } catch (e) {
-    console.error("Failed to trigger token mints (non-fatal):", e);
-    return undefined;
-  }
+async function doTriggerTokenMints(): Promise<MintedTokens> {
+  const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
+  const { triggerTokenMints } = await import("../shared/contracts/midnight/trigger-token-mints.ts");
+  return triggerTokenMints(
+    {
+      indexer: midnightNetworkConfig.indexer,
+      indexerWS: midnightNetworkConfig.indexerWS,
+      node: midnightNetworkConfig.node,
+      proofServer: midnightNetworkConfig.proofServer,
+    },
+    midnightNetworkConfig.id,
+  );
 }
 
 // -- Indexer GraphQL helper (fidelity cross-checks) ----------------------------
 
-const INDEXER_GRAPHQL_URL = "http://localhost:8088/api/v3/graphql";
-
 async function indexerGql(query: string, variables?: unknown): Promise<any> {
-  const response = await fetch(INDEXER_GRAPHQL_URL, {
+  const { midnightNetworkConfig } = await import("@effectstream/midnight-contracts/midnight-env");
+  const response = await fetch(midnightNetworkConfig.indexer, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, variables }),
@@ -607,12 +589,12 @@ async function runSyncTests(
   );
 
   // L3a: derivation fidelity — recompute rawTokenType(domain_sep, contract)
-  // with ledger-v8 for every row and require byte-equality with the stored
+  // with ledger-v9 for every row and require byte-equality with the stored
   // token_type. Proves the fetcher's derivation (and the row pairing) exact.
   await assert(
     "Midnight: every stored token_type equals rawTokenType(domain_sep, contract_address)",
     async () => {
-      const { rawTokenType } = await import("@midnight-ntwrk/ledger-v8");
+      const { rawTokenType } = await import("@midnightntwrk/ledger-v9");
       const hexToBytes = (hex: string) =>
         Uint8Array.from(Buffer.from(hex.replace(/^0x/, ""), "hex"));
       const normalize = (s: string) => s.replace(/^0x/, "").toLowerCase();
@@ -757,8 +739,8 @@ async function test() {
 
     // 4.5. Trigger a shielded transfer to produce nullifier events on-chain,
     // an unshielded self-transfer to produce unshielded-create events, then
-    // contract mints to produce token-mint events. (To run the TokenMint
-    // negative check, skip the mint trigger and confirm its assertions fail.)
+    // contract mints to produce token-mint events. Every migration assertion
+    // is mandatory: a trigger or assertion failure fails this run.
     const uswap = await doTriggerUnshieldedSwap();
     await doTriggerNullifiers();
     await doTriggerUnshieldedCreates();
@@ -769,14 +751,10 @@ async function test() {
     await runSyncTests(db, minted, uswap);
 
     // 6. Wait for batcher + run batcher tests
-    try {
-      await waitForProcess("batcher-wait", { waitForExit: true, timeoutMs: 120_000 });
-      console.log("\n--- Phase 4: Batcher Tests ---\n");
-      const { batcherTest } = await import("./sync/batcher.test.ts");
-      await batcherTest();
-    } catch (e) {
-      console.error("Batcher phase failed (non-fatal):", e instanceof Error ? e.message : e);
-    }
+    await waitForProcess("batcher-wait", { waitForExit: true, timeoutMs: 120_000 });
+    console.log("\n--- Phase 4: Batcher Tests ---\n");
+    const { batcherTest } = await import("./sync/batcher.test.ts");
+    await batcherTest();
 
     // 7. Summary
     printSummary();

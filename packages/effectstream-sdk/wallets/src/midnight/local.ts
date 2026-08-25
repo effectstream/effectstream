@@ -170,12 +170,15 @@ export class MidnightLocalConnector {
       hdMod.Roles.NightExternal,
     );
     const unshieldedKeystore = keystoreMod.createKeystore(
-      unshieldedSeed,
+      { kind: "schnorr", secret: unshieldedSeed },
       args.networkId as never,
     );
 
     const unshieldedAddress = unshieldedKeystore.getBech32Address().asString();
-    const verifyingKey = String(unshieldedKeystore.getPublicKey());
+    const verifyingKey = schnorrValue(
+      unshieldedKeystore.getPublicKey(),
+      "verifying key",
+    );
 
     const api: MidnightLocalApi = {
       signData: async (data, options) => {
@@ -183,10 +186,13 @@ export class MidnightLocalConnector {
           options.encoding === "hex"
             ? Buffer.from(data, "hex")
             : Buffer.from(data, "utf-8");
-        const signature = unshieldedKeystore.signData(bytes);
+        const signature = schnorrValue(
+          unshieldedKeystore.signData(bytes),
+          "signature",
+        );
         return {
           data,
-          signature: String(signature),
+          signature,
           verifyingKey,
         };
       },
@@ -247,10 +253,13 @@ export class MidnightLocalConnector {
       hdMod.Roles.NightExternal,
     );
     const unshieldedKeystore = keystoreMod.createKeystore(
-      unshieldedSeed,
+      { kind: "schnorr", secret: unshieldedSeed },
       args.networkId as never,
     );
-    const verifyingKey = String(unshieldedKeystore.getPublicKey());
+    const verifyingKey = schnorrValue(
+      unshieldedKeystore.getPublicKey(),
+      "verifying key",
+    );
 
     const fullNetworkUrls = {
       indexer: networkUrls.indexer,
@@ -285,10 +294,13 @@ export class MidnightLocalConnector {
           options.encoding === "hex"
             ? Buffer.from(data, "hex")
             : Buffer.from(data, "utf-8");
-        const signature = unshieldedKeystore.signData(bytes);
+        const signature = schnorrValue(
+          unshieldedKeystore.signData(bytes),
+          "signature",
+        );
         return {
           data,
-          signature: String(signature),
+          signature,
           verifyingKey,
         };
       },
@@ -367,7 +379,7 @@ export class MidnightLocalProvider implements IProvider<MidnightApi> {
     );
     // Format: "signature|verifyingKey". Midnight signatures are not
     // self-recovering (unlike EVM ECDSA), so the verifier needs the public
-    // key to call ledger-v8.verifySignature. Mirrors Cardano's "sig+key"
+    // key to call ledger-v9.verifySignature with tagged Schnorr values. Mirrors Cardano's "sig+key"
     // convention, just with `|` as the separator to keep the formats distinct.
     return `${signed.signature}|${signed.verifyingKey}`;
   };
@@ -421,4 +433,14 @@ function generateRandomHexSeed(byteLength: number): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function schnorrValue(
+  value: { tag: "schnorr" | "ecdsa"; value: string },
+  label: string,
+): string {
+  if (value.tag !== "schnorr") {
+    throw new Error(`Expected Schnorr ${label}, received ${value.tag}`);
+  }
+  return value.value;
 }

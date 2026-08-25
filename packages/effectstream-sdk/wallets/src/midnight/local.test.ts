@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { Buffer } from "node:buffer";
 import { AddressType } from "@effectstream/utils/types";
-import { verifySignature } from "@midnight-ntwrk/ledger-v8";
+import { verifySignature } from "@midnightntwrk/ledger-v9";
 import { CryptoManager } from "@effectstream/crypto";
 import { MidnightLocalConnector, type MidnightLocalApi } from "./local.ts";
 
@@ -20,7 +20,7 @@ describe("MidnightLocalProvider", () => {
     expect(address.length).toBeGreaterThan(0);
   });
 
-  test("signMessage produces a signature that verifies via ledger-v8", async () => {
+  test("signMessage produces a signature that verifies via tagged ledger-v9 APIs", async () => {
     const provider = await MidnightLocalConnector.instance().connectFromSeed({
       seed: DETERMINISTIC_SEED,
       networkId: "undeployed",
@@ -34,11 +34,13 @@ describe("MidnightLocalProvider", () => {
 
     const messageBytes = Buffer.from(message, "utf-8");
     const ok = verifySignature(
-      signed.verifyingKey as never,
+      { tag: "schnorr", value: signed.verifyingKey },
       messageBytes,
-      signed.signature as never,
+      { tag: "schnorr", value: signed.signature },
     );
     expect(ok).toBe(true);
+    expect(signed.verifyingKey).not.toContain("[object Object]");
+    expect(signed.signature).not.toContain("[object Object]");
 
     // signMessage on the IProvider surface returns "signature|verifyingKey"
     // (Midnight signing is non-deterministic, so the inner signature differs
@@ -48,9 +50,9 @@ describe("MidnightLocalProvider", () => {
     expect(rest).toEqual([]);
     expect(innerVk).toBe(signed.verifyingKey);
     const okAgain = verifySignature(
-      innerVk as never,
+      { tag: "schnorr", value: innerVk },
       messageBytes,
-      innerSig as never,
+      { tag: "schnorr", value: innerSig },
     );
     expect(okAgain).toBe(true);
   });

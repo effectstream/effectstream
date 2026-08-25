@@ -10,11 +10,11 @@
     "./contract": "./src/managed/contract/index.js"
   },
   "scripts": {
-    "compact": "compact compile +0.31.0 src/simpletoken.compact src/managed",
+    "compact": "compact compile +0.33.0-rc.2 src/simpletoken.compact src/managed",
     "contract:compile": "bun run compact"
   },
   "dependencies": {
-    "@midnight-ntwrk/compact-runtime": "0.16.0"
+    "@midnight-ntwrk/compact-runtime": "0.18.0-rc.1"
   },
   "devDependencies": {
     "vitest": "^3.2.4"

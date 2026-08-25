@@ -12,8 +12,10 @@ const ROOT = resolve(import.meta.dir, "..");
 const FLAGS_HELP = `
 Flags:
   --publish                real publish (default is dry-run via \`bun publish --dry-run\`)
-  --release-version <ver>  validate <ver> (semver, must be > current root version) and
+  --release-version <ver>  validate <ver> (SemVer, must be > current root version) and
                            use it as the version to publish; also writes it into root package.json
+  --dist-tag <tag>         required release channel: stable uses latest; prereleases use
+                           a non-latest npm tag (for example next, beta, or canary)
   --allow-uncommitted      skip the git-clean check
   --allow-missing-readme   skip the per-package README presence / 400-char check
 `;
@@ -79,25 +81,83 @@ const PACKAGE_DESCRIPTIONS: Record<string, string> = {
   "@effectstream/celestia": "Celestia binary wrapper for EffectStream",
 };
 
-// --- Version helpers (pure, exported for unit testing) ---
+// --- Version/channel helpers (pure, exported for unit testing) ---
 
-/** Parse a `MAJOR.MINOR.PATCH` string (optional leading `v`) into a numeric tuple. */
-export function parseSemver(input: string): [number, number, number] {
-  const m = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(input.trim());
-  if (!m) {
-    throw new Error(`"${input}" is not a MAJOR.MINOR.PATCH version`);
+type PrereleaseIdentifier =
+  | { numeric: true; value: bigint; raw: string }
+  | { numeric: false; value: string; raw: string };
+
+export type ParsedSemver = {
+  major: bigint;
+  minor: bigint;
+  patch: bigint;
+  prerelease: PrereleaseIdentifier[];
+  build: string[];
+  normalized: string;
+};
+
+// Strict SemVer 2.0.0 grammar. Numeric core/prerelease identifiers cannot have
+// leading zeroes; build identifiers may. We intentionally allow one leading
+// `v` for Git tags and normalize it away.
+const SEMVER_RE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+
+/** Parse a complete SemVer string, accepting and removing one leading `v`. */
+export function parseSemver(input: string): ParsedSemver {
+  const trimmed = input.trim();
+  const candidate = trimmed.startsWith("v") ? trimmed.slice(1) : trimmed;
+  const match = SEMVER_RE.exec(candidate);
+  if (!match) {
+    throw new Error(`"${input}" is not a valid SemVer version`);
   }
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
+
+  const prereleaseRaw = match[4] ? match[4].split(".") : [];
+  const prerelease: PrereleaseIdentifier[] = prereleaseRaw.map((raw) =>
+    /^\d+$/.test(raw)
+      ? { numeric: true, value: BigInt(raw), raw }
+      : { numeric: false, value: raw, raw },
+  );
+  const build = match[5] ? match[5].split(".") : [];
+
+  return {
+    major: BigInt(match[1]),
+    minor: BigInt(match[2]),
+    patch: BigInt(match[3]),
+    prerelease,
+    build,
+    normalized: candidate,
+  };
 }
 
-/** Compare two semver tuples: negative if a<b, 0 if equal, positive if a>b. */
-export function compareSemver(
-  a: [number, number, number],
-  b: [number, number, number],
-): number {
-  for (let i = 0; i < 3; i++) {
-    if (a[i] !== b[i]) return a[i] - b[i];
+/** Compare parsed SemVer values using SemVer 2.0.0 precedence rules. */
+export function compareSemver(a: ParsedSemver, b: ParsedSemver): number {
+  for (const key of ["major", "minor", "patch"] as const) {
+    if (a[key] < b[key]) return -1;
+    if (a[key] > b[key]) return 1;
   }
+
+  if (a.prerelease.length === 0 && b.prerelease.length === 0) return 0;
+  if (a.prerelease.length === 0) return 1;
+  if (b.prerelease.length === 0) return -1;
+
+  const count = Math.max(a.prerelease.length, b.prerelease.length);
+  for (let i = 0; i < count; i++) {
+    const left = a.prerelease[i];
+    const right = b.prerelease[i];
+    if (left === undefined) return -1;
+    if (right === undefined) return 1;
+    if (left.numeric && right.numeric) {
+      if (left.value < right.value) return -1;
+      if (left.value > right.value) return 1;
+      continue;
+    }
+    if (left.numeric !== right.numeric) return left.numeric ? -1 : 1;
+    const leftText = String(left.value);
+    const rightText = String(right.value);
+    if (leftText < rightText) return -1;
+    if (leftText > rightText) return 1;
+  }
+
+  // Build metadata does not participate in precedence.
   return 0;
 }
 
@@ -112,10 +172,55 @@ export function resolveReleaseVersion(tag: string, current: string): string {
   const cur = parseSemver(current);
   if (compareSemver(next, cur) <= 0) {
     throw new Error(
-      `Release version ${next.join(".")} must be strictly greater than current ${cur.join(".")}`,
+      `Release version ${next.normalized} must be strictly greater than current ${cur.normalized}`,
     );
   }
-  return next.join(".");
+  return next.normalized;
+}
+
+export const STABLE_DIST_TAG = "latest";
+const NPM_DIST_TAG_RE = /^[A-Za-z][A-Za-z0-9._-]*$/;
+const NPM_WILDCARD_RANGE_RE = /^x(?:$|\.)/i;
+
+/**
+ * Enforce the complete release-channel contract before any package mutation:
+ * stable releases use `latest`; prereleases use an explicit non-`latest` npm tag.
+ */
+export function resolveDistTag(version: string, requestedTag?: string): string {
+  if (requestedTag === undefined || requestedTag.length === 0) {
+    throw new Error("--dist-tag is required for every release");
+  }
+  if (requestedTag !== requestedTag.trim()) {
+    throw new Error(`Invalid dist-tag "${requestedTag}": surrounding whitespace is not allowed`);
+  }
+  if (/^[0-9v]/i.test(requestedTag)) {
+    throw new Error(
+      `Invalid dist-tag "${requestedTag}": npm tags must not begin with a digit or v`,
+    );
+  }
+  if (!NPM_DIST_TAG_RE.test(requestedTag)) {
+    throw new Error(
+      `Invalid dist-tag "${requestedTag}": use letters, digits, dots, underscores, or hyphens`,
+    );
+  }
+  if (NPM_WILDCARD_RANGE_RE.test(requestedTag)) {
+    throw new Error(
+      `Invalid dist-tag "${requestedTag}": npm wildcard SemVer ranges are not allowed`,
+    );
+  }
+
+  const parsed = parseSemver(version);
+  if (parsed.prerelease.length === 0) {
+    if (requestedTag !== STABLE_DIST_TAG) {
+      throw new Error(`Stable release ${parsed.normalized} must use dist-tag ${STABLE_DIST_TAG}`);
+    }
+    return requestedTag;
+  }
+
+  if (requestedTag === STABLE_DIST_TAG) {
+    throw new Error(`Prerelease ${parsed.normalized} must not use dist-tag ${STABLE_DIST_TAG}`);
+  }
+  return requestedTag;
 }
 
 /**
@@ -146,24 +251,29 @@ if (import.meta.main) {
   // we publish whatever is already in root package.json (the original behavior).
   const releaseArg = getFlagValue("--release-version");
   let version: string;
-  if (releaseArg !== undefined) {
-    try {
+  let distTag: string;
+  try {
+    if (releaseArg !== undefined) {
       version = resolveReleaseVersion(releaseArg, rootPkg.version);
-    } catch (e: any) {
-      console.error(`\n❌ ${e.message}`);
-      printFlags();
-      process.exit(1);
+    } else {
+      version = parseSemver(rootPkg.version).normalized;
     }
+    distTag = resolveDistTag(version, getFlagValue("--dist-tag"));
+  } catch (e: any) {
+    console.error(`\n❌ ${e.message}`);
+    printFlags();
+    process.exit(1);
+  }
+
+  if (releaseArg !== undefined) {
     console.log(
-      `\n🔖 Release version ${version} (from "${releaseArg}"), current root ${rootPkg.version}`,
+      `\n🔖 Release version ${version} (from "${releaseArg}"), current root ${rootPkg.version}, dist-tag ${distTag}`,
     );
-  } else {
-    version = rootPkg.version;
   }
 
   // --- Step 1: Find all publishable packages ---
 
-  console.log(`\n📦 Publishing version: ${version}\n`);
+  console.log(`\n📦 Publishing version: ${version} on dist-tag ${distTag}\n`);
 
   const glob = new Glob("packages/**/package.json");
   const packageDirs: { name: string; dir: string; pkg: any }[] = [];
@@ -439,7 +549,7 @@ if (import.meta.main) {
     process.stdout.write(`  ${name} (${rel}) ... `);
 
     try {
-      await $`cd ${dir} && bun publish ${dryRunArgs} --access public`.quiet();
+      await $`cd ${dir} && bun publish ${dryRunArgs} --access public --tag ${distTag}`.quiet();
       console.log("✓");
     } catch (e: any) {
       console.log("✗");

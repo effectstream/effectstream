@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
-    "@effectstream/midnight-contracts": "0.103.3",
-    "@effectstream/evm-contracts": "0.103.3",
-    "@effectstream/orchestrator": "0.103.3",
+    "@effectstream/midnight-contracts": "0.104.0",
+    "@effectstream/evm-contracts": "0.104.0",
+    "@effectstream/orchestrator": "0.104.0",
     "@midnightntwrk/wallet-sdk-address-format": "3.1.2",
     "wait-on": "8.0.3"
   },

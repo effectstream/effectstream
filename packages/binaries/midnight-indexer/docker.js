@@ -1,6 +1,7 @@
 const { spawn, exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
+const IMAGE = 'midnightntwrk/indexer-standalone:4.4.0-rc.1';
 
 /**
  * Checks if Docker is installed and available on the system
@@ -20,12 +21,10 @@ async function checkIfDockerExists() {
  * @returns {Promise<void>}
  */
 async function pullDockerImage() {
-    const imageName = 'midnightntwrk/indexer-standalone';
-    
-    console.log(`Pulling Docker image: ${imageName}`);
+    console.log(`Pulling Docker image: ${IMAGE}`);
     
     return new Promise((resolve, reject) => {
-        const childProcess = spawn('docker', ['pull', imageName], {
+        const childProcess = spawn('docker', ['pull', IMAGE], {
             stdio: 'inherit'
         });
         
@@ -51,7 +50,6 @@ async function pullDockerImage() {
  * @returns {ChildProcess} The spawned Docker process
  */
 function runDockerContainer(env = process.env, args = []) {
-    const imageName = 'midnightntwrk/indexer-standalone';
     const containerName = 'midnight-local-indexer';
     
     // Stop and remove existing container if it exists
@@ -124,7 +122,7 @@ function runDockerContainer(env = process.env, args = []) {
     });
     
     // Add the image name
-    dockerArgs.push(imageName);
+    dockerArgs.push(IMAGE);
     
     // Add any remaining arguments
     if (args.length > 0) {

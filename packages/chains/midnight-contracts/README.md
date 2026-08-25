@@ -77,8 +77,8 @@ To deploy against a non-default stack, pass `NetworkUrls`:
 
 ```typescript
 const network: NetworkUrls = {
-  indexer: "http://localhost:8088/api/v3/graphql",
-  indexerWS: "ws://localhost:8088/api/v3/graphql/ws",
+  indexer: "http://localhost:8088/api/v4/graphql",
+  indexerWS: "ws://localhost:8088/api/v4/graphql/ws",
   node: "http://localhost:9944",
   proofServer: "http://localhost:6300",
 };
@@ -127,7 +127,7 @@ Wallet and dust helpers, exported from the package root:
 
 - `buildWalletFacade(...)`: builds the wallet facade the deploy and batcher paths run on.
 - `registerNightForDust(...)`, `getInitialDustState(...)`: register NIGHT to generate dust and read the starting state.
-- `waitForDustFunds(wallet, opts)` / `waitForDustFundsWithRetry(...)`: block until a wallet has spendable dust — the step that makes a freshly funded wallet usable.
+- `waitForDustFunds(wallet, opts)` / `waitForDustFundsWithRetry(...)`: block until `dust.availableCoins` contains a spendable coin — a positive aggregate balance alone does not make a freshly funded wallet fee-ready.
 - `saveDustState(...)` / `loadDustState(...)`: persist and restore dust state across restarts, avoiding a re-sync.
 - `resolveFacadeDustBalance(...)`: current dust balance for a facade.
 
