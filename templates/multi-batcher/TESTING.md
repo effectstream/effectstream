@@ -35,7 +35,7 @@ Requires the Docker stack (`docker compose up -d`). Results append to
 | M2 | Cross-product dust isolation | Flooding product-a (30 calls) does not stall product-b or product-c; every accepted input still lands; zero drops. |
 | M3 | Shared-queue dedup | A byte-identical payload sent to two products is two independent rows: one accepted, one refused, delivered exactly once. Guards the target-scoped storage key. |
 | M4 | Strict routing | Unaddressed input → 400, unknown target → 404, nothing queued. |
-| M5 | Tampered storage | A policy-violating row appended straight to the JSONL (bypassing intake) is refused by the pre-batch re-check, bounded-retried and dropped **with a warning** — other products unaffected. |
+| M5 | Tampered storage | A policy-violating row appended straight to the JSONL (bypassing intake) is refused by the **pre-spend gate** — typed `POLICY_REJECTED`, permanently rejected and removed, with **zero proving, zero dust and zero retry charge** (no `DROPPING`), all scoped to the row's own trace hash — other products unaffected. |
 | M6 | Garbage intake | Non-JSON, empty, bad stage, garbage hex and a 1 MB blob are all refused at the door; queue stays clean. |
 | M7 | Per-product observability | `/queue-stats` reports each product's queue depth plus adapter health (workers busy/total, dust lanes, policy shape). |
 | M8 | Node outage | A 60s outage parks every product (infra failure, no retry charged), then all recover with zero drops. |
@@ -95,3 +95,21 @@ Requires the Docker stack (`docker compose up -d`). Results append to
   because each child owns an independent ledger WASM heap.
 - M10 reads event-loop-delay histograms emitted by the batcher process itself;
   host-driver latency is not used as a proxy for the server's event loop.
+
+## Known host-level hazard: docker's pause state can diverge from the freezer
+
+M8 pauses the `node` service. `docker compose pause`/`unpause` can report
+success while the daemon's metadata and the container's freezer cgroup
+disagree: the daemon then refuses both `pause` ("container not running") and
+`unpause` ("is not paused") while the process stays frozen and `docker exec`
+answers "cannot exec in a paused container". The node's 2-second healthcheck
+exec makes the race easy to hit, since an exec is nearly always in flight when
+the pause lands.
+
+M8 therefore VERIFIES both transitions against the daemon and then waits for the
+node to answer RPC again, failing immediately and by name if it does not —
+rather than spending its 15-minute drain budget on a chain that will never
+produce another block and reporting that as a batcher fault. **Recovery:**
+`docker restart multi-batcher-node-1`. The chain survives a restart (it lives in
+the container's writable layer); only a recreate — a compose *config* change
+plus `up -d` — wipes it.

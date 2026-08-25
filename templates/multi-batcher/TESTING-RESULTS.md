@@ -38,6 +38,41 @@ After the fix `cOffersReaped=0` — the race is gone at the root, not papered ov
 > already landed. Delivered once, no double-submit, stale rows reaped — the
 > intended exactly-once outcome.
 
+> **2026-08-25: the base moved, and the suite moved with it — 12/12.** The
+> branch merged `claude/multi-batcher-sdk-v2` (86 commits, including #873's
+> request tracking). The 2026-08-25T19:05 run below is the first full run on
+> that base and the authoritative one. Three notes, because two scenarios
+> changed meaning and one changed for a reason that is not the batcher's:
+>
+> **M5's assertion was rewritten, and now proves more.** The pre-batch policy
+> re-check it used to grep for (`Policy rejected … pre-batch`) no longer
+> exists: policy re-validation of untrusted storage rows moved into the
+> pre-spend gate, which throws a typed `POLICY_REJECTED` permanent rejection.
+> The row is therefore REMOVED rather than retry-charged to exhaustion and
+> reaped, so the old `drops > 0` could never hold again. Rather than relax the
+> test, it now asserts the stronger fact, every count scoped to the row's own
+> trace hash: refused by name, removed under the typed verdict, in a batch that
+> cost the sponsor nothing (`0 submitted … 0 retry-charged`), with zero proving
+> and zero retry charge. Probed by feeding it a row product-a *accepts* — every
+> rejection counter went to zero and `proved` went 0 → 1.
+>
+> **M11 and M12 had never actually run on this branch.** Both import
+> `validation-executor.ts`, `ledger-params-cache.ts` and the adapter's
+> `PreSpendPermanent`/`waitForDustThenEnforceTtl`, none of which existed in the
+> branch's own tree — they arrived with the merge. Their earlier recorded
+> passes came from a working tree that was ahead of what was committed. This is
+> the first run where the committed state contains what they import.
+>
+> **M8's first attempt hung for 36 minutes, and it was docker, not the
+> batcher.** `docker compose unpause node` reported success while the
+> container's freezer cgroup stayed frozen (`cgroup.freeze=1`) and the daemon's
+> metadata said `Paused: false` — after which docker refused both `pause`
+> ("container not running") and `unpause` ("is not paused"). The suite sat on a
+> dead chain and would have reported the resulting timeout as a batcher fault.
+> M8 now verifies both transitions against the daemon and waits for the node to
+> answer RPC again, failing in seconds with the cause named. On the rerun M8
+> passed in **171 s**. See TESTING.md for the recovery.
+
 > **M3 was rewritten between the two runs on 2026-08-05.** The first run's M3
 > ("delivered once EACH") did not test what it claimed: it sent the payload to
 > product-b and product-c, but product-c *rejects* a plain transfer, so only one
@@ -278,3 +313,69 @@ Per-child RSS min/median/max: 98.0 / 98.8 / 118.9 MiB across 15 children.
 | 3524185 | 98.5 |
 
 Per-child RSS min/median/max: 98.2 / 99.5 / 124.6 MiB across 15 children.
+
+## Deep run 2026-08-25T19:05:46.114Z
+
+| # | Test | Outcome | Notes |
+|---|------|---------|-------|
+| M1 | Policy matrix: each product accepts only its own shape | **pass** | 8/8 cases correct |
+| M2 | One product's dust exhaustion does not stall the others | **pass** | a: 30/30 b: 4/4 c accepted=3 drops(a,b)=0 cOffersReaped=0 |
+| M3 | Byte-identical payload on two targets creates two independent rows | **pass** | b=accepted c=accepted rows: b=1 c=1 |
+| M4 | Unaddressed and unknown-target inputs are refused | **pass** | noTarget=400 unknownTarget=404 pending=0 |
+| M5 | A policy-violating row written straight to storage is refused | **pass** | drained=true hash=#8f11240e policyRejects=1 typedRemoval=1 zeroCostBatch=1 proved=0 retryCharged=0 drops=0 productBPending=0 |
+| M6 | Garbage and oversized payloads are refused at intake | **pass** | not-json-not-hex:rejected(400) empty:rejected(400) bad-stage:rejected(400) garbage-hex:rejected(400) huge:rejected(400) pending=0 |
+| M7 | Per-product health is observable via /queue-stats | **pass** | product-a[w=0/5 dust=5] product-b[w=0/5 dust=6] product-c[w=0/5 dust=9] missing=none |
+| M8 | Node outage parks every product and drops nothing | **pass** | a=5/5 b=3/3 parked=0 drops=0 |
+| M9 | Restart with a mixed queue delivers every product exactly once | **pass** | a=4/4 b=3/3 |
+| M10 | Mixed three-product soak | **pass** | a=25/25 b=10/10 c=6 wall=307.2s tps=0.13 eventLoopLagP99(max 5s window)=61.01ms validationChildRSS=30 children 114.5/117.7/141.0 MiB min/median/max dustErrors=0 drops=0 |
+| M11 | Corrupted proof is admitted, then permanently rejected pre-spend | **pass** | hash=#b973912a corruptAt=50% noWait=200 waitReceipt=400/NOT_WELL_FORMED proved=0 proofRejects=2 permanent=2 retryCharged=0 zeroRetryOutcomes=2 dust=[7]→[7] D7={"phase":"pre-spend","txStage":"finalized","strictness":{"enforceBalancing":false,"verifySignatures":true,"enforceLimits":false,"verifyNativeProofs":false,"verifyContractProofs":false}} reason=Invalid proof -- while verifying Zswap proof |
+| M12 | Intent-bearing call that expires during dust wait is refused | **pass** | realCallBytes=3307 intents=1 beforeWait=121000ms afterWait=119000ms floor=120000ms order=wait→ttl verdict=TTL_TOO_SHORT |
+
+**Memory (docker stats, 171 samples):**
+
+| service | peak MiB | final MiB |
+|---|---|---|
+| app | 1915.9 | 1603.6 |
+| indexer | 52.2 | 9.2 |
+| node | 1542.1 | 47.5 |
+| proof-lb | 5.0 | 3.3 |
+| proof-server | 806.3 | 4.4 |
+| proof-server-2 | 840.5 | 4.0 |
+| proof-server-3 | 849.4 | 5.0 |
+
+**Validation child RSS (170 samples):**
+
+| host PID | peak RSS MiB |
+|---|---|
+| 778995 | 136.4 |
+| 778996 | 134.8 |
+| 778997 | 114.9 |
+| 778998 | 121.9 |
+| 778999 | 115.6 |
+| 779000 | 117.7 |
+| 779001 | 114.5 |
+| 779002 | 114.8 |
+| 779005 | 120.4 |
+| 779011 | 115.3 |
+| 779013 | 115.3 |
+| 779015 | 117.2 |
+| 779018 | 115.1 |
+| 779020 | 117.5 |
+| 779049 | 117.9 |
+| 967148 | 137.8 |
+| 967149 | 141.0 |
+| 967150 | 138.2 |
+| 967151 | 117.1 |
+| 967179 | 116.9 |
+| 967183 | 119.8 |
+| 967188 | 121.7 |
+| 967190 | 117.6 |
+| 967192 | 116.0 |
+| 967194 | 119.9 |
+| 967198 | 122.3 |
+| 967199 | 115.2 |
+| 967204 | 116.8 |
+| 967212 | 120.5 |
+| 967220 | 117.7 |
+
+Per-child RSS min/median/max: 114.5 / 117.7 / 141.0 MiB across 30 children.

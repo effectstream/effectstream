@@ -66,6 +66,76 @@ async function appLogsSince(sinceIso: string): Promise<string> {
   return (await compose("logs", "app", "--since", sinceIso, "--no-log-prefix")).out;
 }
 
+/**
+ * Pause or unpause a compose service, ASSERTING the transition took effect.
+ *
+ * `docker compose pause`/`unpause` can report success while the container's
+ * freezer cgroup and the daemon's own metadata disagree — after which docker
+ * refuses both `pause` ("container not running") and `unpause` ("is not
+ * paused") while the process stays frozen at the cgroup level. The node's
+ * 2-second healthcheck `docker exec` makes that race easy to hit, because an
+ * exec is almost always in flight when the pause lands.
+ *
+ * A scenario that only REQUESTS the transition then spends its entire drain
+ * budget waiting on a chain that will never produce another block, and reports
+ * the timeout as a batcher failure. Measured here: the whole suite sat on a
+ * frozen node for 36 minutes and M8 never noticed. So the state is verified
+ * against the daemon, and a divergence is raised immediately, by name.
+ *
+ * Recovery, if it happens: `docker restart <node container>`. The chain lives
+ * in the container's writable layer, so a restart keeps it — only a recreate
+ * (a compose CONFIG change plus `up -d`) wipes it.
+ */
+async function setServicePaused(service: string, paused: boolean): Promise<void> {
+  const verb = paused ? "pause" : "unpause";
+  const { code, out } = await compose(verb, service);
+  if (code !== 0) {
+    throw new Error(
+      `docker compose ${verb} ${service} failed (exit ${code}): ${out.trim().slice(-300)}`,
+    );
+  }
+  const id = (await compose("ps", "-q", service)).out.trim();
+  if (!id) throw new Error(`could not resolve a container id for service ${service}`);
+  const inspected = await sh(["docker", "inspect", id, "--format", "{{.State.Paused}}"]);
+  const actual = inspected.out.trim() === "true";
+  if (actual !== paused) {
+    throw new Error(
+      `${service} should be ${verb}d, but docker reports Paused=${actual}. ` +
+        `The daemon's pause state has diverged from the container's freezer ` +
+        `cgroup; recover with \`docker restart\` on that container.`,
+    );
+  }
+}
+
+/**
+ * The node is only genuinely back when it answers RPC — the container's
+ * metadata is not evidence, as the divergence above proves.
+ */
+async function waitForNodeRpc(timeoutMs: number): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const response = await fetch(NETWORK.node, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "chain_getBlockHash",
+          params: [1],
+        }),
+        signal: AbortSignal.timeout(3_000),
+      });
+      if (response.ok) {
+        const body = await response.json() as { result?: string };
+        if (typeof body.result === "string") return true;
+      }
+    } catch { /* still frozen or still starting */ }
+    await new Promise((r) => setTimeout(r, 2_000));
+  }
+  return false;
+}
+
 function countMatches(text: string, pattern: RegExp): number {
   const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
   return (text.match(new RegExp(pattern.source, flags)) ?? []).length;
@@ -359,25 +429,60 @@ register("M5", "A policy-violating row written straight to storage is refused", 
 
   // Bypass /send-input entirely: append a transfer addressed to product-a
   // (whose policy only permits counter calls) directly into the shared queue.
+  const storedInput = JSON.stringify({ tx: hex, txStage: "finalized" });
   const row = {
     address: "tamper",
     addressType: 5,
-    input: JSON.stringify({ tx: hex, txStage: "finalized" }),
+    input: storedInput,
     timestamp: String(Date.now()),
     target: "product-a",
   };
   appendFileSync(STORAGE_FILE, JSON.stringify(row) + "\n");
 
+  // Every count below is scoped to THIS row's own trace hash, so no other
+  // product's traffic can satisfy the assertion on its behalf.
+  const traceHash = inputContentHash(storedInput);
+  const hashPattern = escapeRegExp(traceHash);
+
   const drained = await waitForDrained("product-a", 300_000);
   const logs = await appLogsSince(since);
-  const policyRejects = countMatches(logs, /Policy rejected .* pre-batch/);
-  const drops = countMatches(logs, /DROPPING input/);
+
+  // The defence-in-depth re-check of untrusted storage rows now lives in the
+  // PRE-SPEND gate rather than in batch selection: a stored row that violates
+  // policy is refused there, by name, with the typed permanent verdict
+  // POLICY_REJECTED, and is REMOVED — where it used to be marked failed,
+  // retry-charged to exhaustion and reaped by storage with a DROPPING warning.
+  // Same property, enforced earlier and for free; the assertions below say so
+  // explicitly rather than continuing to measure the old symptom.
+  const policyRejects = countMatches(
+    logs,
+    new RegExp(`#${hashPattern}.*\\[permanentRejected\\]: Rejected by policy`),
+  );
+  const typedRemoval = countMatches(
+    logs,
+    /Permanently rejecting \d+ input\(s\) for target product-a: .*POLICY_REJECTED/,
+  );
+  // A batch that neither submitted nor retry-charged anything: the row cost
+  // the sponsor no dust and no proving, which is the point of the gate.
+  const zeroCostBatch = countMatches(
+    logs,
+    /Results: 0 submitted, 1 permanently rejected, 0 deferred, 0 retry-charged/,
+  );
+  const proved = countMatches(logs, new RegExp(`#${hashPattern}.*Proved \\(`));
+  const retryCharged = countMatches(logs, new RegExp(`#${hashPattern}.*\\[failed\\]`));
+  // Scoped to product-a: a permanent rejection must not go through the
+  // retry-to-exhaustion path at all, so its target must never be dropped.
+  const drops = countMatches(logs, /DROPPING input.*target=product-a\b/);
   // Other products must be unaffected.
   const b = await getTargetStats("product-b");
   return ok(
     "M5",
-    drained && policyRejects > 0 && drops > 0 && b.pendingInputs === 0,
-    `drained=${drained} preBatchRejects=${policyRejects} drops=${drops} productBPending=${b.pendingInputs}`,
+    drained && policyRejects > 0 && typedRemoval > 0 && zeroCostBatch > 0 &&
+      proved === 0 && retryCharged === 0 && drops === 0 && b.pendingInputs === 0,
+    `drained=${drained} hash=#${traceHash} policyRejects=${policyRejects} ` +
+      `typedRemoval=${typedRemoval} zeroCostBatch=${zeroCostBatch} ` +
+      `proved=${proved} retryCharged=${retryCharged} drops=${drops} ` +
+      `productBPending=${b.pendingInputs}`,
   );
 });
 
@@ -431,9 +536,18 @@ register("M8", "Node outage parks every product and drops nothing", async () => 
     workload("b", ["--count", "3", "--concurrency", "2"]),
   ]);
   await new Promise((r) => setTimeout(r, 12_000));
-  await compose("pause", "node");
+  await setServicePaused("node", true);
   await new Promise((r) => setTimeout(r, 60_000));
-  await compose("unpause", "node");
+  await setServicePaused("node", false);
+  // Assert the chain is actually back before anything downstream is measured.
+  // Without this, every later assertion silently becomes a measurement of a
+  // frozen node rather than of the batcher's outage handling.
+  if (!await waitForNodeRpc(180_000)) {
+    throw new Error(
+      "node did not answer RPC within 180s of unpause — the chain is still " +
+        "frozen, so nothing after this point would be measuring the batcher",
+    );
+  }
   const [a, b] = await running;
 
   await retireProductCOffers();

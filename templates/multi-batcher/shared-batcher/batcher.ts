@@ -37,13 +37,25 @@ const config: BatcherConfig<DefaultBatcherInput> = {
   port: PORT,
   // Multi-product: never route an unaddressed input to an arbitrary product.
   requireExplicitTarget: true,
-  // Per-product fairness. Anything omitted falls back to the global value, so
-  // one noisy product cannot spend another's request budget.
-  perTarget: Object.fromEntries(
-    products.map((p) => [p.target, {
-      rateLimit: { maxRequests: 5_000, windowMs: 60_000 },
-    }]),
-  ),
+  // Per-product fairness is already structural: the limiter derives a
+  // `target:<name>:global` bucket AND a `target:<name>:ip:<ip>` bucket per
+  // request, so one noisy product can never spend another's budget. The knob
+  // therefore belongs at the TOP level — `perTarget` accepts only
+  // `maxRetries`/`retryDelayMs`, and the SDK's own schema comment says a
+  // `rateLimit` written there "would be a config field that silently did
+  // nothing". It was written there, so this template had been running on the
+  // 1000-per-24h default rather than these numbers.
+  //
+  // That gap now matters: admission is charged by transaction WEIGHT (its
+  // proof-bearing element count), not one unit per request, so a deep run's
+  // few hundred submissions draw far more than a few hundred units against a
+  // budget that does not reset while the process lives.
+  rateLimit: {
+    preAuthMaxRequests: 5_000,
+    maxRequests: 5_000,
+    globalMaxRequests: 5_000,
+    windowMs: 60_000,
+  },
 };
 
 const storage = new FileStorage(STORAGE_DIR);
