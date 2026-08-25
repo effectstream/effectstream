@@ -5,6 +5,6 @@
     "start": "bun minimal.ts"
   },
   "dependencies": {
-    "@effectstream/node-sdk": "0.104.0"
+    "@effectstream/node-sdk": "0.200.1"
   }
 }
