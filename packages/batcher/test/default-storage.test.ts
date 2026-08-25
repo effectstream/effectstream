@@ -44,6 +44,8 @@ const storageOf = (batcher: Batcher<DefaultBatcherInput>): BatcherStorage =>
 
 const ENV_KEYS = [
   "BATCHER_DB_SCHEMA",
+  "BATCHER_PGLITE",
+  "BATCHER_PGLITE_DATA_DIR",
   "DB_HOST",
   "DB_PORT",
   "DB_USER",
@@ -59,6 +61,8 @@ beforeEach(() => {
   savedEnv = {};
   for (const key of ENV_KEYS) savedEnv[key] = process.env[key];
   delete process.env.BATCHER_DB_SCHEMA;
+  delete process.env.BATCHER_PGLITE;
+  delete process.env.BATCHER_PGLITE_DATA_DIR;
   warnings = [];
   originalWarn = console.warn;
   console.warn = (...args: unknown[]) => {
@@ -246,6 +250,192 @@ describe("default storage: the FR-012 ladder", () => {
       expect(existsSync("batcher-data")).toBe(false);
       newStubBatcher();
       expect(existsSync("batcher-data")).toBe(true);
+    });
+  });
+});
+
+// SC-010: the embedded rung (spec Addendum B, FR-018/FR-019).
+//
+// Development needs request tracking too, and Phase 6 measured that it cannot
+// come from the launcher's gateway: that server multiplexes every client onto
+// ONE Postgres session, so a batcher pinning a schema there repoints the
+// ENGINE. A private, in-process instance is the way out — the engine cannot be
+// reached from it, because there is nothing to reach it WITH: no socket, no
+// port, just a WASM library and a directory.
+describe("default storage: the embedded rung", () => {
+  test("BATCHER_PGLITE=true ⇒ embedded database at the default path, tracking on, no banner", async () => {
+    await inTempCwd(async () => {
+      process.env.BATCHER_PGLITE = "true";
+
+      const batcher = newStubBatcher();
+      const storage = storageOf(batcher) as DatabaseStorage;
+      try {
+        expect(storage).toBeInstanceOf(DatabaseStorage);
+        // Embedded, not connected: it owns no schema, because a private
+        // database has no one to isolate itself from.
+        expect(storage.getSchema()).toBeUndefined();
+
+        await batcher.init({ startPolling: false });
+
+        expect(batcher.isRequestTrackingEnabled()).toBe(true);
+        expect(batcher.getRequestTrackingInfo()).toEqual({ enabled: true });
+        // Phase 1's layout, untouched: the engine lives in a subdirectory so
+        // `initdb` never meets a foreign file (F-P1.5).
+        expect(existsSync(path.join("batcher-data", "pglite"))).toBe(true);
+        // The point of the whole rung: it is OFF, so the banner must not fire.
+        expect(warnings.join("\n")).not.toContain("REQUEST TRACKING IS OFF");
+      } finally {
+        await storage.close?.();
+      }
+    });
+  }, 120_000);
+
+  test("BATCHER_PGLITE_DATA_DIR is honoured, and it is what separates two batchers", async () => {
+    await inTempCwd(async () => {
+      process.env.BATCHER_PGLITE = "true";
+      process.env.BATCHER_PGLITE_DATA_DIR = "./somewhere-else";
+
+      const batcher = newStubBatcher();
+      const storage = storageOf(batcher) as DatabaseStorage;
+      try {
+        await batcher.init({ startPolling: false });
+        expect(existsSync(path.join("somewhere-else", "pglite"))).toBe(true);
+        // And nothing landed at the default path, which is what makes the
+        // variable an isolation boundary rather than a suggestion.
+        expect(existsSync("batcher-data")).toBe(false);
+      } finally {
+        await storage.close?.();
+      }
+    });
+  }, 120_000);
+
+  test("an empty BATCHER_PGLITE_DATA_DIR falls back to the default, it does not mean cwd", async () => {
+    // The ENV class returns "" for an explicitly-empty string (F-P7.2), and ""
+    // as a PgLite directory means the process's working directory — where
+    // `initdb` would refuse, pointing nowhere near the variable that caused it.
+    await inTempCwd(async () => {
+      process.env.BATCHER_PGLITE = "true";
+      process.env.BATCHER_PGLITE_DATA_DIR = "   ";
+
+      const batcher = newStubBatcher();
+      const storage = storageOf(batcher) as DatabaseStorage;
+      try {
+        await batcher.init({ startPolling: false });
+        expect(existsSync(path.join("batcher-data", "pglite"))).toBe(true);
+      } finally {
+        await storage.close?.();
+      }
+    });
+  }, 120_000);
+
+  test("embedded mode still imports a legacy queue, exactly as Phase 1 built it", async () => {
+    // The embedded rung reuses the existing engine rather than a new one, and
+    // this is the assertion that says so: the JSONL beside the database is
+    // adopted and renamed, which only Phase 1's import path does.
+    await inTempCwd(async () => {
+      process.env.BATCHER_PGLITE = "true";
+      mkdirSync("batcher-data", { recursive: true });
+      writeFileSync(
+        "batcher-data/pending-inputs.jsonl",
+        JSON.stringify({
+          addressType: 5,
+          address: "addr-legacy",
+          input: "payload",
+          timestamp: "1754350000000",
+          signature: "sig-legacy",
+        }) + "\n",
+      );
+
+      const batcher = newStubBatcher();
+      const storage = storageOf(batcher) as DatabaseStorage;
+      try {
+        await batcher.init({ startPolling: false });
+        const rows = await storage.getAllInputs();
+        expect(rows.length).toBe(1);
+        expect(rows[0].address).toBe("addr-legacy");
+        expect(rows[0].target).toBe("only");
+        expect(existsSync("batcher-data/pending-inputs.jsonl")).toBe(false);
+        expect(existsSync("batcher-data/pending-inputs.jsonl.imported")).toBe(true);
+      } finally {
+        await storage.close?.();
+      }
+    });
+  }, 120_000);
+
+  test("BATCHER_PGLITE=false is the same as unset", async () => {
+    await inTempCwd(async () => {
+      process.env.BATCHER_PGLITE = "false";
+      expect(storageOf(newStubBatcher())).toBeInstanceOf(FileStorage);
+    });
+  });
+
+  test("both keys set ⇒ construction refused, naming BOTH and the choice", async () => {
+    // FR-019's refusal, and the reason it is a refusal rather than a
+    // precedence rule: a stray BATCHER_PGLITE left in a shell profile must
+    // never quietly move a production batcher off its real database and onto
+    // a local file nobody is watching.
+    await inTempCwd(async () => {
+      process.env.BATCHER_PGLITE = "true";
+      process.env.BATCHER_DB_SCHEMA = "chess_v2";
+
+      let message = "";
+      expect(() => {
+        try {
+          newStubBatcher();
+        } catch (error) {
+          message = error instanceof Error ? error.message : String(error);
+          throw error;
+        }
+      }).toThrow();
+
+      expect(message).toContain("BATCHER_PGLITE");
+      expect(message).toContain("BATCHER_DB_SCHEMA");
+      // Actionable: it must say what to do, not merely that something is wrong.
+      expect(message).toMatch(/unset/i);
+      // And nothing was created on the way to refusing.
+      expect(existsSync("batcher-data")).toBe(false);
+    });
+  });
+
+  test("the ENGINE's PGLITE key selects nothing here", async () => {
+    // FR-018, asserted rather than merely avoided. PGLITE describes the
+    // ENGINE's database and is `true` by default in development, so a ladder
+    // that consulted it would give an embedded database to every dev batcher
+    // that never asked for one — and, worse, would do it silently.
+    await inTempCwd(async () => {
+      process.env.PGLITE = "true";
+      delete process.env.BATCHER_PGLITE;
+
+      const storage = storageOf(newStubBatcher());
+      expect(storage).toBeInstanceOf(FileStorage);
+      expect(storage).not.toBeInstanceOf(DatabaseStorage);
+      expect(warnings.join("\n")).toContain("REQUEST TRACKING IS OFF");
+      expect(existsSync(path.join("batcher-data", "pglite"))).toBe(false);
+    });
+  });
+
+  test("PGLITE=true does not rescue an otherwise-refused configuration either", async () => {
+    // The same claim from the other side: the engine key cannot switch the
+    // both-set refusal off, because it takes no part in the decision at all.
+    await inTempCwd(async () => {
+      process.env.PGLITE = "true";
+      process.env.BATCHER_PGLITE = "true";
+      process.env.BATCHER_DB_SCHEMA = "chess_v2";
+      expect(() => newStubBatcher()).toThrow(/BATCHER_PGLITE/);
+    });
+  });
+
+  test("an explicit storage argument outranks even a refused environment", async () => {
+    // FR-019's first rung. The both-set combination throws when the ladder is
+    // consulted, so a construction that succeeds here proves the environment
+    // was not read — it cannot pass by the environment happening to be benign.
+    await inTempCwd(async () => {
+      process.env.BATCHER_PGLITE = "true";
+      process.env.BATCHER_DB_SCHEMA = "chess_v2";
+      const explicit = new FileStorage<DefaultBatcherInput>("./explicit-data");
+      const batcher = newStubBatcher(explicit);
+      expect(storageOf(batcher)).toBe(explicit);
+      expect(warnings.join("\n")).not.toContain("REQUEST TRACKING IS OFF");
     });
   });
 });
