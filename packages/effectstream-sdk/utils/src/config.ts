@@ -169,7 +169,8 @@ const definitions: Record<string, ConfigDefinition> = {
       "library inside this process and binds NO network socket, so there is no port to configure and N batchers " +
       "on one host never collide over one — instances are isolated by DATA DIRECTORY, and the only port a " +
       "batcher opens is its own BATCHER_PORT. Two batchers must therefore have different " +
-      "BATCHER_PGLITE_DATA_DIR values; pointing both at one directory fails loudly (PgLite locks it). Setting " +
+      "BATCHER_PGLITE_DATA_DIR values; pointing both at one directory fails loudly (the batcher takes a " +
+      "pglite.lock file in the directory — PgLite itself has no lock). Setting " +
       "this together with BATCHER_DB_SCHEMA REFUSES TO BOOT — pick embedded or connected, not both. " +
       "Production deployments use BATCHER_DB_SCHEMA. ('true' or 'false')",
   },
