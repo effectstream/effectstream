@@ -63,6 +63,53 @@ small executable subpaths - used directly by the orchestrator.
 > `acquireDBMutex(name)` / `releaseDBMutex(name)` so concurrent generators
 > don't trample each other.
 
+### PgLite gateway lifecycle
+
+`startPglite(0)` binds only to `127.0.0.1` and reports the actual assigned port.
+Its handle has two shutdown modes:
+
+```typescript
+const database = await startPglite(0);
+
+// Compatibility default: stop accepting, preserve accepted client sockets.
+await database.close();
+
+// Explicit owner shutdown: destroy any stragglers and wait for teardown.
+await database.close({ force: true });
+```
+
+The no-argument close is bounded even if a consumer deliberately retains a raw
+`pg.Client`: it stops new accepts, unrefs and preserves accepted sockets, and
+settles without waiting for those clients. Existing clients may finish work
+while they remain connected. PGlite database cleanup is deferred until the last
+accepted socket drains, so a client retained forever can defer that cleanup
+forever. A resolved default-close promise therefore does not mean database
+cleanup has completed. Consumers remain responsible for their client lifecycle.
+
+Use `{ force: true }` only when your framework owns every connected client.
+Forced close destroys tracked sockets and waits for listener/socket teardown,
+so raw clients can emit their normal `Connection terminated unexpectedly`
+error; owners must end clients first or handle that event.
+
+Every call returns the same stored cleanup promise. The first call selects the
+mode, including when default and force calls race; a later force call cannot
+escalate cleanup already started in default mode. Startup listen failure still
+attempts database cleanup. Forced shutdown and default shutdown with no retained
+socket attempt database cleanup even if the listener fails to close. When both
+operations fail, the promise rejects with an `AggregateError` in
+listener-then-database order. If default shutdown deferred database cleanup, a
+later cleanup failure is observed and logged, but cannot change the already
+settled close promise.
+
+Migration note: forced socket destruction became the implicit default in
+`0.104.0` and was observed downstream during an upgrade to `0.200.1`. The
+corrected no-argument close restores the non-destructive compatibility default;
+PGlite cleanup waits for the last accepted socket, and forced teardown is
+explicit. The useful `0.104.0` changes remain: IPv4 loopback binding, startup
+rejection, address validation, actual-port reporting, and listener-close error
+propagation. Cleanup idempotency is strengthened from a boolean early return to
+a shared promise.
+
 ## Inside EffectStream
 
 `@effectstream/db` is the canonical access path. The runtime gets a
@@ -99,7 +146,8 @@ Dynamic table / event helpers:
 
 Subpath entry points (executable scripts):
 
-- `@effectstream/db/start-pglite`: boot a PgLite instance.
+- `@effectstream/db/start-pglite`: boot a PgLite instance and choose bounded
+  default or explicit forced teardown as described above.
 - `@effectstream/db/apply-migrations` - apply SQL migrations against the active DB.
 - `@effectstream/db/db-wait`: block until the DB accepts a connection.
 - `@effectstream/db/pgtyped-update`: regenerate pgtyped types.

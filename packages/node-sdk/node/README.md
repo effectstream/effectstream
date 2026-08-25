@@ -64,6 +64,13 @@ instead of jumping to a new tip.
 The subpaths are thin re-exports - semantics are identical to importing
 from the underlying packages.
 
+The re-exported `db/start-pglite` handle uses a bounded, non-destructive
+`close()` by default and an explicit owner-only `close({ force: true })` mode.
+Default close defers PGlite cleanup until the last accepted client socket drains.
+Concurrent calls share the first cleanup promise and the first requested mode
+wins. See the `@effectstream/db` PgLite gateway lifecycle section for the full
+client-ownership, failure, and `0.104.0`→`0.200.1` migration contract.
+
 ## Inside EffectStream
 
 A namespace seam, not a runtime piece. Each subpath simply re-exports

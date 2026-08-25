@@ -11,7 +11,77 @@ export interface PgliteHandle {
   server: net.Server;
   db: PGlite;
   port: number;
-  close: () => Promise<void>;
+  close: (options?: PgliteCloseOptions) => Promise<void>;
+}
+
+export interface PgliteCloseOptions {
+  /**
+   * Destroy accepted client sockets before closing the gateway. Use this only
+   * when the caller owns those clients and has installed their error handling.
+   */
+  force?: boolean;
+}
+
+function throwCleanupErrors(errors: unknown[], message: string): void {
+  if (errors.length === 1) throw errors[0];
+  if (errors.length > 1) throw new AggregateError(errors, message);
+}
+
+async function closeListener(
+  server: net.Server,
+  sockets: Set<net.Socket>,
+  force: boolean,
+  waitForAcceptedSockets = true,
+): Promise<void> {
+  if (force) {
+    for (const socket of sockets) socket.destroy();
+  }
+
+  if (!server.listening) return;
+
+  if (!waitForAcceptedSockets) {
+    // `server.close(callback)` keeps Bun's listener-close lifecycle referenced
+    // until every preserved socket drains. The compatibility path cannot await
+    // that lifecycle, so initiate close without a callback after unrefing the
+    // listener and accepted sockets. Synchronous initiation failures still
+    // reject this operation.
+    server.close();
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    try {
+      server.close((error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    } catch (error) {
+      reject(error);
+      return;
+    }
+  });
+}
+
+async function closeResources(
+  server: net.Server,
+  db: PGlite,
+  sockets: Set<net.Socket>,
+  force: boolean,
+): Promise<void> {
+  const errors: unknown[] = [];
+  try {
+    await closeListener(server, sockets, force);
+  } catch (error) {
+    errors.push(error);
+  }
+
+  try {
+    await db.close();
+  } catch (error) {
+    errors.push(error);
+  }
+
+  throwCleanupErrors(errors, "Failed to close the PGlite gateway and database.");
 }
 
 export async function startPglite(port = 5432): Promise<PgliteHandle> {
@@ -69,43 +139,126 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
   });
 
   const sockets = new Set<net.Socket>();
+  let defaultCleanupDeferred = false;
+  let databaseCleanupPromise: Promise<void> | undefined;
+  let deferredCleanupObserved = false;
+
+  const closeDatabase = (): Promise<void> => {
+    databaseCleanupPromise ??= Promise.resolve().then(async () => {
+      // Once no accepted socket can deliver more ingress, finish the final live
+      // serialized operation before closing its PGlite backend.
+      await queue;
+      await db.close();
+    });
+    return databaseCleanupPromise;
+  };
+
+  const observeDeferredDatabaseCleanup = (): void => {
+    if (deferredCleanupObserved) return;
+    deferredCleanupObserved = true;
+    void closeDatabase().catch((error) => {
+      console.error("database: deferred PGlite cleanup failed", error);
+    });
+  };
+
   server.on("connection", (socket) => {
     sockets.add(socket);
-    socket.once("close", () => sockets.delete(socket));
-  });
-
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(port, "127.0.0.1", () => {
-      server.off("error", reject);
-      resolve();
+    if (defaultCleanupDeferred) socket.unref();
+    socket.once("close", () => {
+      sockets.delete(socket);
+      if (defaultCleanupDeferred && sockets.size === 0) {
+        observeDeferredDatabaseCleanup();
+      }
     });
   });
 
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(port, "127.0.0.1", () => {
+        server.off("error", reject);
+        resolve();
+      });
+    });
+  } catch (listenError) {
+    const errors: unknown[] = [listenError];
+    try {
+      await db.close();
+    } catch (dbError) {
+      errors.push(dbError);
+    }
+    throwCleanupErrors(errors, "Failed to start the PGlite gateway and close its database.");
+    throw listenError;
+  }
+
   const address = server.address();
   if (!address || typeof address === "string") {
-    await db.close();
-    throw new Error("Unable to determine the PGlite gateway port.");
+    const addressError = new Error("Unable to determine the PGlite gateway port.");
+    const errors: unknown[] = [addressError];
+    try {
+      await closeResources(server, db, sockets, true);
+    } catch (cleanupError) {
+      if (cleanupError instanceof AggregateError) errors.push(...cleanupError.errors);
+      else errors.push(cleanupError);
+    }
+    throwCleanupErrors(errors, "Unable to determine and clean up the PGlite gateway.");
+    throw addressError;
   }
   const actualPort = address.port;
   console.info(`database: server listening on port ${actualPort}`);
 
-  let closed = false;
+  let cleanupPromise: Promise<void> | undefined;
+
+  const closeDefault = async (): Promise<void> => {
+    const errors: unknown[] = [];
+    const deferDatabaseCleanup = sockets.size > 0;
+    if (deferDatabaseCleanup) {
+      defaultCleanupDeferred = true;
+      server.unref();
+      for (const socket of sockets) socket.unref();
+    }
+
+    try {
+      await closeListener(server, sockets, false, !deferDatabaseCleanup);
+    } catch (error) {
+      errors.push(error);
+    }
+
+    if (!deferDatabaseCleanup) {
+      try {
+        await closeDatabase();
+      } catch (error) {
+        errors.push(error);
+      }
+    } else {
+      if (sockets.size === 0) observeDeferredDatabaseCleanup();
+    }
+
+    throwCleanupErrors(errors, "Failed to close the PGlite gateway and database.");
+  };
+
+  const closeForced = async (): Promise<void> => {
+    const errors: unknown[] = [];
+    try {
+      await closeListener(server, sockets, true);
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      await closeDatabase();
+    } catch (error) {
+      errors.push(error);
+    }
+    throwCleanupErrors(errors, "Failed to close the PGlite gateway and database.");
+  };
 
   return {
     server,
     db,
     port: actualPort,
-    close: async () => {
-      if (closed) return;
-      closed = true;
-      for (const socket of sockets) socket.destroy();
-      if (server.listening) {
-        await new Promise<void>((resolve, reject) => {
-          server.close((error) => error ? reject(error) : resolve());
-        });
-      }
-      await db.close();
+    close: (options = {}) => {
+      cleanupPromise ??= options.force === true ? closeForced() : closeDefault();
+      return cleanupPromise;
     },
   };
 }
