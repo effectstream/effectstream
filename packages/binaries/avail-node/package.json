@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/npm-avail-node",
-  "version": "0.104.1",
+  "version": "0.200.1",
   "description": "A wrapper for the Avail node binary",
   "main": "index.js",
   "bin": {

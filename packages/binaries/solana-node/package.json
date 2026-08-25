@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/solana-node",
-  "version": "0.104.1",
+  "version": "0.200.1",
   "type": "module",
   "main": "./index.js",
   "bin": {
