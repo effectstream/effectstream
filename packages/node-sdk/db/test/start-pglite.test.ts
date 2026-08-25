@@ -400,6 +400,58 @@ test("an externally stopped listener still permits database cleanup", async () =
   expect(handle.server.listening).toBe(false);
 });
 
+test("forced close awaits a live socket and an externally closing listener", async () => {
+  const handle = await startPglite(0);
+  let acceptedSocket: net.Socket | undefined;
+  handle.server.once("connection", (socket) => {
+    acceptedSocket = socket;
+  });
+  const client = await connect(handle);
+  client.on("error", () => {});
+  if (!acceptedSocket) throw new Error("The gateway did not track the accepted socket.");
+
+  const order: string[] = [];
+  let acceptedSocketClosed = false;
+  let listenerCloseComplete = false;
+  acceptedSocket.once("close", () => {
+    acceptedSocketClosed = true;
+    order.push("socket-close");
+  });
+
+  const originalDbClose = handle.db.close.bind(handle.db);
+  handle.db.close = async () => {
+    order.push("db-close");
+  };
+
+  const externalListenerClose = new Promise<void>((resolve, reject) => {
+    handle.server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      listenerCloseComplete = true;
+      order.push("listener-close");
+      resolve();
+    });
+  });
+
+  try {
+    await handle.close({ force: true });
+    order.push("handle-close-resolved");
+
+    expect(acceptedSocketClosed).toBe(true);
+    expect(listenerCloseComplete).toBe(true);
+    expect(order.indexOf("socket-close")).toBeLessThan(order.indexOf("db-close"));
+    expect(order.indexOf("listener-close")).toBeLessThan(order.indexOf("db-close"));
+    expect(order.at(-1)).toBe("handle-close-resolved");
+  } finally {
+    await externalListenerClose;
+    handle.db.close = originalDbClose;
+    await originalDbClose();
+    clientSocket(client).destroy();
+  }
+});
+
 test("a genuine PostgreSQL query error remains visible", async () => {
   const handle = await startPglite(0);
   const client = await connect(handle);

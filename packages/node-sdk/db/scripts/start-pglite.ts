@@ -22,22 +22,41 @@ export interface PgliteCloseOptions {
   force?: boolean;
 }
 
+interface ListenerCloseLifecycle {
+  complete: () => boolean;
+  completion: Promise<void>;
+}
+
 function throwCleanupErrors(errors: unknown[], message: string): void {
   if (errors.length === 1) throw errors[0];
   if (errors.length > 1) throw new AggregateError(errors, message);
+}
+
+async function destroyTrackedSockets(sockets: Set<net.Socket>): Promise<void> {
+  while (sockets.size > 0) {
+    const tracked = [...sockets];
+    const closed = tracked.map((socket) => new Promise<void>((resolve) => {
+      socket.once("close", resolve);
+    }));
+    for (const socket of tracked) socket.destroy();
+    await Promise.all(closed);
+  }
 }
 
 async function closeListener(
   server: net.Server,
   sockets: Set<net.Socket>,
   force: boolean,
+  lifecycle: ListenerCloseLifecycle,
   waitForAcceptedSockets = true,
 ): Promise<void> {
-  if (force) {
-    for (const socket of sockets) socket.destroy();
-  }
+  const socketTeardown = force ? destroyTrackedSockets(sockets) : undefined;
 
-  if (!server.listening) return;
+  if (!server.listening) {
+    await socketTeardown;
+    if (force && !lifecycle.complete()) await lifecycle.completion;
+    return;
+  }
 
   if (!waitForAcceptedSockets) {
     // `server.close(callback)` keeps Bun's listener-close lifecycle referenced
@@ -49,17 +68,24 @@ async function closeListener(
     return;
   }
 
-  await new Promise<void>((resolve, reject) => {
-    try {
-      server.close((error) => {
-        if (error) reject(error);
-        else resolve();
-      });
-    } catch (error) {
-      reject(error);
-      return;
-    }
-  });
+  let listenerError: unknown;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      try {
+        server.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  } catch (error) {
+    listenerError = error;
+  }
+
+  await socketTeardown;
+  if (listenerError !== undefined) throw listenerError;
 }
 
 async function closeResources(
@@ -67,10 +93,11 @@ async function closeResources(
   db: PGlite,
   sockets: Set<net.Socket>,
   force: boolean,
+  lifecycle: ListenerCloseLifecycle,
 ): Promise<void> {
   const errors: unknown[] = [];
   try {
-    await closeListener(server, sockets, force);
+    await closeListener(server, sockets, force, lifecycle);
   } catch (error) {
     errors.push(error);
   }
@@ -138,6 +165,18 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
     });
   });
 
+  let listenerCloseComplete = false;
+  const listenerCloseCompletion = new Promise<void>((resolve) => {
+    server.once("close", () => {
+      listenerCloseComplete = true;
+      resolve();
+    });
+  });
+  const listenerLifecycle: ListenerCloseLifecycle = {
+    complete: () => listenerCloseComplete,
+    completion: listenerCloseCompletion,
+  };
+
   const sockets = new Set<net.Socket>();
   let defaultCleanupDeferred = false;
   let databaseCleanupPromise: Promise<void> | undefined;
@@ -196,7 +235,7 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
     const addressError = new Error("Unable to determine the PGlite gateway port.");
     const errors: unknown[] = [addressError];
     try {
-      await closeResources(server, db, sockets, true);
+      await closeResources(server, db, sockets, true, listenerLifecycle);
     } catch (cleanupError) {
       if (cleanupError instanceof AggregateError) errors.push(...cleanupError.errors);
       else errors.push(cleanupError);
@@ -219,7 +258,13 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
     }
 
     try {
-      await closeListener(server, sockets, false, !deferDatabaseCleanup);
+      await closeListener(
+        server,
+        sockets,
+        false,
+        listenerLifecycle,
+        !deferDatabaseCleanup,
+      );
     } catch (error) {
       errors.push(error);
     }
@@ -240,7 +285,7 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
   const closeForced = async (): Promise<void> => {
     const errors: unknown[] = [];
     try {
-      await closeListener(server, sockets, true);
+      await closeListener(server, sockets, true, listenerLifecycle);
     } catch (error) {
       errors.push(error);
     }
