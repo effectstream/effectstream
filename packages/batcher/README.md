@@ -438,24 +438,53 @@ stop cleanly.
 ### Choosing a storage backend
 
 When you construct a `Batcher` **without** passing `storage`, the backend is
-resolved from one environment variable:
+resolved from the environment:
 
-| `BATCHER_DB_SCHEMA` | backend | request tracking |
+| environment | backend | request tracking |
 |---|---|---|
-| set to `chess_v2` | connected `DatabaseStorage` on `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_NAME`, owning the schema `batcher_chess_v2` | **on** |
-| unset or empty | `FileStorage` in `./batcher-data` | off — announced at startup |
-| set but invalid, or set and the database unreachable | **refuses to boot** | — |
+| `BATCHER_PGLITE=true` | this batcher's **own embedded** PgLite database in `BATCHER_PGLITE_DATA_DIR` (default `./batcher-data`) | **on** — development only |
+| `BATCHER_DB_SCHEMA=chess_v2` | connected `DatabaseStorage` on `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_NAME`, owning the schema `batcher_chess_v2` | **on** |
+| neither set | `FileStorage` in `./batcher-data` | off — announced at startup |
+| **both** set | **refuses to boot**, naming both keys | — |
+| `BATCHER_DB_SCHEMA` set but invalid, or set and the database unreachable | **refuses to boot** | — |
 
-The value is a *suffix*: the code applies the fixed `batcher_` prefix, so the
+`BATCHER_PGLITE` is checked first, and it is not the engine's `PGLITE` key —
+that one describes the *engine's* database, defaults to `true` in development,
+and selects nothing here. Setting both `BATCHER_PGLITE` and `BATCHER_DB_SCHEMA`
+is refused rather than resolved by precedence: they name two different
+databases, and whichever way a precedence rule fell, one of the two operators
+who set them would be running something other than what they asked for.
+
+**The embedded rung is for development.** It exists because the launcher's
+PgLite gateway cannot host a batcher's tables (see the refusal note below), so
+a developer who wants request tracking locally gets a private database instead
+of a shared one. It is Phase-1-vintage, well-travelled code: the database lives
+in `<dir>/pglite`, a `pending-inputs.jsonl` beside it is imported once, and a
+`kill -9` leaves a directory that reopens cleanly.
+
+> **One directory per batcher, always.** The embedded engine is an in-process
+> WASM library: it binds **no network socket** and opens no port, so two
+> embedded batchers on one host need no port coordination — the only port a
+> batcher opens is its own `BATCHER_PORT`. The flip side is that the *data
+> directory* is the entire isolation boundary. PgLite does **not** lock its data
+> directory, and two instances sharing one will each load it, diverge, and flush
+> their own copy back, leaving a database that no longer opens. The batcher
+> therefore takes its own lock (`<dir>/pglite.lock`, holding the owning pid) and
+> refuses to start on a directory another batcher is using. Stale locks left by
+> a crash are reclaimed automatically.
+
+The `BATCHER_DB_SCHEMA` value is a *suffix*: the code applies the fixed `batcher_` prefix, so the
 effective schema can never be `public` (where the engine's tables live) and can
 never collide with another component's. It must match `^[a-z0-9_]{1,55}$` — 55
 characters is Postgres' 63-character identifier budget minus the prefix.
 
-**The unset case is for development only.** It is exactly what this package
-defaulted to before request tracking existed: inputs are queued, batched,
-retried and submitted as always, but there is no status to poll, no
+**The neither-set case is for development only.** It is exactly what this
+package defaulted to before request tracking existed: inputs are queued,
+batched, retried and submitted as always, but there is no status to poll, no
 replay/dedup protection against paying twice for one signed request, and
-`/input-status` answers 501. Production deployments must set the variable.
+`/input-status` answers 501. Production deployments must set
+`BATCHER_DB_SCHEMA`; developers who want tracking locally set
+`BATCHER_PGLITE=true` instead.
 
 **Never falls back.** A set-but-invalid value is refused at construction, and a
 set-but-unreachable database is refused at `init()`. Falling back there would
@@ -474,8 +503,10 @@ batchers safe on one database even though target names collide across products
 > database*, including the engine — whose queries then fail with `relation ...
 > does not exist`. The batcher probes for this at boot (a canary setting made on
 > one connection and read on another) and refuses rather than break a bystander.
-> Against such a database, either leave `BATCHER_DB_SCHEMA` unset (queue-only,
-> development) or point `DB_HOST`/`DB_PORT` at a real PostgreSQL server.
+> There are three ways out: point `DB_HOST`/`DB_PORT` at a real PostgreSQL
+> server (production), set `BATCHER_PGLITE=true` and unset `BATCHER_DB_SCHEMA`
+> to get tracking from this batcher's own embedded database (development), or
+> leave both unset for queue-only mode.
 
 **Constructing storage explicitly bypasses all of this** — the environment is
 never consulted when you pass a `storage` argument:
@@ -483,7 +514,8 @@ never consulted when you pass a `storage` argument:
 - `new FileStorage("./dir")` — the JSONL queue, no tracking.
 - `new DatabaseStorage("./dir")` — an **embedded** PgLite database in that
   directory. Standalone SDK use: one process, one private database, nothing to
-  install. Never selected by the environment.
+  install. This is the same backend `BATCHER_PGLITE=true` selects, and it takes
+  the same directory lock.
 - `new DatabaseStorage({ connection, schema })` or
   `new DatabaseStorage({ connectionString })` — connected, with or without a
   schema of its own.
@@ -498,9 +530,10 @@ pointed at.
 
 **Breaking changes** in this area, for anyone upgrading:
 
-1. With `BATCHER_DB_SCHEMA` **unset**, the default backend is unchanged from
-   before this feature: `FileStorage` in `./batcher-data`, queue-only. Set the
-   variable (or pass `storage` explicitly) to enable request tracking.
+1. With `BATCHER_DB_SCHEMA` and `BATCHER_PGLITE` **both unset**, the default
+   backend is unchanged from before this feature: `FileStorage` in
+   `./batcher-data`, queue-only. Set one of them (or pass `storage` explicitly)
+   to enable request tracking.
 2. `batchInput` resolves to `{ requestId, receipt, duplicate? }`, not a receipt.
 3. `BatcherStorage.incrementRetryCount` returns the inputs it dropped. A backend
    still returning `void` keeps working and is warned once per batch.
@@ -672,7 +705,7 @@ batcher, with fast and deep test suites.
 The four interfaces you'd implement, in order of frequency:
 
 - `BlockchainAdapter`: submit, wait for receipt, estimate fee, report chain name. New chains plug in here.
-- `BatcherStorage`: persist + load inputs. Two implementations ship — `FileStorage` (JSONL on disk, queue only) and `DatabaseStorage` (queue, request status and replay keys in one Postgres schema, embedded or connected); which one a bare `new Batcher()` gets is decided by `BATCHER_DB_SCHEMA`, see [Choosing a storage backend](#choosing-a-storage-backend). Redis / S3 / anything else are yours to write against this interface; implement the optional `TrackingStorage` half too if you want `/input-status` to work on it.
+- `BatcherStorage`: persist + load inputs. Two implementations ship — `FileStorage` (JSONL on disk, queue only) and `DatabaseStorage` (queue, request status and replay keys in one Postgres schema, embedded or connected); which one a bare `new Batcher()` gets is decided by `BATCHER_PGLITE` and `BATCHER_DB_SCHEMA`, see [Choosing a storage backend](#choosing-a-storage-backend). Redis / S3 / anything else are yours to write against this interface; implement the optional `TrackingStorage` half too if you want `/input-status` to work on it.
 - `BatchDataBuilder<T>`: control how inputs are serialised into the bytes the adapter submits.
 - State-transition listeners: hook into `startup`, `batch:process:start`, `batch:submit`, `batch:confirmed`, `error`, and others for metrics or custom behaviour.
 
@@ -684,7 +717,7 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 
 - `createNewBatcher(config, storage)`: build a batcher instance.
 - `BatcherConfig`: configuration type. See `pollingIntervalMs`, `adapters`, `defaultTarget`, `batchingCriteria`, `confirmationLevel`, `enableHttpServer`, `port`, `enableEventSystem`, `namespace`, `batchBuilding`.
-- `DatabaseStorage(dir | options)`: queue, request status and replay keys in one database — a connected Postgres via `{ connection, schema }` or `{ connectionString }` (the default when `BATCHER_DB_SCHEMA` is set), or an embedded PgLite database when given a directory. See [Choosing a storage backend](#choosing-a-storage-backend).
+- `DatabaseStorage(dir | options)`: queue, request status and replay keys in one database — a connected Postgres via `{ connection, schema }` or `{ connectionString }` (the default when `BATCHER_DB_SCHEMA` is set), or an embedded PgLite database when given a directory (the default when `BATCHER_PGLITE=true`). See [Choosing a storage backend](#choosing-a-storage-backend).
 - `BatcherFileStorage(dir)` (exported as `FileStorage` from `core/storage.ts`): the JSONL queue, and the default when `BATCHER_DB_SCHEMA` is unset. Fully supported, but queue-only: no request tracking, and development-only by policy.
 - Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`, `NearAdapter`, `NearIntentAdapter`.
 - Batcher operations: `runBatcher`, `batchInput`, `addStateTransition`, `gracefulShutdownOp`, `getPublicConfig`, `getBatchingStatus`.
