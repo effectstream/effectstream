@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-import { spawn } from "node:child_process";
-import { args, exit } from "@effectstream/utils/runtime";
+import net from "node:net";
+import { args } from "@effectstream/utils/runtime";
 
 // Get port from arguments.
 const portArgName = "--port";
@@ -12,28 +12,34 @@ if (isNaN(port)) {
   throw new Error(`Port argument ${portArgName} is not a number`);
 }
 
-async function waitForDb() {
-  try {
-    console.log("waiting for db on port", port);
-    const child = spawn("npx", ["wait-on", `tcp:${port}`], {
-      stdio: "inherit",
-      shell: true,
-    });
-
-    const code = await new Promise<number | null>((resolve) => {
-      child.on("close", (code, _sig) => resolve(code));
-    });
-
-    if (code === 0) {
-      console.log("✅ Database is ready on port 5432");
-    } else {
-      console.error("❌ Failed to connect to database on port 5432");
-      exit(code ?? 1);
+async function waitForDb(
+  targetPort = port,
+  host = "127.0.0.1",
+  timeoutMs = 10_000,
+): Promise<void> {
+  console.log(`waiting for db on ${host}:${targetPort}`);
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
+  while (Date.now() < deadline) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const socket = net.connect({ host, port: targetPort });
+        socket.once("connect", () => {
+          socket.destroy();
+          resolve();
+        });
+        socket.once("error", reject);
+      });
+      console.log(`✅ Database is ready on ${host}:${targetPort}`);
+      return;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
-  } catch (error) {
-    console.error("❌ Error waiting for database:", error);
-    exit(1);
   }
+  throw new Error(`Failed to connect to database at ${host}:${targetPort}.`, {
+    cause: lastError,
+  });
 }
 
 export { waitForDb };

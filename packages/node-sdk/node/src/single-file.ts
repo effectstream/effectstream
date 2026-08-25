@@ -218,7 +218,7 @@ export async function runNode<
 
     task = run(function* () {
       yield* ensure(function* () {
-        yield* call(() => ownedDatabase.close());
+        yield* call(() => ownedDatabase.close({ force: true }));
       });
       yield* init();
       yield* withEffectstreamStaticConfig(staticConfig, function* () {
@@ -252,7 +252,7 @@ export async function runNode<
       process.off("SIGINT", signalHandler);
       process.off("SIGTERM", signalHandler);
     }
-    if (!task && database) await database.close();
+    if (!task && database) await database.close({ force: true });
     restoreEnvironment();
   }
 }
