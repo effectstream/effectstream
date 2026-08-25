@@ -155,6 +155,34 @@ const definitions: Record<string, ConfigDefinition> = {
       "protection and NO GET /input-status — development only; production deployments must set this. " +
       "Example: 'chess_v2'",
   },
+  BATCHER_PGLITE: {
+    key: "BATCHER_PGLITE",
+    type: "boolean",
+    defaultValue: false,
+    description:
+      "DEVELOPMENT ONLY. Give this batcher its OWN embedded PgLite database (in-process WASM) at " +
+      "BATCHER_PGLITE_DATA_DIR, with full request tracking, instead of connecting to the engine's database. " +
+      "This is the development answer to request tracking: the launcher's PgLite gateway puts every client on " +
+      "ONE shared Postgres session, so a batcher cannot isolate itself there without breaking the engine — its " +
+      "own instance can. NOTE this is NOT the engine's PGLITE key: PGLITE describes the ENGINE's database and " +
+      "selects nothing here; only BATCHER_PGLITE gives the batcher an embedded database. The instance is a " +
+      "library inside this process and binds NO network socket, so there is no port to configure and N batchers " +
+      "on one host never collide over one — instances are isolated by DATA DIRECTORY, and the only port a " +
+      "batcher opens is its own BATCHER_PORT. Two batchers must therefore have different " +
+      "BATCHER_PGLITE_DATA_DIR values; pointing both at one directory fails loudly (PgLite locks it). Setting " +
+      "this together with BATCHER_DB_SCHEMA REFUSES TO BOOT — pick embedded or connected, not both. " +
+      "Production deployments use BATCHER_DB_SCHEMA. ('true' or 'false')",
+  },
+  BATCHER_PGLITE_DATA_DIR: {
+    key: "BATCHER_PGLITE_DATA_DIR",
+    type: "string",
+    defaultValue: "./batcher-data",
+    description:
+      "Data directory for this batcher's own embedded PgLite database when BATCHER_PGLITE=true (ignored " +
+      "otherwise). The database itself lives in the 'pglite' subdirectory; a legacy 'pending-inputs.jsonl' " +
+      "sitting directly in this directory is imported once on first boot. This directory IS the isolation " +
+      "boundary between embedded batchers — one directory per batcher, never shared. Example: './batcher-data'",
+  },
   STORE_HISTORICAL_GAME_INPUTS: {
     key: "STORE_HISTORICAL_GAME_INPUTS",
     type: "boolean",
@@ -443,6 +471,24 @@ export class ENV {
    */
   static get BATCHER_DB_SCHEMA(): string {
     return ENV.getConfig(definitions.BATCHER_DB_SCHEMA);
+  }
+  /**
+   * Development only: does this batcher run its own embedded PgLite?
+   *
+   * Deliberately NOT `ENV.PGLITE`. That key describes the ENGINE's database and
+   * is `true` by default in development, so reading it here would hand an
+   * embedded database to every batcher in every dev tree that never asked for
+   * one. Embedded mode is opt-in through this key alone.
+   */
+  static get BATCHER_PGLITE(): boolean {
+    return ENV.getConfig(definitions.BATCHER_PGLITE);
+  }
+  /**
+   * Where that embedded database lives — and, because the instance binds no
+   * socket, the only thing that separates one embedded batcher from another.
+   */
+  static get BATCHER_PGLITE_DATA_DIR(): string {
+    return ENV.getConfig(definitions.BATCHER_PGLITE_DATA_DIR);
   }
   static get EFFECTSTREAM_EXPLORER_PORT(): number {
     return ENV.getConfig(definitions.EFFECTSTREAM_EXPLORER_PORT);
