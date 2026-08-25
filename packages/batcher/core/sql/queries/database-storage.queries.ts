@@ -5,64 +5,6 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 
 export type NumberOrString = number | string;
 
-/** 'FindPendingWithoutRequestId' parameters type */
-export type IFindPendingWithoutRequestIdParams = void;
-
-/** 'FindPendingWithoutRequestId' return type */
-export interface IFindPendingWithoutRequestIdResult {
-  content_key: string;
-  seq: string;
-}
-
-/** 'FindPendingWithoutRequestId' query type */
-export interface IFindPendingWithoutRequestIdQuery {
-  params: IFindPendingWithoutRequestIdParams;
-  result: IFindPendingWithoutRequestIdResult;
-}
-
-const findPendingWithoutRequestIdIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT content_key, seq\nFROM pending_inputs\nWHERE request_id = ''"};
-
-/**
- * Query generated from SQL:
- * ```
- * SELECT content_key, seq
- * FROM pending_inputs
- * WHERE request_id = ''
- * ```
- */
-export const findPendingWithoutRequestId = new PreparedQuery<IFindPendingWithoutRequestIdParams,IFindPendingWithoutRequestIdResult>(findPendingWithoutRequestIdIR);
-
-
-/** 'BackfillPendingRequestId' parameters type */
-export interface IBackfillPendingRequestIdParams {
-  content_key: string;
-  request_id: string;
-  seq: NumberOrString;
-}
-
-/** 'BackfillPendingRequestId' return type */
-export type IBackfillPendingRequestIdResult = void;
-
-/** 'BackfillPendingRequestId' query type */
-export interface IBackfillPendingRequestIdQuery {
-  params: IBackfillPendingRequestIdParams;
-  result: IBackfillPendingRequestIdResult;
-}
-
-const backfillPendingRequestIdIR: any = {"usedParamSet":{"request_id":true,"content_key":true,"seq":true},"params":[{"name":"request_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":39,"b":50}]},{"name":"content_key","required":true,"transform":{"type":"scalar"},"locs":[{"a":72,"b":84}]},{"name":"seq","required":true,"transform":{"type":"scalar"},"locs":[{"a":98,"b":102}]}],"statement":"UPDATE pending_inputs\nSET request_id = :request_id!\nWHERE content_key = :content_key!\n  AND seq = :seq!"};
-
-/**
- * Query generated from SQL:
- * ```
- * UPDATE pending_inputs
- * SET request_id = :request_id!
- * WHERE content_key = :content_key!
- *   AND seq = :seq!
- * ```
- */
-export const backfillPendingRequestId = new PreparedQuery<IBackfillPendingRequestIdParams,IBackfillPendingRequestIdResult>(backfillPendingRequestIdIR);
-
-
 /** 'CountPendingInputs' parameters type */
 export type ICountPendingInputsParams = void;
 
@@ -262,33 +204,33 @@ const getPendingPayloadsByTargetIR: any = {"usedParamSet":{"default_target":true
 export const getPendingPayloadsByTarget = new PreparedQuery<IGetPendingPayloadsByTargetParams,IGetPendingPayloadsByTargetResult>(getPendingPayloadsByTargetIR);
 
 
-/** 'DeletePendingByContentKeys' parameters type */
-export interface IDeletePendingByContentKeysParams {
-  content_keys: readonly (string)[];
+/** 'DeletePendingByRequestIds' parameters type */
+export interface IDeletePendingByRequestIdsParams {
+  request_ids: readonly (string)[];
 }
 
-/** 'DeletePendingByContentKeys' return type */
-export interface IDeletePendingByContentKeysResult {
+/** 'DeletePendingByRequestIds' return type */
+export interface IDeletePendingByRequestIdsResult {
   one: number | null;
 }
 
-/** 'DeletePendingByContentKeys' query type */
-export interface IDeletePendingByContentKeysQuery {
-  params: IDeletePendingByContentKeysParams;
-  result: IDeletePendingByContentKeysResult;
+/** 'DeletePendingByRequestIds' query type */
+export interface IDeletePendingByRequestIdsQuery {
+  params: IDeletePendingByRequestIdsParams;
+  result: IDeletePendingByRequestIdsResult;
 }
 
-const deletePendingByContentKeysIR: any = {"usedParamSet":{"content_keys":true},"params":[{"name":"content_keys","required":true,"transform":{"type":"array_spread"},"locs":[{"a":48,"b":61}]}],"statement":"DELETE FROM pending_inputs\nWHERE content_key IN :content_keys!\nRETURNING 1::int AS one"};
+const deletePendingByRequestIdsIR: any = {"usedParamSet":{"request_ids":true},"params":[{"name":"request_ids","required":true,"transform":{"type":"array_spread"},"locs":[{"a":47,"b":59}]}],"statement":"DELETE FROM pending_inputs\nWHERE request_id IN :request_ids!\nRETURNING 1::int AS one"};
 
 /**
  * Query generated from SQL:
  * ```
  * DELETE FROM pending_inputs
- * WHERE content_key IN :content_keys!
+ * WHERE request_id IN :request_ids!
  * RETURNING 1::int AS one
  * ```
  */
-export const deletePendingByContentKeys = new PreparedQuery<IDeletePendingByContentKeysParams,IDeletePendingByContentKeysResult>(deletePendingByContentKeysIR);
+export const deletePendingByRequestIds = new PreparedQuery<IDeletePendingByRequestIdsParams,IDeletePendingByRequestIdsResult>(deletePendingByRequestIdsIR);
 
 
 /** 'GetPendingInputCountAndSize' parameters type */
@@ -321,13 +263,13 @@ export const getPendingInputCountAndSize = new PreparedQuery<IGetPendingInputCou
 
 /** 'GetPendingForRetry' parameters type */
 export interface IGetPendingForRetryParams {
-  content_keys: readonly (string)[];
+  request_ids: readonly (string)[];
 }
 
 /** 'GetPendingForRetry' return type */
 export interface IGetPendingForRetryResult {
-  content_key: string;
   payload: string;
+  request_id: string;
   retry_count: number;
   seq: string;
 }
@@ -338,14 +280,14 @@ export interface IGetPendingForRetryQuery {
   result: IGetPendingForRetryResult;
 }
 
-const getPendingForRetryIR: any = {"usedParamSet":{"content_keys":true},"params":[{"name":"content_keys","required":true,"transform":{"type":"array_spread"},"locs":[{"a":87,"b":100}]}],"statement":"SELECT content_key, seq, retry_count, payload\nFROM pending_inputs\nWHERE content_key IN :content_keys!\nORDER BY seq\nFOR UPDATE"};
+const getPendingForRetryIR: any = {"usedParamSet":{"request_ids":true},"params":[{"name":"request_ids","required":true,"transform":{"type":"array_spread"},"locs":[{"a":85,"b":97}]}],"statement":"SELECT request_id, seq, retry_count, payload\nFROM pending_inputs\nWHERE request_id IN :request_ids!\nORDER BY seq\nFOR UPDATE"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT content_key, seq, retry_count, payload
+ * SELECT request_id, seq, retry_count, payload
  * FROM pending_inputs
- * WHERE content_key IN :content_keys!
+ * WHERE request_id IN :request_ids!
  * ORDER BY seq
  * FOR UPDATE
  * ```
@@ -355,7 +297,7 @@ export const getPendingForRetry = new PreparedQuery<IGetPendingForRetryParams,IG
 
 /** 'DeletePendingByIdentity' parameters type */
 export interface IDeletePendingByIdentityParams {
-  content_key: string;
+  request_id: string;
   seq: NumberOrString;
 }
 
@@ -368,13 +310,13 @@ export interface IDeletePendingByIdentityQuery {
   result: IDeletePendingByIdentityResult;
 }
 
-const deletePendingByIdentityIR: any = {"usedParamSet":{"content_key":true,"seq":true},"params":[{"name":"content_key","required":true,"transform":{"type":"scalar"},"locs":[{"a":47,"b":59}]},{"name":"seq","required":true,"transform":{"type":"scalar"},"locs":[{"a":73,"b":77}]}],"statement":"DELETE FROM pending_inputs\nWHERE content_key = :content_key!\n  AND seq = :seq!"};
+const deletePendingByIdentityIR: any = {"usedParamSet":{"request_id":true,"seq":true},"params":[{"name":"request_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":46,"b":57}]},{"name":"seq","required":true,"transform":{"type":"scalar"},"locs":[{"a":71,"b":75}]}],"statement":"DELETE FROM pending_inputs\nWHERE request_id = :request_id!\n  AND seq = :seq!"};
 
 /**
  * Query generated from SQL:
  * ```
  * DELETE FROM pending_inputs
- * WHERE content_key = :content_key!
+ * WHERE request_id = :request_id!
  *   AND seq = :seq!
  * ```
  */
@@ -383,8 +325,8 @@ export const deletePendingByIdentity = new PreparedQuery<IDeletePendingByIdentit
 
 /** 'UpdatePendingRetry' parameters type */
 export interface IUpdatePendingRetryParams {
-  content_key: string;
   payload: string;
+  request_id: string;
   retry_count: number;
   seq: NumberOrString;
 }
@@ -398,7 +340,7 @@ export interface IUpdatePendingRetryQuery {
   result: IUpdatePendingRetryResult;
 }
 
-const updatePendingRetryIR: any = {"usedParamSet":{"retry_count":true,"payload":true,"content_key":true,"seq":true},"params":[{"name":"retry_count","required":true,"transform":{"type":"scalar"},"locs":[{"a":40,"b":52}]},{"name":"payload","required":true,"transform":{"type":"scalar"},"locs":[{"a":69,"b":77}]},{"name":"content_key","required":true,"transform":{"type":"scalar"},"locs":[{"a":99,"b":111}]},{"name":"seq","required":true,"transform":{"type":"scalar"},"locs":[{"a":125,"b":129}]}],"statement":"UPDATE pending_inputs\nSET retry_count = :retry_count!,\n    payload = :payload!\nWHERE content_key = :content_key!\n  AND seq = :seq!"};
+const updatePendingRetryIR: any = {"usedParamSet":{"retry_count":true,"payload":true,"request_id":true,"seq":true},"params":[{"name":"retry_count","required":true,"transform":{"type":"scalar"},"locs":[{"a":40,"b":52}]},{"name":"payload","required":true,"transform":{"type":"scalar"},"locs":[{"a":69,"b":77}]},{"name":"request_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":98,"b":109}]},{"name":"seq","required":true,"transform":{"type":"scalar"},"locs":[{"a":123,"b":127}]}],"statement":"UPDATE pending_inputs\nSET retry_count = :retry_count!,\n    payload = :payload!\nWHERE request_id = :request_id!\n  AND seq = :seq!"};
 
 /**
  * Query generated from SQL:
@@ -406,7 +348,7 @@ const updatePendingRetryIR: any = {"usedParamSet":{"retry_count":true,"payload":
  * UPDATE pending_inputs
  * SET retry_count = :retry_count!,
  *     payload = :payload!
- * WHERE content_key = :content_key!
+ * WHERE request_id = :request_id!
  *   AND seq = :seq!
  * ```
  */

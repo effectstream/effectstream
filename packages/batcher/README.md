@@ -302,6 +302,16 @@ therefore:
   requests, because `target` is part of the key.
 - **Not a secret.** Everything it hashes is public on chain. Statuses are not
   private data; the id is not a capability token.
+- **What the queue is keyed on.** `pending_inputs` has `PRIMARY KEY
+  (request_id, seq)`. The id is what gets indexed, never the content key it
+  hashes — the content key embeds the whole submitted payload, and a btree
+  tuple may not exceed 2704 bytes, so a real Midnight transaction (~3.3 KB,
+  a ~6.7 KB key) could not be indexed at all: acceptance failed with
+  `index row size … exceeds btree version 4 maximum 2704` and the caller got a
+  500 rather than an id. A 64-character hash has no such ceiling. `content_key`
+  is still stored, unindexed, for diagnostics. `seq` orders the queue and lets
+  one id own several rows, which is what a resubmission without a replay key
+  legitimately produces.
 
 ### Polling
 

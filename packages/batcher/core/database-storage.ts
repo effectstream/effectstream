@@ -28,14 +28,12 @@ import batcherStorageMigration from "./sql/migrations/00001-batcher-storage.sql"
   type: "text",
 };
 import {
-  backfillPendingRequestId,
   clearPendingInputs,
   countOrphanedStatuses,
   countPendingInputs,
-  deletePendingByContentKeys,
   deletePendingByIdentity,
+  deletePendingByRequestIds,
   deleteReplayKeysByRequestIds,
-  findPendingWithoutRequestId,
   getAllPendingPayloads,
   getPendingForRetry,
   getPendingInputCountAndSize,
@@ -572,6 +570,20 @@ function contentKeyOf(input: DefaultBatcherInput, target: string): string {
 }
 
 /**
+ * Row identity: sha256 of the content key — what `pending_inputs` is keyed on.
+ *
+ * The identity is the SAME identity the content key expressed; only its width
+ * changed. Equal content keys hash equal and different ones do not, so every
+ * operation that used to say "the rows whose content key is this" says "the
+ * rows whose request id is this" and selects the same rows — including the
+ * several rows a duplicate submission legitimately leaves behind. What it no
+ * longer does is compare, or index, several kilobytes of transaction.
+ */
+function requestIdOf(input: DefaultBatcherInput, target: string): string {
+  return requestIdFromKey(contentKeyOf(input, target));
+}
+
+/**
  * The target a row belongs to: its own, or the one the caller routed it to.
  *
  * Throws rather than storing a targetless row — such a row is adopted by
@@ -810,35 +822,23 @@ export class DatabaseStorage<
     return this.driver;
   }
 
-  /** Apply the reviewed immutable schema/function migration as one asset. */
+  /**
+   * Apply the reviewed immutable schema/function migration as one asset.
+   *
+   * There is no request-id backfill step any more, and its absence is the
+   * point. `request_id` is now the queue's PRIMARY KEY, so it is supplied by
+   * both write paths (`insertRow` and `batcher_record_accepted`) and no
+   * statement in this tree can produce a row without one — the column it used
+   * to repair cannot go unfilled. The only rows it could ever have found are
+   * rows written by a deployment that predates the column, and such a
+   * deployment's table would keep its old `(content_key, seq)` primary key
+   * regardless (this migration is `CREATE TABLE IF NOT EXISTS`), so stamping
+   * its rows would not have fixed the size defect anyway. Nothing is deployed
+   * (project 00020, user ruling), so this migration describes a fresh database
+   * and carries no legacy-data machinery.
+   */
   private async migrate(): Promise<void> {
     await this.db.migrate(batcherStorageMigration);
-    await this.backfillRequestIds();
-  }
-
-  /**
-   * Give rows written before the column existed the id they always had.
-   *
-   * Done in TypeScript rather than in SQL on purpose: the hash has exactly one
-   * implementation (`request-id.ts`), and a second one written in Postgres —
-   * even a correct one — is a second thing to keep correct. Bounded by the
-   * pending queue, which is small by construction.
-   */
-  private async backfillRequestIds(): Promise<void> {
-    const stale = await findPendingWithoutRequestId.run(undefined, this.db);
-    if (stale.length === 0) return;
-    await this.db.transaction(async (tx) => {
-      for (const row of stale) {
-        await backfillPendingRequestId.run({
-          request_id: requestIdFromKey(row.content_key),
-          content_key: row.content_key,
-          seq: row.seq,
-        }, tx);
-      }
-    });
-    console.log(
-      `[Storage] Stamped ${stale.length} queue row(s) with their request id.`,
-    );
   }
 
   /**
@@ -1033,13 +1033,17 @@ export class DatabaseStorage<
   ): Promise<void> {
     if (processedInputs.length === 0) return;
     try {
-      const keys = [
-        ...new Set(processedInputs.map((input) => contentKeyOf(input, target))),
+      // Hashed, not compared: the row is FOUND by its request id, which is what
+      // the table is keyed on. The de-duplicated set is the same set either way
+      // — equal content keys hash equal — so "remove every row matching these
+      // inputs" still removes every duplicate row, as it always has.
+      const requestIds = [
+        ...new Set(processedInputs.map((input) => requestIdOf(input, target))),
       ];
       const { removed, total } = await this.db.transaction(async (tx) => {
         const [{ count }] = await countPendingInputs.run(undefined, tx);
-        const deleted = await deletePendingByContentKeys.run({
-          content_keys: keys,
+        const deleted = await deletePendingByRequestIds.run({
+          request_ids: requestIds,
         }, tx);
         return { removed: deleted.length, total: Number(count) };
       });
@@ -1083,12 +1087,14 @@ export class DatabaseStorage<
   ): Promise<T[]> {
     if (inputs.length === 0) return [];
     try {
-      const keys = [
-        ...new Set(inputs.map((input) => contentKeyOf(input, target))),
+      const requestIds = [
+        ...new Set(inputs.map((input) => requestIdOf(input, target))),
       ];
       const dropped: T[] = [];
       await this.db.transaction(async (tx) => {
-        const rows = await getPendingForRetry.run({ content_keys: keys }, tx);
+        const rows = await getPendingForRetry.run({
+          request_ids: requestIds,
+        }, tx);
 
         for (const row of rows) {
           // The charge is against the STORED count, not whatever the caller's
@@ -1097,14 +1103,18 @@ export class DatabaseStorage<
           if (newRetryCount >= maxRetries) {
             const parsed = JSON.parse(row.payload) as DefaultBatcherInput;
             // Always-visible: deleting a user's input must never be silent.
+            // Identified by request id rather than by a slice of the payload:
+            // it is the id the caller was handed and the one every other log
+            // line, `/input-status` answer and status row already uses, so an
+            // operator can join them. The truncated content key it replaces
+            // could not be joined to anything.
             console.warn(
               `[Storage] DROPPING input after ${newRetryCount} failed retries ` +
-                `(address=${parsed.address}, target=${target}): ${
-                  row.content_key.substring(0, 100)
-                }...`,
+                `(address=${parsed.address}, target=${target}, ` +
+                `request=${row.request_id.substring(0, 12)}…).`,
             );
             await deletePendingByIdentity.run({
-              content_key: row.content_key,
+              request_id: row.request_id,
               seq: row.seq,
             }, tx);
             // Reported, not just logged: the caller waiting on this input can
@@ -1120,7 +1130,7 @@ export class DatabaseStorage<
           await updatePendingRetry.run({
             retry_count: newRetryCount,
             payload,
-            content_key: row.content_key,
+            request_id: row.request_id,
             seq: row.seq,
           }, tx);
         }
