@@ -111,18 +111,48 @@ link_midnight_wasm_from_monorepo() {
   done
 }
 
-drop_template_wasm_bun_copies() {
+# Point the template's own .bun copies AT the monorepo's, instead of deleting them.
+#
+# Bun's isolated linker gives every dependent its own relative symlink
+# `.bun/<dependent>@<ver>/node_modules/<scope>/<pkg>` pointing into
+# `.bun/<scope>+<pkg>@<ver>/`. Deleting that directory -- what this step used to
+# do -- leaves every one of those dangling. Under Ledger v9 that is ~15 links for
+# ledger-v9 alone, because each wallet-sdk-* package depends on it, and the first
+# import dies with `ENOENT reading ".../@midnightntwrk/ledger-v9"`. Under v8 far
+# fewer packages nested a ledger copy, so deleting happened to be survivable.
+#
+# Replacing the physical package directory with a symlink to the monorepo copy
+# keeps every one of those references resolvable AND still leaves exactly one
+# physical copy, which is what the WASM `instanceof` checks require.
+redirect_template_wasm_to_monorepo() {
   local bun_dir="$NM/.bun"
   [ -d "$bun_dir" ] || return 0
-  for prefix in \
-    "@midnight-ntwrk+compact-runtime@" \
-    "@midnight-ntwrk+compact-js@" \
-    "@midnight-ntwrk+onchain-runtime@" \
-    "@midnightntwrk+onchain-runtime-v4@" \
-    "@midnightntwrk+ledger-v9@"; do
-    for entry in "$bun_dir"/${prefix}*; do
-      [ -e "$entry" ] || continue
-      rm -rf "$entry"
+  local spec scope pkg mono entry inner candidate
+  for spec in $MIDNIGHT_WASM_PKGS "@midnight-ntwrk/onchain-runtime"; do
+    scope="${spec%%/*}"
+    pkg="${spec#*/}"
+    # The npm alias `@midnight-ntwrk/onchain-runtime` resolves to the v4 package.
+    if [ "$pkg" = "onchain-runtime" ]; then
+      mono=""
+      for candidate in "$MONOREPO_ROOT"/node_modules/.bun/@midnightntwrk+onchain-runtime-v4@*/node_modules/@midnightntwrk/onchain-runtime-v4; do
+        [ -d "$candidate" ] || continue
+        mono="$candidate"; break
+      done
+    else
+      mono=""
+      for candidate in "$MONOREPO_ROOT"/node_modules/.bun/"${scope}+${pkg}"@*/node_modules/"${scope}"/"${pkg}"; do
+        [ -d "$candidate" ] || continue
+        mono="$candidate"; break
+      done
+    fi
+    [ -n "$mono" ] || continue
+    for entry in "$bun_dir"/"${scope}+${pkg}"@*; do
+      inner="$entry/node_modules/${scope}/${pkg}"
+      [ -e "$inner" ] || continue
+      [ -L "$inner" ] && continue
+      rm -rf "$inner"
+      ln -sfn "$mono" "$inner"
+      echo "  REDIRECT .bun/$(basename "$entry") ${scope}/${pkg} -> monorepo"
     done
   done
 }
@@ -150,8 +180,8 @@ link_all_midnight_wasm_trees() {
 
 echo "Linking @midnight-ntwrk WASM packages to monorepo root..."
 link_all_midnight_wasm_trees
-drop_template_wasm_bun_copies
-echo "Re-linking WASM after dropping template .bun copies..."
+redirect_template_wasm_to_monorepo
+echo "Re-linking WASM after redirecting template .bun copies..."
 link_all_midnight_wasm_trees
 
 echo "Refreshing monorepo + @effectstream/midnight-contracts deps (fix stale symlinks)..."

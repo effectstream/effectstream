@@ -146,5 +146,32 @@ if [ -n "$TEMPLATE_ORT" ]; then
   done
 fi
 
+# Ledger v9 needs the same single-instance treatment as onchain-runtime, and did
+# not need it under v8. `LedgerParameters`, `ZswapSecretKeys` and friends are WASM
+# classes; if the monorepo packages load their own physical ledger-v9 while this
+# template loads its own, every cross-boundary check fails with
+# "expected instance of LedgerParameters" and deploy never completes. The v9
+# wallet-sdk stack passes these objects across the boundary constantly, which is
+# why the problem only appears now.
+#
+# Only symlinks are rewritten — the monorepo's physical copy is left alone so a
+# second template linking in the same container is unaffected.
+TEMPLATE_LEDGER=""
+for candidate in "$NM"/.bun/@midnightntwrk+ledger-v9@*/node_modules/@midnightntwrk/ledger-v9; do
+  [ -d "$candidate" ] || continue
+  TEMPLATE_LEDGER="$candidate"
+  break
+done
+if [ -n "$TEMPLATE_LEDGER" ]; then
+  echo ""
+  echo "Deduplicating ledger-v9 (monorepo references → template copy)..."
+  while IFS= read -r ledger_link; do
+    [ -L "$ledger_link" ] || continue
+    rm -f "$ledger_link"
+    ln -sfn "$TEMPLATE_LEDGER" "$ledger_link"
+    echo "  RELINK ${ledger_link#"$MONOREPO_ROOT/"} → template"
+  done < <(find "$MONOREPO_ROOT/node_modules" -path '*/node_modules/@midnightntwrk/ledger-v9' 2>/dev/null)
+fi
+
 echo ""
 echo "Done. You can now run: bun run dev"
