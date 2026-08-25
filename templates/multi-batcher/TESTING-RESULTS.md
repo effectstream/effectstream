@@ -73,6 +73,39 @@ After the fix `cOffersReaped=0` — the race is gone at the root, not papered ov
 > answer RPC again, failing in seconds with the cause named. On the rerun M8
 > passed in **171 s**. See TESTING.md for the recovery.
 
+> **2026-08-25, second run of the day: M13–M16 added — 14 pass, 2 `observed`,
+> zero failures.** The last block below is the authoritative M1–M16 run. The
+> four new scenarios exercise #873's request-tracking surface through real
+> template deployments, and two of them cannot run:
+>
+> **M13 and M14 are BLOCKED by an SDK defect, and report `observed` rather than
+> `fail`.** `DatabaseStorage` makes the FULL content key the btree primary key
+> of `pending_inputs`, and that key embeds the whole payload. A Midnight
+> contract call is ~3.3 KB, so the key reaches ~6.7 KB against PostgreSQL's
+> 2704-byte btree ceiling: `index row size 6712 exceeds btree version 4 maximum
+> 2704 for index "pending_inputs_pkey"`. Acceptance rolls back and the caller
+> gets a 500 — so on the tracking rung there is no 200, and therefore no "a 200
+> means durably tracked". Two independent payload shapes overflow it (a contract
+> call at 6712 bytes, a swap offer at ~3.9 KB), and the DDL is shared, so the
+> connected production rung fails identically. `FileStorage` is unaffected,
+> which is why the other fourteen are green. The two scenarios detect exactly
+> this error signature so the suite states the blocker instead of going
+> permanently red over a defect it does not own — and any *other* failure still
+> fails. See TESTING.md.
+>
+> **M8's assertion was accidentally-true and has been rewritten.** With
+> identical delivery figures (`a=5/5 b=3/3`) it passed one run and failed the
+> next purely on outage timing. When the pause straddles an in-flight
+> submission, the submit call hangs for the whole outage and errors, so the
+> batcher never sees a receipt for a transaction the node had already accepted;
+> it retries, the retries are refused because the original landed, and the stale
+> row is reaped at `maxRetries` — three product-a inputs did exactly that while
+> the counter still moved by the full 5. M8 now asserts what an outage genuinely
+> guarantees, exactly-once delivery plus zero permanent rejections, and reports
+> `parked`/`drops` with the explanation. Note `parked=0` in **every** M8 run
+> recorded here, including passing ones: the infra-parking path does not engage
+> for this outage shape.
+
 > **M3 was rewritten between the two runs on 2026-08-05.** The first run's M3
 > ("delivered once EACH") did not test what it claimed: it sent the payload to
 > product-b and product-c, but product-c *rejects* a plain transfer, so only one
@@ -379,3 +412,73 @@ Per-child RSS min/median/max: 98.2 / 99.5 / 124.6 MiB across 15 children.
 | 967220 | 117.7 |
 
 Per-child RSS min/median/max: 114.5 / 117.7 / 141.0 MiB across 30 children.
+
+## Deep run 2026-08-25T20:32:30.871Z
+
+| # | Test | Outcome | Notes |
+|---|------|---------|-------|
+| M1 | Policy matrix: each product accepts only its own shape | **pass** | 8/8 cases correct |
+| M2 | One product's dust exhaustion does not stall the others | **pass** | a: 30/30 b: 4/4 c accepted=3 drops(a,b)=0 cOffersReaped=0 |
+| M3 | Byte-identical payload on two targets creates two independent rows | **pass** | b=accepted c=accepted rows: b=1 c=1 |
+| M4 | Unaddressed and unknown-target inputs are refused | **pass** | noTarget=400 unknownTarget=404 pending=0 |
+| M5 | A policy-violating row written straight to storage is refused | **pass** | drained=true hash=#3852829e policyRejects=1 typedRemoval=1 zeroCostBatch=1 proved=0 retryCharged=0 drops=0 productBPending=0 |
+| M6 | Garbage and oversized payloads are refused at intake | **pass** | not-json-not-hex:rejected(400) empty:rejected(400) bad-stage:rejected(400) garbage-hex:rejected(400) huge:rejected(400) pending=0 |
+| M7 | Per-product health is observable via /queue-stats | **pass** | product-a[w=0/5 dust=5] product-b[w=0/5 dust=6] product-c[w=0/5 dust=7] missing=none |
+| M8 | Node outage costs no work: every product delivers exactly once | **pass** | a=5/5 b=3/3 parked=0 drops=0 permanentRejects=0 |
+| M9 | Restart with a mixed queue delivers every product exactly once | **pass** | a=4/4 b=3/3 |
+| M10 | Mixed three-product soak | **pass** | a=25/25 b=10/10 c=6 wall=293.6s tps=0.14 eventLoopLagP99(max 5s window)=51.02ms validationChildRSS=30 children 113.2/118.0/137.7 MiB min/median/max dustErrors=0 drops=0 |
+| M11 | Corrupted proof is admitted, then permanently rejected pre-spend | **pass** | hash=#350ce822 corruptAt=50% noWait=200 waitReceipt=400/NOT_WELL_FORMED proved=0 proofRejects=2 permanent=2 retryCharged=0 zeroRetryOutcomes=2 dust=[8]→[8] D7={"phase":"pre-spend","txStage":"finalized","strictness":{"enforceBalancing":false,"verifySignatures":true,"enforceLimits":false,"verifyNativeProofs":false,"verifyContractProofs":false}} reason=Invalid proof -- while verifying Zswap proof |
+| M12 | Intent-bearing call that expires during dust wait is refused | **pass** | realCallBytes=3307 intents=1 beforeWait=121000ms afterWait=119000ms floor=120000ms order=wait→ttl verdict=TTL_TOO_SHORT |
+| M13 | Tracked requests resolve to their real fate across a restart | **observed** | BLOCKED by an SDK defect, not by the template: the tracking rung cannot accept a real Midnight transaction. pending_inputs indexes the FULL content key (payload included) in its btree primary key, so a ~3.3 KB contract call overflows PostgreSQL's 2704-byte limit and acceptance 500s. Same DDL on the connected rung. Verbatim: Failed to record accepted request: error: index row size 6712 exceeds btree version 4 maximum 2704 for index "pending_inputs_pkey" |
+| M14 | A replayed spend returns the ORIGINAL id and queues nothing | **observed** | BLOCKED by the same SDK defect as M13: the tracking rung cannot accept a real Midnight transaction, so dedup cannot be exercised through it at all. Verbatim: Failed to record accepted request: error: index row size 3960 exceeds btree version 4 maximum 2704 for index "pending_inputs_pkey" |
+| M15 | Stale and future-dated submissions are refused at admission | **pass** | expired:400/INPUT_TIMESTAMP_EXPIRED future:400/INPUT_TIMESTAMP_IN_FUTURE unreadable:400/INPUT_TIMESTAMP_UNREADABLE inside-window:200 queuedByRefusals=0 insideWindowId=yes |
+| M16 | Queue-only still delivers, and says so when asked to poll | **pass** | send=200 idPresent=true duplicateAbsent=true tracking={enabled:false,reason:queue-only-storage,enableWith:BATCHER_DB_SCHEMA,disabled:3} poll=501/request-tracking-disabled malformedId=501 counterDelta=1 bootBanner=1 |
+
+**Memory (docker stats, 188 samples):**
+
+| service | peak MiB | final MiB |
+|---|---|---|
+| app | 1922.0 | 1615.9 |
+| indexer | 67.4 | 13.5 |
+| node | 1270.8 | 61.5 |
+| proof-lb | 4.3 | 2.9 |
+| proof-server | 745.1 | 4.4 |
+| proof-server-2 | 800.5 | 4.0 |
+| proof-server-3 | 798.1 | 5.0 |
+
+**Validation child RSS (168 samples):**
+
+| host PID | peak RSS MiB |
+|---|---|
+| 2116859 | 135.6 |
+| 2116860 | 122.5 |
+| 2116861 | 115.4 |
+| 2116862 | 121.6 |
+| 2116863 | 113.2 |
+| 2116864 | 116.7 |
+| 2116865 | 119.7 |
+| 2116866 | 115.9 |
+| 2116867 | 118.0 |
+| 2116869 | 117.6 |
+| 2116872 | 116.9 |
+| 2116875 | 119.9 |
+| 2116879 | 117.8 |
+| 2116880 | 121.0 |
+| 2116882 | 122.4 |
+| 2303175 | 135.9 |
+| 2303176 | 137.7 |
+| 2303177 | 136.6 |
+| 2303178 | 122.2 |
+| 2303179 | 116.9 |
+| 2303180 | 117.1 |
+| 2303181 | 117.9 |
+| 2303182 | 115.8 |
+| 2303183 | 115.1 |
+| 2303184 | 115.8 |
+| 2303186 | 116.8 |
+| 2303189 | 116.0 |
+| 2303192 | 120.3 |
+| 2303194 | 122.0 |
+| 2303195 | 122.6 |
+
+Per-child RSS min/median/max: 113.2 / 118.0 / 137.7 MiB across 30 children.

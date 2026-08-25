@@ -58,8 +58,24 @@ const config: BatcherConfig<DefaultBatcherInput> = {
   },
 };
 
-const storage = new FileStorage(STORAGE_DIR);
-const batcher = createNewBatcher(config, storage);
+// Storage. The template's default is queue-only: an explicit FileStorage,
+// zero configuration, nothing to install — which is what the deep suite's
+// M1–M12, M15 and M16 run against.
+//
+// If either tracking key is set, the choice is handed to the SDK's own storage
+// ladder instead of being made here. That is not a preference, it is the
+// contract: an explicit `storage` argument means the environment is NEVER
+// consulted, so passing one would silently override the very key the operator
+// just set — BATCHER_PGLITE (own embedded database, development) or
+// BATCHER_DB_SCHEMA (connected, production). The ladder also owns the refusals
+// that matter, including "both set" and "set but unreachable".
+const wantsTracking =
+  (process.env.BATCHER_PGLITE ?? "").trim().toLowerCase() === "true" ||
+  (process.env.BATCHER_DB_SCHEMA ?? "").trim() !== "";
+
+const batcher = wantsTracking
+  ? createNewBatcher(config)
+  : createNewBatcher(config, new FileStorage(STORAGE_DIR));
 
 // The deep suite needs a measurement from THIS process: HTTP, adapter
 // orchestration and validation dispatch all share this event loop. A probe in

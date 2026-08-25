@@ -29,6 +29,15 @@ export async function sendTx(
     omitTarget?: boolean;
     confirmationLevel?: "no-wait" | "wait-receipt" | "wait-effectstream-processed";
     timeoutMs?: number;
+    /**
+     * Override the signed timestamp. Two uses, both in the deep suite: a
+     * deliberately stale or future-dated value to exercise the admission
+     * freshness window, and ONE clock read reused across submissions that must
+     * be byte-identical — a per-call `Date.now()` would make two "identical"
+     * payloads two different requests a millisecond apart, which would turn
+     * every dedup assertion into a coin flip.
+     */
+    timestamp?: string;
   },
 ): Promise<SendInputResult> {
   const inputPayload: Record<string, unknown> = { tx: hexTx };
@@ -40,7 +49,7 @@ export async function sendTx(
       address: opts.address ?? `${opts.target}-workload`,
       addressType: ADDRESS_TYPE_MIDNIGHT,
       input: opts.rawInput ?? JSON.stringify(inputPayload),
-      timestamp: String(Date.now()),
+      timestamp: opts.timestamp ?? String(Date.now()),
     },
     confirmationLevel: opts.confirmationLevel ?? "no-wait",
   };
@@ -60,6 +69,68 @@ export async function sendTx(
   const success = response.ok &&
     (parsed as { success?: boolean } | null)?.success !== false;
   return { ok: success, status: response.status, body: parsed };
+}
+
+export interface InputStatusResponse {
+  status: number;
+  body:
+    | {
+      status?: "complete" | "incomplete" | "failed";
+      subState?: string;
+      transactionHash?: string;
+      blockNumber?: number;
+      errorCode?: string;
+      message?: string;
+      retryCount?: number;
+      acceptedAt?: string;
+      /** Present on the 400/404/501 bodies. */
+      reason?: string;
+      /** Present on the 501 body: the one setting that enables tracking. */
+      enableWith?: string;
+      success?: boolean;
+    }
+    | null;
+}
+
+/**
+ * Poll one request id once.
+ *
+ * Deliberately does NOT throw on a non-200: 501 (this deployment keeps no
+ * statuses), 404 (unknown or aged out) and 400 (malformed id) are all answers
+ * a caller is meant to READ, and a test that has to catch an exception to
+ * observe them cannot assert on their bodies.
+ */
+export async function getInputStatus(
+  requestId: string,
+): Promise<InputStatusResponse> {
+  const response = await fetch(
+    `${BATCHER_URL}/input-status/${encodeURIComponent(requestId)}`,
+  );
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    /* non-JSON body */
+  }
+  return { status: response.status, body: body as InputStatusResponse["body"] };
+}
+
+/** Poll until an id reaches a terminal verdict (complete/failed), or time out. */
+export async function pollInputStatus(
+  requestId: string,
+  timeoutMs: number,
+): Promise<InputStatusResponse> {
+  const start = Date.now();
+  let last: InputStatusResponse = { status: 0, body: null };
+  while (Date.now() - start < timeoutMs) {
+    last = await getInputStatus(requestId);
+    const state = last.body?.status;
+    if (last.status === 200 && (state === "complete" || state === "failed")) {
+      return last;
+    }
+    await new Promise((r) => setTimeout(r, 2_000));
+  }
+  return last;
 }
 
 export async function getStatus(): Promise<unknown> {
