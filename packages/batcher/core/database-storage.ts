@@ -12,7 +12,15 @@ import type {
 } from "./storage.ts";
 import { buildRequestKey, requestIdFromKey } from "./request-id.ts";
 import { quoteSchemaIdentifier, resolveBatcherSchema } from "./storage-schema.ts";
-import { mkdirSync } from "node:fs";
+import {
+  closeSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  unlinkSync,
+  writeSync,
+} from "node:fs";
+import { resolve as resolvePath } from "node:path";
 import { readFile, rename } from "node:fs/promises";
 import { isNotFoundError } from "@effectstream/utils/runtime";
 import type { IDatabaseConnection } from "@pgtyped/runtime";
@@ -400,6 +408,156 @@ const DEFAULT_DATA_DIRECTORY = "./batcher-data";
 const EMBEDDED_DB_SUBDIR = "pglite";
 
 /**
+ * The batcher's own exclusive claim on an embedded data directory.
+ *
+ * PgLite does NOT lock its data directory — measured, not assumed. Two
+ * instances opening one directory both succeed, each loads the directory into
+ * its own WASM in-memory filesystem, and each flushes its whole copy back: the
+ * two diverge immediately (one sees a row the other does not) and the
+ * directory they leave behind is corrupt — a later open fails outright with
+ * `duplicate key value violates unique constraint`, heap and index disagreeing.
+ *
+ * Since two embedded batchers in development are separated by nothing but
+ * their directories (there is no port, no server, no session to collide over),
+ * this file is the entire isolation guarantee. It fails closed: a directory
+ * that MIGHT be in use is refused, because a false refusal is a message and a
+ * false acceptance is silent data loss.
+ */
+const EMBEDDED_LOCK_FILE = "pglite.lock";
+
+/**
+ * Directories this PROCESS currently holds open.
+ *
+ * The lock file cannot answer same-process questions on its own: a lock file
+ * naming our own pid is ambiguous between "another instance in this process
+ * has it" and "an earlier instance in this process left it behind without
+ * closing". This set is the authority for the first case, the file for the
+ * other process's case, and together they never refuse a directory nobody is
+ * actually using.
+ */
+const EMBEDDED_DIRECTORIES_IN_USE = new Set<string>();
+
+interface EmbeddedLockHolder {
+  pid: number;
+  since: string;
+}
+
+function readLockHolder(lockPath: string): EmbeddedLockHolder | undefined {
+  try {
+    const parsed = JSON.parse(readFileSync(lockPath, "utf8"));
+    if (typeof parsed?.pid === "number") {
+      return { pid: parsed.pid, since: String(parsed.since ?? "unknown") };
+    }
+  } catch {
+    // Unreadable or truncated (a kill -9 mid-write). Treated as stale below:
+    // a lock nobody can identify cannot be attributed to a live owner.
+  }
+  return undefined;
+}
+
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM means it exists and belongs to somebody else — still alive, and
+    // still a reason not to touch its database.
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+function embeddedLockRefusal(
+  directory: string,
+  holder: string,
+): Error {
+  return new Error(
+    `The embedded database directory ${JSON.stringify(directory)} is already ` +
+      `in use by ${holder}. Two batchers cannot share one embedded database: ` +
+      `PgLite does not lock its data directory, so both would open it, ` +
+      `diverge, and overwrite each other's pages — leaving a directory that ` +
+      `fails to open at all. Give this batcher its own directory with ` +
+      `BATCHER_PGLITE_DATA_DIR (it is the only thing separating two embedded ` +
+      `batchers — the engine binds no port, so there is nothing else to make ` +
+      `unique), or stop the other batcher. If you are certain no batcher is ` +
+      // "remove", not the four-letter SQL verb: the SQL-source policy in
+      // test/database-storage-sql-source.test.ts scans string literals in this
+      // file for operational SQL, and it cannot tell prose from a statement.
+      // Rephrasing costs nothing; an allowlist entry for an English sentence
+      // would blunt a guard that is doing its job.
+      `running, remove the file ` +
+      `${JSON.stringify(`${directory}/${EMBEDDED_LOCK_FILE}`)}.`,
+  );
+}
+
+/**
+ * Claim a data directory, or refuse. Returns the release function.
+ */
+function acquireEmbeddedLock(directory: string): () => void {
+  const absolute = resolvePath(directory);
+  if (EMBEDDED_DIRECTORIES_IN_USE.has(absolute)) {
+    throw embeddedLockRefusal(
+      absolute,
+      `another storage in this same process (pid ${process.pid})`,
+    );
+  }
+
+  const lockPath = `${absolute}/${EMBEDDED_LOCK_FILE}`;
+  // Two attempts: the first may lose to a stale file, which the second takes
+  // over once it has been removed. A third would mean a live contender, and
+  // the loop below refuses rather than spinning.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      // "wx" is O_CREAT|O_EXCL: the create either wins or reports EEXIST, and
+      // no two processes can both believe they won.
+      const fd = openSync(lockPath, "wx");
+      try {
+        writeSync(
+          fd,
+          JSON.stringify({
+            pid: process.pid,
+            since: new Date().toISOString(),
+            directory: absolute,
+          }),
+        );
+      } finally {
+        closeSync(fd);
+      }
+      EMBEDDED_DIRECTORIES_IN_USE.add(absolute);
+      return () => {
+        EMBEDDED_DIRECTORIES_IN_USE.delete(absolute);
+        try {
+          unlinkSync(lockPath);
+        } catch {
+          // Already gone: a crash-recovery takeover, or a manual cleanup.
+        }
+      };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+
+      const holder = readLockHolder(lockPath);
+      // A file naming OUR pid that is not in the in-use set is a leftover from
+      // a storage this process opened and never closed — not a live owner.
+      const live = holder !== undefined &&
+        holder.pid !== process.pid &&
+        processIsAlive(holder.pid);
+      if (live) {
+        throw embeddedLockRefusal(
+          absolute,
+          `the process with pid ${holder!.pid} (since ${holder!.since})`,
+        );
+      }
+      try {
+        unlinkSync(lockPath);
+      } catch {
+        // Someone else cleaned it up first; the next attempt will find out.
+      }
+    }
+  }
+
+  throw embeddedLockRefusal(absolute, "another process racing for the same lock");
+}
+
+/**
  * Content key for a row, byte-identical to `FileStorage.createInputKey`.
  *
  * The `?? target` fallback has the same meaning as there: a row that never
@@ -512,6 +670,8 @@ export class DatabaseStorage<
   /** The effective, prefixed schema name — or undefined for "leave search_path alone". */
   private readonly schema?: string;
   private driver?: SqlDriver;
+  /** Gives the embedded data directory back; undefined for connected storage. */
+  private releaseLock?: () => void;
   /** Memoised so the two `init()` call sites in `Batcher` cannot double-import. */
   private initPromise?: Promise<void>;
   /** What the last `init()` had to repair; surfaced via `getReconciliationReport()`. */
@@ -613,6 +773,10 @@ export class DatabaseStorage<
       } else {
         const directory = this.dataDirectory ?? DEFAULT_DATA_DIRECTORY;
         mkdirSync(directory, { recursive: true });
+        // Before the engine opens anything: an instance that has already
+        // loaded the directory cannot be un-loaded, and by the time two of
+        // them disagree the damage is written.
+        this.releaseLock = acquireEmbeddedLock(directory);
         this.driver = await PgliteDriver.open(
           `${directory}/${EMBEDDED_DB_SUBDIR}`,
           this.schema,
@@ -627,6 +791,11 @@ export class DatabaseStorage<
       this.initPromise = undefined;
       await this.driver?.close().catch(() => {});
       this.driver = undefined;
+      // Including the directory claim: a storage that failed to come up holds
+      // nothing, and leaving the file behind would deny the directory to the
+      // retry that is about to happen.
+      this.releaseLock?.();
+      this.releaseLock = undefined;
       console.error("Error initializing database storage:", error);
       throw new Error(`Failed to initialize storage: ${error}`);
     }
@@ -1270,6 +1439,14 @@ export class DatabaseStorage<
     const driver = this.driver;
     this.driver = undefined;
     this.initPromise = undefined;
-    await driver?.close();
+    try {
+      await driver?.close();
+    } finally {
+      // Released even when the engine's own close throws: a lock outliving its
+      // owner turns every bad shutdown into manual cleanup, which is a worse
+      // failure than the one it prevents.
+      this.releaseLock?.();
+      this.releaseLock = undefined;
+    }
   }
 }
