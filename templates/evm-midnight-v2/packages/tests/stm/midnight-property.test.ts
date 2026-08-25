@@ -119,7 +119,7 @@ export async function midnightPropertyTest(db: Client) {
           const signed = await walletResult.wallet.signRecipe(
             recipe,
             (payload: Uint8Array) =>
-              walletResult.unshieldedKeystore.signData(payload),
+              walletResult.unshieldedKeystore.signDataAsync(payload),
           );
           return walletResult.wallet.finalizeRecipe(signed);
         },

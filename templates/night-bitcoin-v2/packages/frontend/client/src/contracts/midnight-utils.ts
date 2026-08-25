@@ -1,6 +1,6 @@
 import {
   Transaction as LedgerV8Transaction,
-} from "@midnight-ntwrk/ledger-v8";
+} from "@midnightntwrk/ledger-v9";
 import {
   SucceedEntirely,
   FailFallible,

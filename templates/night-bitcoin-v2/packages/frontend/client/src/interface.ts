@@ -5,7 +5,7 @@ import * as unshielded_erc20 from "./contracts/erc20.ts";
 import { M20_DOMAIN_SEP } from "./contracts/erc20.ts";
 import * as erc7683 from "./contracts/intents.ts";
 import { extractPublicCoinAddress } from "./contracts/midnight-utils.ts";
-import { rawTokenType } from "@midnight-ntwrk/ledger-v8";
+import { rawTokenType } from "@midnightntwrk/ledger-v9";
 import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 
 enum AddressType {
@@ -140,7 +140,7 @@ export async function loginMidnight() {
 // Computes the M20 unshielded token color (raw token type) for a given
 // contract address. The color is what `mint_unshielded` returns and what the
 // Lace wallet uses as the key in `getUnshieldedBalances()`.
-// `rawTokenType` from ledger-v8 takes (domain_sep: Uint8Array, contract: hex string)
+// `rawTokenType` from ledger-v9 takes (domain_sep: Uint8Array, contract: hex string)
 // and returns the token-type hex string directly.
 export function m20TokenColor(contractAddress: string): string {
   const hex = contractAddress.startsWith("0x")

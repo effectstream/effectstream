@@ -16,8 +16,8 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
-    "@effectstream/midnight-contracts": "0.104.0",
-    "@effectstream/orchestrator": "0.104.0",
+    "@effectstream/midnight-contracts": "0.200.1",
+    "@effectstream/orchestrator": "0.200.1",
     "wait-on": "8.0.3"
   },
   "effectstream": {
@@ -28,14 +28,14 @@
   },
   "overrides": {
     "@effect/platform": "0.96.1",
-    "@midnight-ntwrk/ledger-v8": "8.1.0",
-    "@midnightntwrk/wallet-sdk-abstractions": "2.1.0",
-    "@midnightntwrk/wallet-sdk-address-format": "3.1.2",
-    "@midnightntwrk/wallet-sdk-capabilities": "3.3.1",
-    "@midnightntwrk/wallet-sdk-dust-wallet": "4.2.0",
-    "@midnightntwrk/wallet-sdk-facade": "4.1.0",
-    "@midnightntwrk/wallet-sdk-hd": "3.0.3",
-    "@midnightntwrk/wallet-sdk-shielded": "3.0.2",
-    "@midnightntwrk/wallet-sdk-unshielded-wallet": "3.1.0"
+    "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
+    "@midnightntwrk/wallet-sdk-abstractions": "3.0.0-beta.0",
+    "@midnightntwrk/wallet-sdk-address-format": "4.0.0-beta.2",
+    "@midnightntwrk/wallet-sdk-capabilities": "4.0.0-beta.2",
+    "@midnightntwrk/wallet-sdk-dust-wallet": "5.0.0-beta.2",
+    "@midnightntwrk/wallet-sdk-facade": "5.0.0-beta.2",
+    "@midnightntwrk/wallet-sdk-hd": "3.1.0-beta.1",
+    "@midnightntwrk/wallet-sdk-shielded": "4.0.0-beta.2",
+    "@midnightntwrk/wallet-sdk-unshielded-wallet": "4.0.0-beta.2"
   }
 }
