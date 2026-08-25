@@ -1,5 +1,5 @@
 const { binary, getPlatform, cleanBinaries } = require("./binary");
-const { runMidnightIndexer, waitForNodeBlock } = require(
+const { runMidnightIndexer, waitForNodeBlock, isValidIndexerSecret } = require(
   "./run_midnight_indexer",
 );
 const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
@@ -66,7 +66,7 @@ Options:
   --help           Show this help message
 
 Environment Variables:
-  APP__INFRA__SECRET             Required: Secret key for the application
+  APP__INFRA__SECRET             Required: 64-character hexadecimal secret
   LEDGER_NETWORK_ID              Optional: Ledger network ID (default: Undeployed)
   SUBSTRATE_NODE_WS_URL          Optional: Substrate node WebSocket URL
                                  (Docker default: ws://node:9944, Binary default: ws://localhost:9944)
@@ -79,11 +79,11 @@ Environment Variables:
 Note: macOS Intel users will automatically use Docker. macOS arm64 supports both binary and Docker execution.
 
 Examples:
-  APP__INFRA__SECRET=mysecret node index.js --docker          # Use Docker
-  APP__INFRA__SECRET=mysecret node index.js --binary          # Use binary (if supported)
-  APP__INFRA__SECRET=mysecret node index.js --clean-binaries   # Delete and redownload binaries
+  APP__INFRA__SECRET=<64_hex_characters> node index.js --docker          # Use Docker
+  APP__INFRA__SECRET=<64_hex_characters> node index.js --binary          # Use binary (if supported)
+  APP__INFRA__SECRET=<64_hex_characters> node index.js --clean-binaries   # Delete and redownload binaries
   node index.js --only-clean                                 # Only delete downloaded binaries
-  APP__INFRA__SECRET=mysecret node index.js --clean           # Clean SQLite database
+  APP__INFRA__SECRET=<64_hex_characters> node index.js --clean           # Clean SQLite database
   node index.js --help                                       # Show this help
 `);
 }
@@ -170,9 +170,9 @@ async function runWithBinary(env, args, forceClean = false) {
   console.log("Using binary to run midnight indexer...");
 
   // Check for required environment variable
-  if (!env.APP__INFRA__SECRET) {
-    console.error("Error: APP__INFRA__SECRET environment variable is required");
-    console.log("Please set APP__INFRA__SECRET=<your_secret> and run again");
+  if (!isValidIndexerSecret(env.APP__INFRA__SECRET)) {
+    console.error("Error: APP__INFRA__SECRET must be exactly 64 hexadecimal characters");
+    console.log("Please set APP__INFRA__SECRET=<64_hex_characters> and run again");
     process.exit(1);
   }
 
@@ -243,12 +243,12 @@ async function main(args) {
     }
 
     // Check for required environment variable
-    if (!env.APP__INFRA__SECRET) {
+    if (!isValidIndexerSecret(env.APP__INFRA__SECRET)) {
       console.error(
-        "Error: APP__INFRA__SECRET environment variable is required",
+        "Error: APP__INFRA__SECRET must be exactly 64 hexadecimal characters",
       );
       console.log(
-        "Please set APP__INFRA__SECRET=<your_secret> when running with --docker",
+        "Please set APP__INFRA__SECRET=<64_hex_characters> when running with --docker",
       );
       process.exit(1);
     }
@@ -296,11 +296,11 @@ async function main(args) {
     );
 
     // Check for required environment variable
-    if (!env.APP__INFRA__SECRET) {
+    if (!isValidIndexerSecret(env.APP__INFRA__SECRET)) {
       console.error(
-        "Error: APP__INFRA__SECRET environment variable is required",
+        "Error: APP__INFRA__SECRET must be exactly 64 hexadecimal characters",
       );
-      console.log("Please set APP__INFRA__SECRET=<your_secret> and run again");
+      console.log("Please set APP__INFRA__SECRET=<64_hex_characters> and run again");
       process.exit(1);
     }
 
@@ -312,12 +312,12 @@ async function main(args) {
     const useDocker = await promptUserForDockerChoice();
     if (useDocker) {
       // Check for required environment variable
-      if (!env.APP__INFRA__SECRET) {
+      if (!isValidIndexerSecret(env.APP__INFRA__SECRET)) {
         console.error(
-          "Error: APP__INFRA__SECRET environment variable is required",
+          "Error: APP__INFRA__SECRET must be exactly 64 hexadecimal characters",
         );
         console.log(
-          "Please set APP__INFRA__SECRET=<your_secret> and run again",
+          "Please set APP__INFRA__SECRET=<64_hex_characters> and run again",
         );
         process.exit(1);
       }
@@ -326,7 +326,7 @@ async function main(args) {
   }
 
   // Default to binary execution (only on supported platforms)
-  return runWithBinary(env, flags.remainingArgs, flags.clean);
+  return runWithBinary(env, flags.remainingArgs, flags.cleanBinaries);
 }
 
 // Handle unhandled promise rejections

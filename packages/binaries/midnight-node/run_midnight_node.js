@@ -14,6 +14,9 @@ function applyDefaultEnv(env) {
   if (!("MOCK_REGISTRATIONS_FILE" in newEnv)) {
     newEnv.MOCK_REGISTRATIONS_FILE = path.join(__dirname, "local-mock.json");
   }
+  if (!("USE_MAIN_CHAIN_FOLLOWER_MOCK" in newEnv)) {
+    newEnv.USE_MAIN_CHAIN_FOLLOWER_MOCK = "true";
+  }
   return newEnv;
 }
 
@@ -58,4 +61,4 @@ function runMidnightNode(env = process.env, args = []) {
   return childProcess;
 }
 
-module.exports = { runMidnightNode };
+module.exports = { applyDefaultEnv, runMidnightNode };

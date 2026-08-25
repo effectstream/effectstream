@@ -1,7 +1,7 @@
 // TODO Remove references to "src/managed" as this is not standard.
 
 // Single WASM instance for ContractState / ContractMaintenanceAuthority.
-import "@midnight-ntwrk/onchain-runtime-v3";
+import "@midnightntwrk/onchain-runtime-v4";
 
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
@@ -11,7 +11,7 @@ import { getEnv, cwd } from "@effectstream/utils/runtime";
 import { deployContract } from "@midnight-ntwrk/midnight-js-contracts";
 import type { PrivateStateId } from "@midnight-ntwrk/midnight-js-types";
 import { CompiledContract, type Witnesses, type Contract } from "@midnight-ntwrk/compact-js";
-import type { SigningKey } from "@midnight-ntwrk/ledger-v8";
+import type { SigningKey } from "@midnightntwrk/ledger-v9";
 import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import * as path from "node:path";
 
@@ -126,15 +126,15 @@ export async function deployMidnightContract(
 
   // Merge network URLs with defaults
   const { id: networkIdOverride, ...endpoints } = networkUrls ?? {};
+  const resolvedNetworkId = (networkIdOverride ??
+    midnightNetworkConfig.id) as NetworkId.NetworkId;
   const resolvedNetworkUrls: Required<NetworkUrls> = {
-    id: 'placeholder-value',
+    id: resolvedNetworkId,
     indexer: endpoints.indexer ?? midnightNetworkConfig.indexer,
     indexerWS: endpoints.indexerWS ?? midnightNetworkConfig.indexerWS,
     node: endpoints.node ?? midnightNetworkConfig.node,
     proofServer: endpoints.proofServer ?? midnightNetworkConfig.proofServer,
   };
-  const resolvedNetworkId = (networkIdOverride ??
-    midnightNetworkConfig.id) as NetworkId.NetworkId;
 
   log.info(
     `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${resolvedNetworkId}`,
@@ -143,7 +143,7 @@ export async function deployMidnightContract(
   setNetworkId(resolvedNetworkId);
 
   let walletResult: WalletResult | null = opts?.walletResult ?? null;
-  let providers: ReturnType<typeof configureMidnightNodeProviders> | null = null;
+  let providers: Awaited<ReturnType<typeof configureMidnightNodeProviders>> | null = null;
 
   try {
     if (!walletResult) {
@@ -201,7 +201,7 @@ export async function deployMidnightContract(
     // Use a separate LevelDB directory for deployment to avoid lock conflicts with batcher
     const deployPrivateStateStoreName = `${privateStateStoreName}-deploy`;
 
-    providers = configureMidnightNodeProviders(
+    providers = await configureMidnightNodeProviders(
       wallet,
       zswapSecretKeys,
       walletZswapSecretKeys,

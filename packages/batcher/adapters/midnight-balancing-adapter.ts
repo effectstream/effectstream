@@ -2,17 +2,17 @@
 // Handles delegated balancing (Party B) where unproven transactions are received,
 // balanced with filler funds, proved, and submitted.
 //
-// Architecture: worker pool with per-wallet balance mutex.
+// Architecture: worker pool with per-wallet transaction mutex.
 //
 // Each worker = {wallet, UTXO-slot} — an independent processing unit.
 // Workers run their tx pipeline in parallel:
 //
-//   acquire balance lock → balance → release lock → prove/finalize → submit
+//   acquire wallet lock → balance → prove/finalize → validate → submit → release lock
 //
-// The balance lock serializes balance calls within the same wallet
-// (speculative chaining requires sequential dust allocation). Prove,
-// finalize, and submit overlap freely — including with other workers'
-// balance phase on the same wallet, enabling deep pipelining.
+// The wallet lock serializes the complete mutation lifecycle within the same
+// wallet. Releasing after balance is unsafe on ledger-v9: another worker can
+// select the same DUST input before the first transaction reaches submission,
+// causing DustDoubleSpend. Different wallets still run concurrently.
 //
 // Worker selection:
 //   1. Prefer wallets with the fewest busy workers (maximize wallet spread)
@@ -31,7 +31,7 @@ import {
   type FinalizedTransaction,
   Transaction as LedgerTransaction,
   type UnprovenTransaction,
-} from "@midnight-ntwrk/ledger-v8";
+} from "@midnightntwrk/ledger-v9";
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
 import type {
   PublicDataProvider,
@@ -46,6 +46,7 @@ import {
   getInitialShieldedState,
   type NetworkUrls,
   registerNightForDust,
+  resolveFacadeDustAvailableCoins,
   resolveFacadeDustBalance,
   suspendAuxWalletSyncForFees,
   waitForDustFunds,
@@ -179,8 +180,8 @@ interface DelegatedBatchData {
  * dust funds, generates proofs, and submits them to the blockchain.
  *
  * Uses a worker pool where each worker = {wallet, UTXO-slot}. Workers run
- * their tx pipeline independently with a per-wallet balance mutex for
- * speculative chaining correctness.
+ * their tx pipeline independently with a per-wallet transaction mutex for
+ * DUST input ownership and speculative-chaining correctness.
  */
 export class MidnightBalancingAdapter
   implements BlockchainAdapter<DelegatedBatchData> {
@@ -297,18 +298,30 @@ export class MidnightBalancingAdapter
 
         // Use waitForDustFundsWithRetry: builds wallet, restores cached state,
         // syncs with stall detection + retry, saves state to disk
-        const { walletResult, dustBalance } = await waitForDustFundsWithRetry({
+        const {
+          walletResult,
+          dustBalance,
+          availableDustCoins,
+          spendableDustCoins,
+          dustReady,
+        } = await waitForDustFundsWithRetry({
           networkUrls,
           seed,
           networkId: this.walletNetworkId,
           syncMode: 'dust-only',
           balanceWaitTimeoutMs: this.walletFundingTimeoutMs,
+          minSpendableDustPerCoin:
+            this.config.minSpendableDustPerCoin ?? DEFAULT_MIN_SPENDABLE_DUST,
         });
 
         this.walletResults[index] = walletResult;
+        this.walletDustExhausted[index] = !dustReady;
 
-        if (dustBalance > 0n) {
-          this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
+        if (dustReady) {
+          this.log.log(
+            `Wallet ${label}: DUST ready (${spendableDustCoins}/${availableDustCoins} ` +
+              `value-sufficient coins, balance=${dustBalance})`,
+          );
         } else {
           this.log.warn(
             `Wallet ${label}: dust balance still 0 — wallet needs dust or unshielded NIGHT to register`,
@@ -338,23 +351,32 @@ export class MidnightBalancingAdapter
     if (!walletResult) return;
     const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
 
-    let dustBalance = 0n;
+    const minSpendableDustPerCoin =
+      this.config.minSpendableDustPerCoin ?? DEFAULT_MIN_SPENDABLE_DUST;
+    let dustFunds = {
+      balance: 0n,
+      availableCoins: 0,
+      spendableCoins: 0,
+      ready: false,
+    };
     try {
-      dustBalance = await waitForDustFunds(walletResult.wallet, {
+      dustFunds = await waitForDustFunds(walletResult.wallet, {
         timeoutMs: this.walletFundingTimeoutMs,
         waitNonZero: true,
+        minSpendableDustPerCoin,
       });
     } catch {
       /* no dust within timeout */
     }
 
-    if (dustBalance === 0n) {
+    if (!dustFunds.ready) {
       this.log.log(`Wallet ${label}: no dust yet, trying unshielded→dust registration...`);
       try {
         if (await registerNightForDust(walletResult)) {
-          dustBalance = await waitForDustFunds(walletResult.wallet, {
+          dustFunds = await waitForDustFunds(walletResult.wallet, {
             timeoutMs: this.walletFundingTimeoutMs,
             waitNonZero: true,
+            minSpendableDustPerCoin,
           });
         }
       } catch (error) {
@@ -362,10 +384,15 @@ export class MidnightBalancingAdapter
       }
     }
 
-    this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
-    if (dustBalance === 0n) {
+    this.log.log(
+      `Wallet ${label}: DUST ready=${dustFunds.ready} ` +
+        `(${dustFunds.spendableCoins}/${dustFunds.availableCoins} value-sufficient coins, ` +
+        `balance=${dustFunds.balance})`,
+    );
+    this.walletDustExhausted[walletIndex] = !dustFunds.ready;
+    if (!dustFunds.ready) {
       this.log.warn(
-        `Wallet ${label}: WARNING: 0 dust balance, submissions will fail`,
+        `Wallet ${label}: WARNING: no value-sufficient DUST coin, submissions will fail`,
       );
     } else if (this.config.addShieldedPadding) {
       this.log.log(
@@ -386,12 +413,13 @@ export class MidnightBalancingAdapter
         return value;
       };
 
-      // deno-lint-ignore no-explicit-any
+      const availableCoins =
+        (dustState as { availableCoins?: unknown[] }).availableCoins ?? [];
       this.availableDustUtxoCounts[walletIndex] =
-        dustState.availableCoins?.length ?? null;
+        resolveFacadeDustAvailableCoins(dustState);
       this.log.log(
         `Wallet ${label}: dust coins: ${
-          JSON.stringify(dustState.availableCoins, bigintSerializer)
+          JSON.stringify(availableCoins, bigintSerializer)
         }`,
       );
       this.log.log(
@@ -404,15 +432,18 @@ export class MidnightBalancingAdapter
       // When shieldedPaddingTokenID is configured, per-input overrides can
       // enable padding even if the config default is off, so budget for the
       // worst case (2 UTXOs/slot) to avoid over-committing.
-      const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
+      const spendableInfo = await this.getSpendableDustInfo(walletIndex);
+      const slots = this.updateWorkerCapacityFromDustInfo(
+        walletIndex,
+        spendableInfo,
+      );
       const paddingPossible = !!(this.config.addShieldedPadding ||
         this.config.shieldedPaddingTokenID);
       const costPerTx = paddingPossible ? 2 : 1;
       const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
-      const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
-      this.pool.setSlots(walletIndex, slots);
       this.log.log(
-        `Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
+        `Wallet ${label}: worker slots: ${slots} (${spendableInfo.spendable}/${spendableInfo.total} ` +
+          `value-sufficient UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
       );
     } catch (e) {
       this.log.warn(`Wallet ${label}: could not read dust UTXO count:`, e);
@@ -439,11 +470,13 @@ export class MidnightBalancingAdapter
         return value;
       };
 
+      const availableCoins =
+        (dustState as { availableCoins?: unknown[] }).availableCoins ?? [];
       this.availableDustUtxoCounts[walletIndex] =
-        dustState.availableCoins?.length ?? null;
+        resolveFacadeDustAvailableCoins(dustState);
       this.log.log(
         `Wallet ${label}: dust coins: ${
-          JSON.stringify(dustState.availableCoins, bigintSerializer)
+          JSON.stringify(availableCoins, bigintSerializer)
         }`,
       );
       this.log.log(
@@ -452,15 +485,18 @@ export class MidnightBalancingAdapter
         }`,
       );
 
-      const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
+      const spendableInfo = await this.getSpendableDustInfo(walletIndex);
+      const slots = this.updateWorkerCapacityFromDustInfo(
+        walletIndex,
+        spendableInfo,
+      );
       const paddingPossible = !!(this.config.addShieldedPadding ||
         this.config.shieldedPaddingTokenID);
       const costPerTx = paddingPossible ? 2 : 1;
       const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
-      const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
-      this.pool.setSlots(walletIndex, slots);
       this.log.log(
-        `Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
+        `Wallet ${label}: worker slots: ${slots} (${spendableInfo.spendable}/${spendableInfo.total} ` +
+          `value-sufficient UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
       );
     } catch (e) {
       this.log.warn(`Wallet ${label}: could not read dust UTXO count:`, e);
@@ -492,10 +528,8 @@ export class MidnightBalancingAdapter
     if (!wr) return;
     try {
       // deno-lint-ignore no-explicit-any
-      const dustState = await getInitialDustState((wr.wallet as any).dust);
-      const count = dustState.availableCoins?.length ?? 0;
-      this.availableDustUtxoCounts[walletIndex] = count;
-      this.walletDustExhausted[walletIndex] = count === 0;
+      const info = await this.getSpendableDustInfo(walletIndex);
+      this.updateWorkerCapacityFromDustInfo(walletIndex, info);
     } catch {
       // ignore — next slow-path call will re-sync
     }
@@ -532,19 +566,16 @@ export class MidnightBalancingAdapter
 
   hasAvailableCapacity(): boolean {
     if (!this.isReady()) return false;
-    if (!this.pool.hasAvailableWorker()) return false;
-    // Dust-aware gate: when every initialized wallet is known to be out of
-    // spendable dust, report no capacity so the poll loop SKIPS the target —
-    // inputs stay queued (no retry burn, no doomed 60s waits). A throttled
-    // background refresh flips the flags back as coins regain value.
-    const allExhausted = this.walletInitialized.every(
-      (ok, i) => !ok || this.walletDustExhausted[i],
+    const hasEligibleWorker = this.pool.hasAvailableWorker((walletIndex) =>
+      this.isWalletEligibleForWork(walletIndex)
     );
-    if (allExhausted) {
-      this.maybeRefreshDustState();
-      return false;
-    }
-    return true;
+    if (hasEligibleWorker) return true;
+
+    // Recovery must remain reachable even when every wallet currently has
+    // zero slots. The refresh can recreate slots from newly value-sufficient
+    // DUST, while the current poll remains fail-closed and leaves inputs queued.
+    this.maybeRefreshDustState();
+    return false;
   }
 
   /** Throttled background re-read of every wallet's dust state. */
@@ -561,12 +592,11 @@ export class MidnightBalancingAdapter
           if (!this.walletInitialized[i]) continue;
           const info = await this.getSpendableDustInfo(i);
           const wasExhausted = this.walletDustExhausted[i];
-          this.availableDustUtxoCounts[i] = info.total;
-          this.walletDustExhausted[i] = info.spendable === 0;
+          const slots = this.updateWorkerCapacityFromDustInfo(i, info);
           if (wasExhausted && info.spendable > 0) {
             this.log.log(
               `Wallet ${i + 1}/${this.walletSeeds.length}: dust recovered ` +
-                `(${info.spendable}/${info.total} spendable coins) — resuming`,
+                `(${info.spendable}/${info.total} spendable coins, ${slots} slots) — resuming`,
             );
           }
         }
@@ -602,6 +632,36 @@ export class MidnightBalancingAdapter
       spendable: values.filter((v) => v >= minValue).length,
       values,
     };
+  }
+
+  /** Convert current value-sufficient DUST into the safe worker-slot budget. */
+  private getWorkerSlotCount(spendableDustCoins: number): number {
+    const paddingPossible = !!(this.config.addShieldedPadding ||
+      this.config.shieldedPaddingTokenID);
+    const costPerTx = paddingPossible ? 2 : 1;
+    const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
+    return Math.min(
+      Math.floor(spendableDustCoins / costPerTx),
+      maxPerWallet,
+    );
+  }
+
+  /** Keep cached DUST readiness and pool slots derived from the same state. */
+  private updateWorkerCapacityFromDustInfo(
+    walletIndex: number,
+    info: { total: number; spendable: number },
+  ): number {
+    this.availableDustUtxoCounts[walletIndex] = info.total;
+    this.walletDustExhausted[walletIndex] = info.spendable === 0;
+    const slots = this.getWorkerSlotCount(info.spendable);
+    this.pool.setSlots(walletIndex, slots);
+    return slots;
+  }
+
+  /** Predicate shared by public capacity reporting and worker acquisition. */
+  private isWalletEligibleForWork(walletIndex: number): boolean {
+    return this.walletInitialized[walletIndex] === true &&
+      this.walletDustExhausted[walletIndex] === false;
   }
 
   isFullyIdle(): boolean {
@@ -758,7 +818,7 @@ export class MidnightBalancingAdapter
     // (No fallback to exhausted wallets — hasAvailableCapacity() gates the
     // all-exhausted case, so inputs simply stay queued until dust recovers.)
     const dustFilter = (walletIdx: number): boolean =>
-      !this.walletDustExhausted[walletIdx];
+      this.isWalletEligibleForWork(walletIdx);
 
     for (const input of availableInputs) {
       // Deserialize BEFORE acquiring a worker. Failures are selected as
@@ -916,7 +976,10 @@ export class MidnightBalancingAdapter
     //
     // Shielded padding (when enabled via addShieldedPadding) is added separately
     // via applyShieldedPadding(), so this restriction does not break it.
-    const opts = { ttl: createTtl(), tokenKindsToBalance: ["dust"] as const };
+    const opts: { ttl: Date; tokenKindsToBalance: Array<"dust"> } = {
+      ttl: createTtl(),
+      tokenKindsToBalance: ["dust"],
+    };
 
     if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
       try {
@@ -1032,11 +1095,12 @@ export class MidnightBalancingAdapter
 
   /**
    * Process a single tx through the full pipeline on its assigned worker:
-   *   1. Acquire wallet balance lock
-   *   2. Balance (speculative chaining — serialized within wallet)
-   *   3. Release balance lock
-   *   4. Sign + Finalize / Prove (concurrent — proof server is multi-threaded)
-   *   5. Submit to mempool
+   *   1. Acquire the wallet transaction lock
+   *   2. Balance DUST, prove/finalize, validate, and submit
+   *   3. Release only after submission settles
+   *
+   * Different wallets can execute concurrently; operations sharing one wallet
+   * cannot overlap and therefore cannot double-spend a DUST input.
    *
    * Returns the tx hash on success, throws on failure.
    */
@@ -1052,142 +1116,155 @@ export class MidnightBalancingAdapter
     const retryTag = trace.retry > 0 ? ` [retry ${trace.retry}/3]` : "";
     const pipelineStart = performance.now();
 
-    // --- Phase 1: Balance (under wallet lock) ---
-    this.log.log(`[${tag}] Acquiring balance lock${retryTag}...`);
-    const releaseBalanceLock = await this.pool.acquireBalanceLock(walletIdx);
-    let recipe: BalancingRecipe;
-    const balanceStart = performance.now();
-    const dustBefore = await this.getDustBalance(walletIdx);
+    // The complete wallet mutation lifecycle is one critical section. Facade
+    // balancing books DUST before proving; allowing another same-wallet worker
+    // in before submit settles can select the same input (DustDoubleSpend).
+    this.log.log(`[${tag}] Acquiring wallet transaction lock${retryTag}...`);
+    const releaseWalletLock = await this.pool.acquireBalanceLock(walletIdx);
+    let releaseTransferredToSubmit = false;
+
     try {
+      // --- Phase 1: Balance ---
+      let recipe: BalancingRecipe;
+      const balanceStart = performance.now();
+      const dustBefore = await this.getDustBalance(walletIdx);
       this.log.log(`[${tag}] Balancing (${entry.txStage})...`);
       recipe = await this.balanceEntry(entry, walletIdx);
-    } finally {
-      releaseBalanceLock();
-    }
-    // Refresh cached UTXO count in the background so the next tx's fast
-    // path reflects what's left after this balance.
-    void this.refreshUtxoCountAfterBalance(walletIdx);
-    const dustAfter = await this.getDustBalance(walletIdx);
-    const dustCost = dustBefore - dustAfter;
-    const balanceMs = Math.round(performance.now() - balanceStart);
-    this.log.log(`[${tag}] Balanced (${balanceMs}ms) — dust cost: ${formatDust(dustCost)} DUST`);
 
-    // --- Phase 2: Sign + Finalize (no lock — concurrent safe) ---
-    // signRecipe failures are NOT auto-reverted by the facade (finalizeRecipe
-    // and submitTransaction are) — without an explicit revert, the dust coin
-    // booked by balanceEntry is stranded in pendingDust until the 3h grace
-    // period, permanently shrinking the fee-lane pool (grand-e2e root cause).
-    const proveStart = performance.now();
-    let signedRecipe;
-    try {
-      signedRecipe = await walletResult.wallet.signRecipe(
-        recipe,
-        (payload: Uint8Array) =>
-          walletResult.unshieldedKeystore.signData(payload),
-      );
-    } catch (error) {
-      this.log.warn(`[${tag}] signRecipe failed — reverting booked dust: ${error}`);
-      await walletResult.wallet.revert(recipe).catch((e) =>
-        this.log.warn(`[${tag}] revert after signRecipe failure also failed: ${e}`)
-      );
-      throw error;
-    }
-    const finalized = await walletResult.wallet.finalizeRecipe(signedRecipe);
-    const proveMs = Math.round(performance.now() - proveStart);
-    this.log.log(`[${tag}] Proved (${proveMs}ms)`);
+      // Refresh cached UTXO count in the background so the next tx's fast
+      // path reflects what's left after this balance.
+      void this.refreshUtxoCountAfterBalance(walletIdx);
+      const dustAfter = await this.getDustBalance(walletIdx);
+      const dustCost = dustBefore - dustAfter;
+      const balanceMs = Math.round(performance.now() - balanceStart);
+      this.log.log(`[${tag}] Balanced (${balanceMs}ms) — dust cost: ${formatDust(dustCost)} DUST`);
 
-    // --- Phase 3: Submit ---
-    const txHash = finalized.transactionHash().toString();
+      // --- Phase 2: Finalize + validate ---
+      // The delegated transaction already carries the third party's
+      // unshielded authorization. Calling signRecipe with the fee wallet here
+      // signs the merged user segment again (1 input / 2 signatures), which
+      // ledger-v9 rejects as InputsSignaturesLengthMismatch. DUST-only
+      // balancing adds no batcher-owned unshielded input, so preserve the
+      // existing signature and finalize the recipe directly.
+      const proveStart = performance.now();
+      const finalized = await walletResult.wallet.finalizeRecipe(recipe);
+      const proveMs = Math.round(performance.now() - proveStart);
+      this.log.log(`[${tag}] Proved (${proveMs}ms)`);
 
-    // Diagnostic: dump what the merged tx is going to put on chain. Specifically,
-    // we want to see (a) the per-segment imbalances (a missing entry for a token
-    // that should be present means the user's output was stripped during merge)
-    // and (b) the intent identifiers (one per intent — if only the batcher's
-    // intent is here, the user's intent disappeared during balance/merge).
-    try {
-      // deno-lint-ignore no-explicit-any
-      const ftx = finalized as any;
-      const ids = typeof ftx.identifiers === "function" ? ftx.identifiers() : undefined;
-      const segImbalances: Record<string, unknown> = {};
-      for (const seg of [0, 1]) {
-        try {
-          const m = typeof ftx.imbalances === "function" ? ftx.imbalances(seg) : undefined;
-          if (m && typeof m.entries === "function") {
-            const entries: [string, string][] = [];
-            for (const [k, v] of m.entries() as Iterable<[unknown, bigint]>) {
-              entries.push([
-                typeof k === "object" && k !== null ? JSON.stringify(k, (_, vv) => typeof vv === "bigint" ? vv.toString() : vv) : String(k),
-                v.toString(),
-              ]);
-            }
-            segImbalances[`seg${seg}`] = entries;
-          }
-        } catch (_e) {
-          // ignore — segment may not exist
-        }
-      }
-      this.log.log(`[${tag}] merged-tx ids=${JSON.stringify(ids)} imbalances=${JSON.stringify(segImbalances)}`);
-    } catch (e) {
-      this.log.warn(`[${tag}] merged-tx diagnostic failed: ${e}`);
-    }
-
-    this.log.log(`[${tag}] Submitting (hash: ${txHash})...`);
-    const submitStart = performance.now();
-
-    // Keep a handle on the real submit promise: when the race times out we
-    // proceed optimistically (tx may still land), but if the underlying
-    // submit ultimately REJECTS, its booked dust must be reverted — otherwise
-    // the coin is stranded until the grace period.
-    const submitPromise = walletResult.wallet.submitTransaction(finalized);
-    let timedOut = false;
-    submitPromise.catch((err) => {
-      if (!timedOut) return; // non-timeout failures are handled below / by the facade
-      this.log.warn(
-        `[${tag}] submit ultimately failed after timeout — reverting booked dust: ${err}`,
-      );
-      void walletResult.wallet.revertTransaction(finalized).catch(() => {});
-    });
-    try {
-      await Promise.race([
-        submitPromise,
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("submitTransaction timed out")),
-            SUBMIT_TX_TIMEOUT_MS,
-          )
-        ),
-      ]);
-      const submitMs = Math.round(performance.now() - submitStart);
-      const totalMs = Math.round(performance.now() - pipelineStart);
-      this.log.log(
-        `[${tag}] ✅ Submitted (balance=${balanceMs}ms prove=${proveMs}ms submit=${submitMs}ms total=${totalMs}ms)`,
-      );
-    } catch (error) {
-      const errMsg = (error instanceof Error ? error.message : String(error))
-        .trim();
-      if (errMsg.includes("IntentAlreadyExists")) {
-        this.log.log(
-          `[${tag}] IntentAlreadyExists — already in mempool, treating as success`,
-        );
-      } else if (errMsg.includes("submitTransaction timed out")) {
-        // The tx was submitted to the node but the WebSocket subscription for
-        // InBlock/Finalized status didn't respond in time. The tx may still be
-        // in the mempool or already in a block. Return the hash and let
-        // waitForTransactionReceipt verify confirmation via the indexer.
-        const submitMs = Math.round(performance.now() - submitStart);
+      try {
+        await walletResult.wallet.validateTransaction(finalized, {
+          flags: {
+            enforceBalancing: true,
+            verifySignatures: true,
+            enforceLimits: true,
+          },
+          ...(recipe.blockData ? { blockData: recipe.blockData } : {}),
+        });
+      } catch (error) {
         this.log.warn(
-          `[${tag}] submitTransaction timed out after ${submitMs}ms — tx may still land, proceeding with hash`,
+          `[${tag}] finalized transaction validation failed — reverting booked dust: ${error}`,
         );
-      } else {
-        const submitMs = Math.round(performance.now() - submitStart);
-        this.log.error(
-          `[${tag}] ❌ Submit failed after ${submitMs}ms: ${errMsg}`,
+        await walletResult.wallet.revertTransaction(finalized).catch((e) =>
+          this.log.warn(`[${tag}] revert after validation failure also failed: ${e}`)
         );
         throw error;
       }
-    }
+      this.log.log(`[${tag}] Validated`);
 
-    return txHash;
+      // --- Phase 3: Submit ---
+      const txHash = finalized.transactionHash().toString();
+
+      // Diagnostic: dump what the merged tx is going to put on chain.
+      try {
+        // deno-lint-ignore no-explicit-any
+        const ftx = finalized as any;
+        const ids = typeof ftx.identifiers === "function" ? ftx.identifiers() : undefined;
+        const segImbalances: Record<string, unknown> = {};
+        for (const seg of [0, 1]) {
+          try {
+            const m = typeof ftx.imbalances === "function" ? ftx.imbalances(seg) : undefined;
+            if (m && typeof m.entries === "function") {
+              const entries: [string, string][] = [];
+              for (const [k, v] of m.entries() as Iterable<[unknown, bigint]>) {
+                entries.push([
+                  typeof k === "object" && k !== null ? JSON.stringify(k, (_, vv) => typeof vv === "bigint" ? vv.toString() : vv) : String(k),
+                  v.toString(),
+                ]);
+              }
+              segImbalances[`seg${seg}`] = entries;
+            }
+          } catch (_e) {
+            // ignore — segment may not exist
+          }
+        }
+        this.log.log(`[${tag}] merged-tx ids=${JSON.stringify(ids)} imbalances=${JSON.stringify(segImbalances)}`);
+      } catch (e) {
+        this.log.warn(`[${tag}] merged-tx diagnostic failed: ${e}`);
+      }
+
+      this.log.log(`[${tag}] Submitting (hash: ${txHash})...`);
+      const submitStart = performance.now();
+      const submitPromise = walletResult.wallet.submitTransaction(finalized);
+      let timedOut = false;
+      let submitTimeout: ReturnType<typeof setTimeout> | undefined;
+
+      submitPromise.catch((err) => {
+        if (!timedOut) return;
+        this.log.warn(
+          `[${tag}] submit ultimately failed after timeout — reverting booked dust: ${err}`,
+        );
+        void walletResult.wallet.revertTransaction(finalized).catch(() => {});
+      });
+
+      try {
+        await Promise.race([
+          submitPromise,
+          new Promise<never>((_, reject) => {
+            submitTimeout = setTimeout(() => {
+              timedOut = true;
+              reject(new Error("submitTransaction timed out"));
+            }, SUBMIT_TX_TIMEOUT_MS);
+          }),
+        ]);
+        const submitMs = Math.round(performance.now() - submitStart);
+        const totalMs = Math.round(performance.now() - pipelineStart);
+        this.log.log(
+          `[${tag}] ✅ Submitted (balance=${balanceMs}ms prove=${proveMs}ms submit=${submitMs}ms total=${totalMs}ms)`,
+        );
+      } catch (error) {
+        const errMsg = (error instanceof Error ? error.message : String(error))
+          .trim();
+        if (errMsg.includes("IntentAlreadyExists")) {
+          this.log.log(
+            `[${tag}] IntentAlreadyExists — already in mempool, treating as success`,
+          );
+        } else if (errMsg.includes("submitTransaction timed out")) {
+          // A timeout does not cancel the underlying submit. Transfer lock
+          // ownership to that promise so a retry cannot race it for DUST.
+          releaseTransferredToSubmit = true;
+          void submitPromise.then(releaseWalletLock, releaseWalletLock);
+          const submitMs = Math.round(performance.now() - submitStart);
+          this.log.warn(
+            `[${tag}] submitTransaction timed out after ${submitMs}ms — tx may still land; ` +
+              `same-wallet processing remains locked until submission settles`,
+          );
+        } else {
+          const submitMs = Math.round(performance.now() - submitStart);
+          this.log.error(
+            `[${tag}] ❌ Submit failed after ${submitMs}ms: ${errMsg}`,
+          );
+          throw error;
+        }
+      } finally {
+        if (submitTimeout !== undefined) clearTimeout(submitTimeout);
+      }
+
+      return txHash;
+    } finally {
+      if (!releaseTransferredToSubmit) {
+        releaseWalletLock();
+      }
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -1196,7 +1273,7 @@ export class MidnightBalancingAdapter
 
   /**
    * Run per-worker pipelines in parallel. Each worker independently:
-   * balance (locked) → prove (unlocked) → submit.
+   * balance → prove/finalize → validate → submit under one per-wallet lock.
    *
    * Workers are released by releaseBatchResources (called by BatchProcessor
    * in its finally block after all storage operations complete). Workers

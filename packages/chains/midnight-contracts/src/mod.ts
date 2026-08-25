@@ -10,6 +10,8 @@ export {
     resolveWalletSyncTimeoutMs,
     suspendAuxWalletSyncForFees,
     resolveFacadeDustBalance,
+    resolveFacadeDustAvailableCoins,
+    resolveFacadeDustFundsReadiness,
     safeStringifyProgress,
     syncAndWaitForFunds,
     buildWalletFacade,
@@ -26,7 +28,9 @@ export {
 export { saveDustState, loadDustState } from "./dust-state.ts";
 export type {
     WalletSyncMode,
+    DustFundsReadiness,
     DustSyncWithRetryOptions,
+    DustSyncWithRetryResult,
 } from "./get-wallet-info.ts";
 export { CONSTANTS } from "./constants.ts";
 export { 

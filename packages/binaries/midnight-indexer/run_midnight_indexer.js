@@ -6,10 +6,14 @@ const axios = require("axios");
 
 const BINARY_NAME = "indexer-standalone";
 
+function isValidIndexerSecret(secret) {
+  return typeof secret === "string" && /^[0-9a-fA-F]{64}$/.test(secret);
+}
+
 /**
  * Waits until the Midnight node has produced at least `minBlock`.
  *
- * The v4.3.3 indexer bundles an spo-indexer that, on a fresh DB, reads block #1
+ * The v4.4.0-rc.1 indexer bundles an spo-indexer that, on a fresh DB, reads block #1
  * to anchor the first epoch and exits(1) — killing the whole indexer — if that
  * block does not exist yet. Gating startup on block #1 avoids that startup race.
  * 
@@ -90,47 +94,81 @@ function ensureConfigExists(configPath, env) {
   const apiPort = env.APP__INFRA__API__PORT || 8088;
 
   const defaultConfig = `
-run_migrations: true
-network_id: &network_id "${networkId}"
+thread_stack_size: "24MiB"
 
-chain_indexer_application:
-  network_id: *network_id
-  blocks_buffer: 60
-  save_zswap_state_after: 1000
-  caught_up_max_distance: 60
-  caught_up_leeway: 30
-
-wallet_indexer_application:
-  network_id: *network_id
-  active_wallets_repeat_delay: "100ms"
+application:
+  network_id: "${networkId.toLowerCase()}"
+  blocks_buffer: 10
+  caught_up_max_distance: 10
+  caught_up_leeway: 5
+  gc_bound: "200ms"
+  ledger_state_retention: 1000
+  active_wallets_query_delay: "500ms"
   active_wallets_ttl: "30m"
-  transaction_batch_size: 10
+  transaction_batch_size: 50
+
+spo:
+  interval: 5000
+  stake_refresh:
+    period_secs: 900
+    page_size: 100
+    max_rps: 2
 
 infra:
+  run_migrations: true
+  storage:
+    cnn_url: "${cnnUrl}"
+  ledger_db:
+    cache_size: "1kiB"
+    cnn_url: "${env.APP__INFRA__LEDGER_DB__CNN_URL || "./data/ledger-db.sqlite"}"
   node:
     url: "${nodeUrl}"
     reconnect_max_delay: "10s"
     reconnect_max_attempts: 30
-
-  storage:
-    cnn_url: "${cnnUrl}"
-
+    subscription_recovery_timeout: "30s"
+  spo_node:
+    url: "${env.APP__INFRA__SPO_NODE__URL || nodeUrl}"
+    reconnect_max_delay: "10s"
+    reconnect_max_attempts: 30
+    blockfrost_id: "${env.APP__INFRA__SPO_NODE__BLOCKFROST_ID || "dummy-not-using-spo"}"
   api:
-    address: "0.0.0.0"
+    address: "${env.APP__INFRA__API__ADDRESS || "0.0.0.0"}"
     port: ${apiPort}
     request_body_limit: "1MiB"
     max_complexity: 200
     max_depth: 15
-    network_id: *network_id
+    subscription:
+      blocks: { batch_size: 20 }
+      contract_actions: { batch_size: 20 }
+      contract_events: { batch_size: 20 }
+      dust_generations: { batch_size: 20 }
+      dust_ledger_events: { batch_size: 20 }
+      dust_nullifier_transactions: { batch_size: 20 }
+      shielded_nullifier_transactions: { batch_size: 20 }
+      shielded_transactions:
+        batch_size: 20
+        progress_update_interval: "30s"
+        keep_wallet_alive_interval: "1m"
+      unshielded_transactions:
+        batch_size: 20
+        progress_update_interval: "30s"
+      zswap_ledger_events: { batch_size: 20 }
+      progress_cache:
+        max_capacity: 10000
+        time_to_live: "5s"
+    quota:
+      max_concurrent_per_connection: 20
+      max_session_subscriptions_per_minute: 10
 
 telemetry:
   tracing:
     enabled: false
     service_name: "indexer"
+    otlp_exporter_endpoint: "http://localhost:4317"
   metrics:
     enabled: false
     address: "0.0.0.0"
-    port: 9000
+    port: ${env.APP__TELEMETRY__METRICS__PORT || 9000}
 `;
 
   fs.writeFileSync(configPath, defaultConfig.trim());
@@ -298,4 +336,9 @@ function runMidnightIndexer(env = process.env, args = []) {
   return childProcess;
 }
 
-module.exports = { runMidnightIndexer, waitForNodeBlock };
+module.exports = {
+  ensureConfigExists,
+  isValidIndexerSecret,
+  runMidnightIndexer,
+  waitForNodeBlock,
+};

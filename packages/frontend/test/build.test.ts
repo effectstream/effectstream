@@ -41,11 +41,13 @@ test("optional/peer deps are externalized, never bundled into the browser build"
   // bundle).
   for (const dep of [
     "@lucid-evolution/lucid",
-    "@midnight-ntwrk/ledger-v8",
+    "@midnightntwrk/ledger-v9",
     "@midnightntwrk/wallet-sdk-unshielded-wallet",
   ]) {
     expect(externals.has(dep)).toBe(true);
   }
+
+  expect(externals.has("@midnight-ntwrk/ledger-v8")).toBe(false);
 });
 
 test("frontend-sdk browser build succeeds (`bun run build`)", async () => {
