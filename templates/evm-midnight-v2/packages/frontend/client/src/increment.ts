@@ -10,7 +10,7 @@ import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import {
   Transaction,
   type TransactionId,
-} from "@midnight-ntwrk/ledger-v8";
+} from "@midnightntwrk/ledger-v9";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -48,7 +48,7 @@ import {
   type CoinPublicKey,
   type EncPublicKey,
   type FinalizedTransaction,
-} from "@midnight-ntwrk/ledger-v8";
+} from "@midnightntwrk/ledger-v9";
 
 // Modular SDK imports
 import { HDWallet, Roles } from "@midnightntwrk/wallet-sdk-hd";
@@ -339,7 +339,7 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
     const recipe = await walletResult.wallet.registerNightUtxosForDustGeneration(
       unregisteredNightUtxos,
       walletResult.unshieldedKeystore.getPublicKey(),
-      (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload)
+      (payload: Uint8Array) => walletResult.unshieldedKeystore.signDataAsync(payload)
     );
 
     console.log("Submitting dust registration transaction...");
@@ -499,7 +499,7 @@ function createWalletAndMidnightProvider(
         { shieldedSecretKeys: walletZswapSecretKeys, dustSecretKey: walletDustSecretKey },
         { ttl: ttl ?? createTtl() },
       );
-      const signed = await wallet.signRecipe(recipe, (payload) => unshieldedKeystore.signData(payload));
+      const signed = await wallet.signRecipe(recipe, (payload) => unshieldedKeystore.signDataAsync(payload));
       return wallet.finalizeRecipe(signed);
     },
     submitTx(tx: FinalizedTransaction): Promise<TransactionId> {

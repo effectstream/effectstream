@@ -80,23 +80,30 @@ link_pkg "effectstream" "sm"                       "$P/node-sdk/sm"
 link_pkg "effectstream" "utils"                    "$P/effectstream-sdk/utils"
 link_pkg "effectstream" "wallets"                  "$P/effectstream-sdk/wallets"
 
-# Single @midnight-ntwrk WASM tree from monorepo root (see ../../package.json overrides).
-MIDNIGHT_WASM_PKGS="compact-runtime compact-js onchain-runtime-v3 onchain-runtime-v2 ledger-v8"
+# Single Midnight WASM tree from monorepo root (see ../../package.json overrides).
+# Ledger v9 split the scope: ledger-v9 and onchain-runtime-v4 publish under
+# @midnightntwrk (no hyphen), while compact-* stayed on @midnight-ntwrk. Entries
+# are therefore fully scoped rather than bare names.
+MIDNIGHT_WASM_PKGS="@midnight-ntwrk/compact-runtime @midnight-ntwrk/compact-js @midnightntwrk/onchain-runtime-v4 @midnightntwrk/ledger-v9"
 
 link_midnight_wasm_from_monorepo() {
   local dest_nm="$1"
-  local pkg bun_pkg pkg_path v3_path
-  mkdir -p "$dest_nm/@midnight-ntwrk"
-  for pkg in $MIDNIGHT_WASM_PKGS; do
-    for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnight-ntwrk+${pkg}"@*; do
-      pkg_path="$bun_pkg/node_modules/@midnight-ntwrk/$pkg"
+  local spec scope pkg bun_pkg pkg_path
+  mkdir -p "$dest_nm/@midnight-ntwrk" "$dest_nm/@midnightntwrk"
+  for spec in $MIDNIGHT_WASM_PKGS; do
+    scope="${spec%%/*}"
+    pkg="${spec#*/}"
+    for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/${scope}+${pkg}"@*; do
+      pkg_path="$bun_pkg/node_modules/${scope}/${pkg}"
       [ -e "$pkg_path" ] || continue
-      rm -rf "$dest_nm/@midnight-ntwrk/$pkg"
-      ln -sf "$pkg_path" "$dest_nm/@midnight-ntwrk/$pkg"
+      rm -rf "$dest_nm/${scope}/${pkg}"
+      ln -sf "$pkg_path" "$dest_nm/${scope}/${pkg}"
     done
   done
-  for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnight-ntwrk+onchain-runtime-v3"@*; do
-    pkg_path="$bun_pkg/node_modules/@midnight-ntwrk/onchain-runtime-v3"
+  # package.json aliases `@midnight-ntwrk/onchain-runtime` to
+  # npm:@midnightntwrk/onchain-runtime-v4, so the alias must resolve to the v4 tree.
+  for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnightntwrk+onchain-runtime-v4"@*; do
+    pkg_path="$bun_pkg/node_modules/@midnightntwrk/onchain-runtime-v4"
     [ -e "$pkg_path" ] || continue
     rm -rf "$dest_nm/@midnight-ntwrk/onchain-runtime"
     ln -sf "$pkg_path" "$dest_nm/@midnight-ntwrk/onchain-runtime"
@@ -110,10 +117,9 @@ drop_template_wasm_bun_copies() {
   for prefix in \
     "@midnight-ntwrk+compact-runtime@" \
     "@midnight-ntwrk+compact-js@" \
-    "@midnight-ntwrk+onchain-runtime-v3@" \
-    "@midnight-ntwrk+onchain-runtime-v2@" \
     "@midnight-ntwrk+onchain-runtime@" \
-    "@midnight-ntwrk+ledger-v8@"; do
+    "@midnightntwrk+onchain-runtime-v4@" \
+    "@midnightntwrk+ledger-v9@"; do
     for entry in "$bun_dir"/${prefix}*; do
       [ -e "$entry" ] || continue
       rm -rf "$entry"
