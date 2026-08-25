@@ -7,7 +7,8 @@
 // Each worker = {wallet, UTXO-slot} — an independent processing unit.
 // Workers run their tx pipeline in parallel:
 //
-//   acquire balance lock → balance → release lock → prove/finalize → submit
+//   pre-spend gate → acquire balance lock → balance → release lock
+//     → prove/finalize → submit
 //
 // The balance lock serializes balance calls within the same wallet
 // (speculative chaining requires sequential dust allocation). Prove,
@@ -21,6 +22,12 @@
 import type {
   BatchBuildingOptions,
   BatchBuildingResult,
+  BatchInputDeferral,
+  BatchInputFailure,
+  BatchInputRejection,
+  BatchInvariantFailure,
+  BatchOutcome,
+  BatchSubmitResult,
   BlockchainAdapter,
   BlockchainHash,
   BlockchainTransactionReceipt,
@@ -42,13 +49,19 @@ import type {
   ShieldedTokenTransfer,
 } from "@midnightntwrk/wallet-sdk-facade";
 import {
+  type DustStateAutosaveHandle,
+  dustProgressFromState,
   getInitialDustState,
   getInitialShieldedState,
   type NetworkUrls,
   registerNightForDust,
+  resolveDustCoinValuesAt,
   resolveFacadeDustBalance,
+  resolveWalletSyncTimeoutMs,
+  startDustStateAutosave,
   suspendAuxWalletSyncForFees,
   waitForDustFunds,
+  waitForShieldedSyncComplete,
   waitForDustFundsWithRetry,
   type WalletResult,
 } from "@effectstream/midnight-contracts";
@@ -59,16 +72,81 @@ import type { NetworkId as WalletNetworkId } from "@midnightntwrk/wallet-sdk-abs
 import { AdapterLogger } from "./adapter-logger.ts";
 import { WorkerPool } from "./worker-pool.ts";
 import {
-  evaluateDeclarativePolicy,
+  contractActions,
   evaluatePolicy,
   isPolicyEnforced,
   type MidnightTxPolicy,
   type PolicyInspectableTx,
+  type PolicyVerdict,
 } from "./midnight-policy.ts";
+import {
+  admissionWeight,
+  checkShapeLimits,
+  DEFAULT_SHAPE_LIMITS,
+  type ShapeLimits,
+} from "./shape-limits.ts";
+import {
+  LedgerParamsCache,
+  type LedgerParamsCacheConfig,
+  type LedgerParamsLookup,
+} from "./ledger-params-cache.ts";
+import {
+  checkTtlMargin,
+  type WellFormedVerdict,
+} from "./midnight-tx-validation.ts";
+import {
+  acquireValidationExecutor,
+  type ValidationExecutorHandle,
+  type ValidationJob,
+} from "./validation-executor.ts";
+import {
+  midnightReplayKey,
+  type ReplayIdentifiableTx,
+} from "./midnight-replay-key.ts";
+import { createHash } from "node:crypto";
 
 // ---------------------------------------------------------------------------
 // Config & types
 // ---------------------------------------------------------------------------
+
+/** A wallet's dust sync as last observed. Cached; never re-read on demand. */
+export interface DustSyncSample {
+  appliedIndex: bigint;
+  /** Highest index the indexer told us about; 0 when it has told us nothing. */
+  target: bigint;
+  isConnected: boolean;
+  /** When this sample was taken. */
+  updatedAtMs: number;
+  /** When `appliedIndex` last increased. */
+  advancedAtMs: number;
+}
+
+export type DustSyncState = "syncing" | "stalled" | "complete" | "unknown";
+
+/**
+ * Is this wallet syncing, stuck, or done?
+ *
+ * A dust cold sync takes ~66 minutes on preprod, during which health info said
+ * only `walletsReady: 0` — indistinguishable from a wallet whose snapshot
+ * offset is past the indexer's event log and which will never start at all.
+ * Both look like a hang; one wants patience and the other wants the snapshot
+ * deleted.
+ *
+ * Order matters. Completeness is checked first because a caught-up wallet stops
+ * emitting: ageing it into "stalled" would page someone for a healthy batcher.
+ * `isConnected` is part of that check — the offset-past-log failure sits at a
+ * high `appliedIndex` with a target of 0, which would otherwise satisfy
+ * `applied >= target`.
+ */
+export function classifyDustSyncState(
+  sample: DustSyncSample | null | undefined,
+  nowMs: number,
+  stalledAfterMs: number,
+): DustSyncState {
+  if (!sample) return "unknown";
+  if (sample.isConnected && sample.appliedIndex >= sample.target) return "complete";
+  return nowMs - sample.advancedAtMs > stalledAfterMs ? "stalled" : "syncing";
+}
 
 export interface MidnightBalancingAdapterConfig {
   indexer: string;
@@ -89,11 +167,31 @@ export interface MidnightBalancingAdapterConfig {
   // How long to wait for a spendable dust coin before letting the balance
   // attempt proceed (and likely fail + re-queue). Defaults to 60s.
   dustWaitTimeoutMs?: number;
+  /**
+   * Minimum TTL remaining at the true spend boundary. The dust wait is already
+   * over when this is checked, so the default covers only proving plus the
+   * submit timeout. Override per target when its proving budget differs.
+   */
+  minTtlRemainingMs?: number;
   // A dust coin only counts as spendable when its GENERATED value covers the
   // wallet's fee + per-coin overhead margin. Defaults to 1.5 × the 0.3 DUST
   // overhead (coins exist with ~0 generated value right after creation — a
   // bare `availableCoins.length > 0` check passes while balancing is doomed).
   minSpendableDustPerCoin?: bigint;
+  /**
+   * Directory for dust state snapshots, relative to CWD. Defaults to
+   * `dust-state`. One file per (network, seed); restoring one is what turns a
+   * multi-hour restart back into seconds.
+   */
+  dustStateDir?: string;
+  /**
+   * How often each wallet checkpoints its dust state while running. Defaults to
+   * `MIDNIGHT_DUST_STATE_SAVE_INTERVAL_MS` (5 minutes); 0 keeps only the
+   * shutdown checkpoint. Bounds how much chain a crash makes the batcher
+   * replay — before this, state was written during init and never again, so a
+   * week of uptime meant a week of replay.
+   */
+  dustStateSaveIntervalMs?: number;
   // Reject inputs whose serialized payload exceeds this many characters at
   // intake (pre-queue). Defaults to 500k chars (~250 KB of tx bytes) — well
   // above any legitimate balanced+padded tx, well below abuse territory.
@@ -104,11 +202,36 @@ export interface MidnightBalancingAdapterConfig {
    * calls to allowlisted contracts/circuits — plus an optional custom final
    * filter. Omit for allow-all (single-product / back-compatible behavior).
    *
-   * Enforced at intake (validateInput → 400) and re-checked pre-batch
+   * Enforced at intake (validateInput → 400) and re-checked pre-spend
    * (storage rows are untrusted and policy can change across a restart).
    * See `./midnight-policy.ts` for the helpers custom filters should use.
    */
   policy?: MidnightTxPolicy<DelegatedTx>;
+  /**
+   * Structural ceilings on a submitted transaction. Bounds the verification
+   * WORK a caller can ask for, which `maxInputChars` cannot: a 46-output and a
+   * 1-output transfer both fit under the size cap while costing ~2.21 s and
+   * ~128 ms of unconditional zswap proof verification.
+   *
+   * Defaults to {@link DEFAULT_SHAPE_LIMITS} rather than "off", because a
+   * ceiling that only protects operators who already knew to set it is not
+   * protecting the people it is for. Raise it per product if a legitimate
+   * workload needs more; pass `{}` to disable enforcement deliberately.
+   */
+  shapeLimits?: ShapeLimits;
+  /**
+   * Live ledger parameters, needed to validate a transaction against the
+   * network's actual limits and pricing rather than a build-time snapshot.
+   *
+   * The cache refreshes in the background and `get()` never performs I/O, so a
+   * request path can never trigger a network call. When it has no usable
+   * parameters the adapter fails CLOSED — 503 at intake, park at pre-spend —
+   * because validating against parameters we know to be wrong is worse than
+   * admitting we cannot validate.
+   *
+   * `indexer` defaults to this adapter's own indexer URL.
+   */
+  ledgerParams?: Partial<LedgerParamsCacheConfig>;
   /**
    * Log label for this adapter instance, e.g. the product name. Defaults to
    * "balancing". In a multi-product process this is what makes each product's
@@ -119,6 +242,8 @@ export interface MidnightBalancingAdapterConfig {
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
 const SUBMIT_TX_TIMEOUT_MS = 90 * 1000;
+// Provisional budget for prove/finalize work still ahead at the spend boundary.
+const PROVE_ALLOWANCE_MS = 30_000;
 const SPECKS_PER_DUST = 1_000_000_000_000_000n; // 1 DUST = 10^15 Specks
 const DUST_REGISTRATION_PRECHECK_TIMEOUT_MS = 60_000;
 // Wallet-side per-coin fee margin (additionalFeeOverhead) is 0.3 DUST; a coin
@@ -126,9 +251,226 @@ const DUST_REGISTRATION_PRECHECK_TIMEOUT_MS = 60_000;
 const DUST_FEE_OVERHEAD_SPECKS = 300_000_000_000_000n;
 const DEFAULT_MIN_SPENDABLE_DUST = (DUST_FEE_OVERHEAD_SPECKS * 3n) / 2n;
 const DEFAULT_MAX_INPUT_CHARS = 500_000;
+/**
+ * How many derived replay keys to remember between `validateInput` and
+ * `getReplayKey`.
+ *
+ * Only needs to span the gap between those two calls for concurrently accepted
+ * inputs, so this is generous by orders of magnitude; it is a bound, not a
+ * cache-hit target. Each entry is two 64-char hex strings.
+ */
+const REPLAY_KEY_MEMO_LIMIT = 1_024;
 /** Throttle for background dust-state refreshes triggered by capacity checks. */
 const DUST_REFRESH_THROTTLE_MS = 5_000;
+/**
+ * How long a wallet may go without applying a dust event before health info
+ * calls it stalled rather than syncing. Matches the wallet's own stall timeout,
+ * so the two agree about what "stuck" means.
+ */
+const DUST_SYNC_STALLED_AFTER_MS = 60_000;
+
+/** Cached dust sync position for one wallet, plus where its restore resumed from. */
+interface WalletDustSyncHealth extends DustSyncSample {
+  /** Snapshot offset this wallet resumed from; 0 for a full cold sync. */
+  restoredFromOffset: bigint;
+  /** True when a snapshot was rejected and this wallet cold-synced instead. */
+  snapshotRejected: boolean;
+}
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
+
+/** A deterministic pre-spend verdict: remove the row and charge no retry. */
+export class PreSpendPermanent extends Error {
+  constructor(
+    readonly error: string,
+    readonly errorCode?: string,
+    readonly statusCode: number = 400,
+  ) {
+    super(error);
+    this.name = "PreSpendPermanent";
+  }
+}
+
+/** The gate could not reach a verdict: leave the row and charge no retry. */
+export class PreSpendDefer extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+    this.name = "PreSpendDefer";
+  }
+}
+
+/** Our finalized output broke an invariant: retain the row and pause. */
+export class PreSubmitInvariant extends Error {
+  constructor(
+    message: string,
+    readonly errorCode: string = "PRE_SUBMIT_INVARIANT",
+    readonly hardPause: boolean = false,
+  ) {
+    super(message);
+    this.name = "PreSubmitInvariant";
+  }
+}
+
+export type WorkerFailureClassification<TInput extends DefaultBatcherInput> =
+  | { category: "permanentRejected"; value: BatchInputRejection<TInput> }
+  | { category: "retryable"; value: BatchInputDeferral<TInput> }
+  | {
+    category: "invariantFailure";
+    value: BatchInvariantFailure<TInput> & { inputs: TInput[] };
+  }
+  | { category: "failed"; value: BatchInputFailure<TInput> };
+
+/** Keep permanent, deferral and legacy retry-charged failures disjoint. */
+export function classifyWorkerFailure<TInput extends DefaultBatcherInput>(
+  input: TInput,
+  error: unknown,
+): WorkerFailureClassification<TInput> {
+  if (error instanceof PreSpendPermanent) {
+    return {
+      category: "permanentRejected",
+      value: {
+        input,
+        error: error.error,
+        errorCode: error.errorCode,
+        statusCode: error.statusCode,
+      },
+    };
+  }
+  if (error instanceof PreSpendDefer) {
+    return {
+      category: "retryable",
+      value: { input, reason: error.reason },
+    };
+  }
+  if (error instanceof PreSubmitInvariant) {
+    return {
+      category: "invariantFailure",
+      value: {
+        inputs: [input],
+        message: error.message,
+        errorCode: error.errorCode,
+        hardPause: error.hardPause,
+      },
+    };
+  }
+  return {
+    category: "failed",
+    value: {
+      input,
+      error: error instanceof Error ? error.message : String(error),
+    },
+  };
+}
+
+/** Build the adapter's explicit mixed-fate outcome without splice-diff state. */
+export function buildWorkerBatchOutcome<TInput extends DefaultBatcherInput>(
+  invalidInputs: TInput[],
+  workerInputs: TInput[],
+  results: PromiseSettledResult<string>[],
+): BatchOutcome<TInput> {
+  const hashes: string[] = [];
+  const submitted: TInput[] = [];
+  const permanentRejected: BatchInputRejection<TInput>[] = [];
+  const retryable: BatchInputDeferral<TInput>[] = [];
+  const invariantInputs: TInput[] = [];
+  const invariantMessages: string[] = [];
+  let invariantErrorCode: string | undefined;
+  let hardPause = false;
+  const failed: BatchInputFailure<TInput>[] = invalidInputs.map((input) => ({
+    input,
+    error: "transaction failed to deserialize",
+  }));
+
+  for (let index = 0; index < results.length; index++) {
+    const result = results[index];
+    const input = workerInputs[index];
+    if (result.status === "fulfilled") {
+      hashes.push(result.value);
+      submitted.push(input);
+      continue;
+    }
+
+    const classified = classifyWorkerFailure(input, result.reason);
+    if (classified.category === "permanentRejected") {
+      permanentRejected.push(classified.value);
+    } else if (classified.category === "retryable") {
+      retryable.push(classified.value);
+    } else if (classified.category === "invariantFailure") {
+      invariantInputs.push(...classified.value.inputs);
+      invariantMessages.push(classified.value.message);
+      invariantErrorCode ??= classified.value.errorCode;
+      hardPause ||= classified.value.hardPause ?? false;
+    } else {
+      failed.push(classified.value);
+    }
+  }
+
+  return {
+    hash: hashes.length > 0 ? hashes.join(",") : undefined,
+    submitted,
+    permanentRejected,
+    retryable,
+    failed,
+    invariantFailure: invariantInputs.length > 0
+      ? {
+        inputs: invariantInputs,
+        message: invariantMessages.join("; "),
+        errorCode: invariantErrorCode,
+        hardPause,
+      }
+      : undefined,
+  };
+}
+
+/** Outcome returned before touching a wallet once manual recovery is required. */
+export function hardPausedBatchOutcome<TInput extends DefaultBatcherInput>(
+  reason: string,
+  inputs: TInput[],
+): BatchOutcome<TInput> {
+  return {
+    submitted: [],
+    invariantFailure: {
+      inputs,
+      message: reason,
+      errorCode: "ADAPTER_HARD_PAUSED",
+      hardPause: true,
+    },
+  };
+}
+
+/** Stable health shape shared by the adapter and constructor-free tests. */
+export function hardPauseHealthInfo(reason: string | null): {
+  active: boolean;
+  reason: string | null;
+} {
+  return { active: reason !== null, reason };
+}
+
+/**
+ * Revert one finalized wallet entry without ever pretending a failure worked.
+ * The caller owns the pause state and logging so this helper stays
+ * constructor-free and the wallet seam can be exercised in unit tests.
+ */
+export async function safeRevertFinalized(args: {
+  revertTransaction: () => Promise<void>;
+  context: string;
+  onFailure: (reason: string) => void;
+  onSuccess?: () => void;
+  onError?: (reason: string) => void;
+}): Promise<boolean> {
+  try {
+    await args.revertTransaction();
+    args.onSuccess?.();
+    return true;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    const reason =
+      `finalized transaction rollback failed for ${args.context}: ${detail}; ` +
+      `manual wallet recovery required`;
+    args.onFailure(reason);
+    args.onError?.(reason);
+    return false;
+  }
+}
 
 function formatDust(specks: bigint): string {
   const abs = specks < 0n ? -specks : specks;
@@ -326,7 +668,7 @@ function inputContentHash(input: string): string {
   return (h >>> 0).toString(16).padStart(8, "0");
 }
 
-type DelegatedTxStage = "unproven" | "unbound" | "finalized";
+export type DelegatedTxStage = "unproven" | "unbound" | "finalized";
 type DelegatedTx =
   | UnprovenTransaction
   | UnboundTransaction
@@ -358,23 +700,429 @@ interface DelegatedBatchData {
   workerAssignments: { walletIdx: number; slotIdx: number }[];
   /** Snapshot of reserved input keys, taken at buildBatchData time.
    *  Used by releaseBatchResources to clear inFlightInputKeys even
-   *  when submitBatch has mutated selectedInputs (e.g. spliced out failures). */
+   *  when submission returns mixed per-input outcomes. */
   reservedInputKeys: string[];
   /** Per-tx tracing metadata. */
   traceInfos: TxTraceInfo[];
   /** Batch sequence number. */
   batchId: number;
   /** Inputs whose payload failed to deserialize. They are included in
-   *  selectedInputs (reserved) and spliced out at submit time so the
-   *  processor's failure path increments their retry counts — a poison input
-   *  is retried a bounded number of times and then dropped WITH a log,
-   *  instead of being skipped-but-kept forever. */
+   *  selectedInputs (reserved) and reported through BatchOutcome.failed, so a
+   *  poison input is retried a bounded number of times and then dropped WITH a
+   *  log instead of being skipped-but-kept forever. */
   invalidInputs: DefaultBatcherInput[];
+}
+
+/** Parse the persisted envelope without re-serializing its live transaction. */
+export function parseHexInput(input: string): {
+  hex: string;
+  txStage?: DelegatedTxStage;
+  addShieldedPadding?: boolean;
+} {
+  const trimmed = input.trim();
+  if (trimmed.startsWith("{")) {
+    const parsed = JSON.parse(trimmed) as {
+      tx?: string;
+      txStage?: DelegatedTxStage;
+      addShieldedPadding?: boolean | null;
+    };
+    if (!parsed.tx) throw new Error("Missing tx field in JSON input");
+    if (
+      parsed.txStage !== undefined &&
+      parsed.txStage !== "unproven" &&
+      parsed.txStage !== "unbound" &&
+      parsed.txStage !== "finalized"
+    ) {
+      throw new Error(
+        "txStage must be 'unproven', 'unbound', or 'finalized'",
+      );
+    }
+    const hex = parsed.tx.startsWith("0x") ? parsed.tx.slice(2) : parsed.tx;
+    const addShieldedPadding = parsed.addShieldedPadding ?? undefined;
+    return { hex, txStage: parsed.txStage, addShieldedPadding };
+  }
+  const hex = trimmed.startsWith("0x") ? trimmed.slice(2) : trimmed;
+  return { hex };
+}
+
+/** Build the worker job from the ORIGINAL stored bytes, never a live re-serialization. */
+export function buildPreSpendValidationJob(
+  input: DefaultBatcherInput,
+  txStage: DelegatedTxStage,
+  paramsBytes: Uint8Array,
+  networkId: string,
+  nowMs: number,
+): ValidationJob {
+  return {
+    txBytes: fromHex(parseHexInput(input.input).hex),
+    paramsBytes,
+    networkId,
+    phase: "pre-spend",
+    txStage,
+    nowMs,
+  };
+}
+
+/** Build the strict pre-submit job from our finalized transaction bytes. */
+export function buildPreSubmitValidationJob(
+  finalizedBytes: Uint8Array,
+  paramsBytes: Uint8Array,
+  networkId: string,
+  nowMs: number,
+): ValidationJob {
+  return {
+    txBytes: finalizedBytes,
+    paramsBytes,
+    networkId,
+    phase: "pre-submit",
+    txStage: "finalized",
+    nowMs,
+  };
+}
+
+/** Hard gates shared by intake and the untrusted-storage pre-spend recheck. */
+export function hardGateVerdictFor(
+  tx: PolicyInspectableTx,
+  shapeLimits: ShapeLimits,
+): ValidationResult | undefined {
+  let actions;
+  try {
+    actions = contractActions(tx);
+  } catch (error) {
+    return {
+      valid: false,
+      error: `could not read contract actions: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      errorCode: "ACTION_INTROSPECTION_FAILED",
+    };
+  }
+  if (actions.some((action) => action.entryPoint === "")) {
+    return {
+      valid: false,
+      error:
+        "transaction contains a contract deploy or maintenance update; " +
+        "this batcher sponsors circuit calls only",
+      errorCode: "UNSUPPORTED_MAINTENANCE_UPDATE",
+    };
+  }
+
+  const shape = checkShapeLimits(tx, shapeLimits);
+  if (!shape.valid) {
+    return {
+      valid: false,
+      error: shape.reason ?? "transaction shape exceeds this target's limits",
+      errorCode: shape.errorCode,
+    };
+  }
+  return undefined;
+}
+
+interface PreSpendGateArgs {
+  hardGateVerdict: () => ValidationResult | undefined;
+  policyVerdict?: () => Promise<PolicyVerdict>;
+  getParams: () => LedgerParamsLookup;
+  validate: (
+    params: Extract<LedgerParamsLookup, { ok: true }>["params"],
+  ) => Promise<WellFormedVerdict>;
+}
+
+interface PreSubmitGateArgs {
+  getParams: () => LedgerParamsLookup;
+  validateFinalized: (
+    params: Extract<LedgerParamsLookup, { ok: true }>["params"],
+  ) => Promise<WellFormedVerdict>;
+  revertFinalized: () => Promise<boolean>;
+  revalidateOriginal: (
+    params: Extract<LedgerParamsLookup, { ok: true }>["params"],
+  ) => Promise<WellFormedVerdict>;
+}
+
+/**
+ * Run the cheap-to-expensive gate sequence before the wallet balance lock.
+ * Throws only the two typed channels understood by the batch outcome mapper.
+ */
+export async function runPreSpendGate(args: PreSpendGateArgs): Promise<void> {
+  const hardVerdict = args.hardGateVerdict();
+  if (hardVerdict) {
+    throw new PreSpendPermanent(
+      hardVerdict.error ?? "transaction failed a hard pre-spend gate",
+      hardVerdict.errorCode,
+      hardVerdict.statusCode ?? 400,
+    );
+  }
+
+  if (args.policyVerdict) {
+    const verdict = await args.policyVerdict();
+    if (!verdict.valid) {
+      throw new PreSpendPermanent(
+        `Rejected by policy (${verdict.rule ?? "unknown"}): ${
+          verdict.reason ?? "transaction not permitted for this target"
+        }`,
+        "POLICY_REJECTED",
+        400,
+      );
+    }
+  }
+
+  const params = args.getParams();
+  if (!params.ok) {
+    throw new PreSpendDefer(
+      `live ledger parameters unavailable (${params.reason})`,
+    );
+  }
+
+  let verdict: WellFormedVerdict;
+  try {
+    verdict = await args.validate(params.params);
+  } catch (error) {
+    throw new PreSpendDefer(
+      `validation unavailable: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (!verdict.valid) {
+    throw new PreSpendPermanent(
+      verdict.reason ?? "transaction is not well formed",
+      verdict.errorCode ?? "NOT_WELL_FORMED",
+      400,
+    );
+  }
+}
+
+async function requireFinalizedRollback(
+  args: Pick<PreSubmitGateArgs, "revertFinalized">,
+  context: string,
+): Promise<void> {
+  let reverted = false;
+  let rollbackError: unknown;
+  try {
+    reverted = await args.revertFinalized();
+  } catch (error) {
+    rollbackError = error;
+  }
+  if (reverted) return;
+
+  const detail = rollbackError === undefined
+    ? "wallet revertTransaction returned failure"
+    : rollbackError instanceof Error
+    ? rollbackError.message
+    : String(rollbackError);
+  throw new PreSubmitInvariant(
+    `${context}; finalized rollback failed (${detail})`,
+    "FINALIZED_REVERT_FAILED",
+    true,
+  );
+}
+
+async function rollbackThenDefer(
+  args: Pick<PreSubmitGateArgs, "revertFinalized">,
+  reason: string,
+): Promise<never> {
+  await requireFinalizedRollback(args, reason);
+  throw new PreSpendDefer(reason);
+}
+
+/**
+ * Validate our finalized output and classify every rollback branch.
+ *
+ * A finalized transaction is already registered in the wallet's pending
+ * service. Every path that cannot submit it must therefore call
+ * `revertTransaction` first; a plain throw would strand its dust until the
+ * wallet's three-hour grace period expires.
+ */
+export async function runPreSubmitGate(
+  args: PreSubmitGateArgs,
+): Promise<void> {
+  let params: LedgerParamsLookup;
+  try {
+    params = args.getParams();
+  } catch (error) {
+    return await rollbackThenDefer(
+      args,
+      `live ledger parameters unavailable before submit: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  if (!params.ok) {
+    // Pre-submit is deliberately asymmetric with pre-spend: we must fail
+    // closed once a finalized entry exists, but cache/executor unavailability
+    // is still our fault, not a permanent verdict on the stored input.
+    return await rollbackThenDefer(
+      args,
+      `live ledger parameters unavailable before submit (${params.reason})`,
+    );
+  }
+
+  let finalizedVerdict: WellFormedVerdict;
+  try {
+    finalizedVerdict = await args.validateFinalized(params.params);
+  } catch (error) {
+    return await rollbackThenDefer(
+      args,
+      `pre-submit validation unavailable: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  if (finalizedVerdict.valid) return;
+
+  await requireFinalizedRollback(
+    args,
+    `finalized transaction failed pre-submit validation: ${
+      finalizedVerdict.reason ?? finalizedVerdict.errorCode ?? "unknown reason"
+    }`,
+  );
+
+  // Permanence is about the ORIGINAL stored bytes. A failure introduced by
+  // our own balancing/proving path is an invariant failure, never permission
+  // to delete a caller's otherwise-valid input.
+  let originalParams: LedgerParamsLookup;
+  try {
+    originalParams = args.getParams();
+  } catch (error) {
+    throw new PreSpendDefer(
+      `original input could not be revalidated after rollback: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (!originalParams.ok) {
+    throw new PreSpendDefer(
+      `original input could not be revalidated after rollback ` +
+        `(live ledger parameters ${originalParams.reason})`,
+    );
+  }
+
+  let originalVerdict: WellFormedVerdict;
+  try {
+    originalVerdict = await args.revalidateOriginal(originalParams.params);
+  } catch (error) {
+    throw new PreSpendDefer(
+      `original input revalidation unavailable after rollback: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  if (!originalVerdict.valid) {
+    throw new PreSpendPermanent(
+      originalVerdict.reason ?? "original transaction is not well formed",
+      originalVerdict.errorCode ?? "NOT_WELL_FORMED",
+      400,
+    );
+  }
+
+  throw new PreSubmitInvariant(
+    `finalized transaction failed pre-submit validation while the original ` +
+      `stored transaction remained well formed`,
+    "FINALIZED_OUTPUT_INVARIANT",
+  );
+}
+
+/** TTL budget remaining after dust wait: submit timeout plus proving allowance. */
+export function preSpendTtlFloorMs(
+  config: Pick<MidnightBalancingAdapterConfig, "minTtlRemainingMs">,
+): number {
+  return config.minTtlRemainingMs ??
+    (SUBMIT_TX_TIMEOUT_MS + PROVE_ALLOWANCE_MS);
+}
+
+/** Convert the cheap TTL verdict into the permanent pre-spend channel. */
+export function enforcePreSpendTtl(
+  tx: PolicyInspectableTx,
+  nowMs: number,
+  minRemainingMs: number,
+): void {
+  const verdict = checkTtlMargin(tx, nowMs, minRemainingMs);
+  if (!verdict.valid) {
+    throw new PreSpendPermanent(
+      verdict.reason ?? "transaction TTL cannot cover the remaining pipeline",
+      verdict.errorCode,
+      400,
+    );
+  }
+}
+
+/**
+ * The spend-boundary ordering seam: dust may be unavailable long enough for
+ * an intent that passed the full pre-spend gate to become unsafe. Wait first,
+ * finish any spend preparation, sample the clock last, then enforce immediately
+ * before constructing the balancing recipe. Keeping these steps injectable
+ * makes that race deterministic in tests without weakening production.
+ */
+export async function waitForDustThenEnforceTtl(args: {
+  waitForDust: () => Promise<void>;
+  prepareForSpend?: () => Promise<void>;
+  tx: () => PolicyInspectableTx;
+  now: () => number;
+  minRemainingMs: number;
+}): Promise<void> {
+  await args.waitForDust();
+  await args.prepareForSpend?.();
+  enforcePreSpendTtl(args.tx(), args.now(), args.minRemainingMs);
 }
 
 // ---------------------------------------------------------------------------
 // Adapter
 // ---------------------------------------------------------------------------
+
+/**
+ * A latch that opens once every wallet has finished the startup work that
+ * blocks the event loop. Backs `whenServable()`; see
+ * `BlockchainAdapter.whenServable` for why the HTTP port waits on it.
+ *
+ * Extracted from the adapter so the semantics — all-of, idempotent, openable
+ * in bulk — can be tested without building wallets against a network.
+ */
+export interface ServableGate {
+  /** Resolves when the last wallet is marked. Never rejects. */
+  readonly promise: Promise<void>;
+  /** Mark one wallet past its blocking startup. Safe to call repeatedly. */
+  mark(index: number): void;
+  /** Open the gate regardless — the failure backstop. */
+  markAll(): void;
+  /** How many wallets are still unaccounted for. Diagnostics and tests. */
+  pending(): number;
+}
+
+export function createServableGate(count: number): ServableGate {
+  const marked = new Array<boolean>(Math.max(0, count)).fill(false);
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // A gate nobody will ever mark must start open, not closed: an adapter with
+  // no wallets blocks nothing.
+  if (marked.length === 0) release();
+
+  const openIfComplete = (): void => {
+    if (marked.every(Boolean)) release();
+  };
+  return {
+    promise,
+    mark(index: number): void {
+      // Out of range is ignored rather than thrown: this is called from
+      // `finally` blocks, and a gate must never be the thing that turns a
+      // failed wallet into a failed process.
+      if (!Number.isInteger(index) || index < 0 || index >= marked.length) return;
+      if (marked[index]) return;
+      marked[index] = true;
+      openIfComplete();
+    },
+    markAll(): void {
+      marked.fill(true);
+      release();
+    },
+    pending(): number {
+      return marked.filter((m) => !m).length;
+    },
+  };
+}
 
 /**
  * Midnight Balancing Adapter (Party B)
@@ -406,14 +1154,40 @@ export class MidnightBalancingAdapter
   private claimedWalletKeys: object[] = [];
   /** Proof of this adapter's seed claim; the only thing that can release it. */
   private readonly seedClaim: WalletSeedClaim;
+  /** Live ledger parameters. Fails closed when it has none. */
+  private readonly ledgerParams: LedgerParamsCache;
+  /** Process-global validation pool handle, acquired only when first needed. */
+  private validationExecutorHandle: ValidationExecutorHandle | null = null;
+  /**
+   * Set when a finalized transaction could not be reverted. Restart/manual
+   * wallet recovery is required; no later batch may touch a wallet meanwhile.
+   */
+  private hardPausedReason: string | null = null;
   /**
    * True where the wallet was handed in via `config.walletResult`. An injected
    * wallet belongs to the caller: this adapter must not stop it on close.
    */
   private walletIsInjected: boolean[];
+  /**
+   * Periodic dust-state checkpointing, one per wallet. Also covers the injected
+   * wallet, which had no persistence of any kind.
+   */
+  private dustStateAutosaves: (DustStateAutosaveHandle | null)[];
+  /**
+   * Last observed dust sync position per wallet, plus where it resumed from.
+   * Sampled during init (where a cold sync can run for an hour with nothing
+   * else to show for it) and refreshed whenever dust state is read afterwards.
+   */
+  private walletSyncHealth: (WalletDustSyncHealth | null)[];
   private availableDustUtxoCounts: (number | null)[];
   /** Tracks wallets that recently failed due to missing dust. Cleared when dust is confirmed available. */
   private walletDustExhausted: boolean[];
+  /**
+   * Whether the last dust reading was projected at wall clock or fell back to
+   * the wallet's own (possibly stale) sync time. Surfaced in health info: a gate
+   * reading dust at a syncTime that is hours behind looks like starvation.
+   */
+  private dustValuesUseLiveClock = true;
   /** Timestamp of the last background dust-state refresh (throttling). */
   private lastDustRefreshAt = 0;
   /** True while a background dust refresh is in flight. */
@@ -423,9 +1197,34 @@ export class MidnightBalancingAdapter
   private readonly pool: WorkerPool;
   /** Input keys currently being processed in a concurrent batch. */
   private readonly inFlightInputKeys = new Set<string>();
+  /**
+   * Replay keys derived while validating, so `getReplayKey` costs nothing.
+   *
+   * `validateInput` already deserializes the whole transaction on the main
+   * thread; the batcher then asks for the replay key microseconds later, on the
+   * same input. Re-deserializing to answer would double the intake cost of the
+   * single most expensive thing intake does. Keyed by a sha256 of the raw
+   * payload — NOT `inputContentHash`, whose 32-bit output would eventually
+   * collide and hand back another transaction's key, which is the one error
+   * mode a dedup gate must not have (it refuses a legitimate spend).
+   *
+   * Bounded, oldest-first: a memo that grows with traffic is a leak, and a miss
+   * is merely slower (see `getReplayKey`), never wrong.
+   */
+  private readonly replayKeyMemo = new Map<string, string | undefined>();
 
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
+  /**
+   * Per wallet: has it finished the startup work that blocks the event loop?
+   *
+   * That work is `DustWallet.restore` — one synchronous WASM deserialize of the
+   * whole snapshot, measured at ~46 s for preprod's 5.1 MB (sweep brief §2). The
+   * dust *sync* that follows is not in this set: it yields between batches, with
+   * a worst measured stall of 906 ms, so a server can serve through it. Only the
+   * restore is a true black hole.
+   */
+  private readonly servableGate: ServableGate;
   private publicDataProvider: PublicDataProvider | null = null;
   private batchCounter = 0;
 
@@ -449,6 +1248,11 @@ export class MidnightBalancingAdapter
     this.seedClaim = claimWalletSeeds(seeds, config.logLabel);
     this.walletSeeds = seeds;
     this.config = config;
+    this.ledgerParams = new LedgerParamsCache({
+      indexer: config.indexer,
+      ...config.ledgerParams,
+    });
+    this.ledgerParams.start();
     this.log = new AdapterLogger(
       config.logLabel ? `balancing:${config.logLabel}` : "balancing",
     );
@@ -462,6 +1266,8 @@ export class MidnightBalancingAdapter
     this.walletResults = new Array(seeds.length).fill(null);
     this.walletAddresses = new Array(seeds.length).fill(null);
     this.walletIsInjected = new Array(seeds.length).fill(false);
+    this.dustStateAutosaves = new Array(seeds.length).fill(null);
+    this.walletSyncHealth = new Array(seeds.length).fill(null);
     this.walletInitialized = new Array(seeds.length).fill(false);
     this.availableDustUtxoCounts = new Array(seeds.length).fill(null);
     this.walletDustExhausted = new Array(seeds.length).fill(false);
@@ -469,7 +1275,35 @@ export class MidnightBalancingAdapter
     // Start with 0 slots per wallet; updated in ensureWalletFunds once UTXO counts are known.
     this.pool = new WorkerPool(new Array(seeds.length).fill(0));
 
+    this.servableGate = createServableGate(seeds.length);
+
     this.initializationPromise = this.initialize();
+  }
+
+  /**
+   * Resolves when no wallet is still inside a blocking restore, so the batcher
+   * can bind its HTTP port (see `BlockchainAdapter.whenServable`).
+   *
+   * Never rejects, and never waits for sync to *finish*: a cold sync runs for
+   * ~58 minutes on preprod and an operator needs `/health` for every one of
+   * them — that visibility is exactly what Phase 2's `3fd156dd` added.
+   */
+  whenServable(): Promise<void> {
+    return this.servableGate.promise;
+  }
+
+  /**
+   * Mark one wallet as past its blocking startup, idempotently.
+   *
+   * Called from three places on purpose, because "the restore is over" has three
+   * endings: the wallet emitted its first sync sample (the normal one — the
+   * progress subscription is attached *after* `buildWalletFacade` returns, so a
+   * sample proves the deserialize is done), the wallet was handed in already
+   * built, or `initializeWallet` returned by any path including failure. A gate
+   * that only closed on success would hold the port shut on a broken wallet.
+   */
+  private markWalletServable(index: number): void {
+    this.servableGate.mark(index);
   }
 
   // -----------------------------------------------------------------------
@@ -505,6 +1339,11 @@ export class MidnightBalancingAdapter
     } catch (error) {
       this.log.error("Initialization failed:", error);
       throw error;
+    } finally {
+      // Last backstop: something before the per-wallet loop threw (a bad
+      // network id, an indexer provider that would not construct), so no
+      // wallet ever ran its own `finally`. The port must still open.
+      this.servableGate.markAll();
     }
   }
 
@@ -515,6 +1354,9 @@ export class MidnightBalancingAdapter
         this.log.log(`Wallet ${label}: using shared wallet...`);
         this.walletResults[index] = await this.config.walletResult;
         this.walletIsInjected[index] = true;
+        // An injected wallet was built — and restored — by whoever handed it
+        // in, so this adapter never blocks the loop for it.
+        this.markWalletServable(index);
         // The seed registry never saw this wallet — it was handed in, not
         // derived. Claim it by identity or two adapters with different nominal
         // seeds end up on the same coins.
@@ -523,6 +1365,21 @@ export class MidnightBalancingAdapter
         this.log.log(`Wallet ${label}: waiting for funds...`);
         await this.ensureWalletFunds(index);
 
+        // Same rule as the built path: never suspend a shielded wallet that
+        // padding still needs, while it is mid-replay.
+        if (this.shieldedPaddingPossible()) {
+          this.log.log(`Wallet ${label}: waiting for shielded sync (padding enabled)...`);
+          const complete = await waitForShieldedSyncComplete(
+            this.walletResults[index]!.wallet,
+            resolveWalletSyncTimeoutMs(),
+          );
+          if (!complete) {
+            this.log.error(
+              `Wallet ${label}: shielded wallet is still behind and is being suspended ` +
+                `anyway — shielded padding will fail for this wallet`,
+            );
+          }
+        }
         await suspendAuxWalletSyncForFees(this.walletResults[index]!.wallet);
       } else {
         this.log.log(`Wallet ${label}: building with retry-aware dust sync...`);
@@ -542,6 +1399,11 @@ export class MidnightBalancingAdapter
           networkId: this.walletNetworkId,
           syncMode: 'dust-only',
           balanceWaitTimeoutMs: this.walletFundingTimeoutMs,
+          dustStateDir: this.config.dustStateDir,
+          onSyncProgress: (sample) => this.recordDustSyncProgress(index, sample),
+          // Padding is a real shielded spend, so it needs shielded state that
+          // was not cut off mid-replay.
+          requireShieldedSync: this.shieldedPaddingPossible(),
         });
 
         this.walletResults[index] = walletResult;
@@ -562,6 +1424,8 @@ export class MidnightBalancingAdapter
         await this.updateWorkerPoolForWallet(index);
       }
 
+      this.startDustStateCheckpointing(index, seed);
+
       const wr = this.walletResults[index]!;
       this.walletAddresses[index] = wr.zswapSecretKeys.coinPublicKey.toString();
       this.log.log(`Wallet ${label} addresses:`);
@@ -573,7 +1437,79 @@ export class MidnightBalancingAdapter
       this.log.log(`Wallet ${label}: ready`);
     } catch (error) {
       this.log.error(`Wallet ${label}: initialization failed:`, error);
+    } finally {
+      // Backstop for every path that never produced a sync sample: a wallet
+      // whose dust state was unavailable, or one that threw. Whatever happened,
+      // nothing of ours is blocking the loop for this wallet any more.
+      this.markWalletServable(index);
     }
+  }
+
+  /**
+   * Fold one sync observation into this wallet's cached health. Called with
+   * every throttled sample during init and again whenever dust state is read
+   * afterwards, so `getHealthInfo()` can answer "syncing or stuck?" without
+   * touching the chain.
+   */
+  private recordDustSyncProgress(
+    index: number,
+    sample: {
+      appliedIndex: bigint;
+      highestRelevantWalletIndex: bigint;
+      isConnected: boolean;
+      restoredFromOffset?: bigint;
+      snapshotRejected?: boolean;
+    },
+  ): void {
+    // The progress subscription is attached after `buildWalletFacade` returns,
+    // so the first sample is proof that the synchronous restore is behind us.
+    this.markWalletServable(index);
+
+    const previous = this.walletSyncHealth[index];
+    const now = Date.now();
+    const advanced = !previous || sample.appliedIndex > previous.appliedIndex;
+    this.walletSyncHealth[index] = {
+      appliedIndex: sample.appliedIndex,
+      target: sample.highestRelevantWalletIndex,
+      isConnected: sample.isConnected,
+      updatedAtMs: now,
+      advancedAtMs: advanced ? now : previous.advancedAtMs,
+      // Later samples (from a dust-state read) carry no restore context; keep
+      // what init established rather than reporting every wallet as cold.
+      restoredFromOffset: sample.restoredFromOffset ?? previous?.restoredFromOffset ?? 0n,
+      snapshotRejected: sample.snapshotRejected ?? previous?.snapshotRejected ?? false,
+    };
+  }
+
+  /**
+   * Keep this wallet's dust snapshot advancing for as long as it runs.
+   *
+   * Without it the snapshot was written only during init, so an adapter that
+   * had been up for a week restored a week-old snapshot and replayed a week of
+   * chain. Covers the injected wallet too, which had no persistence at all —
+   * safe because the snapshot records its own dust public key and
+   * `saveDustState` refuses to write it under a seed it does not belong to, so
+   * a caller that pairs a wallet with the wrong seed gets a loud warning
+   * instead of another wallet's state on disk.
+   */
+  private startDustStateCheckpointing(index: number, seed: string): void {
+    // Persistence no-ops on `undeployed` by design (chain resets invalidate
+    // cached state), so serializing every few minutes there is pure waste.
+    if (String(this.walletNetworkId).toLowerCase() === "undeployed") return;
+    const dustWallet = (this.walletResults[index]?.wallet as {
+      dust?: { serializeState?: () => Promise<string> };
+    } | undefined)?.dust;
+    if (typeof dustWallet?.serializeState !== "function") return;
+    this.dustStateAutosaves[index] = startDustStateAutosave(
+      dustWallet as { serializeState: () => Promise<string> },
+      {
+        networkId: String(this.walletNetworkId),
+        seed,
+        dustStateDir: this.config.dustStateDir,
+        intervalMs: this.config.dustStateSaveIntervalMs,
+        label: `Wallet ${index + 1}/${this.walletSeeds.length}`,
+      },
+    );
   }
 
   private async ensureWalletFunds(walletIndex: number): Promise<void> {
@@ -648,9 +1584,7 @@ export class MidnightBalancingAdapter
       // enable padding even if the config default is off, so budget for the
       // worst case (2 UTXOs/slot) to avoid over-committing.
       const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
-      const paddingPossible = !!(this.config.addShieldedPadding ||
-        this.config.shieldedPaddingTokenID);
-      const costPerTx = paddingPossible ? 2 : 1;
+      const costPerTx = this.shieldedPaddingPossible() ? 2 : 1;
       const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
       const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
       this.pool.setSlots(walletIndex, slots);
@@ -696,9 +1630,7 @@ export class MidnightBalancingAdapter
       );
 
       const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
-      const paddingPossible = !!(this.config.addShieldedPadding ||
-        this.config.shieldedPaddingTokenID);
-      const costPerTx = paddingPossible ? 2 : 1;
+      const costPerTx = this.shieldedPaddingPossible() ? 2 : 1;
       const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
       const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
       this.pool.setSlots(walletIndex, slots);
@@ -708,6 +1640,19 @@ export class MidnightBalancingAdapter
     } catch (e) {
       this.log.warn(`Wallet ${label}: could not read dust UTXO count:`, e);
     }
+  }
+
+  /**
+   * Can any transaction on this target get shielded padding?
+   *
+   * The token ID alone is enough: per-input `addShieldedPadding` overrides can
+   * turn padding on for a single transaction even when the adapter default is
+   * off. Whatever answers this question decides both worker-slot cost and
+   * whether the shielded wallet must finish syncing before being suspended, and
+   * those two must never disagree.
+   */
+  private shieldedPaddingPossible(): boolean {
+    return !!(this.config.addShieldedPadding || this.config.shieldedPaddingTokenID);
   }
 
   private async getDustBalance(walletIndex: number): Promise<bigint> {
@@ -769,8 +1714,77 @@ export class MidnightBalancingAdapter
   // Concurrent capacity
   // -----------------------------------------------------------------------
 
+  /**
+   * In-flight reservation key — deliberately NOT the batcher's request key.
+   *
+   * `core/request-id.ts` owns the identity the queue, the receipt callbacks and
+   * the request id all share (`addressType|target|address|timestamp|signature|
+   * input`). This one is narrower on purpose and stays that way:
+   *
+   *  - it never leaves this adapter instance (`inFlightInputKeys` is a private
+   *    Set, dropped when the batch finishes), so it needs no cross-component
+   *    agreement;
+   *  - the adapter serves ONE target, so a target field would be a constant;
+   *  - being narrower is the safe direction for a "don't work on this twice"
+   *    reservation: it can only over-match, never under-match. Two submissions
+   *    identical but for the signature reserve as one, which is what we want
+   *    from a wallet that re-signed the same transaction.
+   *
+   * Widening it to the full request key would be a behaviour change (that pair
+   * would then be balanced twice), which is why it is not done here.
+   */
   private getInputKey(input: DefaultBatcherInput): string {
     return `${input.address}|${input.timestamp}|${input.input}`;
+  }
+
+  /**
+   * The replay key for a submitted transaction: what the CHAIN considers this
+   * spend, not what the batcher considers this request.
+   *
+   * There is no signature here to key on — this adapter's inputs ARE
+   * transactions and `verifySignature` returns true — so the default
+   * signature-hash key would leave Midnight with no replay protection at all.
+   * The transaction's own identifiers are the right answer: they are what the
+   * indexer watches for, so two encodings of one spend collide, which is
+   * precisely "do not pay for this twice".
+   *
+   * Normally free: `validateInput` deserialized this exact payload moments ago
+   * and left the answer in the memo. A miss (memo evicted under a burst, or an
+   * input that reached here without being validated) falls back to
+   * deserializing — one more parse of a payload intake already parses once,
+   * rather than silently dropping replay protection for that input.
+   */
+  getReplayKey(input: DefaultBatcherInput): string | undefined {
+    const memoKey = this.replayMemoKey(input.input);
+    if (this.replayKeyMemo.has(memoKey)) return this.replayKeyMemo.get(memoKey);
+    let key: string | undefined;
+    try {
+      key = midnightReplayKey(
+        this.deserializeTxEntry(input).tx as unknown as ReplayIdentifiableTx,
+      );
+    } catch {
+      // Undeserializable payloads are refused at intake; one that reaches here
+      // gets no dedup rather than an exception on the accept path.
+      key = undefined;
+    }
+    this.memoizeReplayKey(memoKey, key);
+    return key;
+  }
+
+  private replayMemoKey(payload: string): string {
+    return createHash("sha256").update(payload, "utf8").digest("hex");
+  }
+
+  private memoizeReplayKey(memoKey: string, key: string | undefined): void {
+    // Re-inserting moves the entry to the back of the insertion order, which is
+    // what makes the eviction below oldest-first.
+    this.replayKeyMemo.delete(memoKey);
+    this.replayKeyMemo.set(memoKey, key);
+    while (this.replayKeyMemo.size > REPLAY_KEY_MEMO_LIMIT) {
+      const oldest = this.replayKeyMemo.keys().next();
+      if (oldest.done) break;
+      this.replayKeyMemo.delete(oldest.value);
+    }
   }
 
   hasAvailableCapacity(): boolean {
@@ -837,11 +1851,17 @@ export class MidnightBalancingAdapter
       wr.wallet.dust as { state: Rx.Observable<unknown> },
       { timeoutMs: 30_000 },
     );
-    const coins = (dustState as { availableCoins?: Array<{ generatedNow?: bigint | string }> })
-      .availableCoins ?? [];
-    const values = coins.map((c) => BigInt(c.generatedNow ?? 0));
+    // Project generation at wall clock. `availableCoins` evaluates at the
+    // wallet's syncTime, which only advances when a dust EVENT is applied —
+    // measured 377 days behind on a quiet chain — so reading it directly
+    // under-reports generated dust and can starve the coin picker on a wallet
+    // that actually has spendable dust.
+    const { values, liveClock } = resolveDustCoinValuesAt(dustState, new Date());
+    this.dustValuesUseLiveClock = liveClock;
+    const progress = dustProgressFromState(dustState);
+    if (progress) this.recordDustSyncProgress(walletIndex, progress);
     return {
-      total: coins.length,
+      total: values.length,
       spendable: values.filter((v) => v >= minValue).length,
       values,
     };
@@ -855,8 +1875,8 @@ export class MidnightBalancingAdapter
     for (const wa of batchData.workerAssignments) {
       this.pool.releaseWorker(wa.walletIdx, wa.slotIdx);
     }
-    // Use the snapshot taken at buildBatchData time, not the possibly-mutated
-    // selectedInputs array (submitBatch splices out failed inputs).
+    // Use the snapshot taken at buildBatchData time so every reservation is
+    // released regardless of the input's outcome category.
     for (const key of batchData.reservedInputKeys) {
       this.inFlightInputKeys.delete(key);
     }
@@ -876,30 +1896,7 @@ export class MidnightBalancingAdapter
     txStage?: DelegatedTxStage;
     addShieldedPadding?: boolean;
   } {
-    const trimmed = input.trim();
-    if (trimmed.startsWith("{")) {
-      const parsed = JSON.parse(trimmed) as {
-        tx?: string;
-        txStage?: DelegatedTxStage;
-        addShieldedPadding?: boolean | null;
-      };
-      if (!parsed.tx) throw new Error("Missing tx field in JSON input");
-      if (
-        parsed.txStage !== undefined &&
-        parsed.txStage !== "unproven" &&
-        parsed.txStage !== "unbound" &&
-        parsed.txStage !== "finalized"
-      ) {
-        throw new Error(
-          "txStage must be 'unproven', 'unbound', or 'finalized'",
-        );
-      }
-      const hex = parsed.tx.startsWith("0x") ? parsed.tx.slice(2) : parsed.tx;
-      const addShieldedPadding = parsed.addShieldedPadding ?? undefined;
-      return { hex, txStage: parsed.txStage, addShieldedPadding };
-    }
-    const hex = trimmed.startsWith("0x") ? trimmed.slice(2) : trimmed;
-    return { hex };
+    return parseHexInput(input);
   }
 
   private deserializeTxEntry(input: DefaultBatcherInput): DelegatedTxEntry {
@@ -1014,20 +2011,6 @@ export class MidnightBalancingAdapter
         this.log.warn(
           `Deserialize failed for #${inputContentHash(input.input)} ` +
             `(retry=${input.retryCount ?? 0}) — marking failed: ${error}`,
-        );
-        invalidInputs.push(input);
-        selectedInputs.push(input);
-        continue;
-      }
-
-      // Defense in depth: re-check the declarative rules against the stored
-      // row. Catches on-disk tampering and policy tightened across a restart.
-      // (The custom filter half runs in processWorkerTx — it may be async.)
-      const verdict = this.declarativePolicyVerdict(entry);
-      if (!verdict.valid) {
-        this.log.warn(
-          `Policy rejected #${inputContentHash(input.input)} pre-batch ` +
-            `[${verdict.rule}]: ${verdict.reason ?? "no reason given"} — marking failed`,
         );
         invalidInputs.push(input);
         selectedInputs.push(input);
@@ -1152,11 +2135,40 @@ export class MidnightBalancingAdapter
   ): Promise<BalancingRecipe> {
     const walletResult = this.walletResults[walletIndex]!;
 
+    let recipe: BalancingRecipe;
+
     // NOTE: no facade wallet.state() read here — under dust-only sync the aux
     // sub-wallets are suspended, so the combined observable never emits and a
     // timeout-guarded read silently burned its full timeout on EVERY balance.
     // waitForDustAvailability reads the dust sub-wallet state directly.
-    await this.waitForDustAvailability(walletIndex);
+    //
+    // Dust waiting is deliberately excluded from the TTL floor: it has already
+    // elapsed when the injected clock is sampled. Keep this immediately beside
+    // the SDK balance call so no new staleness window opens before dust is
+    // committed.
+    await waitForDustThenEnforceTtl({
+      waitForDust: () => this.waitForDustAvailability(walletIndex),
+      prepareForSpend: async () => {
+        if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
+          try {
+            const paddedTx = await this.applyShieldedPadding(
+              entry.tx as UnprovenTransaction,
+              true,
+              walletIndex,
+            );
+            entry = { tx: paddedTx, txStage: "unproven" };
+          } catch (e) {
+            this.log.warn(
+              "Shielded padding unavailable, submitting without padding. " +
+                `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
+            );
+          }
+        }
+      },
+      tx: () => entry.tx as unknown as PolicyInspectableTx,
+      now: Date.now,
+      minRemainingMs: preSpendTtlFloorMs(this.config),
+    });
 
     const keys = {
       shieldedSecretKeys: walletResult.walletZswapSecretKeys,
@@ -1176,23 +2188,6 @@ export class MidnightBalancingAdapter
     // via applyShieldedPadding(), so this restriction does not break it.
     const opts = { ttl: createTtl(), tokenKindsToBalance: ["dust"] as const };
 
-    if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
-      try {
-        const paddedTx = await this.applyShieldedPadding(
-          entry.tx as UnprovenTransaction,
-          true,
-          walletIndex,
-        );
-        entry = { tx: paddedTx, txStage: "unproven" };
-      } catch (e) {
-        this.log.warn(
-          "Shielded padding unavailable, submitting without padding. " +
-            `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
-        );
-      }
-    }
-
-    let recipe: BalancingRecipe;
     switch (entry.txStage) {
       case "unbound":
         recipe = await walletResult.wallet.balanceUnboundTransaction(
@@ -1290,11 +2285,12 @@ export class MidnightBalancingAdapter
 
   /**
    * Process a single tx through the full pipeline on its assigned worker:
-   *   1. Acquire wallet balance lock
-   *   2. Balance (speculative chaining — serialized within wallet)
-   *   3. Release balance lock
-   *   4. Sign + Finalize / Prove (concurrent — proof server is multi-threaded)
-   *   5. Submit to mempool
+   *   1. Hard/policy/params/full validation gate (outside the lock)
+   *   2. Acquire wallet balance lock and wait for dust
+   *   3. Check TTL, then balance (speculative chaining — serialized per wallet)
+   *   4. Release balance lock
+   *   5. Sign + Finalize / Prove (concurrent — proof server is multi-threaded)
+   *   6. Submit to mempool
    *
    * Returns the tx hash on success, throws on failure.
    */
@@ -1310,27 +2306,40 @@ export class MidnightBalancingAdapter
     const retryTag = trace.retry > 0 ? ` [retry ${trace.retry}/3]` : "";
     const pipelineStart = performance.now();
 
-    // Final policy gate before any dust is spent: runs the FULL policy
-    // (declarative + custom filter). buildBatchData already re-checked the
-    // declarative half synchronously; this covers the async custom filter.
-    if (isPolicyEnforced(this.config.policy as MidnightTxPolicy<never> | undefined)) {
-      const verdict = await evaluatePolicy(
-        {
-          tx: entry.tx as unknown as PolicyInspectableTx,
-          txStage: entry.txStage,
-          input: trace.input,
-        },
-        this.config.policy as MidnightTxPolicy<PolicyInspectableTx> | undefined,
-      );
-      if (!verdict.valid) {
-        // Input failure (NOT infra): retry-charged and dropped with a warning.
-        throw new Error(
-          `Rejected by policy (${verdict.rule}): ${
-            verdict.reason ?? "transaction not permitted for this target"
-          }`,
+    // Recheck untrusted storage, then policy, cache readiness and full WASM
+    // validation — all before acquiring the wallet balance lock or waiting for
+    // dust. Deterministic verdicts and our own inability to judge travel on
+    // distinct typed channels into the per-input BatchOutcome.
+    await runPreSpendGate({
+      hardGateVerdict: () => this.hardGateVerdict(entry),
+      policyVerdict: isPolicyEnforced(
+          this.config.policy as MidnightTxPolicy<never> | undefined,
+        )
+        ? () =>
+          evaluatePolicy(
+            {
+              tx: entry.tx as unknown as PolicyInspectableTx,
+              txStage: entry.txStage,
+              input: trace.input,
+            },
+            this.config.policy as
+              | MidnightTxPolicy<PolicyInspectableTx>
+              | undefined,
+          )
+        : undefined,
+      getParams: () => this.ledgerParams.get(),
+      validate: async (params) => {
+        const job = buildPreSpendValidationJob(
+          trace.input,
+          entry.txStage,
+          params.serialize(),
+          this.walletNetworkId,
+          Date.now(),
         );
-      }
-    }
+        this.validationExecutorHandle ??= acquireValidationExecutor();
+        return await this.validationExecutorHandle.executor.submit(job);
+      },
+    });
 
     // --- Phase 1: Balance (under wallet lock) ---
     this.log.log(`[${tag}] Acquiring balance lock${retryTag}...`);
@@ -1375,6 +2384,50 @@ export class MidnightBalancingAdapter
     const finalized = await walletResult.wallet.finalizeRecipe(signedRecipe);
     const proveMs = Math.round(performance.now() - proveStart);
     this.log.log(`[${tag}] Proved (${proveMs}ms)`);
+
+    // Finalization registers this transaction in the wallet's pending service.
+    // Guard the WHOLE validation call (including serialization, parameter
+    // encoding and executor acquisition): any throw must revert the finalized
+    // entry before it can leave this method, or its dust stays booked for the
+    // wallet's three-hour grace period.
+    await runPreSubmitGate({
+      getParams: () => this.ledgerParams.get(),
+      validateFinalized: async (params) => {
+        const job = buildPreSubmitValidationJob(
+          finalized.serialize(),
+          params.serialize(),
+          this.walletNetworkId,
+          Date.now(),
+        );
+        this.validationExecutorHandle ??= acquireValidationExecutor();
+        return await this.validationExecutorHandle.executor.submit(job);
+      },
+      revertFinalized: () =>
+        safeRevertFinalized({
+          revertTransaction: () =>
+            walletResult.wallet.revertTransaction(finalized),
+          context: tag,
+          onFailure: (reason) => {
+            this.hardPausedReason ??= reason;
+          },
+          onSuccess: () =>
+            this.log.log(
+              `[${tag}] Reverted finalized transaction — dust lane is reusable`,
+            ),
+          onError: (reason) => this.log.error(`🛑 ${reason}`),
+        }),
+      revalidateOriginal: async (params) => {
+        const job = buildPreSpendValidationJob(
+          trace.input,
+          entry.txStage,
+          params.serialize(),
+          this.walletNetworkId,
+          Date.now(),
+        );
+        this.validationExecutorHandle ??= acquireValidationExecutor();
+        return await this.validationExecutorHandle.executor.submit(job);
+      },
+    });
 
     // --- Phase 3: Submit ---
     const txHash = finalized.transactionHash().toString();
@@ -1476,7 +2529,7 @@ export class MidnightBalancingAdapter
 
   /**
    * Run per-worker pipelines in parallel. Each worker independently:
-   * balance (locked) → prove (unlocked) → submit.
+   * validate (unlocked) → balance (locked) → prove (unlocked) → submit.
    *
    * Workers are released by releaseBatchResources (called by BatchProcessor
    * in its finally block after all storage operations complete). Workers
@@ -1487,12 +2540,21 @@ export class MidnightBalancingAdapter
   async submitBatch(
     batchData: DelegatedBatchData,
     _fee?: string | bigint,
-  ): Promise<BlockchainHash> {
+  ): Promise<BatchSubmitResult<DefaultBatcherInput>> {
     if (this.initializationPromise) {
       await this.initializationPromise;
     }
     if (!this.isInitialized) {
       throw new Error("Adapter not initialized");
+    }
+    if (this.hardPausedReason !== null) {
+      this.log.error(
+        `Refusing batch while adapter is hard-paused: ${this.hardPausedReason}`,
+      );
+      return hardPausedBatchOutcome(
+        this.hardPausedReason,
+        batchData.selectedInputs,
+      );
     }
 
     return await this._executeWorkerPipelines(batchData);
@@ -1500,28 +2562,17 @@ export class MidnightBalancingAdapter
 
   private async _executeWorkerPipelines(
     batchData: DelegatedBatchData,
-  ): Promise<BlockchainHash> {
+  ): Promise<BatchOutcome<DefaultBatcherInput>> {
     const { txs, workerAssignments, traceInfos, batchId } = batchData;
     const bTag = `B${String(batchId).padStart(2, "0")}`;
 
-    // Fail invalid (undeserializable) inputs up front: splicing them out of
-    // selectedInputs makes the processor's diff path increment their retry
-    // counts, so they are bounded-retried and then dropped WITH a log.
+    // Intake normally prevents these. A tampered/corrupt stored row still gets
+    // the legacy bounded-retry treatment, now explicitly rather than through
+    // selectedInputs mutation.
     if (batchData.invalidInputs.length > 0) {
-      const invalidSet = new Set(batchData.invalidInputs);
-      for (let i = batchData.selectedInputs.length - 1; i >= 0; i--) {
-        if (invalidSet.has(batchData.selectedInputs[i])) {
-          batchData.selectedInputs.splice(i, 1);
-        }
-      }
       this.log.warn(
         `[${bTag}] ${batchData.invalidInputs.length} invalid input(s) marked failed (deserialize)`,
       );
-      if (txs.length === 0) {
-        throw new Error(
-          `All ${batchData.invalidInputs.length} inputs failed to deserialize (invalid input)`,
-        );
-      }
     }
 
     this.log.log(
@@ -1536,52 +2587,34 @@ export class MidnightBalancingAdapter
       }),
     );
 
-    // Collect successes and failures
-    const hashes: string[] = [];
-    const errors: { index: number; error: Error }[] = [];
-
+    const outcome = buildWorkerBatchOutcome(
+      batchData.invalidInputs,
+      traceInfos.map((trace) => trace.input),
+      results,
+    );
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
-      if (r.status === "fulfilled") {
-        hashes.push(r.value);
-      } else {
-        errors.push({
-          index: i,
-          error: r.reason instanceof Error
-            ? r.reason
-            : new Error(String(r.reason)),
-        });
+      if (r.status === "rejected") {
+        const classified = classifyWorkerFailure(traceInfos[i].input, r.reason);
+        this.log.warn(
+          `  ${traceInfos[i].label} #${traceInfos[i].contentHash} ` +
+            `[${classified.category}]: ${
+              r.reason instanceof Error ? r.reason.message : String(r.reason)
+            }`,
+        );
       }
     }
 
     this.log.log(
-      `[${bTag}] Results: ${hashes.length} succeeded, ${errors.length} failed`,
+      `[${bTag}] Results: ${outcome.submitted?.length ?? 0} submitted, ` +
+        `${outcome.permanentRejected?.length ?? 0} permanently rejected, ` +
+        `${outcome.retryable?.length ?? 0} deferred, ` +
+        `${outcome.failed?.length ?? 0} retry-charged, ` +
+        `${outcome.invariantFailure?.inputs?.length ?? 0} invariant-parked`,
     );
 
-    if (errors.length > 0) {
-      for (const { index, error } of errors) {
-        const t = traceInfos[index];
-        this.log.warn(`  ${t.label} #${t.contentHash}: ${error.message}`);
-      }
-      // Remove failed inputs from selectedInputs so the batcher retries them
-      const failedIndices = new Set(errors.map((e) => e.index));
-      for (let i = batchData.selectedInputs.length - 1; i >= 0; i--) {
-        if (failedIndices.has(i)) {
-          batchData.selectedInputs.splice(i, 1);
-        }
-      }
-    }
-
-    if (hashes.length === 0) {
-      const firstError = errors[0]?.error.message ?? "unknown";
-      throw new Error(
-        `All ${txs.length} transactions failed. First error: ${firstError}`,
-      );
-    }
-
-    const finalHashes = hashes.join(",");
-    this.log.log(`[${bTag}] Hashes: ${finalHashes}`);
-    return finalHashes;
+    if (outcome.hash) this.log.log(`[${bTag}] Hashes: ${outcome.hash}`);
+    return outcome;
   }
 
   // -----------------------------------------------------------------------
@@ -1689,9 +2722,41 @@ export class MidnightBalancingAdapter
    * Uses cached state only — no chain/indexer calls, safe to poll.
    */
   getHealthInfo(): Record<string, unknown> {
+    const now = Date.now();
     return {
       wallets: this.walletSeeds.length,
       walletsReady: this.walletInitialized.filter(Boolean).length,
+      // Without this a slow start and a permanently broken one look the same:
+      // a preprod dust cold sync runs for ~66 minutes, and a snapshot whose
+      // offset is past the indexer's log never finishes at all.
+      dustSync: this.walletSeeds.map((_seed, i) => {
+        const h = this.walletSyncHealth[i];
+        return {
+          wallet: i + 1,
+          state: classifyDustSyncState(h, now, DUST_SYNC_STALLED_AFTER_MS),
+          // Where the restore resumed from — 0 means this wallet replayed the
+          // whole chain, which is the number that explains a slow start.
+          restoredFrom: h ? h.restoredFromOffset.toString() : null,
+          appliedIndex: h ? h.appliedIndex.toString() : null,
+          target: h && h.target > 0n ? h.target.toString() : null,
+          behind: h && h.target > h.appliedIndex
+            ? (h.target - h.appliedIndex).toString()
+            : "0",
+          connected: h?.isConnected ?? false,
+          lastAdvanceAgeMs: h ? now - h.advancedAtMs : null,
+          snapshot: !h
+            ? "unknown"
+            : h.snapshotRejected
+            ? "rejected"
+            : h.restoredFromOffset > 0n
+            ? "restored"
+            : "cold",
+        };
+      }),
+      // "live" means dust generation was projected at wall clock. "sync-time"
+      // means it fell back to the wallet's last applied event, which on a quiet
+      // chain can be far in the past and reads as false starvation.
+      dustClock: this.dustValuesUseLiveClock ? "live" : "sync-time",
       dustUtxos: this.availableDustUtxoCounts.map((c) => c ?? 0),
       dustExhausted: this.walletInitialized.every(
         (ok, i) => !ok || this.walletDustExhausted[i],
@@ -1699,6 +2764,10 @@ export class MidnightBalancingAdapter
       workersBusy: this.pool.getTotalWorkerCount() - this.pool.getFreeWorkerCount(),
       workersTotal: this.pool.getTotalWorkerCount(),
       inFlightInputs: this.inFlightInputKeys.size,
+      // Without this a 503 is a mystery: an operator cannot tell "indexer
+      // unreachable" from "misconfigured" from "only just started".
+      ledgerParams: this.ledgerParams.health(),
+      hardPause: hardPauseHealthInfo(this.hardPausedReason),
       policy: !isPolicyEnforced(this.config.policy as MidnightTxPolicy<never> | undefined)
         ? "allow-all"
         : {
@@ -1728,6 +2797,38 @@ export class MidnightBalancingAdapter
   }
 
   async close(): Promise<void> {
+    // Before anything that can throw: a leaked interval keeps the process
+    // alive after shutdown.
+    this.ledgerParams.close();
+
+    // Checkpoint dust state BEFORE anything stops the wallets — a stopped
+    // wallet cannot serialize, which is why shutdown used to lose everything
+    // since the last init-time save. Each handle takes one final snapshot.
+    await Promise.all(
+      this.dustStateAutosaves.map(async (handle, index) => {
+        try {
+          await handle?.stop();
+        } catch (error) {
+          this.log.warn(
+            `Wallet ${index + 1}/${this.walletSeeds.length}: final dust checkpoint failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }),
+    );
+    this.dustStateAutosaves = new Array(this.walletSeeds.length).fill(null);
+    const executorHandle = this.validationExecutorHandle;
+    this.validationExecutorHandle = null;
+    if (executorHandle) {
+      await executorHandle.release().catch((error) =>
+        this.log.warn(
+          `validation executor release failed during close: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        )
+      );
+    }
     releaseWalletSeeds(this.seedClaim);
     // Only keys this adapter claimed are in the list, so this cannot drop
     // another adapter's claim even if two share a log label.
@@ -1785,6 +2886,18 @@ export class MidnightBalancingAdapter
       };
     }
 
+    // HARD gates, before any policy runs. A custom filter may tighten what a
+    // product sponsors, but must never be able to raise the ceilings that
+    // protect the process — so these are not expressible as policy.
+    const hardVerdict = this.hardGateVerdict(entry);
+    if (hardVerdict) {
+      this.log.warn(
+        `Refused #${inputContentHash(input.input)} at intake ` +
+          `[${hardVerdict.errorCode}]: ${hardVerdict.error}`,
+      );
+      return hardVerdict;
+    }
+
     // Content-based authorization: declarative rules first, then the custom
     // final filter. Both fail closed.
     const verdict = await evaluatePolicy(
@@ -1807,19 +2920,46 @@ export class MidnightBalancingAdapter
         }`,
       };
     }
-    return { valid: true };
+    // Cache readiness, checked LAST: a transaction that policy would refuse
+    // anyway should be told so, rather than being handed a 503 that invites it
+    // to come back and be refused later.
+    //
+    // Failing closed here means the queue never accepts work we would not be
+    // able to validate at spend time — otherwise the failure is merely
+    // deferred past the point where it is cheap to report.
+    const paramsVerdict = ledgerParamsGateVerdict(this.ledgerParams.get());
+    if (paramsVerdict) return paramsVerdict;
+
+    // Derive the replay key off the deserialization this method already did,
+    // so the batcher's dedup gate — which asks for it a moment from now — costs
+    // nothing extra on the accept path.
+    this.memoizeReplayKey(
+      this.replayMemoKey(input.input),
+      midnightReplayKey(entry.tx as unknown as ReplayIdentifiableTx),
+    );
+
+    // Report what this input will actually cost to verify, so the batcher can
+    // charge it rather than the flat unit it paid on arrival.
+    return {
+      valid: true,
+      admissionWeight: admissionWeight(entry.tx as unknown as PolicyInspectableTx),
+    };
   }
 
   /**
-   * Pre-batch DECLARATIVE re-check (synchronous, so it can run inside
-   * buildBatchData). Storage rows are untrusted — they can be tampered with on
-   * disk, and the policy may have been tightened since the input was accepted.
-   * The async half (custom filter) runs in processWorkerTx.
+   * The gates a policy cannot loosen: maintenance updates and structural
+   * ceilings. Returns a rejection, or `undefined` when the transaction clears
+   * them.
+   *
+   * Shared by intake and the pre-spend recheck, because storage rows are
+   * untrusted — they can be edited on disk, and the limits may have been
+   * tightened since the input was accepted. A gate enforced only at intake is
+   * not a gate.
    */
-  private declarativePolicyVerdict(entry: DelegatedTxEntry) {
-    return evaluateDeclarativePolicy(
+  private hardGateVerdict(entry: DelegatedTxEntry): ValidationResult | undefined {
+    return hardGateVerdictFor(
       entry.tx as unknown as PolicyInspectableTx,
-      this.config.policy as MidnightTxPolicy<never> | undefined,
+      this.config.shapeLimits ?? DEFAULT_SHAPE_LIMITS,
     );
   }
 
@@ -1833,4 +2973,32 @@ export class MidnightBalancingAdapter
     const body = await response.json();
     return BigInt(body.data?.block?.height ?? 0);
   }
+}
+
+/**
+ * Translate a ledger-parameter lookup into an intake verdict.
+ *
+ * Returns `undefined` when parameters are usable, or a rejection when they are
+ * not. Separate from the adapter because the adapter's constructor builds an
+ * indexer provider, which would make this untestable without a chain — and an
+ * untested fail-closed path is one that quietly fails open.
+ *
+ * The status is the point. A check that could not COMPLETE is 503, not 400:
+ * the input was never judged, so telling the caller their transaction is
+ * malformed is both wrong and unactionable. Only "retry shortly" is true.
+ */
+export function ledgerParamsGateVerdict(
+  lookup: LedgerParamsLookup,
+): ValidationResult | undefined {
+  if (lookup.ok) return undefined;
+  return {
+    valid: false,
+    error:
+      `Cannot validate transactions right now: live ledger parameters are ` +
+      `unavailable (${lookup.reason}). This is a batcher-side condition; ` +
+      `retry shortly.`,
+    errorCode: "LEDGER_PARAMS_UNAVAILABLE",
+    statusCode: 503,
+    retryable: true,
+  };
 }

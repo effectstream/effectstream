@@ -1,7 +1,11 @@
 import { CryptoManager } from "@effectstream/crypto";
 import { call, lift, resource, sleep, spawn, suspend } from "effection";
 import type { Operation } from "effection";
-import type { BatcherStorage } from "./storage.ts";
+import type {
+  BatcherStorage,
+  ReconciliationReport,
+  RequestStatusRecord,
+} from "./storage.ts";
 import type { DefaultBatcherInput } from "./types.ts";
 import type {
   BlockchainAdapter,
@@ -11,13 +15,23 @@ import type { BatchingCriteriaConfig, BatcherConfig } from "./config.ts";
 import {
   applyBatcherConfigDefaults,
   DEFAULT_BATCHING_CRITERIA,
+  DEFAULT_CONFIG_VALUES,
   validateBatcherConfig,
   validateBatchingCriteria,
   validatePreInit,
 } from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
-import { BatcherFileStorage } from "./mod.ts";
+import { isTrackingStorage } from "./storage.ts";
+import {
+  describeRequestTracking,
+  type RequestTrackingInfo,
+  resolveDefaultStorage,
+} from "./default-storage.ts";
+import { buildRequestKey, computeRequestId } from "./request-id.ts";
+import { resolveReplayKey } from "./replay-key.ts";
+import { assertInputIsFresh } from "./input-freshness.ts";
 import { BatchProcessor } from "./batch-processor.ts";
+import { InputValidationError } from "./errors.ts";
 import {
   type BatcherShutdownState,
   type ShutdownHooks,
@@ -31,27 +45,65 @@ import { ENV } from "@effectstream/utils/node-env";
  * Custom error class for input validation failures
  * Provides structured error information with appropriate HTTP status codes
  */
-export class InputValidationError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number = 400,
-    /**
-     * Stable, machine-readable reason. Clients should branch on this rather
-     * than on `message`, whose text can include detail derived from the
-     * submitted input.
-     */
-    public errorCode?: string,
-    /** True when re-submitting the identical input could later succeed. */
-    public retryable?: boolean,
-  ) {
-    super(message);
-    this.name = "InputValidationError";
-  }
-}
+// Defined in ./errors.ts so `batch-processor.ts` can throw the same class
+// without importing this module back. Re-exported here because it has always
+// been part of this module's public surface.
+export { InputTerminalError, InputValidationError } from "./errors.ts";
 
 export interface AuthenticatedInputContext {
   /** Adapter target resolved and verified by the batcher. */
   target: string;
+}
+
+/**
+ * What an accepted submission returns.
+ *
+ * The id and the receipt are separate fields rather than one merged object
+ * because they answer different questions and arrive at different times: the id
+ * exists the moment the input is journaled (which is what `no-wait` waits for),
+ * while the receipt only exists once a batch reached the chain. An envelope
+ * says that plainly — `receipt: null` is "accepted, nothing on chain yet", not
+ * "nothing happened".
+ */
+export interface BatchInputResult {
+  /**
+   * Deterministic id for this request (spec FR-006), returned at EVERY
+   * confirmation level. Recomputable from the payload; poll with it.
+   */
+  requestId: string;
+  /** The transaction receipt, or null when the caller did not wait for one. */
+  receipt: (BlockchainTransactionReceipt & { rollup?: number }) | null;
+  /**
+   * This submission was recognised as a REPLAY of one already tracked, so
+   * nothing new was queued (spec FR-006b). `requestId` is the ORIGINAL
+   * request's — poll that, it is the one with a fate.
+   *
+   * A duplicate always comes back with `receipt: null` whatever confirmation
+   * level was asked for. The receipt-callback map holds one waiter per content
+   * key, so a second waiter would silently evict the first; the caller holds
+   * the id instead, and is in any case usually the same client retrying.
+   */
+  duplicate?: boolean;
+}
+
+/**
+ * Context for the admission surcharge, once the input has been validated and
+ * its true cost is known.
+ *
+ * Admission is charged in two phases because the cost of a request cannot be
+ * known when it arrives. At authentication all we know is that *a* request
+ * turned up, so it is charged a flat unit; only after the adapter has
+ * deserialized the payload can we say how much verification work it will
+ * actually cause. Charging the difference here keeps the expensive shape from
+ * drawing down the same budget as a trivial one, while still refusing an
+ * unauthenticated caller a free deserialize.
+ */
+export interface AdmissionWeightContext {
+  target: string;
+  /** Total units this input should cost, as reported by the adapter. */
+  weight: number;
+  /** Units already charged at authentication. */
+  alreadyCharged: number;
 }
 
 /**
@@ -105,6 +157,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   private readonly port: number;
   /** Whether to enable HTTP server */
   private readonly enableHttpServer: boolean;
+  /** How long `init()` waits for adapters to become servable before binding. */
+  private readonly httpServerReadinessTimeoutMs: number;
   /** Whether to enable event system */
   private readonly enableEventSystem: boolean;
   /** Shutdown state tracking */
@@ -132,12 +186,52 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     string,
     (payload: any) => void | Promise<void>
   > = new Map();
+  /**
+   * Targets already warned about having no derivable replay key. The warning
+   * matters — that deployment has no duplicate protection — but it is a
+   * property of the target, not of the request, so it is said once.
+   */
+  private readonly replayKeylessTargetsLogged = new Set<string>();
+
+  /** Timer driving the retention sweep; absent on a queue-only backend. */
+  private retentionIntervalID?: ReturnType<typeof setInterval>;
+  /**
+   * What retention has done so far. Exposed through `/queue-stats` because a
+   * sweep that silently stopped working looks exactly like one that has
+   * nothing to do, and the difference only becomes visible as unbounded growth
+   * weeks later.
+   */
+  private readonly retentionMetrics: {
+    prunedLastRun: number;
+    prunedTotal: number;
+    lastRunAt?: string;
+    lastError?: string;
+  } = { prunedLastRun: 0, prunedTotal: 0 };
 
   /**
    * Create a new Batcher with type-safe configuration
    *
    * @param config - Type-safe configuration with unified batching criteria
-   * @param storage - The storage system for persisting inputs (default: file storage)
+   * @param storage - The storage system for persisting inputs.
+   *
+   * When omitted, the backend is resolved from the environment (spec
+   * Addendum A, FR-012) by `resolveDefaultStorage()`:
+   *
+   * - `BATCHER_DB_SCHEMA` set ⇒ a connected `DatabaseStorage` using the
+   *   engine's own `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_NAME`, owning the schema
+   *   `batcher_<value>`. Request tracking, replay protection and
+   *   `GET /input-status` all work.
+   * - unset ⇒ `FileStorage` at `./batcher-data`, which is exactly what this
+   *   package defaulted to before request tracking existed. It boots with no
+   *   environment at all, queues and batches as always, and keeps no status —
+   *   announced loudly at startup, and DEVELOPMENT ONLY by policy.
+   * - set but invalid, or set and the database unreachable ⇒ REFUSE TO BOOT.
+   *   The key states an intent; falling back would leave an operator who
+   *   believes tracking is on running without it.
+   *
+   * Passing `storage` explicitly means the environment is never consulted.
+   * Embedded PgLite remains available that way — `new DatabaseStorage("./dir")`
+   * — for standalone SDK use (FR-015).
    *
    * Runtime validation ensures:
    * - At least one adapter is provided
@@ -154,9 +248,10 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       T,
       Record<string, BlockchainAdapter<any>>
     >,
-    private readonly storage: BatcherStorage<T> = new BatcherFileStorage<T>(
-      "./batcher-data",
-    ),
+    // Evaluated ONLY when the argument is absent, which is what makes
+    // "an explicit storage never consults the environment" true by
+    // construction rather than by a check that could be forgotten.
+    private readonly storage: BatcherStorage<T> = resolveDefaultStorage<T>(),
   ) {
     const cfg = applyBatcherConfigDefaults(config);
     this.config = cfg;
@@ -194,35 +289,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     this.lastProcessTime = new Map();
 
     this.batchProcessor = new BatchProcessor<T>({
-      emitStateTransition: async (prefix: string, payload: any) => {
-        // For async contexts, we need to handle this differently
-        // Since we're in an async method but need to call an Effection operation,
-        // we'll create a simple non-blocking implementation
-        if (this.enableEventSystem) {
-          const listener = this.stateTransitionListeners.get(prefix);
-          if (listener) {
-            try {
-              // Execute the listener asynchronously without blocking
-              await listener(payload);
-            } catch (error) {
-              const hasErrorListener = this.stateTransitionListeners.has(
-                "error",
-              );
-              if (prefix !== "error" && hasErrorListener) {
-                try {
-                  await this.stateTransitionListeners.get("error")!({
-                    phase: `event-listener:${prefix}`,
-                    error,
-                    time: Date.now(),
-                  });
-                } catch {
-                  // swallow
-                }
-              }
-            }
-          }
-        }
-      },
+      emitStateTransition: (prefix: string, payload: any) =>
+        this.emitStateTransitionAsync(prefix, payload),
       storage: this.storage,
       submissionCallbacks: this.submissionCallbacks,
       getCallbackKey: (input: T) => this.getInputCallbackKey(input),
@@ -252,6 +320,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     );
     this.port = this.config.port!;
     this.enableHttpServer = this.config.enableHttpServer!;
+    this.httpServerReadinessTimeoutMs =
+      this.config.httpServerReadinessTimeoutMs ??
+        DEFAULT_CONFIG_VALUES.httpServerReadinessTimeoutMs;
     this.enableEventSystem = this.config.enableEventSystem!;
     this.namespace = this.config.namespace ?? this.namespace;
   }
@@ -276,6 +347,54 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Remove a previously registered state transition listener. */
   removeStateTransition(prefix: string): void {
     this.stateTransitionListeners.delete(prefix);
+  }
+
+  /**
+   * Emit a state transition from an ordinary async context.
+   *
+   * `emitStateTransition` below is a generator, meant to be driven with `yield*`
+   * inside an Effection operation. `await`ing it does NOT run its body — it
+   * resolves to the generator object — so async callers need this instead. The
+   * batch processor has always used this path; the per-request events use it
+   * for the same reason.
+   *
+   * A listener that throws is reported to the `error` listener and otherwise
+   * swallowed: events are observability, and nothing the batcher does may
+   * depend on one having been delivered.
+   */
+  private async emitStateTransitionAsync(
+    prefix: string,
+    payload: any,
+  ): Promise<void> {
+    if (!this.enableEventSystem) return;
+    const listener = this.stateTransitionListeners.get(prefix);
+    if (!listener) return;
+    try {
+      await listener(payload);
+    } catch (error) {
+      const hasErrorListener = this.stateTransitionListeners.has("error");
+      if (prefix !== "error" && hasErrorListener) {
+        try {
+          await this.stateTransitionListeners.get("error")!({
+            phase: `event-listener:${prefix}`,
+            error,
+            time: Date.now(),
+          });
+        } catch {
+          // swallow
+        }
+      }
+    }
+  }
+
+  /**
+   * Per-request lifecycle event. Observability only — no batcher logic may
+   * branch on one, and a listener's failure never affects the request.
+   */
+  private async emitRequestEvent<
+    Prefix extends "request:accepted" | "request:terminal",
+  >(prefix: Prefix, payload: BatcherGrammar[Prefix]): Promise<void> {
+    await this.emitStateTransitionAsync(prefix, payload);
   }
 
   /**
@@ -475,13 +594,16 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       );
     }
 
-    // Start HTTP server if enabled
+    this.startRetentionSweep();
+
+    // Start HTTP server if enabled. `startHttpServer()` itself waits for every
+    // adapter to be past its loop-blocking startup — see there for why.
     if (this.enableHttpServer) {
       await this.startHttpServer();
     }
 
     this.isInitialized = true;
-    await this.emitStateTransition("startup", {
+    await this.emitStateTransitionAsync("startup", {
       publicConfig: this.getPublicConfig(),
       time: Date.now(),
     });
@@ -491,7 +613,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * @param input - The input to add to the batch queue
    * @param confirmationLevel - The level of confirmation to wait for
    * @param timeoutMs - Timeout in milliseconds for confirmation (default: 300000)
-   * @returns Promise resolving to transaction receipt or null based on confirmation level
+   * @returns the request's id, plus its receipt when the caller waited for one
    */
   async batchInput(
     input: T,
@@ -501,7 +623,10 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     onAuthenticated?: (
       context: AuthenticatedInputContext,
     ) => Promise<void> | void,
-  ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
+    onAdmissionWeight?: (
+      context: AdmissionWeightContext,
+    ) => Promise<void> | void,
+  ): Promise<BatchInputResult> {
     if (this.shutdownState.isShuttingDown) {
       // 503 Service Unavailable
       throw new InputValidationError(
@@ -544,6 +669,23 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       throw new InputValidationError(`Adapter for target ${target} not found. Available targets: ${Object.keys(this.adapters).join(", ")}`, 404);
     }
 
+    // 0. Freshness window (spec FR-011).
+    //
+    // First, because it is the cheapest check there is — a string read and a
+    // subtraction — and it stands in front of the most expensive thing an
+    // unauthenticated caller can make us do (signature verification, and behind
+    // it a full transaction deserialization). The pre-auth rate-limit charge
+    // has already happened server-side; this is the first check on the payload
+    // itself.
+    //
+    // It is also what gives the replay gate a floor: a signature we would still
+    // accept must be one whose record we would still have. See
+    // `input-freshness.ts` and the `statusRetentionTtlMs >= 4x` boot check.
+    assertInputIsFresh(
+      input.timestamp,
+      this.config.maxInputAgeMs ?? DEFAULT_CONFIG_VALUES.maxInputAgeMs,
+    );
+
     // 1. Signature Validation (Pre-Queue, Adapter-Driven)
     let verifiedSignature: boolean;
 
@@ -570,6 +712,19 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // 2. Adapter-Specific Input Validation (Pre-Queue)
     if (adapter && typeof adapter.validateInput === "function") {
       const validationResult = await adapter.validateInput(input);
+      if (validationResult.valid) {
+        // The adapter has now measured what this input really costs. Charge
+        // the difference before anything is queued, so an expensive shape
+        // cannot slip past on the flat unit it paid at authentication.
+        //
+        // Deliberately AFTER the validity check: refusing an input we already
+        // rejected is not worth charging for, and a weight read off an invalid
+        // payload is not a measurement worth trusting.
+        const weight = validationResult.admissionWeight;
+        if (typeof weight === "number" && weight > 1 && onAdmissionWeight) {
+          await onAdmissionWeight({ target, weight, alreadyCharged: 1 });
+        }
+      }
       if (!validationResult.valid) {
         // Honour a status the adapter asked for. A gate that could not COMPLETE
         // — its own dependency was unavailable — reports 503, which is a
@@ -584,15 +739,40 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       }
     }
 
-    // 3. Add to Storage (Only if all validation passes)
-    await this.addInput(input);
-    const { count, size } = await this.storage.getInputCountAndSize();
-    console.log(
-      `✅ Added input from ${input.address} to batch queue. Queue size: ${count} inputs, ${size} bytes`,
-    );
+    // 3. Replay key (spec FR-006b): never pay twice for one signed spend.
+    //
+    // After validation — an input we would refuse anyway is not worth deriving
+    // a key for. The acceptance write below is the one authoritative claim;
+    // an advisory lookup here only added a database round trip and could never
+    // settle concurrent duplicates safely.
+    const replayKey = this.replayKeyFor(adapter, input, target);
+
+    // 4. Add to Storage (Only if all validation passes)
+    //
+    // Acceptance is the moment the promise in the spec is made: from here on
+    // the request is either sent or reaches a terminal failure, and either way
+    // its id resolves. Everything above this line can still refuse it, and a
+    // refusal mints nothing at all (FR-001).
+    const accepted = await this.acceptInput(input, target, replayKey);
+    const requestId = accepted.requestId;
+    await this.emitRequestEvent("request:accepted", {
+      requestId,
+      target,
+      duplicate: accepted.duplicate === true,
+      time: Date.now(),
+    });
+    if (accepted.duplicate) {
+      console.log(
+        `♻️ Duplicate submission from ${input.address} for target ${target}; ` +
+          `returning the original request ${requestId.substring(0, 12)}… ` +
+          `without queueing it again.`,
+      );
+      return { requestId, receipt: null, duplicate: true };
+    }
+    console.log(`✅ Added input from ${input.address} to batch queue.`);
 
     if (confirmationLevel === "no-wait") {
-      return null;
+      return { requestId, receipt: null };
     }
 
     // Create promise for callback with timeout
@@ -622,7 +802,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     // If only waiting for receipt, return now
     if (confirmationLevel === "wait-receipt") {
-      return receipt;
+      return { requestId, receipt };
     }
 
     // If waiting for EffectStream processing, continue waiting
@@ -641,8 +821,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         );
         if (processingResult) {
           return {
-            ...receipt,
-            rollup: processingResult.rollup,
+            requestId,
+            receipt: { ...receipt, rollup: processingResult.rollup },
           };
         } else {
           throw new Error("EffectStream processing validation failed");
@@ -656,7 +836,75 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       }
     }
 
-    return receipt;
+    return { requestId, receipt };
+  }
+
+  /**
+   * Journal an accepted input, together with the record that answers for it.
+   *
+   * On a tracking backend this is ONE transaction (`recordAccepted` writes both
+   * the queue row and the status), so there is no window in which a caller
+   * holds an id for a request the store has never heard of — the `no-wait` +
+   * immediate-poll race in the spec's edge cases.
+   *
+   * On a queue-only backend (`FileStorage`) the id is still computed and
+   * returned; only the record is missing. Refusing to accept would punish a
+   * deployment for a storage choice, and the id is exactly as valid — it is a
+   * pure function of the payload. The server declines to advertise polling for
+   * such a deployment.
+   */
+  private async acceptInput(
+    input: T,
+    target: string,
+    replayKey?: string,
+  ): Promise<{ requestId: string; duplicate: boolean }> {
+    const requestId = computeRequestId(input, target);
+    if (isTrackingStorage(this.storage)) {
+      const outcome = await this.storage.recordAccepted(
+        requestId,
+        input,
+        target,
+        replayKey,
+      );
+      // On a duplicate the outcome carries the ORIGINAL request's id, not the
+      // one computed above — that request is the one with a fate to report.
+      return {
+        requestId: outcome.requestId,
+        duplicate: outcome.duplicate === true,
+      };
+    }
+    await this.storage.addInput(input, target);
+    return { requestId, duplicate: false };
+  }
+
+  /**
+   * The replay key for an input, or `undefined` when none can be derived.
+   *
+   * `undefined` admits the input with no replay protection — deliberately, and
+   * never a refusal (plan Q-P4). Failing closed here would break every custom
+   * adapter written before the hook existed, and a batcher that refuses inputs
+   * it cannot fingerprint is worse than one that occasionally pays twice for a
+   * spend the chain will reject anyway. Logged once per target, because the
+   * operator should know their deployment has no replay protection, and should
+   * not learn it once per request.
+   */
+  private replayKeyFor(
+    adapter: BlockchainAdapter<any>,
+    input: T,
+    target: string,
+  ): string | undefined {
+    const key = resolveReplayKey(adapter, input);
+    if (key === undefined && !this.replayKeylessTargetsLogged.has(target)) {
+      this.replayKeylessTargetsLogged.add(target);
+      console.warn(
+        `⚠️ [Batcher] Target "${target}" produced no replay key for an input ` +
+          `(no signature, and its adapter supplies none). Submissions to this ` +
+          `target are accepted WITHOUT duplicate protection — a resubmitted ` +
+          `request will be balanced and paid for again. Implement ` +
+          `getReplayKey() on the adapter to close this.`,
+      );
+    }
+    return key;
   }
 
   /**
@@ -768,6 +1016,15 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     return await cryptoManager.verifySignature(input.address, message, input.signature);
   }
 
+  /**
+   * Key under which a caller waits for its receipt.
+   *
+   * Same serialization as a storage row's identity and as the request id — see
+   * `request-id.ts`. It has to be: the caller registers under this key with the
+   * payload it submitted, and the processor looks it up with the row it read
+   * back out of storage. Two hand-written copies of that string is one edit
+   * away from a caller that waits forever.
+   */
   private getInputCallbackKey(input: T): string {
     const target = input.target || this.defaultTarget;
     if (!target) {
@@ -775,14 +1032,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         "Cannot generate callback key: no target specified and no default target configured.",
       );
     }
-    return [
-      input.addressType,
-      target,
-      input.address,
-      input.timestamp,
-      input.signature ?? "",
-      input.input,
-    ].join("|");
+    return buildRequestKey(input, target);
   }
 
   async pollBatcher(): Promise<void> {
@@ -797,7 +1047,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     if (targetsToProcess.length === 0) return;
-    await this.emitStateTransition("poll:targets-ready", {
+    await this.emitStateTransitionAsync("poll:targets-ready", {
       targets: targetsToProcess,
       time: Date.now(),
     });
@@ -1018,8 +1268,70 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
+   * Hold the HTTP port closed until every adapter that implements
+   * `whenServable()` reports it is past its loop-blocking startup work.
+   *
+   * A refused connection is a better answer than a hung one: the client finds
+   * out immediately instead of holding a socket open against a process that
+   * cannot run a handler at all. Bounded by `httpServerReadinessTimeoutMs` and
+   * never fatal — a gate that could stop the server from ever starting would be
+   * a worse failure than the one it prevents.
+   */
+  private async waitForAdaptersServable(): Promise<void> {
+    const gates: Promise<void>[] = [];
+    for (const [target, adapter] of Object.entries(this.adapters)) {
+      if (typeof adapter.whenServable !== "function") continue;
+      try {
+        gates.push(
+          Promise.resolve(adapter.whenServable()).catch((error) => {
+            console.warn(
+              `⚠️ Adapter '${target}' failed to report readiness; ` +
+                `treating it as ready to serve:`,
+              error,
+            );
+          }),
+        );
+      } catch (error) {
+        console.warn(
+          `⚠️ Adapter '${target}' threw from whenServable(); ` +
+            `treating it as ready to serve:`,
+          error,
+        );
+      }
+    }
+    if (gates.length === 0) return;
+
+    const timeoutMs = this.httpServerReadinessTimeoutMs;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const outcome = await Promise.race([
+        Promise.all(gates).then(() => "ready" as const),
+        new Promise<"timeout">((resolve) => {
+          timer = setTimeout(() => resolve("timeout"), timeoutMs);
+          (timer as unknown as { unref?: () => void }).unref?.();
+        }),
+      ]);
+      if (outcome === "timeout") {
+        console.warn(
+          `⚠️ Adapters did not report readiness within ${timeoutMs}ms; ` +
+            `starting the HTTP server anyway. Requests may stall if an adapter ` +
+            `is still blocking the event loop.`,
+        );
+      }
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  /**
    * Start the HTTP server for the batcher
    * This provides REST API endpoints for interacting with the batcher
+   *
+   * Binding is held until every adapter is past its loop-blocking startup —
+   * the wait lives HERE rather than in `init()` because there are three ways
+   * to reach this method (`init()`, the Effection `runBatcher` path via
+   * `runHttpServer()`, and a direct call), and a gate on only one of them
+   * leaves the black hole open on the others.
    */
   async startHttpServer(): Promise<void> {
     if (this.httpServer) {
@@ -1027,9 +1339,11 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       return;
     }
 
+    await this.waitForAdaptersServable();
+
     try {
       this.httpServer = await startBatcherHttpServer(this, this.port);
-      await this.emitStateTransition("http:start", {
+      await this.emitStateTransitionAsync("http:start", {
         port: this.port,
         time: Date.now(),
       });
@@ -1046,7 +1360,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     if (this.httpServer) {
       await this.httpServer.close();
       this.httpServer = undefined;
-      await this.emitStateTransition("http:stop", { time: Date.now() });
+      await this.emitStateTransitionAsync("http:stop", { time: Date.now() });
     }
   }
 
@@ -1154,6 +1468,174 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
+   * Begin the periodic retention sweep (spec FR-007).
+   *
+   * Owned by the Batcher rather than the HTTP server, because tracking exists
+   * without HTTP — `enableHttpServer: false` is a supported deployment, and
+   * hanging retention off the server would leave exactly those batchers
+   * growing without bound.
+   *
+   * The timer is `unref`ed where the runtime supports it: retention is
+   * housekeeping, and an embedding process should be free to exit without
+   * waiting for the next sweep. It is still cleared explicitly at shutdown —
+   * unref stops it holding the process open, it does not stop it firing.
+   */
+  private startRetentionSweep(): void {
+    if (this.retentionIntervalID) return;
+    if (!isTrackingStorage(this.storage)) return;
+    const storage = this.storage;
+    if (typeof storage.pruneTerminal !== "function") {
+      console.warn(
+        `⚠️ [Batcher] Storage tracks requests but cannot prune them ` +
+          `(no pruneTerminal). Terminal records will accumulate without bound.`,
+      );
+      return;
+    }
+
+    const intervalMs = this.config.statusPruneIntervalMs ??
+      DEFAULT_CONFIG_VALUES.statusPruneIntervalMs;
+    const keepCount = this.config.statusRetentionKeepCount ??
+      DEFAULT_CONFIG_VALUES.statusRetentionKeepCount;
+    const ttlMs = this.config.statusRetentionTtlMs ??
+      DEFAULT_CONFIG_VALUES.statusRetentionTtlMs;
+
+    this.retentionIntervalID = setInterval(() => {
+      // Never let this reject into the timer. An unhandled rejection inside a
+      // bare setInterval callback takes the PROCESS down, and a retention
+      // hiccup must not be able to stop the batcher accepting work.
+      void this.runRetentionSweep(keepCount, ttlMs);
+    }, intervalMs);
+    (this.retentionIntervalID as { unref?: () => void }).unref?.();
+  }
+
+  /**
+   * One retention sweep. Failures are recorded and swallowed — the next tick
+   * tries again, and the error is visible in `/queue-stats` rather than only in
+   * a log line that scrolled past.
+   */
+  private async runRetentionSweep(
+    keepCount: number,
+    ttlMs: number,
+  ): Promise<void> {
+    const storage = this.storage as BatcherStorage<T> & {
+      pruneTerminal?: (
+        keepCount: number,
+        ttlMs: number,
+      ) => Promise<{ prunedByAge: number; prunedByCount: number }>;
+    };
+    if (typeof storage.pruneTerminal !== "function") return;
+    try {
+      const { prunedByAge, prunedByCount } = await storage.pruneTerminal(
+        keepCount,
+        ttlMs,
+      );
+      const pruned = prunedByAge + prunedByCount;
+      this.retentionMetrics.prunedLastRun = pruned;
+      this.retentionMetrics.prunedTotal += pruned;
+      this.retentionMetrics.lastRunAt = new Date().toISOString();
+      if (pruned > 0) {
+        console.log(
+          `🧹 [Batcher] Retention pruned ${pruned} terminal request record(s) ` +
+            `(${prunedByAge} by age, ${prunedByCount} over the cap).`,
+        );
+      }
+    } catch (error) {
+      this.retentionMetrics.lastError = error instanceof Error
+        ? error.message
+        : String(error);
+      console.error("[Batcher] Retention sweep failed:", error);
+    }
+  }
+
+  /**
+   * Run a retention sweep now, outside the schedule.
+   *
+   * Public so an operator (or a test) can force one without waiting out an
+   * interval; the timer remains the normal path.
+   */
+  async pruneTerminalRecords(): Promise<void> {
+    await this.runRetentionSweep(
+      this.config.statusRetentionKeepCount ??
+        DEFAULT_CONFIG_VALUES.statusRetentionKeepCount,
+      this.config.statusRetentionTtlMs ??
+        DEFAULT_CONFIG_VALUES.statusRetentionTtlMs,
+    );
+  }
+
+  /** What retention is configured to do, and what it has done. */
+  getRetentionStatus(): {
+    enabled: boolean;
+    keepCount: number;
+    ttlMs: number;
+    intervalMs: number;
+    prunedLastRun: number;
+    prunedTotal: number;
+    lastRunAt?: string;
+    lastError?: string;
+  } {
+    return {
+      enabled: this.retentionIntervalID !== undefined,
+      keepCount: this.config.statusRetentionKeepCount ??
+        DEFAULT_CONFIG_VALUES.statusRetentionKeepCount,
+      ttlMs: this.config.statusRetentionTtlMs ??
+        DEFAULT_CONFIG_VALUES.statusRetentionTtlMs,
+      intervalMs: this.config.statusPruneIntervalMs ??
+        DEFAULT_CONFIG_VALUES.statusPruneIntervalMs,
+      ...this.retentionMetrics,
+    };
+  }
+
+  /**
+   * What the last `init()` had to repair after an unclean stop, or undefined on
+   * a backend that keeps no status. Counters moving after a restart are
+   * evidence the previous process did not shut down cleanly.
+   */
+  getReconciliationReport(): ReconciliationReport | undefined {
+    if (!isTrackingStorage(this.storage)) return undefined;
+    return this.storage.getReconciliationReport();
+  }
+
+  /**
+   * Can this batcher answer "what happened to request X"?
+   *
+   * False on a queue-only backend (`FileStorage`), which still queues, batches
+   * and retries exactly as before but keeps no status record. The HTTP layer
+   * asks this to decide whether to advertise polling at all: a registered
+   * endpoint that always 404s would be worse than no endpoint, because a 404
+   * is the same answer it gives for an id that genuinely expired.
+   */
+  isRequestTrackingEnabled(): boolean {
+    return isTrackingStorage(this.storage);
+  }
+
+  /**
+   * Tracking, as an operator needs to read it: on or off, and if off, why and
+   * what turns it on (spec FR-012b).
+   *
+   * A bare boolean is not enough on a health surface. "No status for this id"
+   * and "this deployment keeps no statuses" are different problems with
+   * different remedies, and the second one has a one-variable fix that the
+   * answer should name rather than leave to the changelog.
+   */
+  getRequestTrackingInfo(): RequestTrackingInfo {
+    return describeRequestTracking(this.isRequestTrackingEnabled());
+  }
+
+  /**
+   * The tracked status of a request, or undefined if this batcher has no record
+   * of it — never accepted, or accepted and since aged out of retention.
+   *
+   * Returns undefined rather than throwing on a queue-only backend, so a caller
+   * does not have to branch on the storage type to ask a question.
+   */
+  async getRequestStatus(
+    requestId: string,
+  ): Promise<RequestStatusRecord | undefined> {
+    if (!isTrackingStorage(this.storage)) return undefined;
+    return await this.storage.getStatus(requestId);
+  }
+
+  /**
    * Graceful shutdown - stop accepting new batches and wait for current processing to finish
    * Effection-compatible version that can be used with yield*
    */
@@ -1185,10 +1667,24 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
   }
 
+  /** Stop the retention sweep. Idempotent; safe before `init()`. */
+  private stopRetentionSweep(): void {
+    if (this.retentionIntervalID) {
+      clearInterval(this.retentionIntervalID);
+      this.retentionIntervalID = undefined;
+    }
+  }
+
   /**
    * Cleanup additional resources (can be overridden by subclasses)
    */
   protected async cleanupResources(): Promise<void> {
+    // Stop retention BEFORE the storage handle is released below. A sweep that
+    // fires after `storage.close()` would run its DELETE against a closed
+    // database — an error per interval, forever, from an object nobody
+    // believes is still alive.
+    this.stopRetentionSweep();
+
     // Give every adapter a chance to release process-wide resources. The
     // Midnight balancing adapter holds an exclusive claim on its wallet seeds;
     // without this, a batcher reconfigured or restarted inside one process can
@@ -1202,6 +1698,15 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       } catch (error) {
         console.error(`Error closing adapter for target ${target}:`, error);
       }
+    }
+
+    // The storage backend may hold a database handle. A file-backed queue has
+    // nothing to release and does not implement this; a database one outlives
+    // the batcher that owns it if nobody asks it to stop.
+    try {
+      await this.storage.close?.();
+    } catch (error) {
+      console.error("Error closing storage:", error);
     }
   }
 
@@ -1342,7 +1847,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
               `Error processing concurrent batch for target ${target}:`,
               error,
             );
-            await this.emitStateTransition("error", {
+            await this.emitStateTransitionAsync("error", {
               phase: "batch",
               target,
               error,
@@ -1361,7 +1866,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       } else {
         // Sequential path. processingAdapters was already added above.
         try {
-          await this.emitStateTransition("batch:process:start", {
+          await this.emitStateTransitionAsync("batch:process:start", {
             target,
             inputCount: targetInputs.length,
             time: Date.now(),
@@ -1376,7 +1881,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
             `Error processing batch for target ${target}:`,
             error,
           );
-          await this.emitStateTransition("error", {
+          await this.emitStateTransitionAsync("error", {
             phase: "batch",
             target,
             error,

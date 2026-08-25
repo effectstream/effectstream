@@ -1,4 +1,5 @@
-import { type JsonObject, Primitive } from "@effectstream/sm";
+import { Primitive } from "../../Primitive.ts";
+import type { JsonObject } from "../../types.ts";
 import type { StaticDecode } from "@sinclair/typebox";
 import { type CommandTuple, generateRawStmInput } from "@effectstream/concise";
 import type {

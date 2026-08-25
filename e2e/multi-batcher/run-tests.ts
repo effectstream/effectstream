@@ -188,6 +188,23 @@ async function readCounter(): Promise<bigint> {
   return BigInt(Counter.ledger(state.data).round);
 }
 
+/** Rewrite the serialized network id without fabricating a transaction. */
+function rewriteNetworkId(hex: string, from: string, to: string): string {
+  const fromBytes = Buffer.from(from);
+  const toBytes = Buffer.from(to);
+  if (fromBytes.length !== toBytes.length) {
+    throw new Error("network-id regression requires equal-length ids");
+  }
+  const bytes = Buffer.from(hex, "hex");
+  let replacements = 0;
+  for (let offset = bytes.indexOf(fromBytes); offset >= 0; offset = bytes.indexOf(fromBytes, offset + toBytes.length)) {
+    toBytes.copy(bytes, offset);
+    replacements += 1;
+  }
+  if (replacements === 0) throw new Error(`serialized transaction did not contain ${from}`);
+  return bytes.toString("hex");
+}
+
 // ---------------------------------------------------------------------------
 // Suite
 // ---------------------------------------------------------------------------
@@ -245,6 +262,11 @@ async function main() {
   const callHex = await buildIncrementHex();
   const transferTx = await buildFeelessShieldedTransfer(maker, sinkAddr, 1n);
   const transferHex = toHex(transferTx.serialize());
+  // Keep the real transaction/proof/signatures and alter only its serialized
+  // network identifier. Full validation is intentionally off at intake, so a
+  // receipt-waiting caller must first be admitted and then receive the typed
+  // permanent rejection from the pre-spend worker.
+  const wrongNetworkHex = rewriteNetworkId(transferHex, NETWORK.id, "wrong-netx");
 
   // product-c wants a MATCHED-DELTA swap offer: +X tokenA / −X tokenB. That
   // needs a second token type, which the shared counter contract can issue —
@@ -302,6 +324,21 @@ async function main() {
 
   const bOk = await sendTx(transferHex, { target: "product-b", txStage: "finalized" });
   check("product-b accepts a shielded transfer", bOk.ok, `status=${bOk.status}`);
+
+  const wrongNetwork = await sendTx(wrongNetworkHex, {
+    target: "product-b",
+    txStage: "finalized",
+    confirmationLevel: "wait-receipt",
+    timeoutMs: 300_000,
+  });
+  const wrongNetworkBody = wrongNetwork.body as { errorCode?: string; retryable?: boolean } | null;
+  check(
+    "wrong-network work is permanently rejected by the pre-spend gate",
+    !wrongNetwork.ok && wrongNetwork.status === 400 &&
+      wrongNetworkBody?.errorCode === "NOT_WELL_FORMED" &&
+      wrongNetworkBody.retryable === false,
+    `status=${wrongNetwork.status} body=${JSON.stringify(wrongNetwork.body)}`,
+  );
 
   const cOk = await sendTx(swapHex, { target: "product-c", txStage: "unproven" });
   check("product-c accepts a matched-delta swap", cOk.ok, `status=${cOk.status}`);

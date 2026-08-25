@@ -39,6 +39,36 @@ export type BatcherGrammar = Record<string, unknown> & {
     success: boolean;
     time: number;
   };
+  /**
+   * A submission was accepted (spec FR-001). Fires once per accepted request,
+   * before the 200 that carries its id — including for a `duplicate`, where
+   * `requestId` is the ORIGINAL request's and nothing new was queued.
+   *
+   * Observability only: nothing in the batcher branches on an event, and a
+   * listener that throws or hangs never affects the request.
+   */
+  "request:accepted": {
+    requestId: string;
+    target: string;
+    duplicate: boolean;
+    time: number;
+  };
+  /**
+   * A request reached an ending — `confirmed` on chain, or `failed`.
+   *
+   * Terminal means terminal: exactly one of these per request, and never after
+   * another. `retryable` deferrals and infra parking emit NOTHING (spec
+   * FR-005), because the request is still in flight and saying otherwise would
+   * report a verdict nobody gave.
+   */
+  "request:terminal": {
+    requestId: string;
+    target: string;
+    state: "confirmed" | "failed";
+    transactionHash?: string;
+    errorCode?: string;
+    time: number;
+  };
   error: { phase: string; target?: string; error: unknown; time: number };
 };
 

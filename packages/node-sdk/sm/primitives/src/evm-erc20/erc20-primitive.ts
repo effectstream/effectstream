@@ -12,7 +12,8 @@ import {
   type EffectstreamBlockNumber,
   TypeboxHelpers,
 } from "@effectstream/utils";
-import { type JsonObject, Primitive } from "@effectstream/sm";
+import { Primitive } from "../../Primitive.ts";
+import type { JsonObject } from "../../types.ts";
 import { Value } from "@sinclair/typebox/value";
 import {
   type CommandTuple,

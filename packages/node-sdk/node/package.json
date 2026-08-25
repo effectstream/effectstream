@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/node-sdk",
-  "version": "0.103.3",
+  "version": "0.104.0",
   "license": "(MIT OR Apache-2.0)",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -94,7 +94,8 @@
     "@effectstream/chain-types": "workspace:*",
     "@effectstream/precompile": "workspace:*",
     "@effectstream/utils": "workspace:*",
-    "@effectstream/concise": "workspace:*"
+    "@effectstream/concise": "workspace:*",
+    "effection": "^3.5.0"
   },
   "description": "Main application node SDK for EffectStream"
 }

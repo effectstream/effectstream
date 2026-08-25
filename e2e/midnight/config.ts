@@ -115,8 +115,12 @@ export const config = new ConfigBuilder()
           stateMachinePrefix: "midnightContractState",
           contract: { ledger: CounterContract.ledger },
           networkId: midnightNetworkConfig.id,
+          // Fields must be listed in Compact declaration order — the schema is
+          // matched positionally against the ledger array, so a missing field
+          // shifts every field after it onto the wrong ledger slot.
           ledgerSchema: {
             round: "uint128",
+            round_: "uint64",
             entries: { type: "map", value: "uint128" },
             map_of_map: { type: "map", value: { type: "map", value: "uint128" } },
           },

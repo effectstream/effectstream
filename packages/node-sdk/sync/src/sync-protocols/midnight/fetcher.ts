@@ -415,19 +415,31 @@ export class MidnightFetcher extends BaseDataFetcher<
         return c.address.padStart(longest, '0') === contractAddress.padStart(longest, '0');
       })!.state!;
       const primitive = primitiveEntry.primitive;
-      const f = primitive.contract ?? { ledger: (_: StateValue): Record<string, any> => ({}) };
+      const f = primitive.contract;
       const ledgerFromTxStateHex = (f as {
         ledgerFromTxStateHex?: (rawHexState: string) => Record<string, any>;
-      }).ledgerFromTxStateHex;
+      } | undefined)?.ledgerFromTxStateHex;
       let state: Record<string, any>;
-      if (typeof ledgerFromTxStateHex === "function") {
-        state = ledgerFromTxStateHex(rawState);
-      } else {
-        const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-        const contractState = ContractState.deserialize(byteState);
-        const stateValue = contractState.data.state;
-        const additionalFields = primitive.parseAdditionalLedgerFields?.(stateValue) ?? {};
-        state = { ...f.ledger(stateValue), ...additionalFields };
+      try {
+        if (typeof ledgerFromTxStateHex === "function") {
+          state = ledgerFromTxStateHex(rawState);
+        } else {
+          const hexBytes = rawState.match(/.{1,2}/g);
+          if (!hexBytes) throw new Error("contract state is empty");
+          const byteState = new Uint8Array(hexBytes.map(byte => parseInt(byte, 16)));
+          const contractState = ContractState.deserialize(byteState);
+          const stateValue = contractState.data.state;
+          const generatedFields = f?.ledger(stateValue) ?? {};
+          const schemaFields = primitive.parseAdditionalLedgerFields?.(stateValue) ?? {};
+          state = { ...generatedFields, ...schemaFields };
+        }
+      } catch (error) {
+        throw new Error(
+          `Failed to decode Midnight contract ${contractAddress} at block ${height}, transaction ${t.hash}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          { cause: error },
+        );
       }
       return {
         syncProtocol: {

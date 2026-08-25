@@ -32,7 +32,8 @@ import type {
   ProtocolPrimitiveMap,
 } from "@effectstream/config";
 import type { StateUpdateStream } from "@effectstream/coroutine";
-import { type JsonObject, Primitive } from "@effectstream/sm";
+import { Primitive } from "../../Primitive.ts";
+import type { JsonObject } from "../../types.ts";
 import {
   type AddressAndType,
   AddressType,

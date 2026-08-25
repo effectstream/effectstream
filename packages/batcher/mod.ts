@@ -7,7 +7,12 @@
  */
 
 // Core batcher functionality
-export { Batcher, createNewBatcher } from "./core/batcher.ts";
+export {
+  Batcher,
+  createNewBatcher,
+  InputTerminalError,
+  InputValidationError,
+} from "./core/batcher.ts";
 
 // Configuration types and validation
 export type {
@@ -27,8 +32,36 @@ export {
 } from "./core/config.ts";
 
 // Storage interfaces and implementations
-export type { BatcherStorage } from "./core/storage.ts";
-export { DatabaseStorage, FileStorage } from "./core/storage.ts";
+export type {
+  AcceptanceOutcome,
+  BatcherStorage,
+  ReconciliationReport,
+  RequestState,
+  RequestStatusRecord,
+  RequestTransition,
+  RequestTransitionDetail,
+  TrackingStorage,
+  TransitionOutcome,
+  TransitionRefusal,
+} from "./core/storage.ts";
+export {
+  DatabaseStorage,
+  FileStorage,
+  isTrackingStorage,
+} from "./core/storage.ts";
+
+// Request identity: the id a caller polls with, and the serialization it and
+// every storage row are derived from.
+export {
+  buildRequestKey,
+  computeRequestId,
+  requestIdFromKey,
+} from "./core/request-id.ts";
+
+// Replay identity: the SEPARATE question of whether this spend was already
+// paid for. Exported so an adapter author writing `getReplayKey` can see what
+// the default does and why it is not the request id.
+export { defaultReplayKey, resolveReplayKey } from "./core/replay-key.ts";
 
 // Chain adapter interface and implementations
 export type { BlockchainAdapter, BatchBuildingOptions, BatchBuildingResult } from "./adapters/adapter.ts";

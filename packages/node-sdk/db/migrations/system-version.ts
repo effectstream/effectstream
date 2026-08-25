@@ -4,11 +4,10 @@ import { until } from "effection";
 import * as migrationFiles from "./assets.ts";
 import {
   acquireDBMutex,
-  getLatestProcessedBlockHeight,
-  getLatestVersion,
   releaseDBMutex,
-  tableExists,
-} from "@effectstream/db";
+} from "../src/pg-connection.ts";
+import { getLatestProcessedBlockHeight } from "../src/sql/block-heights.queries.ts";
+import { getLatestVersion, tableExists } from "../src/sql/system.queries.ts";
 type VERSION = `${number}.${number}.${number}`;
 type VERSION_NUMBER = [number, number, number];
 // NOTE Hardcoded on purpose: the engine cannot read a package manifest at
