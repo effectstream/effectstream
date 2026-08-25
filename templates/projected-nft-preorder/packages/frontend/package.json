@@ -14,7 +14,7 @@
     "test:e2e": "bunx playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "1.61.0"
+    "@playwright/test": "^1.59.1"
   },
   "dependencies": {
     "@lucid-evolution/lucid": "^0.4.29",
