@@ -115,27 +115,33 @@ link_pkg "effectstream" "sm"                        "$P/node-sdk/sm"
 link_pkg "effectstream" "utils"                     "$P/effectstream-sdk/utils"
 link_pkg "effectstream" "wallets"                   "$P/effectstream-sdk/wallets"
 
-# Linked templates keep their own bun.lock, but @midnight-ntwrk WASM must be a single
-# copy. Only symlink WASM packages (not the whole @midnight-ntwrk tree — that would
-# overwrite e.g. wallet-sdk-address-format@3.1.0 with an older transitive copy).
+# Linked templates keep their own bun.lock, but the Midnight WASM packages must be a
+# single copy. Only symlink WASM packages (not a whole scope — that would overwrite
+# e.g. wallet-sdk-address-format with an older transitive copy).
 # WASM modules: instanceof checks fail if Bun loads two physical copies (CostModel, etc.).
-MIDNIGHT_WASM_PKGS="compact-runtime compact-js onchain-runtime-v3 onchain-runtime-v2 ledger-v8"
+#
+# Ledger v9 split the scope: ledger-v9 and onchain-runtime-v4 publish under
+# @midnightntwrk (no hyphen); compact-* stayed on @midnight-ntwrk. Entries are
+# therefore fully scoped rather than bare names.
+MIDNIGHT_WASM_PKGS="@midnight-ntwrk/compact-runtime @midnight-ntwrk/compact-js @midnightntwrk/onchain-runtime-v4 @midnightntwrk/ledger-v9"
 
 link_midnight_wasm_from_monorepo() {
   local dest_nm="$1"
-  local pkg bun_pkg pkg_path v3_path
-  mkdir -p "$dest_nm/@midnight-ntwrk"
-  for pkg in $MIDNIGHT_WASM_PKGS; do
-    for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnight-ntwrk+${pkg}"@*; do
-      pkg_path="$bun_pkg/node_modules/@midnight-ntwrk/$pkg"
+  local spec scope pkg bun_pkg pkg_path
+  mkdir -p "$dest_nm/@midnight-ntwrk" "$dest_nm/@midnightntwrk"
+  for spec in $MIDNIGHT_WASM_PKGS; do
+    scope="${spec%%/*}"
+    pkg="${spec#*/}"
+    for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/${scope}+${pkg}"@*; do
+      pkg_path="$bun_pkg/node_modules/${scope}/${pkg}"
       [ -e "$pkg_path" ] || continue
-      rm -rf "$dest_nm/@midnight-ntwrk/$pkg"
-      ln -sf "$pkg_path" "$dest_nm/@midnight-ntwrk/$pkg"
+      rm -rf "$dest_nm/${scope}/${pkg}"
+      ln -sf "$pkg_path" "$dest_nm/${scope}/${pkg}"
     done
   done
-  # npm alias: @midnight-ntwrk/onchain-runtime → v3 (absolute path; do not chain symlinks)
-  for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnight-ntwrk+onchain-runtime-v3"@*; do
-    pkg_path="$bun_pkg/node_modules/@midnight-ntwrk/onchain-runtime-v3"
+  # npm alias: @midnight-ntwrk/onchain-runtime → v4 (absolute path; do not chain symlinks)
+  for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnightntwrk+onchain-runtime-v4"@*; do
+    pkg_path="$bun_pkg/node_modules/@midnightntwrk/onchain-runtime-v4"
     [ -e "$pkg_path" ] || continue
     rm -rf "$dest_nm/@midnight-ntwrk/onchain-runtime"
     ln -sf "$pkg_path" "$dest_nm/@midnight-ntwrk/onchain-runtime"
@@ -151,10 +157,9 @@ drop_template_wasm_bun_copies() {
   for prefix in \
     "@midnight-ntwrk+compact-runtime@" \
     "@midnight-ntwrk+compact-js@" \
-    "@midnight-ntwrk+onchain-runtime-v3@" \
-    "@midnight-ntwrk+onchain-runtime-v2@" \
     "@midnight-ntwrk+onchain-runtime@" \
-    "@midnight-ntwrk+ledger-v8@"; do
+    "@midnightntwrk+onchain-runtime-v4@" \
+    "@midnightntwrk+ledger-v9@"; do
     for entry in "$bun_dir"/${prefix}*; do
       [ -e "$entry" ] || continue
       rm -rf "$entry"

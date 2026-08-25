@@ -12,13 +12,13 @@ const cryptoShim = path.resolve(import.meta.dirname!, "client/src/shims/crypto.t
 
 function resolveOnchainRuntimeV3(): string {
   for (const base of [
-    path.resolve(import.meta.dirname!, "node_modules/@midnight-ntwrk/onchain-runtime-v3"),
-    path.resolve(import.meta.dirname!, "../../node_modules/@midnight-ntwrk/onchain-runtime-v3"),
+    path.resolve(import.meta.dirname!, "node_modules/@midnightntwrk/onchain-runtime-v4"),
+    path.resolve(import.meta.dirname!, "../../node_modules/@midnightntwrk/onchain-runtime-v4"),
   ]) {
     if (existsSync(path.join(base, "midnight_onchain_runtime_wasm.js"))) return base;
   }
   throw new Error(
-    "Cannot find @midnight-ntwrk/onchain-runtime-v3 — run ./link.sh from the template root",
+    "Cannot find @midnightntwrk/onchain-runtime-v4 — run ./link.sh from the template root",
   );
 }
 
@@ -226,7 +226,7 @@ export default defineConfig({
   ],
 
   optimizeDeps: {
-    exclude: ["@midnight-ntwrk/onchain-runtime-v3"],
+    exclude: ["@midnightntwrk/onchain-runtime-v4"],
     include: [
       "react/jsx-runtime",
       "npm:@midnight-ntwrk/compact-runtime",
