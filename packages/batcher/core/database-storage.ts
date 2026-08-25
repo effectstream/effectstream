@@ -224,12 +224,18 @@ class PostgresDriver implements SqlDriver {
             `on another). This is what the development PgLite gateway does, ` +
             `and it means "SET search_path" would silently repoint every OTHER ` +
             `client of that database — including the engine, whose queries ` +
-            `would then fail with 'relation does not exist'. Either unset ` +
-            `BATCHER_DB_SCHEMA to run queue-only on FileStorage (development ` +
-            `only: no request tracking, no replay protection, no ` +
-            `/input-status), or point DB_HOST/DB_PORT at a real PostgreSQL ` +
-            `server, where each connection has its own session and the schema ` +
-            `isolation this key asks for is real.`,
+            `would then fail with 'relation does not exist'. There are three ` +
+            `ways out. (1) Point DB_HOST/DB_PORT at a real PostgreSQL server, ` +
+            `where each connection has its own session and the schema ` +
+            `isolation this key asks for is real — this is the production ` +
+            `configuration. (2) For DEVELOPMENT, unset BATCHER_DB_SCHEMA and ` +
+            `set BATCHER_PGLITE=true instead: this batcher then keeps its ` +
+            `records in its own embedded database under ` +
+            `BATCHER_PGLITE_DATA_DIR, with full request tracking, and cannot ` +
+            `touch the engine's session because it opens no connection to it ` +
+            `at all. (3) Unset BATCHER_DB_SCHEMA on its own to run queue-only ` +
+            `on FileStorage (development only: no request tracking, no replay ` +
+            `protection, no /input-status).`,
         );
       }
     }

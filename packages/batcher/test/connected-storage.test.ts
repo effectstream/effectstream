@@ -148,11 +148,16 @@ describe("connected storage against the development gateway", () => {
       await storage.close?.();
     }
     expect(message).toContain("ONE shared session");
-    // Both remedies, because a refusal that does not say what to do instead is
-    // just an outage with better prose.
+    // All THREE remedies (spec Addendum B, FR-020), because a refusal that
+    // does not say what to do instead is just an outage with better prose —
+    // and because this is the message a developer meets at exactly the moment
+    // they wanted request tracking locally, which is what the third remedy is.
     expect(message).toContain("BATCHER_DB_SCHEMA");
     expect(message).toContain("DB_HOST");
     expect(message).toContain(String(gateway.port));
+    expect(message).toContain("BATCHER_PGLITE=true");
+    // Named as a development answer, not offered to production by accident.
+    expect(message).toMatch(/development/i);
   }, 120_000);
 
   test("the refusal leaves every other client's session untouched", async () => {
