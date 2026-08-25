@@ -293,6 +293,38 @@ export interface BlockchainAdapter<TOutput> {
   ): ValidationResult | Promise<ValidationResult>;
 
   /**
+   * (Optional) The key that answers "have we already PAID to put this spend on
+   * chain?" — the batcher's replay/dedup gate (spec FR-006b).
+   *
+   * **Derive it from what the CHAIN would consider the same spend.** That is
+   * the whole contract, and it is not the same thing as "the same request":
+   *
+   *  - the batcher's own `requestId` hashes the full content key, which
+   *    includes `target` — a field most wallets do not sign. A replayed
+   *    signature wrapped in a rewritten envelope therefore yields a DIFFERENT
+   *    requestId while being the SAME spend, and the gate exists to catch
+   *    exactly that;
+   *  - so the key must collide across everything an attacker can rewrite, and
+   *    separate everything they cannot.
+   *
+   * Not implementing this is fine and is the common case: the batcher then uses
+   * sha256 of `input.signature`, which is public on chain and is the one field
+   * a replayer cannot re-mint. Implement it when your inputs are not
+   * signature-bearing — the Midnight balancing adapter takes a whole
+   * transaction, so it keys on the transaction's own chain-level identifiers.
+   *
+   * An adapter that implements this is AUTHORITATIVE, including when it returns
+   * `undefined`: the batcher will not fall back to the signature default,
+   * because only the adapter knows what its payloads mean. `undefined` means
+   * "admit this input without replay protection" — never "refuse it".
+   *
+   * Called once per accepted input, after `validateInput` and before anything
+   * is queued. Must be cheap: if deriving the key needs work `validateInput`
+   * already did, cache it there rather than repeating it here.
+   */
+  getReplayKey?(input: DefaultBatcherInput): string | undefined;
+
+  /**
    * (Optional) Operational snapshot for `/queue-stats`, e.g. fee capacity,
    * worker occupancy, configured policy. Must be cheap and side-effect free —
    * it is called per status request. Errors are swallowed by the server.

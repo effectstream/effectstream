@@ -174,6 +174,19 @@ curl -X POST http://localhost:3334/send-input \
 
 The input is wrapped in a `data` object. `addressType` is the numeric `AddressType`, and `timestamp` is a string. `confirmationLevel` is one of `no-wait`, `wait-receipt` (default), or `wait-effectstream-processed`; an optional `timeoutMs` bounds receipt confirmation.
 
+`timestamp` must be recent — see [Request tracking](#request-tracking). Both epoch milliseconds (`"1734000000000"`) and ISO-8601 (`"2026-08-18T12:00:00.000Z"`) are accepted.
+
+Every 200 carries a `requestId`:
+
+```json
+{
+  "success": true,
+  "message": "Input queued for batching",
+  "inputsProcessed": 1,
+  "requestId": "3f9a…64 hex chars"
+}
+```
+
 `signature` is required for the EVM and Cardano adapters. Adapters that override `verifySignature` (Midnight and Solana, for example) accept inputs without it but must implement their own check - the Solana adapter verifies the Ed25519 signatures carried inside the submitted transaction and requires the claimed address to be one of its signers.
 
 ### Batching criteria
@@ -193,6 +206,17 @@ Per-adapter, you choose how `runBatcher` decides to submit:
 - `no-wait`: returns once the input is queued.
 - `wait-receipt`: waits for the blockchain transaction receipt.
 - `wait-effectstream-processed`: waits until Effectstream has processed the resulting rollup block.
+
+It resolves to `{ requestId, receipt, duplicate? }` — never to a bare receipt.
+`receipt` is `null` for `no-wait` and for a duplicate; `requestId` is always
+present, because it is a pure function of the payload and exists the moment the
+input is journaled.
+
+> **Breaking change (was: the receipt itself).** Callers that did
+> `const receipt = await batcher.batchInput(...)` now need
+> `const { receipt } = await batcher.batchInput(...)`. The envelope exists
+> because `no-wait` is the level that most needs an id and has no receipt to
+> attach one to.
 
 ### Rate limiting
 
@@ -259,6 +283,262 @@ implementations should use a transaction with row/advisory locks. The operation
 must check and record every bucket in one phase together; the pre-authentication
 and authenticated phases are intentionally separate calls. `InMemoryRateLimitStore`
 is the built-in single-process implementation.
+
+## Request tracking
+
+A 200 from `/send-input` is a promise: the request is durably journaled, it will
+be retried up to `maxRetries`, it will never be silently dropped, and whatever
+happens to it is answerable by id.
+
+### Request ids
+
+`requestId` is the SHA-256 of the request's content key —
+`addressType|target|address|timestamp|signature|input` — hex encoded. It is
+therefore:
+
+- **Deterministic.** The same payload always yields the same id, and a client
+  can compute it before submitting.
+- **Target-scoped.** The same payload sent to two products is two different
+  requests, because `target` is part of the key.
+- **Not a secret.** Everything it hashes is public on chain. Statuses are not
+  private data; the id is not a capability token.
+
+### Polling
+
+```bash
+curl http://localhost:3334/input-status/<requestId>
+```
+
+```json
+{
+  "status": "incomplete",
+  "subState": "submitted",
+  "transactionHash": "0x…",
+  "retryCount": 0,
+  "acceptedAt": "2026-08-18T12:00:00.000Z"
+}
+```
+
+`status` is one of three answers; `subState` carries the detail:
+
+| `status` | `subState` | meaning |
+|---|---|---|
+| `incomplete` | `queued` | accepted, waiting for a batch |
+| `incomplete` | `batching` | selected into a batch being built |
+| `incomplete` | `submitted` | on chain, not yet confirmed (`transactionHash` present) |
+| `complete` | `confirmed` | confirmed, with `transactionHash` and `blockNumber` |
+| `failed` | `failed` | terminal, with a stable `errorCode` and `message` |
+
+Terminal `errorCode`s include `RETRIES_EXHAUSTED` (the input was dropped at
+`maxRetries`), `ONCHAIN_FAILED` (the transaction reverted), and whatever code
+the adapter returned when it permanently rejected an input.
+
+Retryable deferrals and infrastructure parking write **no** transition — a
+request waiting on a busy target stays `incomplete/queued`, which is the truth.
+
+Other responses:
+
+- **400** `{ "reason": "malformed-id" }` — not 64 lowercase hex characters. The
+  id is rejected before any lookup happens.
+- **404** `{ "reason": "unknown-or-expired" }` — one reason, not two. Retention
+  deletes a record and its replay key together, so nothing survives a prune to
+  distinguish "never accepted here" from "aged out". Both have the same remedy:
+  submit again.
+- **429** — the endpoint draws down the same pre-authentication IP bucket as
+  `/send-input`, so polling cannot be used as an amplification vector.
+- **501** `{ "reason": "request-tracking-disabled", "enableWith":
+  "BATCHER_DB_SCHEMA" }` — this deployment keeps no statuses (see
+  [Choosing a storage backend](#choosing-a-storage-backend)). The route is
+  always registered so that this answer is distinguishable from the 404: an
+  expired id and a batcher that tracks nothing have completely different
+  remedies. `/send-input` still returns a `requestId`, and the same fact is
+  readable from `GET /queue-stats` as `requestTracking`.
+
+### Duplicate submissions
+
+The batcher must never pay twice for one signed spend. Each accepted request
+claims a *replay key*, and a submission whose key is already claimed is not
+queued again:
+
+```json
+{
+  "success": true,
+  "message": "Duplicate submission: this request is already tracked. …",
+  "inputsProcessed": 1,
+  "requestId": "<the ORIGINAL request's id>",
+  "duplicate": true
+}
+```
+
+This is a success, not an error: the caller's retry cost nothing, and the id it
+gets back is the one with a fate to report. A duplicate always comes back with
+no `transactionHash`, whatever confirmation level was requested — there is
+nothing left to wait for.
+
+Where the key comes from is a per-adapter decision:
+
+- **Default** (no `getReplayKey` on the adapter): SHA-256 of `signature`. The
+  signature is the one part of a request an attacker cannot re-mint, which is
+  why replaying it under a rewritten `target` — a different `requestId`, the
+  same spend — is caught.
+- **`MidnightBalancingAdapter`**: the transaction's own chain-level
+  `identifiers()`, so two serializations of the same spend collide. Derived
+  during validation, which already deserializes the transaction.
+- **Custom adapters**: implement `getReplayKey(input)`. Return `undefined` to
+  disable dedup for that input; the batcher warns once per target that
+  submissions there have no duplicate protection.
+
+Note that a single signature reused across two targets is one paid request, not
+two. Real wallets do not do this — the default signing message includes the
+target — but a custom `verifySignature` could accept such a payload.
+
+### Freshness window and retention
+
+Two knobs that are **not independent**:
+
+| Config | Default | What it does |
+|---|---|---|
+| `maxInputAgeMs` | 1 h | How old a signed `timestamp` may be at admission |
+| `statusRetentionTtlMs` | 24 h | How long terminal records (and their replay keys) are kept |
+| `statusRetentionKeepCount` | 1,000,000 | Terminal records kept regardless of age |
+| `statusPruneIntervalMs` | 10 min | How often the retention sweep runs |
+
+The batcher **refuses to construct** unless
+`statusRetentionTtlMs >= 4 × maxInputAgeMs`. Retention and replay protection
+share fate: a replayed signature is only recognised while the original's record
+still exists, so retention shorter than the window in which a signature is still
+*accepted* would mean duplicate protection that quietly does not hold. Failing
+at startup is better than advertising a guarantee that has a hole in it.
+
+An input outside the window is refused with 400 and a stable code:
+`INPUT_TIMESTAMP_EXPIRED` (too old), `INPUT_TIMESTAMP_IN_FUTURE` (more than five
+minutes ahead of the batcher's clock — check the signing client), or
+`INPUT_TIMESTAMP_UNREADABLE` (not a time in any accepted format). All are
+`retryable: false`.
+
+`GET /queue-stats` reports what retention has actually done, so a sweep that
+stopped working does not look like a sweep with nothing to do:
+
+```json
+{
+  "totalPendingInputs": 3,
+  "targets": [ … ],
+  "retention": {
+    "enabled": true, "keepCount": 1000000, "ttlMs": 86400000,
+    "intervalMs": 600000, "prunedLastRun": 0, "prunedTotal": 412,
+    "lastRunAt": "2026-08-18T12:00:00.000Z"
+  },
+  "reconciliation": { "synthesizedFromRows": 0, "orphanedStatuses": 0 }
+}
+```
+
+`reconciliation` counters that moved are evidence the previous process did not
+stop cleanly.
+
+### Choosing a storage backend
+
+When you construct a `Batcher` **without** passing `storage`, the backend is
+resolved from the environment:
+
+| environment | backend | request tracking |
+|---|---|---|
+| `BATCHER_PGLITE=true` | this batcher's **own embedded** PgLite database in `BATCHER_PGLITE_DATA_DIR` (default `./batcher-data`) | **on** — development only |
+| `BATCHER_DB_SCHEMA=chess_v2` | connected `DatabaseStorage` on `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_NAME`, owning the schema `batcher_chess_v2` | **on** |
+| neither set | `FileStorage` in `./batcher-data` | off — announced at startup |
+| **both** set | **refuses to boot**, naming both keys | — |
+| `BATCHER_DB_SCHEMA` set but invalid, or set and the database unreachable | **refuses to boot** | — |
+
+`BATCHER_PGLITE` is checked first, and it is not the engine's `PGLITE` key —
+that one describes the *engine's* database, defaults to `true` in development,
+and selects nothing here. Setting both `BATCHER_PGLITE` and `BATCHER_DB_SCHEMA`
+is refused rather than resolved by precedence: they name two different
+databases, and whichever way a precedence rule fell, one of the two operators
+who set them would be running something other than what they asked for.
+
+**The embedded rung is for development.** It exists because the launcher's
+PgLite gateway cannot host a batcher's tables (see the refusal note below), so
+a developer who wants request tracking locally gets a private database instead
+of a shared one. It is Phase-1-vintage, well-travelled code: the database lives
+in `<dir>/pglite`, a `pending-inputs.jsonl` beside it is imported once, and a
+`kill -9` leaves a directory that reopens cleanly.
+
+> **One directory per batcher, always.** The embedded engine is an in-process
+> WASM library: it binds **no network socket** and opens no port, so two
+> embedded batchers on one host need no port coordination — the only port a
+> batcher opens is its own `BATCHER_PORT`. The flip side is that the *data
+> directory* is the entire isolation boundary. PgLite does **not** lock its data
+> directory, and two instances sharing one will each load it, diverge, and flush
+> their own copy back, leaving a database that no longer opens. The batcher
+> therefore takes its own lock (`<dir>/pglite.lock`, holding the owning pid) and
+> refuses to start on a directory another batcher is using. Stale locks left by
+> a crash are reclaimed automatically.
+
+The `BATCHER_DB_SCHEMA` value is a *suffix*: the code applies the fixed `batcher_` prefix, so the
+effective schema can never be `public` (where the engine's tables live) and can
+never collide with another component's. It must match `^[a-z0-9_]{1,55}$` — 55
+characters is Postgres' 63-character identifier budget minus the prefix.
+
+**The neither-set case is for development only.** It is exactly what this
+package defaulted to before request tracking existed: inputs are queued,
+batched, retried and submitted as always, but there is no status to poll, no
+replay/dedup protection against paying twice for one signed request, and
+`/input-status` answers 501. Production deployments must set
+`BATCHER_DB_SCHEMA`; developers who want tracking locally set
+`BATCHER_PGLITE=true` instead.
+
+**Never falls back.** A set-but-invalid value is refused at construction, and a
+set-but-unreachable database is refused at `init()`. Falling back there would
+leave an operator who deliberately enabled tracking running without it.
+
+**Schema isolation.** Each batcher owns its schema: `CREATE SCHEMA IF NOT
+EXISTS` at connect, then `search_path` pinned on *every* pooled connection —
+including replacements opened after a reconnect. All table names stay
+unqualified, so nothing about the SQL changes. This is what makes several
+batchers safe on one database even though target names collide across products
+(`paimaL2` is used by four of them).
+
+> **Development databases that multiplex clients onto one session are refused.**
+> The launcher's PgLite gateway forwards every client into a single Postgres
+> session, so `SET search_path` there would repoint *every other client of that
+> database*, including the engine — whose queries then fail with `relation ...
+> does not exist`. The batcher probes for this at boot (a canary setting made on
+> one connection and read on another) and refuses rather than break a bystander.
+> There are three ways out: point `DB_HOST`/`DB_PORT` at a real PostgreSQL
+> server (production), set `BATCHER_PGLITE=true` and unset `BATCHER_DB_SCHEMA`
+> to get tracking from this batcher's own embedded database (development), or
+> leave both unset for queue-only mode.
+
+**Constructing storage explicitly bypasses all of this** — the environment is
+never consulted when you pass a `storage` argument:
+
+- `new FileStorage("./dir")` — the JSONL queue, no tracking.
+- `new DatabaseStorage("./dir")` — an **embedded** PgLite database in that
+  directory. Standalone SDK use: one process, one private database, nothing to
+  install. This is the same backend `BATCHER_PGLITE=true` selects, and it takes
+  the same directory lock.
+- `new DatabaseStorage({ connection, schema })` or
+  `new DatabaseStorage({ connectionString })` — connected, with or without a
+  schema of its own.
+
+**Legacy queue files.** A `pending-inputs.jsonl` left by `FileStorage` is
+imported into a database backend on first `init()` and renamed to `.imported`;
+it is never imported twice, and an untargeted queue with no configured
+`defaultTarget` is refused rather than guessed at. A *connected* storage only
+does this when you pass `dataDirectory` explicitly — it defaults no directory
+and touches no filesystem, so it can never adopt a stale queue it was not
+pointed at.
+
+**Breaking changes** in this area, for anyone upgrading:
+
+1. With `BATCHER_DB_SCHEMA` and `BATCHER_PGLITE` **both unset**, the default
+   backend is unchanged from before this feature: `FileStorage` in
+   `./batcher-data`, queue-only. Set one of them (or pass `storage` explicitly)
+   to enable request tracking.
+2. `batchInput` resolves to `{ requestId, receipt, duplicate? }`, not a receipt.
+3. `BatcherStorage.incrementRetryCount` returns the inputs it dropped. A backend
+   still returning `void` keeps working and is warned once per batch.
+4. Inputs older than `maxInputAgeMs` are refused at admission. Nothing enforced
+   an input-age bound before.
 
 ## One batcher, many products
 
@@ -425,7 +705,7 @@ batcher, with fast and deep test suites.
 The four interfaces you'd implement, in order of frequency:
 
 - `BlockchainAdapter`: submit, wait for receipt, estimate fee, report chain name. New chains plug in here.
-- `BatcherStorage`: persist + load inputs. The default is `FileStorage` (JSONL on disk). A `DatabaseStorage` class is exported but is **not implemented** — every method currently throws — so Postgres / Redis / S3 backends are yours to write against this interface.
+- `BatcherStorage`: persist + load inputs. Two implementations ship — `FileStorage` (JSONL on disk, queue only) and `DatabaseStorage` (queue, request status and replay keys in one Postgres schema, embedded or connected); which one a bare `new Batcher()` gets is decided by `BATCHER_PGLITE` and `BATCHER_DB_SCHEMA`, see [Choosing a storage backend](#choosing-a-storage-backend). Redis / S3 / anything else are yours to write against this interface; implement the optional `TrackingStorage` half too if you want `/input-status` to work on it.
 - `BatchDataBuilder<T>`: control how inputs are serialised into the bytes the adapter submits.
 - State-transition listeners: hook into `startup`, `batch:process:start`, `batch:submit`, `batch:confirmed`, `error`, and others for metrics or custom behaviour.
 
@@ -437,14 +717,14 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 
 - `createNewBatcher(config, storage)`: build a batcher instance.
 - `BatcherConfig`: configuration type. See `pollingIntervalMs`, `adapters`, `defaultTarget`, `batchingCriteria`, `confirmationLevel`, `enableHttpServer`, `port`, `enableEventSystem`, `namespace`, `batchBuilding`.
-- `FileStorage(dir)`: default JSONL storage.
+- `DatabaseStorage(dir | options)`: queue, request status and replay keys in one database — a connected Postgres via `{ connection, schema }` or `{ connectionString }` (the default when `BATCHER_DB_SCHEMA` is set), or an embedded PgLite database when given a directory (the default when `BATCHER_PGLITE=true`). See [Choosing a storage backend](#choosing-a-storage-backend).
+- `BatcherFileStorage(dir)` (exported as `FileStorage` from `core/storage.ts`): the JSONL queue, and the default when `BATCHER_DB_SCHEMA` is unset. Fully supported, but queue-only: no request tracking, and development-only by policy.
 - Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`, `NearAdapter`, `NearIntentAdapter`.
 - Batcher operations: `runBatcher`, `batchInput`, `addStateTransition`, `gracefulShutdownOp`, `getPublicConfig`, `getBatchingStatus`.
 - Rate limiting: `RateLimiter`, `InMemoryRateLimitStore`, and the `RateLimitStore` / `RateLimitBucket` / `RateLimitKeyStrategy` / `RateLimitCheckResult` types. See [Rate limiting](#rate-limiting).
-- `DatabaseStorage`: a `BatcherStorage` shell that is **not implemented yet** — its methods throw. Use `FileStorage` or your own implementation.
 - `MidnightBalancingAdapter`: a Midnight adapter variant that delegates transaction balancing, for setups where the batcher does not hold the funding wallet itself.
 - `WorkerPool`: the internal concurrency primitive the Midnight adapter uses to run one transaction per wallet UTXO slot in parallel, with a per-slot mutex.
-- HTTP endpoints (when enabled): `POST /send-input`, `GET /health`, `GET /status`, `GET /queue-stats`. Two more are registered only when `ENABLE_DEV_AND_DEBUG_ENDPOINTS` is set: `POST /force-batch` and `DELETE /clear-inputs`. Both accept `?target=` to scope to one product.
+- HTTP endpoints (when enabled): `POST /send-input`, `GET /input-status/:requestId` (answers 501 on a queue-only backend — see [Request tracking](#request-tracking)), `GET /health`, `GET /status`, `GET /queue-stats`. Two more are registered only when `ENABLE_DEV_AND_DEBUG_ENDPOINTS` is set: `POST /force-batch` and `DELETE /clear-inputs`. Both accept `?target=` to scope to one product.
 - Policy helpers at `@effectstream/batcher-sdk/midnight-policy`: transaction introspection plus the declarative rule engine, shared by the built-in rules and your own `allowCustomFinalFilter`. See [One batcher, many products](#one-batcher-many-products).
 
 ## Examples

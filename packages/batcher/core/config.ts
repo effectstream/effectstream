@@ -206,6 +206,47 @@ export interface BatcherConfig<
   rateLimit?: RateLimitConfig;
 
   /**
+   * How old a signed `timestamp` may be and still be accepted (spec FR-011).
+   *
+   * Default 1 hour, matching Midnight's intent TTL — the strictest chain-side
+   * window that exists in this repo, so aligning with it means the batcher
+   * never accepts something the chain would already have expired.
+   *
+   * This is not primarily a spam control: it is what makes replay protection
+   * sound. See {@link BatcherConfig.statusRetentionTtlMs}.
+   */
+  maxInputAgeMs?: number;
+
+  /**
+   * How long terminal request records (and the replay keys that share their
+   * fate) are kept. Default 24 hours.
+   *
+   * Validated at construction to be at least 4x `maxInputAgeMs`. The two
+   * numbers are not independent: a replayed signature is only recognised while
+   * the original's record still exists, so retention shorter than the
+   * acceptance window would mean a signature that is still ACCEPTABLE can
+   * outlive the record proving we already paid for it — duplicate protection
+   * that quietly does not hold. The batcher refuses to construct rather than
+   * advertise a guarantee it cannot keep.
+   */
+  statusRetentionTtlMs?: number;
+
+  /**
+   * How many terminal records to keep regardless of age (spec FR-002).
+   * Default 1,000,000 — the cap that bounds a long-lived batcher's growth
+   * between TTL sweeps.
+   */
+  statusRetentionKeepCount?: number;
+
+  /**
+   * How often the retention sweep runs. Default 10 minutes.
+   *
+   * Only the sweep FREQUENCY; what it deletes is set by the two fields above.
+   * A batcher on queue-only storage never starts the timer at all.
+   */
+  statusPruneIntervalMs?: number;
+
+  /**
    * Reject inputs that do not name a target instead of routing them to
    * `defaultTarget`. Defaults to true when more than one adapter is
    * registered: in a multi-product batcher, silently dropping an
@@ -254,6 +295,13 @@ export const DEFAULT_CONFIG_VALUES = {
   httpServerReadinessTimeoutMs: 300000,
   maxRetries: 3,
   retryDelayMs: 1000,
+  // 1 hour, matching Midnight's intent TTL (plan Q-P3). Against the 24h
+  // retention below this is a ratio of 24x, comfortably past the 4x floor
+  // `validateBatcherConfig` enforces.
+  maxInputAgeMs: 3_600_000,
+  statusRetentionTtlMs: 86_400_000,
+  statusRetentionKeepCount: 1_000_000,
+  statusPruneIntervalMs: 600_000,
   rateLimit: {
     preAuthMaxRequests: 1000,
     maxRequests: 1000,
@@ -334,6 +382,34 @@ export const BatcherConfigSchema = Type.Object({
   ),
 
   rateLimit: Type.Optional(RateLimitConfigSchema),
+
+  // These MUST be declared here. The schema is `additionalProperties: false`
+  // and the config is run through `Value.Cast`, so a field the schema does not
+  // know is not merely ignored — the cast falls into its repair path and dies
+  // with `ValueClone: Unable to clone value` on the adapter functions. An
+  // undeclared knob is therefore not a silently-defaulted knob, it is an opaque
+  // crash at construction.
+  maxInputAgeMs: Type.Optional(
+    Type.Number({ minimum: 1, default: DEFAULT_CONFIG_VALUES.maxInputAgeMs }),
+  ),
+  statusRetentionTtlMs: Type.Optional(
+    Type.Number({
+      minimum: 1,
+      default: DEFAULT_CONFIG_VALUES.statusRetentionTtlMs,
+    }),
+  ),
+  statusRetentionKeepCount: Type.Optional(
+    Type.Number({
+      minimum: 0,
+      default: DEFAULT_CONFIG_VALUES.statusRetentionKeepCount,
+    }),
+  ),
+  statusPruneIntervalMs: Type.Optional(
+    Type.Number({
+      minimum: 1000,
+      default: DEFAULT_CONFIG_VALUES.statusPruneIntervalMs,
+    }),
+  ),
 
   requireExplicitTarget: Type.Optional(Type.Boolean()),
 
@@ -453,6 +529,44 @@ export function validateBatcherConfig<
         "rateLimit.windowMs must be an integer of at least 1000ms",
       );
     }
+  }
+
+  // Retention must outlive the acceptance window, by a margin (spec FR-007).
+  //
+  // Fail CLOSED — the batcher refuses to construct rather than start with a
+  // configuration whose duplicate protection has a hole in it. Same philosophy
+  // as 00008's ledger-parameter gate: a guarantee you cannot keep is worse than
+  // one you never offered, because callers build on it.
+  //
+  // 4x, not 1x, so the margin survives the things that shift these clocks
+  // relative to each other: a prune sweep runs on an interval rather than
+  // continuously, records are pruned by count as well as age, and an input may
+  // sit queued for a while after admission before it becomes terminal.
+  const maxInputAgeMs = config.maxInputAgeMs ??
+    DEFAULT_CONFIG_VALUES.maxInputAgeMs;
+  const statusRetentionTtlMs = config.statusRetentionTtlMs ??
+    DEFAULT_CONFIG_VALUES.statusRetentionTtlMs;
+  if (!Number.isFinite(maxInputAgeMs) || maxInputAgeMs <= 0) {
+    throw new Error(
+      `maxInputAgeMs must be a positive number of milliseconds, got ${maxInputAgeMs}`,
+    );
+  }
+  if (!Number.isFinite(statusRetentionTtlMs) || statusRetentionTtlMs <= 0) {
+    throw new Error(
+      `statusRetentionTtlMs must be a positive number of milliseconds, got ${statusRetentionTtlMs}`,
+    );
+  }
+  if (statusRetentionTtlMs < 4 * maxInputAgeMs) {
+    throw new Error(
+      `statusRetentionTtlMs (${statusRetentionTtlMs} ms) must be at least 4x ` +
+        `maxInputAgeMs (${maxInputAgeMs} ms), i.e. at least ${
+          4 * maxInputAgeMs
+        } ms. ` +
+        `Terminal request records are what the replay gate matches against, so ` +
+        `retention shorter than the window in which a signature is still ` +
+        `accepted would let a replayed request be paid for twice. Raise ` +
+        `statusRetentionTtlMs or lower maxInputAgeMs.`,
+    );
   }
 
   // Validate batching criteria configuration for each adapter

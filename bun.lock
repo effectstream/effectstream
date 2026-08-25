@@ -549,6 +549,7 @@
         "@effectstream/event-client": "workspace:*",
         "@effectstream/midnight-contracts": "workspace:*",
         "@effectstream/utils": "workspace:*",
+        "@electric-sql/pglite": "^0.3.14",
         "@fastify/cors": "^11.0.1",
         "@fastify/swagger": "^9.5.1",
         "@fastify/swagger-ui": "^5.2.3",
@@ -573,6 +574,7 @@
         "@midnightntwrk/wallet-sdk-unshielded-wallet": "3.1.0",
         "@noble/hashes": "^2.2.0",
         "@noble/secp256k1": "^3.1.0",
+        "@pgtyped/runtime": "2.4.2",
         "@sinclair/typebox": "0.34.41",
         "@solana/web3.js": "^1.95.0",
         "bitcoinjs-lib": "^6.1.5",
@@ -580,10 +582,14 @@
         "ecpair": "^2.1.0",
         "effection": "^3.5.0",
         "fastify": "^5.4.0",
+        "pg": "8.21.0",
         "rxjs": "7.8.2",
         "tiny-secp256k1": "^2.2.1",
         "tweetnacl": "^1.0.3",
-        "viem": "^2.21.3",
+        "viem": "2.37.3",
+      },
+      "devDependencies": {
+        "@paima/pgtyped-cli": "^2.4.5",
       },
     },
     "packages/binaries/avail-light-client": {
@@ -4237,6 +4243,8 @@
     "@ecies/ciphers/@noble/ciphers": ["@noble/ciphers@1.3.0", "", {}, "sha512-2I0gnIVPtfnMw9ee9h1dJG7tp81+8Ob3OJb3Mv37rx5L40/b0i7djjCVvGOVqc9AEIQyvyu1i6ypKdFw8R8gQw=="],
 
     "@effectstream/batcher-sdk/@sinclair/typebox": ["@sinclair/typebox@0.34.41", "", {}, "sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g=="],
+
+    "@effectstream/batcher-sdk/pg": ["pg@8.21.0", "", { "dependencies": { "pg-connection-string": "^2.13.0", "pg-pool": "^3.14.0", "pg-protocol": "^1.14.0", "pg-types": "2.2.0", "pgpass": "1.0.5" }, "optionalDependencies": { "pg-cloudflare": "^1.4.0" }, "peerDependencies": { "pg-native": ">=3.0.1" }, "optionalPeers": ["pg-native"] }, "sha512-AUP1EYJuHraQGsVoCQVIcM7TEJVGtDzxWtGFZd8rds9d+CCXlU5Js1rYgfLNvxy9iJrpHjGrRjoi/3BT9fRyiA=="],
 
     "@effectstream/bitcoin-contracts/bitcoinjs-lib": ["bitcoinjs-lib@7.0.1", "", { "dependencies": { "@noble/hashes": "^1.2.0", "bech32": "^2.0.0", "bip174": "^3.0.0", "bs58check": "^4.0.0", "uint8array-tools": "^0.0.9", "valibot": "^1.2.0", "varuint-bitcoin": "^2.0.0" } }, "sha512-vwEmpL5Tpj0I0RBdNkcDMXePoaYSTeKY6mL6/l5esbnTs+jGdPDuLp4NY1hSh6Zk5wSgePygZ4Wx5JJao30Pww=="],
 

@@ -601,11 +601,14 @@ const input: GameBatcherInput = {
   gameSessionId: "session-123"  // Custom field!
 };
 
-const receipt = await batcher.batchInput(input, "wait-receipt");
-//                   ^^^^^^^^^^^^^^^^^^
-//                   Expects GameBatcherInput, not DefaultBatcherInput!
+const { requestId, receipt } = await batcher.batchInput(input, "wait-receipt");
+//                                          ^^^^^^^^^^^^^^^^^^
+//                                          Expects GameBatcherInput, not DefaultBatcherInput!
 
-console.log(`Transaction confirmed in block ${receipt.blockNumber}`);
+// batchInput resolves to { requestId, receipt, duplicate? } — never a bare
+// receipt. `receipt` is null for `no-wait` and for a duplicate; `requestId` is
+// always present and can be polled at GET /input-status/{requestId}.
+console.log(`Request ${requestId} confirmed in block ${receipt?.blockNumber}`);
 ```
 
 **Key Takeaways from this Example:**

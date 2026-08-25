@@ -17,6 +17,11 @@ import type { BatcherStorage } from "../core/storage.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
 import { startBatcherHttpServer } from "./batcher-server.ts";
 
+// Fresh: the admission window (spec FR-011) refuses a signed timestamp older
+// than `maxInputAgeMs`, so a fixture pinned to a fixed instant would fail for
+// a reason it is not about. Read once, so ids stay stable within a run.
+const FRESH = String(Date.now());
+
 class MemoryStorage implements BatcherStorage<DefaultBatcherInput> {
   inputs: DefaultBatcherInput[] = [];
   async init(): Promise<void> {}
@@ -35,10 +40,17 @@ class MemoryStorage implements BatcherStorage<DefaultBatcherInput> {
   async getInputsByTarget(): Promise<DefaultBatcherInput[]> {
     return [...this.inputs];
   }
-  async incrementRetryCount(inputs: DefaultBatcherInput[]): Promise<void> {
+  // Returns the rows it dropped (none — this stub never drops). The
+  // interface changed when storage became responsible for REPORTING
+  // dropped inputs, which is what lets the processor reject a waiting
+  // caller instead of letting it hang to its own timeout.
+  async incrementRetryCount(
+    inputs: DefaultBatcherInput[],
+  ): Promise<DefaultBatcherInput[]> {
     for (const input of inputs) {
       input.retryCount = (input.retryCount ?? 0) + 1;
     }
+    return [];
   }
   async clearAllInputs(): Promise<void> {
     this.inputs.length = 0;
@@ -99,7 +111,7 @@ test("an input rejected after intake reaches its caller as a typed 4xx", async (
           addressType: 0,
           input: "payload",
           signature: "sig",
-          timestamp: "1",
+          timestamp: FRESH,
           target: "test",
         },
       },

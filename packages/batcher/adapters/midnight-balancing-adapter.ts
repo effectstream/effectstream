@@ -99,6 +99,11 @@ import {
   type ValidationExecutorHandle,
   type ValidationJob,
 } from "./validation-executor.ts";
+import {
+  midnightReplayKey,
+  type ReplayIdentifiableTx,
+} from "./midnight-replay-key.ts";
+import { createHash } from "node:crypto";
 
 // ---------------------------------------------------------------------------
 // Config & types
@@ -246,6 +251,15 @@ const DUST_REGISTRATION_PRECHECK_TIMEOUT_MS = 60_000;
 const DUST_FEE_OVERHEAD_SPECKS = 300_000_000_000_000n;
 const DEFAULT_MIN_SPENDABLE_DUST = (DUST_FEE_OVERHEAD_SPECKS * 3n) / 2n;
 const DEFAULT_MAX_INPUT_CHARS = 500_000;
+/**
+ * How many derived replay keys to remember between `validateInput` and
+ * `getReplayKey`.
+ *
+ * Only needs to span the gap between those two calls for concurrently accepted
+ * inputs, so this is generous by orders of magnitude; it is a bound, not a
+ * cache-hit target. Each entry is two 64-char hex strings.
+ */
+const REPLAY_KEY_MEMO_LIMIT = 1_024;
 /** Throttle for background dust-state refreshes triggered by capacity checks. */
 const DUST_REFRESH_THROTTLE_MS = 5_000;
 /**
@@ -1183,6 +1197,21 @@ export class MidnightBalancingAdapter
   private readonly pool: WorkerPool;
   /** Input keys currently being processed in a concurrent batch. */
   private readonly inFlightInputKeys = new Set<string>();
+  /**
+   * Replay keys derived while validating, so `getReplayKey` costs nothing.
+   *
+   * `validateInput` already deserializes the whole transaction on the main
+   * thread; the batcher then asks for the replay key microseconds later, on the
+   * same input. Re-deserializing to answer would double the intake cost of the
+   * single most expensive thing intake does. Keyed by a sha256 of the raw
+   * payload — NOT `inputContentHash`, whose 32-bit output would eventually
+   * collide and hand back another transaction's key, which is the one error
+   * mode a dedup gate must not have (it refuses a legitimate spend).
+   *
+   * Bounded, oldest-first: a memo that grows with traffic is a leak, and a miss
+   * is merely slower (see `getReplayKey`), never wrong.
+   */
+  private readonly replayKeyMemo = new Map<string, string | undefined>();
 
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
@@ -1685,8 +1714,77 @@ export class MidnightBalancingAdapter
   // Concurrent capacity
   // -----------------------------------------------------------------------
 
+  /**
+   * In-flight reservation key — deliberately NOT the batcher's request key.
+   *
+   * `core/request-id.ts` owns the identity the queue, the receipt callbacks and
+   * the request id all share (`addressType|target|address|timestamp|signature|
+   * input`). This one is narrower on purpose and stays that way:
+   *
+   *  - it never leaves this adapter instance (`inFlightInputKeys` is a private
+   *    Set, dropped when the batch finishes), so it needs no cross-component
+   *    agreement;
+   *  - the adapter serves ONE target, so a target field would be a constant;
+   *  - being narrower is the safe direction for a "don't work on this twice"
+   *    reservation: it can only over-match, never under-match. Two submissions
+   *    identical but for the signature reserve as one, which is what we want
+   *    from a wallet that re-signed the same transaction.
+   *
+   * Widening it to the full request key would be a behaviour change (that pair
+   * would then be balanced twice), which is why it is not done here.
+   */
   private getInputKey(input: DefaultBatcherInput): string {
     return `${input.address}|${input.timestamp}|${input.input}`;
+  }
+
+  /**
+   * The replay key for a submitted transaction: what the CHAIN considers this
+   * spend, not what the batcher considers this request.
+   *
+   * There is no signature here to key on — this adapter's inputs ARE
+   * transactions and `verifySignature` returns true — so the default
+   * signature-hash key would leave Midnight with no replay protection at all.
+   * The transaction's own identifiers are the right answer: they are what the
+   * indexer watches for, so two encodings of one spend collide, which is
+   * precisely "do not pay for this twice".
+   *
+   * Normally free: `validateInput` deserialized this exact payload moments ago
+   * and left the answer in the memo. A miss (memo evicted under a burst, or an
+   * input that reached here without being validated) falls back to
+   * deserializing — one more parse of a payload intake already parses once,
+   * rather than silently dropping replay protection for that input.
+   */
+  getReplayKey(input: DefaultBatcherInput): string | undefined {
+    const memoKey = this.replayMemoKey(input.input);
+    if (this.replayKeyMemo.has(memoKey)) return this.replayKeyMemo.get(memoKey);
+    let key: string | undefined;
+    try {
+      key = midnightReplayKey(
+        this.deserializeTxEntry(input).tx as unknown as ReplayIdentifiableTx,
+      );
+    } catch {
+      // Undeserializable payloads are refused at intake; one that reaches here
+      // gets no dedup rather than an exception on the accept path.
+      key = undefined;
+    }
+    this.memoizeReplayKey(memoKey, key);
+    return key;
+  }
+
+  private replayMemoKey(payload: string): string {
+    return createHash("sha256").update(payload, "utf8").digest("hex");
+  }
+
+  private memoizeReplayKey(memoKey: string, key: string | undefined): void {
+    // Re-inserting moves the entry to the back of the insertion order, which is
+    // what makes the eviction below oldest-first.
+    this.replayKeyMemo.delete(memoKey);
+    this.replayKeyMemo.set(memoKey, key);
+    while (this.replayKeyMemo.size > REPLAY_KEY_MEMO_LIMIT) {
+      const oldest = this.replayKeyMemo.keys().next();
+      if (oldest.done) break;
+      this.replayKeyMemo.delete(oldest.value);
+    }
   }
 
   hasAvailableCapacity(): boolean {
@@ -2831,6 +2929,14 @@ export class MidnightBalancingAdapter
     // deferred past the point where it is cheap to report.
     const paramsVerdict = ledgerParamsGateVerdict(this.ledgerParams.get());
     if (paramsVerdict) return paramsVerdict;
+
+    // Derive the replay key off the deserialization this method already did,
+    // so the batcher's dedup gate — which asks for it a moment from now — costs
+    // nothing extra on the accept path.
+    this.memoizeReplayKey(
+      this.replayMemoKey(input.input),
+      midnightReplayKey(entry.tx as unknown as ReplayIdentifiableTx),
+    );
 
     // Report what this input will actually cost to verify, so the batcher can
     // charge it rather than the flat unit it paid on arrival.
