@@ -346,6 +346,7 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
     _fee: string | bigint,
   ): Promise<BlockchainHash> {
     const signatures: BlockchainHash[] = [];
+    const failures: string[] = [];
     for (const txBase64 of data.transactions) {
       if (!txBase64) continue;
       const tx = this.deserialize(txBase64);
@@ -364,10 +365,22 @@ export class SolanaAdapter implements BlockchainAdapter<SolanaBatchPayload> {
         // be resubmitted). Log, keep going, and surface a failure only if the
         // whole batch failed.
         this.logger.log(`Failed to submit a sponsored Solana tx: ${String(e)}`);
+        failures.push(String(e));
       }
     }
     if (signatures.length === 0) {
-      throw new Error("[Solana] no transaction in the batch could be submitted");
+      // Carry the per-transaction texts, don't just log them. The batcher reads
+      // this message to tell an environment failure from a verdict about the
+      // inputs (`BatchProcessor.isInfraFailure`): a bare constant matches
+      // nothing, so an outage of our own RPC was charged to every input's
+      // bounded retry budget and the requests were eventually deleted as
+      // RETRIES_EXHAUSTED — real input loss caused by our own downtime.
+      // Genuine chain verdicts read as verdicts either way, so they keep
+      // charging exactly as before.
+      throw new Error(
+        "[Solana] no transaction in the batch could be submitted" +
+          (failures.length > 0 ? `: ${failures.join("; ")}` : ""),
+      );
     }
     return signatures[signatures.length - 1] ?? "";
   }
