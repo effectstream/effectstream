@@ -17,6 +17,22 @@ npm install @effectstream/midnight-contracts
 
 Requires a reachable Midnight node, proof server, and indexer. The defaults match what `@effectstream/orchestrator`'s Midnight step boots locally.
 
+For `stagenet`, the network resolver uses the explicit node-2.x service
+profile:
+
+- Node: `wss://rpc.stagenet.shielded.tools`
+- Indexer HTTP: `https://indexer.stagenet.shielded.tools/api/v4/graphql`
+- Indexer WebSocket: `wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws`
+- Informational faucet metadata: `https://faucet.stagenet.shielded.tools/api/drips`
+
+The faucet URL is metadata only: resolving a network never requests funds or
+performs network I/O. The proof server remains separately configurable and
+defaults to `http://127.0.0.1:6300`.
+
+Preview and Preprod remain recognizable network IDs, but they still run the
+Midnight node-1.x line and are unsupported by this node-2.x wallet/deployment
+line. They are not rejected or remapped to Stagenet.
+
 ## Standalone usage
 
 ### Read a contract
@@ -134,7 +150,7 @@ Wallet and dust helpers, exported from the package root:
 Other subpaths:
 
 - `@effectstream/midnight-contracts/wallet-info` - wallet inspection plus the dust-state persistence helpers above, and `resolveWalletSyncTimeoutMs()`.
-- `@effectstream/midnight-contracts/midnight-env` - `midnightNetworkConfig` (the resolved `{ id, indexer, indexerWS, node, proofServer }` endpoints, env-overridable), `MidnightNetworkConfig`, and `isExternalProofServerConfigured`.
+- `@effectstream/midnight-contracts/midnight-env` - `midnightNetworkConfig` (the resolved `{ id, indexer, indexerWS, node, proofServer, faucetUrl? }` endpoints and informational metadata; service endpoints remain env-overridable), `MidnightNetworkConfig`, and `isExternalProofServerConfigured`.
 - `@effectstream/midnight-contracts/ledger-from-tx-state` - `midnightLedgerFromTxStateHex(...)` and the `MidnightLedgerFn` / `MidnightContractStateDeserializer` types, for decoding contract ledger state from a serialized transaction state.
 - `@effectstream/midnight-contracts/types` - shared types.
 
