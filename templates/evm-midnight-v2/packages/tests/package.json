@@ -22,6 +22,7 @@
     "@midnight-ntwrk/midnight-js-types": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-utils": "5.0.0-beta.6",
     "@midnight-ntwrk/compact-runtime": "0.18.0-rc.1",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0-rc.3",
     "rxjs": "^7.8.2"
   }
 }

@@ -118,6 +118,11 @@ async function test() {
   let db: Client | null = null;
   let caughtError = false;
   try {
+    // Fail before launching any infrastructure if sync and the generated
+    // Compact reader resolve different WASM class identities.
+    const { wasmRuntimeIdentityTest } = await import("./infra/wasm-runtime-identity.test.ts");
+    await wasmRuntimeIdentityTest();
+
     await startInfrastructure();
     await waitForOrchestrator();
 

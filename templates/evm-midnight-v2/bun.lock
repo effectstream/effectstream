@@ -182,6 +182,7 @@
         "@midnight-ntwrk/midnight-js-node-zk-config-provider": "5.0.0-beta.6",
         "@midnight-ntwrk/midnight-js-types": "5.0.0-beta.6",
         "@midnight-ntwrk/midnight-js-utils": "5.0.0-beta.6",
+        "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0-rc.3",
         "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
         "pg": "^8.14.0",
         "playwright-core": "^1.52.0",
