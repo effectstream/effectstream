@@ -70,6 +70,55 @@ interface Result {
   error?: string;
 }
 
+/**
+ * Bun installs workspace dependencies beneath each package's node_modules.
+ * A template link.sh replaces the root @effectstream links, but those nearer
+ * workspace links still win module resolution. Mirror each local root link
+ * over an existing workspace dependency so LINK_LOCAL actually reaches the
+ * node, database, frontend, and test packages without injecting undeclared
+ * dependencies.
+ */
+function fanOutEffectstreamLinks(dir: string): number {
+  const rootScope = path.join(dir, "node_modules", "@effectstream");
+  const packagesDir = path.join(dir, "packages");
+  if (!fs.existsSync(rootScope) || !fs.existsSync(packagesDir)) return 0;
+
+  const localLinks = fs
+    .readdirSync(rootScope, { withFileTypes: true })
+    .filter((entry) => entry.isSymbolicLink())
+    .map((entry) => ({
+      name: entry.name,
+      target: fs.realpathSync(path.join(rootScope, entry.name)),
+    }));
+
+  let linked = 0;
+  for (const workspace of fs.readdirSync(packagesDir, {
+    withFileTypes: true,
+  })) {
+    if (!workspace.isDirectory()) continue;
+    const workspaceScope = path.join(
+      packagesDir,
+      workspace.name,
+      "node_modules",
+      "@effectstream",
+    );
+    if (!fs.existsSync(workspaceScope)) continue;
+
+    for (const local of localLinks) {
+      const destination = path.join(workspaceScope, local.name);
+      try {
+        fs.lstatSync(destination);
+      } catch {
+        continue;
+      }
+      fs.rmSync(destination, { recursive: true, force: true });
+      fs.symlinkSync(local.target, destination, "dir");
+      linked++;
+    }
+  }
+  return linked;
+}
+
 async function runTemplate(name: string): Promise<Result> {
   const dir = path.join(__dirname, name);
   const start = Date.now();
@@ -112,6 +161,10 @@ async function runTemplate(name: string): Promise<Result> {
           error: `link.sh failed (exit code ${linkExit})`,
         };
       }
+      const linked = fanOutEffectstreamLinks(dir);
+      console.log(
+        `\nLINK_LOCAL=1: redirected ${linked} workspace @effectstream dependency link(s) to monorepo sources\n`,
+      );
     }
 
     const proc = Bun.spawn(["bun", "run", "test"], {
@@ -144,9 +197,8 @@ async function main() {
   // strict exit(1) is kept so manual runs still surface typos.
   const skipDisabled = process.argv.includes("--skip-disabled");
   const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
-  const selected = args.length > 0
-    ? ENABLED.filter((name) => args.includes(name))
-    : ENABLED;
+  const selected =
+    args.length > 0 ? ENABLED.filter((name) => args.includes(name)) : ENABLED;
 
   if (selected.length === 0) {
     if (skipDisabled && args.length > 0) {
@@ -186,10 +238,14 @@ async function main() {
       console.error("Monorepo root `bun install` failed");
       exit(1);
     }
-    console.log("\nLINK_LOCAL=1: linking local monorepo packages after install\n");
+    console.log(
+      "\nLINK_LOCAL=1: linking local monorepo packages after install\n",
+    );
   }
 
-  console.log(`Running tests for ${selected.length} template(s): ${selected.join(", ")}\n`);
+  console.log(
+    `Running tests for ${selected.length} template(s): ${selected.join(", ")}\n`,
+  );
 
   const results: Result[] = [];
   for (const name of selected) {
