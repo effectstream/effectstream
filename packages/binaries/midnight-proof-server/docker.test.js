@@ -67,7 +67,26 @@ describe("proof-server Docker ownership", () => {
     const rendered = fake.calls.map((call) => call.join(" ")).join("\n");
     expect(rendered).not.toContain("docker start -a midnight-proof-server");
     expect(rendered).not.toContain(UNRELATED_ID);
+    expect(rendered).toContain(`docker stop --timeout 3 ${OWNED_ID}`);
     expect(rendered).toContain(`docker rm ${OWNED_ID}`);
+  });
+
+  test("attach exit and wrapper signal coalesce into one exact-ID stop-before-remove", async () => {
+    const fake = fakeRuntime();
+    const run = await runDockerContainer({}, [], "9.0.0-rc.5", fake.runtime);
+
+    fake.child.emit("exit", 0, null);
+    fake.signals.emit("SIGTERM");
+    await run.cleanup;
+
+    const lifecycle = fake.calls.filter(
+      (call) => call[0] === "execFile" && ["stop", "rm"].includes(call[2]),
+    );
+    expect(lifecycle).toEqual([
+      ["execFile", "docker", "stop", "--timeout", "3", OWNED_ID],
+      ["execFile", "docker", "rm", OWNED_ID],
+    ]);
+    expect(fake.calls.flat()).not.toContain(UNRELATED_ID);
   });
 
   test("invalid create identity is refused and only the unique owned name is removed", async () => {

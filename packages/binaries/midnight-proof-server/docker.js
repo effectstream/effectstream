@@ -129,22 +129,21 @@ async function runDockerContainer(
     }
     signalHandlers.clear();
   };
-  const cleanup = (stopFirst) => {
+  const cleanup = () => {
     if (cleanupPromise) return cleanupPromise;
     cleanupPromise = (async () => {
-      if (stopFirst) {
-        // An attached docker CLI exiting does not prove the container stopped.
-        // Await an explicit stop of the immutable ID before removing that ID.
-        // Keep this below the orchestrator's five-second owned-group grace
-        // window so the wrapper can finish ID-based cleanup before escalation.
-        await runtime
-          .execFile("docker", ["stop", "--timeout", "3", containerId])
-          .catch((error) => {
-            console.warn(
-              `Could not stop owned proof-server container ${containerId}: ${error.message}`,
-            );
-          });
-      }
+      // An attached docker CLI exiting does not prove the container stopped.
+      // Every cleanup trigger therefore converges on the same conservative,
+      // idempotent stop-before-remove sequence for the immutable owned ID.
+      // Keep the stop timeout below the orchestrator's five-second group grace
+      // window so the wrapper can finish ID-based cleanup before escalation.
+      await runtime
+        .execFile("docker", ["stop", "--timeout", "3", containerId])
+        .catch((error) => {
+          console.warn(
+            `Could not stop owned proof-server container ${containerId}: ${error.message}`,
+          );
+        });
       await runtime.execFile("docker", ["rm", containerId]);
     })().finally(removeSignalHandlers);
     return cleanupPromise;
@@ -152,7 +151,7 @@ async function runDockerContainer(
 
   for (const [signal, exitCode] of [["SIGINT", 130], ["SIGTERM", 143]]) {
     const handler = () => {
-      cleanup(true)
+      cleanup()
         .catch((error) => {
           console.error(
             `Failed to clean up owned proof-server container ${containerId}:`,
@@ -166,12 +165,12 @@ async function runDockerContainer(
   }
 
   child.once("exit", () => {
-    cleanup(false).catch((error) => {
+    cleanup().catch((error) => {
       console.error(`Failed to remove owned proof-server container ${containerId}:`, error);
     });
   });
   child.once("error", () => {
-    cleanup(true).catch((error) => {
+    cleanup().catch((error) => {
       console.error(`Failed to clean up owned proof-server container ${containerId}:`, error);
     });
   });

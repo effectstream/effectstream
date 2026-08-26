@@ -99,6 +99,29 @@ describe("ownership-safe configured ports", () => {
     ]);
   });
 
+  test("stopAll retains authenticated cleanup after the wrapper exits before its descendant", async () => {
+    const ownedPort = await randomFreePort();
+    const signals: ManagedSignal[] = [];
+    const manager = new ProcessManager({ onSignal: (signal) => signals.push(signal) });
+    managers.add(manager);
+
+    const { waitForExit } = await manager.launch(
+      fixtureConfig("early-wrapper", "wrapper-exit", ownedPort),
+    );
+    expect(await waitForPort(ownedPort, 5_000)).toBe(true);
+    expect(await waitForExit).toBe(0);
+    expect(manager.get("early-wrapper")?.status).toBe("done");
+    expect(manager.isRunning("early-wrapper")).toBe(true);
+
+    await manager.stopAll();
+
+    expect(await waitForPortToClose(ownedPort)).toBe(true);
+    expect(signals.map(({ target, signal }) => ({ target, signal }))).toEqual([
+      { target: "process-group", signal: "SIGTERM" },
+    ]);
+    expect(manager.isRunning("early-wrapper")).toBe(false);
+  });
+
   test("partial start and repeated stop signal only the live owned group", async () => {
     const ownedPort = await randomFreePort();
     const unrelated = await listenOnRandomPort();
@@ -238,6 +261,69 @@ describe("ownership-safe configured ports", () => {
     expect(signals.map(({ target, signal, id }) => ({ target, signal, id }))).toEqual([
       { target: "process-group", signal: "SIGTERM", id: signals[0]?.id },
       { target: "process-group", signal: "SIGKILL", id: signals[0]?.id },
+    ]);
+    expect(await waitForPortToClose(port)).toBe(true);
+  });
+
+  test("PGID reuse before escalation loses authorization and sends no KILL", async () => {
+    const signals: ManagedSignal[] = [];
+    let termSent = false;
+    let postTermInspections = 0;
+    const manager = new ProcessManager({
+      stopTimeoutMs: 40,
+      createOwnerToken: () => "deterministic-owner-token",
+      inspectProcessGroup: (processGroupId) => {
+        if (termSent && ++postTermInspections >= 2) {
+          return [{
+            pid: processGroupId,
+            processGroupId,
+            state: "S",
+            startToken: "reused-start-token",
+            // Even a copied/inherited owner token cannot authorize a reused
+            // numeric identity whose non-reusable start token changed.
+            ownerTokenMatches: true,
+          }];
+        }
+        return [{
+          pid: processGroupId,
+          processGroupId,
+          state: "S",
+          startToken: "owned-start-token",
+          ownerTokenMatches: true,
+        }];
+      },
+      signalProcessGroup: (_processGroupId, signal) => {
+        if (signal === "SIGTERM") termSent = true;
+      },
+      onSignal: (signal) => signals.push(signal),
+    });
+    managers.add(manager);
+
+    const { waitForExit } = await manager.launch({
+      name: "reused-group",
+      command: process.execPath,
+      args: ["-e", "setTimeout(() => process.exit(0), 150)"],
+    });
+    expect(await manager.stop("reused-group")).toBe(false);
+    expect(signals.map(({ signal }) => signal)).toEqual(["SIGTERM"]);
+    await waitForExit;
+  });
+
+  test("concurrent stops coalesce into one authenticated signal sequence", async () => {
+    const port = await randomFreePort();
+    const signals: ManagedSignal[] = [];
+    const manager = new ProcessManager({ onSignal: (signal) => signals.push(signal) });
+    managers.add(manager);
+
+    await manager.launch(fixtureConfig("coalesced", "listener", port));
+    expect(await waitForPort(port, 5_000)).toBe(true);
+    expect(await Promise.all([manager.stop("coalesced"), manager.stop("coalesced")])).toEqual([
+      true,
+      true,
+    ]);
+
+    expect(signals.map(({ target, signal }) => ({ target, signal }))).toEqual([
+      { target: "process-group", signal: "SIGTERM" },
     ]);
     expect(await waitForPortToClose(port)).toBe(true);
   });

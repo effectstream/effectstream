@@ -33,6 +33,25 @@ if (mode === "listener" || mode === "stubborn-listener" || mode === "signal-list
     { stdin: "ignore", stdout: "inherit", stderr: "inherit" },
   );
   await child.exited;
+} else if (mode === "wrapper-exit") {
+  Bun.spawn(
+    [process.execPath, import.meta.path, "listener", String(port)],
+    { stdin: "ignore", stdout: "inherit", stderr: "inherit" },
+  );
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const opened = await new Promise<boolean>((resolve) => {
+      const socket = net.connect(port, "127.0.0.1");
+      socket.once("connect", () => {
+        socket.destroy();
+        resolve(true);
+      });
+      socket.once("error", () => resolve(false));
+    });
+    if (opened) process.exit(0);
+    await Bun.sleep(10);
+  }
+  throw new Error("wrapper-exit descendant did not open its listener");
 } else {
   throw new Error(`unknown fixture mode: ${mode}`);
 }

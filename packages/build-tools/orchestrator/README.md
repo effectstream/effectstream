@@ -136,8 +136,11 @@ kill whatever currently owns that port. Startup refuses an occupied configured
 port and reports the listener PID when the platform can identify it. Stop acts
 only on a process launched by the current live orchestrator:
 
-- macOS and Linux launches receive a dedicated process group, and stop signals
-  only that recorded group so wrapper descendants are included;
+- macOS and Linux launches receive a dedicated process group plus a unique
+  inherited owner token. Cleanup retains authenticated descendant identities
+  after a wrapper exits and rechecks each member's launch token and process
+  start identity before TERM or KILL; it refuses escalation if identity cannot
+  be proved or a PID/PGID was reused;
 - Windows uses the recorded direct child because POSIX process groups are not
   available;
 - Docker-backed proof-server runs use a unique per-run container and its
