@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { BatchProcessor, normalizeBatchOutcome } from "./batch-processor.ts";
+import {
+  BatchProcessor,
+  MAX_CONSECUTIVE_INFRA_PARKS,
+  normalizeBatchOutcome,
+} from "./batch-processor.ts";
 import { InputTerminalError, InputValidationError } from "./errors.ts";
 import { computeRequestId } from "./request-id.ts";
 import type { DefaultBatcherInput } from "./types.ts";
@@ -41,7 +45,13 @@ interface Harness {
   waitOn: (input: DefaultBatcherInput) => void;
 }
 
-function makeHarness(options: { removeError?: Error } = {}): Harness {
+function makeHarness(
+  options: {
+    removeError?: Error;
+    /** Which inputs storage DROPS when charged — the retry limit biting. */
+    dropOnRetry?: (inputs: DefaultBatcherInput[]) => DefaultBatcherInput[];
+  } = {},
+): Harness {
   const removed: DefaultBatcherInput[] = [];
   const retried: DefaultBatcherInput[] = [];
   const cooldowns: number[] = [];
@@ -57,9 +67,9 @@ function makeHarness(options: { removeError?: Error } = {}): Harness {
       },
       incrementRetryCount: async (inputs) => {
         retried.push(...inputs);
-        // Nothing hits its limit in these cases; exhaustion is covered in
-        // `batch-processor-status.test.ts`.
-        return [];
+        // Nothing hits its limit in these cases unless a case asks for it;
+        // exhaustion is covered in `batch-processor-status.test.ts`.
+        return options.dropOnRetry?.(inputs) ?? [];
       },
     },
     submissionCallbacks: callbacks,
@@ -621,4 +631,193 @@ test("a bare-hash adapter that splices inputs still charges them a retry", async
   expect(h.removed).toEqual([kept]);
   expect(h.settled.get("kept")?.status).toEqual("resolved");
   expect(h.settled.has("dropped")).toBe(false);
+});
+
+// --- FR-2: infra parking through the OUTCOME channel -------------------
+//
+// The processor could already park an infra failure — but only one that was
+// THROWN out of `submitBatch`. An adapter that runs its workers under
+// `Promise.allSettled` and reports per-input fates can never throw, so it could
+// never park: every outage arrived on the returned-outcome channel, where a
+// deferral was logged and forgotten and a failure was charged. These cases are
+// the other half of the pair the thrown channel has had since 00011.
+
+test("an infra deferral rests the target instead of merely logging it", async () => {
+  const h = makeHarness();
+  const parked = makeInput("parked");
+  h.waitOn(parked);
+
+  const adapter = makeAdapter([parked], async () => ({
+    retryable: [{
+      input: parked,
+      reason: "node unreachable: Transaction submission error",
+      infra: true,
+    }],
+  }));
+
+  await h.processor.processBatchForTarget(adapter, TARGET, [parked]);
+
+  // Uncharged, as every deferral is...
+  expect(h.retried).toEqual([]);
+  expect(h.removed).toEqual([]);
+  expect(h.settled.has("parked")).toBe(false);
+  // ...but now the target rests, instead of re-running the whole
+  // balance/prove/submit pipeline against a dead node every poll round.
+  expect(h.cooldowns.length).toBe(1);
+  expect(h.cooldowns[0]).toBeGreaterThanOrEqual(1000);
+});
+
+test("a plain deferral still rests nothing at all", async () => {
+  const h = makeHarness();
+  const deferred = makeInput("deferred");
+
+  const adapter = makeAdapter([deferred], async () => ({
+    retryable: [{ input: deferred, reason: "validation queue saturated" }],
+  }));
+
+  await h.processor.processBatchForTarget(adapter, TARGET, [deferred]);
+
+  // Back-compat, and correctness: a saturated queue of ours says nothing about
+  // the target, and pausing it would idle capacity that is about to free up.
+  expect(h.cooldowns).toEqual([]);
+  expect(h.retried).toEqual([]);
+});
+
+test("a batch-level cooldownMs is honored on its own", async () => {
+  const h = makeHarness();
+  const parked = makeInput("parked");
+
+  const adapter = makeAdapter([parked], async () => ({
+    retryable: [{ input: parked, reason: "node unreachable", infra: true }],
+    cooldownMs: 30_000,
+  }));
+
+  await h.processor.processBatchForTarget(adapter, TARGET, [parked]);
+
+  // The adapter knows more than the processor about how long its chain takes
+  // to come back, so an explicit request wins over the default.
+  expect(h.cooldowns).toEqual([30_000]);
+});
+
+test("an adapter that sets no signal behaves exactly as it did before", async () => {
+  const h = makeHarness();
+  const failed = makeInput("failed");
+
+  const adapter = makeAdapter([failed], async () => ({
+    failed: [{ input: failed, error: "balance failed" }],
+  }));
+
+  await h.processor.processBatchForTarget(adapter, TARGET, [failed]);
+
+  expect(h.retried).toEqual([failed]);
+  expect(h.cooldowns).toEqual([]);
+});
+
+test("consecutive parks of the same input rest the target for longer", async () => {
+  const h = makeHarness();
+  const parked = makeInput("parked");
+
+  const adapter = makeAdapter([parked], async () => ({
+    retryable: [{ input: parked, reason: "node unreachable", infra: true }],
+  }));
+
+  for (let round = 0; round < 4; round++) {
+    await h.processor.processBatchForTarget(adapter, TARGET, [parked]);
+  }
+
+  // A flat cooldown makes a long outage a busy-loop: the same doomed batch is
+  // rebuilt every second for the whole outage. Backoff makes the cost of an
+  // outage bounded instead of proportional to its length.
+  expect(h.cooldowns.length).toBe(4);
+  for (let i = 1; i < h.cooldowns.length; i++) {
+    expect(h.cooldowns[i]).toBeGreaterThan(h.cooldowns[i - 1]);
+  }
+  expect(h.retried).toEqual([]);
+});
+
+test("a park counter resets once the input is carried", async () => {
+  const h = makeHarness();
+  const flaky = makeInput("flaky");
+  let outage = true;
+
+  const adapter = makeAdapter([flaky], async () =>
+    outage
+      ? {
+        retryable: [{ input: flaky, reason: "node unreachable", infra: true }],
+      }
+      : { hash: "0xhash", submitted: [flaky] });
+
+  await h.processor.processBatchForTarget(adapter, TARGET, [flaky]);
+  await h.processor.processBatchForTarget(adapter, TARGET, [flaky]);
+  const duringOutage = [...h.cooldowns];
+  outage = false;
+  await h.processor.processBatchForTarget(adapter, TARGET, [flaky]);
+  outage = true;
+  await h.processor.processBatchForTarget(adapter, TARGET, [flaky]);
+
+  // Otherwise a batcher that has been up for a month would treat its first
+  // blip of the month as if the outage had been running all along.
+  expect(h.cooldowns[h.cooldowns.length - 1]).toBe(duringOutage[0]);
+});
+
+// --- FR-4: the masking backstop ---------------------------------------
+
+test("an input that parks forever is charged once its park budget is spent", async () => {
+  // The risk the probe introduces. A misclassification — or an adapter that
+  // simply always says "infra" — would otherwise let a deterministically
+  // doomed input sit in the queue uncharged for the rest of time, which is the
+  // silent-hang failure mode traded for the silent-drop one.
+  const dropped: DefaultBatcherInput[] = [];
+  let charges = 0;
+  const h = makeHarness({
+    dropOnRetry: (inputs) => {
+      // Three charges is the default `maxRetries`; the third one drops.
+      if (++charges < 3) return [];
+      dropped.push(...inputs);
+      return inputs;
+    },
+  });
+  const doomed = makeInput("doomed");
+
+  const adapter = makeAdapter([doomed], async () => ({
+    retryable: [{ input: doomed, reason: "node unreachable", infra: true }],
+  }));
+
+  let firstCharge = -1;
+  for (let round = 0; round < MAX_CONSECUTIVE_INFRA_PARKS + 10; round++) {
+    await h.processor.processBatchForTarget(adapter, TARGET, [doomed]);
+    if (firstCharge < 0 && h.retried.length > 0) firstCharge = round;
+  }
+
+  // Bounded, and bounded by the documented constant rather than by luck.
+  expect(firstCharge).toBe(MAX_CONSECUTIVE_INFRA_PARKS);
+  expect(h.retried.length).toBeGreaterThanOrEqual(3);
+  expect(dropped.length).toBeGreaterThan(0);
+});
+
+test("the park budget bites per input, not per batch", async () => {
+  const h = makeHarness();
+  const old = makeInput("old");
+  const fresh = makeInput("fresh");
+
+  const parkBoth = makeAdapter([old, fresh], async () => ({
+    retryable: [
+      { input: old, reason: "node unreachable", infra: true },
+      { input: fresh, reason: "node unreachable", infra: true },
+    ],
+  }));
+  const parkOld = makeAdapter([old], async () => ({
+    retryable: [{ input: old, reason: "node unreachable", infra: true }],
+  }));
+
+  for (let round = 0; round < MAX_CONSECUTIVE_INFRA_PARKS; round++) {
+    await h.processor.processBatchForTarget(parkOld, TARGET, [old]);
+  }
+  expect(h.retried).toEqual([]);
+
+  await h.processor.processBatchForTarget(parkBoth, TARGET, [old, fresh]);
+
+  // `old` has spent its budget; `fresh` joined the same batch this round and
+  // must not inherit someone else's history.
+  expect(h.retried).toEqual([old]);
 });

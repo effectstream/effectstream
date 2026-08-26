@@ -64,6 +64,44 @@ function attempt<R>(fn: (() => R) | undefined): R | undefined {
   }
 }
 
+/** The transaction's own identifier list, however the WASM boundary hands it over. */
+function identifierList(tx: ReplayIdentifiableTx): unknown[] {
+  const raw = attempt(tx.identifiers);
+  return Array.isArray(raw)
+    ? raw
+    : raw !== null && raw !== undefined && typeof raw !== "string" &&
+        typeof (raw as Iterable<unknown>)[Symbol.iterator] === "function"
+    ? Array.from(raw as Iterable<unknown>)
+    : [];
+}
+
+/**
+ * The identifiers a chain indexer can be asked to WATCH for, as plain hex.
+ *
+ * The same list the replay key is derived from, exposed unhashed because it has
+ * a second job: answering "did this spend already land?" after a restart lost
+ * the receipt (spec 00021 FR-3). The ledger's own documentation for these is
+ * literally that any of them may be used to watch for a specific transaction,
+ * and — unlike the transaction hash — they survive the re-proving and merging
+ * a balancing batcher does, which is the entire reason they are usable here.
+ *
+ * Normalized to bare lowercase hex with no `0x`, which is the `HexEncoded`
+ * scalar the Midnight indexer's `transactions(offset: { identifier })` takes.
+ * Entries that are not hex are dropped rather than guessed at: a malformed
+ * offset is a query that answers nothing, and answering nothing is exactly what
+ * the caller must not mistake for "it did not land".
+ */
+export function midnightTxIdentifiers(tx: ReplayIdentifiableTx): string[] {
+  const seen = new Set<string>();
+  for (const value of identifierList(tx)) {
+    const encoded = encodePart(value).trim().toLowerCase().replace(/^0x/, "");
+    if (encoded.length === 0 || encoded.length % 2 !== 0) continue;
+    if (!/^[0-9a-f]+$/.test(encoded)) continue;
+    seen.add(encoded);
+  }
+  return [...seen];
+}
+
 /**
  * The key that answers "have we already paid to put this spend on chain?".
  *
@@ -78,13 +116,7 @@ function attempt<R>(fn: (() => R) | undefined): R | undefined {
 export function midnightReplayKey(
   tx: ReplayIdentifiableTx,
 ): string | undefined {
-  const raw = attempt(tx.identifiers);
-  const list: unknown[] = Array.isArray(raw)
-    ? raw
-    : raw !== null && raw !== undefined && typeof raw !== "string" &&
-        typeof (raw as Iterable<unknown>)[Symbol.iterator] === "function"
-    ? Array.from(raw as Iterable<unknown>)
-    : [];
+  const list = identifierList(tx);
 
   if (list.length > 0) {
     const parts = list.map(encodePart).sort();

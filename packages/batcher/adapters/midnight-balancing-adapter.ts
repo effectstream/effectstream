@@ -31,6 +31,7 @@ import type {
   BlockchainAdapter,
   BlockchainHash,
   BlockchainTransactionReceipt,
+  LandedTransaction,
   ValidationResult,
 } from "./adapter.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
@@ -101,6 +102,7 @@ import {
 } from "./validation-executor.ts";
 import {
   midnightReplayKey,
+  midnightTxIdentifiers,
   type ReplayIdentifiableTx,
 } from "./midnight-replay-key.ts";
 import { createHash } from "node:crypto";
@@ -310,6 +312,89 @@ export class PreSubmitInvariant extends Error {
   }
 }
 
+/** How long the node gets to answer a liveness probe before it counts as down. */
+const NODE_PROBE_TIMEOUT_MS = 5_000;
+
+/**
+ * The node's JSON-RPC endpoint, derived from the URL the adapter already has.
+ *
+ * A Midnight node serves JSON-RPC over HTTP on the SAME port as its WebSocket —
+ * the multi-batcher template's own compose healthcheck curls
+ * `http://localhost:9944` while the adapter is configured with
+ * `ws://node:9944`. So the probe needs no new configuration and there is
+ * nothing that can drift out of sync with the endpoint actually in use.
+ */
+export function nodeProbeUrl(nodeUrl: string): string {
+  const url = new URL(nodeUrl);
+  if (url.protocol === "ws:") url.protocol = "http:";
+  else if (url.protocol === "wss:") url.protocol = "https:";
+  return url.toString();
+}
+
+/**
+ * Can we still reach the node at all?
+ *
+ * This is the whole of FR-1's evidence, and it is deliberately not the error's
+ * message. The failure 00017's Q-2 and 00020's M13 both recorded arrives as
+ * `"Transaction submission error"` — a generic wrapper the SDK puts around a
+ * node that is gone, a socket that died and a spend that was already used
+ * alike. Charging a retry for the first two spends a user's budget on our
+ * outage; refusing to charge for the third lets a doomed input loop. The
+ * message cannot separate them. One round-trip can.
+ *
+ * "Reachable" means the node ANSWERED — including answering with a JSON-RPC
+ * error. That is the honest reading of the question, and it is also the safe
+ * default: a node whose RPC surface is configured differently than expected
+ * then classifies exactly as it does today (charged) rather than parking every
+ * failure it ever sees. A real outage produces no answer at all.
+ *
+ * Never throws, and never outlives its own timeout: a probe that could hang is
+ * a probe that has become the outage.
+ */
+export async function probeNodeReachable(
+  nodeUrl: string,
+  timeoutMs: number = NODE_PROBE_TIMEOUT_MS,
+): Promise<boolean> {
+  let url: string;
+  try {
+    url = nodeProbeUrl(nodeUrl);
+  } catch {
+    return false;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "system_health",
+        params: [],
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) return false;
+    const body = await response.json() as { jsonrpc?: string } | null;
+    // A JSON-RPC envelope came back, so something on the other end is alive
+    // and speaking the protocol. Whether it liked the method is a different
+    // question from whether it is there.
+    return body !== null && typeof body === "object" && "jsonrpc" in body;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Does this rejection already carry its own verdict? */
+function isTypedWorkerFailure(error: unknown): boolean {
+  return error instanceof PreSpendPermanent ||
+    error instanceof PreSpendDefer ||
+    error instanceof PreSubmitInvariant;
+}
+
 export type WorkerFailureClassification<TInput extends DefaultBatcherInput> =
   | { category: "permanentRejected"; value: BatchInputRejection<TInput> }
   | { category: "retryable"; value: BatchInputDeferral<TInput> }
@@ -319,10 +404,19 @@ export type WorkerFailureClassification<TInput extends DefaultBatcherInput> =
   }
   | { category: "failed"; value: BatchInputFailure<TInput> };
 
-/** Keep permanent, deferral and legacy retry-charged failures disjoint. */
+/**
+ * Keep permanent, deferral and legacy retry-charged failures disjoint.
+ *
+ * `nodeReachable` is the FR-1 probe's verdict for THIS batch, and it only ever
+ * reaches the default branch: the three typed channels are the adapter's own
+ * verdicts and are not up for reinterpretation because a node blinked. Omit it
+ * — as every caller predating the probe does — and the default branch behaves
+ * exactly as it always has.
+ */
 export function classifyWorkerFailure<TInput extends DefaultBatcherInput>(
   input: TInput,
   error: unknown,
+  nodeReachable?: boolean,
 ): WorkerFailureClassification<TInput> {
   if (error instanceof PreSpendPermanent) {
     return {
@@ -352,20 +446,40 @@ export function classifyWorkerFailure<TInput extends DefaultBatcherInput>(
       },
     };
   }
-  return {
-    category: "failed",
-    value: {
-      input,
-      error: error instanceof Error ? error.message : String(error),
-    },
-  };
+  const message = error instanceof Error ? error.message : String(error);
+  if (nodeReachable === false) {
+    // The node did not answer, so nothing it "said" about this transaction can
+    // be believed — including the refusal that just arrived. The input has not
+    // been judged, so its budget is not touched, and the marker tells the
+    // processor to rest the target instead of rebuilding this batch a second
+    // later against the same dead node.
+    return {
+      category: "retryable",
+      value: {
+        input,
+        reason:
+          `node unreachable — not charging a retry for our own outage: ${message}`,
+        infra: true,
+      },
+    };
+  }
+  return { category: "failed", value: { input, error: message } };
 }
 
-/** Build the adapter's explicit mixed-fate outcome without splice-diff state. */
+/**
+ * Build the adapter's explicit mixed-fate outcome without splice-diff state.
+ *
+ * `nodeReachable` is passed straight through to {@link classifyWorkerFailure};
+ * note that the deserialize failures in `invalidInputs` are NOT subject to it.
+ * A row whose bytes are not a transaction is doomed whatever the node is doing,
+ * and excusing it from its budget for the duration of an outage would leave it
+ * in the queue for the outage and then some.
+ */
 export function buildWorkerBatchOutcome<TInput extends DefaultBatcherInput>(
   invalidInputs: TInput[],
   workerInputs: TInput[],
   results: PromiseSettledResult<string>[],
+  nodeReachable?: boolean,
 ): BatchOutcome<TInput> {
   const hashes: string[] = [];
   const submitted: TInput[] = [];
@@ -389,7 +503,7 @@ export function buildWorkerBatchOutcome<TInput extends DefaultBatcherInput>(
       continue;
     }
 
-    const classified = classifyWorkerFailure(input, result.reason);
+    const classified = classifyWorkerFailure(input, result.reason, nodeReachable);
     if (classified.category === "permanentRejected") {
       permanentRejected.push(classified.value);
     } else if (classified.category === "retryable") {
@@ -419,6 +533,139 @@ export function buildWorkerBatchOutcome<TInput extends DefaultBatcherInput>(
       }
       : undefined,
   };
+}
+
+/** Normalize a Midnight transaction hash to the 64-char hex the indexer takes. */
+export function normalizeMidnightHash(hash: string): string {
+  let normalized = hash.trim().toLowerCase().replace(/^0x/, "");
+  if (normalized.length > 64) normalized = normalized.slice(-64);
+  else if (normalized.length < 64) normalized = normalized.padStart(64, "0");
+  return normalized;
+}
+
+/**
+ * The indexer query behind FR-3's "did this input's spend already land?".
+ *
+ * `TransactionOffset` accepts a hash OR an identifier — introspected from
+ * `midnightntwrk/indexer-standalone:4.3.2`, not assumed — and `block` is
+ * non-nullable on the result, so a transaction coming back from this query is
+ * by construction one the chain included.
+ */
+const LANDED_TX_QUERY = `query ($offset: TransactionOffset!) {
+  transactions(offset: $offset) {
+    hash
+    block { height }
+    ... on RegularTransaction { transactionResult { status } }
+  }
+}`;
+
+interface LandedTxArgs {
+  indexer: string;
+  /** Watchable identifiers for THIS input's spend; the exact, per-input answer. */
+  identifiers?: readonly string[];
+  /**
+   * The hash a previous `submitted` transition recorded, when there was one.
+   * A comma-joined batch hash is REFUSED: it identifies a batch, and answering
+   * a per-input question with it would confirm every input in that batch the
+   * moment any one of them was found.
+   */
+  transactionHash?: string;
+  timeoutMs?: number;
+  log?: { log: (message: string) => void; warn: (message: string) => void };
+}
+
+/**
+ * Ask the indexer whether one specific spend is on chain.
+ *
+ * Identifiers are tried first and are the answer that actually matters: they
+ * name THIS input's spend, and they survive the re-proving and merging that
+ * change a transaction's hash. The recorded hash is a fallback for the case
+ * where the transaction carries no usable identifiers.
+ *
+ * Returns `undefined` for "no evidence" — not landed, unreachable indexer,
+ * malformed response, all of it. The caller must treat that as "charge it as
+ * usual", so an ambiguous answer can only ever preserve today's behaviour.
+ */
+export async function findLandedMidnightTransaction(
+  args: LandedTxArgs,
+): Promise<LandedTransaction | undefined> {
+  const offsets: Array<Record<string, string>> = [];
+  for (const identifier of args.identifiers ?? []) {
+    offsets.push({ identifier });
+  }
+  const hash = args.transactionHash?.trim();
+  if (hash && !hash.includes(",")) {
+    offsets.push({ hash: normalizeMidnightHash(hash) });
+  } else if (hash) {
+    args.log?.log(
+      `Landed-transaction check ignoring the recorded hash "${hash}": a ` +
+        `comma-joined batch hash is not evidence about an individual input.`,
+    );
+  }
+
+  for (const offset of offsets) {
+    const found = await queryLandedTransaction(args, offset);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+async function queryLandedTransaction(
+  args: LandedTxArgs,
+  offset: Record<string, string>,
+): Promise<LandedTransaction | undefined> {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    args.timeoutMs ?? NODE_PROBE_TIMEOUT_MS,
+  );
+  try {
+    const response = await fetch(args.indexer, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: LANDED_TX_QUERY,
+        variables: { offset },
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) return undefined;
+    const body = await response.json() as {
+      data?: {
+        transactions?: Array<
+          {
+            hash?: string;
+            block?: { height?: number | string };
+            transactionResult?: { status?: string };
+          } | null
+        >;
+      };
+    };
+    const tx = body?.data?.transactions?.find((entry) =>
+      entry && typeof entry.hash === "string" && entry.block != null
+    );
+    if (!tx?.hash) return undefined;
+    const height = tx.block?.height;
+    return {
+      hash: tx.hash,
+      blockNumber: height === undefined || height === null
+        ? undefined
+        : BigInt(height),
+      // Only an outright FAILURE is reported as an on-chain failure. The
+      // existing receipt path calls anything it finds in a block `status: 1`,
+      // so this is strictly more informative than what confirmation already
+      // does — and PARTIAL_SUCCESS is not a claim this layer can safely turn
+      // into "your transaction failed".
+      status: tx.transactionResult?.status === "FAILURE" ? 0 : 1,
+    };
+  } catch (error) {
+    args.log?.log(
+      `Landed-transaction query failed for ${JSON.stringify(offset)}: ${error}`,
+    );
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Outcome returned before touching a wallet once manual recovery is required. */
@@ -1771,6 +2018,54 @@ export class MidnightBalancingAdapter
     return key;
   }
 
+  /**
+   * Is an earlier submission of this input already on chain? (spec 00021 FR-3.)
+   *
+   * The batcher asks this before it charges a retry, because of a measured lie:
+   * a restart straddling an in-flight batch loses the receipts but not the
+   * rows, the re-submission is refused because the spends are used, and a
+   * request the chain CONFIRMED is published as `failed / RETRIES_EXHAUSTED`.
+   *
+   * This adapter can answer because it already knows what to watch for — the
+   * transaction's ledger identifiers, the same ones `getReplayKey` hashes.
+   * Failure of any kind returns `undefined`, which means "charge it as usual":
+   * an indexer that is down must never be able to turn into a false confirmation.
+   */
+  async findLandedTransaction(
+    input: DefaultBatcherInput,
+    context: { target: string; transactionHash?: string },
+  ): Promise<LandedTransaction | undefined> {
+    const identifiers = this.watchableIdentifiers(input);
+    const found = await findLandedMidnightTransaction({
+      indexer: this.config.indexer,
+      identifiers,
+      transactionHash: context.transactionHash,
+      log: this.log,
+    });
+    if (!found && identifiers.length === 0 && !context.transactionHash) {
+      this.log.warn(
+        `Cannot tell whether an input for target ${context.target} already ` +
+          `landed: it yielded no watchable identifiers and no earlier ` +
+          `transaction hash was recorded. It will be charged a retry, which ` +
+          `is the pre-existing behaviour.`,
+      );
+    }
+    return found;
+  }
+
+  /** The indexer-watchable identifiers of this input's own transaction. */
+  private watchableIdentifiers(input: DefaultBatcherInput): string[] {
+    try {
+      return midnightTxIdentifiers(
+        this.deserializeTxEntry(input).tx as unknown as ReplayIdentifiableTx,
+      );
+    } catch {
+      // Undeserializable payloads are refused at intake; one that reaches here
+      // simply has no identifiers to offer.
+      return [];
+    }
+  }
+
   private replayMemoKey(payload: string): string {
     return createHash("sha256").update(payload, "utf8").digest("hex");
   }
@@ -2587,15 +2882,36 @@ export class MidnightBalancingAdapter
       }),
     );
 
+    // FR-1: ONE probe for the whole batch, and only when there is an
+    // unrecognized failure to explain. A batch that succeeded, or that failed
+    // only on its own typed verdicts, never touches the network here.
+    const nodeReachable = results.some((r) =>
+        r.status === "rejected" && !isTypedWorkerFailure(r.reason)
+      )
+      ? await probeNodeReachable(this.config.node)
+      : undefined;
+    if (nodeReachable === false) {
+      this.log.warn(
+        `[${bTag}] node ${this.config.node} did not answer a liveness probe — ` +
+          `treating unrecognized worker failures as OUR outage: parking those ` +
+          `inputs uncharged rather than spending their retry budgets`,
+      );
+    }
+
     const outcome = buildWorkerBatchOutcome(
       batchData.invalidInputs,
       traceInfos.map((trace) => trace.input),
       results,
+      nodeReachable,
     );
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
       if (r.status === "rejected") {
-        const classified = classifyWorkerFailure(traceInfos[i].input, r.reason);
+        const classified = classifyWorkerFailure(
+          traceInfos[i].input,
+          r.reason,
+          nodeReachable,
+        );
         this.log.warn(
           `  ${traceInfos[i].label} #${traceInfos[i].contentHash} ` +
             `[${classified.category}]: ${
