@@ -2,7 +2,7 @@ import { NodeSDK } from "@opentelemetry/sdk-node";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import opentelemetry from "@opentelemetry/api";
 import { defaultOtelSetup, PaimaTelemetryContext } from "@effectstream/log";
-import type { Operation } from "effection";
+import { call, ensure, type Operation } from "effection";
 import fs from "node:fs";
 import path from "node:path";
 import { parse } from "jsonc-parser";
@@ -23,6 +23,13 @@ export function* initTelemetry(): Operation<void> {
     ...defaultOtelSetup("effectstream-node", version), // DenoConfig.version),
     // TODO: set OTEL_EXPORTER_OTLP_PROTOCOL to json for @effectstream/collector support until it supports protobuf
     instrumentations: [getNodeAutoInstrumentations()],
+  });
+
+  // Register ownership before any subsequent initialization can fail. The
+  // ensure belongs to the caller's Effection scope and therefore runs on
+  // natural return, failure, or halt.
+  yield* ensure(function* () {
+    yield* call(() => sdk.shutdown());
   });
 
   const tracer = opentelemetry.trace.getTracer("paima", version); // DenoConfig.version);

@@ -74,6 +74,25 @@ export function* start(config: StartConfig): Operation<void> {
     yield* call(() => dbConn.end());
   });
 
+  // The runtime owns the local broker when enabled. Its readiness is part of
+  // startup, and its async shutdown is ordered after later runtime children but
+  // before the outer database and telemetry cleanup.
+  if (ENV.MQTT_BROKER) {
+    const broker = new EventBroker("effectstream-engine");
+    let startFailed = false;
+    yield* ensure(function* () {
+      if (!startFailed) yield* call(() => broker.shutdown());
+    });
+    try {
+      yield* call(() => broker.start());
+    } catch (error) {
+      // EventBroker.start() already performs and aggregates partial cleanup.
+      // Do not replay a cached shutdown rejection from the surrounding ensure.
+      startFailed = true;
+      throw error;
+    }
+  }
+
   const syncProtocols = yield* startup(dbConn as any, // Client,
     syncInfo, config);
 
@@ -88,11 +107,6 @@ export function* start(config: StartConfig): Operation<void> {
   );
   for (const syncProtocol of syncProtocols) {
     yield* startSync(syncProtocol);
-  }
-
-  // Create MQTT Broker
-  if (ENV.MQTT_BROKER) {
-    new EventBroker("effectstream-engine").createServer();
   }
 
   // 20× main clock block time (NTP if present, else protocol 0).

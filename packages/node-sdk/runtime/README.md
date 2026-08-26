@@ -52,6 +52,37 @@ await main(function* () {
 });
 ```
 
+For an ordinary async process, `runEffectstream()` owns the Effection task and
+returns only after its structured runtime resources have unwound:
+
+```typescript
+import { runEffectstream } from "@effectstream/runtime";
+
+await runEffectstream({
+  staticConfig,
+  startConfig,
+  // Defaults to ["SIGINT", "SIGTERM"]. Use false when a supervisor owns them.
+  processSignals: false,
+  signal: abortController.signal,
+});
+```
+
+This entry point is process-wide and one-shot. Concurrent calls reject with
+`RunEffectstreamError` code `ALREADY_RUNNING`; calls after settlement reject
+with `ALREADY_USED`. A caller abort rejects as `ABORTED` and keeps the abort
+reason in `cause`, while configured process signals are successful controlled
+shutdowns. Runtime or cleanup errors take priority and reject as `RUN_FAILED`;
+its frozen, identity-deduplicated `failures` list contains the errors surfaced
+by the Effection task and halt boundaries. Invalid options fail before the
+one-shot process slot is claimed. The helper does not create or close PGlite,
+choose networks, mutate environment variables, or call `process.exit()`.
+
+`runEffectstream()` guarantees structured runtime cleanup. It cannot make a
+third-party Promise cancellable, and `events: true` may create the existing
+process-global outbound event-client reconnect loops. Event-disabled read-only
+nodes (`startConfig.events: false`) avoid those clients and are the bounded
+global-process-quiescence mode.
+
 While running, the runtime:
 
 - Reads finalized blocks via `@effectstream/sync`.
@@ -60,6 +91,13 @@ While running, the runtime:
 - Publishes lifecycle and app events via `@effectstream/event-server`.
 - Serves the optional Fastify API.
 - Emits OpenTelemetry traces and logs through `@effectstream/log`.
+
+These resources are scope-owned. Telemetry registers SDK shutdown before it
+starts. When the local MQTT broker is enabled, runtime startup awaits both of
+its listeners before launching sync workers and shutdown awaits their release.
+HTTP startup also owns a pending Fastify listen attempt, so halt during bind
+waits for the attempt and cannot leave a late listener behind. Bind and cleanup
+failures remain structural errors instead of being logged and swallowed.
 
 ## Inside EffectStream
 
@@ -117,6 +155,10 @@ coordinator the main loop drives).
 
 - `init()` - `Operation<void>`. One-shot setup: OpenTelemetry, config validation, version pinning. Call before `start`.
 - `start(config: StartConfig)` - `Operation<void>`. Run the node loop until cancelled.
+- `runEffectstream(options)` - process-wide one-shot Promise adapter with typed
+  cancellation and failure codes.
+- `RunEffectstreamError`, `RunEffectstreamOptions` - stable process-adapter
+  error and option contracts.
 
 Types and helpers re-exported alongside `init` / `start`:
 

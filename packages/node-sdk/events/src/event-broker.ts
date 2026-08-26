@@ -1,4 +1,4 @@
-import { createServer, type Server } from 'node:net';
+import { createServer, type Server, type Socket } from 'node:net';
 import { MqttServer, AuthenticationResult } from '@seriousme/opifex/server';
 import type { Context, SockConn, Handlers } from '@seriousme/opifex/server';
 import { ENV } from '@effectstream/utils/node-env';
@@ -151,6 +151,13 @@ export class EventBroker {
   private mqttServer: MqttServer;
   private tcpServer: Server | null = null;
   private wsServer: ReturnType<typeof Bun.serve> | null = null;
+  private readonly tcpSockets = new Set<Socket>();
+  private state: 'NEW' | 'STARTING' | 'STARTED' | 'STOPPING' | 'STOPPED' = 'NEW';
+  private startPromise: Promise<void> | null = null;
+  private startSettled = false;
+  private shutdownPromise: Promise<void> | null = null;
+  private stopRequested = false;
+  private tcpListenOutcome: Promise<{ ok: true } | { ok: false; error: unknown }> | null = null;
 
   constructor(private broker: 'effectstream-engine' | 'Batcher') {
     this.checkEnabled();
@@ -170,30 +177,140 @@ export class EventBroker {
   }
 
   public createServer(): void {
-    void this.start();
+    void this.start().catch((error) => {
+      console.error(`MQTT server [${this.broker}] failed to start:`, error);
+    });
   }
 
-  public async start(): Promise<void> {
+  public start(): Promise<void> {
+    if (this.startPromise && !this.startSettled) return this.startPromise;
+    if (this.state === 'STARTED' && this.startPromise) return this.startPromise;
+    if (this.state !== 'NEW') {
+      return Promise.reject(new Error(`MQTT server cannot start from state ${this.state}`));
+    }
+    this.state = 'STARTING';
+    this.startPromise = this.startInternal().finally(() => {
+      this.startSettled = true;
+    });
+    return this.startPromise;
+  }
+
+  private async startInternal(): Promise<void> {
     const tcpPort = this.getTcpPort();
     const wsPort = this.getWsPort();
 
     this.tcpServer = createServer((sock) => {
+      this.tcpSockets.add(sock);
+      sock.once('close', () => this.tcpSockets.delete(sock));
       this.mqttServer.serve(wrapNodeSocket(sock));
     });
 
-    await new Promise<void>((resolve) => {
-      this.tcpServer!.on('listening', () => resolve());
-      this.tcpServer!.listen(tcpPort, '127.0.0.1');
+    this.tcpListenOutcome = new Promise((resolve) => {
+      const onListening = () => {
+        this.tcpServer?.removeListener('error', onError);
+        resolve({ ok: true });
+      };
+      const onError = (error: unknown) => {
+        this.tcpServer?.removeListener('listening', onListening);
+        resolve({ ok: false, error });
+      };
+      this.tcpServer!.once('listening', onListening);
+      this.tcpServer!.once('error', onError);
+      try {
+        this.tcpServer!.listen(tcpPort, '127.0.0.1');
+      } catch (error) {
+        this.tcpServer!.removeListener('listening', onListening);
+        this.tcpServer!.removeListener('error', onError);
+        resolve({ ok: false, error });
+      }
     });
-    console.log(`MQTT TCP Server [${this.broker}] started on port ${tcpPort}`);
 
-    this.wsServer = createWsServer(wsPort, this.mqttServer);
-    console.log(`MQTT WS Server [${this.broker}] started on port ${wsPort}`);
+    try {
+      const tcpOutcome = await this.tcpListenOutcome;
+      if ('error' in tcpOutcome) throw tcpOutcome.error;
+      if (this.stopRequested) throw new Error('MQTT server start cancelled by shutdown');
+      console.log(`MQTT TCP Server [${this.broker}] started on port ${tcpPort}`);
+
+      this.wsServer = createWsServer(wsPort, this.mqttServer);
+      if (this.stopRequested) throw new Error('MQTT server start cancelled by shutdown');
+      console.log(`MQTT WS Server [${this.broker}] started on port ${wsPort}`);
+      this.state = 'STARTED';
+    } catch (startError) {
+      let shutdownError: unknown;
+      let shutdownRejected = false;
+      try {
+        await this.beginShutdown();
+      } catch (error) {
+        shutdownRejected = true;
+        shutdownError = error;
+      }
+      if (shutdownRejected) {
+        throw new AggregateError(
+          [startError, shutdownError],
+          'MQTT start and partial shutdown both failed',
+        );
+      }
+      throw startError;
+    }
   }
 
   public stop(): void {
-    this.tcpServer?.close();
-    this.wsServer?.stop(true);
+    void this.shutdown().catch((error) => {
+      console.error(`MQTT server [${this.broker}] failed to stop:`, error);
+    });
+  }
+
+  public shutdown(): Promise<void> {
+    return this.beginShutdown();
+  }
+
+  private beginShutdown(): Promise<void> {
+    if (this.shutdownPromise) return this.shutdownPromise;
+    this.stopRequested = true;
+    this.state = 'STOPPING';
+    this.shutdownPromise = this.shutdownInternal().then(
+      () => {
+        this.state = 'STOPPED';
+      },
+      (error) => {
+        this.state = 'STOPPED';
+        throw error;
+      },
+    );
+    return this.shutdownPromise;
+  }
+
+  private async shutdownInternal(): Promise<void> {
+    // If TCP bind is in flight, wait for its normalized outcome. startInternal
+    // never waits on this shutdown Promise, so this coordination cannot cycle.
+    if (this.tcpListenOutcome) await this.tcpListenOutcome;
+
+    const failures: unknown[] = [];
+    for (const socket of this.tcpSockets) socket.destroy();
+    this.tcpSockets.clear();
+
+    if (this.tcpServer?.listening) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.tcpServer!.close((error) => error ? reject(error) : resolve());
+        });
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+
+    if (this.wsServer) {
+      try {
+        await this.wsServer.stop(true);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) {
+      throw new AggregateError(failures, 'Multiple MQTT transports failed to close');
+    }
   }
 
   private checkEnabled(): void {

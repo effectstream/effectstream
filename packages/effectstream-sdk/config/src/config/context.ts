@@ -17,13 +17,21 @@ type GlobalContext = {
   securityNamespace: SecurityNamespace;
 };
 
+/**
+ * Process-stable configuration required by the Effectstream runtime.
+ *
+ * This is kept separate from the runtime start configuration because these
+ * values are installed in an Effection context for the full node scope.
+ */
+export type EffectstreamStaticConfig = {
+  securityNamespace: SecurityNamespace;
+  allNetworks: {
+    viemNetworks: ViemNetworkList;
+  };
+};
+
 export function* withEffectstreamStaticConfig(
-  config: {
-    securityNamespace: SecurityNamespace;
-    allNetworks: {
-      viemNetworks: ViemNetworkList;
-    };
-  },
+  config: EffectstreamStaticConfig,
   continuation: () => Operation<void>,
 ) {
   yield* PaimaStaticConfigContext.set(

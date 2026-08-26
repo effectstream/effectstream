@@ -15,4 +15,6 @@ test("README: per-chain fetchers and states are exported", () => {
   expect("AvailFetcher" in sync).toBe(true);
   expect("UtxoRpcFetcher" in sync).toBe(true);
   expect("CelestiaFetcher" in sync).toBe(true);
+  expect(typeof sync.getMidnightTip).toBe("function");
+  expect(typeof sync.MidnightTipError).toBe("function");
 });
