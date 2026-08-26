@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import type { ProcessConfig } from "./config.ts";
-import { freePort } from "./port-check.ts";
+import { inspectPorts, PortConflictError, type PortListener } from "./port-check.ts";
 
 export type ProcessStatus = "pending" | "running" | "done" | "failed" | "stopped";
 
@@ -15,6 +15,8 @@ export type ManagedProcess = {
   startedAt: Date | null;
   endedAt: Date | null;
   exitCode: number | null;
+  /** Internal POSIX process-group ID for this launch; absent/null on Windows. */
+  processGroupId?: number | null;
   /** Absolute path to the log file, or null if logging to terminal. */
   logFile: string | null;
 };
@@ -23,6 +25,22 @@ type BunProc = ReturnType<typeof Bun.spawn>;
 type StreamReader = ReadableStreamDefaultReader<Uint8Array>;
 
 export type ChangeListener = (p: ManagedProcess) => void;
+
+type StopSignal = "SIGTERM" | "SIGKILL";
+
+export type ManagedSignal = {
+  name: string;
+  target: "process-group" | "direct-child";
+  id: number;
+  signal: StopSignal;
+};
+
+export type ProcessManagerOptions = {
+  platform?: NodeJS.Platform;
+  stopTimeoutMs?: number;
+  inspectPorts?: (ports: number[]) => Promise<PortListener[]>;
+  onSignal?: (attempt: ManagedSignal) => void;
+};
 
 export class ProcessManager {
   private processes = new Map<string, ManagedProcess>();
@@ -39,6 +57,17 @@ export class ProcessManager {
    * `<logDir>/<process-name>.log` instead of inheriting the terminal.
    */
   logDir: string | undefined;
+  private readonly platform: NodeJS.Platform;
+  private readonly stopTimeoutMs: number;
+  private readonly inspectConfiguredPorts: (ports: number[]) => Promise<PortListener[]>;
+  private readonly onSignal: ((attempt: ManagedSignal) => void) | undefined;
+
+  constructor(options: ProcessManagerOptions = {}) {
+    this.platform = options.platform ?? process.platform;
+    this.stopTimeoutMs = options.stopTimeoutMs ?? 5_000;
+    this.inspectConfiguredPorts = options.inspectPorts ?? inspectPorts;
+    this.onSignal = options.onSignal;
+  }
 
   onProcessChange(fn: ChangeListener): () => void {
     this.listeners.push(fn);
@@ -67,10 +96,8 @@ export class ProcessManager {
    * `<logDir>/<name>.log` instead of the terminal.
    */
   async launch(config: ProcessConfig): Promise<{ waitForExit: Promise<number>; logFile: string | null }> {
-    // Free any ports this process needs
-    for (const port of config.stopProcessAtPort ?? []) {
-      await freePort(port);
-    }
+    const occupied = await this.inspectConfiguredPorts(config.stopProcessAtPort ?? []);
+    if (occupied.length > 0) throw new PortConflictError(occupied);
 
     const command = config.command ?? "bun";
 
@@ -111,6 +138,9 @@ export class ProcessManager {
       stdout: usesPipe ? "pipe" : outFd,
       stderr: usesPipe ? "pipe" : outFd,
       stdin: "ignore",
+      // A POSIX detached child leads a new process group, which gives cleanup a
+      // trusted descendant boundary. Windows retains safe direct-child stop.
+      detached: this.platform !== "win32",
     });
 
     // The child has inherited the fd — safe to close the parent's copy
@@ -181,6 +211,7 @@ export class ProcessManager {
       startedAt: new Date(),
       endedAt: null,
       exitCode: null,
+      processGroupId: this.platform === "win32" ? null : proc.pid,
       logFile,
     };
 
@@ -220,17 +251,17 @@ export class ProcessManager {
       this.readers.delete(name);
     }
 
-    proc.kill("SIGTERM");
+    this.signalOwned(proc, managed, "SIGTERM");
 
-    // Wait up to 5 s for graceful exit, then SIGKILL
-    const graceful = await Promise.race([
-      proc.exited.then(() => true),
-      Bun.sleep(5000).then(() => false),
-    ]);
+    // A wrapper can exit while one of its descendants remains in the owned
+    // POSIX group. Wait for the ownership boundary itself, not only the direct
+    // child's exit promise.
+    const graceful = await this.waitForOwnedExit(proc, managed, this.stopTimeoutMs);
 
     if (!graceful) {
-      proc.kill("SIGKILL");
+      this.signalOwned(proc, managed, "SIGKILL");
       await proc.exited.catch(() => {});
+      await this.waitForOwnedExit(proc, managed, 1_000);
     }
 
     managed.status = "stopped";
@@ -239,6 +270,87 @@ export class ProcessManager {
     this.stopping.delete(name);
     this.emit(managed);
     return true;
+  }
+
+  private signalOwned(proc: BunProc, managed: ManagedProcess, signal: StopSignal): void {
+    const target = managed.processGroupId == null ? "direct-child" : "process-group";
+    const id = managed.processGroupId ?? proc.pid;
+    try {
+      if (target === "process-group") process.kill(-id, signal);
+      else proc.kill(signal);
+      this.onSignal?.({ name: managed.name, target, id, signal });
+    } catch (error: any) {
+      // An already-exited owned target makes stop idempotent. Never fall back
+      // to looking up or signaling a listener by configured port.
+      if (error?.code !== "ESRCH") throw error;
+    }
+  }
+
+  private async waitForOwnedExit(
+    proc: BunProc,
+    managed: ManagedProcess,
+    timeoutMs: number,
+  ): Promise<boolean> {
+    if (managed.processGroupId == null) {
+      return Promise.race([
+        proc.exited.then(() => true),
+        Bun.sleep(timeoutMs).then(() => false),
+      ]);
+    }
+
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (!this.isProcessGroupAlive(managed.processGroupId)) return true;
+      await Bun.sleep(Math.min(50, Math.max(1, deadline - Date.now())));
+    }
+    return !this.isProcessGroupAlive(managed.processGroupId);
+  }
+
+  private isProcessGroupAlive(processGroupId: number): boolean {
+    if (this.platform === "linux") {
+      try {
+        return fs.readdirSync("/proc", { withFileTypes: true })
+          .filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name))
+          .some((entry) => {
+            try {
+              const stat = fs.readFileSync(`/proc/${entry.name}/stat`, "utf8");
+              const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+              const state = fields[0];
+              const group = Number(fields[2]);
+              return group === processGroupId && state !== "Z";
+            } catch {
+              return false;
+            }
+          });
+      } catch {
+        // Fall through to ps/kill probes on restricted procfs mounts.
+      }
+    }
+
+    // `kill(-pgid, 0)` also reports zombie-only groups as alive. Prefer the
+    // portable macOS/Linux `ps -axo` view so reaping latency does not force an
+    // unnecessary five-second wait or escalation.
+    try {
+      const result = Bun.spawnSync(["ps", "-axo", "pgid=,stat="], { stderr: "pipe" });
+      if (result.exitCode === 0) {
+        const hasLiveMember = result.stdout
+          .toString()
+          .split("\n")
+          .map((line) => line.trim().match(/^(\d+)\s+(\S+)/))
+          .filter((match): match is RegExpMatchArray => match !== null)
+          .some((match) => Number(match[1]) === processGroupId && !match[2].startsWith("Z"));
+        return hasLiveMember;
+      }
+    } catch {
+      // Fall through to the signal-free existence probe if ps is unavailable.
+    }
+    try {
+      process.kill(-processGroupId, 0);
+      return true;
+    } catch (error: any) {
+      if (error?.code === "ESRCH") return false;
+      throw error;
+    }
   }
 
   /** Stops and re-launches a process. Returns null if the process was never started. */

@@ -129,6 +129,30 @@ orchestrator restart midnight-node
 orchestrator stop batcher
 ```
 
+## Port ownership and safe cleanup
+
+`stopProcessAtPort` is a conflict/readiness declaration, not permission to
+kill whatever currently owns that port. Startup refuses an occupied configured
+port and reports the listener PID when the platform can identify it. Stop acts
+only on a process launched by the current live orchestrator:
+
+- macOS and Linux launches receive a dedicated process group, and stop signals
+  only that recorded group so wrapper descendants are included;
+- Windows uses the recorded direct child because POSIX process groups are not
+  available;
+- Docker-backed proof-server runs use a unique per-run container and its
+  immutable container ID; a similarly named pre-existing container is never
+  reused, attached, stopped, or removed;
+- if no daemon is reachable, `orchestrator stop` reports matching configured
+  ports/PIDs and exits with a failure instead of signaling them.
+
+Automatic orphan killing by configured port has been removed. If startup
+reports a stale listener, inspect it (for example with
+`lsof -nP -iTCP:<port> -sTCP:LISTEN` on macOS/Linux), stop the owning service
+through its own supervisor, or select another port. This fail-safe avoids
+terminating unrelated native services or Docker Desktop's shared networking
+backend.
+
 ## Inside EffectStream
 
 Every template under

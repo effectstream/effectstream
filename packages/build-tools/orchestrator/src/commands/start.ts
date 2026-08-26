@@ -9,7 +9,6 @@ import {
   writeState,
   readStateConfigPath,
   clearStatePort,
-  freePort,
   DEFAULT_API_PORT,
 } from "../port-check.ts";
 import {
@@ -164,13 +163,6 @@ export async function runStartCommand(opts: StartOptions): Promise<void> {
     else logInfo("Shutting down…");
     apiServer?.stop(true);
     await manager.stopAll();
-
-    // Kill any orphan processes still occupying configured ports
-    for (const proc of config.processes) {
-      for (const port of proc.stopProcessAtPort ?? []) {
-        await freePort(port);
-      }
-    }
 
     clearStatePort();
     process.exit(reason ? 1 : 0);
