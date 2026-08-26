@@ -887,6 +887,14 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * spend the chain will reject anyway. Logged once per target, because the
    * operator should know their deployment has no replay protection, and should
    * not learn it once per request.
+   *
+   * The message distinguishes the two ways a target arrives here, because they
+   * have opposite remedies and conflating them cost a real investigation: the
+   * old text said "implement getReplayKey()" unconditionally, and 00017's M14
+   * was read for a day as a missing hook when in fact `MidnightBalancingAdapter`
+   * implements it and the hook was answering `undefined` for every transaction
+   * (00020 F-1.10 / F-1.10a). A warning that names the wrong cause is worse
+   * than no warning: it sends the reader somewhere there is nothing to find.
    */
   private replayKeyFor(
     adapter: BlockchainAdapter<any>,
@@ -896,12 +904,21 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     const key = resolveReplayKey(adapter, input);
     if (key === undefined && !this.replayKeylessTargetsLogged.has(target)) {
       this.replayKeylessTargetsLogged.add(target);
+      const hasHook = typeof (adapter as { getReplayKey?: unknown })
+        ?.getReplayKey === "function";
       console.warn(
-        `⚠️ [Batcher] Target "${target}" produced no replay key for an input ` +
-          `(no signature, and its adapter supplies none). Submissions to this ` +
-          `target are accepted WITHOUT duplicate protection — a resubmitted ` +
-          `request will be balanced and paid for again. Implement ` +
-          `getReplayKey() on the adapter to close this.`,
+        `⚠️ [Batcher] Target "${target}" produced no replay key for an input. ` +
+          `Submissions to this target are accepted WITHOUT duplicate ` +
+          `protection — a resubmitted request will be balanced and paid for ` +
+          `again. ` +
+          (hasHook
+            ? `Its adapter DOES implement getReplayKey(); that hook returned ` +
+              `undefined for this input, so the gap is in the adapter's own ` +
+              `derivation (or the input genuinely cannot be fingerprinted) — ` +
+              `adding the hook is not the fix, look at what it answers.`
+            : `Its adapter implements no getReplayKey(), and the input carries ` +
+              `no signature to key on: implement getReplayKey() on the adapter ` +
+              `to close this.`),
       );
     }
     return key;

@@ -51,17 +51,91 @@ function encodePart(value: unknown): string {
   }
 }
 
-/** Call a WASM accessor without letting its failure become the caller's. */
-function attempt<R>(fn: (() => R) | undefined): R | undefined {
-  if (typeof fn !== "function") return undefined;
+/** What a single accessor had to say, and why it could not say it. */
+interface Attempt<R> {
+  /** The boundary's answer, or `undefined` when there was none. */
+  value: R | undefined;
+  /** Present only when the accessor THREW — the message it threw with. */
+  failure?: string;
+}
+
+/**
+ * Call a WASM accessor ON its transaction, without letting a failure become the
+ * caller's.
+ *
+ * The receiver is the whole point. A wasm-bindgen method's first act is to read
+ * `this.__wbg_ptr`, so calling it detached — `const fn = tx.identifiers; fn()` —
+ * throws a `TypeError` before it reaches the ledger at all. That is a bug in
+ * the CALL, not a boundary that cannot answer, and it is exactly what used to
+ * happen here: the catch below dutifully swallowed our own mistake and reported
+ * "this spend cannot identify itself" for every real Midnight transaction ever
+ * submitted (00020 F-1.10a). Hence `fn.call(tx)`.
+ *
+ * The catch stays, because GENUINE failures are real and routine — an unproven
+ * transaction has no `transactionHash()`, and the bindings say so by throwing.
+ */
+function attempt<R>(
+  tx: ReplayIdentifiableTx,
+  fn: (() => R) | undefined,
+): Attempt<R> {
+  if (typeof fn !== "function") return { value: undefined };
   try {
-    return fn();
-  } catch {
+    return { value: fn.call(tx) };
+  } catch (error) {
     // A boundary that cannot answer is not an error here: the caller degrades
     // to a weaker key, or to no dedup at all. Refusing the input instead would
-    // punish a user for our inability to fingerprint their transaction.
-    return undefined;
+    // punish a user for our inability to fingerprint their transaction. The
+    // reason is kept so the degradation can at least be SAID out loud.
+    return {
+      value: undefined,
+      failure: error instanceof Error ? error.message : String(error),
+    };
   }
+}
+
+/**
+ * How many distinct derivation failures are worth a line before the module goes
+ * quiet. The failure this exists to catch is systematic — one line names it —
+ * and an unbounded set of remembered reasons would be a leak with a log
+ * attached.
+ */
+export const REPLAY_KEY_FAILURE_LOG_LIMIT = 8;
+
+/** Reasons already reported, so a per-transaction fault is not a per-call log. */
+const reportedFailures = new Set<string>();
+
+/** Test seam: forget what has already been reported. */
+export function __resetReplayKeyDerivationLog(): void {
+  reportedFailures.clear();
+}
+
+/**
+ * Say, once per distinct reason, that a transaction could not be fingerprinted
+ * at all.
+ *
+ * Silence is what let the detached-receiver bug survive from Phase 3 to 00017's
+ * M14: every submission through the balancing adapter lost its replay key and
+ * nothing anywhere said so. Only THROWN failures are reported — a transaction
+ * that simply has no identifiers and no hash is the documented duck-typed case,
+ * not a fault, and warning about it would bury the signal in the noise.
+ *
+ * Bounded by reason rather than by call, because a systematic fault produces
+ * one reason and a flood of transactions.
+ */
+function reportDerivationFailure(reasons: Array<string | undefined>): void {
+  const said = reasons.filter((r): r is string => r !== undefined);
+  if (said.length === 0) return;
+  const signature = said.join(" | ");
+  if (reportedFailures.has(signature)) return;
+  if (reportedFailures.size >= REPLAY_KEY_FAILURE_LOG_LIMIT) return;
+  reportedFailures.add(signature);
+  console.warn(
+    `⚠️ [Midnight] Could not derive a replay key for a transaction: the ` +
+      `ledger bindings refused to identify it (${signature}). Submissions ` +
+      `carrying this transaction are accepted WITHOUT duplicate protection — ` +
+      `a resubmission will be balanced, proven and paid for a second time. ` +
+      `Further transactions failing the same way are not logged again.`,
+  );
 }
 
 /**
@@ -78,7 +152,8 @@ function attempt<R>(fn: (() => R) | undefined): R | undefined {
 export function midnightReplayKey(
   tx: ReplayIdentifiableTx,
 ): string | undefined {
-  const raw = attempt(tx.identifiers);
+  const identifiers = attempt(tx, tx.identifiers);
+  const raw = identifiers.value;
   const list: unknown[] = Array.isArray(raw)
     ? raw
     : raw !== null && raw !== undefined && typeof raw !== "string" &&
@@ -93,11 +168,18 @@ export function midnightReplayKey(
       .digest("hex");
   }
 
-  const hash = attempt(tx.transactionHash);
-  if (hash === undefined || hash === null) return undefined;
-  const encoded = encodePart(hash);
-  if (encoded === "") return undefined;
-  return createHash("sha256")
-    .update(HASH_NAMESPACE + encoded, "utf8")
-    .digest("hex");
+  const hash = attempt(tx, tx.transactionHash);
+  if (hash.value !== undefined && hash.value !== null) {
+    const encoded = encodePart(hash.value);
+    if (encoded !== "") {
+      return createHash("sha256")
+        .update(HASH_NAMESPACE + encoded, "utf8")
+        .digest("hex");
+    }
+  }
+
+  // Nothing left to key on. If the boundary THREW on the way here, that is a
+  // loss of double-payment protection nobody asked for, and it gets said.
+  reportDerivationFailure([identifiers.failure, hash.failure]);
+  return undefined;
 }

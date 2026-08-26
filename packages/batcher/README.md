@@ -396,7 +396,14 @@ Where the key comes from is a per-adapter decision:
   during validation, which already deserializes the transaction.
 - **Custom adapters**: implement `getReplayKey(input)`. Return `undefined` to
   disable dedup for that input; the batcher warns once per target that
-  submissions there have no duplicate protection.
+  submissions there have no duplicate protection, and says which of the two
+  cases it is — no hook at all, or a hook that answered `undefined`.
+
+  If your key comes from WASM bindings (ledger, wallet, anything wasm-bindgen
+  generated), call their accessors **on** the object — `tx.identifiers()`, or
+  `fn.call(tx)` — never detached. Such a method reads `this.__wbg_ptr` first, so
+  a detached call throws before it reaches the chain code, and a `try/catch`
+  around it turns that into "no key" for every transaction you will ever see.
 
 Note that a single signature reused across two targets is one paid request, not
 two. Real wallets do not do this — the default signing message includes the
