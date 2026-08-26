@@ -5,6 +5,8 @@ import type { ProcessConfig } from "../src/config.ts";
 import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
 
 const waitTcpScript = new URL("./wait-tcp.ts", import.meta.url).pathname;
+export const MIDNIGHT_COMPATIBILITY_FILE_ENV =
+  "EFFECTSTREAM_MIDNIGHT_COMPATIBILITY_FILE";
 
 /**
  * Midnight's `compact` compiler is required to compile the Compact contracts
@@ -62,6 +64,26 @@ export function projectLocalMidnightNodeState(cwd: string): string {
   return join(cwd, "node_modules", ".cache", "effectstream", "midnight-node");
 }
 
+export function buildMidnightNodeProcess(
+  cwd: string,
+  packageName: string,
+  compatibilityFile: string,
+): ProcessConfig {
+  return {
+    name: MidnightNames.NODE,
+    description: `Start Midnight node (${packageName} midnight-node:start)`,
+    cwd,
+    stopProcessAtPort: [9944, 30333],
+    args: ["run", "midnight-node:start"],
+    env: {
+      BASE_PATH: projectLocalMidnightNodeState(cwd),
+      [MIDNIGHT_COMPATIBILITY_FILE_ENV]: compatibilityFile,
+    },
+    waitToExit: false,
+    critical: true,
+  };
+}
+
 export function buildMidnightIndexerWaitProcess(
   cwd: string,
   compatibilityFile: string,
@@ -103,7 +125,6 @@ export function launchMidnight(
   );
   assertCompactInstalled();
   const compatibilityFile = resolveMidnightCompatibilityFile(cwd);
-  const projectLocalNodeState = projectLocalMidnightNodeState(cwd);
   const deployEnv: Record<string, string> = {};
   if (opts?.env?.MIDNIGHT_STORAGE_PASSWORD) {
     deployEnv.MIDNIGHT_STORAGE_PASSWORD = opts.env.MIDNIGHT_STORAGE_PASSWORD;
@@ -111,16 +132,7 @@ export function launchMidnight(
   const extraDeps = opts?.dependsOn ?? [];
 
   return [
-    {
-      name: MidnightNames.NODE,
-      description: `Start Midnight node (${packageName} midnight-node:start)`,
-      cwd,
-      stopProcessAtPort: [9944, 30333],
-      args: ["run", "midnight-node:start"],
-      env: { BASE_PATH: projectLocalNodeState },
-      waitToExit: false,
-      critical: true,
-    },
+    buildMidnightNodeProcess(cwd, packageName, compatibilityFile),
     {
       name: MidnightNames.INDEXER,
       description: `Start Midnight indexer (${packageName} midnight-indexer:start)`,

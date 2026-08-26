@@ -7,17 +7,25 @@ const compatibility = require("./compatibility.json");
 
 const BINARY_NAME = "indexer-standalone";
 
-function logCompatibilityGuidance(prefix = "midnight-indexer") {
+function logConditionalCompatibilityContext(prefix = "midnight-indexer") {
   const localState = compatibility.cachedChain.projectLocalBasePath;
+  console.error(
+    `[${prefix}] Compatibility context: bundled node ${compatibility.node.version} / Ledger ${compatibility.node.ledgerGeneration} and indexer ${compatibility.indexer.version}. This child result alone does not prove incompatible cached state.`,
+  );
+  console.error(
+    `[${prefix}] Only the exact verified node error "${compatibility.cachedChain.verifiedIncompatibilitySignal}" proves an incompatible Ledger-8 cache; otherwise do not reset state solely because this child failed.`,
+  );
+  console.error(
+    `[${prefix}] If that exact node error is present, indexer --clean still removes only indexer SQLite data. After stopping the stack, archive or remove only the project-local node state at ${localState} if you choose to reset it; no automatic reset is performed.`,
+  );
+}
+
+function logUnknownReadinessGuidance(prefix = "midnight-indexer") {
   console.error(
     `[${prefix}] unknown startup/readiness failure for node ${compatibility.node.version} / Ledger ${compatibility.node.ledgerGeneration} and indexer ${compatibility.indexer.version}.`,
   );
-  console.error(
-    `[${prefix}] Inspect the node and indexer logs. Only the exact verified node error "${compatibility.cachedChain.verifiedIncompatibilitySignal}" proves an incompatible Ledger-8 cache; otherwise treat stale state as only one possibility.`,
-  );
-  console.error(
-    `[${prefix}] Indexer --clean removes only indexer SQLite data. After stopping the stack, archive or remove only the project-local node state at ${localState} if you choose to reset it; no automatic reset is performed.`,
-  );
+  console.error(`[${prefix}] Inspect the node and indexer logs.`);
+  logConditionalCompatibilityContext(prefix);
 }
 
 /**
@@ -57,7 +65,7 @@ function waitForChildCompletion(childProcess, options = {}) {
         console.error(
           `[${serviceName}] child process exited with nonzero code ${code}; startup cannot continue.`,
         );
-        logCompatibilityGuidance(serviceName);
+        logConditionalCompatibilityContext(serviceName);
         finish(code || 1);
         return;
       }
@@ -65,7 +73,7 @@ function waitForChildCompletion(childProcess, options = {}) {
       console.error(
         `[${serviceName}] child process terminated by signal ${signal || "unknown"}; startup cannot continue.`,
       );
-      logCompatibilityGuidance(serviceName);
+      logConditionalCompatibilityContext(serviceName);
       finish(1);
     });
   });
@@ -130,7 +138,7 @@ async function waitForNodeBlock(env, opts = {}) {
   console.error(
     `[midnight-indexer] missing block-one readiness: node ${compatibility.node.version} / Ledger ${compatibility.node.ledgerGeneration} did not produce block #${minBlock} within ${timeoutMs}ms; indexer startup is stopping.`,
   );
-  logCompatibilityGuidance("midnight-indexer");
+  logUnknownReadinessGuidance("midnight-indexer");
   return false;
 }
 

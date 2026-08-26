@@ -8,6 +8,7 @@
     "midnight-node:start": "CFG_PRESET=dev bunx @paimaexample/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
     "midnight-node:wait": "bunx wait-on tcp:9944",
     "midnight-indexer:start": "CONFIG_FILE=`pwd`/indexer-standalone/config.yaml LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" bunx @paimaexample/npm-midnight-indexer --binary --clean",
+    "midnight-indexer:wait": "bunx wait-on --timeout ${MIDNIGHT_INDEXER_WAIT_TIMEOUT_MS:-60000} tcp:${MIDNIGHT_INDEXER_PORT:-8088}",
     "midnight-proof-server:start": "LEDGER_NETWORK_ID=\"Undeployed\" RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" bunx @paimaexample/npm-midnight-proof-server",
     "midnight-proof-server:wait": "bunx wait-on tcp:6300",
     "midnight-contract:clean": "rm -rf midnight-level-db && rm -rf contract.json",

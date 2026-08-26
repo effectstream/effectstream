@@ -103,9 +103,19 @@ describe("midnight-indexer child completion", () => {
 
   test("propagates a nonzero child exit", async () => {
     const child = fakeChild();
-    const completed = waitForChildCompletion(child);
-    child.emit("exit", 42, null);
-    expect(await completed).toBe(42);
+    const errors = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const completed = waitForChildCompletion(child);
+      child.emit("exit", 42, null);
+      expect(await completed).toBe(42);
+      const output = errors.mock.calls.flat().join("\n");
+      expect(output).toContain("child process exited with nonzero code 42");
+      expect(output).toContain("Compatibility context");
+      expect(output).toContain("This child result alone does not prove");
+      expect(output).not.toContain("unknown startup/readiness failure");
+    } finally {
+      errors.mockRestore();
+    }
   });
 
   test("maps a spawn error to a nonzero wrapper result", async () => {
@@ -140,6 +150,7 @@ describe("midnight-indexer child completion", () => {
         });
       },
     });
+    const errors = spyOn(console, "error").mockImplementation(() => {});
 
     expect(fs.existsSync(binaryPath)).toBe(false);
     fs.writeFileSync(binaryPath, "#!/bin/sh\nexit 42\n", { mode: 0o755 });
@@ -156,7 +167,11 @@ describe("midnight-indexer child completion", () => {
       );
 
       expect(exitCode).toBe(42);
+      expect(errors.mock.calls.flat().join("\n")).not.toContain(
+        "unknown startup/readiness failure",
+      );
     } finally {
+      errors.mockRestore();
       fs.rmSync(binaryPath, { force: true });
       rpc.stop(true);
     }
@@ -185,6 +200,7 @@ describe("node block-one startup guard", () => {
       expect(ready).toBe(false);
       const output = errors.mock.calls.flat().join("\n");
       expect(output).toContain("missing block-one readiness");
+      expect(output).toContain("unknown startup/readiness failure");
       expect(output).toContain("node 2.0.0-rc.4 / Ledger 9");
       expect(output).toContain("no automatic reset is performed");
     } finally {

@@ -79,8 +79,19 @@ The orchestrator's Midnight step starts this indexer behind `@effectstream/npm-m
 
 The native wrapper now waits for the indexer child and preserves its nonzero
 exit code. The orchestrator probes indexer TCP readiness directly with a
-60-second default bound rather than delegating to an unbounded template
-`wait-on` script.
+60-second default bound. Templates still pinned to orchestrator `0.200.1`
+retain a backwards-compatible, bounded `midnight-indexer:wait` script until
+their package pins advance; the new launcher does not delegate to that script.
+
+## Breaking lifecycle change and rollout order
+
+> **Breaking:** the CLI now remains attached to its native child and returns
+> the child's nonzero/signal result. Callers that previously treated wrapper
+> launch as immediate success must handle the service lifecycle result.
+
+Land the owned-process shutdown work from PR A before rolling out this change.
+PR A's ownership-safe termination semantics are operationally required before
+a newly observable node or indexer failure can trigger orchestrator shutdown.
 
 ## Troubleshooting
 
@@ -97,6 +108,11 @@ A few common failures and where to look:
   `ext_ledger_8_bridge_construct_distribute_treasury_system_tx_version_1`
   import is the verified incompatible Ledger-8-cache signal for this tuple.
   Without that exact signal, stale state is only one possible cause.
+- Under the new Effectstream launcher, the node wrapper reads this package's
+  compatibility declaration, observes the real node output, and propagates the
+  child exit. It emits the incompatible-cache label only after seeing that
+  exact signal; a successful indexer TCP connection cannot override the node
+  failure.
 - Indexer `--clean` removes only its SQLite data; it does not reset node chain
   state. Under the Effectstream orchestrator, node state is kept at
   `packages/contracts-midnight/node_modules/.cache/effectstream/midnight-node`.

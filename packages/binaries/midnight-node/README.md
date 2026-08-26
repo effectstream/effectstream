@@ -21,6 +21,13 @@ state made the node exit nonzero with a missing
 import. Do not label other startup failures incompatible without that exact
 evidence.
 
+The current Effectstream launcher supplies the installed indexer package's
+single compatibility declaration to this wrapper. The wrapper tees the native
+node output, waits for the child, and propagates its nonzero/signal result. It
+emits the incompatible-cache diagnosis only when it observes the declaration's
+exact verified signal; otherwise the result remains a known node child failure
+with an instruction to inspect the node log.
+
 The Effectstream orchestrator passes an explicit project-local `BASE_PATH`:
 `packages/contracts-midnight/node_modules/.cache/effectstream/midnight-node`.
 If a reset is necessary, stop the stack, archive or remove only that directory,
