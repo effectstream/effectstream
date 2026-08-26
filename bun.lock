@@ -1060,6 +1060,9 @@
       "name": "@effectstream/db-emulator",
       "version": "0.104.1",
       "dependencies": {
+        "@effectstream/config": "workspace:*",
+        "@effectstream/db": "workspace:*",
+        "@effectstream/sm": "workspace:*",
         "@pgtyped/runtime": "2.4.2",
         "effection": "^3.5.0",
         "pg": "^8.14.0",

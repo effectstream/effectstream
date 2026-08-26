@@ -15,6 +15,9 @@
     ".": "./mod.ts"
   },
   "dependencies": {
+    "@effectstream/config": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@effectstream/sm": "workspace:*",
     "@pgtyped/runtime": "2.4.2",
     "pg": "^8.14.0",
     "effection": "^3.5.0"
