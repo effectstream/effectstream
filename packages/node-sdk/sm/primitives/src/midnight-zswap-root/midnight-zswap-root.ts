@@ -1,4 +1,4 @@
-import { Primitive } from "@effectstream/sm";
+import { Primitive } from "../../Primitive.ts";
 import {
   type AddressAndType,
   AddressType,

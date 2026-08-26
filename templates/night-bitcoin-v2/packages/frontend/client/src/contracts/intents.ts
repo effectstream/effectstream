@@ -32,7 +32,7 @@ import type {
   FinalizedTransaction,
   TransactionId,
   UnprovenTransaction,
-} from "@midnight-ntwrk/ledger-v8";
+} from "@midnightntwrk/ledger-v9";
 import {
   MidnightBech32m,
   ShieldedAddress,

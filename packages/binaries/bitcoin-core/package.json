@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/bitcoin-core",
-  "version": "0.103.3",
+  "version": "0.200.2",
   "license": "(MIT OR Apache-2.0)",
   "type": "module",
   "main": "./index.js",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@effectstream/binary-checksum": "workspace:*",
-    "@xhmikosr/bin-wrapper": "^5.0.0"
+    "@xhmikosr/bin-wrapper": "^13.2.0"
   },
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {

@@ -11,17 +11,17 @@
     "node:start:mainnet": "bun --inspect run main.mainnet.ts"
   },
   "dependencies": {
-    "@effectstream/concise": "0.103.3",
-    "@effectstream/config": "0.103.3",
-    "@effectstream/log": "0.103.3",
-    "@effectstream/orchestrator": "0.103.3",
-    "@effectstream/runtime": "0.103.3",
-    "@effectstream/utils": "0.103.3",
-    "@effectstream/sm": "0.103.3",
-    "@effectstream/coroutine": "0.103.3",
-    "@effectstream/db": "0.103.3",
+    "@effectstream/concise": "0.200.1",
+    "@effectstream/config": "0.200.1",
+    "@effectstream/log": "0.200.1",
+    "@effectstream/orchestrator": "0.200.1",
+    "@effectstream/runtime": "0.200.1",
+    "@effectstream/utils": "0.200.1",
+    "@effectstream/sm": "0.200.1",
+    "@effectstream/coroutine": "0.200.1",
+    "@effectstream/db": "0.200.1",
     "@effectstream/explorer": "*",
-    "@effectstream/midnight-contracts": "0.103.3",
+    "@effectstream/midnight-contracts": "0.200.1",
     "@evm-midnight/contracts-evm": "workspace:*",
     "@evm-midnight/database": "workspace:*",
     "@evm-midnight/midnight-contract": "workspace:*",
@@ -30,6 +30,6 @@
     "fastify": "^5.4.0",
     "pg": "^8.14.0",
     "viem": "2.37.3",
-    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v3@3.0.0"
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0-rc.3"
   }
 }

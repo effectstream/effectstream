@@ -28,9 +28,9 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "5.1.0",
-    "@effectstream/evm-contracts": "0.103.3",
-    "@effectstream/evm-hardhat": "0.103.3",
-    "@effectstream/log": "0.103.3",
+    "@effectstream/evm-contracts": "0.200.1",
+    "@effectstream/evm-hardhat": "0.200.1",
+    "@effectstream/log": "0.200.1",
     "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
     "@nomicfoundation/hardhat-viem": "3.0.0",
     "@nomicfoundation/ignition-core": "3.0.2",

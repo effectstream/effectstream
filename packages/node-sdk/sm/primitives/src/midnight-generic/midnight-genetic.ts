@@ -1,4 +1,4 @@
-import { Primitive } from "@effectstream/sm";
+import { Primitive } from "../../Primitive.ts";
 import {
   type AddressAndType,
   AddressType,
@@ -33,7 +33,7 @@ export class MidnightGenericPrimitive extends Primitive<
   readonly internalTypeName = PrimitiveTypeMidnightGeneric;
   override readonly grammar = midnightGenericGrammar;
   readonly contractAddress: string;
-  readonly contract: {
+  readonly contract?: {
     ledger: (data: StateValue) => any;
   };
   readonly ledgerSchema?: LedgerSchema;
@@ -53,7 +53,7 @@ export class MidnightGenericPrimitive extends Primitive<
     startBlockHeight: number;
     contractAddress: MidnightAddress;
     stateMachinePrefix: string;
-    contract: {
+    contract?: {
       ledger: (data: StateValue) => any;
     };
     ledgerSchema?: LedgerSchema;
@@ -61,6 +61,16 @@ export class MidnightGenericPrimitive extends Primitive<
     genesisHash?: string;
   }) {
     super(config);
+    if (!config.contract && !config.ledgerSchema) {
+      throw new Error(
+        `Midnight primitive "${config.instanceName}" requires either a generated contract decoder or a ledger schema.`,
+      );
+    }
+    if (config.ledgerSchema && Object.keys(config.ledgerSchema).length === 0) {
+      throw new Error(
+        `Midnight primitive "${config.instanceName}" received an empty ledger schema.`,
+      );
+    }
     this.contractAddress = config.contractAddress;
     this.contract = config.contract;
     this.ledgerSchema = config.ledgerSchema;
@@ -76,13 +86,24 @@ export class MidnightGenericPrimitive extends Primitive<
   parseAdditionalLedgerFields(stateValue: StateValue): Record<string, any> {
     if (!this.ledgerSchema) return {};
 
-    const stateArray: StateValue[] = stateValue.asArray?.() ?? [];
+    const stateArray: StateValue[] | undefined = stateValue.asArray?.();
     const result: Record<string, any> = {};
     const schemaEntries = Object.entries(this.ledgerSchema);
 
-    for (let i = 0; i < schemaEntries.length && i < stateArray.length; i++) {
+    if (!stateArray) {
+      throw new Error(
+        `Ledger root must be an array; received ${stateValue.type()}.`,
+      );
+    }
+    if (stateArray.length < schemaEntries.length) {
+      throw new Error(
+        `Ledger schema declares ${schemaEntries.length} field(s), but the ledger contains only ${stateArray.length}.`,
+      );
+    }
+
+    for (let i = 0; i < schemaEntries.length; i++) {
       const [fieldName, fieldType] = schemaEntries[i];
-      result[fieldName] = parseLedgerField(stateArray[i], fieldType);
+      result[fieldName] = parseLedgerField(stateArray[i], fieldType, fieldName);
     }
 
     return result;
@@ -156,6 +177,7 @@ export class MidnightGenericPrimitive extends Primitive<
       // TODO This should be optional
       scheduledPrefix: this.stateMachinePrefix ?? "",
       contract: this.contract,
+      ledgerSchema: this.ledgerSchema,
       parseAdditionalLedgerFields: this.ledgerSchema
         ? this.parseAdditionalLedgerFields.bind(this)
         : undefined,
@@ -193,30 +215,44 @@ function parseUintCellLittleEndian(chunks: Uint8Array[]): string {
   return result.toString();
 }
 
-function parseLedgerField(sv: StateValue, type: LedgerFieldType): any {
+function parseLedgerField(
+  sv: StateValue,
+  type: LedgerFieldType,
+  path: string,
+): any {
   if (typeof type === "object" && type.type === "option") {
     if (sv.type() === "null") return null;
-    return parseLedgerField(sv, type.value);
+    return parseLedgerField(sv, type.value, path);
   }
 
   if (typeof type === "object" && type.type === "map") {
-    const map = sv.asMap();
-    if (!map) return {};
+    const map = sv.asMap?.();
+    if (!map) {
+      throw new Error(
+        `Ledger field "${path}" expects a map; received ${sv.type()}.`,
+      );
+    }
 
     const result: Record<string, any> = {};
     for (const key of map.keys()) {
       const val = map.get(key);
       if (val !== undefined) {
-        result[alignedValueToHex(key as { value: Uint8Array[] })] = parseLedgerField(
+        const mapKey = alignedValueToHex(key as { value: Uint8Array[] });
+        result[mapKey] = parseLedgerField(
           val,
           type.value,
+          `${path}[${mapKey}]`,
         );
       }
     }
     return result;
   }
 
-  if (sv.type() !== "cell") return null;
+  if (sv.type() !== "cell") {
+    throw new Error(
+      `Ledger field "${path}" expects ${String(type)}; received ${sv.type()}.`,
+    );
+  }
   const cell = sv.asCell();
 
   if (
@@ -239,7 +275,7 @@ function parseLedgerField(sv: StateValue, type: LedgerFieldType): any {
     );
   }
 
-  return null;
+  throw new Error(`Unsupported ledger type for field "${path}": ${String(type)}.`);
 }
 
 function isCompactMap(data: object): data is Iterable<[unknown, unknown]> {

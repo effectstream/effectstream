@@ -9,7 +9,7 @@ import {
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import {
   type TransactionId,
-} from "@midnight-ntwrk/ledger-v8";
+} from "@midnightntwrk/ledger-v9";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -47,7 +47,7 @@ import {
   type CoinPublicKey,
   type EncPublicKey,
   type FinalizedTransaction,
-} from "@midnight-ntwrk/ledger-v8";
+} from "@midnightntwrk/ledger-v9";
 
 import { HDWallet, Roles } from "@midnightntwrk/wallet-sdk-hd";
 import { type DefaultConfiguration, WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
@@ -254,7 +254,7 @@ function createWalletAndMidnightProvider(
         { ttl: ttl ?? createTtl() },
       );
       const signed = await walletResult.wallet.signRecipe(recipe, (payload) =>
-        walletResult.unshieldedKeystore.signData(payload),
+        walletResult.unshieldedKeystore.signDataAsync(payload),
       );
       return walletResult.wallet.finalizeRecipe(signed);
     },

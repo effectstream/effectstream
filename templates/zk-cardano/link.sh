@@ -98,24 +98,35 @@ if [ -d "$LINKED_MC" ]; then
 fi
 
 # Fix WASM module duplication for @midnight-ntwrk/onchain-runtime
-# The monorepo's .bun/ cache has its own onchain-runtime-v3 WASM instantiation.
-# Packages like compact-js and midnight-js-contracts resolve onchain-runtime-v3
+# The monorepo's .bun/ cache has its own onchain-runtime WASM instantiation.
+# Packages like compact-js and midnight-js-contracts resolve onchain-runtime
 # through the monorepo's hoisted .bun/node_modules/ — creating objects with the
 # MONOREPO's WASM classes. The template's code then checks instanceof against the
 # TEMPLATE's WASM classes. Two instantiations → instanceof fails
 # ("expected instance of ContractMaintenanceAuthority" / "ChargedState").
-# Fix: redirect ALL onchain-runtime-v3 references to the template's single copy.
+# Fix: redirect ALL onchain-runtime references to the template's single copy.
+#
+# Ledger v9 moved this package to @midnightntwrk/onchain-runtime-v4 (note the
+# scope loses its hyphen). The package.json alias key `@midnight-ntwrk/onchain-runtime`
+# is unchanged, so both spellings are redirected below. The template copy is
+# located by glob rather than a hardcoded version so an rc bump doesn't silently
+# disable this block.
 echo ""
 echo "Fixing WASM module duplication (onchain-runtime)..."
-TEMPLATE_ORT="$NM/.bun/@midnight-ntwrk+onchain-runtime-v3@3.0.0/node_modules/@midnight-ntwrk/onchain-runtime-v3"
-if [ -d "$TEMPLATE_ORT" ]; then
-  # 1. Redirect the monorepo root's hoisted onchain-runtime-v3 (used by compact-js,
+TEMPLATE_ORT=""
+for candidate in "$NM"/.bun/@midnightntwrk+onchain-runtime-v4@*/node_modules/@midnightntwrk/onchain-runtime-v4; do
+  [ -d "$candidate" ] || continue
+  TEMPLATE_ORT="$candidate"
+  break
+done
+if [ -n "$TEMPLATE_ORT" ]; then
+  # 1. Redirect the monorepo root's hoisted onchain-runtime-v4 (used by compact-js,
   #    midnight-js-contracts, midnight-js-types, etc.)
-  MONOREPO_HOISTED="$MONOREPO_ROOT/node_modules/.bun/node_modules/@midnight-ntwrk/onchain-runtime-v3"
+  MONOREPO_HOISTED="$MONOREPO_ROOT/node_modules/.bun/node_modules/@midnightntwrk/onchain-runtime-v4"
   if [ -L "$MONOREPO_HOISTED" ]; then
     rm -f "$MONOREPO_HOISTED"
     ln -sf "$TEMPLATE_ORT" "$MONOREPO_HOISTED"
-    echo "  RELINK monorepo .bun hoisted onchain-runtime-v3 → template"
+    echo "  RELINK monorepo .bun hoisted onchain-runtime-v4 → template"
   fi
 
   # 2. Redirect per-package copies in monorepo sync/sm
@@ -126,13 +137,40 @@ if [ -d "$TEMPLATE_ORT" ]; then
       ln -sf "$TEMPLATE_ORT" "$ORT_LINK"
       echo "  RELINK $(basename "$monorepo_pkg")/@midnight-ntwrk/onchain-runtime → template"
     fi
-    ORT3_LINK="$monorepo_pkg/node_modules/@midnight-ntwrk/onchain-runtime-v3"
-    if [ -L "$ORT3_LINK" ]; then
-      rm -f "$ORT3_LINK"
-      ln -sf "$TEMPLATE_ORT" "$ORT3_LINK"
-      echo "  RELINK $(basename "$monorepo_pkg")/@midnight-ntwrk/onchain-runtime-v3 → template"
+    ORT4_LINK="$monorepo_pkg/node_modules/@midnightntwrk/onchain-runtime-v4"
+    if [ -L "$ORT4_LINK" ]; then
+      rm -f "$ORT4_LINK"
+      ln -sf "$TEMPLATE_ORT" "$ORT4_LINK"
+      echo "  RELINK $(basename "$monorepo_pkg")/@midnightntwrk/onchain-runtime-v4 → template"
     fi
   done
+fi
+
+# Ledger v9 needs the same single-instance treatment as onchain-runtime, and did
+# not need it under v8. `LedgerParameters`, `ZswapSecretKeys` and friends are WASM
+# classes; if the monorepo packages load their own physical ledger-v9 while this
+# template loads its own, every cross-boundary check fails with
+# "expected instance of LedgerParameters" and deploy never completes. The v9
+# wallet-sdk stack passes these objects across the boundary constantly, which is
+# why the problem only appears now.
+#
+# Only symlinks are rewritten — the monorepo's physical copy is left alone so a
+# second template linking in the same container is unaffected.
+TEMPLATE_LEDGER=""
+for candidate in "$NM"/.bun/@midnightntwrk+ledger-v9@*/node_modules/@midnightntwrk/ledger-v9; do
+  [ -d "$candidate" ] || continue
+  TEMPLATE_LEDGER="$candidate"
+  break
+done
+if [ -n "$TEMPLATE_LEDGER" ]; then
+  echo ""
+  echo "Deduplicating ledger-v9 (monorepo references → template copy)..."
+  while IFS= read -r ledger_link; do
+    [ -L "$ledger_link" ] || continue
+    rm -f "$ledger_link"
+    ln -sfn "$TEMPLATE_LEDGER" "$ledger_link"
+    echo "  RELINK ${ledger_link#"$MONOREPO_ROOT/"} → template"
+  done < <(find "$MONOREPO_ROOT/node_modules" -path '*/node_modules/@midnightntwrk/ledger-v9' 2>/dev/null)
 fi
 
 echo ""

@@ -5,7 +5,7 @@ import { finalizedStreamStatus } from "./stream-status.ts";
 import { buildHealthReport, healthHttpStatus } from "./health.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
-import { run, until } from "effection";
+import { ensure, run, suspend, until } from "effection";
 import {
   acquireDBMutex,
   getAllAddresses,
@@ -1039,16 +1039,14 @@ export const startHttpServer = function* (
     );
   });
 
-  // Start the server
-  server.listen(
-    { port: ENV.EFFECTSTREAM_API_PORT, host: "0.0.0.0" },
-    (err: Error | null, address: string) => {
-      if (err) {
-        console.error("err", err);
-      }
-      console.log(`Paima Engine HTTP server running on ${address}`);
-    },
+  yield* ensure(function* () {
+    if (server.server.listening) yield* until(server.close());
+  });
+  const address = yield* until(
+    server.listen({ port: ENV.EFFECTSTREAM_API_PORT, host: "0.0.0.0" }),
   );
+  console.log(`Paima Engine HTTP server running on ${address}`);
+  yield* suspend();
 };
 
 export function clearBigInts<T>(value: T): T {

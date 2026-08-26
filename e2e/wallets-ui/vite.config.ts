@@ -74,6 +74,9 @@ export default defineConfig({
       // `src/mod.ts/types` → ENOTDIR and the whole app fails to build, which
       // surfaces in the wallets-ui suite as a blank page and a click timeout.
       "@effectstream/utils/types": utilsPath + "src/types/mod.ts",
+      // Like the other utils subpaths above, this must precede the broad root
+      // alias or Vite appends the subpath to the mod.ts file (ENOTDIR).
+      "@effectstream/utils/polkadot-esm-cjs-warning": utilsPath + "src/polkadot-esm-cjs-warning.ts",
       "@effectstream/utils": utilsPath + "src/mod.ts",
       "@effectstream/config": configPath + "src/mod.ts",
       "@effectstream/concise": concisePath + "src/mod.ts",

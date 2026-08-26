@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/crypto",
-  "version": "0.103.3",
+  "version": "0.200.2",
   "license": "(MIT OR Apache-2.0)",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -13,16 +13,16 @@
   },
   "exports": "./src/mod.ts",
   "peerDependencies": {
-    "@midnight-ntwrk/ledger-v8": "^8.1.0",
-    "@midnightntwrk/wallet-sdk-address-format": "^3.1.2"
+    "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
+    "@midnightntwrk/wallet-sdk-address-format": "4.0.0-beta.2"
   },
   "peerDependenciesMeta": {
-    "@midnight-ntwrk/ledger-v8": { "optional": true },
+    "@midnightntwrk/ledger-v9": { "optional": true },
     "@midnightntwrk/wallet-sdk-address-format": { "optional": true }
   },
   "devDependencies": {
-    "@midnight-ntwrk/ledger-v8": "8.1.0",
-    "@midnightntwrk/wallet-sdk-address-format": "3.1.2"
+    "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
+    "@midnightntwrk/wallet-sdk-address-format": "4.0.0-beta.2"
   },
   "dependencies": {
     "@cardano-foundation/cardano-verify-datasignature": "1.0.11",

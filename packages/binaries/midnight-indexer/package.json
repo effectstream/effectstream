@@ -1,10 +1,10 @@
 {
   "name": "@effectstream/npm-midnight-indexer",
-  "version": "0.103.3",
+  "version": "0.200.2",
   "description": "Downloads and runs the Midnight Indexer. It needs a running Midnight Node",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "bun test run_midnight_indexer.test.js",
     "clean": "node index.js --clean-binaries",
     "clean-only": "node index.js --only-clean"
   },
@@ -23,7 +23,6 @@
     "url": "https://github.com/effectstream/effectstream/issues"
   },
   "supportedPlatforms": [
-    "linux-arm64",
     "linux-amd64",
     "macos-arm64"
   ],

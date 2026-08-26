@@ -26,7 +26,7 @@ function showUsage() {
   console.log(`\nUsage: npm-midnight-proof-server [options] [args...]\n
 Options:
   --docker         Force use of Docker container
-  --binary         Force binary execution (Linux only)
+  --binary         Force binary execution (macOS arm64 or Linux amd64)
   --clean-binaries Delete downloaded binaries and download them again
   --only-clean     Only delete downloaded binaries without downloading them again
   --help, -h       Show this help message\n`);

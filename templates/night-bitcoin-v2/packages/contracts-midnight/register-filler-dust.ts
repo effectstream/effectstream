@@ -164,7 +164,7 @@ async function registerOneFiller(
       const recipe = await wallet.registerNightUtxosForDustGeneration(
         unregisteredNightUtxos,
         keystore.getPublicKey(),
-        (payload: Uint8Array) => keystore.signData(payload),
+        (payload: Uint8Array) => keystore.signDataAsync(payload),
       );
       log.info(
         `[${index + 1}/${total}] finalizing registration recipe (no extra signing step)`,

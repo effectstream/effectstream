@@ -1,3 +1,5 @@
+// MUST stay first: it sets the flag @polkadot/util reads while loading.
+import "@effectstream/utils/polkadot-esm-cjs-warning";
 import { Buffer } from "node:buffer";
 import { utf8ToHex } from 'web3-utils';
 import type { ApiPromise } from "avail-js-sdk";

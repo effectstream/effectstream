@@ -5,7 +5,7 @@ import { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 import {
   shieldedToken,
   nativeToken,
-} from "@midnight-ntwrk/ledger-v8";
+} from "@midnightntwrk/ledger-v9";
 import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import {
   MidnightBech32m,
@@ -74,7 +74,7 @@ export type WalletResult = SdkWalletResult;
 /**
  * Build a complete wallet facade with shielded, unshielded, and dust wallets.
  * Delegates to `@effectstream/midnight-contracts/wallet-info`'s `buildWalletFacade`,
- * which uses the new `WalletFacade.init({...})` API and ledger-v8.
+ * which uses the new `WalletFacade.init({...})` API and ledger-v9.
  */
 export async function buildWalletFacade(
   networkUrls: Required<Config>,
@@ -424,7 +424,7 @@ const transfer = async (
 
     const signedRecipe = await walletResult.wallet.signRecipe(
       recipe,
-      (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload)
+      (payload: Uint8Array) => walletResult.unshieldedKeystore.signDataAsync(payload)
     );
     console.log("✓ Transfer transaction signed");
 

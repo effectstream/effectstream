@@ -9,7 +9,8 @@ import {
   AddressType,
   type EffectstreamBlockNumber,
 } from "@effectstream/utils";
-import { type JsonObject, Primitive } from "@effectstream/sm";
+import { Primitive } from "../../Primitive.ts";
+import type { JsonObject } from "../../types.ts";
 import {
   type CommandTuple,
   type ParamToData,
@@ -110,4 +111,3 @@ export class BitcoinAddressPrimitive extends Primitive<
     } as const;
   }
 }
-

@@ -5,7 +5,8 @@ version into `node_modules/.bin/npm-midnight-proof-server` so the
 EffectStream orchestrator can boot the proving sidecar that the
 Midnight node depends on.
 
-- Pinned Midnight proof-server sidecar (ledger-8.1.0).
+- Pinned Midnight proof-server sidecar (`9.0.0-rc.5`).
+- Native targets are `macos-arm64` and `linux-amd64`; no Linux arm64 asset is published.
 - Boots alongside `@effectstream/npm-midnight-node`; no app-code import needed.
 - Cache management via `--clean-binaries` / `--only-clean`.
 - Required by ZK-heavy Midnight templates.

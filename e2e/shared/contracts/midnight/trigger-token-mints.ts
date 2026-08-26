@@ -104,15 +104,11 @@ export async function triggerTokenMints(
   try {
     await syncAndWaitForFunds(wallet, { logLabel: "trigger-token-mints" });
 
-    // Dust pays the circuit-call fees; tolerate prior registration.
-    try {
-      await registerNightForDust(walletResult);
-    } catch (e) {
-      console.warn(
-        `${TAG} registerNightForDust: ${
-          e instanceof Error ? e.message : String(e)
-        } (continuing)`,
-      );
+    // Dust pays the circuit-call fees; prior registration is accepted only
+    // when the v9 helper proves that spendable DUST is available.
+    const dustReady = await registerNightForDust(walletResult);
+    if (!dustReady) {
+      throw new Error(`${TAG} no spendable DUST after NIGHT registration`);
     }
 
     const providers = (await configureMidnightNodeProviders(

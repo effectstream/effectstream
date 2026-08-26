@@ -1,7 +1,7 @@
 // NOTE: importing onchain-runtime first ensures the wasm module is loaded
 // before any other Midnight SDK code runs. This mirrors the pattern used in
 // the node entry points and the evm-midnight-v2 template.
-import "@midnight-ntwrk/onchain-runtime-v3";
+import "@midnightntwrk/onchain-runtime-v4";
 
 import { setNetworkId, type NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 

@@ -93,13 +93,13 @@ the same `checkAndTransferFunds` matcher in `packages/node/state-machine.ts`.
 
 - [Bun](https://bun.sh).
 - The **Compact compiler**, on your `PATH`. The contract packages compile with
-  `compact compile +0.31.0` (see `packages/contracts-midnight/erc7683/package.json`),
+  `compact compile +0.33.0-rc.2` (see `packages/contracts-midnight/erc7683/package.json`),
   so install the toolchain and pin that release:
 
   ```sh
   curl --proto '=https' --tlsv1.2 -LsSf \
     https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
-  compact update 0.31.0
+  compact update 0.33.0-rc.2
   ```
 
 - `openssl`, used by the indexer launch script to generate a secret.

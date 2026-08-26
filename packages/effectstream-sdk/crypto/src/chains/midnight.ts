@@ -21,10 +21,11 @@ import { Value } from "@sinclair/typebox/value";
  * The verifier:
  *   1. Splits the combined signature into its two halves.
  *   2. Derives the canonical hex address from the verifying key
- *      (`ledger-v8.addressFromKey(vk)`) and asserts it matches the bech32
+ *      (`ledger-v9.addressFromKey(vk)`) and asserts it matches the bech32
  *      address claimed by the caller. This prevents anyone holding *some*
  *      Midnight key from impersonating `signerAddress` with their own.
- *   3. Calls `ledger-v8.verifySignature(vk, messageBytes, signature)`.
+ *   3. Calls `ledger-v9.verifySignature(vk, messageBytes, signature)` with
+ *      the required tagged Schnorr key/signature values.
  */
 export class MidnightCrypto implements IVerify {
   isMidnightSignature = (
@@ -51,22 +52,31 @@ export class MidnightCrypto implements IVerify {
       if (!signature || !verifyingKey) return false;
 
       const [ledgerMod, addrMod] = await Promise.all([
-        import("@midnight-ntwrk/ledger-v8"),
+        import("@midnightntwrk/ledger-v9"),
         import("@midnightntwrk/wallet-sdk-address-format"),
       ]);
+
+      const taggedVerifyingKey = {
+        tag: "schnorr" as const,
+        value: verifyingKey,
+      };
+      const taggedSignature = {
+        tag: "schnorr" as const,
+        value: signature,
+      };
 
       // The verifying key must derive to the address being verified —
       // otherwise the holder of any Midnight signing key could pretend to
       // sign on behalf of `signerAddress`.
       const expectedHexAddress = ledgerMod
-        .addressFromKey(verifyingKey)
+        .addressFromKey(taggedVerifyingKey)
         .toLowerCase();
       let decodedHex: string;
       try {
         const bech32 = addrMod.MidnightBech32m.parse(signerAddress);
-        const decoded = addrMod.UnshieldedAddress.codec.decode(
+        const decoded = bech32.decode(
+          addrMod.UnshieldedAddress,
           bech32.network,
-          bech32,
         );
         decodedHex = decoded.hexString.toLowerCase();
       } catch {
@@ -79,9 +89,9 @@ export class MidnightCrypto implements IVerify {
 
       const messageBytes = new TextEncoder().encode(message);
       return ledgerMod.verifySignature(
-        verifyingKey,
+        taggedVerifyingKey,
         messageBytes,
-        signature,
+        taggedSignature,
       );
     } catch (err) {
       console.error(

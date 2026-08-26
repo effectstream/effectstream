@@ -1,29 +1,17 @@
 [
   {
-    "registrations": [
-      {
-        "name": "LocalValidator1",
-        "aura_pub_key": "0xb606fc73f57f03cdb4c932d475ab426043e429cecc2ffff0d2672b0df8398c48",
-        "grandpa_pub_key": "0xbf3a763d817cee09bf785b9cc6118f58dab5c03f3ace6d524899bcb28ac74f27",
-        "sidechain_pub_key": "0x0333022898140662dfea847e3cbfe5e989845ac6766e83472f8b0c650d85e77bae",
-        "mainchain_pub_key": "0xd5f64925e8722583ab9f8bb633a6938780873cf59504b3d12527719d3310b0ff",
-        "mainchain_signature": "0x9e417ede1ab0d710ce3d5854627baef9b32d4dd69ec75f20d1f28234f167b3f679dadafce995fc63a05eefefa322ebe84b5ffccf526481710d086a16aef61506",
-        "sidechain_signature": "0x568e305af7f6d51668a76f3aaa72aa3f0f3554be20f150dcabb759f8bff66b484bf66cf248916a40bda649b3ce302ecaf689b9c7b4abd66b44b2aeb039ff85a5",
-        "registration_utxo": "ff428f8f916a832d146e58f3656c17c769a6bbc44bba1693fe2a4f9c605b8f16#0",
-        "status": "Active"
-      }
-    ],
+    "registrations": [],
     "permissioned": [
       {
-        "name": "LocalPermissioned1",
-        "aura_pub_key": "0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
-        "grandpa_pub_key": "0x88dc3417d5058ec4b4503e0c12ea1a0a89be200fe98922423d4334014fa6b0ee",
+        "name": "Alice",
         "sidechain_pub_key": "0x020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a1",
-        "mainchain_pub_key": "0xd5f64925e8722583ab9f8bb633a6938780873cf59504b3d12527719d3310b0ff",
+        "mainchain_pub_key": "0xcef2d1630c034d3b9034eb7903d61f419a3074a1ad01d4550cc72f2b733de6e7",
         "mainchain_signature": "0x9e417ede1ab0d710ce3d5854627baef9b32d4dd69ec75f20d1f28234f167b3f679dadafce995fc63a05eefefa322ebe84b5ffccf526481710d086a16aef61506",
         "sidechain_signature": "0x568e305af7f6d51668a76f3aaa72aa3f0f3554be20f150dcabb759f8bff66b484bf66cf248916a40bda649b3ce302ecaf689b9c7b4abd66b44b2aeb039ff85a5",
-        "registration_utxo": "ff428f8f916a832d146e58f3656c17c769a6bbc44bba1693fe2a4f9c605b8f16#1",
-        "status": "Active"
+        "registration_utxo": "d3600cf1032b2f147d592332032975bc70aff78f78b5be96e4311c0b0b28d7d6#0",
+        "status": "Active",
+        "aura_pub_key": "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
+        "grandpa_pub_key": "88dc3417d5058ec4b4503e0c12ea1a0a89be200fe98922423d4334014fa6b0ee"
       }
     ],
     "nonce": "0x1234",
@@ -33,4 +21,3 @@
     }
   }
 ]
-

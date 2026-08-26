@@ -8,8 +8,8 @@
     "serve": "bun run server.ts"
   },
   "dependencies": {
-    "@effectstream/wallets": "0.103.3",
-    "@effectstream/crypto": "0.103.3",
+    "@effectstream/wallets": "0.200.1",
+    "@effectstream/crypto": "0.200.1",
     "@hex-battle/engine": "workspace:*",
     "@fastify/static": "^7.0.4",
     "fastify": "^4.28.1",

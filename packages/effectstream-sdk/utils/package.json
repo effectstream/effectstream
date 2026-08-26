@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/utils",
-  "version": "0.103.3",
+  "version": "0.200.2",
   "license": "(MIT OR Apache-2.0)",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -17,7 +17,8 @@
     "./node-env": "./src/config.ts",
     "./runtime": "./src/runtime.ts",
     "./runtime-spawn": "./src/runtime-spawn.ts",
-    "./fs": "./src/fs.ts"
+    "./fs": "./src/fs.ts",
+    "./polkadot-esm-cjs-warning": "./src/polkadot-esm-cjs-warning.ts"
   },
   "dependencies": {
     "@coderspirit/nominal": "^4.1.1",

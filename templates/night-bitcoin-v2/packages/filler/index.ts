@@ -1,5 +1,5 @@
 // Load wasm before other Midnight SDK code (matches frontend / node entrypoints).
-import "@midnight-ntwrk/onchain-runtime-v3";
+import "@midnightntwrk/onchain-runtime-v4";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 

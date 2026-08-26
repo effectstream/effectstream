@@ -34,6 +34,62 @@ describe("WorkerPool exhaustion filter", () => {
   });
 });
 
+describe("WorkerPool desired slot budgets", () => {
+  test("retires busy excess workers on release and permits only the desired budget", () => {
+    const pool = new WorkerPool([2]);
+    const firstBusy = pool.acquireWorker();
+    const secondBusy = pool.acquireWorker();
+    expect(firstBusy).not.toBeNull();
+    expect(secondBusy).not.toBeNull();
+
+    pool.setSlots(0, 1);
+    expect(pool.getTotalWorkerCount()).toBe(2);
+
+    pool.releaseWorker(firstBusy!.walletIdx, firstBusy!.slotIdx);
+    pool.releaseWorker(secondBusy!.walletIdx, secondBusy!.slotIdx);
+
+    expect(pool.getTotalWorkerCount()).toBe(1);
+    expect(pool.getFreeWorkerCount()).toBe(1);
+    expect(pool.acquireWorker()).not.toBeNull();
+    expect(pool.acquireWorker()).toBeNull();
+  });
+
+  test("shrink and regrow preserves unique worker slot IDs", () => {
+    const pool = new WorkerPool([3]);
+    const busy = [pool.acquireWorker(), pool.acquireWorker(), pool.acquireWorker()];
+    expect(busy.every(Boolean)).toBe(true);
+
+    pool.setSlots(0, 1);
+    for (const worker of busy) {
+      pool.releaseWorker(worker!.walletIdx, worker!.slotIdx);
+    }
+    expect(pool.getTotalWorkerCount()).toBe(1);
+
+    pool.setSlots(0, 3);
+    const regrown = [pool.acquireWorker(), pool.acquireWorker(), pool.acquireWorker()];
+    const slotIds = regrown.map((worker) => worker!.slotIdx).sort((a, b) => a - b);
+    expect(slotIds).toEqual([0, 1, 2]);
+    expect(new Set(slotIds).size).toBe(3);
+    expect(pool.acquireWorker()).toBeNull();
+  });
+
+  test("recovers from a zero desired budget without duplicate IDs", () => {
+    const pool = new WorkerPool([1]);
+    const busy = pool.acquireWorker();
+    expect(busy).not.toBeNull();
+
+    pool.setSlots(0, 0);
+    pool.releaseWorker(busy!.walletIdx, busy!.slotIdx);
+    expect(pool.getTotalWorkerCount()).toBe(0);
+    expect(pool.hasAvailableWorker()).toBe(false);
+
+    pool.setSlots(0, 2);
+    const recovered = [pool.acquireWorker(), pool.acquireWorker()];
+    expect(recovered.map((worker) => worker!.slotIdx).sort((a, b) => a - b)).toEqual([0, 1]);
+    expect(pool.acquireWorker()).toBeNull();
+  });
+});
+
 describe("BatchProcessor.isInfraFailure", () => {
   const infra = [
     "All 5 transactions failed. First error: Insufficient Funds: could not balance dust",

@@ -12,7 +12,7 @@ import {
   getMigrationsForBlockHeight,
   insertPaimaEngineVersion,
 } from "@effectstream/db";
-import type { DBMigrations, VERSION } from "@effectstream/runtime";
+import type { DBMigrations, VERSION } from "./types.ts";
 
 type SystemMigration = {
   version: VERSION;

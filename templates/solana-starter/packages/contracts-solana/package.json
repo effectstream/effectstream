@@ -14,7 +14,7 @@
     "build:mod": "bun run scripts/build.ts"
   },
   "dependencies": {
-    "@effectstream/solana-node": "0.103.3",
+    "@effectstream/solana-node": "0.200.1",
     "@solana/web3.js": "^1.95.0",
     "bs58": "^6.0.0"
   }

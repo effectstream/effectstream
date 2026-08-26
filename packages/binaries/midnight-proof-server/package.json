@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/npm-midnight-proof-server",
-  "version": "0.103.3",
+  "version": "0.200.2",
   "description": "A wrapper for the Midnight proof server binary",
   "main": "index.js",
   "bin": {
@@ -13,7 +13,6 @@
   },
   "supportedPlatforms": [
     "linux-amd64",
-    "linux-arm64",
     "macos-arm64"
   ],
   "dependencies": {

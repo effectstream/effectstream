@@ -18,9 +18,10 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
-import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
+import { StateValue } from "@midnight-ntwrk/onchain-runtime";
 import { decodeZswapEvent } from "./zswap-decoder.ts";
 import { decodeTokenMints } from "./mint-decoder.ts";
+import { decodeContractState } from "./contract-state-decoder.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -215,7 +216,6 @@ export class MidnightFetcher extends BaseDataFetcher<
     for (const tx of block.block.transactions) {
       for (const event of tx.zswapLedgerEvents ?? []) {
         const decoded = decodeZswapEvent(event.raw);
-        if (!decoded) continue;
         if (decoded.kind === "nullifier" && capture === "commitments") continue;
         if (decoded.kind === "commitment" && capture === "nullifiers") continue;
         results.push({
@@ -346,7 +346,7 @@ export class MidnightFetcher extends BaseDataFetcher<
   }
 
   // Decode custom token mints out of each regular transaction's raw bytes
-  // (ledger-v8 deserialize → contract call transcript effects). One input per
+  // (ledger-v9 deserialize → contract call transcript effects). One input per
   // (tx, call, domainSep, kind) that actually applied on chain — see
   // mint-decoder.ts for the segment semantics. System transactions carry no
   // transactionResult and are skipped.
@@ -415,19 +415,28 @@ export class MidnightFetcher extends BaseDataFetcher<
         return c.address.padStart(longest, '0') === contractAddress.padStart(longest, '0');
       })!.state!;
       const primitive = primitiveEntry.primitive;
-      const f = primitive.contract ?? { ledger: (_: StateValue): Record<string, any> => ({}) };
+      const f = primitive.contract;
       const ledgerFromTxStateHex = (f as {
         ledgerFromTxStateHex?: (rawHexState: string) => Record<string, any>;
-      }).ledgerFromTxStateHex;
+      } | undefined)?.ledgerFromTxStateHex;
       let state: Record<string, any>;
-      if (typeof ledgerFromTxStateHex === "function") {
-        state = ledgerFromTxStateHex(rawState);
-      } else {
-        const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-        const contractState = ContractState.deserialize(byteState);
-        const stateValue = contractState.data.state;
-        const additionalFields = primitive.parseAdditionalLedgerFields?.(stateValue) ?? {};
-        state = { ...f.ledger(stateValue), ...additionalFields };
+      try {
+        if (typeof ledgerFromTxStateHex === "function") {
+          state = ledgerFromTxStateHex(rawState);
+        } else {
+          const contractState = decodeContractState(rawState);
+          const stateValue = contractState.data.state;
+          const generatedFields = f?.ledger(stateValue) ?? {};
+          const schemaFields = primitive.parseAdditionalLedgerFields?.(stateValue) ?? {};
+          state = { ...generatedFields, ...schemaFields };
+        }
+      } catch (error) {
+        throw new Error(
+          `Failed to decode Midnight contract ${contractAddress} at block ${height}, transaction ${t.hash}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          { cause: error },
+        );
       }
       return {
         syncProtocol: {

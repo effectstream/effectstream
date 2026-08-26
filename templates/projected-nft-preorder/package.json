@@ -7,9 +7,10 @@
     "build:pgtypes": "bun run --filter @projected-nft-preorder/database pgtyped:update"
   },
   "dependencies": {
+    "@effectstream/orchestrator": "0.200.1",
     "@electric-sql/pglite": "^0.3.14",
-    "@effectstream/orchestrator": "0.103.3",
     "@midnightntwrk/wallet-sdk-address-format": "3.1.2",
+    "@playwright/test": "^1.62.1",
     "wait-on": "8.0.3"
   },
   "effectstream": {

@@ -1,0 +1,10 @@
+{
+  "name": "single-file",
+  "private": true,
+  "scripts": {
+    "start": "bun minimal.ts"
+  },
+  "dependencies": {
+    "@effectstream/node-sdk": "0.200.1"
+  }
+}

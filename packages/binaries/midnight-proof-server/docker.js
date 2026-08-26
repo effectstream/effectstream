@@ -2,7 +2,8 @@ const { spawn, exec, execSync } = require("child_process");
 const { promisify } = require("util");
 const execAsync = promisify(exec);
 
-const IMAGE_NAME = "midnightnetwork/proof-server";
+const IMAGE_NAME = "midnightntwrk/proof-server";
+const IMAGE_TAG = "9.0.0-rc.5";
 const CONTAINER_NAME = "midnight-proof-server";
 
 async function checkIfDockerExists() {
@@ -14,7 +15,7 @@ async function checkIfDockerExists() {
   }
 }
 
-async function pullDockerImage(tag = "latest") {
+async function pullDockerImage(tag = IMAGE_TAG) {
   return new Promise((resolve, reject) => {
     const child = spawn("docker", ["pull", `${IMAGE_NAME}:${tag}`], {
       stdio: "inherit",
@@ -72,7 +73,7 @@ async function checkIfContainerRunning(containerName) {
 async function runDockerContainer(
   env = process.env,
   args = [],
-  tag = "latest",
+  tag = IMAGE_TAG,
 ) {
   const containerExists = await checkIfContainerExists(CONTAINER_NAME);
   const containerRunning = await checkIfContainerRunning(CONTAINER_NAME);

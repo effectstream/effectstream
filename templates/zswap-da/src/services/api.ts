@@ -16,7 +16,8 @@ const V1 = `${API_BASE}/v1`;
  *
  * Bodies are always `{error, reason, ...extras}` with a truthful status: 400
  * validation, 404 unknown, 409 duplicate, 429 rate-limited, 500 INTERNAL.
- * Extras (`offerId`, `status`, `hint`, `diagnostics`) survive on `.data`.
+ * Extras (`offerId`, `activeOfferId`, `status`, `hint`, `diagnostics`) survive
+ * on `.data`.
  */
 export class ApiError extends Error {
   readonly code: string;
@@ -169,7 +170,9 @@ export const api = {
    * (seconds to ~a minute), so poll status until it leaves `not_found`.
    *
    * Throws ApiError. Notable codes: `DUPLICATE_OFFER` (409, carries the existing
-   * `offerId` + `status` — not a failure), and everything in
+   * `offerId` + `status`) and `DUPLICATE_MARKERS` (409, carries `activeOfferId`
+   * of the live offer that owns the same declared markers, plus `offerId` for this
+   * attempt) — both are not failures from the user's point of view. Everything in
    * TERMINAL_SUBMIT_CODES, which must never be retried.
    */
   submitSwapOffer: async (

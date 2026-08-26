@@ -6,9 +6,9 @@
     "pgtyped:update": "bun run ./node_modules/@effectstream/db/scripts/pgtyped-update.ts"
   },
   "dependencies": {
-    "@effectstream/config": "0.103.3",
-    "@effectstream/runtime": "0.103.3",
-    "@effectstream/db": "0.103.3",
+    "@effectstream/config": "0.200.1",
+    "@effectstream/runtime": "0.200.1",
+    "@effectstream/db": "0.200.1",
     "@pgtyped/runtime": "2.4.2",
     "pg": "^8.14.0",
     "effection": "3.5.0"
