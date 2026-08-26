@@ -717,6 +717,63 @@ Worked example: [`templates/multi-batcher`](https://github.com/effectstream/effe
 — three products (contract calls, transfers, custom-filtered swaps) on one
 batcher, with fast and deep test suites.
 
+### Outages don't spend a caller's retry budget
+
+A retry budget exists to bound bad *inputs*. When the batcher's own environment
+is what failed, the input was never judged, so charging it would eventually
+delete a perfectly valid transaction because a node was down. Two mechanisms
+keep that promise, and both are opt-in additions to `BatchOutcome` — an adapter
+that sets neither behaves exactly as it always did.
+
+**Park an outage, don't charge it.** Mark a deferral `infra: true` and the
+batcher leaves the row untouched *and* rests the target, instead of rebuilding
+and re-proving the same doomed batch on every poll round:
+
+```ts
+return {
+  retryable: [{ input, reason: "node unreachable", infra: true }],
+  // Optional. Omit it and the batcher backs off by itself: 1s, 2s, 4s …
+  // capped at 60s, reset the moment the input is carried.
+  cooldownMs: 30_000,
+};
+```
+
+Decide it by **asking the node**, not by reading the error. Chain SDKs wrap an
+unreachable node, a dead socket and an already-spent input in the same generic
+message, so a message test cannot separate an outage from a verdict. The
+Midnight balancing adapter probes the node's JSON-RPC endpoint once per batch
+(only when a batch actually contains an unrecognized failure) and classifies on
+the answer. A node that replies — even with a JSON-RPC error — counts as
+reachable, so an unexpected RPC surface degrades to charging, never to parking
+everything.
+
+Parking is bounded: after 50 consecutive parks an input is charged anyway, so a
+misclassification cannot hold a doomed input uncharged forever. With the
+backoff above, that is upwards of 45 minutes of continuous downtime.
+
+**Never report `RETRIES_EXHAUSTED` for a transaction that is on chain.** A
+batcher restarted mid-flight loses receipts but not rows: the transactions land,
+the rows are re-picked, the resubmission is refused because the spends are
+already used, and the request used to go terminal `failed` while being
+*confirmed* on chain. Implement `findLandedTransaction` and the batcher asks
+before it charges:
+
+```ts
+async findLandedTransaction(input, { target, transactionHash }) {
+  // Return a transaction ONLY if THIS input is on chain. A batch-level answer
+  // would confirm every input in the batch as soon as any one was found.
+  // When in doubt return undefined — the input is then charged as before.
+  return await myIndexer.find(input) ?? undefined;
+}
+```
+
+A hit is recorded `confirmed` with its hash and block, the row is removed and
+the caller is resolved — the ordinary confirmation path, just later than the
+batcher noticed. Anything else (no hook, a throw, an unreachable indexer) falls
+back to today's behaviour. `transactionHash` is what the request's last
+`submitted` transition recorded, which is now always that input's **own** hash
+rather than the batch's comma-joined one.
+
 ## Customising the batcher
 
 The four interfaces you'd implement, in order of frequency:

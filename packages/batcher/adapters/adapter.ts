@@ -75,6 +75,21 @@ export interface BatchInputDeferral<TInput = DefaultBatcherInput> {
   input: TInput;
   /** Why this input could not be carried right now. */
   reason: string;
+  /**
+   * This deferral is OUR INFRASTRUCTURE failing — an unreachable node, a dead
+   * indexer — rather than a queue of ours that happened to be full.
+   *
+   * The difference is what the batcher should do next. A saturated validation
+   * queue frees up on its own and the target should keep polling; an
+   * unreachable node will refuse the identical work on the identical schedule
+   * for as long as it is down, so the target is RESTED (see
+   * {@link BatchOutcome.cooldownMs}) instead of rebuilding and re-proving the
+   * same doomed batch every poll round.
+   *
+   * Optional and additive: an adapter that never sets it behaves exactly as
+   * adapters did before this field existed.
+   */
+  infra?: boolean;
 }
 
 /**
@@ -145,6 +160,35 @@ export interface BatchOutcome<TInput = DefaultBatcherInput> {
    * its verdicts because the batcher cannot know which input is at fault.
    */
   invariantFailure?: BatchInvariantFailure<TInput>;
+  /**
+   * Rest this target for at least this many milliseconds before the next round.
+   *
+   * The batcher has always been able to park a target on a cooldown, but only
+   * for a failure THROWN out of `submitBatch`. An adapter that runs its workers
+   * under `Promise.allSettled` and reports per-input fates cannot throw, so its
+   * outages had no way to ask for a rest and every poll round re-ran a full
+   * balance/prove pipeline against a dead node. This is that channel.
+   *
+   * Advisory, and additive: omit it and the processor decides for itself from
+   * the `infra` deferrals in this outcome, exactly as an adapter written before
+   * this field would behave.
+   */
+  cooldownMs?: number;
+}
+
+/**
+ * A transaction the batcher may already have put on chain, as the chain sees it.
+ *
+ * The answer to {@link BlockchainAdapter.findLandedTransaction} — see there for
+ * why a batcher has to be able to ask.
+ */
+export interface LandedTransaction {
+  /** The hash the chain knows it by; recorded verbatim for the caller. */
+  hash: BlockchainHash;
+  /** Block it was included in, when the chain will say. */
+  blockNumber?: bigint;
+  /** 1 = mined and succeeded (the default), 0 = mined and failed. */
+  status?: number;
 }
 
 /**
@@ -323,6 +367,43 @@ export interface BlockchainAdapter<TOutput> {
    * already did, cache it there rather than repeating it here.
    */
   getReplayKey?(input: DefaultBatcherInput): string | undefined;
+
+  /**
+   * (Optional) Did an EARLIER submission of this input already reach the chain?
+   *
+   * Asked before the batcher charges a retry, and it exists because of a
+   * measured lie. A batcher restarted while a batch is in flight loses the
+   * receipts but not the rows: the transactions land, the surviving rows are
+   * re-picked, the resubmission is refused because the spends are already
+   * used, three retries are charged, the rows are dropped — and the request is
+   * published as `failed / RETRIES_EXHAUSTED` for work the chain CONFIRMED.
+   * (00017's Q-2; observed verbatim as 00020's M13, with an on-chain counter
+   * proving all four transactions landed.)
+   *
+   * The adapter is asked rather than the batcher deciding, because only the
+   * adapter knows what its payloads mean — Midnight watches the transaction's
+   * own ledger identifiers, which survive the re-proving and re-serialization
+   * a hash does not.
+   *
+   * Contract, and it is a strict one: return a transaction ONLY when this
+   * SPECIFIC input is on chain. A batch-level answer would confirm every input
+   * in the batch the moment any one of them was found, which reports a chain
+   * verdict for a request the chain never saw — the same class of lie as the
+   * defect this closes. When in doubt, return `undefined`: the input is then
+   * charged exactly as it is today, which is the pre-existing behaviour.
+   *
+   * `context.transactionHash` is what the request's own status record kept from
+   * its last `submitted` transition, when there is a record and it got that
+   * far. Absent means the batcher died before it could write one down — the
+   * adapter's own identifiers are then the only evidence there is.
+   *
+   * Failures are swallowed by the batcher and treated as `undefined`: an
+   * unreachable indexer must never be the reason a batch loop stops.
+   */
+  findLandedTransaction?(
+    input: DefaultBatcherInput,
+    context: { target: string; transactionHash?: string },
+  ): Promise<LandedTransaction | undefined>;
 
   /**
    * (Optional) Operational snapshot for `/queue-stats`, e.g. fee capacity,

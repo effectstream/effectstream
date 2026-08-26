@@ -1,4 +1,5 @@
 import type {
+  BatchInputDeferral,
   BatchInputRejection,
   BatchOutcome,
   BatchSubmitResult,
@@ -8,6 +9,7 @@ import type {
 import type { DefaultBatcherInput } from "./types.ts";
 import type {
   RequestState,
+  RequestStatusRecord,
   RequestTransition,
   RequestTransitionDetail,
   TransitionOutcome,
@@ -28,6 +30,44 @@ export const RETRIES_EXHAUSTED = "RETRIES_EXHAUSTED";
 
 /** The transaction was mined and the chain reported it failed (`status: 0`). */
 export const ONCHAIN_FAILED = "ONCHAIN_FAILED";
+
+/** Shortest rest a target gets for an infrastructure failure. */
+const INFRA_COOLDOWN_FLOOR_MS = 1000;
+
+/** Longest rest the escalation reaches; a chain that is back should be noticed. */
+const INFRA_COOLDOWN_CEILING_MS = 60_000;
+
+/**
+ * How many times in a row ONE input may be parked uncharged before the batcher
+ * stops believing the diagnosis and charges it anyway (spec FR-4).
+ *
+ * The bound exists because parking is a judgement, and a judgement can be
+ * wrong. Without it, an adapter that answers "infrastructure" for an input that
+ * is in fact deterministically doomed would keep that input queued, uncharged
+ * and unanswerable for the rest of the process's life — trading the silent-drop
+ * failure this project fixes for a silent-hang one, which is not a trade.
+ *
+ * 50 is chosen against the escalation, not out of the air: parks rest the
+ * target for 1s, 2s, 4s … capped at 60s, so spending a whole park budget takes
+ * upwards of **45 minutes of continuous outage**. That is far longer than any
+ * outage a per-input retry budget was ever meant to absorb, and still finite.
+ */
+export const MAX_CONSECUTIVE_INFRA_PARKS = 50;
+
+/**
+ * Ceiling on the park ledger, so a batcher that has seen a great many distinct
+ * inputs cannot accumulate one counter per input forever. Entries are evicted
+ * oldest-first; an evicted input simply starts its count again, which is the
+ * safe direction — it gets MORE patience, never less.
+ */
+const INFRA_PARK_LEDGER_LIMIT = 10_000;
+
+/** The rest a target earns after `parks` consecutive infrastructure failures. */
+export function infraCooldownMs(parks: number, retryDelayMs: number): number {
+  const floor = Math.max(retryDelayMs, INFRA_COOLDOWN_FLOOR_MS);
+  const escalated = floor * 2 ** Math.max(0, parks - 1);
+  return Math.min(escalated, INFRA_COOLDOWN_CEILING_MS);
+}
 
 // Custom logger for debugging
 // File logging is opt-in: appendFileSync blocks the event loop on every line,
@@ -89,6 +129,15 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         recordTransitions?: (
           transitions: readonly RequestTransition[],
         ) => Promise<TransitionOutcome[]>;
+        /**
+         * Optional: the record for one request. Feature-detected like the rest
+         * of tracking — the reconciliation below uses it to hand the adapter
+         * the hash an earlier submission recorded, and does without when the
+         * backend has no statuses to read.
+         */
+        getStatus?: (
+          requestId: string,
+        ) => Promise<RequestStatusRecord | undefined>;
       };
       submissionCallbacks: Map<
         string,
@@ -108,6 +157,42 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       setTargetCooldown: (target: string, ms: number) => void;
     },
   ) {}
+
+  /**
+   * How many rounds in a row each input has been parked uncharged for an
+   * infrastructure failure (spec FR-4). Keyed by target and request id, and
+   * reset the moment the input is carried, judged or charged — a batcher that
+   * has been up for a month must treat its first blip of the month as the first
+   * blip, not as the continuation of one.
+   */
+  private readonly infraParks = new Map<string, number>();
+
+  private parkLedgerKey(input: T, target: string): string {
+    return `${target}\u0000${computeRequestId(input, target)}`;
+  }
+
+  /** Count one more consecutive park for this input and return the new total. */
+  private recordInfraPark(input: T, target: string): number {
+    const key = this.parkLedgerKey(input, target);
+    const parks = (this.infraParks.get(key) ?? 0) + 1;
+    // Re-inserting moves the entry to the back of the insertion order, which is
+    // what makes the eviction below oldest-first.
+    this.infraParks.delete(key);
+    this.infraParks.set(key, parks);
+    while (this.infraParks.size > INFRA_PARK_LEDGER_LIMIT) {
+      const oldest = this.infraParks.keys().next();
+      if (oldest.done) break;
+      this.infraParks.delete(oldest.value);
+    }
+    return parks;
+  }
+
+  /** This input's streak is over: it was carried, judged or charged. */
+  private clearInfraParks(inputs: readonly T[], target: string): void {
+    for (const input of inputs) {
+      this.infraParks.delete(this.parkLedgerKey(input, target));
+    }
+  }
 
   /**
    * Classify a batch-wide failure. INFRASTRUCTURE failures (no spendable
@@ -346,6 +431,191 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     }
   }
 
+  /**
+   * Split this round's deferrals into the ones still within their park budget
+   * and the ones that have spent it (spec FR-4).
+   *
+   * Only `infra` deferrals are counted. A plain deferral — a validation queue
+   * of ours that was full — is not a claim about the environment, so it does
+   * not rest the target and it does not consume a budget; that channel behaves
+   * exactly as it did before this existed.
+   */
+  private splitParkBudget(
+    deferrals: BatchInputDeferral<T>[],
+    target: string,
+  ): { parked: Array<{ deferral: BatchInputDeferral<T>; parks: number }>;
+    exhausted: BatchInputDeferral<T>[] } {
+    const parked: Array<{ deferral: BatchInputDeferral<T>; parks: number }> = [];
+    const exhausted: BatchInputDeferral<T>[] = [];
+    for (const deferral of deferrals) {
+      if (deferral.infra !== true) continue;
+      const parks = this.recordInfraPark(deferral.input, target);
+      if (parks > MAX_CONSECUTIVE_INFRA_PARKS) exhausted.push(deferral);
+      else parked.push({ deferral, parks });
+    }
+    return { parked, exhausted };
+  }
+
+  /**
+   * How long to rest this target, or `undefined` for "do not rest it".
+   *
+   * An explicit `cooldownMs` from the adapter wins: it knows how long its own
+   * chain takes to come back. Otherwise the rest escalates with the longest
+   * park streak in the batch, so a five-second blip costs a second and a
+   * two-hour outage does not cost two hours of rebuilt batches.
+   */
+  private infraCooldownRequest(
+    outcome: BatchOutcome<T>,
+    parked: Array<{ deferral: BatchInputDeferral<T>; parks: number }>,
+    retryDelayMs: number,
+    invariantCooldownMs: number | undefined,
+  ): number | undefined {
+    let requested: number | undefined;
+    if (typeof outcome.cooldownMs === "number" && outcome.cooldownMs > 0) {
+      requested = outcome.cooldownMs;
+    } else if (parked.length > 0) {
+      const longestStreak = Math.max(...parked.map((entry) => entry.parks));
+      requested = infraCooldownMs(longestStreak, retryDelayMs);
+    }
+    if (requested === undefined) return undefined;
+    // Never shorten a rest something more serious already asked for.
+    if (invariantCooldownMs !== undefined && invariantCooldownMs >= requested) {
+      return undefined;
+    }
+    return requested;
+  }
+
+  /**
+   * Ask the chain before charging: which of these inputs are already ON it?
+   *
+   * The defect this closes (spec FR-3, 00017's Q-2, measured verbatim as
+   * 00020's M13): a batcher restarted while a batch is in flight loses the
+   * receipts but keeps the rows. The transactions land, the surviving rows are
+   * re-picked, the resubmission is refused because the spends are used, three
+   * retries are charged, the rows are dropped — and the store publishes
+   * `failed / RETRIES_EXHAUSTED` for requests the chain CONFIRMED. A poller is
+   * then told the exact opposite of what happened, which is worse than being
+   * told nothing.
+   *
+   * Returns the inputs that are NOT on chain and must still be charged. The
+   * ones that are get the ordinary confirmation treatment — the same verdict,
+   * the same removal, the same resolution, in the same order — because that is
+   * what genuinely happened to them, just later than the batcher noticed.
+   *
+   * Everything here is best-effort by construction: no hook, a hook that
+   * throws, a status store that will not answer, a removal that fails — each
+   * degrades to "charge it, exactly as before". An outage in the check must
+   * never be a reason a batch loop stops.
+   */
+  private async reconcileLandedInputs(
+    adapter: BlockchainAdapter<any>,
+    target: string,
+    inputs: T[],
+  ): Promise<T[]> {
+    if (inputs.length === 0) return inputs;
+    if (typeof adapter.findLandedTransaction !== "function") return inputs;
+
+    const unresolved: T[] = [];
+    for (const input of inputs) {
+      let landed;
+      try {
+        landed = await adapter.findLandedTransaction(input, {
+          target,
+          transactionHash: await this.recordedTransactionHash(input, target),
+        });
+      } catch (error) {
+        debugLog(
+          `[BatchProcessor] Landed-transaction check failed for target ` +
+            `${target}; charging as usual: ${error}`,
+        );
+        landed = undefined;
+      }
+      if (!landed) {
+        unresolved.push(input);
+        continue;
+      }
+
+      const receipt: BlockchainTransactionReceipt = {
+        hash: landed.hash,
+        blockNumber: landed.blockNumber ?? 0n,
+        status: landed.status ?? 1,
+      };
+      console.warn(
+        `🔎 [BatchProcessor] Request ` +
+          `${computeRequestId(input, target).substring(0, 12)}… for target ` +
+          `${target} failed to submit, but its earlier transaction IS on ` +
+          `chain (${landed.hash}${
+            landed.blockNumber === undefined
+              ? ""
+              : ` at block ${landed.blockNumber}`
+          }). Recording the chain's verdict instead of charging a retry.`,
+      );
+
+      // Verdict BEFORE removal (00011 F-P3.14). Under kill -9 this ordering is
+      // the safe one: a terminal record with a surviving row is repaired by the
+      // append-only guard when the row is re-picked, whereas removing first can
+      // leave an in-flight record with no row behind it.
+      await this.recordChainOutcome([input], target, receipt);
+      try {
+        await this.batcher.storage.removeProcessedInputs([input], target);
+      } catch (error) {
+        // The row survives and will be re-picked — and reconciled again, which
+        // is self-healing. What must not happen is that it gets charged, and
+        // it will not: it is out of the charge set for good.
+        console.error(
+          `🛑 [BatchProcessor] Could not remove the row for a request that IS ` +
+            `on chain (target ${target}, ${landed.hash}); its record is ` +
+            `already terminal, so the re-picked row will be reconciled ` +
+            `again: ${error}`,
+        );
+      }
+      this.resolveInputCallbacks([input], target, receipt);
+      this.clearInfraParks([input], target);
+    }
+    return unresolved;
+  }
+
+  /** The hash this request's last `submitted` transition wrote down, if any. */
+  private async recordedTransactionHash(
+    input: T,
+    target: string,
+  ): Promise<string | undefined> {
+    const storage = this.batcher.storage;
+    if (typeof storage.getStatus !== "function") return undefined;
+    try {
+      const record = await storage.getStatus(computeRequestId(input, target));
+      return record?.transactionHash;
+    } catch (error) {
+      debugLog(
+        `[BatchProcessor] Could not read the status record before the ` +
+          `landed-transaction check for target ${target}: ${error}`,
+      );
+      return undefined;
+    }
+  }
+
+  /**
+   * Reconcile, then charge whatever the chain has never heard of.
+   *
+   * Every charge path in this class goes through here, so there is exactly one
+   * answer to "did we check before we charged?" rather than three.
+   */
+  private async reconcileThenCharge(
+    adapter: BlockchainAdapter<any>,
+    inputs: T[],
+    target: string,
+    maxRetries: number,
+    reasons?: Map<string, string>,
+  ): Promise<void> {
+    const unresolved = await this.reconcileLandedInputs(
+      adapter,
+      target,
+      inputs,
+    );
+    if (unresolved.length === 0) return;
+    await this.chargeRetries(unresolved, target, maxRetries, reasons);
+  }
+
   async processBatchForTarget(
     adapter: BlockchainAdapter<any>,
     target: string,
@@ -434,7 +704,9 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         const thrownMessage = error instanceof Error
           ? error.message
           : String(error);
-        await this.chargeRetries(
+        this.clearInfraParks(inputsSnapshot, target);
+        await this.reconcileThenCharge(
+          adapter,
           inputsSnapshot,
           target,
           maxRetries,
@@ -464,10 +736,15 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       const invariantInputs = invariant?.inputs ?? [];
       const invariantInputSet = new Set<T>(invariantInputs);
       let invariantError: Error | undefined;
+      // Remembered so the infra cooldown below can never SHORTEN it: the
+      // batcher's cooldown is an absolute deadline, so a 1s infra rest applied
+      // after an infinite hard pause would silently cancel the hard pause.
+      let invariantCooldownMs: number | undefined;
       if (invariant) {
         const cooldownMs = invariant.hardPause
           ? Number.POSITIVE_INFINITY
-          : Math.max(retryDelayMs, 1000);
+          : Math.max(retryDelayMs, INFRA_COOLDOWN_FLOOR_MS);
+        invariantCooldownMs = cooldownMs;
         this.batcher.setTargetCooldown(target, cooldownMs);
         invariantError = new Error(
           `Batch invariant failure for target ${target}: ` +
@@ -503,9 +780,29 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       );
 
       if (permanentRejected.length > 0) {
+        this.clearInfraParks(
+          permanentRejected.map((rejection) => rejection.input),
+          target,
+        );
         await this.rejectInputsPermanently(permanentRejected, target);
       }
 
+      // An infra deferral is the outage the retry budget was never meant to
+      // absorb. It is left uncharged like any deferral, but unlike any other
+      // deferral it also RESTS the target: the same doomed balance/prove
+      // pipeline re-run every poll round is how a node outage used to cost a
+      // batcher its whole worker pool.
+      const { parked, exhausted } = this.splitParkBudget(retryable, target);
+      if (exhausted.length > 0) {
+        console.warn(
+          `[BatchProcessor] ${exhausted.length} input(s) for target ${target} ` +
+            `have now been parked ${MAX_CONSECUTIVE_INFRA_PARKS} times in a ` +
+            `row without ever being carried; charging them a retry rather ` +
+            `than parking uncharged forever: ${
+              exhausted.map((d) => d.reason).join("; ")
+            }`,
+        );
+      }
       if (retryable.length > 0) {
         // Left in storage with retry counts untouched: these inputs were never
         // judged, so charging them for our own trouble would eventually drop a
@@ -518,20 +815,50 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         );
       }
 
-      if (failed.length > 0) {
+      const cooldownRequest = this.infraCooldownRequest(
+        outcome,
+        parked,
+        retryDelayMs,
+        invariantCooldownMs,
+      );
+      if (cooldownRequest !== undefined) {
+        console.warn(
+          `[BatchProcessor] Infra failure reported for target ${target} — ` +
+            `parking ${parked.length} input(s) untouched, cooldown ` +
+            `${cooldownRequest}ms`,
+        );
+        this.batcher.setTargetCooldown(target, cooldownRequest);
+      }
+
+      // A judged failure ends the streak — the adapter reached a verdict, so
+      // whatever the previous rounds suspected about the environment, this
+      // round was not about the environment. A budget-exhausted park does NOT
+      // end it: its counter is the only thing keeping the input from parking
+      // for another full budget, and resetting it here would triple the bound
+      // FR-4 exists to impose.
+      this.clearInfraParks(failed.map((failure) => failure.input), target);
+      const chargeable = [
+        ...failed,
+        ...exhausted.map((deferral) => ({
+          input: deferral.input,
+          error: deferral.reason,
+        })),
+      ];
+      if (chargeable.length > 0) {
         debugLog(
-          `[BatchProcessor] Charging one retry to ${failed.length} ` +
+          `[BatchProcessor] Charging one retry to ${chargeable.length} ` +
             `adapter-judged failed input(s) for target ${target} ` +
             `(maxRetries=${maxRetries}): ${
-              failed.map((failure) => failure.error).join("; ")
+              chargeable.map((failure) => failure.error).join("; ")
             }`,
         );
-        await this.chargeRetries(
-          failed.map((failure) => failure.input),
+        await this.reconcileThenCharge(
+          adapter,
+          chargeable.map((failure) => failure.input),
           target,
           maxRetries,
           new Map(
-            failed.map((
+            chargeable.map((
               failure,
             ) => [computeRequestId(failure.input, target), failure.error]),
           ),
@@ -591,7 +918,13 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
             );
             // The legacy protocol says nothing about WHY an input was spliced
             // out, so the exhaustion report carries no diagnostic here.
-            await this.chargeRetries(failedInputs, target, maxRetries);
+            this.clearInfraParks(failedInputs, target);
+            await this.reconcileThenCharge(
+              adapter,
+              failedInputs,
+              target,
+              maxRetries,
+            );
           }
         }
       }
@@ -600,14 +933,34 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         `[BatchProcessor] Submitting ${finalSelectedInputs.length} inputs for target ${target} with hash ${hash}`,
       );
 
+      // Carried at last: whatever the previous rounds thought of these inputs,
+      // the environment worked this time.
+      this.clearInfraParks(finalSelectedInputs, target);
+
       // Recorded before the receipt wait, which can take a minute: a poll in
       // that window should say "submitted, here is the hash" rather than
       // "batching", so the caller can watch the chain themselves.
+      //
+      // Each input gets its OWN hash, by the same rule the receipt already uses
+      // (`splitReceiptHashes`). An adapter that submits one transaction per
+      // input reports them comma-joined, and recording the joined string here
+      // would hand every caller a hash that matches nothing on chain — and
+      // would give `reconcileLandedInputs` a batch-level answer to a per-input
+      // question, confirming everyone the moment anyone was found.
+      const submitHashes = this.splitReceiptHashes(finalSelectedInputs, {
+        hash,
+        blockNumber: 0n,
+        status: 1,
+      });
       await this.transitionAll(
         finalSelectedInputs,
         target,
         "submitted",
-        () => ({ transactionHash: hash }),
+        (input) => ({
+          transactionHash: submitHashes.isMultiHash
+            ? submitHashes.hashes[finalSelectedInputs.indexOf(input)]
+            : hash,
+        }),
       );
 
       // Wait for confirmation and EffectStream processing
