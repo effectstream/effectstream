@@ -15,6 +15,8 @@ const DB_NAME = process.env["DB_NAME"] || "postgres";
 
 const CLI_PATH = path.resolve(import.meta.dirname!, "../../node_modules/@effectstream/orchestrator/src/cli.ts");
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./start.test.ts");
+const TEMPLATE_ROOT = path.resolve(import.meta.dirname!, "../..");
+const WASM_RUNTIME_IDENTITY_ONLY = process.env["WASM_RUNTIME_IDENTITY_ONLY"] === "1";
 
 let orchestratorProc: ReturnType<typeof Bun.spawn> | null = null;
 
@@ -30,12 +32,33 @@ async function startInfrastructure(): Promise<void> {
 
 async function stopInfrastructure(): Promise<void> {
   console.log("\nStopping infrastructure...");
+  if (!orchestratorProc) return;
   process.on("SIGTERM", () => {});
   try {
     await fetch(`http://localhost:${ORCHESTRATOR_PORT}/shutdown`, { method: "POST" });
   } catch { /* already down */ }
   await delay(2000);
   orchestratorProc?.kill();
+}
+
+async function runWasmRuntimeIdentityGuard(): Promise<void> {
+  // The generated Compact reader is ignored and absent from a clean checkout.
+  // Generate it before loading the guard module, but still before starting any
+  // orchestrator process or service.
+  console.log("Generating the Compact reader for the WASM identity guard...");
+  const compactBuild = Bun.spawn(["bun", "run", "build:midnight"], {
+    cwd: TEMPLATE_ROOT,
+    stdout: "inherit",
+    stderr: "inherit",
+    env: { ...process.env },
+  });
+  const compactBuildExit = await compactBuild.exited;
+  if (compactBuildExit !== 0) {
+    throw new Error(`Compact reader generation failed with code ${compactBuildExit}`);
+  }
+
+  const { wasmRuntimeIdentityTest } = await import("./infra/wasm-runtime-identity.test.ts");
+  await wasmRuntimeIdentityTest();
 }
 
 async function waitForOrchestrator(): Promise<void> {
@@ -118,10 +141,11 @@ async function test() {
   let db: Client | null = null;
   let caughtError = false;
   try {
-    // Fail before launching any infrastructure if sync and the generated
-    // Compact reader resolve different WASM class identities.
-    const { wasmRuntimeIdentityTest } = await import("./infra/wasm-runtime-identity.test.ts");
-    await wasmRuntimeIdentityTest();
+    await runWasmRuntimeIdentityGuard();
+    if (WASM_RUNTIME_IDENTITY_ONLY) {
+      console.log("WASM identity-only verification complete; infrastructure was not started.");
+      return;
+    }
 
     await startInfrastructure();
     await waitForOrchestrator();
@@ -203,7 +227,7 @@ async function test() {
     // A thrown error (e.g. an infra wait/health timeout) must fail the run even
     // if no test assertion recorded a failure — otherwise a broken deploy is
     // silently reported green (this masked evm-midnight-v2's missing managed/).
-    if (caughtError || anyError()) process.exit(1);
+    if (caughtError || (!WASM_RUNTIME_IDENTITY_ONLY && anyError())) process.exit(1);
     process.exit(0);
   }
 }
