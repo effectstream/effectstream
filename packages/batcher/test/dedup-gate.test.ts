@@ -248,6 +248,49 @@ describe("the replay gate at the accept path", () => {
     });
   });
 
+  test("the keyless warning names the RIGHT cause of the two", async () => {
+    // A diagnostic that points somewhere there is nothing to find is worse
+    // than silence. The old text said "Implement getReplayKey() on the adapter"
+    // whatever the reason, and that sentence sent 00017's M14 investigation
+    // after a missing hook for a day — while the hook was there all along,
+    // answering `undefined` because it called the ledger accessors detached
+    // from their receiver (00020 F-1.10 / F-1.10a).
+    const say = async (script: Script): Promise<string> => {
+      const lines: string[] = [];
+      const original = console.warn;
+      console.warn = (...args: unknown[]) => {
+        lines.push(args.map(String).join(" "));
+      };
+      try {
+        await withBatcher(async ({ batcher }) => {
+          await batcher.batchInput(input({ signature: undefined }), "no-wait");
+        }, script);
+      } finally {
+        console.warn = original;
+      }
+      return lines.filter((l) => l.includes("no replay key")).join("\n");
+    };
+
+    const noHook = await say({});
+    // Here the advice is correct, and stays.
+    expect(noHook).toContain("implements no getReplayKey()");
+    expect(noHook).toContain("implement getReplayKey() on the adapter");
+
+    const hookAnsweredUndefined = await say({
+      hasReplayKeyHook: true,
+      getReplayKey: () => undefined,
+    });
+    // Here it was a lie. The reader must be sent to the adapter's DERIVATION.
+    expect(hookAnsweredUndefined).toContain("DOES implement getReplayKey()");
+    expect(hookAnsweredUndefined).toContain("adding the hook is not the fix");
+
+    // Both still say what it COSTS, which is the part an operator acts on.
+    for (const line of [noHook, hookAnsweredUndefined]) {
+      expect(line).toContain("WITHOUT duplicate");
+      expect(line).toContain("paid for");
+    }
+  });
+
   test("an adapter hook that declines a key disables dedup for that input", async () => {
     await withBatcher(async ({ batcher, storage }) => {
       // The adapter implements the hook and answers `undefined`: authoritative.
