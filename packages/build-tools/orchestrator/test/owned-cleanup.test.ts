@@ -265,6 +265,53 @@ describe("ownership-safe configured ports", () => {
     expect(await waitForPortToClose(port)).toBe(true);
   });
 
+  test("post-KILL live groups remain owned until an authenticated empty retry", async () => {
+    const signals: ManagedSignal[] = [];
+    let observedGroup: "owned" | "replacement" | "empty" = "owned";
+    const manager = new ProcessManager({
+      stopTimeoutMs: 20,
+      createOwnerToken: () => "deterministic-post-kill-owner",
+      inspectProcessGroup: (processGroupId) => {
+        if (observedGroup === "empty") return [];
+        return [{
+          pid: processGroupId,
+          processGroupId,
+          state: "S",
+          startToken: observedGroup === "owned" ? "owned-start-token" : "replacement-start-token",
+          ownerTokenMatches: observedGroup === "owned",
+        }];
+      },
+      signalProcessGroup: () => {
+        // The injected ownership boundary deliberately remains live after
+        // both signals so the post-KILL control flow is deterministic.
+      },
+      onSignal: (signal) => signals.push(signal),
+    });
+    managers.add(manager);
+
+    const { waitForExit } = await manager.launch({
+      name: "post-kill-live",
+      command: process.execPath,
+      args: ["-e", "setTimeout(() => process.exit(0), 75)"],
+    });
+
+    expect(await manager.stop("post-kill-live")).toBe(false);
+    expect(signals.map(({ signal }) => signal)).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(manager.get("post-kill-live")?.status).not.toBe("stopped");
+    expect(manager.isRunning("post-kill-live")).toBe(true);
+    await waitForExit;
+
+    observedGroup = "replacement";
+    expect(await manager.stop("post-kill-live")).toBe(false);
+    expect(signals.map(({ signal }) => signal)).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(manager.isRunning("post-kill-live")).toBe(true);
+
+    observedGroup = "empty";
+    expect(await manager.stop("post-kill-live")).toBe(true);
+    expect(signals.map(({ signal }) => signal)).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(manager.isRunning("post-kill-live")).toBe(false);
+  });
+
   test("PGID reuse before escalation loses authorization and sends no KILL", async () => {
     const signals: ManagedSignal[] = [];
     let termSent = false;

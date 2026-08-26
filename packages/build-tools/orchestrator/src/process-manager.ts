@@ -361,6 +361,10 @@ export class ProcessManager {
         this.finishRefusedStop(name);
         return false;
       }
+      if (killed === "alive") {
+        this.finishIncompleteStop(name, managed);
+        return false;
+      }
     }
 
     this.finishStopped(name, managed);
@@ -379,6 +383,13 @@ export class ProcessManager {
   private finishRefusedStop(name: string): void {
     this.stopping.delete(name);
     console.warn(`[${name}] Refusing to signal because the recorded native ownership identity could not be authenticated.`);
+  }
+
+  private finishIncompleteStop(name: string, managed: ManagedProcess): void {
+    this.stopping.delete(name);
+    console.warn(
+      `[${name}] Stop incomplete: authenticated process group ${managed.processGroupId} remains live after SIGKILL; retaining ownership for a later retry.`,
+    );
   }
 
   private signalOwned(
