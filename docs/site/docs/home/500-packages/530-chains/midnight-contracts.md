@@ -25,6 +25,22 @@ npm install @effectstream/midnight-contracts
 
 Requires a reachable Midnight node, proof server, and indexer. The defaults match what `@effectstream/orchestrator`'s Midnight step boots locally.
 
+For `stagenet`, the network resolver uses the explicit node-2.x service
+profile:
+
+- Node: `wss://rpc.stagenet.shielded.tools`
+- Indexer HTTP: `https://indexer.stagenet.shielded.tools/api/v4/graphql`
+- Indexer WebSocket: `wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws`
+- Informational faucet metadata: `https://faucet.stagenet.shielded.tools/api/drips`
+
+The faucet URL is metadata only: resolving a network never requests funds or
+performs network I/O. The proof server remains separately configurable and
+defaults to `http://127.0.0.1:6300`.
+
+Preview and Preprod remain recognizable network IDs, but they still run the
+Midnight node-1.x line and are unsupported by this node-2.x wallet/deployment
+line. They are not rejected or remapped to Stagenet.
+
 ## Standalone usage
 
 ### Read a contract
@@ -85,8 +101,8 @@ To deploy against a non-default stack, pass `NetworkUrls`:
 
 ```typescript
 const network: NetworkUrls = {
-  indexer: "http://localhost:8088/api/v3/graphql",
-  indexerWS: "ws://localhost:8088/api/v3/graphql/ws",
+  indexer: "http://localhost:8088/api/v4/graphql",
+  indexerWS: "ws://localhost:8088/api/v4/graphql/ws",
   node: "http://localhost:9944",
   proofServer: "http://localhost:6300",
 };
@@ -135,14 +151,14 @@ Wallet and dust helpers, exported from the package root:
 
 - `buildWalletFacade(...)`: builds the wallet facade the deploy and batcher paths run on.
 - `registerNightForDust(...)`, `getInitialDustState(...)`: register NIGHT to generate dust and read the starting state.
-- `waitForDustFunds(wallet, opts)` / `waitForDustFundsWithRetry(...)`: block until a wallet has spendable dust - the step that makes a freshly funded wallet usable.
+- `waitForDustFunds(wallet, opts)` / `waitForDustFundsWithRetry(...)`: block until `dust.availableCoins` contains a spendable coin - a positive aggregate balance alone does not make a freshly funded wallet fee-ready.
 - `saveDustState(...)` / `loadDustState(...)`: persist and restore dust state across restarts, avoiding a re-sync.
 - `resolveFacadeDustBalance(...)`: current dust balance for a facade.
 
 Other subpaths:
 
 - `@effectstream/midnight-contracts/wallet-info` - wallet inspection plus the dust-state persistence helpers above, and `resolveWalletSyncTimeoutMs()`.
-- `@effectstream/midnight-contracts/midnight-env` - `midnightNetworkConfig` (the resolved `{ id, indexer, indexerWS, node, proofServer }` endpoints, env-overridable), `MidnightNetworkConfig`, and `isExternalProofServerConfigured`.
+- `@effectstream/midnight-contracts/midnight-env` - `midnightNetworkConfig` (the resolved `{ id, indexer, indexerWS, node, proofServer, faucetUrl? }` endpoints and informational metadata; service endpoints remain env-overridable), `MidnightNetworkConfig`, and `isExternalProofServerConfigured`.
 - `@effectstream/midnight-contracts/ledger-from-tx-state` - `midnightLedgerFromTxStateHex(...)` and the `MidnightLedgerFn` / `MidnightContractStateDeserializer` types, for decoding contract ledger state from a serialized transaction state.
 - `@effectstream/midnight-contracts/types` - shared types.
 
