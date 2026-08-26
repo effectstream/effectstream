@@ -9,6 +9,21 @@ NPM wrapper that runs the [Midnight](https://midnight.network) Indexer either as
 - Used by the orchestrator's Midnight step; sits in front of `MidnightFetcher` on the sync side.
 - Maps port 8088 (Docker) or runs on localhost (binary) so the rest of the local stack reaches it the same way.
 
+## Bundled compatibility
+
+The machine-readable [`compatibility.json`](./compatibility.json) is the source
+of truth used by startup and timeout diagnostics:
+
+| Component         | Bundled version |
+| ----------------- | --------------- |
+| Midnight node     | `2.0.0-rc.4`    |
+| Ledger generation | 9               |
+| Midnight indexer  | `4.4.0-rc.1`    |
+
+Cached node state must come from the same Ledger generation. The proof server
+is deliberately excluded from this cached-chain tuple because there is no
+evidence that it owns compatible chain state.
+
 ## Install
 
 ```bash
@@ -41,14 +56,14 @@ The Docker path pulls `midnightntwrk/indexer-standalone` and maps container port
 
 ### Environment variables
 
-| Variable | Required | Docker default | Binary default | Purpose |
-| --- | --- | --- | --- | --- |
-| `APP__INFRA__SECRET` | yes | - | - | Hex-encoded 32-byte indexer secret. |
-| `LEDGER_NETWORK_ID` | no | `Undeployed` | `Undeployed` | Ledger network selector. |
-| `SUBSTRATE_NODE_WS_URL` | no | `ws://node:9944` | `ws://localhost:9944` | Substrate node WS. |
-| `FEATURES_WALLET_ENABLED` | no | `true` | `true` | Wallet features. |
-| `APP__INFRA__PROOF_SERVER__URL` | no | `http://proof-server:6300` | `http://localhost:6300` | Proof server. |
-| `APP__INFRA__NODE__URL` | no | `ws://node:9944` | `ws://localhost:9944` | Node URL. |
+| Variable                        | Required | Docker default             | Binary default          | Purpose                             |
+| ------------------------------- | -------- | -------------------------- | ----------------------- | ----------------------------------- |
+| `APP__INFRA__SECRET`            | yes      | -                          | -                       | Hex-encoded 32-byte indexer secret. |
+| `LEDGER_NETWORK_ID`             | no       | `Undeployed`               | `Undeployed`            | Ledger network selector.            |
+| `SUBSTRATE_NODE_WS_URL`         | no       | `ws://node:9944`           | `ws://localhost:9944`   | Substrate node WS.                  |
+| `FEATURES_WALLET_ENABLED`       | no       | `true`                     | `true`                  | Wallet features.                    |
+| `APP__INFRA__PROOF_SERVER__URL` | no       | `http://proof-server:6300` | `http://localhost:6300` | Proof server.                       |
+| `APP__INFRA__NODE__URL`         | no       | `ws://node:9944`           | `ws://localhost:9944`   | Node URL.                           |
 
 ### Path resolution
 
@@ -62,6 +77,11 @@ Linux amd64 and macOS arm64.
 
 The orchestrator's Midnight step starts this indexer behind `@effectstream/npm-midnight-node` + proof server. The runtime's `@effectstream/sync` `MidnightFetcher` queries it. You usually don't invoke this package by hand; you add it to your orchestrator config and the rest happens automatically.
 
+The native wrapper now waits for the indexer child and preserves its nonzero
+exit code. The orchestrator probes indexer TCP readiness directly with a
+60-second default bound rather than delegating to an unbounded template
+`wait-on` script.
+
 ## Troubleshooting
 
 A few common failures and where to look:
@@ -69,6 +89,19 @@ A few common failures and where to look:
 - `Docker is not installed or not available` - install Docker Desktop / Engine and confirm `docker --version` from the same shell.
 - `APP__INFRA__SECRET environment variable is required` - required for both modes; export it or pass inline.
 - `Failed to start midnight-indexer` - check that ports 8088, 6300, and 9944 are free and that the Midnight node is reachable.
+- `unknown readiness failure` - inspect `logs/midnight-indexer.log` and
+  `logs/midnight-node.log`. A TCP listener alone does not prove that the node is
+  usable: both a fresh chain before block one and an indexer connected to a
+  failed node can open port 8088.
+- A node log containing the exact missing
+  `ext_ledger_8_bridge_construct_distribute_treasury_system_tx_version_1`
+  import is the verified incompatible Ledger-8-cache signal for this tuple.
+  Without that exact signal, stale state is only one possible cause.
+- Indexer `--clean` removes only its SQLite data; it does not reset node chain
+  state. Under the Effectstream orchestrator, node state is kept at
+  `packages/contracts-midnight/node_modules/.cache/effectstream/midnight-node`.
+  Stop the stack first, then archive or remove only that project-local
+  directory if you choose to reset it. Startup never deletes it automatically.
 
 ## Examples
 
