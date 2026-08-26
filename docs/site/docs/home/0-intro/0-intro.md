@@ -25,12 +25,24 @@ EffectStream is a Web3 Engine optimized for dApps, games, gamification and auton
 
 > This is a preview of the EffectStream V2 documentation. We welcome any feedback you have on errors, missing information, or parts that aren't clear.
 
+Install [Bun](https://bun.sh), [Foundry](https://www.getfoundry.sh/), and the
+EVM/Midnight template's selected Compact compiler (`0.33.0-rc.2`) before
+starting:
+
+```sh
+curl -L https://foundry.paradigm.xyz | bash && foundryup
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+```
+
 First, clone the repository and use the `templates/evm-midnight-v2/` folder as a working template:
 
 ```sh
 # Clone and move to evm-midnight-v2 template
 git clone https://github.com/effectstream/effectstream.git
 cd effectstream/templates/evm-midnight-v2
+
+# Install the checksummed Compact selection declared by this template
+bun toolchain/compact.ts install
 
 # Install packages
 bun i

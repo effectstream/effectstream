@@ -4,6 +4,23 @@
 
 Multi-chain Effectstream template: EVM (Hardhat/Arbitrum) + Midnight. Syncs ERC-721 events and Midnight contract state into a unified rollup. React frontend with Midnight wallet integration.
 
+## Required toolchain
+
+Install [Foundry](https://www.getfoundry.sh/) and the Compact launcher before
+starting this template, then install its exact Compact selection,
+`0.33.0-rc.2`:
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash && foundryup
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+bun toolchain/compact.ts install
+```
+
+`toolchain.json` is the source of truth. Contract builds, startup preflight,
+Docker installation, and documentation consistency checks consume or validate
+that declaration. The template installer downloads an immutable upstream asset
+and verifies the per-platform checksum declared beside the version.
+
 ## Commands
 
 ```bash
@@ -11,7 +28,7 @@ bun install                          # Install deps
 bun run dev                          # Full stack: PGLite + Hardhat + Midnight + sync + batcher + frontend
 bun run start:mainnet                # Mainnet: Arbitrum One + Midnight mainnet (requires env vars)
 bun run test                         # E2E tests (packages/tests/run-tests.ts)
-bun run build:midnight               # Compile Compact contract (+0.31.0)
+bun run build:midnight               # Compile with the selection in toolchain.json
 bun run build:evm                    # Compile Solidity + generate TS bindings
 ```
 
@@ -50,12 +67,12 @@ Bun monorepo with flat `packages/*` layout. All `@effectstream/*` deps are from 
 All Midnight dependencies must be pinned to exact versions from the compatibility matrix:
 https://github.com/midnightntwrk/midnight-sdk/blob/main/COMPATIBILITY.md
 
-Never use `^` or `~` ranges. Current stable set (midnight-node 1.0.0 era, as of 2026-07-29):
-- Compact compiler `+0.31.0`, compact-runtime `0.16.0`, compact-js `2.5.1` (do NOT bump compact-js to 2.5.3+ — it targets ledger-v9)
-- midnight-js-* `4.1.1`, ledger-v8 `8.1.0`, onchain-runtime-v3 `3.0.0`
-- Wallet SDK moved scope to `@midnightntwrk/*` (no hyphen): wallet-sdk-facade `4.1.0`, wallet-sdk-hd `3.0.3`, wallet-sdk-dust-wallet `4.2.0`, wallet-sdk-shielded `3.0.2`, wallet-sdk-unshielded-wallet `3.1.0`, wallet-sdk-address-format `3.1.2`, wallet-sdk-abstractions `2.1.0`
+Never use `^` or `~` ranges. Current template set (Midnight node 2.x / Ledger 9):
+- Compact compiler `+0.33.0-rc.2` from `toolchain.json`, compact-runtime `0.18.0-rc.1`, compact-js `2.5.5-rc.7`
+- midnight-js-* `5.0.0-beta.6`, ledger-v9 `1.0.0-rc.3`, onchain-runtime-v4 `4.0.0-rc.3`
+- Wallet SDK packages use the `@midnightntwrk/*` scope and the exact beta versions pinned in `packages/frontend/package.json`.
 
-The old `@midnight-ntwrk/ledger`, `ledger-v6`, `onchain-runtime-v1`, `zswap`, and `wallet`/`wallet-api` packages are deprecated/removed — zswap types are re-exported from `ledger-v8`.
+The old `@midnight-ntwrk/ledger`, ledger-v8, onchain-runtime-v3, `zswap`, and `wallet`/`wallet-api` packages belong to the prior node-1/Ledger-8 generation and must not be mixed into this template.
 
 ## Midnight wallet SDK (v3/v4 API)
 
