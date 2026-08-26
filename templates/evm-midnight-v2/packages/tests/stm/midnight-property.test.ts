@@ -47,8 +47,8 @@ export async function midnightPropertyTest(db: Client) {
       // `api.walletFacade`; the raw `WalletResult` (secret keys, keystore,
       // addresses) ends up at `api.walletResult` for advanced flows like the
       // manual balance/sign/finalize loop below.
-      const { MidnightLocalConnector } = await import(
-        "@effectstream/wallets/midnight-local"
+      const { WalletMode, walletLogin } = await import(
+        "@effectstream/wallets"
       );
       const { syncAndWaitForFunds } = await import(
         "@effectstream/midnight-contracts"
@@ -75,13 +75,20 @@ export async function midnightPropertyTest(db: Client) {
 
       setNetworkId(MIDNIGHT_NETWORK_ID as any);
 
-      console.log("  Building wallet via MidnightLocalConnector...");
-      const provider = await MidnightLocalConnector.instance().connectFromSeed({
+      console.log("  Building wallet via high-level MidnightLocal login...");
+      const connected = await walletLogin({
+        mode: WalletMode.MidnightLocal,
         seed: GENESIS_SEED,
         networkId: MIDNIGHT_NETWORK_ID,
         networkUrls,
+        syncMode: "all",
       });
-      const api = provider.getConnection().api as any;
+      if (!connected.success) {
+        throw new Error(
+          `High-level MidnightLocal login failed: ${connected.errorMessage}`,
+        );
+      }
+      const api = connected.result.provider.getConnection().api as any;
       const walletResult = api.walletResult as Awaited<
         ReturnType<
           typeof import("@effectstream/midnight-contracts")["buildWalletFacade"]
@@ -89,7 +96,12 @@ export async function midnightPropertyTest(db: Client) {
       >;
       if (walletResult == null) {
         throw new Error(
-          "MidnightLocalConnector did not return walletResult — facade mode wiring is broken.",
+          "High-level MidnightLocal login did not return walletResult — facade mode wiring is broken.",
+        );
+      }
+      if (api.walletFacade !== walletResult.wallet) {
+        throw new Error(
+          "High-level MidnightLocal provider returned mismatched facade/result identities.",
         );
       }
       console.log("  Wallet built. Syncing funds...");
