@@ -1,6 +1,34 @@
+-- The queue is keyed on the request id, NEVER on the content key.
+--
+-- `request_id` is sha256(content_key) — 64 hex characters whatever the payload
+-- weighs. `content_key` is the payload itself: `addressType|target|address|
+-- timestamp|signature|input`, where `input` is the entire submitted
+-- transaction. Indexing that column is not a size risk, it is a size CEILING:
+-- a btree tuple may not exceed 2704 bytes (one third of an 8 KB page), and a
+-- minimal real Midnight contract call is ~3.3 KB, so its content key is ~6.7 KB.
+-- With `PRIMARY KEY (content_key, seq)` — which is what this table used to
+-- declare — every such submission failed the index write with
+-- `index row size 6880 exceeds btree version 4 maximum 2704`, rolled the
+-- acceptance transaction back, and returned a 500 to the caller instead of the
+-- request id that request tracking exists to hand out. Measured on BOTH rungs:
+-- the ceiling is PostgreSQL's and PgLite is PostgreSQL, so the embedded engine
+-- fails at the identical byte count.
+--
+-- Hashing changes nothing about what a row IS. Same uniqueness class (equal
+-- content keys hash equal, different ones do not), same duplicate grouping
+-- under `seq`, same remove-all-matching and retry-charging behaviour — the
+-- callers all hold the content key already and hash it with the one
+-- implementation in `core/request-id.ts`.
+--
+-- `seq` stays. Inputs without a replay key are allowed to queue twice, so two
+-- rows may legally share a request id, and the queue is read in insertion
+-- order.
+--
+-- `content_key` stays as an UNINDEXED column: it is diagnostic, and it is what
+-- a legacy `pending-inputs.jsonl` import writes alongside the id it derives.
 CREATE TABLE IF NOT EXISTS pending_inputs (
   content_key  text      NOT NULL,
-  request_id   text      NOT NULL DEFAULT '',
+  request_id   text      NOT NULL,
   seq          bigserial NOT NULL,
   row_target   text      NOT NULL,
   address      text      NOT NULL,
@@ -11,17 +39,11 @@ CREATE TABLE IF NOT EXISTS pending_inputs (
   retry_count  integer   NOT NULL DEFAULT 0,
   payload      text      NOT NULL,
   created_at   timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (content_key, seq)
+  PRIMARY KEY (request_id, seq)
 );
 
 CREATE INDEX IF NOT EXISTS pending_inputs_target_seq_idx
   ON pending_inputs (row_target, seq);
-
-ALTER TABLE pending_inputs
-  ADD COLUMN IF NOT EXISTS request_id text NOT NULL DEFAULT '';
-
-CREATE INDEX IF NOT EXISTS pending_inputs_request_idx
-  ON pending_inputs (request_id);
 
 CREATE TABLE IF NOT EXISTS request_status (
   request_id       text PRIMARY KEY,

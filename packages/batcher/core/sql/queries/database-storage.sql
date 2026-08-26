@@ -1,14 +1,3 @@
-/* @name findPendingWithoutRequestId */
-SELECT content_key, seq
-FROM pending_inputs
-WHERE request_id = '';
-
-/* @name backfillPendingRequestId */
-UPDATE pending_inputs
-SET request_id = :request_id!
-WHERE content_key = :content_key!
-  AND seq = :seq!;
-
 /* @name countPendingInputs */
 SELECT count(*)::int AS count
 FROM pending_inputs;
@@ -65,11 +54,11 @@ WHERE (
 ORDER BY seq;
 
 /*
- @name deletePendingByContentKeys
- @param content_keys -> (...)
+ @name deletePendingByRequestIds
+ @param request_ids -> (...)
 */
 DELETE FROM pending_inputs
-WHERE content_key IN :content_keys!
+WHERE request_id IN :request_ids!
 RETURNING 1::int AS one;
 
 /* @name getPendingInputCountAndSize */
@@ -79,24 +68,24 @@ FROM pending_inputs;
 
 /*
  @name getPendingForRetry
- @param content_keys -> (...)
+ @param request_ids -> (...)
 */
-SELECT content_key, seq, retry_count, payload
+SELECT request_id, seq, retry_count, payload
 FROM pending_inputs
-WHERE content_key IN :content_keys!
+WHERE request_id IN :request_ids!
 ORDER BY seq
 FOR UPDATE;
 
 /* @name deletePendingByIdentity */
 DELETE FROM pending_inputs
-WHERE content_key = :content_key!
+WHERE request_id = :request_id!
   AND seq = :seq!;
 
 /* @name updatePendingRetry */
 UPDATE pending_inputs
 SET retry_count = :retry_count!,
     payload = :payload!
-WHERE content_key = :content_key!
+WHERE request_id = :request_id!
   AND seq = :seq!;
 
 /* @name clearPendingInputs */
