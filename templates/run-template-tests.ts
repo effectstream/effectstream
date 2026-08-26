@@ -21,6 +21,11 @@
  *                  Also runs `bun install` at the monorepo root up front, since
  *                  the linked orchestrator resolves some deps from the root
  *                  workspace's node_modules.
+ *   LINK_RUNTIME_ONLY=1
+ *                  Overlay local runtime source onto installed workspace
+ *                  @effectstream/runtime packages. CI uses this for atomic
+ *                  runtime API + template changes while preserving every
+ *                  published dependency version and module identity.
  */
 import { exit } from "process";
 import fs from "fs";
@@ -30,6 +35,9 @@ const __dirname = import.meta.dirname!;
 
 const LINK_LOCAL = ["1", "true", "yes"].includes(
   (process.env.LINK_LOCAL ?? "").toLowerCase(),
+);
+const LINK_RUNTIME_ONLY = ["1", "true", "yes"].includes(
+  (process.env.LINK_RUNTIME_ONLY ?? "").toLowerCase(),
 );
 
 export const ENABLED = [
@@ -119,6 +127,78 @@ function fanOutEffectstreamLinks(dir: string): number {
   return linked;
 }
 
+/**
+ * Overlay local source onto direct, already-installed workspace runtime
+ * packages. Keeping each installed package in place preserves its published
+ * dependency graph; symlinking the monorepo package would also pull in its local
+ * workspace dependencies and create distinct Vite/WASM module identities.
+ */
+function overlayRuntimeSource(dir: string): {
+  links: number;
+  targets: number;
+} {
+  const runtimeSource = path.join(
+    __dirname,
+    "..",
+    "packages",
+    "node-sdk",
+    "runtime",
+    "src",
+  );
+  const workspaceRoots = [dir];
+  const packagesDir = path.join(dir, "packages");
+  if (fs.existsSync(packagesDir)) {
+    workspaceRoots.push(
+      ...fs
+        .readdirSync(packagesDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => path.join(packagesDir, entry.name)),
+    );
+  }
+
+  const templateRoot = fs.realpathSync(dir);
+  const installedTargets = new Set<string>();
+  let links = 0;
+  for (const workspace of workspaceRoots) {
+    const destination = path.join(
+      workspace,
+      "node_modules",
+      "@effectstream",
+      "runtime",
+    );
+    try {
+      fs.lstatSync(destination);
+    } catch {
+      continue;
+    }
+    const installedTarget = fs.realpathSync(destination);
+    const relativeTarget = path.relative(templateRoot, installedTarget);
+    if (relativeTarget.startsWith("..") || path.isAbsolute(relativeTarget)) {
+      throw new Error(
+        `Refusing to overlay runtime outside template: ${installedTarget}`,
+      );
+    }
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(installedTarget, "package.json"), "utf8"),
+    );
+    if (manifest.name !== "@effectstream/runtime") {
+      throw new Error(
+        `Expected @effectstream/runtime at ${installedTarget}, found ${manifest.name}`,
+      );
+    }
+    installedTargets.add(installedTarget);
+    links++;
+  }
+
+  for (const installedTarget of installedTargets) {
+    const installedSource = path.join(installedTarget, "src");
+    fs.rmSync(installedSource, { recursive: true, force: true });
+    fs.cpSync(runtimeSource, installedSource, { recursive: true });
+  }
+
+  return { links, targets: installedTargets.size };
+}
+
 async function runTemplate(name: string): Promise<Result> {
   const dir = path.join(__dirname, name);
   const start = Date.now();
@@ -164,6 +244,11 @@ async function runTemplate(name: string): Promise<Result> {
       const linked = fanOutEffectstreamLinks(dir);
       console.log(
         `\nLINK_LOCAL=1: redirected ${linked} workspace @effectstream dependency link(s) to monorepo sources\n`,
+      );
+    } else if (LINK_RUNTIME_ONLY) {
+      const { links, targets } = overlayRuntimeSource(dir);
+      console.log(
+        `\nLINK_RUNTIME_ONLY=1: overlaid local runtime source onto ${targets} installed package target(s) referenced by ${links} existing workspace link(s)\n`,
       );
     }
 
@@ -211,6 +296,11 @@ async function main() {
     exit(1);
   }
 
+  if (LINK_LOCAL && LINK_RUNTIME_ONLY) {
+    console.error("LINK_LOCAL and LINK_RUNTIME_ONLY are mutually exclusive");
+    exit(1);
+  }
+
   if (LINK_LOCAL) {
     const missing = selected.filter(
       (name) => !fs.existsSync(path.join(__dirname, name, "link.sh")),
@@ -221,11 +311,11 @@ async function main() {
       );
       exit(1);
     }
+  }
 
-    // link.sh symlinks @effectstream/* to monorepo source. The linked
-    // orchestrator resolves some deps (e.g. @effectstream/db/start-pglite) via
-    // import.meta.resolve, which walks the monorepo's own node_modules — so the
-    // root workspace must be installed first or that resolution fails.
+  if (LINK_LOCAL) {
+    // Local package symlinks resolve their own dependency graph from the
+    // monorepo root, so install that graph before processing templates.
     const root = path.join(__dirname, "..");
     console.log("LINK_LOCAL=1: running `bun install` at monorepo root\n");
     const rootInstall = Bun.spawn(["bun", "install"], {
@@ -238,9 +328,7 @@ async function main() {
       console.error("Monorepo root `bun install` failed");
       exit(1);
     }
-    console.log(
-      "\nLINK_LOCAL=1: linking local monorepo packages after install\n",
-    );
+    console.log("\nLINK_LOCAL=1: linking after each template install\n");
   }
 
   console.log(
