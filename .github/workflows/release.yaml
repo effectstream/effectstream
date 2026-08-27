@@ -5,7 +5,7 @@ on:
 name: Effectstream Release Publish
 
 permissions:
-  contents: write          # needed to push the version-bump commit
+  contents: write
 
 concurrency:
   group: release-publish
@@ -14,7 +14,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout exact release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -27,14 +27,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          printf '%s  %s\n' 'affd55aab609d4db7d6c6f38925859586d1ce67fd50f790d97c5dc027214af11' '.github/verify-release-source.sh' \
+          printf '%s  %s\n' 'f1c6f21dd0bfe03ee5fbf469c099e8bbc203e2adce61d819e3f5f1f1e33d8e20' '.github/verify-release-source.sh' \
             | sha256sum --check --strict
 
       - name: Verify immutable release source identity
+        id: release-source
         shell: bash
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           RELEASE_TARGET_COMMITISH: ${{ github.event.release.target_commitish }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
         run: bash .github/verify-release-source.sh
 
       - name: Setup Bun
@@ -45,58 +47,86 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Configure npm auth
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+      - name: Preflight registry and prepare exact release bundle
+        id: prepare
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          BUNDLE_DIR: ${{ runner.temp }}/effectstream-release-bundle
+        run: |
+          bun run .github/publish-bun.effectstream.ts --prepare \
+            --release-tag '${{ github.event.release.tag_name }}' \
+            --source-sha '${{ steps.release-source.outputs.source-sha }}' \
+            --source-branch '${{ steps.release-source.outputs.branch }}' \
+            --dist-tag '${{ steps.release-source.outputs.dist-tag }}' \
+            --github-prerelease '${{ github.event.release.prerelease }}' \
+            --run-id '${{ github.run_id }}' \
+            --run-attempt '${{ github.run_attempt }}' \
+            --artifact-dir "$BUNDLE_DIR"
 
-      # All version validation (semver + strictly-greater), root bump, per-package
-      # bump, channel validation, dep pinning, publish, and version-only cleanup
-      # live in the script. GitHub's release metadata selects the generic channel,
-      # and the script independently enforces stable/prerelease safety.
-      # No --allow-uncommitted: the tree is clean at the script's git-check, since
-      # it writes the root version only after that check (.npmrc is gitignored).
-      - name: Select release channel
-        id: release-channel
+      - name: Upload immutable release bundle before authentication or mutation
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ steps.prepare.outputs.artifact-name }}
+          path: ${{ runner.temp }}/effectstream-release-bundle
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Record immutable artifact identity
         shell: bash
         env:
-          PRERELEASE: ${{ github.event.release.prerelease }}
+          ORIGINAL_RUN: ${{ github.run_id }}
+          ORIGINAL_ATTEMPT: ${{ github.run_attempt }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          SERVICE_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+          MANIFEST_SHA512: ${{ steps.prepare.outputs.manifest-sha512 }}
+          PACKAGE_COUNT: ${{ steps.prepare.outputs.package-count }}
         run: |
-          set -euo pipefail
-          if [[ "$PRERELEASE" == "true" ]]; then
-            DIST_TAG="next"
-          else
-            DIST_TAG="latest"
-          fi
-          echo "dist-tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Immutable release bundle'
+            echo "- original run: $ORIGINAL_RUN attempt $ORIGINAL_ATTEMPT"
+            echo "- artifact id: $ARTIFACT_ID"
+            echo "- service digest: $SERVICE_DIGEST"
+            echo "- manifest sha512: $MANIFEST_SHA512"
+            echo "- package count: $PACKAGE_COUNT"
+            echo '- recovery: use the separate recovery workflow; do not rerun this failed run after upload.'
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish
-        run: bun run .github/publish-bun.effectstream.ts --publish --release-version "${{ github.event.release.tag_name }}" --dist-tag "${{ steps.release-channel.outputs.dist-tag }}"
+      - name: Configure npm auth
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > .npmrc
+
+      - name: Publish exact persisted tarballs and verify channel postcondition
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Commit & push version bumps
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Stage ONLY package.json files (root + every package, ANY depth).
-          # Quote the pathspec and use git's :(glob) magic so `**` matches nested
-          # dirs (packages/node-sdk/node/...) — bash globstar is off in CI, which
-          # would otherwise collapse `**` to one level and miss most packages.
+          bun run .github/publish-bun.effectstream.ts --publish-bundle --publish \
+            --artifact-dir '${{ runner.temp }}/effectstream-release-bundle' \
+            --manifest-sha512 '${{ steps.prepare.outputs.manifest-sha512 }}'
+
+      - name: Commit and push version-only delta
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          SOURCE_BRANCH: ${{ steps.release-source.outputs.branch }}
+        run: |
+          set -euo pipefail
+          rm -f .npmrc
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add package.json ':(glob)packages/**/package.json'
-          # Safety net: if anything other than a `version:` line slipped into the
-          # staged diff, abort rather than commit unexpected content.
           if git diff --cached -U0 -- package.json ':(glob)packages/**/package.json' \
                | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
                | grep -vqE '^[+-][[:space:]]*"version":'; then
-            echo "::error::Staged diff contains non-version changes — aborting commit."
+            echo '::error::Staged diff contains non-version changes.'
             git --no-pager diff --cached
             exit 1
           fi
-          if git diff --cached --quiet; then
-            echo "no version changes to commit"
-          else
-            git commit -m "chore(release): ${{ github.event.release.tag_name }}"
-            git push origin HEAD:refs/heads/v-next
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): $RELEASE_TAG"
+            git push origin "HEAD:refs/heads/$SOURCE_BRANCH"
           fi

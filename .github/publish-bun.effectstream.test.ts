@@ -2,338 +2,379 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
 import {
-  STABLE_DIST_TAG,
+  EXPECTED_PACKAGE_COUNT,
+  assertRecoveryLatestPrecondition,
+  canonicalJson,
+  isSecretLikeTarEntry,
+  classifyRecoveryMode,
   compareSemver,
   parseSemver,
+  planRegistryCompletion,
+  preflightOrdinary,
   resolveDistTag,
+  resolveReleasePolicy,
   resolveReleaseVersion,
   setVersionInText,
+  verifyLatestPostcondition,
+  type RegistryPackageState,
+  type ReleaseManifest,
+  type ReleasePolicy,
 } from "./publish-bun.effectstream";
 
-describe("parseSemver", () => {
-  test("parses and normalizes stable, prerelease, and build forms", () => {
-    const parsed = parseSemver("0.105.0-beta.1+build.007");
-    expect(parsed.major).toBe(0n);
-    expect(parsed.minor).toBe(105n);
-    expect(parsed.patch).toBe(0n);
-    expect(parsed.prerelease.map((part) => part.raw)).toEqual(["beta", "1"]);
-    expect(parsed.build).toEqual(["build", "007"]);
-    expect(parsed.normalized).toBe("0.105.0-beta.1+build.007");
+const packageNames = Array.from(
+  { length: EXPECTED_PACKAGE_COUNT },
+  (_, index) => `@effectstream/package-${String(index).padStart(2, "0")}`,
+);
+
+function states(
+  latest: string | ((index: number) => string | undefined) = "0.200.2",
+  targetIntegrity: string | null | ((index: number) => string | null) = null,
+  selectedTag?: { name: string; version: string },
+): RegistryPackageState[] {
+  return packageNames.map((name, index) => {
+    const latestValue = typeof latest === "function" ? latest(index) : latest;
+    const integrity =
+      typeof targetIntegrity === "function" ? targetIntegrity(index) : targetIntegrity;
+    return {
+      name,
+      targetIntegrity: integrity,
+      distTags: {
+        ...(latestValue ? { latest: latestValue } : {}),
+        ...(selectedTag ? { [selectedTag.name]: selectedTag.version } : {}),
+      },
+    };
+  });
+}
+
+function manifest(policy: ReleasePolicy): ReleaseManifest {
+  return {
+    schemaVersion: 1,
+    releaseTag: policy.releaseTag,
+    version: policy.version,
+    sourceSha: "a".repeat(40),
+    branch: policy.branch,
+    distTag: policy.distTag,
+    prerelease: policy.prerelease,
+    kind: policy.kind,
+    workflow: { runId: "123", runAttempt: "1" },
+    toolchain: { bun: "1.4.0", platform: "linux-x64" },
+    latestBefore: Object.fromEntries(packageNames.map((name) => [name, "0.200.2"])),
+    packages: packageNames.map((name, index) => ({
+      name,
+      relativeDir: `packages/${index}`,
+      filename: `package-${index}.tgz`,
+      size: 1,
+      sha512: String(index),
+      integrity: `sha512-${index}`,
+      versionBefore: policy.kind === "maintenance-stable" ? "0.104.1" : "0.200.2",
+    })),
+  };
+}
+
+describe("strict SemVer", () => {
+  test("orders core and prerelease values without precision loss", () => {
+    expect(compareSemver(parseSemver("0.200.3-rc.1"), parseSemver("0.200.2"))).toBeGreaterThan(0);
+    expect(compareSemver(parseSemver("9007199254740993.0.0"), parseSemver("9007199254740992.9.9"))).toBeGreaterThan(0);
+    expect(compareSemver(parseSemver("1.0.0-alpha"), parseSemver("1.0.0"))).toBeLessThan(0);
   });
 
-  test("strips an optional leading v", () => {
-    expect(parseSemver("v1.2.3-rc.1").normalized).toBe("1.2.3-rc.1");
+  test.each([
+    "v1.2",
+    "01.2.3",
+    "1.02.3",
+    "1.2.03",
+    "1.2.3-01",
+    "1.2.3+",
+    " 0.200.3",
+    "0.200.3 ",
+  ])("rejects malformed form %s", (value) => {
+    expect(() => parseSemver(value)).toThrow(/valid SemVer/);
   });
 
-  test("trims surrounding whitespace", () => {
-    expect(parseSemver("  0.100.20  ").normalized).toBe("0.100.20");
-  });
-
-  test("rejects malformed SemVer without silently normalizing it", () => {
-    for (const malformed of [
-      "v1.2",
-      "1.2.3.4",
-      "latest",
-      "vv1.2.3",
-      "01.2.3",
-      "1.02.3",
-      "1.2.03",
-      "1.2.3-01",
-      "1.2.3-alpha..1",
-      "1.2.3-alpha_1",
-      "1.2.3+build..1",
-      "1.2.3-",
-      "1.2.3+",
-    ]) {
-      expect(() => parseSemver(malformed)).toThrow(/valid SemVer/);
-    }
-  });
-});
-
-describe("compareSemver", () => {
-  const compare = (a: string, b: string) => compareSemver(parseSemver(a), parseSemver(b));
-
-  test("orders core versions without Number precision loss", () => {
-    expect(compare("1.0.0", "0.999.999")).toBeGreaterThan(0);
-    expect(compare("0.101.0", "0.100.99")).toBeGreaterThan(0);
-    expect(compare("0.100.21", "0.100.20")).toBeGreaterThan(0);
-    expect(compare("9007199254740993.0.0", "9007199254740992.999.999")).toBeGreaterThan(0);
-    expect(compare("0.100.20", "0.100.20")).toBe(0);
-    expect(compare("0.100.19", "0.100.20")).toBeLessThan(0);
-  });
-
-  test("implements the canonical prerelease precedence chain", () => {
-    const ordered = [
-      "1.0.0-alpha",
-      "1.0.0-alpha.1",
-      "1.0.0-alpha.beta",
-      "1.0.0-beta",
-      "1.0.0-beta.2",
-      "1.0.0-beta.11",
-      "1.0.0-rc.1",
-      "1.0.0",
-    ];
-    for (let i = 0; i < ordered.length - 1; i++) {
-      expect(compare(ordered[i], ordered[i + 1])).toBeLessThan(0);
-    }
-  });
-
-  test("orders the approved release correctly and ignores build metadata", () => {
-    expect(compare("0.105.0-beta.1", "0.104.1")).toBeGreaterThan(0);
-    expect(compare("0.105.0-beta.1", "0.105.0")).toBeLessThan(0);
-    expect(compare("1.0.0+one", "1.0.0+two")).toBe(0);
-  });
-});
-
-describe("resolveReleaseVersion", () => {
-  test("accepts a greater version and strips the v prefix", () => {
-    expect(resolveReleaseVersion("v0.100.20", "0.100.18")).toBe("0.100.20");
-  });
-
-  test("accepts a greater version without a prefix", () => {
-    expect(resolveReleaseVersion("0.105.0-beta.1", "0.104.1")).toBe("0.105.0-beta.1");
-  });
-
-  test("accepts minor and major boundary increments", () => {
-    expect(resolveReleaseVersion("0.101.0", "0.100.99")).toBe("0.101.0");
-    expect(resolveReleaseVersion("1.0.0", "0.999.999")).toBe("1.0.0");
-  });
-
-  test("rejects an equal version", () => {
-    expect(() => resolveReleaseVersion("0.100.18", "0.100.18")).toThrow(
-      /strictly greater/,
-    );
-  });
-
-  test("rejects a lower version", () => {
-    expect(() => resolveReleaseVersion("v0.100.17", "0.100.18")).toThrow(
-      /strictly greater/,
-    );
-  });
-
-  test("rejects a non-semver tag", () => {
-    expect(() => resolveReleaseVersion("v1.2", "0.100.18")).toThrow();
-  });
-
-  test("rejects a prerelease that is lower than its stable current version", () => {
-    expect(() => resolveReleaseVersion("0.105.0-beta.1", "0.105.0")).toThrow(
-      /strictly greater/,
-    );
+  test("requires a strictly greater branch-local version", () => {
+    expect(resolveReleaseVersion("v0.104.2", "0.104.1")).toBe("0.104.2");
+    expect(() => resolveReleaseVersion("v0.104.1", "0.104.1")).toThrow(/strictly greater/);
+    expect(() => resolveReleaseVersion("v0.104.0", "0.104.1")).toThrow(/strictly greater/);
   });
 });
 
-describe("resolveDistTag", () => {
-  test("maps stable releases only to latest", () => {
-    expect(resolveDistTag("0.105.0", STABLE_DIST_TAG)).toBe("latest");
-    expect(() => resolveDistTag("0.105.0", "next")).toThrow(/Stable release/);
-  });
-
-  test("accepts generic prerelease channels", () => {
-    for (const tag of ["next", "beta", "canary", "preview.2", "rc-1", "xray", "x-canary"]) {
-      expect(resolveDistTag("0.105.0-beta.1", tag)).toBe(tag);
-    }
-  });
-
-  test("rejects lower-, upper-, mixed-, and qualified npm wildcard ranges", () => {
-    for (const tag of [
-      "x",
-      "X",
-      "x.x",
-      "X.X.X",
-      "x.1",
-      "X.1.2",
-      "x.x.1",
-      "X.1.x",
-      "x.1.x",
-      "x.x.x-beta",
-      "X.1.2-rc.1",
-    ]) {
-      expect(() => resolveDistTag("0.105.0-beta.1", tag)).toThrow(
-        /npm wildcard SemVer ranges are not allowed/,
-      );
-    }
-  });
-
-  test("rejects prerelease latest and a missing tag", () => {
-    expect(() => resolveDistTag("0.105.0-beta.1", STABLE_DIST_TAG)).toThrow(
-      /must not use dist-tag latest/,
-    );
-    expect(() => resolveDistTag("0.105.0-beta.1")).toThrow(/--dist-tag is required/);
-    expect(() => resolveDistTag("0.105.0-beta.1", "")).toThrow(/--dist-tag is required/);
-  });
-
-  test("rejects whitespace and invalid npm tag characters", () => {
-    for (const tag of [" next", "next ", "next tag", "next/tag", "next+tag", "@next"]) {
-      expect(() => resolveDistTag("0.105.0-beta.1", tag)).toThrow(/Invalid dist-tag/);
-    }
-  });
-
-  test("rejects digit- and v-prefixed SemVer-like tags", () => {
-    for (const tag of ["1.2.3", "9beta", "v1", "version", "Vnext"]) {
-      expect(() => resolveDistTag("0.105.0-beta.1", tag)).toThrow(
-        /must not begin with a digit or v/,
-      );
-    }
-  });
-});
-
-describe("CLI release guard", () => {
-  const root = join(import.meta.dir, "..");
-  const script = join(import.meta.dir, "publish-bun.effectstream.ts");
-
-  async function runGuard(args: string[]) {
-    const packageBefore = readFileSync(join(root, "package.json"), "utf8");
-    const statusBefore = Bun.spawnSync(["git", "status", "--porcelain=v1", "--untracked-files=all"], {
-      cwd: root,
-    }).stdout.toString();
-    const child = Bun.spawn([process.execPath, script, ...args], {
-      cwd: root,
-      stdout: "pipe",
-      stderr: "pipe",
+describe("closed release policy", () => {
+  test.each([
+    ["v0.104.2", false, "midnight-1", "midnight-1", "maintenance-stable"],
+    ["v0.200.3", false, "v-next", "latest", "node2-stable"],
+    ["v0.200.3-rc.1", true, "v-next", "next", "node2-prerelease"],
+  ])("maps %s", (tag, prerelease, branch, distTag, kind) => {
+    expect(resolveReleasePolicy(tag, branch, distTag, prerelease)).toMatchObject({
+      branch,
+      distTag,
+      prerelease,
+      kind,
     });
-    const [exitCode, stdout, stderr] = await Promise.all([
-      child.exited,
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-    ]);
-    expect(readFileSync(join(root, "package.json"), "utf8")).toBe(packageBefore);
-    expect(
-      Bun.spawnSync(["git", "status", "--porcelain=v1", "--untracked-files=all"], {
-        cwd: root,
-      }).stdout.toString(),
-    ).toBe(statusBefore);
-    return { exitCode, output: stdout + stderr };
-  }
-
-  test("missing dist-tag rejects before any package mutation", async () => {
-    const result = await runGuard(["--release-version", "0.105.0-beta.1"]);
-    expect(result.exitCode).not.toBe(0);
-    expect(result.output).toContain("--dist-tag is required");
   });
 
-  test("prerelease paired with latest rejects before any package mutation", async () => {
-    const result = await runGuard([
-      "--release-version",
-      "0.105.0-beta.1",
-      "--dist-tag",
-      "latest",
-    ]);
-    expect(result.exitCode).not.toBe(0);
-    expect(result.output).toContain("must not use dist-tag latest");
+  test.each([
+    ["v0.104.2", "v-next", "midnight-1", false],
+    ["v0.104.2", "midnight-1", "latest", false],
+    ["v0.200.3", "midnight-1", "latest", false],
+    ["v0.200.3", "v-next", "next", false],
+    ["v0.200.3-rc.1", "v-next", "latest", true],
+    ["v0.200.3-rc.1", "midnight-1", "next", true],
+  ])("rejects mismatched tuple %s/%s/%s", (tag, branch, distTag, prerelease) => {
+    expect(() => resolveReleasePolicy(tag, branch, distTag, prerelease)).toThrow();
   });
 
-  test("stable release paired with a non-latest tag rejects before mutation", async () => {
-    const result = await runGuard([
-      "--release-version",
-      "0.105.0",
-      "--dist-tag",
-      "next",
-    ]);
-    expect(result.exitCode).not.toBe(0);
-    expect(result.output).toContain("must use dist-tag latest");
+  test.each([
+    "v0.103.999",
+    "v0.104.2-rc.1",
+    "v0.104.2+build.1",
+    "v0.105.0",
+    "v0.199.999",
+    "v0.200.3+build.1",
+    "v0.201.0",
+    "v1.0.0",
+    "0.104.2",
+  ])("rejects unsupported form %s", (tag) => {
+    expect(() => resolveReleasePolicy(tag)).toThrow();
   });
 
-  test("invalid npm tags reject before any package mutation", async () => {
-    for (const tag of [" next", "next/tag", "1.2.3", "v1"]) {
-      const result = await runGuard([
-        "--release-version",
-        "0.105.0-beta.1",
-        "--dist-tag",
-        tag,
-      ]);
-      expect(result.exitCode).not.toBe(0);
-      expect(result.output).toContain("Invalid dist-tag");
+  test("requires the only allowed explicit dist-tag", () => {
+    expect(resolveDistTag("0.104.2", "midnight-1")).toBe("midnight-1");
+    expect(resolveDistTag("0.200.3", "latest")).toBe("latest");
+    expect(resolveDistTag("0.200.3-rc.1", "next")).toBe("next");
+    expect(() => resolveDistTag("0.104.2")).toThrow(/required/);
+    expect(() => resolveDistTag("0.104.2", "latest")).toThrow();
+  });
+});
+
+describe("all-package ordinary preflight", () => {
+  test.each(["v0.104.2", "v0.200.3", "v0.200.3-rc.1"])(
+    "accepts absent targets and one stable Node-2 latest snapshot for %s",
+    (tag) => {
+      const policy = resolveReleasePolicy(tag);
+      const snapshot = preflightOrdinary(policy, states());
+      expect(Object.keys(snapshot)).toHaveLength(EXPECTED_PACKAGE_COUNT);
+      expect(new Set(Object.values(snapshot))).toEqual(new Set(["0.200.2"]));
+    },
+  );
+
+  test.each([
+    ["occupied target", states("0.200.2", (index) => (index === 8 ? "sha512-existing" : null))],
+    ["missing latest", states((index) => (index === 8 ? undefined : "0.200.2"))],
+    ["mixed patches", states((index) => (index === 8 ? "0.200.1" : "0.200.2"))],
+    ["wrong family", states("0.104.1")],
+    ["prerelease latest", states("0.200.3-rc.1")],
+  ])("rejects %s with no mutation plan", (_name, registryStates) => {
+    expect(() => preflightOrdinary(resolveReleasePolicy("v0.104.2"), registryStates)).toThrow();
+  });
+
+  test("stable Node-2 target must be above the uniform current latest", () => {
+    expect(() => preflightOrdinary(resolveReleasePolicy("v0.200.2"), states())).toThrow(/greater/);
+  });
+});
+
+describe("persisted exact-tarball completion", () => {
+  const maintenance = manifest(resolveReleasePolicy("v0.104.2"));
+
+  test("ordinary run requires every target absent", () => {
+    expect(planRegistryCompletion(maintenance, states(), false).missing).toEqual(packageNames);
+    expect(() =>
+      planRegistryCompletion(
+        maintenance,
+        states("0.200.2", (index) => (index === 0 ? "sha512-0" : null)),
+        false,
+      ),
+    ).toThrow(/occupied/);
+  });
+
+  test("recovery skips exact prefix and non-prefix subsets only", () => {
+    for (const occupied of [new Set([0, 1, 2]), new Set([1, 9, 25])]) {
+      const result = planRegistryCompletion(
+        maintenance,
+        states("0.200.2", (index) => (occupied.has(index) ? `sha512-${index}` : null)),
+        true,
+      );
+      expect(result.existing).toEqual([...occupied].sort((a, b) => a - b).map((i) => packageNames[i]));
+      expect(result.missing).toHaveLength(EXPECTED_PACKAGE_COUNT - occupied.size);
     }
   });
 
-  test("npm wildcard ranges reject before any package mutation", async () => {
-    for (const tag of ["x", "X", "x.1", "X.1.2", "x.x.x-beta"]) {
-      const result = await runGuard([
-        "--release-version",
-        "0.105.0-beta.1",
-        "--dist-tag",
-        tag,
-      ]);
-      expect(result.exitCode).not.toBe(0);
-      expect(result.output).toContain("npm wildcard SemVer ranges are not allowed");
+  test("recovery rejects any occupied version with different integrity", () => {
+    expect(() =>
+      planRegistryCompletion(
+        maintenance,
+        states("0.200.2", (index) => (index === 4 ? "sha512-tampered" : null)),
+        true,
+      ),
+    ).toThrow(/differs/);
+  });
+});
+
+describe("release-kind postconditions", () => {
+  test("maintenance and Node-2 prerelease preserve latest exactly", () => {
+    for (const tag of ["v0.104.2", "v0.200.3-rc.1"]) {
+      const item = manifest(resolveReleasePolicy(tag));
+      expect(() =>
+        verifyLatestPostcondition(
+          item,
+          states("0.200.2", `sha512-unused`, { name: item.distTag, version: item.version }),
+        ),
+      ).not.toThrow();
+      expect(() =>
+        verifyLatestPostcondition(
+          item,
+          states((index) => (index === 2 ? "0.200.1" : "0.200.2"), `sha512-unused`, {
+            name: item.distTag,
+            version: item.version,
+          }),
+        ),
+      ).toThrow(/latest changed/);
+    }
+  });
+
+  test("stable Node-2 requires every latest at the target", () => {
+    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    expect(() =>
+      verifyLatestPostcondition(
+        item,
+        states("0.200.3", `sha512-unused`, { name: "latest", version: "0.200.3" }),
+      ),
+    ).not.toThrow();
+    expect(() =>
+      verifyLatestPostcondition(
+        item,
+        states((index) => (index === 1 ? "0.200.2" : "0.200.3"), `sha512-unused`),
+      ),
+    ).toThrow(/expected/);
+  });
+
+  test("stable Node-2 recovery accepts only persisted-prestate or target during a tag loop", () => {
+    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    expect(() =>
+      assertRecoveryLatestPrecondition(
+        item,
+        states((index) => (index % 2 ? "0.200.2" : "0.200.3")),
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertRecoveryLatestPrecondition(
+        item,
+        states((index) => (index === 3 ? "0.200.1" : "0.200.2")),
+      ),
+    ).toThrow(/neither/);
+  });
+
+  test("maintenance and prerelease recovery reject any latest snapshot drift", () => {
+    for (const tag of ["v0.104.2", "v0.200.3-rc.1"]) {
+      const item = manifest(resolveReleasePolicy(tag));
+      expect(() => assertRecoveryLatestPrecondition(item, states())).not.toThrow();
+      expect(() =>
+        assertRecoveryLatestPrecondition(
+          item,
+          states((index) => (index === 3 ? "0.200.1" : "0.200.2")),
+        ),
+      ).toThrow(/differs/);
     }
   });
 });
 
-describe("release workflow", () => {
-  test("pins privileged actions/tools and verifies source identity before mutation", () => {
-    const workflow = readFileSync(join(import.meta.dir, "workflows", "release.yaml"), "utf8");
-    expect(workflow).toContain(
-      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
-    );
-    expect(workflow).toContain(
-      "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2",
-    );
-    expect(workflow).toContain("bun-version: 1.4.0");
-    expect(workflow).not.toContain("bun-version: latest");
-    expect(workflow).toContain("runs-on: ubuntu-22.04");
-    expect(workflow).toContain("ref: ${{ github.event.release.tag_name }}");
-    expect(workflow).toContain("RELEASE_TARGET_COMMITISH: ${{ github.event.release.target_commitish }}");
-    expect(workflow).toContain(
-      "affd55aab609d4db7d6c6f38925859586d1ce67fd50f790d97c5dc027214af11",
-    );
-    expect(workflow).toContain("bash .github/verify-release-source.sh");
-    expect(workflow).toContain("git push origin HEAD:refs/heads/v-next");
-    expect(workflow).not.toContain("git push origin v-next");
+describe("recovery matrix", () => {
+  test.each([
+    [true, false, "partial-tag"],
+    [false, false, "complete-tag"],
+    [true, true, "partial-advanced"],
+    [false, true, "complete-advanced"],
+  ])("partial=%p advanced=%p => %s", (partial, advanced, expected) => {
+    expect(classifyRecoveryMode(partial, advanced)).toBe(expected);
+  });
+});
 
-    const ordered = [
+describe("workflow invariants", () => {
+  const workflows = join(import.meta.dir, "workflows");
+  const release = readFileSync(join(workflows, "release.yaml"), "utf8");
+  const recovery = readFileSync(join(workflows, "release-recovery.yaml"), "utf8");
+  const rehearsal = readFileSync(join(workflows, "release-artifact-rehearsal.yaml"), "utf8");
+
+  test("ordinary and recovery mutations share the exact non-cancelling lock", () => {
+    for (const workflow of [release, recovery]) {
+      expect(workflow).toContain("group: release-publish");
+      expect(workflow).toContain("cancel-in-progress: false");
+    }
+  });
+
+  test("guard and immutable upload precede auth and persisted-byte publish", () => {
+    const order = [
       "Verify immutable release source identity",
       "Setup Bun",
       "Install dependencies",
+      "Preflight registry and prepare exact release bundle",
+      "Upload immutable release bundle before authentication or mutation",
       "Configure npm auth",
-      "Select release channel",
-      "name: Publish",
-      "git add package.json",
-    ].map((needle) => workflow.indexOf(needle));
-    expect(ordered.every((position) => position >= 0)).toBe(true);
-    expect(ordered).toEqual([...ordered].sort((a, b) => a - b));
+      "Publish exact persisted tarballs",
+      "Commit and push version-only delta",
+    ].map((needle) => release.indexOf(needle));
+    expect(order.every((position) => position >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(release).toContain("retention-days: 90");
+    expect(release).toContain("steps.release-source.outputs.dist-tag");
+    expect(release).toContain('git push origin "HEAD:refs/heads/$SOURCE_BRANCH"');
+    expect(release).not.toContain("HEAD:refs/heads/v-next");
   });
 
-  test("maps GitHub prerelease metadata to a generic explicit publisher channel", () => {
-    const workflow = readFileSync(join(import.meta.dir, "workflows", "release.yaml"), "utf8");
-    const channelStart = workflow.indexOf("- name: Select release channel");
-    const channelEnd = workflow.indexOf("- name: Publish", channelStart);
-    const channelBlock = workflow.slice(channelStart, channelEnd);
+  test("all privileged actions are immutable pins", () => {
+    for (const workflow of [release, recovery, rehearsal]) {
+      for (const match of workflow.matchAll(/uses:\s+([^\s#]+)/g)) {
+        expect(match[1]).toMatch(/@[0-9a-f]{40}$/);
+      }
+    }
+  });
 
-    expect(channelStart).toBeGreaterThanOrEqual(0);
-    expect(channelEnd).toBeGreaterThan(channelStart);
-    expect(channelBlock).toContain("PRERELEASE: ${{ github.event.release.prerelease }}");
-    expect(channelBlock).toContain('[[ "$PRERELEASE" == "true" ]]');
-    expect(channelBlock).toContain('DIST_TAG="next"');
-    expect(channelBlock).toContain('DIST_TAG="latest"');
-    expect(channelBlock).not.toContain("github.event.release.tag_name");
-    expect(channelBlock).not.toContain("RELEASE_TAG");
-    expect(workflow).toContain('--dist-tag "${{ steps.release-channel.outputs.dist-tag }}"');
+  test("recovery is separate, cross-run, reviewer-gated, and never reruns release", () => {
+    expect(recovery).toContain("workflow_dispatch:");
+    expect(recovery).toContain("actions: read");
+    expect(recovery).toContain("environment: npm-release-recovery");
+    expect(recovery).toContain("run-id: ${{ inputs.original_run_id }}");
+    expect(recovery).toContain("artifact-ids: ${{ inputs.artifact_id }}");
+    expect(recovery).not.toContain("run-attempt");
+  });
+
+  test("artifact proof producer and consumer are incapable of npm/source mutation", () => {
+    expect(rehearsal).toContain("contents: read");
+    expect(rehearsal).not.toContain("NPM_TOKEN");
+    expect(rehearsal).not.toContain("environment:");
+    expect(rehearsal).not.toContain("actions/checkout");
+    const proof = recovery.slice(recovery.indexOf("artifact-proof:"), recovery.indexOf("  recover:"));
+    expect(proof).toContain("actions: read");
+    expect(proof).toContain("contents: read");
+    expect(proof).not.toContain("NPM_TOKEN");
+    expect(proof).not.toContain("environment:");
   });
 });
 
-describe("setVersionInText", () => {
-  test("changes only the version line, preserving exact formatting", () => {
-    const src = [
-      "{",
-      '  "name": "@effectstream/node-sdk",',
-      '  "version": "0.100.17",',
-      '  "peerDependenciesMeta": {',
-      '    "@effectstream/example": { "optional": true }',
-      "  }",
-      "}",
-      "",
-    ].join("\n");
-    const out = setVersionInText(src, "0.100.20");
-    expect(out).toBe(src.replace("0.100.17", "0.100.20"));
-    // Compact object formatting is untouched.
-    expect(out).toContain('{ "optional": true }');
+describe("canonical and version-only bytes", () => {
+  test("secret-like bundle paths reject credentials without rejecting token source code", () => {
+    for (const path of [
+      "package/.npmrc",
+      "package/.env.production",
+      "package/npm-token.txt",
+      "package/secrets.json",
+      "package/id_ed25519",
+      "package/signing.pem",
+    ]) expect(isSecretLikeTarEntry(path)).toBe(true);
+    for (const path of [
+      "package/src/contracts/token/Token.sol",
+      "package/src/midnight-token-mint.ts",
+      "package/src/secret-sharing.ts",
+    ]) expect(isSecretLikeTarEntry(path)).toBe(false);
   });
 
-  test("only the first (package) version is replaced", () => {
-    const src = '{ "version": "0.100.17", "engines": { "version": "x" } }';
-    expect(setVersionInText(src, "0.100.20")).toBe(
-      '{ "version": "0.100.20", "engines": { "version": "x" } }',
+  test("canonical JSON recursively sorts keys", () => {
+    expect(canonicalJson({ z: 1, a: { y: 2, b: 3 } })).toBe('{"a":{"b":3,"y":2},"z":1}\n');
+  });
+
+  test("changes only the first package version field", () => {
+    const source = '{ "version": "0.104.1", "engines": { "version": "x" } }';
+    expect(setVersionInText(source, "0.104.2")).toBe(
+      '{ "version": "0.104.2", "engines": { "version": "x" } }',
     );
   });
 });
