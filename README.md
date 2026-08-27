@@ -1,3 +1,12 @@
+> [!WARNING]
+> **You are viewing `midnight-1`, the temporary Midnight Node 1.x / Ledger-v8 maintenance line.**
+> The default `v-next` branch targets Midnight Node 2.x / Ledger-v9. Stable npm
+> `0.104.x` releases are available only under dist-tag `midnight-1`, while stable
+> `0.200.x` remains `latest`. Updates here are reviewed cherry-picks or
+> Node-1-specific manual ports; this branch never merges the Node-2 migration.
+> See the [maintenance guide and backport ledger](docs/maintenance/midnight-1.md)
+> for installation, backport policy, support, and EOL details.
+
 # Effectstream
 
 A multi-chain Web3 engine for building multi-chain dApps, infrastructure and onchain games.
