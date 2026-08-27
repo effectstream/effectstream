@@ -4,7 +4,7 @@
 # pre-merge run (rather than duplicating every same-repository branch push).
 on:
   push:
-    branches: [v-next]
+    branches: [v-next, midnight-1]
   pull_request:
     # Expensive jobs skip drafts. Re-run when a draft becomes reviewable, and
     # cancel an in-progress run through the PR-scoped concurrency group when a
@@ -50,6 +50,7 @@ jobs:
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           HEAD_REF: ${{ github.ref_name }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          LONG_LIVED_BRANCHES: v-next,midnight-1
         run: bun .github/ci-changes.ts
 
   # Existing Dockerized e2e suite — now gated on core changes.

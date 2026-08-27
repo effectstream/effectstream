@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { classify, diffArgs } from "./ci-changes.ts";
+import {
+  classify,
+  baseIsUnusable,
+  diffArgs,
+  parseLongLivedBranches,
+} from "./ci-changes.ts";
 
 // A fixed enabled set so these assertions don't shift as templates are
 // enabled/disabled in run-template-tests.ts.
@@ -77,7 +82,13 @@ describe("classify — templates", () => {
 });
 
 describe("diffArgs — diff range selection", () => {
-  const opts = { base: "B", head: "H", headRef: "feat/x", defaultBranch: "v-next" };
+  const opts = {
+    base: "B",
+    head: "H",
+    headRef: "feat/x",
+    defaultBranch: "v-next",
+    longLivedBranches: ["v-next", "midnight-1"],
+  };
 
   test("pull_request uses three-dot base...head (only what the PR adds)", () => {
     expect(diffArgs({ ...opts, eventName: "pull_request" })).toEqual([
@@ -87,9 +98,25 @@ describe("diffArgs — diff range selection", () => {
     ]);
   });
 
+  test("pull_request merge ref still uses explicit base...head SHAs", () => {
+    expect(
+      diffArgs({
+        ...opts,
+        eventName: "pull_request",
+        headRef: "123/merge",
+      }),
+    ).toEqual(["diff", "--name-only", "B...H"]);
+  });
+
   test("push to the default branch uses two-arg before..after", () => {
     expect(
       diffArgs({ ...opts, eventName: "push", headRef: "v-next" }),
+    ).toEqual(["diff", "--name-only", "B", "H"]);
+  });
+
+  test("push to the maintenance branch uses only before..after", () => {
+    expect(
+      diffArgs({ ...opts, eventName: "push", headRef: "midnight-1" }),
     ).toEqual(["diff", "--name-only", "B", "H"]);
   });
 
@@ -101,6 +128,39 @@ describe("diffArgs — diff range selection", () => {
       "--name-only",
       "FETCH_HEAD...H",
     ]);
+  });
+});
+
+describe("initial and rewritten push bases", () => {
+  test.each([
+    [undefined, true],
+    ["", true],
+    ["0000000000000000000000000000000000000000", true],
+    ["000000", true],
+    ["0123456789012345678901234567890123456789", false],
+  ])("base %p unusable=%p", (base, expected) => {
+    expect(baseIsUnusable(base)).toBe(expected);
+  });
+});
+
+describe("mainline allowlist", () => {
+  test("accepts the exact approved long-lived branches", () => {
+    expect(parseLongLivedBranches("v-next,midnight-1")).toEqual([
+      "v-next",
+      "midnight-1",
+    ]);
+  });
+
+  test.each([
+    undefined,
+    "",
+    "v-next",
+    "v-next,midnight-1,feature/x",
+    "v-next,v-next",
+    "v-next,midnight-1,",
+    "v-next,midnight 1",
+  ])("rejects missing or malformed allowlist %p", (value) => {
+    expect(parseLongLivedBranches(value)).toBeNull();
   });
 });
 
