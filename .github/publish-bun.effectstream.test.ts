@@ -320,6 +320,31 @@ describe("workflow invariants", () => {
     expect(release).not.toContain("HEAD:refs/heads/v-next");
   });
 
+  test("recovery compatibility is proven before auth or registry mutation", () => {
+    const order = [
+      "Verify original service and embedded identities",
+      "Validate recovery branch compatibility before authentication or mutation",
+      "Configure npm auth after all artifact and source checks",
+      "Complete exact artifact publication and apply version delta",
+    ].map((needle) => recovery.indexOf(needle));
+    expect(order.every((position) => position >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(recovery).toContain("--validate-recovery-branch");
+  });
+
+  test("ordinary and recovery attempts persist separate result evidence under always", () => {
+    expect(release).toContain("steps.publish.outcome != 'skipped'");
+    expect(release).toContain("effectstream-release-bundle.publish-result.json");
+    expect(release).toContain("release-result-${{ github.event.release.tag_name }}");
+    expect(recovery).toContain("steps.recover-publication.outcome != 'skipped'");
+    expect(recovery).toContain("effectstream-release-bundle.publish-result.json");
+    expect(recovery).toContain("recovery-result-${{ inputs.release_tag }}");
+    for (const workflow of [release, recovery]) {
+      expect(workflow).toContain("if-no-files-found: error");
+      expect(workflow).toContain("retention-days: 90");
+    }
+  });
+
   test("all privileged actions are immutable pins", () => {
     for (const workflow of [release, recovery, rehearsal]) {
       for (const match of workflow.matchAll(/uses:\s+([^\s#]+)/g)) {

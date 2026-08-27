@@ -22,6 +22,7 @@ const distTags = new Map<string, Record<string, string>>();
 const unqueryable = new Set<string>();
 let publishAttempts = 0;
 let failPublishAttempt = 0;
+let registryRequests = 0;
 let server: ReturnType<typeof Bun.serve>;
 let manifest: ReleaseManifest;
 
@@ -83,6 +84,7 @@ beforeAll(() => {
   server = Bun.serve({
     port,
     async fetch(request) {
+      registryRequests++;
       const url = new URL(request.url);
       const distTagMatch = /^\/-\/package\/(.+)\/dist-tags\/([^/]+)$/.exec(url.pathname);
       if (request.method === "PUT" && distTagMatch) {
@@ -152,9 +154,57 @@ describe("persisted bundle verification and lost-runner recovery", () => {
     expect(result.published).toHaveLength(36);
   });
 
+  test("version drift fails before the first registry or dist-tag request", async () => {
+    const originalManifest = canonicalJson(manifest);
+    const repositoryRoot = join(import.meta.dir, "..");
+    const actualPackages = [...new Bun.Glob("packages/**/package.json").scanSync({ cwd: repositoryRoot })]
+      .map((path) => ({ path, value: JSON.parse(readFileSync(join(repositoryRoot, path), "utf8")) as { name?: string; private?: boolean } }))
+      .filter(({ value }) => value.name && !value.private && value.name !== "@effectstream/explorer")
+      .sort((left, right) => left.value.name!.localeCompare(right.value.name!));
+    expect(actualPackages).toHaveLength(39);
+    const head = Bun.spawnSync(["git", "rev-parse", "HEAD"], { cwd: repositoryRoot }).stdout.toString().trim();
+    const packages = manifest.packages.map((pkg, index) => ({
+      ...pkg,
+      name: actualPackages[index].value.name!,
+      relativeDir: actualPackages[index].path.replace(/\/package\.json$/, ""),
+    }));
+    const driftManifest: ReleaseManifest = {
+      ...manifest,
+      sourceSha: head,
+      packages,
+      latestBefore: Object.fromEntries(packages.map((pkg) => [pkg.name, "0.200.2"])),
+    };
+    writeFileSync(join(bundle, "manifest.json"), canonicalJson(driftManifest));
+    const manifestSha512 = digest(readFileSync(join(bundle, "manifest.json"))).hex;
+    const requestsBefore = registryRequests;
+    try {
+      const proc = Bun.spawn([
+        "bun", "run", ".github/publish-bun.effectstream.ts",
+        "--recover-bundle", "--publish",
+        "--artifact-dir", bundle,
+        "--manifest-sha512", manifestSha512,
+        "--expected-current-branch-sha", head,
+        "--recovery-mode", "partial-tag",
+        "--audit-ref", "audit:test",
+        "--authorization-ref", "G4:test",
+        "--registry", registry,
+      ], { cwd: repositoryRoot, stdout: "pipe", stderr: "pipe" });
+      expect(await proc.exited).not.toBe(0);
+      expect(await new Response(proc.stderr).text()).toContain("Version drift in recovery branch");
+      expect(registryRequests).toBe(requestsBefore);
+    } finally {
+      writeFileSync(join(bundle, "manifest.json"), originalManifest);
+    }
+  });
+
   test("publishes exact tarballs, stops on first failure, then completes from a downloaded copy", async () => {
     if (crossRunPhase === "consumer") {
       if (!crossRunDir) throw new Error("consumer requires EFFECTSTREAM_CROSS_RUN_DIR");
+      const failedResult = JSON.parse(readFileSync(join(crossRunDir, "ordinary-publish-result.json"), "utf8")) as {
+        packages: { status: string }[];
+      };
+      expect(failedResult.packages.filter((pkg) => pkg.status === "published")).toHaveLength(5);
+      expect(failedResult.packages.filter((pkg) => pkg.status === "failed")).toHaveLength(1);
       const persisted = JSON.parse(readFileSync(join(crossRunDir, "registry-state.json"), "utf8")) as {
         occupied: [string, string][];
         distTags: [string, Record<string, string>][];
@@ -195,12 +245,18 @@ describe("persisted bundle verification and lost-runner recovery", () => {
       publishFromBundle({ artifactDir: bundle, registry, recovery: false, publish: true }),
     ).rejects.toThrow(/stopping/);
     expect(occupied.size).toBe(5);
+    const failedResult = JSON.parse(readFileSync(`${bundle}.publish-result.json`, "utf8")) as {
+      packages: { status: string }[];
+    };
+    expect(failedResult.packages.filter((pkg) => pkg.status === "published")).toHaveLength(5);
+    expect(failedResult.packages.filter((pkg) => pkg.status === "failed")).toHaveLength(1);
 
     if (crossRunPhase === "producer") {
       if (!crossRunDir) throw new Error("producer requires EFFECTSTREAM_CROSS_RUN_DIR");
       rmSync(join(crossRunDir, "artifact"), { recursive: true, force: true });
       rmSync(join(crossRunDir, "registry-state.json"), { force: true });
       cpSync(bundle, join(crossRunDir, "artifact"), { recursive: true });
+      cpSync(`${bundle}.publish-result.json`, join(crossRunDir, "ordinary-publish-result.json"));
       writeFileSync(
         join(crossRunDir, "registry-state.json"),
         canonicalJson({ occupied: [...occupied], distTags: [...distTags] }),

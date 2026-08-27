@@ -203,6 +203,14 @@ jobs:
           test "$(jq -r .branch "$manifest")" = '${{ steps.policy.outputs.branch }}'
           test "$(jq -r .distTag "$manifest")" = '${{ steps.policy.outputs.dist-tag }}'
 
+      - name: Validate recovery branch compatibility before authentication or mutation
+        run: |
+          bun run .github/publish-bun.effectstream.ts --validate-recovery-branch \
+            --artifact-dir '${{ runner.temp }}/effectstream-release-bundle' \
+            --manifest-sha512 '${{ inputs.manifest_sha512 }}' \
+            --expected-current-branch-sha '${{ inputs.expected_current_branch_sha }}' \
+            --recovery-mode '${{ inputs.recovery_mode }}'
+
       - name: Configure npm auth after all artifact and source checks
         shell: bash
         env:
@@ -210,6 +218,7 @@ jobs:
         run: printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > .npmrc
 
       - name: Complete exact artifact publication and apply version delta
+        id: recover-publication
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -224,6 +233,30 @@ jobs:
             --recovery-mode '${{ inputs.recovery_mode }}' \
             --audit-ref '${{ steps.authorization.outputs.audit-ref }}' \
             --authorization-ref '${{ steps.authorization.outputs.authorization-ref }}'
+
+      - name: Persist secret-free recovery publication result even after failure
+        id: recovery-result-upload
+        if: ${{ always() && steps.recover-publication.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: recovery-result-${{ inputs.release_tag }}-${{ inputs.source_sha }}-${{ inputs.original_run_id }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/effectstream-release-bundle.publish-result.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Record recovery publication result artifact identity
+        if: ${{ always() && steps.recovery-result-upload.outcome == 'success' }}
+        shell: bash
+        env:
+          RESULT_ARTIFACT_ID: ${{ steps.recovery-result-upload.outputs.artifact-id }}
+          RESULT_SERVICE_DIGEST: ${{ steps.recovery-result-upload.outputs.artifact-digest }}
+        run: |
+          {
+            echo '### Secret-free recovery publication result'
+            echo "- artifact id: $RESULT_ARTIFACT_ID"
+            echo "- service digest: $RESULT_SERVICE_DIGEST"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit and push recovered version-only delta
         shell: bash
