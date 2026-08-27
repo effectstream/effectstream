@@ -1,6 +1,8 @@
-import { describe, expect, mock, test } from "bun:test";
-import { WalletMode } from "@effectstream/wallets";
-import type { MidnightLocalApi } from "@effectstream/wallets/midnight-local";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
+import {
+  MidnightLocalConnector,
+  type MidnightLocalApi,
+} from "@effectstream/wallets/midnight-local";
 import type { WalletResult } from "@effectstream/midnight-contracts/types";
 import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 import { connectMidnightLocalWallet } from "./midnight-wallet.ts";
@@ -21,7 +23,11 @@ const injectedNetworkUrls = {
 };
 
 describe("MidnightLocal template selection", () => {
-  test("undeployed uses the real lazy default resolver and logs in once through the high-level full facade", async () => {
+  afterEach(() => {
+    mock.restore();
+  });
+
+  test("undeployed uses the real lazy default resolver and connects once through the published low-level full facade", async () => {
     const walletFacade = {
       state: mock(() => ({ pipe: mock(() => ({})) })),
     } as unknown as WalletFacade;
@@ -46,14 +52,7 @@ describe("MidnightLocal template selection", () => {
       }),
     };
     const resolveSeed = mock(() => SEED);
-    const login = mock(async () => ({
-      success: true as const,
-      result: {
-        provider,
-        walletAddress: "mn_addr_undeployed1test",
-        metadata: { name: "midnight-local", displayName: "Midnight local" },
-      },
-    }));
+    const connect = mock(async () => provider);
     const sync = mock(async () => ({
       shieldedBalance: 1n,
       unshieldedBalance: 2n,
@@ -65,15 +64,14 @@ describe("MidnightLocal template selection", () => {
     const connected = await connectMidnightLocalWallet({
       networkId: "undeployed",
       resolveSeed,
-      login: login as never,
+      connect: connect as never,
       sync: sync as never,
       configure: configure as never,
     });
 
     expect(resolveSeed).toHaveBeenCalledTimes(1);
-    expect(login).toHaveBeenCalledTimes(1);
-    expect(login).toHaveBeenCalledWith({
-      mode: WalletMode.MidnightLocal,
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(connect).toHaveBeenCalledWith({
       seed: SEED,
       networkId: "undeployed",
       networkUrls: defaultNetworkUrls,
@@ -86,12 +84,18 @@ describe("MidnightLocal template selection", () => {
   });
 
   test.each(["preview", "preprod", "mainnet"])(
-    "%s fails on injected and production-default paths before cached-wallet, seed, endpoint, login, provider, or network seams",
+    "%s fails on injected and production-default paths before cached-wallet, seed, endpoint, connector, provider, or network seams",
     async (networkId) => {
+      const connectorInstance = spyOn(
+        MidnightLocalConnector,
+        "instance",
+      ).mockImplementation(() => {
+        throw new Error("must not resolve the connector singleton");
+      });
       const resolveSeed = mock(() => SEED);
       const resolveNetworkUrls = mock(() => injectedNetworkUrls);
-      const login = mock(async () => {
-        throw new Error("must not log in");
+      const connect = mock(async () => {
+        throw new Error("must not connect");
       });
       const sync = mock(async () => {
         throw new Error("must not sync");
@@ -105,7 +109,7 @@ describe("MidnightLocal template selection", () => {
           networkId,
           resolveSeed,
           resolveNetworkUrls,
-          login: login as never,
+          connect: connect as never,
           sync: sync as never,
           configure: configure as never,
         }),
@@ -119,7 +123,6 @@ describe("MidnightLocal template selection", () => {
         connectMidnightLocalWallet({
           networkId,
           resolveSeed,
-          login: login as never,
           sync: sync as never,
           configure: configure as never,
         }),
@@ -129,7 +132,8 @@ describe("MidnightLocal template selection", () => {
 
       expect(resolveSeed).toHaveBeenCalledTimes(0);
       expect(resolveNetworkUrls).toHaveBeenCalledTimes(0);
-      expect(login).toHaveBeenCalledTimes(0);
+      expect(connect).toHaveBeenCalledTimes(0);
+      expect(connectorInstance).toHaveBeenCalledTimes(0);
       expect(sync).toHaveBeenCalledTimes(0);
       expect(configure).toHaveBeenCalledTimes(0);
     },

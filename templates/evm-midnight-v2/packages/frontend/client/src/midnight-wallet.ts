@@ -1,7 +1,9 @@
-import { WalletMode, walletLogin } from "@effectstream/wallets";
-import type {
-  MidnightLocalApi,
-  MidnightLocalNetworkUrls,
+import {
+  MidnightLocalConnector,
+  type MidnightLocalConnectArgs,
+  type MidnightLocalApi,
+  type MidnightLocalNetworkUrls,
+  type MidnightLocalProvider,
 } from "@effectstream/wallets/midnight-local";
 import type { WalletResult } from "@effectstream/midnight-contracts/types";
 import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
@@ -23,7 +25,9 @@ export type ConnectMidnightWalletDependencies<Providers> = {
   networkId?: string;
   resolveSeed?: (networkId: string) => string;
   resolveNetworkUrls?: () => MidnightLocalNetworkUrls;
-  login?: typeof walletLogin;
+  connect?: (
+    args: MidnightLocalConnectArgs,
+  ) => Promise<MidnightLocalProvider>;
   sync: (walletResult: WalletResult) => Promise<WalletBalances>;
   configure: (
     walletResult: WalletResult,
@@ -56,23 +60,19 @@ export async function connectMidnightLocalWallet<Providers>(
   );
   const networkUrls = (dependencies.resolveNetworkUrls ??
     resolveMidnightLocalNetworkUrls)();
-  const login = dependencies.login ?? walletLogin;
-  const connected = await login({
-    mode: WalletMode.MidnightLocal,
+  const connect = dependencies.connect ?? ((args: MidnightLocalConnectArgs) =>
+    MidnightLocalConnector.instance().connectFromSeed(args));
+  const provider = await connect({
     seed,
     networkId,
     networkUrls,
     syncMode: "all",
   });
-  if (!connected.success) {
-    throw new Error(`MidnightLocal login failed: ${connected.errorMessage}`);
-  }
 
-  const localApi = connected.result.provider.getConnection()
-    .api as unknown as MidnightLocalApi;
+  const localApi = provider.getConnection().api as unknown as MidnightLocalApi;
   if (localApi.walletFacade == null || localApi.walletResult == null) {
     throw new Error(
-      "MidnightLocal login did not return the required full wallet facade/result.",
+      "MidnightLocal connector did not return the required full wallet facade/result.",
     );
   }
 
