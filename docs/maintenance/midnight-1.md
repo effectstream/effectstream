@@ -5,6 +5,19 @@
 > Node 1.x and Ledger-v8. The default `v-next` branch targets Midnight Node 2.x
 > and Ledger-v9 and is not merged into this branch.
 
+## Release-operator breaking change
+
+> [!WARNING]
+> **BREAKING FOR RELEASE OPERATORS AND AUTOMATION:** every publisher invocation
+> now requires an explicit `--dist-tag`. Stable `0.104.x` accepts only
+> `midnight-1`; stable `0.200.x` accepts only `latest`; the retained Node-2
+> prerelease path accepts only `next`. Legacy invocations that relied on npm's
+> implicit `latest` fail before source, registry, tag, release, or branch
+> mutation.
+
+This is deliberately an operator/automation interface break. It is **not** a
+package API or runtime API break for EffectStream consumers.
+
 ## Compatibility contract
 
 This branch is rooted exactly at
@@ -82,7 +95,7 @@ deviations, and test evidence in the ledger below.
 | PR #887 / `332503c8f9216143a8c805f2a0acbcfd39e5a21d` | `CHERRY_PICK` | Solana transport-error preservation is independent of Midnight; the modified adapter blob matched the source first parent and the added test was absent on both applicability sides. | `a3f677e6521bdf9c2fc7f31f83aaee166a931c5a` | Applied merge first-parent patch with `-x -m 1`; no conflicts or deviations. Stable source/maintenance patch ID is `5fcf1257cb5506e676be9edbcb6b8c83c1506753`. | Pinned Bun 1.3.10 Docker: classifier 5/0/11 expectations; Solana adapter 20/0/23; full batcher 90/0/173. `ECONNREFUSED` and non-Error `socket hang up` reach infrastructure classification; genuine transaction rejection remains non-infrastructure; mixed success remains successful; empty payload keeps the bare error. Only container-local ephemeral ports were used. |
 | Playwright / `7c2c270a590e8c195d725ad1797de3a1f42e1266` | `EXCLUDED` | After the B1 lock regeneration, both the root and projected-NFT graphs still resolve one internally aligned `@playwright/test` / `playwright` / `playwright-core` set at `1.61.0`. The source commit repairs the `1.62.1` mismatch introduced only by the Node-2 migration. | None | No template or browser declaration was changed. The conditional manual-port trigger did not occur. | Exact post-B1 manifest/lock assertions passed for root and `templates/projected-nft-preorder`; each graph resolves the three browser packages at `1.61.0`, and the projected-NFT tree remains unchanged. |
 | PR #880 / `0277bd184510c84c08078770b0cf7b191c8784b5` and PR #881 Ledger-v9/template migration | `EXCLUDED` | These changes define the Node-2/Ledger-v9 `0.200.x` line. | None | Never merge or copy Node-2 application state. | Both PR #880 and direct migration child `5130be28...` are not ancestors; targeted baseline forbidden-identifier scan found zero matches. |
-| Audited generic dual-line release tooling | `MANUAL_PORT` | Branch-aware release/CI safety is shared across both compatibility lines. | Pending B5 | Port only audited generic tooling after routing R5 PASS; no Node-2 application manifests or locks. | B5 routing/maintenance policy matrix pending. |
+| Audited generic dual-line release tooling / routing R5 `49d8c5a4789dd15601b3a676698af7e90e14f337` | `MANUAL_PORT` | Branch-aware release/CI safety is shared across both compatibility lines, while the application source remains Node-1/Ledger-v8. | CI `7dfd2567eb32f40f8b95734ddc2687b8e4677ca6`; release `e7fec008a068bec05b2da90ac72758636c17c3b8`; recovery remediation `fee5caa6d948d5cc9c264b8ed130e811511edf9f` | `158efc09...` applied cleanly. `58a33a78...` conflicted only with the older publisher/workflow and absent guard paths; all nine paths were resolved to the exact audited source blobs before continuation. `49d8c5a4...` then applied cleanly. No application manifest, lock, template, README notice, or runtime path was copied. Final selected blobs: CI test `8ebe565605dc6849e3d1b887c3a2c1c1e56603dd`; CI classifier `e6fa7bc1024a8e651fba461b816fa702ad32be8c`; publisher registry test `8dc124278af31d8c94c125ba97523977f397e206`; publisher test `24d67142aba4f4eb50b1f4a68ad4fc13b3ef005d`; publisher `a6c0024d78a604d2a63b8cbcfebc0079c42da4c8`; recovery test `1dabb483d57d9003ace486a7c2dec6c7390a187d`; guard `22fc9de44075495c2fc334ea47b2d0a08bd5c0e0`; guard test `a524192df762abcce80b13872ba171f33744e201`; release workflow `899e8bbc22634907c7580c0d8b56fc08b274cd99`; recovery workflow `abd7c1c6de244997d25873271a6b43034663a60d`; rehearsal workflow `e4235a5aa64a7258a3691588bd0ebea4a70b7411`. Embedded guard SHA-256 is `f1c6f21dd0bfe03ee5fbf469c099e8bbc203e2adce61d819e3f5f1f1e33d8e20`. `main.yaml` is verified by maintenance behavior instead of required whole-file identity. | Pinned Docker: frozen Node-1 install passed; exact audited routing matrix 102/0/351; guard 5 positives, 16 fail-closed negatives, 2 race rejections; all four workflows actionlint-clean. The recovery-drift fixture required mechanically drifting only the 40 disposable version fields because its routing-era `0.104.1` premise equals the real maintenance versions. All owned containers, ports, credentials, registries, and volumes were removed. |
 
 ## Support and end of life
 
