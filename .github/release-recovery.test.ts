@@ -107,6 +107,12 @@ describe("recovery authorization and branch protections", () => {
     expect(workflow).toContain('git push origin "HEAD:refs/heads/$SOURCE_BRANCH"');
     expect(workflow).not.toContain("git push --force");
     expect(workflow).not.toContain("--force-with-lease");
+    const compatibility = workflow.indexOf("Validate recovery branch compatibility before authentication or mutation");
+    const auth = workflow.indexOf("Configure npm auth after all artifact and source checks");
+    const mutation = workflow.indexOf("Complete exact artifact publication and apply version delta");
+    expect(compatibility).toBeGreaterThan(0);
+    expect(compatibility).toBeLessThan(auth);
+    expect(auth).toBeLessThan(mutation);
   });
 
   test("read-only proof cannot fall through to recovery mutation", () => {

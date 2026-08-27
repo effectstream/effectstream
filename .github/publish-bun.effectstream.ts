@@ -449,12 +449,15 @@ async function setDistTag(name: string, version: string, distTag: string, regist
 }
 export async function publishFromBundle(options: { artifactDir: string; registry: string; recovery: boolean; publish: boolean; manifestSha512?: string }): Promise<{ published: string[]; skipped: string[] }> {
   const manifest = readAndVerifyBundle(options.artifactDir, options.manifestSha512);
+  const results: { name: string; status: string }[] = [];
+  const writeResults = () => writeFileSync(`${options.artifactDir}.publish-result.json`, canonicalJson({ releaseTag: manifest.releaseTag, sourceSha: manifest.sourceSha, recovery: options.recovery, packages: results }));
+  writeResults();
   const states = await Promise.all(manifest.packages.map((pkg) => readRegistryState(options.registry, pkg.name, manifest.version)));
   if (options.recovery) assertRecoveryLatestPrecondition(manifest, states);
   const completion = planRegistryCompletion(manifest, states, options.recovery);
   const published: string[] = [];
-  const results: { name: string; status: string }[] = completion.existing.map((name) => ({ name, status: "skipped-exact" }));
-  const writeResults = () => writeFileSync(`${options.artifactDir}.publish-result.json`, canonicalJson({ releaseTag: manifest.releaseTag, sourceSha: manifest.sourceSha, recovery: options.recovery, packages: results }));
+  results.push(...completion.existing.map((name) => ({ name, status: "skipped-exact" })));
+  writeResults();
   for (const name of completion.missing) {
     const pkg = manifest.packages.find((candidate) => candidate.name === name)!;
     if (options.publish) {
@@ -482,6 +485,11 @@ export async function publishFromBundle(options: { artifactDir: string; registry
 }
 
 export type RecoveryMode = "partial-tag" | "complete-tag" | "partial-advanced" | "complete-advanced";
+const RECOVERY_MODES = new Set<RecoveryMode>(["partial-tag", "complete-tag", "partial-advanced", "complete-advanced"]);
+function requireRecoveryMode(value: string): RecoveryMode {
+  if (!RECOVERY_MODES.has(value as RecoveryMode)) throw new Error(`Unsupported recovery mode ${value}`);
+  return value as RecoveryMode;
+}
 export function classifyRecoveryMode(partial: boolean, advanced: boolean): RecoveryMode {
   return `${partial ? "partial" : "complete"}-${advanced ? "advanced" : "tag"}` as RecoveryMode;
 }
@@ -500,7 +508,7 @@ export function validateRecoveryBranchState(
   const expectedBefore = manifest.packages[0].versionBefore;
   if (currentVersions.some((version) => version !== expectedBefore)) throw new Error("Version drift in recovery branch");
 }
-async function applyRecoveryVersionDelta(manifest: ReleaseManifest, mode: RecoveryMode, expectedCurrentBranchSha: string): Promise<void> {
+export async function validateRecoveryCheckout(manifest: ReleaseManifest, mode: RecoveryMode, expectedCurrentBranchSha: string): Promise<string[]> {
   if (!FULL_SHA_RE.test(expectedCurrentBranchSha)) throw new Error("Expected current branch SHA is invalid");
   const head = (await $`git -C ${ROOT} rev-parse HEAD^{commit}`.text()).trim();
   if (head !== expectedCurrentBranchSha) throw new Error(`Current HEAD ${head} differs from approved ${expectedCurrentBranchSha}`);
@@ -511,6 +519,10 @@ async function applyRecoveryVersionDelta(manifest: ReleaseManifest, mode: Recove
   const currentVersions = versionFiles.map((path) => JSON.parse(readFileSync(path, "utf8")).version as string);
   const sourceIsAncestor = Bun.spawnSync(["git", "merge-base", "--is-ancestor", manifest.sourceSha, head], { cwd: ROOT }).exitCode === 0;
   validateRecoveryBranchState(manifest, mode, head, sourceIsAncestor, currentVersions);
+  return versionFiles;
+}
+async function applyRecoveryVersionDelta(manifest: ReleaseManifest, mode: RecoveryMode, expectedCurrentBranchSha: string): Promise<void> {
+  const versionFiles = await validateRecoveryCheckout(manifest, mode, expectedCurrentBranchSha);
   for (const path of versionFiles) writeFileSync(path, setVersionInText(readFileSync(path, "utf8"), manifest.version));
 }
 
@@ -535,18 +547,28 @@ async function cli(): Promise<void> {
     console.log(canonicalJson(await publishFromBundle({ artifactDir: requireFlag("--artifact-dir"), registry, recovery: false, publish: process.argv.includes("--publish"), manifestSha512: getFlagValue("--manifest-sha512") })).trim());
     return;
   }
+  if (process.argv.includes("--validate-recovery-branch")) {
+    const artifactDir = requireFlag("--artifact-dir");
+    const manifest = readAndVerifyBundle(artifactDir, requireFlag("--manifest-sha512"));
+    const mode = requireRecoveryMode(requireFlag("--recovery-mode"));
+    const expectedCurrentBranchSha = requireFlag("--expected-current-branch-sha");
+    await validateRecoveryCheckout(manifest, mode, expectedCurrentBranchSha);
+    console.log(canonicalJson({ releaseTag: manifest.releaseTag, sourceSha: manifest.sourceSha, branch: manifest.branch, recoveryMode: mode, currentBranchSha: expectedCurrentBranchSha, compatible: true }).trim());
+    return;
+  }
   if (process.argv.includes("--recover-bundle")) {
     const auditRef = requireFlag("--audit-ref");
     const authorizationRef = requireFlag("--authorization-ref");
     const artifactDir = requireFlag("--artifact-dir");
     const manifestSha512 = requireFlag("--manifest-sha512");
     const manifest = readAndVerifyBundle(artifactDir, manifestSha512);
+    const expectedCurrentBranchSha = requireFlag("--expected-current-branch-sha");
+    const requested = requireRecoveryMode(requireFlag("--recovery-mode"));
+    await validateRecoveryCheckout(manifest, requested, expectedCurrentBranchSha);
     const states = await Promise.all(manifest.packages.map((pkg) => readRegistryState(registry, pkg.name, manifest.version)));
     assertRecoveryLatestPrecondition(manifest, states);
     const completion = planRegistryCompletion(manifest, states, true);
-    const expectedCurrentBranchSha = requireFlag("--expected-current-branch-sha");
     const observed = classifyRecoveryMode(completion.missing.length > 0, expectedCurrentBranchSha !== manifest.sourceSha);
-    const requested = requireFlag("--recovery-mode") as RecoveryMode;
     if (requested !== observed) throw new Error(`Recovery mode ${requested} differs from observed ${observed}`);
     const result = await publishFromBundle({ artifactDir, registry, recovery: true, publish: process.argv.includes("--publish"), manifestSha512 });
     if (process.argv.includes("--publish")) await applyRecoveryVersionDelta(manifest, requested, expectedCurrentBranchSha);
@@ -555,7 +577,7 @@ async function cli(): Promise<void> {
     console.log(canonicalJson(final).trim());
     return;
   }
-  throw new Error("Choose exactly one of --policy, --prepare, --publish-bundle, or --recover-bundle");
+  throw new Error("Choose exactly one of --policy, --prepare, --publish-bundle, --validate-recovery-branch, or --recover-bundle");
 }
 
 if (import.meta.main) cli().catch((error) => {

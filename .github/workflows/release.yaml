@@ -99,6 +99,7 @@ jobs:
         run: printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > .npmrc
 
       - name: Publish exact persisted tarballs and verify channel postcondition
+        id: publish
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -107,6 +108,30 @@ jobs:
           bun run .github/publish-bun.effectstream.ts --publish-bundle --publish \
             --artifact-dir '${{ runner.temp }}/effectstream-release-bundle' \
             --manifest-sha512 '${{ steps.prepare.outputs.manifest-sha512 }}'
+
+      - name: Persist secret-free publication result even after failure
+        id: result-upload
+        if: ${{ always() && steps.publish.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-result-${{ github.event.release.tag_name }}-${{ steps.release-source.outputs.source-sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/effectstream-release-bundle.publish-result.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Record publication result artifact identity
+        if: ${{ always() && steps.result-upload.outcome == 'success' }}
+        shell: bash
+        env:
+          RESULT_ARTIFACT_ID: ${{ steps.result-upload.outputs.artifact-id }}
+          RESULT_SERVICE_DIGEST: ${{ steps.result-upload.outputs.artifact-digest }}
+        run: |
+          {
+            echo '### Secret-free publication result'
+            echo "- artifact id: $RESULT_ARTIFACT_ID"
+            echo "- service digest: $RESULT_SERVICE_DIGEST"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit and push version-only delta
         shell: bash
