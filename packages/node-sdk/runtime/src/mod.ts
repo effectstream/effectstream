@@ -1,6 +1,7 @@
 export { init, start } from "./main.ts";
 export { runEffectstream, RunEffectstreamError } from "./process.ts";
 export type {
+  RunEffectstreamDatabase,
   RunEffectstreamErrorCode,
   RunEffectstreamOptions,
 } from "./process.ts";

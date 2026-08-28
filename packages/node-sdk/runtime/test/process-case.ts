@@ -26,7 +26,7 @@ mock.module("../src/main.ts", () => ({
   init: function* () {
     if (scenario === "startup-failure") throw startupError;
   },
-  start: function* () {
+  startCanonical: function* () {
     if (scenario === "normal" || scenario === "invalid" ||
       scenario === "already-aborted" || scenario === "abort-race" ||
       scenario === "listener-failure") return;
@@ -55,6 +55,7 @@ mock.module("../src/main.ts", () => ({
   },
 }));
 mock.module("@effectstream/config", () => ({
+  toSyncProtocolWithNetwork: () => [],
   withEffectstreamStaticConfig: function* (
     _config: unknown,
     continuation: () => Generator,
@@ -69,14 +70,26 @@ const {
 } = await import("../src/process.ts");
 
 const options = {
-  staticConfig: {
-    securityNamespace: {} as never,
-    allNetworks: { viemNetworks: {} },
-  },
-  startConfig: {
-    appName: "runtime-process-test",
-    appVersion: "1.0.0" as const,
-    syncInfo: [],
+  appName: "runtime-process-test",
+  appVersion: "1.0.0" as const,
+  config: {
+    securityNamespace: undefined,
+    allNetworks: { networks: {}, viemNetworks: {} },
+    deployedAddresses: {},
+    syncProtocols: {},
+    primitives: {},
+  } as any,
+  stateMachine: {
+    bindGrammar() {},
+    *processInput() {},
+  } as any,
+  apiRouter: async () => {},
+  database: {
+    type: "postgres" as const,
+    host: "127.0.0.1",
+    port: 54_321,
+    user: "postgres",
+    database: "postgres",
   },
 };
 

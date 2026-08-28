@@ -1,7 +1,12 @@
 import type { ChainBlock } from "@effectstream/sync";
 import { call, type Operation, sleep, until } from "effection";
 import type { Pool, PoolClient } from "pg";
-import { type BaseStfInput, type EmitFn, primitiveTransitionFunction } from "@effectstream/sm";
+import {
+  type BaseStfInput,
+  type EmitFn,
+  primitiveTransitionFunction,
+  type StateMachine,
+} from "@effectstream/sm";
 import { PreparedQuery } from "@pgtyped/runtime";
 import type {
   ExecPromise,
@@ -151,6 +156,7 @@ export function* processFinalizedBlock(
   config: StartConfig,
   dbConn: Pool,
   previousBlockHash: EffectstreamBlockHash | null,
+  stateMachine?: StateMachine<any, any, any>,
 ): Operation<ProcessFinalizedBlockResult> {
   const { gameStateTransitions, migrations } = config;
   const blockHash: EffectstreamBlockHash = generateEffectstreamBlockHash(
@@ -216,7 +222,7 @@ export function* processFinalizedBlock(
     const scheduledData = [...scheduledData1, ...scheduledData2];
     let index_in_block = 0;
 
-    if (gameStateTransitions && scheduledData.length > 0) {
+    if ((stateMachine || gameStateTransitions) && scheduledData.length > 0) {
       randomGenerator.skip();
       for (const data of scheduledData) {
         let success = true;
@@ -248,10 +254,9 @@ export function* processFinalizedBlock(
             //      current accountId?
             accountId: undefined, // data.accountId,
           };
-          const gameSTFGenerator = gameStateTransitions(
-            value.blockNumber,
-            input,
-          );
+          const gameSTFGenerator = stateMachine
+            ? stateMachine.processInput(input)
+            : gameStateTransitions!(value.blockNumber, input);
           yield* executeGeneratorStepByStep(gameSTFGenerator, dbConn);
           // STF succeeded: promote buffered events to the block buffer.
           // Failure path falls through the catch below and `inputEvents`
@@ -405,6 +410,7 @@ export function* processFinalizedBlockWithRetry(
   config: StartConfig,
   pool: Pool,
   previousBlockHash: EffectstreamBlockHash | null,
+  stateMachine?: StateMachine<any, any, any>,
 ): Operation<ProcessFinalizedBlockResult> {
   const lockName = `processing-blocks:${value.blockNumber}`;
   let attempt = 0;
@@ -419,6 +425,7 @@ export function* processFinalizedBlockWithRetry(
         config,
         dbClient as unknown as Pool, // a checked-out client, used as the tx conn
         previousBlockHash,
+        stateMachine,
       );
     } catch (err) {
       if (!isTransientPgError(err)) throw err;

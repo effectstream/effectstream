@@ -50,7 +50,11 @@ import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
 import { ConfigNetworkType, usePaimaStaticConfig } from "@effectstream/config";
 import type { SecurityNamespace, SyncProtocolWithNetwork } from "@effectstream/config";
-import { builtInPrimitivesMap } from "@effectstream/sm";
+import {
+  builtInPrimitivesMap,
+  type StateMachine,
+  type StateMachineGrammarBinding,
+} from "@effectstream/sm";
 import { validateAndSnapshotConfig } from "./config-snapshot.ts";
 import {
   cloneRuntimeSyncInfo,
@@ -71,6 +75,21 @@ export function* init() {
  * @param config - Paima Engine Node configuration object.
  */
 export function* start(config: StartConfig): Operation<void> {
+  yield* startRuntime(config);
+}
+
+/** Package-internal canonical path; the public legacy start signature stays unchanged. */
+export function* startCanonical(
+  config: StartConfig,
+  stateMachine: StateMachine<any, any, any>,
+): Operation<void> {
+  yield* startRuntime(config, stateMachine);
+}
+
+function* startRuntime(
+  config: StartConfig,
+  stateMachine?: StateMachine<any, any, any>,
+): Operation<void> {
   const syncInfo = cloneRuntimeSyncInfo(config.syncInfo);
 
   const dbConn = getConnection();
@@ -97,7 +116,7 @@ export function* start(config: StartConfig): Operation<void> {
     }
   }
 
-  const syncProtocols = yield* startup(dbConn, syncInfo, config);
+  const syncProtocols = yield* startup(dbConn, syncInfo, config, stateMachine);
 
   // Test-only: surface live sync protocols (e.g. for buffer-size assertions).
   config.dev?.onStarted?.({ syncProtocols });
@@ -130,7 +149,7 @@ export function* start(config: StartConfig): Operation<void> {
       syncProtocols,
       lagThresholdMs,
       config.apiRouter,
-      config.grammar,
+      stateMachine?.grammar ?? config.grammar,
     );
   });
 
@@ -224,6 +243,7 @@ export function* start(config: StartConfig): Operation<void> {
       config,
       dbConn as any, // Pool,
       blockHash,
+      stateMachine,
     );
     const blockAppEvents: PendingEvent[] = result.events;
     if (result.blockHash !== "0x0") {
@@ -332,6 +352,7 @@ function* startup(
   dbConn: Pool,
   syncInfo: SyncProtocolWithNetwork[],
   config: StartConfig,
+  stateMachine?: StateMachine<any, any, any>,
 ): Operation<AllSyncProtocols[]> {
   const versionInfo = yield* getVersionInfo(dbConn);
   const lastBlockHeight = yield* getLastBlockHeight(versionInfo, dbConn);
@@ -368,16 +389,19 @@ function* startup(
     // commits. Primitive constructors can therefore never observe a moving
     // latest sentinel or do work before its restart boundary is durable.
     const staticConfig = yield* usePaimaStaticConfig();
+    const grammarBindings: StateMachineGrammarBinding[] = [];
     syncInfo.forEach((syncProtocol) => {
       syncProtocol.primitives.forEach((_primitive, primitiveIndex) => {
-        processPrimitives(
+        const binding = processPrimitives(
           syncProtocol,
           primitiveIndex,
           staticConfig.securityNamespace,
           config.userDefinedPrimitives,
         );
+        if (binding) grammarBindings.push(binding);
       });
     });
+    if (stateMachine) stateMachine.bindGrammar(grammarBindings);
 
     const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
       syncInfo);
@@ -408,7 +432,7 @@ const processPrimitives = (
   primitiveIndex: number,
   securityNamespace: SecurityNamespace | undefined,
   userDefinedPrimitives?: Record<string, any>,
-) => {
+): StateMachineGrammarBinding | undefined => {
     const primitives = syncProtocol.primitives as {primitive: any, id: string}[];
     const primitiveType = primitives[primitiveIndex].primitive.type;
     const primitiveUniqueName = primitives[primitiveIndex].id;
@@ -426,7 +450,7 @@ const processPrimitives = (
                         ...Object.keys(userDefinedPrimitives || {}),
                       ]).join(", ")}`);
     }
-    let p = null;
+    let p: any;
     const classConfig: Record<string, unknown> = {
       ...inheritPrimitiveConfig(syncProtocol, primitiveConfig),
       instanceName: primitiveUniqueName,
@@ -447,4 +471,8 @@ const processPrimitives = (
         ? {}
         : { stateMachinePrefix: primitiveConfig.stateMachinePrefix }),
     };
+    const prefix = primitiveConfig.stateMachinePrefix;
+    return typeof prefix === "string" && prefix.length > 0
+      ? [prefix, p.grammar]
+      : undefined;
 }
