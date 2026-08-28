@@ -72,7 +72,7 @@ catch-up — in steady state the buffer sits near zero and the cap is never reac
 
 **Deadlock-safety (merge-demand exemption).** A naive cap can deadlock the merge: it
 produces a root block at timestamp `τ` only once a parallel chain's page passes `τ`, and
-drains that chain's buffer only *after* the page passes `τ`. If the cap pauses the
+drains that chain's buffer only _after_ the page passes `τ`. If the cap pauses the
 fetcher while its page is still `≤ τ` (the data up to `τ` exceeds the cap — e.g. a far
 skip-ahead or a parallel chain finer-grained than the cap), neither side can proceed: a
 circular wait, not a lost wakeup.
@@ -83,12 +83,13 @@ page (`mergeIntoRoot` sets `SyncState.mergeWaitingForPage`), `bufferAtCap` retur
 **bounded by necessity** — only `(lastPage.root, τ]` is buffered above the cap, exactly
 what the merge must hold to build block `τ`; once the page passes `τ` the normal cap
 re-engages. A chain that is merely tip-limited (caught up, not gated by the merge) is
-*not* exempted, so steady-state and head-of-line bounds are unaffected. Reproductions:
+_not_ exempted, so steady-state and head-of-line bounds are unaffected. Reproductions:
 `buffering.test.ts` 1c (skip-ahead) and 1d (density).
 
 **Scope.** The guard runs in **every** chain's `stateToInput`, so all sync chains are
 covered: EVM, NTP, Bitcoin, Avail, Celestia, NEAR, Solana, Midnight, Cardano (UTXO-RPC), and
 the synthetic `test` chain. Two notes:
+
 - **Cardano (UTXO-RPC)** has no `stepSize` (it streams one block per pass), so the cap
   falls back to a default chunk size of 1000 (⇒ default cap 4000); set `maxBufferedPages`
   explicitly to tune it.
@@ -124,7 +125,7 @@ loop's job (it re-runs the same page range and counts the failure, which is what
 **Coverage.** Honoured by EVM (as the viem transport timeout), Bitcoin, NEAR,
 Avail (light-client HTTP), Midnight and Celestia. Two exceptions:
 
-- **Celestia** retries internally, so the value bounds each *attempt* rather than
+- **Celestia** retries internally, so the value bounds each _attempt_ rather than
   the whole call. It still falls back to `CELESTIA_RPC_TIMEOUT_MS` when no
   protocol-level value is set.
 - **Cardano / utxorpc** reads its data from a gRPC stream rather than
@@ -132,7 +133,8 @@ Avail (light-client HTTP), Midnight and Celestia. Two exceptions:
   protected by producer supervision — a stream that dies or ends is restarted
   with backoff (see below).
 
-NTP and the synthetic `test` chain make no network calls at all.
+The synthetic `test` chain makes no network calls. NTP performs bounded UDP I/O;
+its one-shot boundary is described below.
 
 ```ts
 .addParallel((n) => n.myChain, () => ({
@@ -143,6 +145,43 @@ NTP and the synthetic `test` chain make no network calls at all.
   // ...
 }))
 ```
+
+## NTP clock ownership and one-shot tip
+
+Every `NtpFetcher` owns its own `ntp-time-sync` client and cache, including when
+`servers` is absent or empty. A non-empty server list is defensively copied into
+that client. This prevents a default or configured fetcher from reusing another
+fetcher's server selection or cached offset.
+
+For startup boundaries, `getNtpTip` takes one concurrent NTPv4 sample from each
+selected server and returns the inclusive page from the first fully validated
+response:
+
+```ts
+import { getNtpTip } from "@effectstream/sync";
+
+const { height } = await getNtpTip({
+  startTime: network.startTime,
+  blockTimeMS: network.blockTimeMS,
+  servers: network.servers,
+  signal,
+  // requestTimeoutMs: 15_000, // default
+});
+```
+
+The operation has one deadline, sends at most one packet per selected server,
+and does not retry. Caller abort and timeout use first-winner semantics. Before
+rejecting, the operation cancels sibling requests, closes and awaits every owned
+UDP socket, clears its deadline, and removes the caller's abort listener.
+`NtpTipError.code` distinguishes invalid options, abort, timeout, network,
+invalid response, and invalid time; abort preserves the caller's reason as
+`cause`, while timeout exposes the effective `timeoutMs`.
+
+Compatibility warning: the exact `ntp-time-sync` 0.6.0 upgrade drops Node 18
+support. Its dependency graph requires Node 20.19+ or Node 22.12+ (the repository's
+supported Bun runtime also works). Version 0.6.0 also corrects offsets to their
+signed RFC 5905 meaning, so both the runtime floor and clock-direction behavior
+are breaking compatibility changes.
 
 ## Producer supervision (streaming chains)
 
