@@ -15,11 +15,24 @@ const connection = (handle: PgliteHandle) => ({
   connectionTimeoutMillis: 500,
 });
 
-async function connect(handle: PgliteHandle): Promise<Client> {
-  const client = new Client(connection(handle));
+type PositiveClientFactory = (config: ReturnType<typeof connection>) => Client;
+
+const createPositiveClient: PositiveClientFactory = (config) => new Client(config);
+
+async function connect(
+  handle: PgliteHandle,
+  clientFactory: PositiveClientFactory = createPositiveClient,
+): Promise<Client> {
+  await handle.db.waitReady;
+  const client = clientFactory(connection(handle));
   await client.connect();
   return client;
 }
+
+const controlledHandle = (waitReady: Promise<unknown>, port = 5432): PgliteHandle => ({
+  port,
+  db: { waitReady },
+}) as unknown as PgliteHandle;
 
 async function expectRefused(handle: PgliteHandle): Promise<void> {
   const probe = new Client(connection(handle));
@@ -48,6 +61,91 @@ async function waitFor(
     await Bun.sleep(10);
   }
 }
+
+test("positive client waits for readiness before construction", async () => {
+  const order: string[] = [];
+  let releaseReadiness!: () => void;
+  const readinessGate = new Promise<void>((resolve) => {
+    releaseReadiness = resolve;
+  });
+  const waitReady = readinessGate.then(() => {
+    order.push("readiness");
+  });
+  const fakeClient = {
+    connect: async () => {
+      order.push("connect");
+    },
+  } as unknown as Client;
+  let observedConfig: ReturnType<typeof connection> | undefined;
+  const clientFactory: PositiveClientFactory = (config) => {
+    order.push("construction");
+    observedConfig = config;
+    return fakeClient;
+  };
+
+  let connectionAttempt: Promise<Client> | undefined;
+  try {
+    const startedAt = Date.now();
+    connectionAttempt = connect(controlledHandle(waitReady), clientFactory);
+    await Bun.sleep(600);
+
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(600);
+    expect(order).toEqual([]);
+    expect(observedConfig).toBeUndefined();
+
+    releaseReadiness();
+    expect(await connectionAttempt).toBe(fakeClient);
+    expect(order).toEqual(["readiness", "construction", "connect"]);
+    expect(observedConfig?.connectionTimeoutMillis).toBe(500);
+  } finally {
+    releaseReadiness();
+    await connectionAttempt?.catch(() => {});
+  }
+});
+
+test("positive client propagates readiness rejection before construction", async () => {
+  const readinessError = new Error("controlled readiness rejection");
+  const waitReady = Promise.reject(readinessError);
+  void waitReady.catch(() => {});
+  let constructionCount = 0;
+  let connectCount = 0;
+  const clientFactory: PositiveClientFactory = () => {
+    constructionCount += 1;
+    return {
+      connect: async () => {
+        connectCount += 1;
+      },
+    } as unknown as Client;
+  };
+
+  await expect(connect(controlledHandle(waitReady), clientFactory)).rejects.toBe(readinessError);
+  expect(constructionCount).toBe(0);
+  expect(connectCount).toBe(0);
+});
+
+test("positive client preserves the 500 ms post-readiness handshake timeout", async () => {
+  const acceptedSockets: net.Socket[] = [];
+  const stalledServer = net.createServer((socket) => {
+    acceptedSockets.push(socket);
+  });
+  await new Promise<void>((resolve) => stalledServer.listen(0, "127.0.0.1", resolve));
+  const address = stalledServer.address();
+  if (!address || typeof address === "string") {
+    throw new Error("Unable to allocate a controlled loopback port.");
+  }
+
+  try {
+    await expect(connect(controlledHandle(Promise.resolve(), address.port))).rejects.toMatchObject({
+      message: "timeout expired",
+    });
+    expect(acceptedSockets).toHaveLength(1);
+  } finally {
+    for (const socket of acceptedSockets) socket.destroy();
+    await new Promise<void>((resolve, reject) => {
+      stalledServer.close((error) => error ? reject(error) : resolve());
+    });
+  }
+});
 
 test("default and forced close are bounded without clients", async () => {
   const graceful = await startPglite(0);
