@@ -85,6 +85,9 @@ mock.module("@effectstream/log", () => ({
 }));
 
 const pool = {
+  async connect() {
+    return { release() {} };
+  },
   async end() {
     poolEnds++;
   },

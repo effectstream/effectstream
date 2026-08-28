@@ -4,7 +4,7 @@ import { ConfigSyncProtocolType } from "../types.ts";
 import {
   NameField,
   PollingSyncProtocolWithDefault,
-  StartStopBlockheight,
+  StartStopBlockheightLatest,
 } from "../../common.ts";
 import { type MergeIntersects, TypeboxHelpers } from "@effectstream/utils";
 import {
@@ -18,7 +18,7 @@ import {
 
 export const ConfigSyncProtocolSchemaNtpBase = NameField.cloneMerge(
   PollingSyncProtocolWithDefault(1_000),
-).cloneMerge(StartStopBlockheight).cloneMerge({
+).cloneMerge(StartStopBlockheightLatest).cloneMerge({
   required: Type.Object({}),
   optional: Type.Object({
     stepSize: Type.Number({ default: 1000 }),

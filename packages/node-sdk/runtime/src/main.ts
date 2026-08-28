@@ -44,7 +44,7 @@ import { recordAppliedBlock } from "./api/apply-status.ts";
 import { recordCoalesced } from "./api/stream-status.ts";
 import { createBoundedFinalizedStream } from "./finalized-stream.ts";
 import type { StartConfig } from "./types.ts";
-import type { Client } from "pg";
+import type { Pool, PoolClient } from "pg";
 import type { EffectstreamBlockHash } from "@effectstream/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
@@ -52,6 +52,10 @@ import { ConfigNetworkType, usePaimaStaticConfig } from "@effectstream/config";
 import type { SecurityNamespace, SyncProtocolWithNetwork } from "@effectstream/config";
 import { builtInPrimitivesMap } from "@effectstream/sm";
 import { validateAndSnapshotConfig } from "./config-snapshot.ts";
+import {
+  cloneRuntimeSyncInfo,
+  inheritPrimitiveConfig,
+} from "./canonical-config.ts";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -67,7 +71,7 @@ export function* init() {
  * @param config - Paima Engine Node configuration object.
  */
 export function* start(config: StartConfig): Operation<void> {
-  const { syncInfo } = config;
+  const syncInfo = cloneRuntimeSyncInfo(config.syncInfo);
 
   const dbConn = getConnection();
   yield* ensure(function* () {
@@ -93,8 +97,7 @@ export function* start(config: StartConfig): Operation<void> {
     }
   }
 
-  const syncProtocols = yield* startup(dbConn as any, // Client,
-    syncInfo, config);
+  const syncProtocols = yield* startup(dbConn, syncInfo, config);
 
   // Test-only: surface live sync protocols (e.g. for buffer-size assertions).
   config.dev?.onStarted?.({ syncProtocols });
@@ -326,27 +329,12 @@ function emitLatestBlocks(
 }
 
 function* startup(
-  dbConn: Client,
+  dbConn: Pool,
   syncInfo: SyncProtocolWithNetwork[],
   config: StartConfig,
 ): Operation<AllSyncProtocols[]> {
   const versionInfo = yield* getVersionInfo(dbConn);
   const lastBlockHeight = yield* getLastBlockHeight(versionInfo, dbConn);
-  // Pull the security namespace from the static config so primitives that
-  // re-verify batched signatures can access it synchronously.
-  const staticConfig = yield* usePaimaStaticConfig();
-  // Create Runtime Primitives Instances
-  syncInfo.forEach((syncProtocol) => {
-    syncProtocol.primitives.forEach((primitive, primitiveIndex) => {
-      processPrimitives(
-        syncProtocol.primitives,
-        primitiveIndex,
-        staticConfig.securityNamespace,
-        config.userDefinedPrimitives
-      );
-    });
-  });
-
   yield* acquireDBMutex(`startup-node`);
   // `finally` releases the mutex on error/cancellation too; a throw in any step
   // below would otherwise leak it and deadlock every later DB operation.
@@ -369,7 +357,27 @@ function* startup(
     // Validate that immutable config fields (e.g. NTP startTime, startBlockHeight)
     // have not changed since the last run. Persists a snapshot on first start.
     // Must run after system migrations so the snapshot table exists.
-    yield* validateAndSnapshotConfig(syncInfo, dbConn);
+    const snapshotClient = (yield* until(dbConn.connect())) as PoolClient;
+    try {
+      yield* validateAndSnapshotConfig(syncInfo, snapshotClient);
+    } finally {
+      snapshotClient.release();
+    }
+
+    // Pull the security namespace only after the numeric boundary transaction
+    // commits. Primitive constructors can therefore never observe a moving
+    // latest sentinel or do work before its restart boundary is durable.
+    const staticConfig = yield* usePaimaStaticConfig();
+    syncInfo.forEach((syncProtocol) => {
+      syncProtocol.primitives.forEach((_primitive, primitiveIndex) => {
+        processPrimitives(
+          syncProtocol,
+          primitiveIndex,
+          staticConfig.securityNamespace,
+          config.userDefinedPrimitives,
+        );
+      });
+    });
 
     const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
       syncInfo);
@@ -396,11 +404,12 @@ function* startup(
 
 // Convert the primitive config to the final primitive instance
 const processPrimitives = (
-  primitives: {primitive: any, id: string}[],
+  syncProtocol: SyncProtocolWithNetwork,
   primitiveIndex: number,
   securityNamespace: SecurityNamespace | undefined,
   userDefinedPrimitives?: Record<string, any>,
 ) => {
+    const primitives = syncProtocol.primitives as {primitive: any, id: string}[];
     const primitiveType = primitives[primitiveIndex].primitive.type;
     const primitiveUniqueName = primitives[primitiveIndex].id;
     const primitiveConfig = primitives[primitiveIndex].primitive;
@@ -418,16 +427,24 @@ const processPrimitives = (
                       ]).join(", ")}`);
     }
     let p = null;
-    const classConfig = {
-      ...primitiveConfig,
+    const classConfig: Record<string, unknown> = {
+      ...inheritPrimitiveConfig(syncProtocol, primitiveConfig),
       instanceName: primitiveUniqueName,
       securityNamespace,
-    }
+    };
     if (isBuiltInPrimitive) {
       p = new builtInPrimitivesMap[primitiveType as keyof typeof builtInPrimitivesMap](classConfig as any) ;
     } else if (isUserDefinedPrimitive) {
       p = new userDefinedPrimitives[primitiveType as keyof typeof userDefinedPrimitives](classConfig);
     }
     // Update the primitive with the final configuration
-    primitives[primitiveIndex].primitive = p.getConfig();
+    const finalized = p.getConfig();
+    primitives[primitiveIndex].primitive = {
+      ...finalized,
+      // Primitive.getConfig implementations historically used scheduledPrefix;
+      // retain the constructor input that the runtime actually routes on.
+      ...(primitiveConfig.stateMachinePrefix === undefined
+        ? {}
+        : { stateMachinePrefix: primitiveConfig.stateMachinePrefix }),
+    };
 }

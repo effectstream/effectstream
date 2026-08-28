@@ -10,7 +10,14 @@ import type { NtpFetcher } from "./fetcher.ts";
 import { bufferAtCap, genInputRange } from "../common/page-helpers.ts";
 import type { Input, Output, Page } from "./types.ts";
 import { toMsTimestamp } from "./types.ts";
-import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/config";
+import {
+  type ConfigNetworkType,
+  type SyncProtocolWithNetwork,
+} from "@effectstream/config";
+
+const START_BLOCK_HEIGHT_PROVENANCE = Symbol.for(
+  "@effectstream/config/start-block-height-provenance",
+);
 
 export class NtpSyncState extends SyncState<
   Input,
@@ -61,12 +68,20 @@ export class NtpSyncState extends SyncState<
   @bound
   override *stateToInput(): Operation<Input | undefined> {
     if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
+    const resolvedStart = this.config.syncProtocol.startBlockHeight as NtpBlockNumber;
+    const provenance = (this.config as typeof this.config & {
+      [START_BLOCK_HEIGHT_PROVENANCE]?: "latest" | "explicit";
+    })[START_BLOCK_HEIGHT_PROVENANCE];
+    const inclusiveGenesis =
+      provenance === "latest"
+        ? resolvedStart
+        : 1 as NtpBlockNumber;
     return yield* genInputRange(
       this as NtpSyncState,
-      1, // NTP Pages start from 1, and the fetcher offsets using the start page (date)
+      inclusiveGenesis,
       {
         name: this.config.syncProtocol.name,
-        startPage: this.config.syncProtocol.startBlockHeight as NtpBlockNumber,
+        startPage: resolvedStart,
       },
       this.getNamespace(),
     );

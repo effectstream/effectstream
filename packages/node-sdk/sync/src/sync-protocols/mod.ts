@@ -13,6 +13,7 @@ export * from "./bitcoin/state.ts";
 
 export * from "./ntp/fetcher.ts";
 export * from "./ntp/state.ts";
+export * from "./ntp/tip.ts";
 
 export * from "./utxorpc/fetcher.ts";
 export * from "./utxorpc/state.ts";

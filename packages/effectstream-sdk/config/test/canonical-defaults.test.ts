@@ -281,6 +281,56 @@ describe("canonical ConfigBuilder defaults", () => {
     expect(config.syncProtocols.main.syncProtocol.pollingInterval).toBe(321);
   });
 
+  test("accepts protocol-local latest only on NTP and Midnight", () => {
+    const config = new ConfigBuilder()
+      .buildNetworks((builder) =>
+        builder
+          .addNetwork({ type: ConfigNetworkType.NTP, startTime: 0 })
+          .addNetwork({
+            type: ConfigNetworkType.MIDNIGHT,
+            networkId: "stagenet",
+          })
+      )
+      .buildSyncProtocols((builder) =>
+        builder
+          .addMain(
+            (networks) => networks.ntp,
+            () => ({
+              name: "ntp-latest",
+              type: ConfigSyncProtocolType.NTP_MAIN,
+              startBlockHeight: "latest",
+            }),
+          )
+          .addParallel(
+            (networks) => networks.midnight,
+            () => ({
+              name: "midnight-latest",
+              type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+              startBlockHeight: "latest",
+            }),
+          )
+      )
+      .buildPrimitives((builder) =>
+        builder.addPrimitive(
+          (protocols) => protocols["midnight-latest"],
+          () => ({ name: "watcher", type: "Midnight:Generic" }),
+        )
+      )
+      .build();
+
+    expect(config.syncProtocols.main.syncProtocol.startBlockHeight).toBe(
+      "latest",
+    );
+    expect(
+      config.syncProtocols.parallel["midnight-latest"].syncProtocol
+        .startBlockHeight,
+    ).toBe("latest");
+    expect(
+      (config.primitives.watcher.primitive as { startBlockHeight?: number })
+        .startBlockHeight,
+    ).toBeUndefined();
+  });
+
   test("uses the generic profile for arbitrary IDs and rejects impossible derivation", () => {
     const generic = new ConfigBuilder()
       .buildNetworks((builder) =>

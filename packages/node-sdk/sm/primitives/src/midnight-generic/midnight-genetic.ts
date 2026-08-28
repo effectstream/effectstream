@@ -174,6 +174,7 @@ export class MidnightGenericPrimitive extends Primitive<
       type: this.internalTypeName,
       startBlockHeight: this.startBlockHeight,
       contractAddress: this.contractAddress,
+      stateMachinePrefix: this.stateMachinePrefix,
       // TODO This should be optional
       scheduledPrefix: this.stateMachinePrefix ?? "",
       contract: this.contract,

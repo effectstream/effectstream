@@ -62,6 +62,21 @@ export const StartStopBlockheight = new ConfigSchema({
   }),
 });
 
+/** Start policy for protocols that snapshot one first-run local tip. */
+export const StartStopBlockheightLatest = new ConfigSchema({
+  required: Type.Object({
+    startBlockHeight: Type.Union([
+      TypeboxHelpers.BlockNumber(),
+      Type.Literal("latest"),
+    ]),
+  }),
+  optional: Type.Object({
+    stopBlockHeight: TypeboxHelpers.Nullable(TypeboxHelpers.BlockNumber(), {
+      default: null,
+    }),
+  }),
+});
+
 export const StartStopSlot = new ConfigSchema({
   required: Type.Object({
     startSlot: TypeboxHelpers.AbsoluteSlotNumber(),

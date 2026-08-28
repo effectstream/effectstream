@@ -24,6 +24,18 @@ type _UnrelatedPollingStaysRequired = Expect<
     false
   >
 >;
+type TestProtocolWithLatest = {
+  name: "test-main";
+  type: ConfigSyncProtocolType.TEST_MAIN;
+  startBlockHeight: "latest";
+  pollingInterval: 1_000;
+};
+type _UnrelatedLatestStaysRejected = Expect<
+  Equal<
+    TestProtocolWithLatest extends MainSyncProtocolConfig<false> ? true : false,
+    false
+  >
+>;
 
 const canonical = new ConfigBuilder()
   .buildNetworks((builder) =>
@@ -41,7 +53,7 @@ const canonical = new ConfigBuilder()
         () => ({
           name: "ntp",
           type: ConfigSyncProtocolType.NTP_MAIN,
-          startBlockHeight: 1,
+          startBlockHeight: "latest",
         }),
       )
       .addParallel(
@@ -49,7 +61,7 @@ const canonical = new ConfigBuilder()
         () => ({
           name: "midnight",
           type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
-          startBlockHeight: 1,
+          startBlockHeight: "latest",
         }),
       )
   )
@@ -59,7 +71,6 @@ const canonical = new ConfigBuilder()
       () => ({
         name: "round",
         type: "Midnight:Generic",
-        startBlockHeight: 1,
       }),
     )
   )
