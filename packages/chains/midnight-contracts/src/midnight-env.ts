@@ -23,6 +23,7 @@ export type NetworkConfig = {
     indexerWS: string;
     node: string;
     proofServer: string;
+    faucetUrl?: string;
     networkId: NetworkId.NetworkId;
     genesisWalletSeed: string;
 }
@@ -47,17 +48,28 @@ const deployedNetworkConfig = (networkId: NetworkId.NetworkId): NetworkConfig =>
     genesisWalletSeed: '',
 });
 
+const stagenetNetworkConfig = Object.freeze({
+    indexer: "https://indexer.stagenet.shielded.tools/api/v4/graphql",
+    indexerWS: "wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws",
+    node: "wss://rpc.stagenet.shielded.tools",
+    proofServer: "http://127.0.0.1:6300",
+    faucetUrl: "https://faucet.stagenet.shielded.tools/api/drips",
+    networkId: "stagenet" as NetworkId.NetworkId,
+    genesisWalletSeed: '',
+}) satisfies NetworkConfig;
+
 /**
- * Resolve defaults for every wallet-SDK network ID. Only `undeployed` uses
- * loopback services; every deployed or future network ID follows the hosted
- * Midnight endpoint convention instead of being restricted to `stagenet`.
+ * Resolve defaults for every wallet-SDK network ID. `undeployed` uses loopback
+ * services, Stagenet uses its explicit Shielded Tools profile, and every other
+ * deployed or future ID follows the hosted Midnight endpoint convention.
  */
 export const defaultMidnightNetworkConfig = (
   networkId: NetworkId.NetworkId,
-): NetworkConfig =>
-  networkId === "undeployed"
-    ? undeployedNetworkConfig
-    : deployedNetworkConfig(networkId);
+): NetworkConfig => {
+  if (networkId === "undeployed") return undeployedNetworkConfig;
+  if (networkId === "stagenet") return stagenetNetworkConfig;
+  return deployedNetworkConfig(networkId);
+};
 
 const networkId = (env("MIDNIGHT_NETWORK_ID") || "undeployed") as NetworkId.NetworkId;
 const selectedNetworkConfig = defaultMidnightNetworkConfig(networkId);
@@ -72,17 +84,25 @@ if (env("MIDNIGHT_WALLET_SEED")) {
   walletSeed = selectedNetworkConfig.genesisWalletSeed;
 }
 
-export const midnightNetworkConfig = {
+export type MidnightNetworkConfig = {
+  id: NetworkId.NetworkId;
+  indexer: string;
+  indexerWS: string;
+  node: string;
+  proofServer: string;
+  faucetUrl?: string;
+  walletSeed: string;
+};
+
+export const midnightNetworkConfig: MidnightNetworkConfig = {
   id: selectedNetworkConfig.networkId,
   indexer: env("MIDNIGHT_INDEXER_HTTP", selectedNetworkConfig.indexer),
   indexerWS: env("MIDNIGHT_INDEXER_WS", selectedNetworkConfig.indexerWS),
   node: env("MIDNIGHT_NODE_HTTP", selectedNetworkConfig.node),
   proofServer: env(["MIDNIGHT_PROOF_SERVER_URL", "MIDNIGHT_PROOF_SERVER"], selectedNetworkConfig.proofServer),
+  faucetUrl: selectedNetworkConfig.faucetUrl,
   walletSeed,
 };
 
 const isLocalProofServer = !!midnightNetworkConfig.proofServer.match(/(localhost|127\.0\.0\.1)/);
 export const isExternalProofServerConfigured = !isLocalProofServer;
-
-// Set this using MIDNIGHT_NETWORK_ID=<network-id>
-export type MidnightNetworkConfig = typeof midnightNetworkConfig;
