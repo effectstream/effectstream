@@ -1,7 +1,7 @@
 # @effectstream/sm
 
 The state-machine DSL inside an EffectStream node. Define a typed grammar
-of commands, register one generator per command, and `Stm` parses each
+of commands, register one generator per command, and `StateMachine` parses each
 incoming batcher input, dispatches it to the right handler, and yields
 SQL updates through the runtime.
 
@@ -31,7 +31,7 @@ without a database) - see
 [`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts).
 
 ```typescript
-import { Stm } from "@effectstream/sm";
+import { StateMachine } from "@effectstream/sm";
 import { World } from "@effectstream/coroutine";
 import { Type } from "@sinclair/typebox";
 import { join, leave } from "./queries.ts"; // pgtyped queries
@@ -41,25 +41,35 @@ const grammar = {
   leave: [["user", Type.String()]] as const,
 } as const;
 
-const stm = new Stm(grammar);
+const stm = new StateMachine(grammar);
 
-stm.addStateTransition("join", function* ({ parsedInput, msTimestamp }) {
-  yield* World.resolve(join, { user: parsedInput.user, ts: msTimestamp });
-});
-
-stm.addStateTransition("leave", function* ({ parsedInput }) {
-  yield* World.resolve(leave, { user: parsedInput.user });
-});
+stm
+  .addStateTransition("join", function* ({ parsedInput, blockTimestamp }) {
+    yield* World.resolve(join, {
+      user: parsedInput.user,
+      ts: blockTimestamp,
+    });
+  })
+  .addStateTransition("leave", function* ({ parsedInput }) {
+    yield* World.resolve(leave, { user: parsedInput.user });
+  });
 ```
 
 The runtime calls `stm.processInput(input)` for every batcher subunit; the
 DSL parses against `grammar`, finds the right handler, and the generator
 yields `World.resolve(...)` so the runtime can execute the pgtyped queries.
 
+Runtimes that derive grammar from configured primitives can instead construct
+`new StateMachine()` and register handlers fluently before calling
+`bindGrammar(...)` once. Binding rejects duplicate configured prefixes,
+registered prefixes absent from the runtime grammar, and configured prefixes
+without handlers before any input is processed. The constructor-with-grammar
+form above remains available for precise explicit-grammar callers.
+
 ## Inside EffectStream
 
-`Stm` is the central piece a node author writes. The runtime's per-block
-loop wires each user input through the corresponding `Stm` instance,
+`StateMachine` is the central piece a node author writes. The runtime's per-block
+loop wires each user input through the corresponding `StateMachine` instance,
 collects yielded SQL, and commits it inside the per-block transaction.
 The built-in primitives package (`@effectstream/sm/builtin`) covers
 common on-chain events - ERC-20/721/1155 transfers, Cardano transfers,
@@ -67,9 +77,10 @@ Midnight events, etc. - so you don't re-implement them.
 
 ## Key exports
 
-- `Stm<Grammar, Events>`: the state machine. `.addStateTransition(prefix, handler)`, `.processInput(input)`, `.grammar`, `.fullJsonGrammar`, `.keyedJsonGrammar`.
+- `StateMachine<Grammar, Events>`: the canonical state machine. `.addStateTransition(prefix, handler)` fluently returns the same instance; `.processInput(input)`, `.grammar`, `.fullJsonGrammar`, and `.keyedJsonGrammar` remain available.
+- `Stm<Grammar, Events>`: a transitional alias of the exact same `StateMachine` constructor and implementation for gradual migration.
 - `ParamToData<Params>` derives the typed argument shape from a grammar entry.
-- `BaseStfInput`: input shape passed to every handler. Includes `msTimestamp`, `blockHeight`, etc.
+- `BaseStfInput`: input shape passed to every handler. Includes `blockTimestamp`, `blockHeight`, etc.
 - `delegate-wallet` helpers - account delegation primitives reused by built-ins.
 
 `MessageListener<Events, Params>` is exported as the handler type but is

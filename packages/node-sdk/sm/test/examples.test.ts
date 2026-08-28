@@ -5,15 +5,15 @@
 
 import { test, expect } from "bun:test";
 import { Type } from "@sinclair/typebox";
-import { Stm } from "../Stm.ts";
+import { StateMachine } from "../Stm.ts";
 
-test("README: Stm dispatches inputs to the registered handler", () => {
+test("README: StateMachine dispatches inputs to the registered handler", () => {
   const grammar = {
     join: [["user", Type.String()]] as const,
     leave: [["user", Type.String()]] as const,
   } as const;
 
-  const stm = new Stm(grammar);
+  const stm = new StateMachine(grammar);
   const calls: string[] = [];
 
   stm.addStateTransition("join", function* ({ parsedInput }) {
@@ -29,7 +29,7 @@ test("README: Stm dispatches inputs to the registered handler", () => {
   const gen = stm.processInput({
     conciseInput: input,
     blockHeight: 1,
-    msTimestamp: 0,
+    blockTimestamp: 0,
   } as any);
 
   // Drain the generator.
@@ -40,7 +40,7 @@ test("README: Stm dispatches inputs to the registered handler", () => {
 
 test("README: duplicate prefix registration throws", () => {
   const grammar = { join: [["user", Type.String()]] as const } as const;
-  const stm = new Stm(grammar);
+  const stm = new StateMachine(grammar);
   stm.addStateTransition("join", function* () {});
   expect(() => stm.addStateTransition("join", function* () {})).toThrow();
 });
