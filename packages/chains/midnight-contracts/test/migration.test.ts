@@ -191,29 +191,159 @@ describe("wallet-v2 migration", () => {
 });
 
 describe("network defaults", () => {
-  test("undeployed uses local GraphQL v4 endpoints", () => {
-    const config = defaultMidnightNetworkConfig("undeployed");
-    expect(config.indexer).toBe("http://127.0.0.1:8088/api/v4/graphql");
-    expect(config.indexerWS).toBe("ws://127.0.0.1:8088/api/v4/graphql/ws");
+  test("stagenet uses the complete explicit Shielded Tools profile", () => {
+    expect(defaultMidnightNetworkConfig("stagenet")).toEqual({
+      indexer: "https://indexer.stagenet.shielded.tools/api/v4/graphql",
+      indexerWS: "wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws",
+      node: "wss://rpc.stagenet.shielded.tools",
+      proofServer: "http://127.0.0.1:6300",
+      faucetUrl: "https://faucet.stagenet.shielded.tools/api/drips",
+      networkId: "stagenet",
+      genesisWalletSeed: "",
+    });
   });
 
-  for (const networkId of [
-    "mainnet",
-    "testnet",
-    "devnet",
-    "qanet",
-    "preview",
-    "preprod",
-    "stagenet",
-    "future-network",
-  ]) {
-    test(`preserves deployed network ID ${networkId}`, () => {
-      const config = defaultMidnightNetworkConfig(networkId);
-      expect(config.networkId).toBe(networkId);
-      expect(config.indexer).toBe(
-        `https://indexer.${networkId}.midnight.network/api/v4/graphql`,
-      );
-      expect(config.node).toBe(`https://rpc.${networkId}.midnight.network`);
+  test("undeployed retains the complete loopback v4 profile", () => {
+    expect(defaultMidnightNetworkConfig("undeployed")).toEqual({
+      indexer: "http://127.0.0.1:8088/api/v4/graphql",
+      indexerWS: "ws://127.0.0.1:8088/api/v4/graphql/ws",
+      node: "http://127.0.0.1:9944",
+      proofServer: "http://127.0.0.1:6300",
+      networkId: "undeployed",
+      genesisWalletSeed: "0000000000000000000000000000000000000000000000000000000000000001",
+    });
+  });
+
+  for (const networkId of ["preview", "preprod"] as const) {
+    test(`preserves node-1.x network ID ${networkId} without remapping`, () => {
+      expect(defaultMidnightNetworkConfig(networkId)).toEqual({
+        indexer: `https://indexer.${networkId}.midnight.network/api/v4/graphql`,
+        indexerWS: `wss://indexer.${networkId}.midnight.network/api/v4/graphql/ws`,
+        node: `https://rpc.${networkId}.midnight.network`,
+        proofServer: "http://127.0.0.1:6300",
+        networkId,
+        genesisWalletSeed: "",
+      });
     });
   }
+
+  test("preserves an arbitrary future network ID and hosted convention", () => {
+    expect(defaultMidnightNetworkConfig("future-network")).toEqual({
+      indexer: "https://indexer.future-network.midnight.network/api/v4/graphql",
+      indexerWS: "wss://indexer.future-network.midnight.network/api/v4/graphql/ws",
+      node: "https://rpc.future-network.midnight.network",
+      proofServer: "http://127.0.0.1:6300",
+      networkId: "future-network",
+      genesisWalletSeed: "",
+    });
+  });
+
+  test("selected stagenet defaults expose inert faucet metadata without fetch", async () => {
+    const moduleUrl = new URL("../src/midnight-env.ts", import.meta.url).href;
+    const probe = Bun.spawn([
+      process.execPath,
+      "--eval",
+      `
+        let networkCalls = 0;
+        globalThis.fetch = () => {
+          networkCalls += 1;
+          throw new Error("unexpected network call");
+        };
+        const { midnightNetworkConfig } = await import(${JSON.stringify(moduleUrl)});
+        console.log(JSON.stringify({ midnightNetworkConfig, networkCalls }));
+      `,
+    ], {
+      env: {
+        ...process.env,
+        MIDNIGHT_NETWORK_ID: "stagenet",
+        MIDNIGHT_INDEXER_HTTP: "",
+        MIDNIGHT_INDEXER_WS: "",
+        MIDNIGHT_NODE_HTTP: "",
+        MIDNIGHT_PROOF_SERVER_URL: "",
+        MIDNIGHT_PROOF_SERVER: "",
+        MIDNIGHT_WALLET_SEED: "",
+        MIDNIGHT_WALLET_MNEMONIC: "",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const [exitCode, stdout, stderr] = await Promise.all([
+      probe.exited,
+      new Response(probe.stdout).text(),
+      new Response(probe.stderr).text(),
+    ]);
+
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(stdout)).toEqual({
+      midnightNetworkConfig: {
+        id: "stagenet",
+        indexer: "https://indexer.stagenet.shielded.tools/api/v4/graphql",
+        indexerWS: "wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws",
+        node: "wss://rpc.stagenet.shielded.tools",
+        proofServer: "http://127.0.0.1:6300",
+        faucetUrl: "https://faucet.stagenet.shielded.tools/api/drips",
+        walletSeed: "",
+      },
+      networkCalls: 0,
+    });
+  });
+
+  test("selected stagenet environment overrides win while faucet stays inert", async () => {
+    const moduleUrl = new URL("../src/midnight-env.ts", import.meta.url).href;
+    const probe = Bun.spawn([
+      process.execPath,
+      "--eval",
+      `
+        let networkCalls = 0;
+        globalThis.fetch = () => {
+          networkCalls += 1;
+          throw new Error("unexpected network call");
+        };
+        const { midnightNetworkConfig } = await import(${JSON.stringify(moduleUrl)});
+        console.log(JSON.stringify({ midnightNetworkConfig, networkCalls }));
+      `,
+    ], {
+      env: {
+        ...process.env,
+        MIDNIGHT_NETWORK_ID: "stagenet",
+        MIDNIGHT_INDEXER_HTTP: "https://override.example/indexer",
+        MIDNIGHT_INDEXER_WS: "wss://override.example/indexer/ws",
+        MIDNIGHT_NODE_HTTP: "wss://override.example/node",
+        MIDNIGHT_PROOF_SERVER_URL: "http://override.example/proof",
+        MIDNIGHT_PROOF_SERVER: "http://ignored.example/proof",
+        MIDNIGHT_WALLET_SEED: "seed-override",
+        MIDNIGHT_WALLET_MNEMONIC: "invalid mnemonic must remain unused",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const [exitCode, stdout, stderr] = await Promise.all([
+      probe.exited,
+      new Response(probe.stdout).text(),
+      new Response(probe.stderr).text(),
+    ]);
+
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(0);
+    const { midnightNetworkConfig, networkCalls } = JSON.parse(stdout);
+    expect({
+      id: midnightNetworkConfig.id,
+      indexer: midnightNetworkConfig.indexer,
+      indexerWS: midnightNetworkConfig.indexerWS,
+      node: midnightNetworkConfig.node,
+      proofServer: midnightNetworkConfig.proofServer,
+      walletSeed: midnightNetworkConfig.walletSeed,
+    }).toEqual({
+      id: "stagenet",
+      indexer: "https://override.example/indexer",
+      indexerWS: "wss://override.example/indexer/ws",
+      node: "wss://override.example/node",
+      proofServer: "http://override.example/proof",
+      walletSeed: "seed-override",
+    });
+    expect(networkCalls).toBe(0);
+  });
 });
