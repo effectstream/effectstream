@@ -1,0 +1,56 @@
+on:
+  workflow_dispatch:
+
+name: Effectstream Release Artifact Rehearsal
+
+permissions:
+  contents: read
+
+jobs:
+  upload-proof:
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Build deterministic secret-free synthetic bundle
+        id: prepare
+        shell: bash
+        run: |
+          set -euo pipefail
+          proof_dir='${{ runner.temp }}/effectstream-artifact-proof'
+          mkdir -p "$proof_dir"
+          printf 'effectstream-artifact-cross-run-proof-v1\n' > "$proof_dir/payload.txt"
+          payload_sha="$(sha256sum "$proof_dir/payload.txt" | awk '{print $1}')"
+          printf '{"payload":"payload.txt","schemaVersion":1,"sha256":"%s"}\n' "$payload_sha" > "$proof_dir/manifest.json"
+          manifest_sha="$(sha256sum "$proof_dir/manifest.json" | awk '{print $1}')"
+          echo "payload-sha256=$payload_sha" >> "$GITHUB_OUTPUT"
+          echo "manifest-sha256=$manifest_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Upload immutable rehearsal artifact
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-artifact-proof-${{ github.run_id }}
+          path: ${{ runner.temp }}/effectstream-artifact-proof
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Record proof identity for independent consumer run
+        shell: bash
+        env:
+          PRODUCER_RUN_ID: ${{ github.run_id }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          SERVICE_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+          MANIFEST_SHA256: ${{ steps.prepare.outputs.manifest-sha256 }}
+          PAYLOAD_SHA256: ${{ steps.prepare.outputs.payload-sha256 }}
+        run: |
+          {
+            echo '### Hosted artifact proof producer'
+            echo "- producer run ID: $PRODUCER_RUN_ID"
+            echo "- immutable artifact ID: $ARTIFACT_ID"
+            echo "- service digest: $SERVICE_DIGEST"
+            echo "- proof digests input: $MANIFEST_SHA256:$PAYLOAD_SHA256"
+            echo '- consumer: dispatch release recovery in artifact-proof mode from an independent run.'
+          } >> "$GITHUB_STEP_SUMMARY"
