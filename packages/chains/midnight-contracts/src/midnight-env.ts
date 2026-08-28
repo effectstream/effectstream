@@ -84,7 +84,17 @@ if (env("MIDNIGHT_WALLET_SEED")) {
   walletSeed = selectedNetworkConfig.genesisWalletSeed;
 }
 
-export const midnightNetworkConfig = {
+export type MidnightNetworkConfig = {
+  id: NetworkId.NetworkId;
+  indexer: string;
+  indexerWS: string;
+  node: string;
+  proofServer: string;
+  faucetUrl?: string;
+  walletSeed: string;
+};
+
+export const midnightNetworkConfig: MidnightNetworkConfig = {
   id: selectedNetworkConfig.networkId,
   indexer: env("MIDNIGHT_INDEXER_HTTP", selectedNetworkConfig.indexer),
   indexerWS: env("MIDNIGHT_INDEXER_WS", selectedNetworkConfig.indexerWS),
@@ -96,6 +106,3 @@ export const midnightNetworkConfig = {
 
 const isLocalProofServer = !!midnightNetworkConfig.proofServer.match(/(localhost|127\.0\.0\.1)/);
 export const isExternalProofServerConfigured = !isLocalProofServer;
-
-// Set this using MIDNIGHT_NETWORK_ID=<network-id>
-export type MidnightNetworkConfig = typeof midnightNetworkConfig;

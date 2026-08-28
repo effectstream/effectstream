@@ -19,7 +19,10 @@ import {
   resolveFacadeDustFundsReadiness,
   waitForDustFunds,
 } from "../src/get-wallet-info.ts";
-import { defaultMidnightNetworkConfig } from "../src/midnight-env.ts";
+import {
+  defaultMidnightNetworkConfig,
+  type MidnightNetworkConfig,
+} from "../src/midnight-env.ts";
 import type { WalletResult } from "../src/types.ts";
 
 describe("ledger-v9 compatibility traps", () => {
@@ -191,6 +194,19 @@ describe("wallet-v2 migration", () => {
 });
 
 describe("network defaults", () => {
+  test("public config type accepts the complete pre-faucet object shape", () => {
+    const preFaucetConfig: MidnightNetworkConfig = {
+      id: "undeployed",
+      indexer: "http://127.0.0.1:8088/api/v4/graphql",
+      indexerWS: "ws://127.0.0.1:8088/api/v4/graphql/ws",
+      node: "http://127.0.0.1:9944",
+      proofServer: "http://127.0.0.1:6300",
+      walletSeed: "legacy-wallet-seed",
+    };
+
+    expect(Object.hasOwn(preFaucetConfig, "faucetUrl")).toBe(false);
+  });
+
   test("stagenet uses the complete explicit Shielded Tools profile", () => {
     expect(defaultMidnightNetworkConfig("stagenet")).toEqual({
       indexer: "https://indexer.stagenet.shielded.tools/api/v4/graphql",
