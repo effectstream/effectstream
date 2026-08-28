@@ -1,5 +1,6 @@
 import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { Buffer } from "node:buffer";
+import { resolveMidnightNetworkProfile } from "@effectstream/config";
 import { getEnv } from "@effectstream/utils/runtime";
 
 const getEnvValue = (key: string): string | undefined => {
@@ -28,47 +29,27 @@ export type NetworkConfig = {
     genesisWalletSeed: string;
 }
 
-// Midnight Network default configurations
-const undeployedNetworkConfig: NetworkConfig = {
-    indexer: "http://127.0.0.1:8088/api/v4/graphql",
-    indexerWS: "ws://127.0.0.1:8088/api/v4/graphql/ws",
-    node: "http://127.0.0.1:9944",
-    networkId: "undeployed" as NetworkId.NetworkId,
-    proofServer: "http://127.0.0.1:6300",
-    // In local mode, the Genesis Wallet Seed determines the initial funded wallet
-    genesisWalletSeed: "0000000000000000000000000000000000000000000000000000000000000001",
-} as const;
-
-const deployedNetworkConfig = (networkId: NetworkId.NetworkId): NetworkConfig => ({
-    indexer: `https://indexer.${networkId}.midnight.network/api/v4/graphql`,
-    indexerWS: `wss://indexer.${networkId}.midnight.network/api/v4/graphql/ws`,
-    node: `https://rpc.${networkId}.midnight.network`,
-    proofServer: "http://127.0.0.1:6300",
-    networkId,
-    genesisWalletSeed: '',
-});
-
-const stagenetNetworkConfig = Object.freeze({
-    indexer: "https://indexer.stagenet.shielded.tools/api/v4/graphql",
-    indexerWS: "wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws",
-    node: "wss://rpc.stagenet.shielded.tools",
-    proofServer: "http://127.0.0.1:6300",
-    faucetUrl: "https://faucet.stagenet.shielded.tools/api/drips",
-    networkId: "stagenet" as NetworkId.NetworkId,
-    genesisWalletSeed: '',
-}) satisfies NetworkConfig;
-
 /**
- * Resolve defaults for every wallet-SDK network ID. Only `undeployed` uses
- * loopback services; every deployed or future network ID follows the hosted
- * Midnight endpoint convention instead of being restricted to `stagenet`.
+ * Add wallet/deployment-only defaults to the config package's pure service
+ * profile. The service endpoint table has one owner and this adapter keeps the
+ * historical public wallet configuration shape.
  */
 export const defaultMidnightNetworkConfig = (
   networkId: NetworkId.NetworkId,
 ): NetworkConfig => {
-  if (networkId === "undeployed") return undeployedNetworkConfig;
-  if (networkId === "stagenet") return stagenetNetworkConfig;
-  return deployedNetworkConfig(networkId);
+  const profile = resolveMidnightNetworkProfile(networkId);
+  return {
+    indexer: profile.indexerHttpUrl,
+    indexerWS: profile.indexerWsUrl,
+    node: profile.nodeUrl,
+    proofServer: "http://127.0.0.1:6300",
+    faucetUrl: profile.faucetUrl,
+    networkId: profile.networkId,
+    // In local mode, the Genesis Wallet Seed determines the initial funded wallet.
+    genesisWalletSeed: networkId === "undeployed"
+      ? "0000000000000000000000000000000000000000000000000000000000000001"
+      : "",
+  };
 };
 
 const networkId = (env("MIDNIGHT_NETWORK_ID") || "undeployed") as NetworkId.NetworkId;

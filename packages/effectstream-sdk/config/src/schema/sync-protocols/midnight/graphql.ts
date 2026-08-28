@@ -3,7 +3,7 @@ import type { Static } from "@sinclair/typebox";
 import { ConfigSyncProtocolType } from "../types.ts";
 import {
   NameField,
-  PollingSyncProtocol,
+  PollingSyncProtocolWithDefault,
   StartStopBlockheight,
 } from "../../common.ts";
 import {
@@ -23,7 +23,7 @@ import {
 // ===========
 
 export const ConfigSyncProtocolSchemaMidnightBase = NameField.cloneMerge(
-  PollingSyncProtocol,
+  PollingSyncProtocolWithDefault(6_000),
 ).cloneMerge(StartStopBlockheight).cloneMerge({
   required: Type.Object({
     indexer: Type.String(),

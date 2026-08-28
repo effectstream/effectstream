@@ -17,8 +17,10 @@ npm install @effectstream/midnight-contracts
 
 Requires a reachable Midnight node, proof server, and indexer. The defaults match what `@effectstream/orchestrator`'s Midnight step boots locally.
 
-For `stagenet`, the network resolver uses the explicit node-2.x service
-profile:
+The package consumes `@effectstream/config`'s pure
+`resolveMidnightNetworkProfile` resolver, so configuration, sync, wallet, and
+deployment code share one endpoint table. For `stagenet`, it returns the
+explicit node-2.x service profile:
 
 - Node: `wss://rpc.stagenet.shielded.tools`
 - Indexer HTTP: `https://indexer.stagenet.shielded.tools/api/v4/graphql`

@@ -2,9 +2,11 @@ import type { MergeIntersects, RemoveUnknown } from "@effectstream/utils";
 import type { Static } from "@sinclair/typebox";
 import {
   type ConfigSyncProtocolAll,
+  ConfigNetworkType,
   ConfigSyncProtocolDecorator,
   ConfigSyncProtocolMain,
   ConfigSyncProtocolParallel,
+  ConfigSyncProtocolType,
   type SyncProtocolFromNetwork,
 } from "../../schema/mod.ts";
 import { Value } from "@sinclair/typebox/value";
@@ -14,6 +16,7 @@ import type {
   DeployedAddressesList,
 } from "./deployedAddresses.ts";
 import { onlyOnce, onlyValue } from "../utils.ts";
+import { resolveMidnightNetworkProfile } from "../../midnight-network-profile.ts";
 
 export type MainSyncProtocolConfig<RequireDefaults extends boolean = true> =
   MergeIntersects<
@@ -32,6 +35,74 @@ export type SyncProtocolConfig<RequireDefaults extends boolean = true> =
   MergeIntersects<
     Static<ReturnType<typeof ConfigSyncProtocolAll<RequireDefaults>>>
   >;
+
+type WithOptionalFields<Config, Fields extends keyof Config> =
+  & Omit<Config, Fields>
+  & Partial<Pick<Config, Fields>>;
+
+type ParallelSyncProtocolBuilderInput =
+  | WithOptionalFields<
+    Extract<
+      ParallelSyncProtocolConfig<false>,
+      { type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL }
+    >,
+    "indexer"
+  >
+  | Exclude<
+    ParallelSyncProtocolConfig<false>,
+    { type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL }
+  >;
+
+type ValueOrDefault<
+  Config,
+  Field extends PropertyKey,
+  Default,
+> = Config extends Record<Field, infer Value> ? Value : Default;
+
+type NormalizedSyncProtocol<Protocol> = & Protocol
+  & (Protocol extends { type: ConfigSyncProtocolType.NTP_MAIN } ? {
+      pollingInterval: ValueOrDefault<Protocol, "pollingInterval", 1_000>;
+    }
+    : Protocol extends { type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL } ? {
+        pollingInterval: ValueOrDefault<Protocol, "pollingInterval", 6_000>;
+        indexer: ValueOrDefault<Protocol, "indexer", string>;
+      }
+    : {});
+
+function normalizeProtocolDefaults<
+  Network extends NetworkList[keyof NetworkList],
+  Protocol extends { type: ConfigSyncProtocolType },
+>(network: Network, protocol: Protocol) {
+  if (
+    network.type === ConfigNetworkType.NTP &&
+    protocol.type === ConfigSyncProtocolType.NTP_MAIN
+  ) {
+    const pollingInterval =
+      "pollingInterval" in protocol &&
+        typeof protocol.pollingInterval === "number"
+        ? protocol.pollingInterval
+        : 1_000;
+    return { ...protocol, pollingInterval };
+  }
+
+  if (
+    network.type === ConfigNetworkType.MIDNIGHT &&
+    protocol.type === ConfigSyncProtocolType.MIDNIGHT_PARALLEL
+  ) {
+    const pollingInterval =
+      "pollingInterval" in protocol &&
+        typeof protocol.pollingInterval === "number"
+        ? protocol.pollingInterval
+        : 6_000;
+    const indexer = "indexer" in protocol &&
+        typeof protocol.indexer === "string"
+      ? protocol.indexer
+      : resolveMidnightNetworkProfile(network.networkId).indexerHttpUrl;
+    return { ...protocol, pollingInterval, indexer };
+  }
+
+  return protocol;
+}
 
 export type SyncProtocolEntry<
   Network extends string = string,
@@ -136,7 +207,10 @@ export class SyncProtocolBuilder<
       DeployedAddresses,
       SyncProtocolEntry<
         Network["name"],
-        MergeIntersects<NewMain & MainSyncProtocolConfig<true>>
+        MergeIntersects<
+          NormalizedSyncProtocol<NewMain> &
+            MainSyncProtocolConfig<true>
+        >
       >,
       Parallel,
       Decorator
@@ -146,16 +220,18 @@ export class SyncProtocolBuilder<
         network,
         (this.deployedAddresses.deployedAddresses as any)[network.name],
       );
+      const normalized = normalizeProtocolDefaults(network, syncProtocol);
       const withDefaults = Value.Default(
         ConfigSyncProtocolMain(true),
-        syncProtocol,
-      ) as NewMain & MainSyncProtocolConfig<true>;
+        normalized,
+      ) as NormalizedSyncProtocol<NewMain> &
+        MainSyncProtocolConfig<true>;
       (this.data.main as any) = {
         network: network.name,
         syncProtocol: withDefaults,
       } satisfies SyncProtocolEntry<
         Network["name"],
-        NewMain & MainSyncProtocolConfig<true>
+        NormalizedSyncProtocol<NewMain> & MainSyncProtocolConfig<true>
       >;
       return this as any;
     },
@@ -167,7 +243,7 @@ export class SyncProtocolBuilder<
     name: "main",
     build: <
       const Network extends Networks[keyof Networks],
-      const NewParallel extends ParallelSyncProtocolConfig<false> & {
+      const NewParallel extends ParallelSyncProtocolBuilderInput & {
         type: SyncProtocolFromNetwork<Network["type"]>;
       },
     >(
@@ -185,7 +261,10 @@ export class SyncProtocolBuilder<
         NewParallel["name"],
         SyncProtocolEntry<
           Network["name"],
-          MergeIntersects<NewParallel & ParallelSyncProtocolConfig<true>>
+          MergeIntersects<
+            NormalizedSyncProtocol<NewParallel> &
+              ParallelSyncProtocolConfig<true>
+          >
         >
       >,
       Decorator
@@ -195,16 +274,19 @@ export class SyncProtocolBuilder<
         network,
         (this.deployedAddresses.deployedAddresses as any)[network.name],
       );
+      const normalized = normalizeProtocolDefaults(network, syncProtocol);
       const withDefaults = Value.Default(
         ConfigSyncProtocolParallel(true),
-        syncProtocol,
-      ) as NewParallel & ParallelSyncProtocolConfig<true>;
+        normalized,
+      ) as NormalizedSyncProtocol<NewParallel> &
+        ParallelSyncProtocolConfig<true>;
       (this.data.parallel as any)[syncProtocol.name] = {
         network: network.name,
         syncProtocol: withDefaults,
       } satisfies SyncProtocolEntry<
         Network["name"],
-        NewParallel & ParallelSyncProtocolConfig<true>
+        NormalizedSyncProtocol<NewParallel> &
+          ParallelSyncProtocolConfig<true>
       >;
       return this as any;
     },

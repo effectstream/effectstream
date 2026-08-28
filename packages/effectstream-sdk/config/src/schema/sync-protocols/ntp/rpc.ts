@@ -3,7 +3,7 @@ import type { Static } from "@sinclair/typebox";
 import { ConfigSyncProtocolType } from "../types.ts";
 import {
   NameField,
-  PollingSyncProtocol,
+  PollingSyncProtocolWithDefault,
   StartStopBlockheight,
 } from "../../common.ts";
 import { type MergeIntersects, TypeboxHelpers } from "@effectstream/utils";
@@ -17,7 +17,7 @@ import {
 // ===========
 
 export const ConfigSyncProtocolSchemaNtpBase = NameField.cloneMerge(
-  PollingSyncProtocol,
+  PollingSyncProtocolWithDefault(1_000),
 ).cloneMerge(StartStopBlockheight).cloneMerge({
   required: Type.Object({}),
   optional: Type.Object({

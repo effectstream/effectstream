@@ -789,6 +789,7 @@
       "name": "@effectstream/midnight-contracts",
       "version": "0.104.1",
       "dependencies": {
+        "@effectstream/config": "workspace:*",
         "@effectstream/utils": "workspace:*",
         "@midnight-ntwrk/compact-js": "2.5.5-rc.7",
         "@midnight-ntwrk/compact-runtime": "0.18.0-rc.1",

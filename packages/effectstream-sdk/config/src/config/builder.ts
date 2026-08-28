@@ -92,13 +92,9 @@ export class ConfigBuilder<
   });
 
   buildNetworks = onlyValue({
-    value: () =>
-      ({}) as [
-        Namespace,
-        Networks,
-      ],
-    target: () => ({}) as readonly [NonNullable<Namespace>, undefined],
-    name: "buildNetworks and/or setNamespace",
+    value: () => ({}) as Networks,
+    target: () => undefined,
+    name: "buildNetworks",
     build: <const NewNetworks extends NetworkBuilderData>(
       networks: (builder: NetworkBuilder) => { build: () => NewNetworks },
     ): ConfigBuilder<
@@ -151,11 +147,11 @@ export class ConfigBuilder<
   buildSyncProtocols = onlyValue({
     value: () =>
       ({}) as [
-        Deployments,
+        Networks,
         SyncProtocols,
       ],
-    target: () => ({}) as readonly [NonNullable<Deployments>, undefined],
-    name: "buildSyncProtocols and/or buildDeployments",
+    target: () => ({}) as readonly [NonNullable<Networks>, undefined],
+    name: "buildSyncProtocols and/or buildNetworks",
     build: <
       NewSyncProtocols extends PostBuildSyncProtocolBuilderData<
         NonNullable<Networks>["networks"]
@@ -164,19 +160,21 @@ export class ConfigBuilder<
       syncProtocols: (
         builder: SyncProtocolBuilder<
           NonNullable<Networks>["networks"],
-          NonNullable<Deployments>
+          Deployments extends undefined ? {} : Deployments
         >,
       ) => { build: () => NewSyncProtocols },
     ): ConfigBuilder<
       Namespace,
       Networks,
-      Deployments,
+      Deployments extends undefined ? {} : Deployments,
       NewSyncProtocols,
       Primitives
     > => {
+      const deployedAddresses = this.data.deployedAddresses ?? {};
+      (this.data.deployedAddresses as any) = deployedAddresses;
       const builder = new SyncProtocolBuilder(
         this.data.allNetworks as any,
-        { deployedAddresses: this.data.deployedAddresses as any },
+        { deployedAddresses: deployedAddresses as any },
       );
       (this.data.syncProtocols as any) = syncProtocols(builder as any).build();
       return this as any;
