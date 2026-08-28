@@ -20,11 +20,12 @@ npm install @effectstream/sm
 
 ## Usage
 
-This package pairs with [`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime),
-which drives a per-block loop that calls `stm.processInput(...)` for every
-batcher subunit, collects the SQL yielded by your generators, and commits
-it inside a per-block postgres transaction. You author the DSL here;
-the runtime executes it.
+This package pairs with [`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime).
+The canonical `runEffectstream()` call receives one `StateMachine`, binds the
+grammar produced by configured primitives before sync begins, then drives a
+per-block loop that calls that same object's `processInput(...)`, collects the
+SQL yielded by its generators, and commits it inside a per-block PostgreSQL
+transaction. You author the DSL here; the runtime executes it.
 
 The DSL is also directly testable in a pure-TS unit test (parse + dispatch
 without a database) - see
@@ -59,12 +60,21 @@ The runtime calls `stm.processInput(input)` for every batcher subunit; the
 DSL parses against `grammar`, finds the right handler, and the generator
 yields `World.resolve(...)` so the runtime can execute the pgtyped queries.
 
-Runtimes that derive grammar from configured primitives can instead construct
-`new StateMachine()` and register handlers fluently before calling
-`bindGrammar(...)` once. Binding rejects duplicate configured prefixes,
-registered prefixes absent from the runtime grammar, and configured prefixes
-without handlers before any input is processed. The constructor-with-grammar
-form above remains available for precise explicit-grammar callers.
+Applications whose runtime derives grammar from configured primitives can
+instead construct `new StateMachine()` and register handlers fluently. The
+canonical runner calls `bindGrammar(...)` once; application code does not need
+a standalone grammar, transition map, adapter generator, or manual
+`processInput` wrapper. Binding rejects duplicate configured prefixes,
+registered prefixes absent from runtime grammar, and configured prefixes
+without handlers before sync starts. The constructor-with-grammar form above
+remains available for precise explicit-grammar callers.
+
+Each `addStateTransition(...)` returns the same object and preserves yielded
+operations from the registered generator. Duplicate registration is rejected
+immediately, and each successfully parsed input dispatches exactly once. An
+unbound generic state machine exposes the precision of the selected primitive
+grammar; it does not infer callback types from a sibling configuration object.
+The Midnight generic primitive currently exposes `payload` as `Type.Any`.
 
 ## Inside EffectStream
 
@@ -78,7 +88,9 @@ Midnight events, etc. - so you don't re-implement them.
 ## Key exports
 
 - `StateMachine<Grammar, Events>`: the canonical state machine. `.addStateTransition(prefix, handler)` fluently returns the same instance; `.processInput(input)`, `.grammar`, `.fullJsonGrammar`, and `.keyedJsonGrammar` remain available.
-- `Stm<Grammar, Events>`: a transitional alias of the exact same `StateMachine` constructor and implementation for gradual migration.
+- `Stm<Grammar, Events>`: a transitional alias of the exact same `StateMachine`
+  constructor and implementation for gradual migration. New code should use
+  `StateMachine`; the alias is not a second dispatcher.
 - `ParamToData<Params>` derives the typed argument shape from a grammar entry.
 - `BaseStfInput`: input shape passed to every handler. Includes `blockTimestamp`, `blockHeight`, etc.
 - `delegate-wallet` helpers - account delegation primitives reused by built-ins.
@@ -94,9 +106,8 @@ Subpath exports:
 ## Examples
 
 - [`primitives/src/evm-erc20/erc20-primitive.test.ts`](https://github.com/effectstream/effectstream/blob/main/packages/node-sdk/sm/primitives/src/evm-erc20/erc20-primitive.test.ts) - a real primitive's behavior unit-tested.
-- Game logic in
-  [`templates/dice/packages/node/`](https://github.com/effectstream/effectstream/tree/main/templates/dice/packages/node)
-  shows the full `new Stm(...).addStateTransition(...)` pattern.
+- Canonical fluent and runtime-binding coverage:
+  [`test/state-machine.test.ts`](./test/state-machine.test.ts).
 
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts).
 

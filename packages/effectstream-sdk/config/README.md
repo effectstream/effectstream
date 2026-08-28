@@ -39,9 +39,26 @@ export const config = new ConfigBuilder()
         type: ConfigNetworkType.MIDNIGHT,
         networkId: "stagenet",
       })
-  );
-  // continue with .buildDeployments(), .buildSyncProtocols(),
-  // .buildPrimitives(), and finally .build()
+  )
+  .buildSyncProtocols((b) => b
+    .addMain(
+      (networks) => networks.ntp,
+      () => ({
+        name: "ntp",
+        type: ConfigSyncProtocolType.NTP_MAIN,
+        startBlockHeight: "latest",
+      }),
+    )
+    .addParallel(
+      (networks) => networks.midnight,
+      () => ({
+        name: "midnight",
+        type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+        startBlockHeight: "latest",
+      }),
+    ))
+  .buildPrimitives((b) => b)
+  .build();
 ```
 
 `setNamespace(...)` remains available for an explicit string or historical
@@ -66,6 +83,10 @@ can be overridden:
   Other integrations retain their existing polling requirements.
 - A Midnight sync protocol may omit `indexer`; it is resolved from the selected
   network's `networkId`. An explicit indexer always wins.
+- A primitive may omit `startBlockHeight`; runtime normalization supplies its
+  owning protocol's resolved numeric start. A Midnight primitive may likewise
+  omit `networkId`; the owning Midnight network supplies it. Explicit primitive
+  values always win.
 
 The implicit NTP `startTime` is a convenience for getting started. A persistent
 deployment that needs stable time-to-height mapping should supply and persist
@@ -73,9 +94,20 @@ an explicit value so a restart cannot establish a different genesis.
 
 `resolveMidnightNetworkProfile(networkId)` exposes pure node, indexer HTTP/WS,
 and informational faucet metadata. It performs no environment lookup, wallet
-initialization, funding request, or network I/O. `stagenet` has an explicit
-node-2.x profile; `undeployed` retains loopback endpoints; other non-empty IDs
-retain the hosted Midnight convention.
+initialization, funding request, or network I/O. The exact node-2.x Stagenet
+profile is:
+
+| Field | Value |
+| --- | --- |
+| Node | `wss://rpc.stagenet.shielded.tools` |
+| Indexer HTTP | `https://indexer.stagenet.shielded.tools/api/v4/graphql` |
+| Indexer WebSocket | `wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws` |
+| Informational faucet | `https://faucet.stagenet.shielded.tools/api/drips` |
+
+The faucet value is metadata only. `undeployed` retains loopback endpoints;
+other non-empty IDs retain the hosted Midnight convention. Preview and Preprod
+remain recognizable IDs, but their node-1.x wallet/deployment stacks are not
+targets for the node-2.x line.
 
 The runtime side (`PaimaStaticConfigContext`, `withEffectstreamStaticConfig`,
 `usePaimaStaticConfig`) plugs that same config into an Effection context so

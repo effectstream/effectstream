@@ -57,6 +57,14 @@ small executable subpaths - used directly by the orchestrator.
 
 ### PgLite gateway lifecycle
 
+The canonical `@effectstream/runtime` runner owns this lower-level API for
+ordinary applications. Omitting its `database` option selects embedded PGlite;
+it starts on loopback with an ephemeral gateway port, closes the runtime pool
+first, then force-closes the owned handle. Supply a persistent `dataDir` when
+state must survive process restarts, or a complete PostgreSQL option when an
+external server owns persistence. Direct `startPglite()` use remains available
+for custom infrastructure owners.
+
 `startPglite(0)` binds only to `127.0.0.1` and reports the actual assigned port.
 Its handle has two shutdown modes:
 

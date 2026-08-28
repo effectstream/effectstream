@@ -4,13 +4,15 @@ import { test, expect } from "bun:test";
 
 test("README: subpaths resolve to live modules", async () => {
   const runtime = await import("../src/mod.ts");
+  expect(typeof runtime.runEffectstream).toBe("function");
   expect(typeof runtime.init).toBe("function");
   expect(typeof runtime.start).toBe("function");
 });
 
-test("README: state-machine subpath exposes Stm", async () => {
+test("README: state-machine subpath exposes one canonical constructor", async () => {
   const sm = await import("../src/sm.ts");
-  expect("Stm" in sm).toBe(true);
+  expect(typeof sm.StateMachine).toBe("function");
+  expect(sm.Stm).toBe(sm.StateMachine);
 });
 
 test("README: db subpath exposes getConnection", async () => {
@@ -57,8 +59,11 @@ test("ordinary replacement subpaths expose the complete composition surface", as
   expect(typeof runtime.runEffectstream).toBe("function");
   expect(typeof config.ConfigBuilder).toBe("function");
   expect(typeof config.toSyncProtocolWithNetwork).toBe("function");
+  expect(typeof config.resolveMidnightNetworkProfile).toBe("function");
+  expect(typeof sync.getNtpTip).toBe("function");
   expect(typeof sync.getMidnightTip).toBe("function");
-  expect(typeof sm.Stm).toBe("function");
+  expect(typeof sm.StateMachine).toBe("function");
+  expect(sm.Stm).toBe(sm.StateMachine);
   expect(builtin.PrimitiveTypeMidnightGeneric).toBe("Midnight:Generic");
   expect(grammar.builtinGrammars.midnightGeneric).toBeDefined();
   expect(typeof database.startPglite).toBe("function");
