@@ -117,7 +117,8 @@ export function getPrimitivesForSyncProtocol<T extends ConfigSyncProtocolType>(
 
 export function toSyncProtocolWithNetwork<
   Data extends ConfigBuilderData<
-    Readonly<PostBuildSecurityNamespaceData>["securityNamespace"],
+    | undefined
+    | Readonly<PostBuildSecurityNamespaceData>["securityNamespace"],
     NetworkBuilderData<Record<string, NetworkConfig>>,
     DeployedAddressesBuilderData["deployedAddresses"],
     PostBuildSyncProtocolBuilderData<Record<string, NetworkConfig>>,

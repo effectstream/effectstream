@@ -24,11 +24,7 @@ import type {
   SyncProtocolWithNetwork,
 } from "@effectstream/config";
 import type { ConfigSyncProtocolType } from "@effectstream/config";
-import { NtpTimeSync, type NtpTimeSyncDefaultOptions } from "ntp-time-sync";
-
-type RecursivePartial<T> = {
-  [P in keyof T]?: RecursivePartial<T[P]>;
-};
+import { NtpTimeSync } from "ntp-time-sync";
 
 export class NtpFetcher
   extends BaseDataFetcher<Input, Output, RootOutput, Page, RootPage>
@@ -50,17 +46,18 @@ export class NtpFetcher
   ) {
     super(config.syncProtocol.name);
 
-    const options: RecursivePartial<typeof NtpTimeSyncDefaultOptions> = {
-      ntpDefaults: {
-        minPoll: 10,
-      },
-    };
     if (config.network.servers && config.network.servers.length) {
-      options.servers = config.network.servers;
+      // A configured deployment gets a dedicated instance. ntp-time-sync 0.6
+      // owns its cache per instance, so a prior default singleton cannot make
+      // this first query reuse public-pool data.
+      this.ntpTimeSync = new NtpTimeSync({
+        servers: [...config.network.servers],
+      });
+    } else {
+      // Preserve the existing absent/empty configuration behavior and the
+      // dependency's default public pools, sampling, polling and timeout values.
+      this.ntpTimeSync = NtpTimeSync.getInstance();
     }
-    // Cannot select options
-    // https://github.com/buffcode/ntp-time-sync/issues/104
-    this.ntpTimeSync = NtpTimeSync.getInstance();
   }
 
   @bound
@@ -160,7 +157,7 @@ export class NtpFetcher
       blockNumberRelation,
       function* (): Operation<Page> {
         const result = yield* until(self.ntpTimeSync.getTime());
-        if (result.offset > 5000) {
+        if (Math.abs(result.offset) > 5000) {
           console.error(
             `NTP offset is higher than 5[s]. Please check your NTP server & system time configuration.
 NTP time: ${result.now}

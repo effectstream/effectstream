@@ -1,11 +1,16 @@
-import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
+import fastify, {
+  type FastifyInstance,
+  type FastifyListenOptions,
+  type FastifyReply,
+  type FastifyRequest,
+} from "fastify";
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
 import { appliedBlockStatus } from "./apply-status.ts";
 import { finalizedStreamStatus } from "./stream-status.ts";
 import { buildHealthReport, healthHttpStatus } from "./health.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
-import { ensure, run, suspend, until } from "effection";
+import { ensure, type Operation, run, suspend, until } from "effection";
 import {
   acquireDBMutex,
   getAllAddresses,
@@ -65,6 +70,99 @@ function tableListContains(
 export enum RpcPaths {
   Root = "rpc",
   EVM = "evm",
+}
+
+type ListenOutcome =
+  | { ok: true; address: string }
+  | { ok: false; error: unknown };
+
+type OwnedFastifyServer = Pick<FastifyInstance, "listen" | "close">;
+
+type OwnedFastifyListen = (
+  options: FastifyListenOptions,
+) => Operation<string>;
+
+/**
+ * Establish cleanup ownership before any work is allowed to use a Fastify
+ * instance. The supplied listen operation also keeps an in-flight bind inside
+ * that ownership scope, so cancellation cannot close first and then late-bind.
+ */
+export function* withFastifyCleanup<T>(
+  server: OwnedFastifyServer,
+  operation: (listen: OwnedFastifyListen) => Operation<T>,
+): Operation<T> {
+  let listenOutcome: Promise<ListenOutcome> | undefined;
+  let listenConsumed = false;
+  let primaryFailure: unknown;
+  let primaryFailed = false;
+
+  const listen: OwnedFastifyListen = function* (options) {
+    if (listenOutcome) throw new Error("Fastify listen was attempted more than once");
+    listenOutcome = server.listen(options).then(
+      (address) => ({ ok: true as const, address }),
+      (error) => ({ ok: false as const, error }),
+    );
+    const outcome = yield* until(listenOutcome);
+    listenConsumed = true;
+    if ("error" in outcome) throw outcome.error;
+    return outcome.address;
+  };
+
+  yield* ensure(function* () {
+    let lateListenFailure: unknown;
+    let lateListenFailed = false;
+    if (listenOutcome) {
+      const outcome = yield* until(listenOutcome);
+      if ("error" in outcome && !listenConsumed && !primaryFailed) {
+        lateListenFailed = true;
+        lateListenFailure = outcome.error;
+      }
+    }
+
+    let closeFailure: unknown;
+    let closeFailed = false;
+    try {
+      // Fastify requires close even before listen and after a rejected listen:
+      // plugin onClose hooks and encapsulated resources still belong to it.
+      yield* until(server.close());
+    } catch (error) {
+      closeFailed = true;
+      closeFailure = error;
+    }
+
+    const effectivePrimaryFailed = primaryFailed || lateListenFailed;
+    const effectivePrimary = primaryFailed ? primaryFailure : lateListenFailure;
+    if (effectivePrimaryFailed && closeFailed) {
+      throw new AggregateError(
+        [effectivePrimary, closeFailure],
+        "HTTP server operation and close both failed",
+      );
+    }
+    if (lateListenFailed) throw lateListenFailure;
+    if (closeFailed) throw closeFailure;
+  });
+
+  try {
+    return yield* operation(listen);
+  } catch (error) {
+    primaryFailed = true;
+    primaryFailure = error;
+    throw error;
+  }
+}
+
+/**
+ * Own a Fastify listen attempt and its partial-start cleanup in one Effection
+ * scope. Kept internal to the runtime package; startHttpServer is the public
+ * runtime operation.
+ */
+export function* listenFastifyWithCleanup(
+  server: OwnedFastifyServer,
+  options: FastifyListenOptions,
+) {
+  return yield* withFastifyCleanup(server, function* (listen) {
+    return yield* listen(options);
+  });
 }
 /**
  * Register the OpenAPI documentation for the Paima Engine HTTP server.
@@ -152,23 +250,19 @@ function* registerOpenApiDocumentation(
 
 // TODO This should add user defined endpoints.
 
-/**
- * Start the Paima Engine HTTP server.
- * @param dbConn - The database connection.
- * @param syncProtocols - The sync protocols.
- */
-export const startHttpServer = function* (
+function* configureHttpServer(
+  server: FastifyInstance,
+  listen: OwnedFastifyListen,
   dbConn: Pool,
   syncProtocols: AllSyncProtocols[],
   /** How long without applying a block counts as stalled on `/health`. */
   stallThresholdMs: number,
   apiRouter?: StartConfigApiRouter,
   grammar?: GrammarDefinition,
-) {
+): Operation<void> {
   // Use dbConn directly; queries are executed via pgtyped PreparedQuery.run
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.
-  const server = fastify({ routerOptions: { maxParamLength: 300 } });
   // OpenAPI Docs
   yield* registerOpenApiDocumentation(server, ENV.EFFECTSTREAM_API_PORT);
 
@@ -1039,14 +1133,39 @@ export const startHttpServer = function* (
     );
   });
 
-  yield* ensure(function* () {
-    if (server.server.listening) yield* until(server.close());
+  const address = yield* listen({
+    port: ENV.EFFECTSTREAM_API_PORT,
+    host: "0.0.0.0",
   });
-  const address = yield* until(
-    server.listen({ port: ENV.EFFECTSTREAM_API_PORT, host: "0.0.0.0" }),
-  );
   console.log(`Paima Engine HTTP server running on ${address}`);
   yield* suspend();
+}
+
+/**
+ * Start the Paima Engine HTTP server.
+ * @param dbConn - The database connection.
+ * @param syncProtocols - The sync protocols.
+ */
+export const startHttpServer = function* (
+  dbConn: Pool,
+  syncProtocols: AllSyncProtocols[],
+  /** How long without applying a block counts as stalled on `/health`. */
+  stallThresholdMs: number,
+  apiRouter?: StartConfigApiRouter,
+  grammar?: GrammarDefinition,
+) {
+  const server = fastify({ routerOptions: { maxParamLength: 300 } });
+  return yield* withFastifyCleanup(server, function* (listen) {
+    return yield* configureHttpServer(
+      server,
+      listen,
+      dbConn,
+      syncProtocols,
+      stallThresholdMs,
+      apiRouter,
+      grammar,
+    );
+  });
 };
 
 export function clearBigInts<T>(value: T): T {

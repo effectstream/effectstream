@@ -78,7 +78,8 @@ export class PrimitiveBuilder<
     const NewPrimitive extends {
       name: string;
       type: string;
-      startBlockHeight: number;
+      /** Defaults to the owning protocol's resolved numeric start. */
+      startBlockHeight?: number;
     }, // TODO This is the format from Primitive.getConfig()
   >(
     genSyncProtocol: (syncProtocol: SyncProtocols) => SyncProtocol,

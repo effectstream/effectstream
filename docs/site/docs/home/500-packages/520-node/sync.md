@@ -140,7 +140,41 @@ Avail (light-client HTTP), Midnight and Celestia. Two exceptions:
   protected by producer supervision - a stream that dies or ends is restarted
   with backoff (see below).
 
-NTP and the synthetic `test` chain make no network calls at all.
+NTP uses its own bounded UDP sampling behavior rather than the shared HTTP
+request timeout. The synthetic `test` chain makes no network calls.
+
+## Configured NTP servers
+
+An NTP main protocol can use controlled or private servers through its existing
+network configuration:
+
+```typescript
+{
+  name: "clock",
+  type: ConfigNetworkType.NTP,
+  blockTimeMS: 1000,
+  startTime: 0,
+  servers: ["ntp.internal.example:123"],
+}
+```
+
+Absent or empty `servers` keeps the dependency's ordinary public-pool defaults.
+A non-empty list creates a dedicated `ntp-time-sync` instance, so its cache is
+independent of the default singleton and other configured instances. Server
+strings are passed through to `ntp-time-sync` as host/optional-port values;
+malformed entries fail through the existing sync retry path.
+
+The adapter pins `ntp-time-sync` 0.6.0 for its instance-owned cache, finite
+no-progress retries, signed offset correction, and socket cleanup. Its Promise
+is not abortable: an in-flight sample can remain alive for the dependency's
+bounded sampling/retry window after an outer Effection halt.
+
+Compatibility warning: this upgrade drops Node 18 support. `ntp-time-sync`
+0.6.0 requires Node 20+, while the resolved `ntp-packet-parser` 0.6.1 raises the
+effective dependency-graph floor to Node 20.19+ or Node 22.12+; use one of
+those runtime floors (or the repository's supported Bun runtime). The 0.6.0
+release also changes clock offsets to their signed RFC 5905 meaning, so a
+release must call out both the runtime-floor change and signed-offset behavior.
 
 ```ts
 .addParallel((n) => n.myChain, () => ({
@@ -188,6 +222,34 @@ classes) are exported but are internal to the factory wiring -
 application code drives them through `genSyncProtocols` rather than
 instantiating them directly. Reach for them only if you're writing a
 custom orchestration layer.
+
+## One-shot Midnight tip
+
+`getMidnightTip()` queries and validates one numeric boundary without creating
+a persistent client or changing sync configuration:
+
+```typescript
+import { getMidnightTip } from "@effectstream/sync";
+
+const { height } = await getMidnightTip({
+  indexer: "https://indexer.example/graphql/api/v4",
+  requestTimeoutMs: 15_000, // default
+  signal: abortController.signal,
+});
+```
+
+The helper performs one `block { height }` POST, accepts height zero, and
+requires a non-negative safe integer. It never retries, polls, or persists the
+result. Pass the returned number to both a Midnight sync protocol and its
+primitive when they must share an exact inclusive start boundary.
+
+Failures are `MidnightTipError` with stable codes: `INVALID_OPTIONS`,
+`ABORTED`, `TIMEOUT`, `NETWORK`, `HTTP`, `GRAPHQL`, or `INVALID_RESPONSE`.
+Caller abort preserves `signal.reason`; network and JSON parse failures keep
+their original `cause`; HTTP failures expose `status`/`statusText`; GraphQL
+failures expose a frozen `graphqlErrors` copy. Caller abort and the 15-second
+default timeout use first-winner semantics and release their timer/listener on
+every path. Existing `MidnightClient` behavior is unchanged.
 
 ## Examples
 

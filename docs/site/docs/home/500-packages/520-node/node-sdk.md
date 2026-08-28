@@ -37,38 +37,6 @@ import { getConnection } from "@effectstream/node-sdk/db";
 import { ConfigBuilder, ConfigNetworkType } from "@effectstream/node-sdk/config";
 ```
 
-## Single-file applications
-
-The root entrypoint also exposes a small in-process facade for concise,
-read-only nodes:
-
-```typescript
-import { midnightContract, pglite, runNode } from "@effectstream/node-sdk";
-
-await runNode({
-  appName: "counter-watch",
-  database: pglite(),
-  sources: {
-    counter: midnightContract({
-      network: "preview",
-      address: "<64-character-contract-address>",
-      startBlockHeight: "latest",
-      ledger: { round: "uint128" },
-    }),
-  },
-  transitions: {
-    counter: ({ state }) => console.log(state.round),
-  },
-});
-```
-
-`runNode` uses the normal Effectstream sync, primitive, STM, migration, and
-configuration-snapshot paths. It owns PGlite and runtime cleanup in the same
-process; it does not launch another script. A fresh `"latest"` source begins at
-the current indexed block. When `pglite({ dataDir: "..." })` is persistent, a
-restart reads the saved numeric start height and resumes the stored checkpoint
-instead of jumping to a new tip.
-
 The subpaths are thin re-exports - semantics are identical to importing
 from the underlying packages.
 
@@ -93,11 +61,11 @@ the corresponding package:
 
 ## Subpath exports
 
-- `@effectstream/node-sdk/runtime`: `init`, `start`, `StartConfig`, `DBMigrations`.
+- `@effectstream/node-sdk/runtime`: `init`, `start`, `runEffectstream`, `StartConfig`, `DBMigrations`.
 - `@effectstream/node-sdk/sm`: `Stm` plus state-machine types and helpers.
 - `@effectstream/node-sdk/sm/builtin` ships built-in primitive type tags (ERC20, ERC721, ERC1155, Cardano transfer/mint-burn/pool-delegation, Midnight generic, NEAR, Avail, Celestia, ...).
 - `@effectstream/node-sdk/sm/grammar`: concise/grammar parsing utilities.
-- `@effectstream/node-sdk/sync` - `genSyncProtocols` and per-chain fetcher classes.
+- `@effectstream/node-sdk/sync` - `getMidnightTip`, `genSyncProtocols`, and per-chain fetcher classes.
 - `@effectstream/node-sdk/db`: `getConnection`, query helpers, snapshot utilities.
 - `@effectstream/node-sdk/db/start-pglite`, `./db/apply-migrations`, `./db/db-wait`, `./db/pgtyped-update`, `./db/version`: DB operations scripts.
 - `@effectstream/node-sdk/db-emulator`: in-memory test DB migration runner.

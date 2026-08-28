@@ -39,6 +39,8 @@ import { EventBroker } from "@effectstream/event-server";
 // (or the _BATCHER_ equivalents when constructed with "Batcher").
 const broker = new EventBroker("effectstream-engine");
 await broker.start(); // listens on the configured TCP + WS ports
+// ...
+await broker.shutdown(); // resolves after connections/listeners release ports
 ```
 
 Once running, you can connect to it from `@effectstream/event-client`
@@ -59,7 +61,14 @@ exposed here.
 
 ## Key exports
 
-- `EventBroker` - broker class. Constructor takes `"effectstream-engine" | "Batcher"`. Methods: `start()` (async; binds the configured TCP + WS ports), `createServer()` (fire-and-forget wrapper around `start()`), `stop()`. Clients publish and subscribe via the MQTT protocol, not direct class methods.
+- `EventBroker` - broker class. Constructor takes `"effectstream-engine" | "Batcher"`.
+  `start()` is idempotent while starting/started and resolves after both TCP and
+  WebSocket readiness. `shutdown()` is async, idempotent, coalesced, destroys
+  accepted TCP connections, and resolves only after both listeners release
+  their ports. Partial-start failures clean up before rejecting. `createServer()`
+  and `stop()` remain compatibility wrappers; they observe and log asynchronous
+  rejection but cannot be awaited. Start after shutdown or failed start is not
+  supported. Clients publish and subscribe via MQTT rather than direct methods.
 
 ## Examples
 

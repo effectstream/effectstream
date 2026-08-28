@@ -3,6 +3,7 @@ export * from "./evm/state.ts";
 
 export * from "./midnight/fetcher.ts";
 export * from "./midnight/state.ts";
+export * from "./midnight/tip.ts";
 
 export * from "./avail/fetcher.ts";
 export * from "./avail/state.ts";
@@ -12,6 +13,7 @@ export * from "./bitcoin/state.ts";
 
 export * from "./ntp/fetcher.ts";
 export * from "./ntp/state.ts";
+export * from "./ntp/tip.ts";
 
 export * from "./utxorpc/fetcher.ts";
 export * from "./utxorpc/state.ts";

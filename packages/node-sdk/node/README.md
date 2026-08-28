@@ -23,46 +23,49 @@ npm install @effectstream/node-sdk
 Every piece is reachable from one dependency:
 
 ```typescript
-import { init, start } from "@effectstream/node-sdk/runtime";
-import { Stm } from "@effectstream/node-sdk/sm";
-import { getConnection } from "@effectstream/node-sdk/db";
-import { ConfigBuilder, ConfigNetworkType } from "@effectstream/node-sdk/config";
-```
+import { runEffectstream } from "@effectstream/node-sdk/runtime";
+import { StateMachine } from "@effectstream/node-sdk/sm";
+import {
+  ConfigBuilder,
+  ConfigNetworkType,
+  ConfigSyncProtocolType,
+} from "@effectstream/node-sdk/config";
 
-## Single-file applications
+const config = new ConfigBuilder()
+  .buildNetworks((builder) =>
+    builder.addNetwork({ type: ConfigNetworkType.NTP })
+  )
+  .buildSyncProtocols((builder) =>
+    builder.addMain(
+      (networks) => networks.ntp,
+      () => ({
+        name: "ntp",
+        type: ConfigSyncProtocolType.NTP_MAIN,
+        startBlockHeight: "latest",
+      }),
+    )
+  )
+  .buildPrimitives((builder) => builder)
+  .build();
 
-The root entrypoint also exposes a small in-process facade for concise,
-read-only nodes:
-
-```typescript
-import { midnightContract, pglite, runNode } from "@effectstream/node-sdk";
-
-await runNode({
-  appName: "counter-watch",
-  database: pglite(),
-  sources: {
-    counter: midnightContract({
-      network: "preview",
-      address: "<64-character-contract-address>",
-      startBlockHeight: "latest",
-      ledger: { round: "uint128" },
-    }),
-  },
-  transitions: {
-    counter: ({ state }) => console.log(state.round),
-  },
+await runEffectstream({
+  appName: "my-app",
+  appVersion: "1.0.0",
+  config,
+  stateMachine: new StateMachine(),
+  apiRouter: async () => {},
 });
 ```
 
-`runNode` uses the normal Effectstream sync, primitive, STM, migration, and
-configuration-snapshot paths. It owns PGlite and runtime cleanup in the same
-process; it does not launch another script. A fresh `"latest"` source begins at
-the current indexed block. When `pglite({ dataDir: "..." })` is persistent, a
-restart reads the saved numeric start height and resumes the stored checkpoint
-instead of jumping to a new tip.
-
 The subpaths are thin re-exports - semantics are identical to importing
 from the underlying packages.
+
+`runEffectstream()` is the one canonical application entry. Public
+`init()`/`start()` remain available through the runtime subpath only as
+transitional compatibility APIs for gradual migration; they are not an equal
+recommendation for new application entry points. The removed aggregate
+`runNode` facade and its template-specific types have no alias or replacement
+aggregate source subpath.
 
 The re-exported `db/start-pglite` handle uses a bounded, non-destructive
 `close()` by default and an explicit owner-only `close({ force: true })` mode.
@@ -85,16 +88,23 @@ the corresponding package:
 
 ## Subpath exports
 
-- `@effectstream/node-sdk/runtime`: `init`, `start`, `StartConfig`, `DBMigrations`.
-- `@effectstream/node-sdk/sm`: `Stm` plus state-machine types and helpers.
+- `@effectstream/node-sdk/runtime`: canonical `runEffectstream`,
+  `RunEffectstreamOptions`, `RunEffectstreamDatabase`, and
+  `RunEffectstreamError`; transitional `init`, `start`, `StartConfig`, and
+  `DBMigrations` remain for compatibility.
+- `@effectstream/node-sdk/sm`: canonical `StateMachine`; transitional `Stm` is
+  the same constructor, plus state-machine types and helpers.
 - `@effectstream/node-sdk/sm/builtin` ships built-in primitive type tags (ERC20, ERC721, ERC1155, Cardano transfer/mint-burn/pool-delegation, Midnight generic, NEAR, Avail, Celestia, ...).
 - `@effectstream/node-sdk/sm/grammar`: concise/grammar parsing utilities.
-- `@effectstream/node-sdk/sync` - `genSyncProtocols` and per-chain fetcher classes.
+- `@effectstream/node-sdk/sync` - protocol-local latest support,
+  `getNtpTip`, `getMidnightTip`, `genSyncProtocols`, and per-chain fetcher
+  classes.
 - `@effectstream/node-sdk/db`: `getConnection`, query helpers, snapshot utilities.
 - `@effectstream/node-sdk/db/start-pglite`, `./db/apply-migrations`, `./db/db-wait`, `./db/pgtyped-update`, `./db/version`: DB operations scripts.
 - `@effectstream/node-sdk/db-emulator`: in-memory test DB migration runner.
 - `@effectstream/node-sdk/event-server`: local MQTT broker.
-- `@effectstream/node-sdk/config`: `ConfigBuilder` and friends.
+- `@effectstream/node-sdk/config`: `ConfigBuilder`, configuration enums, and
+  the pure `resolveMidnightNetworkProfile` service resolver.
 - `@effectstream/node-sdk/chain-types`, `./precompile`, `./concise`, `./coroutine` are pass-throughs to the same-named SDK packages.
 - `@effectstream/node-sdk/utils`, `./utils/node-env`, `./utils/runtime`: utility helpers.
 
@@ -103,10 +113,8 @@ the corresponding package:
 Runnable: [`test/examples.test.ts`](./test/examples.test.ts) - verifies
 each subpath resolves.
 
-For full working nodes, see:
-
-- [`templates/minimal/`](https://github.com/effectstream/effectstream/tree/main/templates/minimal)
-- [`templates/dice/`](https://github.com/effectstream/effectstream/tree/main/templates/dice)
+The underlying package READMEs document canonical configuration, state-machine,
+sync, database, and lifecycle behavior independently of any one template.
 
 ## Links
 

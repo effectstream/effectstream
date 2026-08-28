@@ -68,6 +68,16 @@ describe("MidnightGenericPrimitive ledger schema", () => {
     });
   });
 
+  test("a shorter schema decodes the leading declaration-order prefix", () => {
+    const decoder = primitive("schema-prefix", { round: "uint128" });
+
+    expect(decoder.parseAdditionalLedgerFields(array(
+      cell(0x07),
+      cell(0xaa, 0xbb),
+      cell(0x01),
+    ))).toEqual({ round: "7" });
+  });
+
   test("requires either generated contract code or a non-empty schema", () => {
     expect(() => primitive("missing-decoder")).toThrow(/requires either/);
     expect(() => primitive("empty-schema", {})).toThrow(/empty ledger schema/);

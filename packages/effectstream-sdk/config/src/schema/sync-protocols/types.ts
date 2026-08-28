@@ -41,6 +41,10 @@ export const SyncProtocolToNetwork = {
   [ConfigSyncProtocolType.TEST_PARALLEL]: ConfigNetworkType.TEST,
 } satisfies Record<ConfigSyncProtocolType, ConfigNetworkType>;
 
+/** Accepted first-run policy for protocol-local boundary resolution. */
+export type StartBlockHeightPolicy = number | "latest";
+export type StartBlockHeightProvenance = "explicit" | "latest";
+
 export type NetworkTypeFromSyncProtocol<T extends ConfigSyncProtocolType> =
   (typeof SyncProtocolToNetwork)[T];
 export type SyncProtocolFromNetwork<T extends ConfigNetworkType> =
@@ -267,15 +271,44 @@ export type NetworkFromSyncProtocol<
   ? Extract<NetworkConfig, { type: NetworkTypeFromSyncProtocol<T> }>
   : undefined;
 
-export type SyncProtocolWithNetwork = {
-  [K in keyof typeof SyncProtocolToNetwork]: {
-    networkType: NetworkFromSyncProtocol<K>["type"];
-    syncProtocolType: ConfigSyncProtocolMapping[K]["type"];
-    syncProtocol: ConfigSyncProtocolMapping[K];
-    network: NetworkFromSyncProtocol<K>;
-    primitives: Extract<
-      PrimitiveEntry,
-      { syncProtocol: ConfigSyncProtocolMapping[K]["type"] }
-    >[];
-  };
-}[keyof typeof SyncProtocolToNetwork];
+type SyncProtocolWithNetworkEntry<
+  K extends keyof typeof SyncProtocolToNetwork,
+  Protocol extends ConfigSyncProtocolMapping[K] = ConfigSyncProtocolMapping[K],
+> = {
+  networkType: NetworkFromSyncProtocol<K>["type"];
+  syncProtocolType: Protocol["type"];
+  syncProtocol: Protocol;
+  network: NetworkFromSyncProtocol<K>;
+  primitives: Extract<
+    PrimitiveEntry,
+    { syncProtocol: ConfigSyncProtocolMapping[K]["type"] }
+  >[];
+};
+
+type NumericStartProtocol<Protocol> = Omit<Protocol, "startBlockHeight"> & {
+  startBlockHeight: number;
+};
+
+type StandardRuntimeProtocol = Exclude<
+  keyof typeof SyncProtocolToNetwork,
+  | ConfigSyncProtocolType.NTP_MAIN
+  | ConfigSyncProtocolType.MIDNIGHT_PARALLEL
+>;
+
+/** Runtime descriptors are numeric after the startup policy transaction. */
+export type SyncProtocolWithNetwork =
+  | SyncProtocolWithNetworkEntry<
+    ConfigSyncProtocolType.NTP_MAIN,
+    NumericStartProtocol<
+      ConfigSyncProtocolMapping[ConfigSyncProtocolType.NTP_MAIN]
+    >
+  >
+  | SyncProtocolWithNetworkEntry<
+    ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+    NumericStartProtocol<
+      ConfigSyncProtocolMapping[ConfigSyncProtocolType.MIDNIGHT_PARALLEL]
+    >
+  >
+  | {
+    [K in StandardRuntimeProtocol]: SyncProtocolWithNetworkEntry<K>;
+  }[StandardRuntimeProtocol];

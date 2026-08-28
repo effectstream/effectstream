@@ -78,7 +78,7 @@ export class MidnightSyncState extends SyncState<
     if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
 
     const startHeight = this.lastPage?.own.height ??
-      this.config.syncProtocol.startBlockHeight - 1;
+      (this.config.syncProtocol.startBlockHeight as number) - 1;
 
     // Extrapolate how many new chain blocks have likely arrived since the last
     // real query, then re-query only when that estimate exceeds the threshold.

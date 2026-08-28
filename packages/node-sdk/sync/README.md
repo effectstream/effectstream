@@ -21,12 +21,13 @@ npm install @effectstream/sync
 ## Usage
 
 This package pairs with [`@effectstream/runtime`](https://www.npmjs.com/package/@effectstream/runtime),
-which boots sync as part of `start()`: it calls `genSyncProtocols(...)`
-against the `syncProtocols` section of your
+whose canonical `runEffectstream()` path boots sync from the `syncProtocols`
+section of your
 [`@effectstream/config`](https://www.npmjs.com/package/@effectstream/config),
-then drives the resulting fetcher + state pairs every block. As an app
-author you declare which protocols to sync in your config; everything
-else runs automatically.
+then drives the resulting fetcher/state pairs every block. As an application
+author you declare which protocols to sync in the one built config; the runner
+derives the runtime objects mechanically. Lower-level `start()` remains a
+transitional compatibility API.
 
 If you're building a new chain integration, implement the sync-protocol
 interfaces in [`src/sync-protocols/`](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/sync/src/sync-protocols).
@@ -45,6 +46,31 @@ import { genSyncProtocols } from "@effectstream/sync";
 const protocols = await genSyncProtocols(config);
 // protocols.parallelEvmRPC_fast.runOne()  // poll one block
 ```
+
+## Protocol-local `latest` starts
+
+NTP-main and Midnight-parallel protocols accept
+`startBlockHeight: "latest"`. Each protocol resolves its own inclusive first
+boundary: NTP samples its clock-derived page and Midnight queries its selected
+indexer. A Midnight height is never reused as an NTP height, and the domains
+continue to merge by timestamp.
+
+The runtime commits the resolved numeric boundary and its `latest` provenance
+before constructing primitives or starting sync. A restart reuses that stored
+number without another live tip request. A primitive with no explicit start
+inherits the same resolved number from its owning protocol. A racing next block
+remains eligible on the first fetch.
+
+For NTP, a first `latest` run begins at the resolved page itself. Explicit
+numeric NTP keeps the historical page-1 presync path. Legacy NTP snapshots that
+lack start/provenance fields are backfilled atomically; `USE_DB_STARTHEIGHT`
+cannot invent a missing value, while its existing explicit-mismatch behavior
+remains unchanged. A crash before the snapshot commit may resolve again because
+no processing began; after commit, the stored value wins.
+
+NTP `startTime: Date.now()` is a configuration convenience for a fresh node,
+not a stable persistent genesis. Persistent deployments that require a stable
+time-to-height mapping should provide and persist an explicit NTP `startTime`.
 
 ## Backpressure (`maxBufferedPages`)
 
@@ -132,7 +158,41 @@ Avail (light-client HTTP), Midnight and Celestia. Two exceptions:
   protected by producer supervision — a stream that dies or ends is restarted
   with backoff (see below).
 
-NTP and the synthetic `test` chain make no network calls at all.
+NTP uses its own bounded UDP sampling behavior rather than the shared HTTP
+request timeout. The synthetic `test` chain makes no network calls.
+
+## Configured NTP servers
+
+An NTP main protocol can use controlled or private servers through its existing
+network configuration:
+
+```typescript
+{
+  name: "clock",
+  type: ConfigNetworkType.NTP,
+  blockTimeMS: 1000,
+  startTime: 0,
+  servers: ["ntp.internal.example:123"],
+}
+```
+
+Absent or empty `servers` keeps the dependency's ordinary public-pool defaults.
+A non-empty list creates a dedicated `ntp-time-sync` instance, so its cache is
+independent of the default singleton and other configured instances. Server
+strings are passed through to `ntp-time-sync` as host/optional-port values;
+malformed entries fail through the existing sync retry path.
+
+The adapter pins `ntp-time-sync` 0.6.0 for its instance-owned cache, finite
+no-progress retries, signed offset correction, and socket cleanup. Its Promise
+is not abortable: an in-flight sample can remain alive for the dependency's
+bounded sampling/retry window after an outer Effection halt.
+
+Compatibility warning: this upgrade drops Node 18 support. `ntp-time-sync`
+0.6.0 requires Node 20+, while the resolved `ntp-packet-parser` 0.6.1 raises the
+effective dependency-graph floor to Node 20.19+ or Node 22.12+; use one of
+those runtime floors (or the repository's supported Bun runtime). The 0.6.0
+release also changes clock offsets to their signed RFC 5905 meaning, so a
+release must call out both the runtime-floor change and signed-offset behavior.
 
 ```ts
 .addParallel((n) => n.myChain, () => ({
@@ -170,6 +230,10 @@ errors long after its producer recovered.
 ## Key exports
 
 - `genSyncProtocols(dbConn, syncInfo)` - Effection generator that instantiates a runtime fetcher + state pair for every protocol in `syncInfo` (from `config.syncProtocols`). Called from the runtime's process-blocks loop.
+- `getNtpTip(options)` / `getMidnightTip(options)` - bounded one-shot tip
+  observations for custom tooling. Canonical nodes normally select
+  `startBlockHeight: "latest"` so the runtime also persists provenance and
+  restart state.
 - `AllSyncProtocols` - union type covering every supported protocol; useful when authoring config that fans out.
 - `ChainBlock`, plus base `Fetcher`/`State` types from `sync-protocols/base/` - the wire shape per chain.
 
@@ -180,6 +244,36 @@ classes) are exported but are internal to the factory wiring -
 application code drives them through `genSyncProtocols` rather than
 instantiating them directly. Reach for them only if you're writing a
 custom orchestration layer.
+
+## One-shot Midnight tip
+
+`getMidnightTip()` queries and validates one numeric boundary without creating
+a persistent client or changing sync configuration:
+
+```typescript
+import { getMidnightTip } from "@effectstream/sync";
+
+const { height } = await getMidnightTip({
+  indexer: "https://indexer.example/graphql/api/v4",
+  requestTimeoutMs: 15_000, // default
+  signal: abortController.signal,
+});
+```
+
+The helper performs one `block { height }` POST, accepts height zero, and
+requires a non-negative safe integer. It never retries, polls, or persists the
+result. Ordinary nodes should prefer protocol-local `"latest"`, which owns
+numeric persistence, restart behavior, boundary inclusion, and primitive
+inheritance. Use `getMidnightTip()` only when a caller independently needs one
+unpersisted observation.
+
+Failures are `MidnightTipError` with stable codes: `INVALID_OPTIONS`,
+`ABORTED`, `TIMEOUT`, `NETWORK`, `HTTP`, `GRAPHQL`, or `INVALID_RESPONSE`.
+Caller abort preserves `signal.reason`; network and JSON parse failures keep
+their original `cause`; HTTP failures expose `status`/`statusText`; GraphQL
+failures expose a frozen `graphqlErrors` copy. Caller abort and the 15-second
+default timeout use first-winner semantics and release their timer/listener on
+every path. Existing `MidnightClient` behavior is unchanged.
 
 ## Examples
 

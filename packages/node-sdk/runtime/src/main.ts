@@ -44,14 +44,22 @@ import { recordAppliedBlock } from "./api/apply-status.ts";
 import { recordCoalesced } from "./api/stream-status.ts";
 import { createBoundedFinalizedStream } from "./finalized-stream.ts";
 import type { StartConfig } from "./types.ts";
-import type { Client } from "pg";
+import type { Pool, PoolClient } from "pg";
 import type { EffectstreamBlockHash } from "@effectstream/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
 import { ConfigNetworkType, usePaimaStaticConfig } from "@effectstream/config";
 import type { SecurityNamespace, SyncProtocolWithNetwork } from "@effectstream/config";
-import { builtInPrimitivesMap } from "@effectstream/sm";
+import {
+  builtInPrimitivesMap,
+  type StateMachine,
+  type StateMachineGrammarBinding,
+} from "@effectstream/sm";
 import { validateAndSnapshotConfig } from "./config-snapshot.ts";
+import {
+  cloneRuntimeSyncInfo,
+  inheritPrimitiveConfig,
+} from "./canonical-config.ts";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -67,15 +75,48 @@ export function* init() {
  * @param config - Paima Engine Node configuration object.
  */
 export function* start(config: StartConfig): Operation<void> {
-  const { syncInfo } = config;
+  yield* startRuntime(config);
+}
+
+/** Package-internal canonical path; the public legacy start signature stays unchanged. */
+export function* startCanonical(
+  config: StartConfig,
+  stateMachine: StateMachine<any, any, any>,
+): Operation<void> {
+  yield* startRuntime(config, stateMachine);
+}
+
+function* startRuntime(
+  config: StartConfig,
+  stateMachine?: StateMachine<any, any, any>,
+): Operation<void> {
+  const syncInfo = cloneRuntimeSyncInfo(config.syncInfo);
 
   const dbConn = getConnection();
   yield* ensure(function* () {
     yield* call(() => dbConn.end());
   });
 
-  const syncProtocols = yield* startup(dbConn as any, // Client,
-    syncInfo, config);
+  // The runtime owns the local broker when enabled. Its readiness is part of
+  // startup, and its async shutdown is ordered after later runtime children but
+  // before the outer database and telemetry cleanup.
+  if (ENV.MQTT_BROKER) {
+    const broker = new EventBroker("effectstream-engine");
+    let startFailed = false;
+    yield* ensure(function* () {
+      if (!startFailed) yield* call(() => broker.shutdown());
+    });
+    try {
+      yield* call(() => broker.start());
+    } catch (error) {
+      // EventBroker.start() already performs and aggregates partial cleanup.
+      // Do not replay a cached shutdown rejection from the surrounding ensure.
+      startFailed = true;
+      throw error;
+    }
+  }
+
+  const syncProtocols = yield* startup(dbConn, syncInfo, config, stateMachine);
 
   // Test-only: surface live sync protocols (e.g. for buffer-size assertions).
   config.dev?.onStarted?.({ syncProtocols });
@@ -88,11 +129,6 @@ export function* start(config: StartConfig): Operation<void> {
   );
   for (const syncProtocol of syncProtocols) {
     yield* startSync(syncProtocol);
-  }
-
-  // Create MQTT Broker
-  if (ENV.MQTT_BROKER) {
-    new EventBroker("effectstream-engine").createServer();
   }
 
   // 20× main clock block time (NTP if present, else protocol 0).
@@ -113,7 +149,7 @@ export function* start(config: StartConfig): Operation<void> {
       syncProtocols,
       lagThresholdMs,
       config.apiRouter,
-      config.grammar,
+      stateMachine?.grammar ?? config.grammar,
     );
   });
 
@@ -207,6 +243,7 @@ export function* start(config: StartConfig): Operation<void> {
       config,
       dbConn as any, // Pool,
       blockHash,
+      stateMachine,
     );
     const blockAppEvents: PendingEvent[] = result.events;
     if (result.blockHash !== "0x0") {
@@ -312,27 +349,13 @@ function emitLatestBlocks(
 }
 
 function* startup(
-  dbConn: Client,
+  dbConn: Pool,
   syncInfo: SyncProtocolWithNetwork[],
   config: StartConfig,
+  stateMachine?: StateMachine<any, any, any>,
 ): Operation<AllSyncProtocols[]> {
   const versionInfo = yield* getVersionInfo(dbConn);
   const lastBlockHeight = yield* getLastBlockHeight(versionInfo, dbConn);
-  // Pull the security namespace from the static config so primitives that
-  // re-verify batched signatures can access it synchronously.
-  const staticConfig = yield* usePaimaStaticConfig();
-  // Create Runtime Primitives Instances
-  syncInfo.forEach((syncProtocol) => {
-    syncProtocol.primitives.forEach((primitive, primitiveIndex) => {
-      processPrimitives(
-        syncProtocol.primitives,
-        primitiveIndex,
-        staticConfig.securityNamespace,
-        config.userDefinedPrimitives
-      );
-    });
-  });
-
   yield* acquireDBMutex(`startup-node`);
   // `finally` releases the mutex on error/cancellation too; a throw in any step
   // below would otherwise leak it and deadlock every later DB operation.
@@ -355,7 +378,30 @@ function* startup(
     // Validate that immutable config fields (e.g. NTP startTime, startBlockHeight)
     // have not changed since the last run. Persists a snapshot on first start.
     // Must run after system migrations so the snapshot table exists.
-    yield* validateAndSnapshotConfig(syncInfo, dbConn);
+    const snapshotClient = (yield* until(dbConn.connect())) as PoolClient;
+    try {
+      yield* validateAndSnapshotConfig(syncInfo, snapshotClient);
+    } finally {
+      snapshotClient.release();
+    }
+
+    // Pull the security namespace only after the numeric boundary transaction
+    // commits. Primitive constructors can therefore never observe a moving
+    // latest sentinel or do work before its restart boundary is durable.
+    const staticConfig = yield* usePaimaStaticConfig();
+    const grammarBindings: StateMachineGrammarBinding[] = [];
+    syncInfo.forEach((syncProtocol) => {
+      syncProtocol.primitives.forEach((_primitive, primitiveIndex) => {
+        const binding = processPrimitives(
+          syncProtocol,
+          primitiveIndex,
+          staticConfig.securityNamespace,
+          config.userDefinedPrimitives,
+        );
+        if (binding) grammarBindings.push(binding);
+      });
+    });
+    if (stateMachine) stateMachine.bindGrammar(grammarBindings);
 
     const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
       syncInfo);
@@ -382,11 +428,12 @@ function* startup(
 
 // Convert the primitive config to the final primitive instance
 const processPrimitives = (
-  primitives: {primitive: any, id: string}[],
+  syncProtocol: SyncProtocolWithNetwork,
   primitiveIndex: number,
   securityNamespace: SecurityNamespace | undefined,
   userDefinedPrimitives?: Record<string, any>,
-) => {
+): StateMachineGrammarBinding | undefined => {
+    const primitives = syncProtocol.primitives as {primitive: any, id: string}[];
     const primitiveType = primitives[primitiveIndex].primitive.type;
     const primitiveUniqueName = primitives[primitiveIndex].id;
     const primitiveConfig = primitives[primitiveIndex].primitive;
@@ -403,17 +450,29 @@ const processPrimitives = (
                         ...Object.keys(userDefinedPrimitives || {}),
                       ]).join(", ")}`);
     }
-    let p = null;
-    const classConfig = {
-      ...primitiveConfig,
+    let p: any;
+    const classConfig: Record<string, unknown> = {
+      ...inheritPrimitiveConfig(syncProtocol, primitiveConfig),
       instanceName: primitiveUniqueName,
       securityNamespace,
-    }
+    };
     if (isBuiltInPrimitive) {
       p = new builtInPrimitivesMap[primitiveType as keyof typeof builtInPrimitivesMap](classConfig as any) ;
     } else if (isUserDefinedPrimitive) {
       p = new userDefinedPrimitives[primitiveType as keyof typeof userDefinedPrimitives](classConfig);
     }
     // Update the primitive with the final configuration
-    primitives[primitiveIndex].primitive = p.getConfig();
+    const finalized = p.getConfig();
+    primitives[primitiveIndex].primitive = {
+      ...finalized,
+      // Primitive.getConfig implementations historically used scheduledPrefix;
+      // retain the constructor input that the runtime actually routes on.
+      ...(primitiveConfig.stateMachinePrefix === undefined
+        ? {}
+        : { stateMachinePrefix: primitiveConfig.stateMachinePrefix }),
+    };
+    const prefix = primitiveConfig.stateMachinePrefix;
+    return typeof prefix === "string" && prefix.length > 0
+      ? [prefix, p.grammar]
+      : undefined;
 }

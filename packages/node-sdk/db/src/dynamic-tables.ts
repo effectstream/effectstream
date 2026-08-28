@@ -30,7 +30,7 @@ import {
 export function* createDynamicTables(
   versionInfo: VersionInfo,
   lastBlockHeight: number,
-  dbConn: PoolClient,
+  dbConn: Pick<PoolClient, "query">,
   syncProtocols: any[], // AllSyncProtocols[],
   strategy: MaterializedViewStrategy = plainViewStrategy,
 ) {
@@ -54,7 +54,7 @@ function* createDynamicTableForPrimitive(
     };
   },
   lastBlockHeight: number,
-  dbConn: PoolClient,
+  dbConn: Pick<PoolClient, "query">,
   strategy: MaterializedViewStrategy,
 ) {
   const type = p.primitive.type;

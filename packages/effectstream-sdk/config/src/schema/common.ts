@@ -33,9 +33,42 @@ export const PollingSyncProtocol = new ConfigSchema({
   }),
 });
 
+/**
+ * Protocol-owned polling default. Use this only when an integration has a
+ * reviewed ordinary cadence; the shared schema intentionally keeps polling
+ * required for every other protocol.
+ */
+export const PollingSyncProtocolWithDefault = (
+  pollingInterval: number,
+) =>
+  new ConfigSchema({
+    required: Type.Object({}),
+    optional: Type.Object({
+      pollingInterval: TypeboxHelpers.IntervalMs({
+        default: pollingInterval,
+      }),
+      ...PollingSyncProtocol.config.optional.properties,
+    }),
+  });
+
 export const StartStopBlockheight = new ConfigSchema({
   required: Type.Object({
     startBlockHeight: TypeboxHelpers.BlockNumber(),
+  }),
+  optional: Type.Object({
+    stopBlockHeight: TypeboxHelpers.Nullable(TypeboxHelpers.BlockNumber(), {
+      default: null,
+    }),
+  }),
+});
+
+/** Start policy for protocols that snapshot one first-run local tip. */
+export const StartStopBlockheightLatest = new ConfigSchema({
+  required: Type.Object({
+    startBlockHeight: Type.Union([
+      TypeboxHelpers.BlockNumber(),
+      Type.Literal("latest"),
+    ]),
   }),
   optional: Type.Object({
     stopBlockHeight: TypeboxHelpers.Nullable(TypeboxHelpers.BlockNumber(), {

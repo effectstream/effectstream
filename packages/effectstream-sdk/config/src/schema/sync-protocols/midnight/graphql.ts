@@ -3,8 +3,8 @@ import type { Static } from "@sinclair/typebox";
 import { ConfigSyncProtocolType } from "../types.ts";
 import {
   NameField,
-  PollingSyncProtocol,
-  StartStopBlockheight,
+  PollingSyncProtocolWithDefault,
+  StartStopBlockheightLatest,
 } from "../../common.ts";
 import {
   CommonResponseParallelSyncProtocol,
@@ -23,8 +23,8 @@ import {
 // ===========
 
 export const ConfigSyncProtocolSchemaMidnightBase = NameField.cloneMerge(
-  PollingSyncProtocol,
-).cloneMerge(StartStopBlockheight).cloneMerge({
+  PollingSyncProtocolWithDefault(6_000),
+).cloneMerge(StartStopBlockheightLatest).cloneMerge({
   required: Type.Object({
     indexer: Type.String(),
     // note: node URL and proof server are not needed for read-only use
