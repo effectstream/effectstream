@@ -732,10 +732,23 @@ describe("workflow invariants", () => {
     ));
   }
 
+  const npmPublishSpellings = new Set([
+    "pu",
+    "pub",
+    "publ",
+    "publi",
+    "publis",
+    "publish",
+  ]);
+
   function shellInvokes(run: string, command: "npm" | "git", subcommand: "publish" | "push"): boolean {
     for (const words of shellSegments(run)) {
       const commandIndex = words.findIndex((word) => word === command || word.endsWith(`/${command}`));
-      if (commandIndex >= 0 && words.slice(commandIndex + 1).includes(subcommand)) return true;
+      if (commandIndex < 0) continue;
+      const argumentsAfterCommand = words.slice(commandIndex + 1);
+      if (command === "npm" && subcommand === "publish") {
+        if (argumentsAfterCommand.some((word) => npmPublishSpellings.has(word))) return true;
+      } else if (argumentsAfterCommand.includes(subcommand)) return true;
     }
     return false;
   }
@@ -1113,6 +1126,56 @@ describe("workflow invariants", () => {
     ));
     expect(currentLiteralBoundaryViolations(sources)).toEqual([]);
     expect(() => assertWorkflowBoundary(sources)).not.toThrow();
+  });
+
+  test.each([
+    "pu",
+    "pub",
+    "publ",
+    "publi",
+    "publis",
+    "publish",
+  ] as const)("structural oracle rejects npm 11.19.0 publish spelling %s", (spelling) => {
+    const sources = withAppendedJob(currentWorkflowSources(), "main.yaml", `  npm-${spelling}-backdoor:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: npm ${spelling} exact.tgz`);
+    expect(currentLiteralBoundaryViolations(sources)).toEqual([]);
+    expect(() => assertWorkflowBoundary(sources)).toThrow();
+  });
+
+  test("structural oracle rejects an option-prefixed npm 11.19.0 publish alias", () => {
+    const sources = withAppendedJob(currentWorkflowSources(), "main.yaml", `  npm-option-alias-backdoor:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: npm --registry https://registry.example.test pub exact.tgz`);
+    expect(currentLiteralBoundaryViolations(sources)).toEqual([]);
+    expect(() => assertWorkflowBoundary(sources)).toThrow();
+  });
+
+  test("structural oracle accepts npm p as a non-publication control", () => {
+    const sources = withAppendedJob(currentWorkflowSources(), "main.yaml", `  npm-p-control:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: npm p exact.tgz`);
+    expect(currentLiteralBoundaryViolations(sources)).toEqual([]);
+    expect(() => assertWorkflowBoundary(sources)).not.toThrow();
+  });
+
+  test.each([
+    ["absolute npm command path", "/usr/local/bin/npm pu exact.tgz"],
+    ["quoted npm command path and alias", `"/usr/local/bin/npm" "publi" exact.tgz`],
+    ["continued npm command and options", `npm \\
+          --registry https://registry.example.test \\
+          publis exact.tgz`],
+  ] as const)("structural oracle preserves %s alias rejection", (label, run) => {
+    const jobId = label.replaceAll(" ", "-");
+    const sources = withAppendedJob(currentWorkflowSources(), "main.yaml", `  ${jobId}:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: |
+          ${run}`);
+    expect(() => assertWorkflowBoundary(sources)).toThrow();
   });
 
   test("ci-ok binds every result and event discriminator through inert environment values", () => {
