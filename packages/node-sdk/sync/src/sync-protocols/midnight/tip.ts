@@ -73,7 +73,10 @@ function validateOptions(options: GetMidnightTipOptions): {
     throw new MidnightTipError("INVALID_OPTIONS", "indexer must use HTTP or HTTPS");
   }
 
-  const requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const requestTimeoutMs =
+    options.requestTimeoutMs === undefined
+      ? DEFAULT_REQUEST_TIMEOUT_MS
+      : options.requestTimeoutMs;
   if (
     !Number.isSafeInteger(requestTimeoutMs) ||
     !Number.isFinite(requestTimeoutMs) ||
@@ -88,7 +91,8 @@ function validateOptions(options: GetMidnightTipOptions): {
   const signal = options.signal;
   if (
     signal !== undefined &&
-    (typeof signal !== "object" ||
+    (signal === null ||
+      typeof signal !== "object" ||
       typeof signal.addEventListener !== "function" ||
       typeof signal.removeEventListener !== "function" ||
       typeof signal.aborted !== "boolean")
@@ -190,6 +194,7 @@ export async function getMidnightTip(
         method: "POST",
         body: JSON.stringify({ query: "query { block { height } }" }),
         headers: { "Content-Type": "application/json" },
+        redirect: "manual",
         signal: requestController.signal,
       });
     } catch (error) {

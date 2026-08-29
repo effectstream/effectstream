@@ -172,6 +172,46 @@ describe("getMidnightTip request contract", () => {
     },
   );
 
+  test.each([
+    [301, "Moved Permanently"],
+    [307, "Temporary Redirect"],
+  ])(
+    "treats redirect status %d as HTTP without following the target",
+    async (status, statusText) => {
+      const target = await startFixture(() =>
+        json({ data: { block: { height: 999 } } }));
+      const origin = await startFixture(() =>
+        new Response(null, {
+          status,
+          statusText,
+          headers: { Location: target.url },
+        }));
+
+      let value: unknown;
+      let caught: unknown;
+      try {
+        value = await getMidnightTip({ indexer: origin.url });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect({ originHits: origin.hits, targetHits: target.hits, value }).toEqual({
+        originHits: 1,
+        targetHits: 0,
+        value: undefined,
+      });
+      expect(caught).toBeInstanceOf(MidnightTipError);
+      const error = caught as MidnightTipError;
+      expect(error.code).toBe("HTTP");
+      expect(error.status).toBe(status);
+      expect(error.statusText).toBe(statusText);
+      expect(error.cause).toBeUndefined();
+      expect(error.graphqlErrors).toBeUndefined();
+      await expectFixtureIdle(origin);
+      await expectFixtureIdle(target);
+    },
+  );
+
   test("reports HTTP before attempting body parsing", async () => {
     const fixture = await startFixture(() =>
       new Response("not-json", { status: 503, statusText: "Service Unavailable" }));
@@ -334,11 +374,13 @@ describe("getMidnightTip option and transport failures", () => {
     ["fractional timeout", { indexer: "http://127.0.0.1:10001", requestTimeoutMs: 1.5 }],
     ["infinite timeout", { indexer: "http://127.0.0.1:10001", requestTimeoutMs: Infinity }],
     ["NaN timeout", { indexer: "http://127.0.0.1:10001", requestTimeoutMs: NaN }],
+    ["null timeout", { indexer: "http://127.0.0.1:10001", requestTimeoutMs: null }],
     [
       "unsafe timeout",
       { indexer: "http://127.0.0.1:10001", requestTimeoutMs: Number.MAX_SAFE_INTEGER + 1 },
     ],
     ["invalid signal", { indexer: "http://127.0.0.1:10001", signal: {} }],
+    ["null signal", { indexer: "http://127.0.0.1:10001", signal: null }],
   ])("validates %s before timer or I/O allocation", async (_name, options) => {
     const runtime = globalThis as any;
     const originalFetch = runtime.fetch;
