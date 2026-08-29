@@ -25,14 +25,16 @@ concurrency:
 
 jobs:
   # Decide which downstream jobs run, based on what changed.
-  #   core      → packages/** or e2e/** (plus the e2e build-infra files)
-  #   templates → space-separated list of ENABLED templates whose dir changed
+  #   core       → packages/** or e2e/** (plus the e2e build-infra files)
+  #   templates  → space-separated list of ENABLED templates whose dir changed
+  #   singleFile → templates/single-file/** or one of its supporting files
   changes:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     outputs:
       core: ${{ steps.classify.outputs.core }}
       templates: ${{ steps.classify.outputs.templates }}
+      singleFile: ${{ steps.classify.outputs.singleFile }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -101,6 +103,39 @@ jobs:
           docker run --rm --name templates_${{ github.run_number }} testing_image:${{ github.sha }} \
             bash -c "bun run templates/run-template-tests.ts ${{ needs.changes.outputs.templates }} --skip-disabled"
 
+  # The single-file template is a two-file, registry-only consumer: it is NOT in
+  # run-template-tests.ts's ENABLED list and has no `bun run test`, so the shared
+  # template-tests job cannot cover it. Its external controller copies the two
+  # distributed files into a temp directory outside the repo, installs their
+  # declared dependencies from the public registry, and exercises the real
+  # fetcher → primitive → Stm → HTTP path against a loopback indexer plus the
+  # startup-failure / SIGINT / SIGTERM lifecycle matrix on free ports above
+  # 10000. The `live` mode (the read-only Stagenet oracle) is deliberately NOT
+  # run here: hosted CI must not depend on a public testnet's availability.
+  single-file-template:
+    needs: changes
+    if: ${{ needs.changes.outputs.singleFile == 'true' && (github.event_name == 'push' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      # The classifier's own unit tests, including the selection that chose this
+      # job — a change to the selection logic must re-prove the selection.
+        # The leading ./ is required: without it bun treats the argument as a
+        # name filter and silently matches nothing.
+      - name: Test the CI change classifier
+        run: bun test ./.github/ci-changes.test.ts
+
+      # No monorepo `bun install`: the controller must resolve everything the
+      # template needs from the public registry, exactly like a real user.
+      - name: Run the single-file template controller
+        run: bun templates/test-single-file.ts ci
+
   # Browser build (+ tests) of @effectstream/frontend-sdk. This is the ONLY
   # package that needs a build before publish, and that build (`bun run build`,
   # target: "browser") is otherwise never exercised until release-publish time.
@@ -156,7 +191,7 @@ jobs:
   # Passes when the gated jobs succeed or are skipped; fails if any fails or is
   # cancelled (or if the changes job itself failed).
   ci-ok:
-    needs: [changes, e2e, template-tests, frontend-build, assets-check]
+    needs: [changes, e2e, template-tests, single-file-template, frontend-build, assets-check]
     if: ${{ always() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 5
@@ -166,6 +201,7 @@ jobs:
           echo "changes=${{ needs.changes.result }}"
           echo "e2e=${{ needs.e2e.result }}"
           echo "template-tests=${{ needs.template-tests.result }}"
+          echo "single-file-template=${{ needs.single-file-template.result }}"
           echo "frontend-build=${{ needs.frontend-build.result }}"
           echo "assets-check=${{ needs.assets-check.result }}"
           if [ "${{ needs.changes.result }}" = "failure" ] || \
@@ -173,6 +209,8 @@ jobs:
              [ "${{ needs.e2e.result }}" = "cancelled" ] || \
              [ "${{ needs.template-tests.result }}" = "failure" ] || \
              [ "${{ needs.template-tests.result }}" = "cancelled" ] || \
+             [ "${{ needs.single-file-template.result }}" = "failure" ] || \
+             [ "${{ needs.single-file-template.result }}" = "cancelled" ] || \
              [ "${{ needs.frontend-build.result }}" = "failure" ] || \
              [ "${{ needs.frontend-build.result }}" = "cancelled" ] || \
              [ "${{ needs.assets-check.result }}" = "failure" ] || \

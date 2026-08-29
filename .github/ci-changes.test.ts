@@ -81,6 +81,51 @@ describe("classify — templates", () => {
   });
 });
 
+describe("classify — single-file template", () => {
+  test("a change inside templates/single-file selects the job", () => {
+    expect(classify(["templates/single-file/minimal.ts"], ENABLED).singleFile).toBe(true);
+    expect(classify(["templates/single-file/package.json"], ENABLED).singleFile).toBe(true);
+  });
+
+  test("single-file is NOT collected as an ordinary template", () => {
+    // It has no `bun run test` script and is not in ENABLED, so the shared
+    // template job would silently skip it — which is exactly why it needs its
+    // own flag.
+    const r = classify(["templates/single-file/minimal.ts"], ENABLED);
+    expect(r.templates).toEqual([]);
+    expect(r.core).toBe(false);
+    expect(r.singleFile).toBe(true);
+  });
+
+  test("supporting files that can break it also select the job", () => {
+    for (const f of [
+      "templates/test-single-file.ts",
+      "templates/update-packages.ts",
+      ".github/ci-changes.ts",
+      ".github/workflows/main.yaml",
+    ]) {
+      expect(classify([f], ENABLED).singleFile).toBe(true);
+    }
+  });
+
+  test("unrelated changes do not select the job", () => {
+    for (const f of [
+      "templates/preorder/packages/node/main.ts",
+      "templates/run-template-tests.ts",
+      "templates/check.sh",
+      "packages/node-sdk/sync/src/foo.ts",
+      "docs/site/foo.md",
+      "README.md",
+    ]) {
+      expect(classify([f], ENABLED).singleFile).toBe(false);
+    }
+  });
+
+  test("a sibling directory with the same prefix does not match", () => {
+    expect(classify(["templates/single-file-extra/x.ts"], ENABLED).singleFile).toBe(false);
+  });
+});
+
 describe("diffArgs — diff range selection", () => {
   const opts = {
     base: "B",
@@ -178,5 +223,20 @@ describe("classify — combined", () => {
     const r = classify(["", "   "], ENABLED);
     expect(r.core).toBe(false);
     expect(r.templates).toEqual([]);
+    expect(r.singleFile).toBe(false);
+  });
+
+  test("core, an enabled template and single-file are independent signals", () => {
+    const r = classify(
+      [
+        "packages/node-sdk/sync/src/foo.ts",
+        "templates/evm-cardano/packages/node/main.ts",
+        "templates/single-file/minimal.ts",
+      ],
+      ENABLED,
+    );
+    expect(r.core).toBe(true);
+    expect(r.templates).toEqual(["evm-cardano"]);
+    expect(r.singleFile).toBe(true);
   });
 });

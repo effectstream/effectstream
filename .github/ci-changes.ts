@@ -5,6 +5,7 @@
  *
  *   core=true|false                 # run the Docker e2e suite
  *   templates=<space-separated>     # enabled template names whose dir changed
+ *   singleFile=true|false           # run the single-file template controller
  *
  * `core` is true when `packages/**` or `e2e/**` change, plus the build-infra
  * files the e2e image itself depends on (so a Dockerfile / lockfile change still
@@ -12,6 +13,14 @@
  * intersected with the ENABLED list in templates/run-template-tests.ts — the
  * single source of truth. Unknown / disabled templates drop out here, so a push
  * touching only those produces an empty list and the template job is skipped.
+ *
+ * `singleFile` exists because `templates/single-file` is deliberately NOT in
+ * that ENABLED list: it is a registry-only two-file consumer with its own
+ * external controller (templates/test-single-file.ts) rather than a
+ * `bun run test` script, so `templates` would silently drop it and its
+ * regression test would never run. This flag selects it explicitly, and also
+ * fires for the supporting files that can break it without touching its own
+ * directory — the controller itself and the manifest updater.
  *
  * The diff range mirrors GitHub's PR "Files changed" view — only a branch's own
  * delta, never code it merely merged in from the default branch:
@@ -34,10 +43,28 @@ import { ENABLED } from "../templates/run-template-tests.ts";
 export interface ChangeClassification {
   core: boolean;
   templates: string[];
+  singleFile: boolean;
 }
 
 /** Top-level path prefixes that, if touched, require the full e2e suite. */
 const CORE_PREFIXES = ["packages/", "e2e/"] as const;
+
+/** The distributed single-file template. Any change inside it selects the job. */
+const SINGLE_FILE_PREFIX = "templates/single-file/";
+
+/**
+ * Files outside `templates/single-file/` that can break it. The template
+ * installs its dependencies from the public registry, so `packages/**` cannot
+ * — but its own controller and the script that rewrites its manifest can.
+ * `.github/ci-changes.ts` and the workflow are included so a change to the
+ * selection logic re-proves the job it selects.
+ */
+const SINGLE_FILE_FILES = new Set<string>([
+  "templates/test-single-file.ts",
+  "templates/update-packages.ts",
+  ".github/ci-changes.ts",
+  ".github/workflows/main.yaml",
+]);
 
 /**
  * Exact root-relative files the e2e build depends on. Changing any of these can
@@ -68,6 +95,7 @@ export function classify(
   const enabledSet = new Set(enabled);
   const templates = new Set<string>();
   let core = false;
+  let singleFile = false;
 
   for (const raw of files) {
     const f = raw.trim();
@@ -77,6 +105,10 @@ export function classify(
       core = true;
     }
 
+    if (f.startsWith(SINGLE_FILE_PREFIX) || SINGLE_FILE_FILES.has(f)) {
+      singleFile = true;
+    }
+
     // templates/<name>/<something> — the trailing `/.+` requires a file *inside*
     // a template dir, so top-level shared files (templates/check.sh,
     // templates/run-template-tests.ts, templates/*.md) never match.
@@ -84,7 +116,7 @@ export function classify(
     if (m && enabledSet.has(m[1])) templates.add(m[1]);
   }
 
-  return { core, templates: [...templates].sort() };
+  return { core, templates: [...templates].sort(), singleFile };
 }
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
@@ -209,12 +241,12 @@ if (import.meta.main) {
 
   if (longLivedBranches === null) {
     console.log("Missing or malformed LONG_LIVED_BRANCHES — running everything.");
-    result = { core: true, templates: [...ENABLED].sort() };
+    result = { core: true, templates: [...ENABLED].sort(), singleFile: true };
   } else if (!featureBranchPush && baseIsUnusable(base)) {
     console.log(
       `No usable base SHA (BASE_SHA=${JSON.stringify(base)}) — running everything.`,
     );
-    result = { core: true, templates: [...ENABLED].sort() };
+    result = { core: true, templates: [...ENABLED].sort(), singleFile: true };
   } else {
     files = changedFiles(
       eventName,
@@ -226,7 +258,7 @@ if (import.meta.main) {
     );
     if (files === null) {
       console.log("git diff failed — running everything to be safe.");
-      result = { core: true, templates: [...ENABLED].sort() };
+      result = { core: true, templates: [...ENABLED].sort(), singleFile: true };
     } else {
       result = classify(files, ENABLED);
     }
@@ -238,13 +270,16 @@ if (import.meta.main) {
   }
   console.log(`\ncore=${result.core}`);
   console.log(`templates=${result.templates.join(" ")}`);
+  console.log(`singleFile=${result.singleFile}`);
 
   const out = process.env.GITHUB_OUTPUT;
   if (out) {
     const { appendFileSync } = await import("fs");
     appendFileSync(
       out,
-      `core=${result.core}\ntemplates=${result.templates.join(" ")}\n`,
+      `core=${result.core}\ntemplates=${
+        result.templates.join(" ")
+      }\nsingleFile=${result.singleFile}\n`,
     );
   }
 }
