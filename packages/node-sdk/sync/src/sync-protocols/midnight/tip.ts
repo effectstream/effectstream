@@ -150,12 +150,19 @@ function timedOut(): MidnightTipError {
   return new MidnightTipError("TIMEOUT", "Midnight tip query timed out");
 }
 
-/** Query one validated numeric block height from an explicit Midnight indexer. */
-export async function getMidnightTip(
-  options: GetMidnightTipOptions,
-): Promise<MidnightTip> {
-  const validated = validateOptions(options);
-  if (validated.signal?.aborted) throw aborted(validated.signal.reason);
+/**
+ * POST a JSON body and return the parsed JSON response. Owns all the
+ * network plumbing — caller abort, request timeout, HTTP-status failures,
+ * unread-body cleanup, JSON parsing — and maps every failure to a
+ * MidnightTipError so callers only deal with the decoded payload.
+ */
+async function postJsonRequest(
+  url: string,
+  requestBody: unknown,
+  requestTimeoutMs: number,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (signal?.aborted) throw aborted(signal.reason);
 
   const requestController = new AbortController();
   let winner: "ABORTED" | "TIMEOUT" | undefined;
@@ -164,19 +171,19 @@ export async function getMidnightTip(
   const onCallerAbort = (): void => {
     if (winner !== undefined) return;
     winner = "ABORTED";
-    callerReason = validated.signal?.reason;
+    callerReason = signal?.reason;
     requestController.abort(callerReason);
   };
 
-  validated.signal?.addEventListener("abort", onCallerAbort, { once: true });
+  signal?.addEventListener("abort", onCallerAbort, { once: true });
   // Close the listener-registration race before allocating a timer or doing I/O.
-  if (validated.signal?.aborted) onCallerAbort();
+  if (signal?.aborted) onCallerAbort();
   if (winner === "ABORTED") {
-    validated.signal?.removeEventListener("abort", onCallerAbort);
+    signal?.removeEventListener("abort", onCallerAbort);
     throw aborted(callerReason);
   }
 
-  const clearDeadline = scheduleDeadline(validated.requestTimeoutMs, () => {
+  const clearDeadline = scheduleDeadline(requestTimeoutMs, () => {
     if (winner !== undefined) return;
     winner = "TIMEOUT";
     requestController.abort();
@@ -190,9 +197,9 @@ export async function getMidnightTip(
   try {
     let response: Response;
     try {
-      response = await fetch(validated.indexer, {
+      response = await fetch(url, {
         method: "POST",
-        body: JSON.stringify({ query: "query { block { height } }" }),
+        body: JSON.stringify(requestBody),
         headers: { "Content-Type": "application/json" },
         redirect: "manual",
         signal: requestController.signal,
@@ -230,45 +237,60 @@ export async function getMidnightTip(
     }
     throwIfCancelled();
 
-    if (body == null || typeof body !== "object" || Array.isArray(body)) {
-      throw invalidResponse("Midnight indexer returned a non-object GraphQL response");
-    }
-
-    if ("errors" in body) {
-      const errors = (body as { errors?: unknown }).errors;
-      if (!Array.isArray(errors)) {
-        throw invalidResponse("Midnight indexer returned a malformed GraphQL errors field");
-      }
-      if (errors.length > 0) {
-        throw new MidnightTipError("GRAPHQL", "Midnight indexer returned GraphQL errors", {
-          graphqlErrors: Object.freeze(errors.slice()),
-        });
-      }
-    }
-
-    const data = (body as { data?: unknown }).data;
-    if (data == null || typeof data !== "object" || Array.isArray(data)) {
-      throw invalidResponse("Midnight indexer response is missing data");
-    }
-
-    const block = (data as { block?: unknown }).block;
-    if (block == null || typeof block !== "object" || Array.isArray(block)) {
-      throw invalidResponse("Midnight indexer response is missing block");
-    }
-
-    const height = (block as { height?: unknown }).height;
-    if (
-      typeof height !== "number" ||
-      !Number.isFinite(height) ||
-      !Number.isSafeInteger(height) ||
-      height < 0
-    ) {
-      throw invalidResponse("Midnight indexer returned an invalid block height");
-    }
-
-    return { height };
+    return body;
   } finally {
     clearDeadline();
-    validated.signal?.removeEventListener("abort", onCallerAbort);
+    signal?.removeEventListener("abort", onCallerAbort);
   }
+}
+
+/** Query one validated numeric block height from an explicit Midnight indexer. */
+export async function getMidnightTip(
+  options: GetMidnightTipOptions,
+): Promise<MidnightTip> {
+  const validated = validateOptions(options);
+  const body = await postJsonRequest(
+    validated.indexer,
+    { query: "query { block { height } }" },
+    validated.requestTimeoutMs,
+    validated.signal,
+  );
+
+  if (body == null || typeof body !== "object" || Array.isArray(body)) {
+    throw invalidResponse("Midnight indexer returned a non-object GraphQL response");
+  }
+
+  if ("errors" in body) {
+    const errors = (body as { errors?: unknown }).errors;
+    if (!Array.isArray(errors)) {
+      throw invalidResponse("Midnight indexer returned a malformed GraphQL errors field");
+    }
+    if (errors.length > 0) {
+      throw new MidnightTipError("GRAPHQL", "Midnight indexer returned GraphQL errors", {
+        graphqlErrors: Object.freeze(errors.slice()),
+      });
+    }
+  }
+
+  const data = (body as { data?: unknown }).data;
+  if (data == null || typeof data !== "object" || Array.isArray(data)) {
+    throw invalidResponse("Midnight indexer response is missing data");
+  }
+
+  const block = (data as { block?: unknown }).block;
+  if (block == null || typeof block !== "object" || Array.isArray(block)) {
+    throw invalidResponse("Midnight indexer response is missing block");
+  }
+
+  const height = (block as { height?: unknown }).height;
+  if (
+    typeof height !== "number" ||
+    !Number.isFinite(height) ||
+    !Number.isSafeInteger(height) ||
+    height < 0
+  ) {
+    throw invalidResponse("Midnight indexer returned an invalid block height");
+  }
+
+  return { height };
 }
