@@ -42,14 +42,19 @@ export const ChainNativeCurrency = Type.Object({
  */
 export const ConfigNetworkSchemaNtp = new ConfigSchema({
   required: Type.Object({
-    name: Type.String(),
     type: Type.Literal(ConfigNetworkType.NTP),
-    startTime: Type.Number(),
-    blockTimeMS: Type.Number(),
   }),
   optional: Type.Object({
-    servers: Type.Array(Type.String()),
+    name: Type.String(),
+    startTime: Type.Number(),
+    blockTimeMS: Type.Number(),
+    servers: Type.Optional(Type.Array(Type.String())),
   }),
+  defaults: {
+    name: "ntp" as const,
+    startTime: () => Date.now(),
+    blockTimeMS: 1_000 as const,
+  },
 });
 export type ConfigNetworkNtp = MergeIntersects<
   Static<ReturnType<typeof ConfigNetworkSchemaNtp.allProperties<true>>>

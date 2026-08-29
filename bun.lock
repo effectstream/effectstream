@@ -861,6 +861,9 @@
         "effection": "^3.5.0",
         "viem": "2.37.3",
       },
+      "devDependencies": {
+        "typescript": "5.9.3",
+      },
     },
     "packages/effectstream-sdk/coroutine": {
       "name": "@effectstream/coroutine",

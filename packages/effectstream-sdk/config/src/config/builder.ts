@@ -1,13 +1,17 @@
-import { NetworkBuilder, type NetworkBuilderData } from "./parts/network.ts";
+import {
+  NetworkBuilder,
+  type NetworkBuilderData,
+} from "./parts/network.ts";
 import {
   DeployedAddressBuilder,
   type DeployedAddressesBuilderData,
-  type DeployedAddressesList,
 } from "./parts/deployedAddresses.ts";
 import {
+  type AnyPostBuildSyncProtocolBuilderData,
+  assertValidPostBuildSyncProtocolBuilderData,
   type NetworkSyncProtocols,
-  type PostBuildSyncProtocolBuilderData,
   SyncProtocolBuilder,
+  type ValidatePostBuildSyncProtocolBuilderData,
 } from "./parts/syncProtocols.ts";
 import {
   PrimitiveBuilder,
@@ -28,7 +32,7 @@ export type ConfigBuilderData<
   DeployedAddresses extends
     | undefined
     | DeployedAddressesBuilderData["deployedAddresses"],
-  SyncProtocols extends undefined | PostBuildSyncProtocolBuilderData,
+  SyncProtocols extends undefined | AnyPostBuildSyncProtocolBuilderData,
   Primitives extends undefined | PrimitiveBuilderData["primitives"],
 > = Readonly<{
   securityNamespace: Namespace;
@@ -37,6 +41,10 @@ export type ConfigBuilderData<
   syncProtocols: SyncProtocols;
   primitives: Primitives;
 }>;
+
+export type NormalizedDeployments<Deployments> = Deployments extends undefined
+  ? {}
+  : Deployments;
 
 export class ConfigBuilder<
   // unfortunately, we have to repeat the arguments here for Typescript to work properly
@@ -47,7 +55,7 @@ export class ConfigBuilder<
   const Deployments extends
     | undefined
     | DeployedAddressesBuilderData["deployedAddresses"] = undefined,
-  const SyncProtocols extends undefined | PostBuildSyncProtocolBuilderData =
+  const SyncProtocols extends undefined | AnyPostBuildSyncProtocolBuilderData =
     undefined,
   const Primitives extends undefined | PrimitiveBuilderData["primitives"] =
     undefined,
@@ -92,13 +100,9 @@ export class ConfigBuilder<
   });
 
   buildNetworks = onlyValue({
-    value: () =>
-      ({}) as [
-        Namespace,
-        Networks,
-      ],
-    target: () => ({}) as readonly [NonNullable<Namespace>, undefined],
-    name: "buildNetworks and/or setNamespace",
+    value: () => ({}) as Networks,
+    target: () => undefined as undefined,
+    name: "buildNetworks",
     build: <const NewNetworks extends NetworkBuilderData>(
       networks: (builder: NetworkBuilder) => { build: () => NewNetworks },
     ): ConfigBuilder<
@@ -124,14 +128,12 @@ export class ConfigBuilder<
     name: "buildDeployments and/or buildNetworks",
     build: <
       NewDeployments extends DeployedAddressesBuilderData<
-        NonNullable<Networks>["networks"],
-        DeployedAddressesList<NonNullable<Networks>["networks"]>
+        NonNullable<Networks>["networks"]
       >,
     >(
       deployments: (
         builder: DeployedAddressBuilder<
-          NonNullable<Networks>["networks"],
-          DeployedAddressesList<NonNullable<Networks>["networks"]>
+          NonNullable<Networks>["networks"]
         >,
       ) => { build: () => NewDeployments },
     ): ConfigBuilder<
@@ -151,34 +153,60 @@ export class ConfigBuilder<
   buildSyncProtocols = onlyValue({
     value: () =>
       ({}) as [
-        Deployments,
+        Networks,
         SyncProtocols,
       ],
-    target: () => ({}) as readonly [NonNullable<Deployments>, undefined],
-    name: "buildSyncProtocols and/or buildDeployments",
+    target: () => ({}) as readonly [NonNullable<Networks>, undefined],
+    name: "buildSyncProtocols and/or buildNetworks",
     build: <
-      NewSyncProtocols extends PostBuildSyncProtocolBuilderData<
-        NonNullable<Networks>["networks"]
-      >,
+      NewSyncProtocols extends AnyPostBuildSyncProtocolBuilderData,
     >(
       syncProtocols: (
         builder: SyncProtocolBuilder<
           NonNullable<Networks>["networks"],
-          NonNullable<Deployments>
+          NormalizedDeployments<Deployments>
         >,
-      ) => { build: () => NewSyncProtocols },
+      ) => SyncProtocolBuilder<
+        NonNullable<Networks>["networks"],
+        NormalizedDeployments<Deployments>,
+        any,
+        any,
+        any
+      > & { build: () => NewSyncProtocols } &
+        ValidatePostBuildSyncProtocolBuilderData<
+          NonNullable<Networks>["networks"],
+          NoInfer<NewSyncProtocols>
+        >,
     ): ConfigBuilder<
       Namespace,
       Networks,
-      Deployments,
+      NormalizedDeployments<Deployments>,
       NewSyncProtocols,
       Primitives
     > => {
+      if (this.data.deployedAddresses === undefined) {
+        (this.data.deployedAddresses as any) = {};
+      }
       const builder = new SyncProtocolBuilder(
         this.data.allNetworks as any,
-        { deployedAddresses: this.data.deployedAddresses as any },
+        {
+          deployedAddresses: this.data.deployedAddresses as NormalizedDeployments<
+            Deployments
+          >,
+        },
       );
-      (this.data.syncProtocols as any) = syncProtocols(builder as any).build();
+      const configuredBuilder = syncProtocols(builder as any);
+      if (configuredBuilder !== builder) {
+        throw new Error(
+          "buildSyncProtocols callback must return the supplied SyncProtocolBuilder",
+        );
+      }
+      const configured = configuredBuilder.build();
+      assertValidPostBuildSyncProtocolBuilderData(
+        (this.data.allNetworks as NonNullable<Networks>).networks,
+        configured,
+      );
+      (this.data.syncProtocols as any) = configured;
       return this as any;
     },
   });
@@ -214,15 +242,19 @@ export class ConfigBuilder<
       const syncProtocols = this.data.syncProtocols as any as NonNullable<
         SyncProtocols
       >;
-      const builder = new PrimitiveBuilder(
+      const builder = new PrimitiveBuilder<
+        NonNullable<Networks>["networks"],
+        NonNullable<Deployments>,
+        NetworkSyncProtocols<NonNullable<SyncProtocols>>
+      >(
         this.data.allNetworks as any,
         { deployedAddresses: this.data.deployedAddresses as any },
-        {
+        ({
           ...({
             [syncProtocols.main.syncProtocol.name]: syncProtocols.main,
           }),
           ...syncProtocols.parallel,
-        },
+        }) as NetworkSyncProtocols<NonNullable<SyncProtocols>>,
       );
       (this.data.primitives as any) =
         primitives(builder as any).build().primitives;

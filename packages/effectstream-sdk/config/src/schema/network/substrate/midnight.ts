@@ -16,7 +16,6 @@ import type { MergeIntersects } from "@effectstream/utils";
 
 export const ConfigNetworkSchemaMidnight = new ConfigSchema({
   required: Type.Object({
-    name: Type.String(),
     type: Type.Literal(ConfigNetworkType.MIDNIGHT),
     /**
      * Canonical Midnight network identifier string
@@ -24,7 +23,12 @@ export const ConfigNetworkSchemaMidnight = new ConfigSchema({
      */
     networkId: Type.String(),
   }),
-  optional: Type.Object({}),
+  optional: Type.Object({
+    name: Type.String(),
+  }),
+  defaults: {
+    name: "midnight" as const,
+  },
 });
 export type ConfigNetworkMidnight = MergeIntersects<
   Static<ReturnType<typeof ConfigNetworkSchemaMidnight.allProperties<true>>>

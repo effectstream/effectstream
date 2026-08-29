@@ -4,7 +4,9 @@ import type {
   DeployedAddressesBuilderData,
   DeployedAddressesList,
 } from "./deployedAddresses.ts";
-import type { SyncProtocolConfig, SyncProtocolList } from "./syncProtocols.ts";
+import type {
+  AnySyncProtocolList,
+} from "./syncProtocols.ts";
 
 type PrimitiveConfig = {};
 
@@ -15,7 +17,7 @@ type PrimitiveEntry<SyncProtocol extends string, PrimitiveConfig> = {
 
 export type PrimitiveList<
   Networks extends NetworkList,
-  SyncProtocols extends SyncProtocolList<Networks, SyncProtocolConfig>,
+  SyncProtocols extends AnySyncProtocolList,
   Primitive extends PrimitiveConfig,
 > = Partial<
   Record<
@@ -28,7 +30,7 @@ export type PrimitiveList<
 >;
 export type PrimitiveBuilderData<
   Networks extends NetworkList = {},
-  SyncProtocols extends SyncProtocolList<Networks, SyncProtocolConfig> = {},
+  SyncProtocols extends AnySyncProtocolList = {},
   Primitives extends PrimitiveList<
     Networks,
     SyncProtocols,
@@ -41,8 +43,7 @@ export type PrimitiveBuilderData<
 export class PrimitiveBuilder<
   const Networks extends NetworkList = {},
   const DeployedAddresses extends DeployedAddressesList<Networks> = {},
-  const SyncProtocols extends SyncProtocolList<Networks, SyncProtocolConfig> =
-    {},
+  const SyncProtocols extends AnySyncProtocolList = {},
   const Primitives extends PrimitiveList<
     Networks,
     SyncProtocols,
@@ -83,8 +84,10 @@ export class PrimitiveBuilder<
   >(
     genSyncProtocol: (syncProtocol: SyncProtocols) => SyncProtocol,
     genPrimitive: (
-      network: Networks[SyncProtocol["network"]],
-      deployments: RemoveUnknown<DeployedAddresses[SyncProtocol["network"]]>,
+      network: Networks[SyncProtocol["network"] & keyof Networks],
+      deployments: RemoveUnknown<
+        DeployedAddresses[SyncProtocol["network"] & keyof DeployedAddresses]
+      >,
       syncProtocol: SyncProtocol,
     ) => NewPrimitive,
   ): PrimitiveBuilder<
@@ -102,7 +105,7 @@ export class PrimitiveBuilder<
   > {
     const syncProtocol = genSyncProtocol(this.syncProtocols);
     const primitive = genPrimitive(
-      this.networks.networks[syncProtocol.network],
+      (this.networks.networks as any)[syncProtocol.network],
       (this.deployedAddresses.deployedAddresses as any)[
         syncProtocol.network
       ],

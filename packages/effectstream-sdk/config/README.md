@@ -50,6 +50,15 @@ The runtime side (`PaimaStaticConfigContext`, `withEffectstreamStaticConfig`,
 node packages can read it. You don't need those entry points unless you're
 running a full node.
 
+### NTP clock defaults
+
+An NTP network may be added as concisely as
+`addNetwork({ type: ConfigNetworkType.NTP })`. The builder supplies the `ntp`
+name, a 1,000 ms block time, and a `startTime` sampled when `addNetwork` runs.
+That dynamic clock is a convenience for ephemeral applications and tests. A
+persistent application must provide an explicit, stable `startTime` so restarts
+continue from the same genesis instead of creating a new timeline.
+
 ## Inside EffectStream
 
 `config` is what every node component reads to find out which chains to
