@@ -65,8 +65,12 @@ function wrapNodeSocket(socket: import('node:net').Socket): SockConn {
     readable,
     writable,
     close: () => {
-      try { readableController?.enqueue(new Uint8Array([0xe0, 0x00])); } catch {}
-      closeReadable();
+      // Bun's byte-stream controller does not always settle a pending BYOB
+      // read when it is only closed. Erroring it wakes the Opifex serve loop
+      // without fabricating inbound protocol bytes (a forged DISCONNECT would
+      // be parsed as genuine peer input if Opifex ever closes while the
+      // context is still connected, silently suppressing its Will).
+      closeReadable(new Error('TCP transport closed by broker'));
       if (!socket.destroyed && !socket.writableEnded) {
         try { socket.end(); } catch { /* already ended */ }
       }
@@ -86,7 +90,7 @@ type TrackedConnection = {
   transport: 'tcp' | 'ws';
   conn: SockConn;
   context?: Context;
-  contextFinalization?: { executeWill: boolean; outcome: Promise<Outcome> };
+  contextFinalization?: Promise<Outcome>;
   timerFinalization?: Promise<Outcome>;
   transportFinalization?: Promise<Outcome>;
   outcome: Promise<void>;
@@ -108,6 +112,8 @@ function createWsServer(
   port: number,
   serveConnection: (conn: SockConn) => void,
   isStopping: () => boolean,
+  trackSocket: (ws: unknown) => void,
+  releaseSocket: (ws: unknown) => void,
 ): ReturnType<typeof Bun.serve> {
   return Bun.serve({
     port,
@@ -136,6 +142,12 @@ function createWsServer(
     },
     websocket: {
       open(ws) {
+        // Track every upgraded socket that is not already closed so shutdown
+        // can observe transport completion directly (see the stop(true) race
+        // in shutdownInternal).
+        if ((ws as { readyState: number }).readyState !== WebSocket.CLOSED) {
+          trackSocket(ws);
+        }
         if (isStopping()) {
           // Server.stop(true) owns the close once STOPPING has been claimed.
           // Manually closing an upgraded socket while Bun is force-stopping it
@@ -158,11 +170,12 @@ function createWsServer(
             // Same guard as wrapNodeSocket — peer-initiated close must not
             // crash Opifex's writer.
             if (ws.readyState !== WebSocket.OPEN) return;
-            try { ws.send(copyBytes(chunk)); } catch { /* closed between check and send */ }
+            // Opifex hands over a freshly encoded per-packet buffer and Bun
+            // serializes synchronously, so no defensive copy is needed here.
+            try { ws.send(chunk); } catch { /* closed between check and send */ }
           },
-          // Opifex closes its writer immediately before SockConn.close(). The
-          // latter wakes the readable side; Bun retains the upgraded transport
-          // itself until the broker stops the server.
+          // Opifex closes its writer immediately before SockConn.close(),
+          // which owns waking the readable side and closing the transport.
           close() {},
         });
 
@@ -176,9 +189,15 @@ function createWsServer(
             // close mode has performed its routing and initial timer cleanup.
             try { state.controller?.error(new Error('WebSocket transport closed')); } catch { /* already closed */ }
             state.controller = null;
-            // Bun 1.3.10's Server.stop(true) can remain pending if an upgraded
-            // socket was manually closed first. The readable wake-up settles
-            // Opifex; the Bun server retains transport ownership until stop.
+            // Outside shutdown the evicted peer must actually be disconnected
+            // (clientId takeover, keepalive timeout, rejected CONNECT), or the
+            // stale client keeps a live socket whose frames are silently
+            // dropped. During shutdown Bun 1.3.10's Server.stop(true) owns the
+            // force-close instead: manually closing an upgraded socket while
+            // Bun is force-stopping can strand the stop Promise.
+            if (!isStopping()) {
+              try { ws.close(); } catch { /* already closed */ }
+            }
           },
         };
         serveConnection(sockConn);
@@ -205,6 +224,7 @@ function createWsServer(
         const state = ws.data as WsConnectionState;
         try { state.controller?.error(new Error('WebSocket transport closed by peer')); } catch { /* already closed */ }
         state.controller = null;
+        releaseSocket(ws);
       },
     },
   });
@@ -215,22 +235,34 @@ export class EventBroker {
   private tcpServer: Server | null = null;
   private wsServer: ReturnType<typeof Bun.serve> | null = null;
   private readonly tcpSockets = new Set<Socket>();
+  private readonly wsLiveSockets = new Set<unknown>();
+  private readonly wsDrainWaiters: Array<() => void> = [];
   private readonly connections = new Map<SockConn, TrackedConnection>();
   private readonly connectionFailures = new Map<number, ConnectionFailure>();
   private connectionSequence = 0;
-  private state: 'NEW' | 'STARTING' | 'STARTED' | 'STOPPING' | 'STOPPED' = 'NEW';
   private startPromise: Promise<void> | null = null;
   private shutdownPromise: Promise<void> | null = null;
-  private stopRequested = false;
   private tcpListenOutcome: Promise<Outcome> | null = null;
   private tcpErrorObserver: ((error: unknown) => void) | null = null;
   private readonly tcpRuntimeErrors: unknown[] = [];
+  private droppedTcpRuntimeErrors = 0;
+  private droppedConnectionFailures = 0;
+  // Failure records are retained until shutdown aggregates them; the cap keeps
+  // a long-lived broker's memory bounded (each dropped record is still logged
+  // at occurrence and surfaces as one summary error at shutdown).
+  private static readonly MAX_RETAINED_CLEANUP_FAILURES = 128;
 
   constructor(private broker: 'effectstream-engine' | 'Batcher') {
     this.checkEnabled();
 
     const handlers: Handlers = {
       isAuthenticated: (ctx: Context) => {
+        if (this.isStopping()) {
+          // A CONNECT racing shutdown must not register a session: Opifex
+          // calls this hook before ctx.connect(), so refusing here makes it
+          // send CONNACK serverUnavailable and close the context itself.
+          return AuthenticationResult.serverUnavailable;
+        }
         this.registerContext(ctx);
         return AuthenticationResult.ok;
       },
@@ -253,15 +285,28 @@ export class EventBroker {
   }
 
   public start(): Promise<void> {
-    if (this.startPromise && (this.state === 'STARTING' || this.state === 'STARTED')) {
-      return this.startPromise;
+    if (this.shutdownPromise) {
+      return Promise.reject(new Error('MQTT server cannot start after shutdown'));
     }
-    if (this.state !== 'NEW') {
-      return Promise.reject(new Error(`MQTT server cannot start from state ${this.state}`));
-    }
-    this.state = 'STARTING';
+    if (this.startPromise) return this.startPromise;
     this.startPromise = this.startInternal();
     return this.startPromise;
+  }
+
+  private isStopping(): boolean {
+    return this.shutdownPromise !== null;
+  }
+
+  private releaseWsSocket(ws: unknown): void {
+    this.wsLiveSockets.delete(ws);
+    if (this.wsLiveSockets.size === 0) {
+      for (const waiter of this.wsDrainWaiters.splice(0)) waiter();
+    }
+  }
+
+  private wsSocketsDrained(): Promise<void> {
+    if (this.wsLiveSockets.size === 0) return Promise.resolve();
+    return new Promise((resolve) => { this.wsDrainWaiters.push(resolve); });
   }
 
   private async startInternal(): Promise<void> {
@@ -269,7 +314,7 @@ export class EventBroker {
     const wsPort = this.getWsPort();
 
     this.tcpServer = createServer((sock) => {
-      if (this.stopRequested) {
+      if (this.isStopping()) {
         sock.destroy();
         return;
       }
@@ -292,8 +337,16 @@ export class EventBroker {
       };
       const onListening = () => finish({ ok: true });
       const onError = (error: unknown) => {
-        if (!settled) finish({ ok: false, error });
-        else this.tcpRuntimeErrors.push(error);
+        if (!settled) {
+          finish({ ok: false, error });
+          return;
+        }
+        console.error(`MQTT server [${this.broker}] TCP listener runtime error:`, error);
+        if (this.tcpRuntimeErrors.length < EventBroker.MAX_RETAINED_CLEANUP_FAILURES) {
+          this.tcpRuntimeErrors.push(error);
+        } else {
+          this.droppedTcpRuntimeErrors++;
+        }
       };
       this.tcpErrorObserver = onError;
       this.tcpServer!.once('listening', onListening);
@@ -308,17 +361,18 @@ export class EventBroker {
     try {
       const tcpOutcome = await this.tcpListenOutcome;
       if (tcpOutcome.ok === false) throw tcpOutcome.error;
-      if (this.stopRequested) throw new Error('MQTT server start cancelled by shutdown');
+      if (this.isStopping()) throw new Error('MQTT server start cancelled by shutdown');
       console.log(`MQTT TCP Server [${this.broker}] started on port ${tcpPort}`);
 
       this.wsServer = createWsServer(
         wsPort,
         (conn) => this.serveConnection(conn, 'ws'),
-        () => this.stopRequested,
+        () => this.isStopping(),
+        (ws) => this.wsLiveSockets.add(ws),
+        (ws) => this.releaseWsSocket(ws),
       );
-      if (this.stopRequested) throw new Error('MQTT server start cancelled by shutdown');
+      if (this.isStopping()) throw new Error('MQTT server start cancelled by shutdown');
       console.log(`MQTT WS Server [${this.broker}] started on port ${wsPort}`);
-      this.state = 'STARTED';
     } catch (startError) {
       const cleanup = await this.captureOutcome(() => this.beginShutdown());
       if (cleanup.ok === false) {
@@ -346,25 +400,18 @@ export class EventBroker {
 
   private beginShutdown(): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
-    this.stopRequested = true;
-    this.state = 'STOPPING';
-    // Claim broker-owned close mode synchronously. Context.close(false) clears
+    // Assigning the cached Promise claims STOPPING for every isStopping()
+    // reader before any other statement runs. Context.close(false) then clears
     // the currently armed keepalive before shutdownInternal's first await; the
     // independent post-serve timer boundary catches any later handler reset.
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    this.shutdownPromise = promise;
     for (const tracked of [...this.connections.values()]
       .sort((left, right) => left.sequence - right.sequence)) {
       void this.finalizeContext(tracked, false);
     }
-    this.shutdownPromise = this.shutdownInternal().then(
-      () => {
-        this.state = 'STOPPED';
-      },
-      (error) => {
-        this.state = 'STOPPED';
-        throw error;
-      },
-    );
-    return this.shutdownPromise;
+    this.shutdownInternal().then(resolve, reject);
+    return promise;
   }
 
   private captureOutcome(action: () => unknown): Promise<Outcome> {
@@ -376,30 +423,28 @@ export class EventBroker {
 
   private registerContext(context: Context): void {
     const tracked = this.connections.get(context.conn);
-    if (tracked) {
-      tracked.context = context;
-      if (this.stopRequested) void this.finalizeContext(tracked, false);
-    }
+    if (tracked) tracked.context = context;
   }
 
   private finalizeContext(
     tracked: TrackedConnection,
     executeWill: boolean,
   ): Promise<Outcome> {
-    if (tracked.contextFinalization) return tracked.contextFinalization.outcome;
+    if (tracked.contextFinalization) return tracked.contextFinalization;
     if (!tracked.context) return Promise.resolve({ ok: true });
-    let settle!: (outcome: Outcome) => void;
-    const outcome = new Promise<Outcome>((resolve) => { settle = resolve; });
-    tracked.contextFinalization = { executeWill, outcome };
+    const { promise, resolve } = Promise.withResolvers<Outcome>();
+    tracked.contextFinalization = promise;
     try {
+      // close() must be invoked synchronously here so the first shutdown call
+      // clears visible keepalive timers before its first asynchronous boundary.
       Promise.resolve(tracked.context.close(executeWill)).then(
-        () => settle({ ok: true }),
-        (error) => settle({ ok: false, error }),
+        () => resolve({ ok: true }),
+        (error) => resolve({ ok: false, error }),
       );
     } catch (error) {
-      settle({ ok: false, error });
+      resolve({ ok: false, error });
     }
-    return outcome;
+    return promise;
   }
 
   private finalizeTimer(tracked: TrackedConnection): Promise<Outcome> {
@@ -422,9 +467,19 @@ export class EventBroker {
     kind: 'context' | 'timer' | 'transport' | 'serve',
     error: unknown,
   ): void {
-    const failure = this.connectionFailures.get(tracked.sequence) ?? {
-      sequence: tracked.sequence,
-    };
+    console.error(
+      `MQTT server [${this.broker}] connection ${tracked.sequence} ${kind} cleanup failed:`,
+      error,
+    );
+    const existing = this.connectionFailures.get(tracked.sequence);
+    if (
+      !existing &&
+      this.connectionFailures.size >= EventBroker.MAX_RETAINED_CLEANUP_FAILURES
+    ) {
+      this.droppedConnectionFailures++;
+      return;
+    }
+    const failure = existing ?? { sequence: tracked.sequence };
     if (kind === 'context') {
       failure.contextFailed = true;
       failure.contextError = error;
@@ -442,7 +497,7 @@ export class EventBroker {
   }
 
   private serveConnection(conn: SockConn, transport: 'tcp' | 'ws'): void {
-    if (this.stopRequested) {
+    if (this.isStopping()) {
       try { conn.close(); } catch { /* late connection was never admitted */ }
       return;
     }
@@ -456,7 +511,7 @@ export class EventBroker {
 
     const serveOutcome = this.captureOutcome(() => this.mqttServer.serve(conn));
     tracked.outcome = serveOutcome.then(async (outcome) => {
-      const contextOutcome = await this.finalizeContext(tracked, !this.stopRequested);
+      const contextOutcome = await this.finalizeContext(tracked, !this.isStopping());
       if (contextOutcome.ok === false) {
         this.rememberFailure(tracked, 'context', contextOutcome.error);
       }
@@ -521,7 +576,18 @@ export class EventBroker {
     }
 
     const wsOutcomePromise = this.wsServer
-      ? this.captureOutcome(() => this.wsServer!.stop(true))
+      ? this.captureOutcome(() => {
+        // Bun (verified on 1.3.10 and 1.3.11) never settles stop(true)'s
+        // Promise once any upgraded socket was closed server-side (a runtime
+        // eviction), even though it still force-closes remaining sockets and
+        // releases the listener. Transport completion is therefore also
+        // observed directly through the per-socket close callbacks; a stop
+        // failure that arrives after the drain signal wins is still observed
+        // so it cannot become an unhandled rejection.
+        const stopping = Promise.resolve(this.wsServer!.stop(true));
+        stopping.catch(() => { /* observed via the race or superseded by the drain signal */ });
+        return Promise.race([stopping, this.wsSocketsDrained()]);
+      })
       : Promise.resolve({ ok: true } as Outcome);
 
     await this.drainConnections();
@@ -539,6 +605,11 @@ export class EventBroker {
     const orderedConnectionFailures = [...this.connectionFailures.values()]
       .sort((left, right) => left.sequence - right.sequence);
     const failures: unknown[] = [...this.tcpRuntimeErrors];
+    if (this.droppedTcpRuntimeErrors > 0) {
+      failures.push(new Error(
+        `${this.droppedTcpRuntimeErrors} additional TCP listener runtime errors were logged at occurrence and dropped`,
+      ));
+    }
     for (const failure of orderedConnectionFailures) {
       if (failure.contextFailed) failures.push(failure.contextError);
       if (failure.timerFailed) failures.push(failure.timerError);
@@ -550,6 +621,11 @@ export class EventBroker {
     if (wsOutcome.ok === false) failures.push(wsOutcome.error);
     for (const failure of orderedConnectionFailures) {
       if (failure.serveFailed) failures.push(failure.serveError);
+    }
+    if (this.droppedConnectionFailures > 0) {
+      failures.push(new Error(
+        `${this.droppedConnectionFailures} additional connection cleanup failures were logged at occurrence and dropped`,
+      ));
     }
 
     if (failures.length === 1) throw failures[0];

@@ -622,18 +622,17 @@ test("graceful TCP and WebSocket DISCONNECT quiesces rearmed timers without Will
       { topic: "$SYS/disconnect/clients", payload: "graceful-ws-client", qos: 0, retain: false },
     ]);
     expect(published.filter((packet) => packet.topic.startsWith("lifecycle/will/"))).toEqual([]);
-    // Bun owns an upgraded socket until Server.stop(true). Closing it from the
-    // MQTT SockConn first can strand Bun 1.3.10's stop Promise.
-    expect(ws.readyState).toBe(WebSocket.OPEN);
-    await withDeadline(internals.shutdown());
+    // A gracefully disconnected WebSocket peer is released immediately; only
+    // sockets still open when shutdown begins are left to Server.stop(true).
     await withDeadline(wsClosed);
+    await withDeadline(internals.shutdown());
     await expectWsReusable(wsPort);
   } finally {
     probe.restore();
   }
 });
 
-test("timed-out WebSocket MQTT context preserves exact-base no-Will routing while Bun owns transport", async () => {
+test("timed-out WebSocket MQTT context preserves exact-base no-Will routing and closes the evicted socket", async () => {
   const keepAlive = 1;
   const probe = instrumentKeepalive(keepAlive);
   try {
@@ -665,13 +664,40 @@ test("timed-out WebSocket MQTT context preserves exact-base no-Will routing whil
     expect(
       published.filter((packet) => packet.topic === "lifecycle/will/timeout-ws"),
     ).toEqual([]);
-    expect(ws.readyState).toBe(WebSocket.OPEN);
-    await withDeadline(internals.shutdown());
     await withDeadline(wsClosed);
+    await withDeadline(internals.shutdown());
     await expectWsReusable(wsPort);
   } finally {
     probe.restore();
   }
+});
+
+test("the authentication hook refuses CONNECTs once shutdown has begun", async () => {
+  const broker = makeBroker();
+  const internals = broker as any;
+  const stopping = internals.shutdown();
+  const result = internals.mqttServer.handlers.isAuthenticated({} as Context);
+  expect(result).toBe(AuthenticationResult.serverUnavailable);
+  await stopping;
+});
+
+test("a CONNECT racing shutdown never registers a session", async () => {
+  const [tcpPort] = brokerPorts("effectstream-engine");
+  const broker = makeBroker();
+  await broker.start();
+  const published = capturePublishedPackets(broker);
+  const socket = await connectTcp(tcpPort);
+  const internals = broker as any;
+  await waitUntil(() => internals.connections.size === 1);
+  const stopping = internals.shutdown();
+  socket.write(mqttConnectPacket("shutdown-race-client", 7));
+  await withDeadline(stopping);
+  expect(
+    published.filter((packet) =>
+      packet.topic === "$SYS/connect/clients" && packet.payload === "shutdown-race-client"
+    ),
+  ).toEqual([]);
+  expect(internals.connections.size).toBe(0);
 });
 
 test("shutdown synchronously claims close(false) and clears a timer rearmed by an in-flight handler", async () => {
@@ -748,7 +774,7 @@ test("shutdown before start is safe; repeated shutdown shares success", async ()
   expect(second).toBe(first);
   await first;
   expect((broker as any).shutdown()).toBe(first);
-  await expect(broker.start()).rejects.toThrow(/cannot start from state STOPPED/);
+  await expect(broker.start()).rejects.toThrow(/cannot start after shutdown/);
 });
 
 test("shutdown racing startup rejects start and prevents late WebSocket acquisition", async () => {
@@ -879,7 +905,7 @@ test("TCP bind conflict rejects before deadline and failed instances cannot rest
   const result = await withDeadline(captureRejection(broker.start()), 500);
   expect(result.rejected).toBe(true);
   expect((result.reason as NodeJS.ErrnoException).code).toBe("EADDRINUSE");
-  await expect(broker.start()).rejects.toThrow(/cannot start from state STOPPED/);
+  await expect(broker.start()).rejects.toThrow(/cannot start after shutdown/);
   await expectWsReusable(wsPort);
 });
 
@@ -946,11 +972,9 @@ test.each(rejectionReasons)(
     const first = internals.shutdown();
     const result = await captureRejection(first);
     expect(result.rejected).toBe(true);
-    expect(result.reason).toBeInstanceOf(AggregateError);
-    const failures = (result.reason as AggregateError).errors;
-    expect(failures).toHaveLength(2);
-    expect(Object.is(failures[0], value)).toBe(true);
-    expect(Object.is(failures[1], value)).toBe(true);
+    // The Context close is attempted exactly once (memoized), so the single
+    // failure replays by identity rather than wrapped in an AggregateError.
+    expect(Object.is(result.reason, value)).toBe(true);
     expect(internals.shutdown()).toBe(first);
     brokers.delete(broker);
   },
@@ -1080,7 +1104,6 @@ test("context, TCP, and WebSocket cleanup failures aggregate in shutdown order",
     contextError,
     tcpError,
     wsError,
-    contextError,
   ]);
   tcpServer.close = realTcpClose as typeof tcpServer.close;
   wsServer.stop = realWsStop as typeof wsServer.stop;

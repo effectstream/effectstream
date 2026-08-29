@@ -51,11 +51,18 @@ both transports are accepting connections. If either bind fails, any transport
 already acquired by that start is closed before the Promise rejects.
 
 `shutdown()` is awaitable and idempotent: concurrent and repeated calls share
-one cached result, including the same rejection. It stops new connections,
-closes this broker's authenticated MQTT contexts without publishing their Will
-messages, closes active TCP and WebSocket connections, and waits for its
-listeners and connection finalizers. Cleanup attempts continue after an error;
-multiple failures reject with `AggregateError` in stable cleanup order.
+one cached result, including the same rejection. It stops new connections
+(late `CONNECT`s are refused with `serverUnavailable`), closes this broker's
+authenticated MQTT contexts without publishing their Will messages, closes
+active TCP and WebSocket connections, and waits for its listeners and
+connection finalizers. Cleanup attempts continue after an error; multiple
+failures reject with `AggregateError` in stable cleanup order.
+
+While the broker is running, a broker-initiated disconnect (for example a
+keepalive timeout) closes the client's transport immediately. Connection
+cleanup failures during normal operation are logged when they happen and
+retained (up to 128 records, then counted) so that `shutdown()` reports them;
+an otherwise clean shutdown still rejects with those retained errors.
 
 A stopped or failed instance cannot be started again. To restart after
 shutdown, construct a fresh `EventBroker`; once shutdown resolves, the
