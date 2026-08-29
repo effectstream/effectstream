@@ -153,6 +153,34 @@ function mqttConnectPacket(
   return new Uint8Array([0x10, body.length, ...body]);
 }
 
+function mqttDisconnectPacket(): Uint8Array {
+  return new Uint8Array([0xe0, 0x00]);
+}
+
+type PublishedPacket = {
+  topic: string;
+  payload: string;
+  qos: number;
+  retain: boolean;
+};
+
+function capturePublishedPackets(broker: EventBroker): PublishedPacket[] {
+  const internals = broker as any;
+  const published: PublishedPacket[] = [];
+  const persistence = internals.mqttServer.persistence;
+  const realPublish = persistence.publish.bind(persistence);
+  persistence.publish = (topic: string, packet: any) => {
+    published.push({
+      topic,
+      payload: new TextDecoder().decode(packet.payload ?? new Uint8Array()),
+      qos: packet.qos ?? 0,
+      retain: packet.retain ?? false,
+    });
+    return realPublish(topic, packet);
+  };
+  return published;
+}
+
 async function connectMqttTcp(
   port: number,
   clientId: string,
@@ -337,7 +365,7 @@ test("real TCP and WebSocket keepalive timers clear before shutdown settles and 
     await withDeadline(stopping);
     probe.markShutdownSettled();
     expect(probe.cleared.size).toBe(2);
-    expect(probe.clearEvents).toHaveLength(2);
+    expect(probe.clearEvents.length).toBeGreaterThanOrEqual(2);
     expect(probe.clearEvents.every((event) => event.shutdownSettled === false)).toBe(true);
     expect(published).toEqual([]);
     expect(internals.connections.size).toBe(0);
@@ -385,42 +413,194 @@ test("raw Opifex transport close and serve-task drain alone do not clear keepali
   }
 });
 
-test("abrupt TCP and WebSocket disconnects finalize tracked contexts while broker stays running", async () => {
+test("abrupt TCP and WebSocket peers preserve exact-once Will and system routing while clearing timers", async () => {
   const keepAlive = 181;
   const probe = instrumentKeepalive(keepAlive);
   try {
     const [tcpPort, wsPort] = brokerPorts("effectstream-engine");
     const broker = makeBroker();
     await broker.start();
+    const published = capturePublishedPackets(broker);
     const [socket, ws] = await Promise.all([
       connectMqttTcp(tcpPort, "abrupt-tcp-client", keepAlive, {
-        topic: "lifecycle/will",
-        payload: "must-not-publish-tcp",
+        topic: "lifecycle/will/tcp",
+        payload: "abrupt-tcp-payload",
       }),
       connectMqttWs(wsPort, "abrupt-ws-client", keepAlive, {
-        topic: "lifecycle/will",
-        payload: "must-not-publish-ws",
+        topic: "lifecycle/will/ws",
+        payload: "abrupt-ws-payload",
       }),
     ]);
     const internals = broker as any;
-    const published: string[] = [];
-    const persistence = internals.mqttServer.persistence;
-    const realPublish = persistence.publish.bind(persistence);
-    persistence.publish = (topic: string, packet: unknown) => {
-      if (topic === "lifecycle/will") published.push(topic);
-      return realPublish(topic, packet);
-    };
     socket.destroy();
     ws.close();
-    await waitUntil(() => probe.cleared.size === 2 && internals.connections.size === 0);
-    expect(probe.cleared.size).toBe(2);
-    expect(published).toEqual([]);
+    await waitUntil(() =>
+      probe.cleared.size === probe.captured.size &&
+      probe.cleared.size === 2 &&
+      internals.connections.size === 0 &&
+      published.filter((packet) => packet.topic.startsWith("lifecycle/will/")).length === 2
+    );
+    expect(
+      published.filter((packet) => packet.topic === "$SYS/disconnect/clients"),
+    ).toEqual([
+      { topic: "$SYS/disconnect/clients", payload: "abrupt-tcp-client", qos: 0, retain: false },
+      { topic: "$SYS/disconnect/clients", payload: "abrupt-ws-client", qos: 0, retain: false },
+    ]);
+    expect(
+      published.filter((packet) => packet.topic.startsWith("lifecycle/will/")),
+    ).toEqual([
+      { topic: "lifecycle/will/tcp", payload: "abrupt-tcp-payload", qos: 0, retain: false },
+      { topic: "lifecycle/will/ws", payload: "abrupt-ws-payload", qos: 0, retain: false },
+    ]);
     const probeSocket = await connectTcp(tcpPort);
     const probeWs = await connectWs(wsPort);
     probeSocket.destroy();
     probeWs.close();
     await internals.shutdown();
   } finally {
+    probe.restore();
+  }
+});
+
+test("graceful TCP and WebSocket DISCONNECT quiesces rearmed timers without Will or duplicate system routing", async () => {
+  const keepAlive = 183;
+  const probe = instrumentKeepalive(keepAlive);
+  try {
+    const [tcpPort, wsPort] = brokerPorts("effectstream-engine");
+    const broker = makeBroker();
+    await broker.start();
+    const published = capturePublishedPackets(broker);
+    const [socket, ws] = await Promise.all([
+      connectMqttTcp(tcpPort, "graceful-tcp-client", keepAlive, {
+        topic: "lifecycle/will/graceful-tcp",
+        payload: "must-not-publish-tcp",
+      }),
+      connectMqttWs(wsPort, "graceful-ws-client", keepAlive, {
+        topic: "lifecycle/will/graceful-ws",
+        payload: "must-not-publish-ws",
+      }),
+    ]);
+    const wsClosed = new Promise<void>((resolve) => {
+      ws.addEventListener("close", () => resolve(), { once: true });
+    });
+    socket.write(mqttDisconnectPacket());
+    ws.send(mqttDisconnectPacket());
+    const internals = broker as any;
+    await waitUntil(() =>
+      probe.captured.size === 4 &&
+      probe.cleared.size === probe.captured.size &&
+      internals.connections.size === 0
+    );
+    expect(
+      published.filter((packet) => packet.topic === "$SYS/disconnect/clients"),
+    ).toEqual([
+      { topic: "$SYS/disconnect/clients", payload: "graceful-tcp-client", qos: 0, retain: false },
+      { topic: "$SYS/disconnect/clients", payload: "graceful-ws-client", qos: 0, retain: false },
+    ]);
+    expect(published.filter((packet) => packet.topic.startsWith("lifecycle/will/"))).toEqual([]);
+    // Bun owns an upgraded socket until Server.stop(true). Closing it from the
+    // MQTT SockConn first can strand Bun 1.3.10's stop Promise.
+    expect(ws.readyState).toBe(WebSocket.OPEN);
+    await withDeadline(internals.shutdown());
+    await withDeadline(wsClosed);
+    await expectWsReusable(wsPort);
+  } finally {
+    probe.restore();
+  }
+});
+
+test("timed-out WebSocket MQTT context quiesces while Bun retains transport ownership until shutdown", async () => {
+  const keepAlive = 1;
+  const probe = instrumentKeepalive(keepAlive);
+  try {
+    const [, wsPort] = brokerPorts("effectstream-engine");
+    const broker = makeBroker();
+    await broker.start();
+    const published = capturePublishedPackets(broker);
+    const ws = await connectMqttWs(wsPort, "timeout-ws-client", keepAlive, {
+      topic: "lifecycle/will/timeout-ws",
+      payload: "timeout-ws-payload",
+    });
+    const wsClosed = new Promise<void>((resolve) => {
+      ws.addEventListener("close", () => resolve(), { once: true });
+    });
+    const internals = broker as any;
+    await waitUntil(() =>
+      internals.connections.size === 0 &&
+      probe.captured.size === 1 &&
+      probe.cleared.size === 1 &&
+      published.some((packet) => packet.topic === "lifecycle/will/timeout-ws")
+    , 2_500);
+    expect(
+      published.filter((packet) => packet.topic === "$SYS/disconnect/clients"),
+    ).toEqual([
+      { topic: "$SYS/disconnect/clients", payload: "timeout-ws-client", qos: 0, retain: false },
+    ]);
+    expect(
+      published.filter((packet) => packet.topic === "lifecycle/will/timeout-ws"),
+    ).toEqual([
+      { topic: "lifecycle/will/timeout-ws", payload: "timeout-ws-payload", qos: 0, retain: false },
+    ]);
+    expect(ws.readyState).toBe(WebSocket.OPEN);
+    await withDeadline(internals.shutdown());
+    await withDeadline(wsClosed);
+    await expectWsReusable(wsPort);
+  } finally {
+    probe.restore();
+  }
+});
+
+test("shutdown synchronously claims close(false) and clears a timer rearmed by an in-flight handler", async () => {
+  const keepAlive = 191;
+  const probe = instrumentKeepalive(keepAlive);
+  let releaseHandler!: () => void;
+  const handlerGate = new Promise<void>((resolve) => { releaseHandler = resolve; });
+  try {
+    const [tcpPort] = brokerPorts("effectstream-engine");
+    const broker = makeBroker();
+    await broker.start();
+    const published = capturePublishedPackets(broker);
+    const socket = await connectMqttTcp(tcpPort, "in-flight-client", keepAlive, {
+      topic: "lifecycle/will/in-flight",
+      payload: "must-not-publish",
+    });
+    const internals = broker as any;
+    await waitUntil(() => [...internals.connections.values()].some((entry: any) => entry.context));
+    const entry = [...internals.connections.values()].find((candidate: any) => candidate.context) as any;
+    const context = entry.context as any;
+    const closeModes: boolean[] = [];
+    const realClose = context.close.bind(context);
+    context.close = (executeWill = true) => {
+      closeModes.push(executeWill);
+      return realClose(executeWill);
+    };
+    let handlerEnteredResolve!: () => void;
+    const handlerEntered = new Promise<void>((resolve) => { handlerEnteredResolve = resolve; });
+    context.send = async () => {
+      handlerEnteredResolve();
+      await handlerGate;
+    };
+    socket.write(new Uint8Array([0xc0, 0x00]));
+    await withDeadline(handlerEntered);
+    const stopping = internals.shutdown();
+    const modesBeforeFirstAwait = [...closeModes];
+    const clearsBeforeRelease = probe.cleared.size;
+    releaseHandler();
+    await withDeadline(stopping);
+    expect(modesBeforeFirstAwait).toEqual([false]);
+    expect(clearsBeforeRelease).toBe(1);
+    expect(closeModes).toEqual([false]);
+    expect(probe.captured.size).toBe(2);
+    expect(probe.cleared.size).toBe(probe.captured.size);
+    expect(
+      published.filter((packet) => packet.topic === "$SYS/disconnect/clients"),
+    ).toEqual([
+      { topic: "$SYS/disconnect/clients", payload: "in-flight-client", qos: 0, retain: false },
+    ]);
+    expect(published.filter((packet) => packet.topic === "lifecycle/will/in-flight")).toEqual([]);
+    expect(internals.connections.size).toBe(0);
+  } finally {
+    releaseHandler?.();
     probe.restore();
   }
 });
@@ -454,6 +634,116 @@ test("shutdown racing startup rejects start and prevents late WebSocket acquisit
   await withDeadline(stopping);
   await expectTcpReusable(tcpPort);
   await expectWsReusable(wsPort);
+});
+
+test("every post-readiness TCP error stays broker-owned and replays in emission order", async () => {
+  const broker = makeBroker();
+  await broker.start();
+  const internals = broker as any;
+  const firstRuntimeError = new Error("first post-ready TCP runtime failure");
+  const secondRuntimeError = new Error("second post-ready TCP runtime failure");
+  const uncaught: unknown[] = [];
+  const onUncaught = (error: unknown) => { uncaught.push(error); };
+  process.on("uncaughtException", onUncaught);
+  try {
+    for (const runtimeError of [firstRuntimeError, secondRuntimeError]) {
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          try { internals.tcpServer.emit("error", runtimeError); }
+          finally { resolve(); }
+        }, 0);
+      });
+    }
+    await Bun.sleep(0);
+  } finally {
+    process.removeListener("uncaughtException", onUncaught);
+  }
+  expect(uncaught).toEqual([]);
+  const first = internals.shutdown();
+  const second = internals.shutdown();
+  expect(second).toBe(first);
+  const result = await captureRejection(first);
+  expect(result.rejected).toBe(true);
+  expect(result.reason).toBeInstanceOf(AggregateError);
+  expect((result.reason as AggregateError).errors).toEqual([
+    firstRuntimeError,
+    secondRuntimeError,
+  ]);
+  expect(internals.shutdown()).toBe(first);
+});
+
+test("a real queued TCP accept released after STOPPING is rejected and cannot strand shutdown", async () => {
+  const [tcpPort] = brokerPorts("effectstream-engine");
+  const broker = makeBroker();
+  await broker.start();
+  const internals = broker as any;
+  const tcpServer = internals.tcpServer as Server;
+  const realEmit = tcpServer.emit;
+  let heldSocket: Socket | undefined;
+  tcpServer.emit = ((event: string | symbol, ...args: any[]) => {
+    if (event === "connection" && heldSocket === undefined) {
+      heldSocket = args[0] as Socket;
+      return true;
+    }
+    return realEmit.call(tcpServer, event, ...args);
+  }) as typeof tcpServer.emit;
+  const client = await connectTcp(tcpPort);
+  await waitUntil(() => heldSocket !== undefined);
+  const stopping = internals.shutdown();
+  await Promise.resolve();
+  realEmit.call(tcpServer, "connection", heldSocket!);
+  const result = await captureRejection(withDeadline(stopping, 500));
+  heldSocket?.destroy();
+  client.destroy();
+  expect(result.rejected).toBe(false);
+  expect(heldSocket?.destroyed).toBe(true);
+  expect(internals.tcpSockets.size).toBe(0);
+  expect(internals.connections.size).toBe(0);
+});
+
+test("a WebSocket open callback observed after STOPPING closes without starting serve work", async () => {
+  const [, wsPort] = brokerPorts("effectstream-engine");
+  const realServe = Bun.serve.bind(Bun);
+  let releaseOpen: ((ws: any) => void) | undefined;
+  let heldWs: any;
+  (Bun as any).serve = (options: any) => {
+    const realOpen = options.websocket?.open;
+    if (!realOpen) return realServe(options);
+    releaseOpen = realOpen;
+    return realServe({
+      ...options,
+      websocket: {
+        ...options.websocket,
+        open(ws: any) { heldWs = ws; },
+      },
+    });
+  };
+  const broker = makeBroker();
+  try {
+    await broker.start();
+    await connectWs(wsPort);
+    await waitUntil(() => heldWs !== undefined && releaseOpen !== undefined);
+  } finally {
+    (Bun as any).serve = realServe;
+  }
+  const internals = broker as any;
+  const realMqttServe = internals.mqttServer.serve.bind(internals.mqttServer);
+  let serveCalls = 0;
+  internals.mqttServer.serve = (conn: SockConn) => {
+    serveCalls++;
+    return realMqttServe(conn);
+  };
+  const stopping = internals.shutdown();
+  await Promise.resolve();
+  releaseOpen!(heldWs);
+  const result = await captureRejection(withDeadline(stopping, 500));
+  await Bun.sleep(0);
+  const retained = internals.connections.size;
+  try { heldWs.data?.controller?.error(new Error("late-open test cleanup")); } catch {}
+  try { heldWs.close(); } catch {}
+  expect(result.rejected).toBe(false);
+  expect(retained).toBe(0);
+  expect(serveCalls).toBe(0);
 });
 
 test("TCP bind conflict rejects before deadline and failed instances cannot restart", async () => {
@@ -530,9 +820,94 @@ test.each(rejectionReasons)(
     const first = internals.shutdown();
     const result = await captureRejection(first);
     expect(result.rejected).toBe(true);
-    expect(Object.is(result.reason, value)).toBe(true);
+    expect(result.reason).toBeInstanceOf(AggregateError);
+    const failures = (result.reason as AggregateError).errors;
+    expect(failures).toHaveLength(2);
+    expect(Object.is(failures[0], value)).toBe(true);
+    expect(Object.is(failures[1], value)).toBe(true);
     expect(internals.shutdown()).toBe(first);
     brokers.delete(broker);
+  },
+);
+
+test.each(rejectionReasons)(
+  "independent Context and serve stages preserve two ordered same-identity failures: $label",
+  async ({ value }) => {
+    const [tcpPort] = brokerPorts("effectstream-engine");
+    const broker = makeBroker();
+    const internals = broker as any;
+    let contextCloseCalls = 0;
+    let serveCalls = 0;
+    internals.mqttServer.serve = (conn: SockConn) => {
+      serveCalls++;
+      internals.registerContext({
+        conn,
+        close: () => {
+          contextCloseCalls++;
+          throw value;
+        },
+      });
+      return Promise.reject(value);
+    };
+    await broker.start();
+    await connectTcp(tcpPort);
+    await waitUntil(() => internals.connectionFailures.size === 1);
+    const first = internals.shutdown();
+    const result = await captureRejection(first);
+    expect(result.rejected).toBe(true);
+    expect(result.reason).toBeInstanceOf(AggregateError);
+    const failures = (result.reason as AggregateError).errors;
+    expect(failures).toHaveLength(2);
+    expect(Object.is(failures[0], value)).toBe(true);
+    expect(Object.is(failures[1], value)).toBe(true);
+    expect(contextCloseCalls).toBe(1);
+    expect(serveCalls).toBe(1);
+    expect(internals.shutdown()).toBe(first);
+  },
+);
+
+test.each(rejectionReasons)(
+  "independent Context, timer, and serve stages preserve every same-identity failure: $label",
+  async ({ value }) => {
+    const [tcpPort] = brokerPorts("effectstream-engine");
+    const broker = makeBroker();
+    const internals = broker as any;
+    let contextCloseCalls = 0;
+    let timerClearCalls = 0;
+    let serveCalls = 0;
+    internals.mqttServer.serve = (conn: SockConn) => {
+      serveCalls++;
+      internals.registerContext({
+        conn,
+        close: () => {
+          contextCloseCalls++;
+          throw value;
+        },
+        timer: {
+          clear: () => {
+            timerClearCalls++;
+            throw value;
+          },
+        },
+      });
+      return Promise.reject(value);
+    };
+    await broker.start();
+    await connectTcp(tcpPort);
+    await waitUntil(() => internals.connectionFailures.size === 1);
+    const first = internals.shutdown();
+    const result = await captureRejection(first);
+    expect(result.rejected).toBe(true);
+    expect(result.reason).toBeInstanceOf(AggregateError);
+    const failures = (result.reason as AggregateError).errors;
+    expect(failures).toHaveLength(3);
+    expect(Object.is(failures[0], value)).toBe(true);
+    expect(Object.is(failures[1], value)).toBe(true);
+    expect(Object.is(failures[2], value)).toBe(true);
+    expect(contextCloseCalls).toBe(1);
+    expect(timerClearCalls).toBe(1);
+    expect(serveCalls).toBe(1);
+    expect(internals.shutdown()).toBe(first);
   },
 );
 
@@ -575,7 +950,12 @@ test("context, TCP, and WebSocket cleanup failures aggregate in shutdown order",
   const result = await captureRejection(internals.shutdown());
   expect(result.rejected).toBe(true);
   expect(result.reason).toBeInstanceOf(AggregateError);
-  expect((result.reason as AggregateError).errors).toEqual([contextError, tcpError, wsError]);
+  expect((result.reason as AggregateError).errors).toEqual([
+    contextError,
+    tcpError,
+    wsError,
+    contextError,
+  ]);
   tcpServer.close = realTcpClose as typeof tcpServer.close;
   wsServer.stop = realWsStop as typeof wsServer.stop;
   await new Promise<void>((resolve) => realTcpClose(() => resolve()));

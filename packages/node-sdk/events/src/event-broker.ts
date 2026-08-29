@@ -86,7 +86,9 @@ type TrackedConnection = {
   transport: 'tcp' | 'ws';
   conn: SockConn;
   context?: Context;
-  contextFinalization?: Promise<Outcome>;
+  contextFinalization?: { executeWill: boolean; outcome: Promise<Outcome> };
+  timerFinalization?: Promise<Outcome>;
+  transportFinalization?: Promise<Outcome>;
   outcome: Promise<void>;
 };
 
@@ -94,6 +96,8 @@ type ConnectionFailure = {
   sequence: number;
   contextFailed?: boolean;
   contextError?: unknown;
+  timerFailed?: boolean;
+  timerError?: unknown;
   transportFailed?: boolean;
   transportError?: unknown;
   serveFailed?: boolean;
@@ -109,6 +113,9 @@ function createWsServer(
     port,
     hostname: '127.0.0.1',
     fetch(req, server) {
+      if (isStopping()) {
+        return new Response('MQTT WebSocket endpoint is stopping', { status: 503 });
+      }
       // MQTT-over-WebSocket (RFC 6455 + MQTT 3.1.1 §6.0): the client sends
       // `Sec-WebSocket-Protocol: mqtt` (or `mqttv3.1`). RFC 6455 requires the
       // server to echo back one of the offered subprotocols, otherwise
@@ -129,6 +136,12 @@ function createWsServer(
     },
     websocket: {
       open(ws) {
+        if (isStopping()) {
+          // Server.stop(true) owns the close once STOPPING has been claimed.
+          // Manually closing an upgraded socket while Bun is force-stopping it
+          // can strand the stop Promise on Bun 1.3.10.
+          return;
+        }
         const state = ws.data as WsConnectionState;
 
         const readable = new ReadableStream<Uint8Array>({
@@ -148,7 +161,8 @@ function createWsServer(
             try { ws.send(copyBytes(chunk)); } catch { /* closed between check and send */ }
           },
           // Opifex closes its writer immediately before SockConn.close(). The
-          // latter owns the coordinated readable wake-up and transport close.
+          // latter wakes the readable side; Bun retains the upgraded transport
+          // itself until the broker stops the server.
           close() {},
         });
 
@@ -158,16 +172,20 @@ function createWsServer(
           close: () => {
             // Bun's byte-stream controller does not always settle a pending
             // BYOB read when it is only closed. Rejecting the read wakes the
-            // Opifex serve loop after Context.close(false) has suppressed the
-            // Will and cleared its keepalive timer.
+            // Opifex serve loop after the cached peer- or broker-owned Context
+            // close mode has performed its routing and initial timer cleanup.
             try { state.controller?.error(new Error('WebSocket transport closed')); } catch { /* already closed */ }
             state.controller = null;
-            // Bun 1.3.10's Server.stop(true) does not settle if the upgraded
-            // socket was manually closed first. During broker shutdown it owns
-            // the force-close; outside shutdown this connection closes itself.
-            if (!isStopping()) {
-              try { ws.close(); } catch { /* already closed */ }
-            }
+            // Bun 1.3.10's Server.stop(true) can remain pending if an upgraded
+            // socket was manually closed first. The readable wake-up settles
+            // Opifex; the Bun server retains transport ownership until stop.
+          },
+          remoteAddr: {
+            // This listener is bound exclusively to 127.0.0.1, so retaining
+            // that address preserves the existing localhost-only Will policy.
+            hostname: '127.0.0.1',
+            port: 0,
+            transport: 'tcp',
           },
         };
         serveConnection(sockConn);
@@ -212,6 +230,8 @@ export class EventBroker {
   private shutdownPromise: Promise<void> | null = null;
   private stopRequested = false;
   private tcpListenOutcome: Promise<Outcome> | null = null;
+  private tcpErrorObserver: ((error: unknown) => void) | null = null;
+  private readonly tcpRuntimeErrors: unknown[] = [];
 
   constructor(private broker: 'effectstream-engine' | 'Batcher') {
     this.checkEnabled();
@@ -256,6 +276,10 @@ export class EventBroker {
     const wsPort = this.getWsPort();
 
     this.tcpServer = createServer((sock) => {
+      if (this.stopRequested) {
+        sock.destroy();
+        return;
+      }
       this.tcpSockets.add(sock);
       sock.once('close', () => this.tcpSockets.delete(sock));
       this.serveConnection(wrapNodeSocket(sock), 'tcp');
@@ -267,13 +291,20 @@ export class EventBroker {
         if (settled) return;
         settled = true;
         this.tcpServer?.removeListener('listening', onListening);
-        this.tcpServer?.removeListener('error', onError);
+        if (outcome.ok === false) {
+          this.tcpServer?.removeListener('error', onError);
+          if (this.tcpErrorObserver === onError) this.tcpErrorObserver = null;
+        }
         resolve(outcome);
       };
       const onListening = () => finish({ ok: true });
-      const onError = (error: unknown) => finish({ ok: false, error });
+      const onError = (error: unknown) => {
+        if (!settled) finish({ ok: false, error });
+        else this.tcpRuntimeErrors.push(error);
+      };
+      this.tcpErrorObserver = onError;
       this.tcpServer!.once('listening', onListening);
-      this.tcpServer!.once('error', onError);
+      this.tcpServer!.on('error', onError);
       try {
         this.tcpServer!.listen(tcpPort, '127.0.0.1');
       } catch (error) {
@@ -324,6 +355,13 @@ export class EventBroker {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.stopRequested = true;
     this.state = 'STOPPING';
+    // Claim broker-owned close mode synchronously. Context.close(false) clears
+    // the currently armed keepalive before shutdownInternal's first await; the
+    // independent post-serve timer boundary catches any later handler reset.
+    for (const tracked of [...this.connections.values()]
+      .sort((left, right) => left.sequence - right.sequence)) {
+      void this.finalizeContext(tracked, false);
+    }
     this.shutdownPromise = this.shutdownInternal().then(
       () => {
         this.state = 'STOPPED';
@@ -345,21 +383,50 @@ export class EventBroker {
 
   private registerContext(context: Context): void {
     const tracked = this.connections.get(context.conn);
-    if (tracked) tracked.context = context;
+    if (tracked) {
+      tracked.context = context;
+      if (this.stopRequested) void this.finalizeContext(tracked, false);
+    }
   }
 
-  private finalizeContext(tracked: TrackedConnection): Promise<Outcome> {
-    if (tracked.contextFinalization) return tracked.contextFinalization;
+  private finalizeContext(
+    tracked: TrackedConnection,
+    executeWill: boolean,
+  ): Promise<Outcome> {
+    if (tracked.contextFinalization) return tracked.contextFinalization.outcome;
     if (!tracked.context) return Promise.resolve({ ok: true });
-    tracked.contextFinalization = this.captureOutcome(
-      () => tracked.context!.close(false),
+    let settle!: (outcome: Outcome) => void;
+    const outcome = new Promise<Outcome>((resolve) => { settle = resolve; });
+    tracked.contextFinalization = { executeWill, outcome };
+    try {
+      Promise.resolve(tracked.context.close(executeWill)).then(
+        () => settle({ ok: true }),
+        (error) => settle({ ok: false, error }),
+      );
+    } catch (error) {
+      settle({ ok: false, error });
+    }
+    return outcome;
+  }
+
+  private finalizeTimer(tracked: TrackedConnection): Promise<Outcome> {
+    if (tracked.timerFinalization) return tracked.timerFinalization;
+    if (!tracked.context) return Promise.resolve({ ok: true });
+    tracked.timerFinalization = this.captureOutcome(
+      () => tracked.context!.timer?.clear(),
     );
-    return tracked.contextFinalization;
+    return tracked.timerFinalization;
+  }
+
+  private finalizeTransport(tracked: TrackedConnection): Promise<Outcome> {
+    if (tracked.transportFinalization) return tracked.transportFinalization;
+    tracked.transportFinalization = this.captureOutcome(() => tracked.conn.close());
+    return tracked.transportFinalization;
   }
 
   private rememberFailure(
     tracked: TrackedConnection,
-    kind: 'context' | 'transport' | 'serve',
+    kind: 'context' | 'timer' | 'transport' | 'serve',
     error: unknown,
   ): void {
     const failure = this.connectionFailures.get(tracked.sequence) ?? {
@@ -368,6 +435,9 @@ export class EventBroker {
     if (kind === 'context') {
       failure.contextFailed = true;
       failure.contextError = error;
+    } else if (kind === 'timer') {
+      failure.timerFailed = true;
+      failure.timerError = error;
     } else if (kind === 'transport') {
       failure.transportFailed = true;
       failure.transportError = error;
@@ -379,6 +449,10 @@ export class EventBroker {
   }
 
   private serveConnection(conn: SockConn, transport: 'tcp' | 'ws'): void {
+    if (this.stopRequested) {
+      try { conn.close(); } catch { /* late connection was never admitted */ }
+      return;
+    }
     const tracked: TrackedConnection = {
       sequence: ++this.connectionSequence,
       transport,
@@ -389,13 +463,43 @@ export class EventBroker {
 
     const serveOutcome = this.captureOutcome(() => this.mqttServer.serve(conn));
     tracked.outcome = serveOutcome.then(async (outcome) => {
-      const contextOutcome = await this.finalizeContext(tracked);
+      const contextOutcome = await this.finalizeContext(tracked, !this.stopRequested);
       if (contextOutcome.ok === false) {
         this.rememberFailure(tracked, 'context', contextOutcome.error);
+      }
+      const timerOutcome = await this.finalizeTimer(tracked);
+      if (timerOutcome.ok === false) {
+        this.rememberFailure(tracked, 'timer', timerOutcome.error);
       }
       if (outcome.ok === false) this.rememberFailure(tracked, 'serve', outcome.error);
       this.connections.delete(conn);
     });
+  }
+
+  private async drainConnections(): Promise<void> {
+    while (this.connections.size > 0 || this.tcpSockets.size > 0) {
+      const trackedInOrder = [...this.connections.values()]
+        .sort((left, right) => left.sequence - right.sequence);
+      for (const tracked of trackedInOrder) {
+        const outcome = await this.finalizeContext(tracked, false);
+        if (outcome.ok === false) this.rememberFailure(tracked, 'context', outcome.error);
+      }
+      for (const tracked of trackedInOrder) {
+        const outcome = await this.finalizeTransport(tracked);
+        if (outcome.ok === false) this.rememberFailure(tracked, 'transport', outcome.error);
+      }
+
+      const sockets = [...this.tcpSockets];
+      const socketClosures = sockets.map((socket) => socket.destroyed
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => socket.once('close', () => resolve())));
+      for (const socket of sockets) socket.destroy();
+      await Promise.all([
+        ...trackedInOrder.map((tracked) => tracked.outcome),
+        ...socketClosures,
+      ]);
+      for (const socket of sockets) this.tcpSockets.delete(socket);
+    }
   }
 
   private async shutdownInternal(): Promise<void> {
@@ -423,38 +527,28 @@ export class EventBroker {
       });
     }
 
-    const trackedInOrder = [...this.connections.values()]
-      .sort((left, right) => left.sequence - right.sequence);
-    for (const tracked of trackedInOrder) {
-      const outcome = await this.finalizeContext(tracked);
-      if (outcome.ok === false) this.rememberFailure(tracked, 'context', outcome.error);
-    }
-
-    for (const tracked of trackedInOrder) {
-      const outcome = await this.captureOutcome(() => tracked.conn.close());
-      if (outcome.ok === false) this.rememberFailure(tracked, 'transport', outcome.error);
-    }
-    for (const socket of this.tcpSockets) socket.destroy();
-    this.tcpSockets.clear();
-
     const wsOutcomePromise = this.wsServer
       ? this.captureOutcome(() => this.wsServer!.stop(true))
       : Promise.resolve({ ok: true } as Outcome);
 
+    await this.drainConnections();
     const tcpOutcome = tcpCloseOutcome ? await tcpCloseOutcome : { ok: true } as Outcome;
-    // Successful and failed serve wrappers both remove themselves after their
-    // captured Context has been finalized. Loop because a connection callback
-    // already queued when ingress stopped can register between snapshots.
-    while (this.connections.size > 0) {
-      await Promise.all([...this.connections.values()].map((tracked) => tracked.outcome));
-    }
     const wsOutcome = await wsOutcomePromise;
+    // Listener settlement closes the admission boundary. Repeat the ownership
+    // drain afterward so callbacks queued at that boundary cannot escape a
+    // one-time connection/task snapshot.
+    await this.drainConnections();
+    if (this.tcpErrorObserver) {
+      this.tcpServer?.removeListener('error', this.tcpErrorObserver);
+      this.tcpErrorObserver = null;
+    }
 
     const orderedConnectionFailures = [...this.connectionFailures.values()]
       .sort((left, right) => left.sequence - right.sequence);
-    const failures: unknown[] = [];
+    const failures: unknown[] = [...this.tcpRuntimeErrors];
     for (const failure of orderedConnectionFailures) {
       if (failure.contextFailed) failures.push(failure.contextError);
+      if (failure.timerFailed) failures.push(failure.timerError);
     }
     if (tcpOutcome.ok === false) failures.push(tcpOutcome.error);
     for (const failure of orderedConnectionFailures) {
@@ -462,12 +556,7 @@ export class EventBroker {
     }
     if (wsOutcome.ok === false) failures.push(wsOutcome.error);
     for (const failure of orderedConnectionFailures) {
-      if (
-        failure.serveFailed &&
-        !(failure.contextFailed && Object.is(failure.serveError, failure.contextError))
-      ) {
-        failures.push(failure.serveError);
-      }
+      if (failure.serveFailed) failures.push(failure.serveError);
     }
 
     if (failures.length === 1) throw failures[0];
