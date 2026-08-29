@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from "fs";
@@ -51,6 +52,7 @@ function states(
       typeof targetIntegrity === "function" ? targetIntegrity(index) : targetIntegrity;
     return {
       name,
+      documentReadable: true,
       targetIntegrity: integrity,
       distTags: {
         ...(latestValue ? { latest: latestValue } : {}),
@@ -330,6 +332,7 @@ describe("recovery tags and delayed registry visibility", () => {
         const visible = rounds >= 2;
         return {
           name,
+          documentReadable: true,
           targetIntegrity: visible ? item.packages.find((pkg) => pkg.name === name)!.integrity : null,
           distTags: visible ? { latest: "0.200.2", "midnight-1": item.version } : { latest: "0.200.2" },
         };
@@ -354,7 +357,7 @@ describe("recovery tags and delayed registry visibility", () => {
           sleeps.push(ms);
           time += ms;
         },
-        read: async (_registry, name) => ({ name, targetIntegrity: null, distTags: { latest: "0.200.2" } }),
+        read: async (_registry, name) => ({ name, documentReadable: true, targetIntegrity: null, distTags: { latest: "0.200.2" } }),
         registry: "https://registry.example.test",
         initialBackoffMs: 100,
         maxBackoffMs: 200,
@@ -378,6 +381,7 @@ describe("recovery tags and delayed registry visibility", () => {
             const pkg = item.packages.find((candidate) => candidate.name === name)!;
             return {
               name,
+              documentReadable: true,
               targetIntegrity: terminal === "integrity" ? "sha512-conflict" : pkg.integrity,
               distTags: {
                 latest: terminal === "latest" ? "0.200.1" : "0.200.2",
@@ -390,6 +394,131 @@ describe("recovery tags and delayed registry visibility", () => {
       ).rejects.toThrow(/integrity|tag|latest|HTTP 503/i);
       expect(slept).toBe(false);
     }
+  });
+
+  test("late and never-settling read rounds expire under the one shared deadline", async () => {
+    const item = manifest(resolveReleasePolicy("v0.104.2"));
+    let lateTime = 0;
+    try {
+      await pollRegistryPostconditions(item, {
+        timeoutMs: 100,
+        now: () => lateTime,
+        sleep: async () => { throw new Error("late round must not sleep"); },
+        read: async (_registry, name) => {
+          lateTime = 101;
+          const pkg = item.packages.find((candidate) => candidate.name === name)!;
+          return {
+            name,
+            documentReadable: true,
+            targetIntegrity: pkg.integrity,
+            distTags: { latest: "0.200.2", "midnight-1": item.version },
+          };
+        },
+        registry: "https://registry.example.test",
+      });
+      throw new Error("expected late-round visibility timeout");
+    } catch (error) {
+      expect(error).toBeInstanceOf(RegistryVisibilityTimeoutError);
+      expect((error as RegistryVisibilityTimeoutError).pending).toEqual(packageNames);
+    }
+
+    let aborted = 0;
+    const neverSettles = pollRegistryPostconditions(item, {
+      timeoutMs: 5,
+      read: async (_registry, _name, _version, signal) => await new Promise((_resolve, reject) => {
+        signal?.addEventListener("abort", () => {
+          aborted++;
+          reject(new Error("aborted registry read"));
+        }, { once: true });
+      }),
+      registry: "https://registry.example.test",
+    });
+    await expect(
+      Promise.race([
+        neverSettles,
+        Bun.sleep(100).then(() => { throw new Error("test guard: registry round was not bounded"); }),
+      ]),
+    ).rejects.toBeInstanceOf(RegistryVisibilityTimeoutError);
+    expect(aborted).toBe(EXPECTED_PACKAGE_COUNT);
+  });
+
+  test.each([
+    ["v0.104.2", "required-tag"],
+    ["v0.104.2", "latest"],
+    ["v0.200.3", "required-tag"],
+    ["v0.200.3", "latest"],
+    ["v0.200.3-rc.1", "required-tag"],
+    ["v0.200.3-rc.1", "latest"],
+  ] as const)("%s rejects readable hidden-target %s conflicts immediately", async (tag, conflict) => {
+    const item = manifest(resolveReleasePolicy(tag));
+    let slept = false;
+    await expect(
+      pollRegistryPostconditions(item, {
+        timeoutMs: 10,
+        now: () => slept ? 10 : 0,
+        sleep: async () => { slept = true; },
+        read: async (_registry, name) => ({
+          name,
+          documentReadable: true,
+          targetIntegrity: null,
+          distTags: conflict === "latest"
+            ? { latest: "9.9.9" }
+            : {
+                latest: item.kind === "node2-stable" ? item.version : item.latestBefore[name],
+                [item.distTag]: item.version,
+              },
+        }),
+        registry: "https://registry.example.test",
+      }),
+    ).rejects.toThrow(/hidden target.*(?:tag|latest)|(?:tag|latest).*hidden target/i);
+    expect(slept).toBe(false);
+  });
+
+  test("an unreadable package document remains transient without trusting its channel fields", async () => {
+    const item = manifest(resolveReleasePolicy("v0.104.2"));
+    let time = 0;
+    await expect(
+      pollRegistryPostconditions(item, {
+        timeoutMs: 10,
+        now: () => time,
+        sleep: async (ms) => { time += ms; },
+        read: async (_registry, name) => ({
+          name,
+          documentReadable: false,
+          targetIntegrity: null,
+          distTags: { latest: "9.9.9", "midnight-1": item.version },
+        }),
+        registry: "https://registry.example.test",
+      }),
+    ).rejects.toBeInstanceOf(RegistryVisibilityTimeoutError);
+  });
+
+  test("success requires one coherent all-39 round and catches early verified drift", async () => {
+    const item = manifest(resolveReleasePolicy("v0.104.2"));
+    let round = 0;
+    await expect(
+      pollRegistryPostconditions(item, {
+        timeoutMs: 1_000,
+        now: () => round * 10,
+        sleep: async () => { round++; },
+        read: async (_registry, name) => {
+          const pkg = item.packages.find((candidate) => candidate.name === name)!;
+          const first = name === packageNames[0];
+          return {
+            name,
+            documentReadable: true,
+            targetIntegrity: first || round > 0 ? pkg.integrity : null,
+            distTags: {
+              latest: "0.200.2",
+              ...(first && round > 0
+                ? { "midnight-1": "9.9.9" }
+                : { "midnight-1": item.version }),
+            },
+          };
+        },
+        registry: "https://registry.example.test",
+      }),
+    ).rejects.toThrow(/tag conflict/i);
   });
 });
 
@@ -477,6 +606,31 @@ describe("workflow invariants", () => {
   const release = readFileSync(join(workflows, "release.yaml"), "utf8");
   const rehearsal = readFileSync(join(workflows, "release-artifact-rehearsal.yaml"), "utf8");
   const main = readFileSync(join(workflows, "main.yaml"), "utf8");
+  const workflowFiles = readdirSync(workflows)
+    .filter((name) => /\.ya?ml$/.test(name))
+    .sort();
+
+  function jobBlock(source: string, name: string, next?: string): string {
+    const start = source.indexOf(`  ${name}:`);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const end = next ? source.indexOf(`  ${next}:`, start + 1) : source.length;
+    expect(end).toBeGreaterThan(start);
+    return source.slice(start, end);
+  }
+
+  function stepRun(source: string, name: string): string {
+    const stepStart = source.indexOf(`      - name: ${name}`);
+    expect(stepStart).toBeGreaterThanOrEqual(0);
+    const runStart = source.indexOf("        run: |\n", stepStart);
+    expect(runStart).toBeGreaterThan(stepStart);
+    const lines = source.slice(runStart + "        run: |\n".length).split("\n");
+    const body: string[] = [];
+    for (const line of lines) {
+      if (line && !line.startsWith("          ")) break;
+      body.push(line.startsWith("          ") ? line.slice(10) : line);
+    }
+    return body.join("\n");
+  }
 
   test("one release.yaml caller owns mutually exclusive release, proof, and recovery jobs", () => {
     expect(release).toContain("release:");
@@ -546,6 +700,98 @@ describe("workflow invariants", () => {
     }
   });
 
+  test("repository-wide workflow scan enforces the exclusive auth and mutation boundary", () => {
+    expect(workflowFiles).toEqual([
+      "main.yaml",
+      "release-artifact-rehearsal.yaml",
+      "release.yaml",
+    ]);
+    const sources = new Map(
+      workflowFiles.map((name) => [name, readFileSync(join(workflows, name), "utf8")]),
+    );
+    for (const [name, source] of sources) {
+      for (const forbidden of [
+        "NPM_TOKEN",
+        "BUN_AUTH_TOKEN",
+        "NPM_CONFIG_TOKEN",
+        "NODE_AUTH_TOKEN",
+        "_authToken",
+        ".npmrc",
+        "Configure npm auth",
+      ]) expect(source, `${name} contains ${forbidden}`).not.toContain(forbidden);
+      for (const match of source.matchAll(/uses:\s+([^\s#]+)/g)) {
+        expect(match[1], `${name} has a mutable action pin`).toMatch(/@[0-9a-f]{40}$/);
+      }
+      if (name !== "release.yaml") {
+        expect(source, `${name} grants OIDC`).not.toContain("id-token: write");
+        expect(source, `${name} publishes`).not.toMatch(/--publish(?:-bundle)?\b/);
+        expect(source, `${name} recovers`).not.toContain("--recover-bundle");
+        expect(source, `${name} pushes release state`).not.toMatch(/\bgit push\b/);
+      }
+    }
+
+    const publish = jobBlock(release, "publish", "artifact-proof");
+    const proof = jobBlock(release, "artifact-proof", "recover");
+    const recover = jobBlock(release, "recover");
+    expect(publish.match(/id-token:\s*write/g)).toHaveLength(1);
+    expect(recover.match(/id-token:\s*write/g)).toHaveLength(1);
+    expect(proof).not.toContain("id-token: write");
+    expect(publish.match(/--publish-bundle --publish/g)).toHaveLength(1);
+    expect(recover.match(/--recover-bundle --publish/g)).toHaveLength(1);
+    expect(publish.match(/\bgit push\b/g)).toHaveLength(1);
+    expect(recover.match(/\bgit push\b/g)).toHaveLength(1);
+    expect(proof).not.toMatch(/--publish|--recover-bundle|\bgit push\b/);
+  });
+
+  test("ci-ok binds every result and event discriminator through inert environment values", () => {
+    const ciOk = jobBlock(main, "ci-ok");
+    for (const binding of [
+      "EVENT_NAME: ${{ github.event_name }}",
+      "PR_DRAFT: ${{ github.event.pull_request.draft || false }}",
+      "CHANGES_RESULT: ${{ needs.changes.result }}",
+      "E2E_RESULT: ${{ needs.e2e.result }}",
+      "TEMPLATE_TESTS_RESULT: ${{ needs.template-tests.result }}",
+      "FRONTEND_BUILD_RESULT: ${{ needs.frontend-build.result }}",
+      "ASSETS_CHECK_RESULT: ${{ needs.assets-check.result }}",
+      "RELEASE_TESTS_RESULT: ${{ needs.release-tests.result }}",
+    ]) expect(ciOk).toContain(binding);
+    expect(stepRun(main, "Verify required jobs")).not.toContain("${{");
+  });
+
+  test("ci-ok executable truth table rejects unexpected skip, cancel, and failure states", () => {
+    const script = stepRun(main, "Verify required jobs");
+    const base = {
+      PATH: process.env.PATH!,
+      EVENT_NAME: "push",
+      PR_DRAFT: "false",
+      CHANGES_RESULT: "success",
+      E2E_RESULT: "skipped",
+      TEMPLATE_TESTS_RESULT: "skipped",
+      FRONTEND_BUILD_RESULT: "skipped",
+      ASSETS_CHECK_RESULT: "success",
+      RELEASE_TESTS_RESULT: "success",
+    };
+    const run = (overrides: Record<string, string>) => Bun.spawnSync(
+      ["bash", "-c", script],
+      { env: { ...base, ...overrides } },
+    ).exitCode;
+
+    expect(run({})).toBe(0);
+    expect(run({ EVENT_NAME: "pull_request", PR_DRAFT: "false" })).toBe(0);
+    expect(run({ EVENT_NAME: "pull_request", PR_DRAFT: "true", RELEASE_TESTS_RESULT: "skipped" })).toBe(0);
+    for (const result of ["failure", "cancelled", "skipped"]) {
+      expect(run({ CHANGES_RESULT: result })).not.toBe(0);
+    }
+    for (const result of ["failure", "cancelled", "skipped"]) {
+      expect(run({ RELEASE_TESTS_RESULT: result })).not.toBe(0);
+      expect(run({ EVENT_NAME: "pull_request", PR_DRAFT: "false", RELEASE_TESTS_RESULT: result })).not.toBe(0);
+    }
+    expect(run({ EVENT_NAME: "pull_request", PR_DRAFT: "true", RELEASE_TESTS_RESULT: "success" })).not.toBe(0);
+    expect(run({ ASSETS_CHECK_RESULT: "skipped" })).not.toBe(0);
+    expect(run({ E2E_RESULT: "cancelled" })).not.toBe(0);
+    expect(run({ EVENT_NAME: "workflow_dispatch" })).not.toBe(0);
+  });
+
   test("recovery stays cross-run and reviewer-gated without rerunning release", () => {
     expect(release).toContain("environment: npm-release-recovery");
     expect(release).toContain("run-id: ${{ inputs.original_run_id }}");
@@ -588,7 +834,8 @@ describe("workflow invariants", () => {
     expect(main).toContain('"effectstream-release-tests:${{ github.sha }}" bash -lc');
     expect(main).not.toContain('"effectstream-release-tests:${{ github.sha }}" sh -lc');
     expect(main).toContain("git config --global --add safe.directory /work");
-    expect(main).toContain("release-tests=${{ needs.release-tests.result }}");
+    expect(main).toContain("RELEASE_TESTS_RESULT: ${{ needs.release-tests.result }}");
+    expect(main).toContain('echo "release-tests=$RELEASE_TESTS_RESULT"');
     expect(main).toContain("needs: [changes, e2e, template-tests, frontend-build, assets-check, release-tests]");
   });
 });

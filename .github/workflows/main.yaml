@@ -221,25 +221,49 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Verify required jobs
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_DRAFT: ${{ github.event.pull_request.draft || false }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+          TEMPLATE_TESTS_RESULT: ${{ needs.template-tests.result }}
+          FRONTEND_BUILD_RESULT: ${{ needs.frontend-build.result }}
+          ASSETS_CHECK_RESULT: ${{ needs.assets-check.result }}
+          RELEASE_TESTS_RESULT: ${{ needs.release-tests.result }}
         run: |
-          echo "changes=${{ needs.changes.result }}"
-          echo "e2e=${{ needs.e2e.result }}"
-          echo "template-tests=${{ needs.template-tests.result }}"
-          echo "frontend-build=${{ needs.frontend-build.result }}"
-          echo "assets-check=${{ needs.assets-check.result }}"
-          echo "release-tests=${{ needs.release-tests.result }}"
-          if [ "${{ needs.changes.result }}" = "failure" ] || \
-             [ "${{ needs.e2e.result }}" = "failure" ] || \
-             [ "${{ needs.e2e.result }}" = "cancelled" ] || \
-             [ "${{ needs.template-tests.result }}" = "failure" ] || \
-             [ "${{ needs.template-tests.result }}" = "cancelled" ] || \
-             [ "${{ needs.frontend-build.result }}" = "failure" ] || \
-             [ "${{ needs.frontend-build.result }}" = "cancelled" ] || \
-             [ "${{ needs.assets-check.result }}" = "failure" ] || \
-             [ "${{ needs.assets-check.result }}" = "cancelled" ] || \
-             [ "${{ needs.release-tests.result }}" = "failure" ] || \
-             [ "${{ needs.release-tests.result }}" = "cancelled" ]; then
-            echo "::error::A required job failed or was cancelled."
+          set -euo pipefail
+          echo "changes=$CHANGES_RESULT"
+          echo "e2e=$E2E_RESULT"
+          echo "template-tests=$TEMPLATE_TESTS_RESULT"
+          echo "frontend-build=$FRONTEND_BUILD_RESULT"
+          echo "assets-check=$ASSETS_CHECK_RESULT"
+          echo "release-tests=$RELEASE_TESTS_RESULT"
+
+          if [ "$CHANGES_RESULT" != 'success' ] || [ "$ASSETS_CHECK_RESULT" != 'success' ]; then
+            echo '::error::Unconditional change classification or asset verification did not succeed.'
             exit 1
           fi
-          echo "All required jobs passed or were skipped."
+          for gated_result in "$E2E_RESULT" "$TEMPLATE_TESTS_RESULT" "$FRONTEND_BUILD_RESULT"; do
+            case "$gated_result" in
+              success|skipped) ;;
+              *)
+                echo '::error::A change-gated job failed, was cancelled, or has an unknown result.'
+                exit 1
+                ;;
+            esac
+          done
+
+          case "$EVENT_NAME:$PR_DRAFT" in
+            push:false|pull_request:false)
+              test "$RELEASE_TESTS_RESULT" = 'success'
+              ;;
+            pull_request:true)
+              test "$RELEASE_TESTS_RESULT" = 'skipped'
+              ;;
+            *)
+              echo '::error::Unsupported event or draft state for the aggregate gate.'
+              exit 1
+              ;;
+          esac
+          echo 'All required jobs reached their event-appropriate success or skip state.'

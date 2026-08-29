@@ -147,7 +147,8 @@ beforeAll(() => {
       if (unqueryable.has(name)) return Response.json({ error: "unavailable" }, { status: 503 });
       const hidden = hiddenReads.get(name) ?? 0;
       if (hidden > 0) hiddenReads.set(name, hidden - 1);
-      const integrity = hidden > 0 ? undefined : occupied.get(name);
+      if (hidden > 0) return Response.json({ error: "not yet readable" }, { status: 404 });
+      const integrity = occupied.get(name);
       return Response.json({
         "dist-tags": distTags.get(name) ?? { latest: "0.200.2" },
         versions: integrity ? { "0.104.2": { dist: { integrity } } } : {},
@@ -497,7 +498,7 @@ describe("persisted bundle verification and lost-runner recovery", () => {
           ACTIONS_ID_TOKEN_REQUEST_TOKEN: oidcToken,
         },
         dependencies: {
-          read: async (_registry, name) => ({ name, targetIntegrity: null, distTags: { latest: "0.200.2" } }),
+          read: async (_registry, name) => ({ name, documentReadable: true, targetIntegrity: null, distTags: { latest: "0.200.2" } }),
           spawn: async (argv, execution) => {
             spawned.push({ argv, cwd: execution.cwd, env: execution.env });
             return 0;

@@ -54,6 +54,7 @@ export type ReleasePolicy = {
 };
 export type RegistryPackageState = {
   name: string;
+  documentReadable: boolean;
   targetIntegrity: string | null;
   distTags: Record<string, string>;
 };
@@ -93,7 +94,13 @@ export type RegistryReader = (
   registry: string,
   name: string,
   targetVersion: string,
+  signal?: AbortSignal,
 ) => Promise<RegistryPackageState>;
+export type RegistryRoundRace = <T>(
+  work: Promise<T>,
+  remainingMs: number,
+  onTimeout: () => void,
+) => Promise<T>;
 export type NpmSpawn = (
   argv: string[],
   execution: { cwd: string; env: Record<string, string> },
@@ -103,6 +110,7 @@ export type PublishDependencies = {
   spawn?: NpmSpawn;
   now?: () => number;
   sleep?: (milliseconds: number) => Promise<void>;
+  raceRound?: RegistryRoundRace;
 };
 type PackageInfo = {
   name: string;
@@ -350,12 +358,28 @@ function assertPackageInputs(packages: PackageInfo[], currentVersion: string): v
 function packageRegistryUrl(registry: string, name: string): string {
   return `${registry.replace(/\/$/, "")}/${encodeURIComponent(name)}`;
 }
-export async function readRegistryState(registry: string, name: string, targetVersion: string, request: typeof fetch = fetch): Promise<RegistryPackageState> {
-  const response = await request(packageRegistryUrl(registry, name), { headers: { accept: "application/vnd.npm.install-v1+json, application/json" } });
-  if (response.status === 404) return { name, targetIntegrity: null, distTags: {} };
+export async function readRegistryState(
+  registry: string,
+  name: string,
+  targetVersion: string,
+  request: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<RegistryPackageState> {
+  const response = await request(packageRegistryUrl(registry, name), {
+    headers: { accept: "application/vnd.npm.install-v1+json, application/json" },
+    signal,
+  });
+  if (response.status === 404) {
+    return { name, documentReadable: false, targetIntegrity: null, distTags: {} };
+  }
   if (!response.ok) throw new Error(`Registry query failed for ${name}: HTTP ${response.status}`);
   const document = (await response.json()) as any;
-  return { name, targetIntegrity: document.versions?.[targetVersion]?.dist?.integrity ?? null, distTags: document["dist-tags"] ?? {} };
+  return {
+    name,
+    documentReadable: true,
+    targetIntegrity: document.versions?.[targetVersion]?.dist?.integrity ?? null,
+    distTags: document["dist-tags"] ?? {},
+  };
 }
 function assertUniformNode2Latest(states: RegistryPackageState[]): Record<string, string> {
   const snapshot: Record<string, string> = {};
@@ -595,7 +619,21 @@ function assertVisibleRegistryPostcondition(
   pkg: ManifestPackage,
   state: RegistryPackageState,
 ): "pending" | "verified" {
-  if (state.targetIntegrity === null) return "pending";
+  if (!state.documentReadable) return "pending";
+  if (state.targetIntegrity === null) {
+    const expectedLatestBeforeVisibility = manifest.latestBefore[pkg.name];
+    if (state.distTags.latest !== expectedLatestBeforeVisibility) {
+      throw new Error(
+        `Post-publish hidden target latest conflict for ${pkg.name}: latest=${state.distTags.latest ?? "missing"}, expected pre-state ${expectedLatestBeforeVisibility}`,
+      );
+    }
+    if (state.distTags[manifest.distTag] === manifest.version) {
+      throw new Error(
+        `Post-publish hidden target tag conflict for ${pkg.name}: ${manifest.distTag} points at unavailable ${manifest.version}`,
+      );
+    }
+    return "pending";
+  }
   if (state.targetIntegrity !== pkg.integrity) {
     throw new Error(`Post-publish integrity mismatch for ${pkg.name}`);
   }
@@ -626,39 +664,88 @@ export async function pollRegistryPostconditions(
     read?: RegistryReader;
     now?: () => number;
     sleep?: (milliseconds: number) => Promise<void>;
+    raceRound?: RegistryRoundRace;
     onVerified?: (name: string) => void;
   },
 ): Promise<void> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_VISIBILITY_TIMEOUT_MS;
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("Visibility timeout must be positive");
-  const read = options.read ?? ((registry, name, version) => readRegistryState(registry, name, version));
+  const read = options.read
+    ?? ((registry, name, version, signal) => readRegistryState(registry, name, version, fetch, signal));
   const now = options.now ?? (() => performance.now());
   const sleep = options.sleep ?? ((milliseconds) => Bun.sleep(milliseconds));
+  const raceRound: RegistryRoundRace = options.raceRound ?? (async (work, remainingMs, onTimeout) => {
+    return await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        onTimeout();
+        reject(new Error("Registry read round deadline expired"));
+      }, remainingMs);
+      work.then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      );
+    });
+  });
   const maxBackoffMs = options.maxBackoffMs ?? 5_000;
   let backoffMs = options.initialBackoffMs ?? 250;
   const deadline = now() + timeoutMs;
-  const pending = new Set(manifest.packages.map((pkg) => pkg.name));
+  let pending = new Set(manifest.packages.map((pkg) => pkg.name));
+  const pendingNames = () => manifest.packages
+    .filter((pkg) => pending.has(pkg.name))
+    .map((pkg) => pkg.name);
 
   while (pending.size > 0) {
-    const round = manifest.packages.filter((pkg) => pending.has(pkg.name));
-    const states = await Promise.all(
-      round.map((pkg) => read(options.registry, pkg.name, manifest.version)),
-    );
+    const remainingBeforeRead = deadline - now();
+    if (remainingBeforeRead <= 0) {
+      throw new RegistryVisibilityTimeoutError(pendingNames());
+    }
+    const round = manifest.packages;
+    const controller = new AbortController();
+    let timedOut = false;
+    let states: RegistryPackageState[];
+    try {
+      states = await raceRound(
+        Promise.all(
+          round.map((pkg) => read(options.registry, pkg.name, manifest.version, controller.signal)),
+        ),
+        remainingBeforeRead,
+        () => {
+          timedOut = true;
+          controller.abort();
+        },
+      );
+    } catch (error) {
+      if (timedOut) throw new RegistryVisibilityTimeoutError(pendingNames());
+      controller.abort();
+      throw error;
+    }
+    if (timedOut || now() >= deadline) {
+      controller.abort();
+      throw new RegistryVisibilityTimeoutError(pendingNames());
+    }
+
+    const nextPending = new Set<string>();
     for (let index = 0; index < round.length; index++) {
       const pkg = round[index];
       const state = states[index];
       if (state.name !== pkg.name) throw new Error(`Registry reader returned ${state.name} for ${pkg.name}`);
-      if (assertVisibleRegistryPostcondition(manifest, pkg, state) === "verified") {
-        pending.delete(pkg.name);
+      if (assertVisibleRegistryPostcondition(manifest, pkg, state) === "pending") {
+        nextPending.add(pkg.name);
+      } else if (pending.has(pkg.name)) {
         options.onVerified?.(pkg.name);
       }
     }
-    if (pending.size === 0) return;
+    if (nextPending.size === 0) return;
+    pending = nextPending;
     const remaining = deadline - now();
     if (remaining <= 0) {
-      throw new RegistryVisibilityTimeoutError(
-        manifest.packages.filter((pkg) => pending.has(pkg.name)).map((pkg) => pkg.name),
-      );
+      throw new RegistryVisibilityTimeoutError(pendingNames());
     }
     const delay = Math.min(backoffMs, remaining);
     await sleep(delay);
@@ -687,7 +774,8 @@ export async function publishFromBundle(options: {
   };
   writeResults();
   const read = options.dependencies?.read
-    ?? ((registry: string, name: string, version: string) => readRegistryState(registry, name, version));
+    ?? ((registry: string, name: string, version: string, signal?: AbortSignal) =>
+      readRegistryState(registry, name, version, fetch, signal));
   const states = await Promise.all(manifest.packages.map((pkg) => read(options.registry, pkg.name, manifest.version)));
   if (options.recovery) assertRecoveryLatestPrecondition(manifest, states);
   const completion = planRegistryCompletion(manifest, states, options.recovery);
@@ -733,6 +821,7 @@ export async function publishFromBundle(options: {
         read,
         now: options.dependencies?.now,
         sleep: options.dependencies?.sleep,
+        raceRound: options.dependencies?.raceRound,
         onVerified: (name) => {
           const result = results.find((item) => item.name === name);
           if (result?.status === "accepted") setResult(name, "verified");

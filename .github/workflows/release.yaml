@@ -37,7 +37,7 @@ on:
         required: false
         type: string
       approval_refs:
-        description: Exact audit-ref|G4-authorization-ref pair; blank for artifact-proof
+        description: "Exact audit-ref|G4-authorization-ref pair; each ref uses only A-Z a-z 0-9 . _ : / @ + -; blank for artifact-proof"
         required: false
         type: string
       proof_digests:
@@ -286,32 +286,88 @@ jobs:
         id: authorization
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          BRANCH_SHA: ${{ inputs.expected_current_branch_sha }}
           MANIFEST_SHA512: ${{ inputs.manifest_sha512 }}
           APPROVAL_REFS: ${{ inputs.approval_refs }}
           PROOF_DIGESTS: ${{ inputs.proof_digests }}
         run: |
           set -euo pipefail
-          test -n "$RELEASE_TAG" && test -n "$SOURCE_SHA" && test -n "$BRANCH_SHA"
           test -n "$MANIFEST_SHA512" && test -n "$APPROVAL_REFS"
           test -z "$PROOF_DIGESTS"
-          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$BRANCH_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$MANIFEST_SHA512" =~ ^[0-9a-f]{128}$ ]]
+          separators="${APPROVAL_REFS//[^|]/}"
+          test "$separators" = '|'
           audit_ref="${APPROVAL_REFS%%|*}"
           authorization_ref="${APPROVAL_REFS#*|}"
-          test -n "$audit_ref" && test -n "$authorization_ref"
-          test "$audit_ref|$authorization_ref" = "$APPROVAL_REFS"
-          echo "audit-ref=$audit_ref" >> "$GITHUB_OUTPUT"
-          echo "authorization-ref=$authorization_ref" >> "$GITHUB_OUTPUT"
+          [[ "$audit_ref" =~ ^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,255}$ ]]
+          [[ "$authorization_ref" =~ ^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,255}$ ]]
+          {
+            printf 'audit-ref=%s\n' "$audit_ref"
+            printf 'authorization-ref=%s\n' "$authorization_ref"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Checkout exact approved current branch head
+      - name: Verify trusted recovery refs before checkout
+        id: trusted-source
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BRANCH_SHA: ${{ inputs.expected_current_branch_sha }}
+          RECOVERY_VERIFY_DIR: ${{ runner.temp }}/effectstream-recovery-source-proof
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BRANCH_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+          if [[ "$RELEASE_TAG" =~ ^v0\.104\.(0|[1-9][0-9]*)$ ]]; then
+            SOURCE_BRANCH='midnight-1'
+            DIST_TAG='midnight-1'
+          elif [[ "$RELEASE_TAG" =~ ^v0\.200\.(0|[1-9][0-9]*)$ ]]; then
+            SOURCE_BRANCH='v-next'
+            DIST_TAG='latest'
+          elif [[ "$RELEASE_TAG" =~ ^v0\.200\.(0|[1-9][0-9]*)-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*$ ]]; then
+            prerelease="${RELEASE_TAG#*-}"
+            IFS='.' read -r -a identifiers <<< "$prerelease"
+            for identifier in "${identifiers[@]}"; do
+              if [[ "$identifier" =~ ^[0-9]+$ ]]; then
+                [[ "$identifier" =~ ^(0|[1-9][0-9]*)$ ]]
+              fi
+            done
+            SOURCE_BRANCH='v-next'
+            DIST_TAG='next'
+          else
+            echo '::error::Unsupported or unsafe recovery release tag.'
+            exit 1
+          fi
+
+          test ! -e "$RECOVERY_VERIFY_DIR"
+          mkdir -p "$RECOVERY_VERIFY_DIR"
+          trap 'rm -rf -- "$RECOVERY_VERIFY_DIR"' EXIT
+          git -C "$RECOVERY_VERIFY_DIR" init --quiet
+          remote_url='https://github.com/effectstream/effectstream.git'
+          remote_tag_ref="refs/tags/$RELEASE_TAG"
+          remote_branch_ref="refs/heads/$SOURCE_BRANCH"
+          trusted_tag_ref='refs/effectstream-recovery/tag'
+          trusted_branch_ref='refs/effectstream-recovery/branch'
+          git -C "$RECOVERY_VERIFY_DIR" fetch --no-tags --no-write-fetch-head "$remote_url" \
+            "$remote_tag_ref:$trusted_tag_ref" \
+            "$remote_branch_ref:$trusted_branch_ref"
+          remote_tag_commit="$(git -C "$RECOVERY_VERIFY_DIR" rev-parse "${trusted_tag_ref}^{commit}")"
+          remote_branch_commit="$(git -C "$RECOVERY_VERIFY_DIR" rev-parse "${trusted_branch_ref}^{commit}")"
+          test "$remote_tag_commit" = "$SOURCE_SHA"
+          test "$remote_branch_commit" = "$BRANCH_SHA"
+          git -C "$RECOVERY_VERIFY_DIR" merge-base --is-ancestor "$SOURCE_SHA" "$BRANCH_SHA"
+          {
+            printf 'branch=%s\n' "$SOURCE_BRANCH"
+            printf 'dist-tag=%s\n' "$DIST_TAG"
+            printf 'branch-sha=%s\n' "$BRANCH_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact trusted current branch head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.expected_current_branch_sha }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.trusted-source.outputs.branch-sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -321,29 +377,26 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Derive and verify mapped release identities
+      - name: Compare checked-out policy with trusted source mapping
         id: policy
         shell: bash
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          BRANCH_SHA: ${{ inputs.expected_current_branch_sha }}
+          BRANCH_SHA: ${{ steps.trusted-source.outputs.branch-sha }}
+          TRUSTED_BRANCH: ${{ steps.trusted-source.outputs.branch }}
+          TRUSTED_DIST_TAG: ${{ steps.trusted-source.outputs.dist-tag }}
         run: |
           set -euo pipefail
           policy="$(bun run .github/publish-bun.effectstream.ts --policy --release-tag "$RELEASE_TAG")"
           branch="$(jq -r .branch <<< "$policy")"
           dist_tag="$(jq -r .distTag <<< "$policy")"
-          git fetch --force --no-tags origin \
-            "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG" \
-            "+refs/heads/$branch:refs/remotes/origin/$branch"
-          tag_ref="refs/tags/$RELEASE_TAG"
-          branch_ref="refs/remotes/origin/$branch"
-          test "$(git rev-parse "${tag_ref}^{commit}")" = "$SOURCE_SHA"
-          test "$(git rev-parse "${branch_ref}^{commit}")" = "$BRANCH_SHA"
+          test "$branch" = "$TRUSTED_BRANCH"
+          test "$dist_tag" = "$TRUSTED_DIST_TAG"
           test "$(git rev-parse 'HEAD^{commit}')" = "$BRANCH_SHA"
-          git merge-base --is-ancestor "$SOURCE_SHA" "$BRANCH_SHA"
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
-          echo "dist-tag=$dist_tag" >> "$GITHUB_OUTPUT"
+          {
+            printf 'branch=%s\n' "$branch"
+            printf 'dist-tag=%s\n' "$dist_tag"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download original immutable release bundle
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -356,32 +409,39 @@ jobs:
       - name: Verify original service and embedded identities
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ARTIFACT_ID: ${{ inputs.artifact_id }}
           EXPECTED_SERVICE_DIGEST: ${{ inputs.expected_service_digest }}
           RELEASE_TAG: ${{ inputs.release_tag }}
           SOURCE_SHA: ${{ inputs.source_sha }}
           ORIGINAL_RUN_ID: ${{ inputs.original_run_id }}
           MANIFEST_SHA512: ${{ inputs.manifest_sha512 }}
+          MANIFEST_PATH: ${{ runner.temp }}/effectstream-release-bundle/manifest.json
+          TRUSTED_BRANCH: ${{ steps.trusted-source.outputs.branch }}
+          TRUSTED_DIST_TAG: ${{ steps.trusted-source.outputs.dist-tag }}
         run: |
           set -euo pipefail
           actual_service="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/$ARTIFACT_ID" --jq .digest)"
           test "$actual_service" = "$EXPECTED_SERVICE_DIGEST"
-          manifest='${{ runner.temp }}/effectstream-release-bundle/manifest.json'
-          test "$(sha512sum "$manifest" | awk '{print $1}')" = "$MANIFEST_SHA512"
-          test "$(jq -r .releaseTag "$manifest")" = "$RELEASE_TAG"
-          test "$(jq -r .sourceSha "$manifest")" = "$SOURCE_SHA"
-          test "$(jq -r .workflow.runId "$manifest")" = "$ORIGINAL_RUN_ID"
-          test "$(jq -r .branch "$manifest")" = '${{ steps.policy.outputs.branch }}'
-          test "$(jq -r .distTag "$manifest")" = '${{ steps.policy.outputs.dist-tag }}'
+          test "$(sha512sum "$MANIFEST_PATH" | awk '{print $1}')" = "$MANIFEST_SHA512"
+          test "$(jq -r .releaseTag "$MANIFEST_PATH")" = "$RELEASE_TAG"
+          test "$(jq -r .sourceSha "$MANIFEST_PATH")" = "$SOURCE_SHA"
+          test "$(jq -r .workflow.runId "$MANIFEST_PATH")" = "$ORIGINAL_RUN_ID"
+          test "$(jq -r .branch "$MANIFEST_PATH")" = "$TRUSTED_BRANCH"
+          test "$(jq -r .distTag "$MANIFEST_PATH")" = "$TRUSTED_DIST_TAG"
 
       - name: Validate recovery branch compatibility before authentication or mutation
+        env:
+          ARTIFACT_DIR: ${{ runner.temp }}/effectstream-release-bundle
+          MANIFEST_SHA512: ${{ inputs.manifest_sha512 }}
+          BRANCH_SHA: ${{ steps.trusted-source.outputs.branch-sha }}
+          RECOVERY_MODE: ${{ inputs.recovery_mode }}
         run: |
           bun run .github/publish-bun.effectstream.ts --validate-recovery-branch \
-            --artifact-dir '${{ runner.temp }}/effectstream-release-bundle' \
-            --manifest-sha512 '${{ inputs.manifest_sha512 }}' \
-            --expected-current-branch-sha '${{ inputs.expected_current_branch_sha }}' \
-            --recovery-mode '${{ inputs.recovery_mode }}'
+            --artifact-dir "$ARTIFACT_DIR" \
+            --manifest-sha512 "$MANIFEST_SHA512" \
+            --expected-current-branch-sha "$BRANCH_SHA" \
+            --recovery-mode "$RECOVERY_MODE"
 
       - name: Setup exact Node and npm after recovery validation
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -406,16 +466,25 @@ jobs:
 
       - name: Complete exact artifact publication and apply version delta
         id: recover-publication
+        env:
+          ARTIFACT_DIR: ${{ runner.temp }}/effectstream-release-bundle
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          SERVICE_DIGEST: ${{ inputs.expected_service_digest }}
+          MANIFEST_SHA512: ${{ inputs.manifest_sha512 }}
+          BRANCH_SHA: ${{ steps.trusted-source.outputs.branch-sha }}
+          RECOVERY_MODE: ${{ inputs.recovery_mode }}
+          AUDIT_REF: ${{ steps.authorization.outputs.audit-ref }}
+          AUTHORIZATION_REF: ${{ steps.authorization.outputs.authorization-ref }}
         run: |
           bun run .github/publish-bun.effectstream.ts --recover-bundle --publish \
-            --artifact-dir '${{ runner.temp }}/effectstream-release-bundle' \
-            --artifact-id '${{ inputs.artifact_id }}' \
-            --service-digest '${{ inputs.expected_service_digest }}' \
-            --manifest-sha512 '${{ inputs.manifest_sha512 }}' \
-            --expected-current-branch-sha '${{ inputs.expected_current_branch_sha }}' \
-            --recovery-mode '${{ inputs.recovery_mode }}' \
-            --audit-ref '${{ steps.authorization.outputs.audit-ref }}' \
-            --authorization-ref '${{ steps.authorization.outputs.authorization-ref }}' \
+            --artifact-dir "$ARTIFACT_DIR" \
+            --artifact-id "$ARTIFACT_ID" \
+            --service-digest "$SERVICE_DIGEST" \
+            --manifest-sha512 "$MANIFEST_SHA512" \
+            --expected-current-branch-sha "$BRANCH_SHA" \
+            --recovery-mode "$RECOVERY_MODE" \
+            --audit-ref "$AUDIT_REF" \
+            --authorization-ref "$AUTHORIZATION_REF" \
             --visibility-timeout-ms 1800000
 
       - name: Persist secret-free recovery publication result even after failure
@@ -445,8 +514,9 @@ jobs:
       - name: Commit and push recovered version-only delta
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.release_tag }}
-          SOURCE_BRANCH: ${{ steps.policy.outputs.branch }}
+          SOURCE_BRANCH: ${{ steps.trusted-source.outputs.branch }}
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
@@ -460,6 +530,7 @@ jobs:
           fi
           if ! git diff --cached --quiet; then
             git commit -m "chore(release): $RELEASE_TAG (recovery)"
+            gh auth setup-git
             git push origin "HEAD:refs/heads/$SOURCE_BRANCH"
           fi
 
