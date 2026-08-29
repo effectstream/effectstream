@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/npm-midnight-indexer",
-  "version": "0.200.2",
+  "version": "0.200.5",
   "description": "Downloads and runs the Midnight Indexer. It needs a running Midnight Node",
   "main": "index.js",
   "scripts": {
