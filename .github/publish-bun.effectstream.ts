@@ -9,7 +9,6 @@ import { createHash } from "crypto";
 import {
   copyFileSync,
   existsSync,
-  mkdtempSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -18,14 +17,12 @@ import {
   unlinkSync,
   writeFileSync,
 } from "fs";
-import { tmpdir } from "os";
 import { basename, join, relative, resolve } from "path";
 
 const ROOT = resolve(import.meta.dir, "..");
 export const EXPECTED_PACKAGE_COUNT = 39;
 export const STABLE_DIST_TAG = "latest";
 export const RELEASE_BUNDLE_SCHEMA = 1;
-export const DEFAULT_VISIBILITY_TIMEOUT_MS = 1_800_000;
 const DEPRECATED = new Set(["@effectstream/explorer"]);
 const LICENSE_FILES = ["LICENSE-MIT", "LICENSE-APACHE"] as const;
 const MIN_README_CHARS = 400;
@@ -54,7 +51,6 @@ export type ReleasePolicy = {
 };
 export type RegistryPackageState = {
   name: string;
-  documentReadable: boolean;
   targetIntegrity: string | null;
   distTags: Record<string, string>;
 };
@@ -80,37 +76,6 @@ export type ReleaseManifest = {
   toolchain: { bun: string; platform: string };
   latestBefore: Record<string, string>;
   packages: ManifestPackage[];
-};
-export type NpmExecutionSandbox = {
-  root: string;
-  cwd: string;
-  home: string;
-  userConfig: string;
-  globalConfig: string;
-  env: Record<string, string>;
-  cleanup: () => void;
-};
-export type RegistryReader = (
-  registry: string,
-  name: string,
-  targetVersion: string,
-  signal?: AbortSignal,
-) => Promise<RegistryPackageState>;
-export type RegistryRoundRace = <T>(
-  work: Promise<T>,
-  remainingMs: number,
-  onTimeout: () => void,
-) => Promise<T>;
-export type NpmSpawn = (
-  argv: string[],
-  execution: { cwd: string; env: Record<string, string> },
-) => Promise<number>;
-export type PublishDependencies = {
-  read?: RegistryReader;
-  spawn?: NpmSpawn;
-  now?: () => number;
-  sleep?: (milliseconds: number) => Promise<void>;
-  raceRound?: RegistryRoundRace;
 };
 type PackageInfo = {
   name: string;
@@ -230,75 +195,6 @@ function sortObject(value: any): any {
 export function canonicalJson(value: unknown): string {
   return `${JSON.stringify(sortObject(value))}\n`;
 }
-
-const FORBIDDEN_NPM_ENV = new Set([
-  "NPM_TOKEN",
-  "BUN_AUTH_TOKEN",
-  "NPM_CONFIG_TOKEN",
-  "NODE_AUTH_TOKEN",
-]);
-
-export function assertSafeNpmEnvironment(
-  environment: Record<string, string | undefined>,
-): void {
-  for (const [name, value] of Object.entries(environment)) {
-    if (value === undefined) continue;
-    if (FORBIDDEN_NPM_ENV.has(name.toUpperCase())) {
-      throw new Error(`Forbidden npm credential environment variable ${name}`);
-    }
-    if (/^npm_config_/i.test(name)) {
-      throw new Error(`Ambient npm config environment variable ${name} is forbidden`);
-    }
-  }
-}
-
-export function createNpmExecutionSandbox(
-  environment: Record<string, string | undefined> = process.env,
-): NpmExecutionSandbox {
-  assertSafeNpmEnvironment(environment);
-  const root = mkdtempSync(join(tmpdir(), "effectstream-npm-publish-"));
-  const cwd = join(root, "cwd");
-  const home = join(root, "home");
-  const userConfig = join(root, "user.npmrc");
-  const globalConfig = join(root, "global.npmrc");
-  mkdirSync(cwd, { mode: 0o700 });
-  mkdirSync(home, { mode: 0o700 });
-  writeFileSync(userConfig, "", { mode: 0o600 });
-  writeFileSync(globalConfig, "", { mode: 0o600 });
-  const env = Object.fromEntries(
-    Object.entries(environment).filter((entry): entry is [string, string] => entry[1] !== undefined),
-  );
-  env.HOME = home;
-  env.USERPROFILE = home;
-  env.PWD = cwd;
-  env.INIT_CWD = cwd;
-  env.NPM_CONFIG_USERCONFIG = userConfig;
-  env.NPM_CONFIG_GLOBALCONFIG = globalConfig;
-  return {
-    root,
-    cwd,
-    home,
-    userConfig,
-    globalConfig,
-    env,
-    cleanup: () => rmSync(root, { recursive: true, force: true }),
-  };
-}
-
-export function npmPublishArgv(registry: string, distTag: string, absoluteTarball: string): string[] {
-  if (!absoluteTarball.startsWith("/")) throw new Error("npm publish requires an absolute tarball path");
-  return [
-    "npm",
-    "publish",
-    "--access",
-    "public",
-    "--tag",
-    distTag,
-    "--registry",
-    registry,
-    absoluteTarball,
-  ];
-}
 function sha512File(path: string): { hex: string; integrity: string } {
   const digest = createHash("sha512").update(readFileSync(path)).digest();
   return { hex: digest.toString("hex"), integrity: `sha512-${digest.toString("base64")}` };
@@ -358,28 +254,12 @@ function assertPackageInputs(packages: PackageInfo[], currentVersion: string): v
 function packageRegistryUrl(registry: string, name: string): string {
   return `${registry.replace(/\/$/, "")}/${encodeURIComponent(name)}`;
 }
-export async function readRegistryState(
-  registry: string,
-  name: string,
-  targetVersion: string,
-  request: typeof fetch = fetch,
-  signal?: AbortSignal,
-): Promise<RegistryPackageState> {
-  const response = await request(packageRegistryUrl(registry, name), {
-    headers: { accept: "application/vnd.npm.install-v1+json, application/json" },
-    signal,
-  });
-  if (response.status === 404) {
-    return { name, documentReadable: false, targetIntegrity: null, distTags: {} };
-  }
+export async function readRegistryState(registry: string, name: string, targetVersion: string, request: typeof fetch = fetch): Promise<RegistryPackageState> {
+  const response = await request(packageRegistryUrl(registry, name), { headers: { accept: "application/vnd.npm.install-v1+json, application/json" } });
+  if (response.status === 404) return { name, targetIntegrity: null, distTags: {} };
   if (!response.ok) throw new Error(`Registry query failed for ${name}: HTTP ${response.status}`);
   const document = (await response.json()) as any;
-  return {
-    name,
-    documentReadable: true,
-    targetIntegrity: document.versions?.[targetVersion]?.dist?.integrity ?? null,
-    distTags: document["dist-tags"] ?? {},
-  };
+  return { name, targetIntegrity: document.versions?.[targetVersion]?.dist?.integrity ?? null, distTags: document["dist-tags"] ?? {} };
 }
 function assertUniformNode2Latest(states: RegistryPackageState[]): Record<string, string> {
   const snapshot: Record<string, string> = {};
@@ -534,32 +414,6 @@ export function readAndVerifyBundle(artifactDir: string, expectedManifestSha512?
     if (statSync(path).size !== pkg.size) throw new Error(`Tarball size mismatch for ${pkg.name}`);
     const digest = sha512File(path);
     if (digest.hex !== pkg.sha512 || digest.integrity !== pkg.integrity) throw new Error(`Tarball digest mismatch for ${pkg.name}`);
-    const listing = Bun.spawnSync(["tar", "-tzf", path]);
-    if (listing.exitCode !== 0) throw new Error(`Cannot list tarball ${pkg.filename}`);
-    const packageJsonEntries = listing.stdout
-      .toString()
-      .split("\n")
-      .filter((entry) => entry === "package/package.json");
-    if (packageJsonEntries.length !== 1) throw new Error(`${pkg.name} tarball must contain one package/package.json`);
-    const embedded = Bun.spawnSync(["tar", "-xOzf", path, "package/package.json"]);
-    if (embedded.exitCode !== 0) throw new Error(`Cannot read embedded package manifest for ${pkg.name}`);
-    let packageManifest: any;
-    try {
-      packageManifest = JSON.parse(embedded.stdout.toString("utf8"));
-    } catch {
-      throw new Error(`Embedded package manifest for ${pkg.name} is invalid JSON`);
-    }
-    if (packageManifest.name !== pkg.name || packageManifest.version !== manifest.version) {
-      throw new Error(`Embedded package identity differs for ${pkg.name}`);
-    }
-    const repository = packageManifest.repository;
-    if (
-      repository?.type !== "git"
-      || repository?.url !== "https://github.com/effectstream/effectstream"
-      || repository?.directory !== pkg.relativeDir
-    ) {
-      throw new Error(`Embedded canonical repository directory differs for ${pkg.name}`);
-    }
   }
   const allowedFiles = ["manifest.json", ...manifest.packages.map((pkg) => `tarballs/${pkg.filename}`)].sort();
   const actualFiles = ["manifest.json", ...readdirSync(join(artifactDir, "tarballs")).map((name) => `tarballs/${name}`)].sort();
@@ -577,266 +431,59 @@ export function assertRecoveryLatestPrecondition(manifest: ReleaseManifest, stat
     } else if (latest !== before) throw new Error(`${state.name} latest differs from persisted snapshot`);
   }
 }
-
-export function assertRecoveryExistingTagPreconditions(
-  manifest: ReleaseManifest,
-  states: RegistryPackageState[],
-  existing: string[],
-): void {
-  const byName = new Map(states.map((state) => [state.name, state]));
-  for (const name of existing) {
-    const state = byName.get(name);
-    if (!state) throw new Error(`Recovery tag drift: missing registry state for ${name}`);
-    const requiredTag = state.distTags[manifest.distTag];
-    if (requiredTag !== manifest.version) {
-      throw new Error(
-        `Recovery tag drift for ${name}: ${manifest.distTag}=${requiredTag ?? "missing"}, expected ${manifest.version}`,
-      );
-    }
-    const expectedLatest = manifest.kind === "node2-stable"
-      ? manifest.version
-      : manifest.latestBefore[name];
-    if (state.distTags.latest !== expectedLatest) {
-      throw new Error(
-        `Recovery tag drift for ${name}: latest=${state.distTags.latest ?? "missing"}, expected ${expectedLatest}`,
-      );
-    }
-  }
+async function setDistTag(name: string, version: string, distTag: string, registry: string): Promise<void> {
+  const token = process.env.NPM_TOKEN ?? process.env.BUN_AUTH_TOKEN;
+  if (!token) throw new Error("NPM_TOKEN is required to set dist-tags");
+  const response = await fetch(
+    `${registry.replace(/\/$/, "")}/-/package/${encodeURIComponent(name)}/dist-tags/${encodeURIComponent(distTag)}`,
+    {
+      method: "PUT",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(version),
+    },
+  );
+  if (!response.ok) throw new Error(`Failed to set ${name} ${distTag}: HTTP ${response.status}`);
 }
-
-export class RegistryVisibilityTimeoutError extends Error {
-  pending: string[];
-
-  constructor(pending: string[]) {
-    super(`Registry visibility deadline expired for ${pending.join(", ")}`);
-    this.name = "RegistryVisibilityTimeoutError";
-    this.pending = [...pending];
-  }
-}
-
-function assertVisibleRegistryPostcondition(
-  manifest: ReleaseManifest,
-  pkg: ManifestPackage,
-  state: RegistryPackageState,
-): "pending" | "verified" {
-  if (!state.documentReadable) return "pending";
-  if (state.targetIntegrity === null) {
-    const expectedLatestBeforeVisibility = manifest.latestBefore[pkg.name];
-    if (state.distTags.latest !== expectedLatestBeforeVisibility) {
-      throw new Error(
-        `Post-publish hidden target latest conflict for ${pkg.name}: latest=${state.distTags.latest ?? "missing"}, expected pre-state ${expectedLatestBeforeVisibility}`,
-      );
-    }
-    if (state.distTags[manifest.distTag] === manifest.version) {
-      throw new Error(
-        `Post-publish hidden target tag conflict for ${pkg.name}: ${manifest.distTag} points at unavailable ${manifest.version}`,
-      );
-    }
-    return "pending";
-  }
-  if (state.targetIntegrity !== pkg.integrity) {
-    throw new Error(`Post-publish integrity mismatch for ${pkg.name}`);
-  }
-  const requiredTag = state.distTags[manifest.distTag];
-  if (requiredTag !== manifest.version) {
-    throw new Error(
-      `Post-publish tag conflict for ${pkg.name}: ${manifest.distTag}=${requiredTag ?? "missing"}, expected ${manifest.version}`,
-    );
-  }
-  const expectedLatest = manifest.kind === "node2-stable"
-    ? manifest.version
-    : manifest.latestBefore[pkg.name];
-  if (state.distTags.latest !== expectedLatest) {
-    throw new Error(
-      `Post-publish latest conflict for ${pkg.name}: latest=${state.distTags.latest ?? "missing"}, expected ${expectedLatest}`,
-    );
-  }
-  return "verified";
-}
-
-export async function pollRegistryPostconditions(
-  manifest: ReleaseManifest,
-  options: {
-    registry: string;
-    timeoutMs?: number;
-    initialBackoffMs?: number;
-    maxBackoffMs?: number;
-    read?: RegistryReader;
-    now?: () => number;
-    sleep?: (milliseconds: number) => Promise<void>;
-    raceRound?: RegistryRoundRace;
-    onVerified?: (name: string) => void;
-  },
-): Promise<void> {
-  const timeoutMs = options.timeoutMs ?? DEFAULT_VISIBILITY_TIMEOUT_MS;
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("Visibility timeout must be positive");
-  const read = options.read
-    ?? ((registry, name, version, signal) => readRegistryState(registry, name, version, fetch, signal));
-  const now = options.now ?? (() => performance.now());
-  const sleep = options.sleep ?? ((milliseconds) => Bun.sleep(milliseconds));
-  const raceRound: RegistryRoundRace = options.raceRound ?? (async (work, remainingMs, onTimeout) => {
-    return await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        onTimeout();
-        reject(new Error("Registry read round deadline expired"));
-      }, remainingMs);
-      work.then(
-        (value) => {
-          clearTimeout(timer);
-          resolve(value);
-        },
-        (error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
-      );
-    });
-  });
-  const maxBackoffMs = options.maxBackoffMs ?? 5_000;
-  let backoffMs = options.initialBackoffMs ?? 250;
-  const deadline = now() + timeoutMs;
-  let pending = new Set(manifest.packages.map((pkg) => pkg.name));
-  const pendingNames = () => manifest.packages
-    .filter((pkg) => pending.has(pkg.name))
-    .map((pkg) => pkg.name);
-
-  while (pending.size > 0) {
-    const remainingBeforeRead = deadline - now();
-    if (remainingBeforeRead <= 0) {
-      throw new RegistryVisibilityTimeoutError(pendingNames());
-    }
-    const round = manifest.packages;
-    const controller = new AbortController();
-    let timedOut = false;
-    let states: RegistryPackageState[];
-    try {
-      states = await raceRound(
-        Promise.all(
-          round.map((pkg) => read(options.registry, pkg.name, manifest.version, controller.signal)),
-        ),
-        remainingBeforeRead,
-        () => {
-          timedOut = true;
-          controller.abort();
-        },
-      );
-    } catch (error) {
-      if (timedOut) throw new RegistryVisibilityTimeoutError(pendingNames());
-      controller.abort();
-      throw error;
-    }
-    if (timedOut || now() >= deadline) {
-      controller.abort();
-      throw new RegistryVisibilityTimeoutError(pendingNames());
-    }
-
-    const nextPending = new Set<string>();
-    for (let index = 0; index < round.length; index++) {
-      const pkg = round[index];
-      const state = states[index];
-      if (state.name !== pkg.name) throw new Error(`Registry reader returned ${state.name} for ${pkg.name}`);
-      if (assertVisibleRegistryPostcondition(manifest, pkg, state) === "pending") {
-        nextPending.add(pkg.name);
-      } else if (pending.has(pkg.name)) {
-        options.onVerified?.(pkg.name);
-      }
-    }
-    if (nextPending.size === 0) return;
-    pending = nextPending;
-    const remaining = deadline - now();
-    if (remaining <= 0) {
-      throw new RegistryVisibilityTimeoutError(pendingNames());
-    }
-    const delay = Math.min(backoffMs, remaining);
-    await sleep(delay);
-    backoffMs = Math.min(maxBackoffMs, backoffMs * 2);
-  }
-}
-
-export async function publishFromBundle(options: {
-  artifactDir: string;
-  registry: string;
-  recovery: boolean;
-  publish: boolean;
-  manifestSha512?: string;
-  visibilityTimeoutMs?: number;
-  environment?: Record<string, string | undefined>;
-  dependencies?: PublishDependencies;
-}): Promise<{ published: string[]; skipped: string[] }> {
+export async function publishFromBundle(options: { artifactDir: string; registry: string; recovery: boolean; publish: boolean; manifestSha512?: string }): Promise<{ published: string[]; skipped: string[] }> {
   const manifest = readAndVerifyBundle(options.artifactDir, options.manifestSha512);
   const results: { name: string; status: string }[] = [];
   const writeResults = () => writeFileSync(`${options.artifactDir}.publish-result.json`, canonicalJson({ releaseTag: manifest.releaseTag, sourceSha: manifest.sourceSha, recovery: options.recovery, packages: results }));
-  const setResult = (name: string, status: string) => {
-    const current = results.find((item) => item.name === name);
-    if (current) current.status = status;
-    else results.push({ name, status });
-    writeResults();
-  };
   writeResults();
-  const read = options.dependencies?.read
-    ?? ((registry: string, name: string, version: string, signal?: AbortSignal) =>
-      readRegistryState(registry, name, version, fetch, signal));
-  const states = await Promise.all(manifest.packages.map((pkg) => read(options.registry, pkg.name, manifest.version)));
+  const states = await Promise.all(manifest.packages.map((pkg) => readRegistryState(options.registry, pkg.name, manifest.version)));
   if (options.recovery) assertRecoveryLatestPrecondition(manifest, states);
   const completion = planRegistryCompletion(manifest, states, options.recovery);
-  if (options.recovery) assertRecoveryExistingTagPreconditions(manifest, states, completion.existing);
   const published: string[] = [];
   results.push(...completion.existing.map((name) => ({ name, status: "skipped-exact" })));
   writeResults();
-  let sandbox: NpmExecutionSandbox | undefined;
-  try {
-    if (options.publish && completion.missing.length > 0) {
-      sandbox = createNpmExecutionSandbox(options.environment ?? process.env);
-    }
-    const spawn: NpmSpawn = options.dependencies?.spawn ?? (async (argv, execution) => {
-      const proc = Bun.spawn(argv, {
-        cwd: execution.cwd,
-        stdout: "inherit",
-        stderr: "inherit",
-        env: execution.env,
-      });
-      return await proc.exited;
-    });
-    for (const name of completion.missing) {
-      const pkg = manifest.packages.find((candidate) => candidate.name === name)!;
-      if (options.publish) {
-        const absoluteTarball = resolve(options.artifactDir, "tarballs", pkg.filename);
-        const exitCode = await spawn(
-          npmPublishArgv(options.registry, manifest.distTag, absoluteTarball),
-          { cwd: sandbox!.cwd, env: sandbox!.env },
-        );
-        if (exitCode !== 0) {
-          setResult(name, "failed");
-          throw new Error(`Publish failed for ${name}; stopping`);
-        }
+  for (const name of completion.missing) {
+    const pkg = manifest.packages.find((candidate) => candidate.name === name)!;
+    if (options.publish) {
+      const command = options.recovery ? "bun" : "npm";
+      const env = options.recovery ? process.env : { ...process.env, NPM_CONFIG_FETCH_RETRIES: "0" };
+      const proc = Bun.spawn([command, "publish", "--access", "public", "--tag", manifest.distTag, "--registry", options.registry, join(options.artifactDir, "tarballs", pkg.filename)], { cwd: ROOT, stdout: "inherit", stderr: "inherit", env });
+      if ((await proc.exited) !== 0) {
+        results.push({ name, status: "failed" });
+        writeResults();
+        throw new Error(`Publish failed for ${name}; stopping`);
       }
-      published.push(name);
-      setResult(name, options.publish ? "accepted" : "would-publish");
     }
-    if (!options.publish) return { published, skipped: completion.existing };
-    try {
-      await pollRegistryPostconditions(manifest, {
-        registry: options.registry,
-        timeoutMs: options.visibilityTimeoutMs,
-        read,
-        now: options.dependencies?.now,
-        sleep: options.dependencies?.sleep,
-        raceRound: options.dependencies?.raceRound,
-        onVerified: (name) => {
-          const result = results.find((item) => item.name === name);
-          if (result?.status === "accepted") setResult(name, "verified");
-        },
-      });
-    } catch (error) {
-      if (error instanceof RegistryVisibilityTimeoutError) {
-        for (const name of error.pending) setResult(name, "visibility-timeout");
-      }
-      throw error;
-    }
-    return { published, skipped: completion.existing };
-  } finally {
-    sandbox?.cleanup();
+    published.push(name);
+    results.push({ name, status: options.publish ? "published" : "would-publish" });
+    writeResults();
   }
+  if (!options.publish) return { published, skipped: completion.existing };
+  const complete = await Promise.all(manifest.packages.map((pkg) => readRegistryState(options.registry, pkg.name, manifest.version)));
+  for (const pkg of manifest.packages) {
+    const state = complete.find((candidate) => candidate.name === pkg.name)!;
+    if (state.targetIntegrity !== pkg.integrity) throw new Error(`Post-publish integrity mismatch for ${pkg.name}`);
+  }
+  if (options.recovery) for (const pkg of manifest.packages) await setDistTag(pkg.name, manifest.version, manifest.distTag, options.registry);
+  const post = await Promise.all(manifest.packages.map((pkg) => readRegistryState(options.registry, pkg.name, manifest.version)));
+  verifyLatestPostcondition(manifest, post);
+  return { published, skipped: completion.existing };
 }
 
 export type RecoveryMode = "partial-tag" | "complete-tag" | "partial-advanced" | "complete-advanced";
@@ -883,9 +530,6 @@ async function applyRecoveryVersionDelta(manifest: ReleaseManifest, mode: Recove
 
 async function cli(): Promise<void> {
   const registry = getFlagValue("--registry") ?? "https://registry.npmjs.org";
-  const visibilityTimeoutMs = Number(
-    getFlagValue("--visibility-timeout-ms") ?? DEFAULT_VISIBILITY_TIMEOUT_MS,
-  );
   if (process.argv.includes("--policy")) {
     console.log(canonicalJson(resolveReleasePolicy(requireFlag("--release-tag"), getFlagValue("--source-branch"), getFlagValue("--dist-tag"), getFlagValue("--github-prerelease") === undefined ? undefined : getFlagValue("--github-prerelease") === "true")).trim());
     return;
@@ -902,7 +546,7 @@ async function cli(): Promise<void> {
     return;
   }
   if (process.argv.includes("--publish-bundle")) {
-    console.log(canonicalJson(await publishFromBundle({ artifactDir: requireFlag("--artifact-dir"), registry, recovery: false, publish: process.argv.includes("--publish"), manifestSha512: getFlagValue("--manifest-sha512"), visibilityTimeoutMs })).trim());
+    console.log(canonicalJson(await publishFromBundle({ artifactDir: requireFlag("--artifact-dir"), registry, recovery: false, publish: process.argv.includes("--publish"), manifestSha512: getFlagValue("--manifest-sha512") })).trim());
     return;
   }
   if (process.argv.includes("--validate-recovery-branch")) {
@@ -928,7 +572,7 @@ async function cli(): Promise<void> {
     const completion = planRegistryCompletion(manifest, states, true);
     const observed = classifyRecoveryMode(completion.missing.length > 0, expectedCurrentBranchSha !== manifest.sourceSha);
     if (requested !== observed) throw new Error(`Recovery mode ${requested} differs from observed ${observed}`);
-    const result = await publishFromBundle({ artifactDir, registry, recovery: true, publish: process.argv.includes("--publish"), manifestSha512, visibilityTimeoutMs });
+    const result = await publishFromBundle({ artifactDir, registry, recovery: true, publish: process.argv.includes("--publish"), manifestSha512 });
     if (process.argv.includes("--publish")) await applyRecoveryVersionDelta(manifest, requested, expectedCurrentBranchSha);
     const final = { originalRunId: manifest.workflow.runId, recoveryRunId: process.env.GITHUB_RUN_ID ?? "local", artifactId: getFlagValue("--artifact-id") ?? "local", serviceDigest: getFlagValue("--service-digest") ?? "local", manifestSha512, recoveryMode: requested, releaseTag: manifest.releaseTag, version: manifest.version, branch: manifest.branch, distTag: manifest.distTag, published: result.published, skipped: result.skipped, sourceSha: manifest.sourceSha, currentBranchSha: expectedCurrentBranchSha, latestPostcondition: process.argv.includes("--publish") ? "verified" : "dry-run", auditRef, authorizationRef };
     writeFileSync(`${artifactDir}.recovery-result.json`, canonicalJson(final));

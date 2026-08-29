@@ -52,5 +52,5 @@ jobs:
             echo "- immutable artifact ID: $ARTIFACT_ID"
             echo "- service digest: $SERVICE_DIGEST"
             echo "- proof digests input: $MANIFEST_SHA256:$PAYLOAD_SHA256"
-            echo '- consumer: dispatch release.yaml in artifact-proof mode from an independent run.'
+            echo '- consumer: dispatch release recovery in artifact-proof mode from an independent run.'
           } >> "$GITHUB_STEP_SUMMARY"
