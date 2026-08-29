@@ -12,6 +12,8 @@ export * from "./bitcoin/state.ts";
 
 export * from "./ntp/fetcher.ts";
 export * from "./ntp/state.ts";
+export { getNtpTip, NtpTipError } from "./ntp/tip.ts";
+export type { GetNtpTipOptions, NtpTip, NtpTipErrorCode } from "./ntp/tip.ts";
 
 export * from "./utxorpc/fetcher.ts";
 export * from "./utxorpc/state.ts";

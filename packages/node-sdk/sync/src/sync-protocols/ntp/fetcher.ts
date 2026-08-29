@@ -6,7 +6,11 @@ import {
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Operation } from "effection";
 import { all, call, until } from "effection";
-import { bound, type NtpBlockHash, type NtpPageJson } from "@effectstream/utils";
+import {
+  bound,
+  type NtpBlockHash,
+  type NtpPageJson,
+} from "@effectstream/utils";
 import { blockNumberRelation } from "../common/utils.ts";
 import type { Input, Output, Page, PrimitiveType } from "./types.ts";
 import {
@@ -24,11 +28,7 @@ import type {
   SyncProtocolWithNetwork,
 } from "@effectstream/config";
 import type { ConfigSyncProtocolType } from "@effectstream/config";
-import { NtpTimeSync, type NtpTimeSyncDefaultOptions } from "ntp-time-sync";
-
-type RecursivePartial<T> = {
-  [P in keyof T]?: RecursivePartial<T[P]>;
-};
+import { NtpTimeSync } from "ntp-time-sync";
 
 export class NtpFetcher
   extends BaseDataFetcher<Input, Output, RootOutput, Page, RootPage>
@@ -40,7 +40,8 @@ export class NtpFetcher
       PrimitiveType,
       ConfigSyncProtocolType.NTP_MAIN
     >,
-    PaginatedFetcher<Page> {
+    PaginatedFetcher<Page>
+{
   readonly ntpTimeSync: NtpTimeSync;
   constructor(
     readonly config: Extract<
@@ -50,17 +51,15 @@ export class NtpFetcher
   ) {
     super(config.syncProtocol.name);
 
-    const options: RecursivePartial<typeof NtpTimeSyncDefaultOptions> = {
+    const options = {
       ntpDefaults: {
         minPoll: 10,
       },
+      ...(config.network.servers?.length
+        ? { servers: [...config.network.servers] }
+        : {}),
     };
-    if (config.network.servers && config.network.servers.length) {
-      options.servers = config.network.servers;
-    }
-    // Cannot select options
-    // https://github.com/buffcode/ntp-time-sync/issues/104
-    this.ntpTimeSync = NtpTimeSync.getInstance();
+    this.ntpTimeSync = new NtpTimeSync(options);
   }
 
   @bound
@@ -125,7 +124,7 @@ export class NtpFetcher
         own: Number(data.to),
         root: rootConversion.toRootPage({
           blockHashes: [] as NtpBlockHash[],
-          raw: (yield* call(() => pageFetcher(Number(data.to)))),
+          raw: yield* call(() => pageFetcher(Number(data.to))),
         }),
       },
     };
@@ -152,15 +151,13 @@ export class NtpFetcher
   }
 
   @bound
-  *getLatestPage(
-    knownLastPage: undefined | Page,
-  ): Operation<Page> {
+  *getLatestPage(knownLastPage: undefined | Page): Operation<Page> {
     const self = this;
     return yield* fetchNewestPage<Page>(
       blockNumberRelation,
       function* (): Operation<Page> {
         const result = yield* until(self.ntpTimeSync.getTime());
-        if (result.offset > 5000) {
+        if (Math.abs(result.offset) > 5000) {
           console.error(
             `NTP offset is higher than 5[s]. Please check your NTP server & system time configuration.
 NTP time: ${result.now}
