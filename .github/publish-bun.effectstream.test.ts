@@ -632,6 +632,281 @@ describe("workflow invariants", () => {
     return body.join("\n");
   }
 
+  type WorkflowSources = Map<string, string>;
+
+  function currentLiteralBoundaryViolations(sources: WorkflowSources): string[] {
+    const violations: string[] = [];
+    if (canonicalJson([...sources.keys()].sort()) !== canonicalJson([
+      "main.yaml",
+      "release-artifact-rehearsal.yaml",
+      "release.yaml",
+    ])) violations.push("unexpected workflow file set");
+
+    for (const [name, source] of sources) {
+      for (const forbidden of [
+        "NPM_TOKEN",
+        "BUN_AUTH_TOKEN",
+        "NPM_CONFIG_TOKEN",
+        "NODE_AUTH_TOKEN",
+        "_authToken",
+        ".npmrc",
+        "Configure npm auth",
+      ]) if (source.includes(forbidden)) violations.push(`${name} contains ${forbidden}`);
+      for (const match of source.matchAll(/uses:\s+([^\s#]+)/g)) {
+        if (!/@[0-9a-f]{40}$/.test(match[1])) violations.push(`${name} has a mutable action pin`);
+      }
+      if (name !== "release.yaml") {
+        if (source.includes("id-token: write")) violations.push(`${name} grants OIDC`);
+        if (/--publish(?:-bundle)?\b/.test(source)) violations.push(`${name} publishes`);
+        if (source.includes("--recover-bundle")) violations.push(`${name} recovers`);
+        if (/\bgit push\b/.test(source)) violations.push(`${name} pushes release state`);
+      }
+    }
+
+    const releaseSource = sources.get("release.yaml")!;
+    const publish = jobBlock(releaseSource, "publish", "artifact-proof");
+    const proof = jobBlock(releaseSource, "artifact-proof", "recover");
+    const recover = jobBlock(releaseSource, "recover");
+    if ((publish.match(/id-token:\s*write/g) ?? []).length !== 1) violations.push("publish OIDC count");
+    if ((recover.match(/id-token:\s*write/g) ?? []).length !== 1) violations.push("recover OIDC count");
+    if (proof.includes("id-token: write")) violations.push("proof grants OIDC");
+    if ((publish.match(/--publish-bundle --publish/g) ?? []).length !== 1) violations.push("publish entry count");
+    if ((recover.match(/--recover-bundle --publish/g) ?? []).length !== 1) violations.push("recover entry count");
+    if ((publish.match(/\bgit push\b/g) ?? []).length !== 1) violations.push("publish push count");
+    if ((recover.match(/\bgit push\b/g) ?? []).length !== 1) violations.push("recover push count");
+    if (/--publish|--recover-bundle|\bgit push\b/.test(proof)) violations.push("proof mutation");
+    return violations;
+  }
+
+  type WorkflowRecord = Record<string, unknown>;
+
+  function workflowRecord(value: unknown, label: string): WorkflowRecord {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error(`${label} must be an object`);
+    }
+    return value as WorkflowRecord;
+  }
+
+  function normalizedProperty(
+    object: WorkflowRecord,
+    expectedKey: string,
+    label: string,
+  ): unknown {
+    const matches = Object.entries(object)
+      .filter(([key]) => key.toLowerCase() === expectedKey.toLowerCase());
+    if (matches.length > 1) throw new Error(`${label} has duplicate ${expectedKey} keys`);
+    return matches[0]?.[1];
+  }
+
+  function assertNoLegacyAuthIndicators(value: unknown, label: string): void {
+    const reject = (candidate: string, candidateLabel: string) => {
+      const normalized = candidate.toLowerCase();
+      if (
+        /(?:^|[^a-z0-9])(?:npm_token|bun_auth_token|node_auth_token|npm_config(?:_[a-z0-9_]*)?|_authtoken)(?:$|[^a-z0-9])/.test(normalized)
+        || normalized.includes(".npmrc")
+        || /configure\s+npm\s+auth/.test(normalized)
+      ) throw new Error(`${candidateLabel} contains a forbidden npm auth/config indicator`);
+    };
+
+    if (typeof value === "string") {
+      reject(value, label);
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => assertNoLegacyAuthIndicators(item, `${label}[${index}]`));
+      return;
+    }
+    if (value !== null && typeof value === "object") {
+      for (const [key, child] of Object.entries(value)) {
+        reject(key, `${label} key`);
+        assertNoLegacyAuthIndicators(child, `${label}.${key}`);
+      }
+    }
+  }
+
+  function shellSegments(run: string): string[][] {
+    const joined = run.replace(/\\\r?\n\s*/g, " ");
+    return joined.split(/\r?\n|&&|\|\||[;|]/).map((segment) => (
+      segment.match(/"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^\s]+/g)
+        ?.map((word) => word.replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/, "$1$2")) ?? []
+    ));
+  }
+
+  function shellInvokes(run: string, command: "npm" | "git", subcommand: "publish" | "push"): boolean {
+    for (const words of shellSegments(run)) {
+      const commandIndex = words.findIndex((word) => word === command || word.endsWith(`/${command}`));
+      if (commandIndex >= 0 && words.slice(commandIndex + 1).includes(subcommand)) return true;
+    }
+    return false;
+  }
+
+  function publisherEntrypoints(run: string): { ordinary: boolean; recovery: boolean } {
+    let ordinary = false;
+    let recovery = false;
+    for (const words of shellSegments(run)) {
+      const publisherIndex = words.findIndex((word) =>
+        word === ".github/publish-bun.effectstream.ts"
+        || word.endsWith("/.github/publish-bun.effectstream.ts"));
+      if (publisherIndex < 0) continue;
+      const args = words.slice(publisherIndex + 1);
+      if (!args.includes("--publish")) continue;
+      ordinary ||= args.includes("--publish-bundle");
+      recovery ||= args.includes("--recover-bundle");
+    }
+    return { ordinary, recovery };
+  }
+
+  function assertWorkflowBoundary(sources: WorkflowSources): void {
+    const expectedFiles = ["main.yaml", "release-artifact-rehearsal.yaml", "release.yaml"];
+    const actualFiles = [...sources.keys()].sort();
+    if (canonicalJson(actualFiles) !== canonicalJson(expectedFiles)) {
+      throw new Error(`unexpected workflow file set: ${actualFiles.join(", ")}`);
+    }
+
+    const actions: string[] = [];
+    const oidc: string[] = [];
+    const ordinaryPublishers: string[] = [];
+    const recoveryPublishers: string[] = [];
+    const directPublishes: string[] = [];
+    const releasePushes: string[] = [];
+    let proofJob: WorkflowRecord | undefined;
+
+    const inspectPermissions = (
+      permissionsValue: unknown,
+      location: string,
+    ) => {
+      const permissions = workflowRecord(permissionsValue, `${location} permissions`);
+      for (const [permission, access] of Object.entries(permissions)) {
+        if (typeof access !== "string") throw new Error(`${location} permission ${permission} must be a string`);
+        if (permission.toLowerCase() === "id-token" && access.toLowerCase() === "write") {
+          oidc.push(location);
+          if (location !== "release.yaml#publish" && location !== "release.yaml#recover") {
+            throw new Error(`${location} may not grant id-token: write`);
+          }
+        }
+      }
+    };
+
+    const inspectUses = (usesValue: unknown, location: string) => {
+      if (typeof usesValue !== "string") throw new Error(`${location} uses must be a string`);
+      if (!/^[^@\s]+\/[^@\s]+@[0-9a-f]{40}$/.test(usesValue)) {
+        throw new Error(`${location} action must use an exact lowercase 40-hex commit`);
+      }
+      actions.push(`${location}:${usesValue}`);
+    };
+
+    for (const [filename, source] of sources) {
+      const root = workflowRecord(Bun.YAML.parse(source), `${filename} root`);
+      assertNoLegacyAuthIndicators(root, filename);
+
+      const rootPermissions = normalizedProperty(root, "permissions", `${filename} root`);
+      if (rootPermissions === undefined) throw new Error(`${filename} root permissions are required`);
+      inspectPermissions(rootPermissions, `${filename}#workflow`);
+
+      const jobsValue = normalizedProperty(root, "jobs", `${filename} root`);
+      const jobs = workflowRecord(jobsValue, `${filename} jobs`);
+      for (const [jobId, jobValue] of Object.entries(jobs)) {
+        const location = `${filename}#${jobId}`;
+        const job = workflowRecord(jobValue, `${location} job`);
+        if (location === "release.yaml#artifact-proof") proofJob = job;
+
+        const permissions = normalizedProperty(job, "permissions", `${location} job`);
+        if (permissions !== undefined) inspectPermissions(permissions, location);
+
+        const jobUses = normalizedProperty(job, "uses", `${location} job`);
+        if (jobUses !== undefined) inspectUses(jobUses, `${location} job`);
+
+        const stepsValue = normalizedProperty(job, "steps", `${location} job`);
+        if (!Array.isArray(stepsValue)) throw new Error(`${location} steps must be an array`);
+        stepsValue.forEach((stepValue, index) => {
+          const stepLocation = `${location} step ${index + 1}`;
+          const step = workflowRecord(stepValue, stepLocation);
+          const uses = normalizedProperty(step, "uses", stepLocation);
+          if (uses !== undefined) inspectUses(uses, stepLocation);
+          const run = normalizedProperty(step, "run", stepLocation);
+          if (run === undefined) return;
+          if (typeof run !== "string") throw new Error(`${stepLocation} run must be a string`);
+
+          const entrypoints = publisherEntrypoints(run);
+          if (entrypoints.ordinary) {
+            ordinaryPublishers.push(location);
+            if (location !== "release.yaml#publish") throw new Error(`${location} may not publish a prepared bundle`);
+          }
+          if (entrypoints.recovery) {
+            recoveryPublishers.push(location);
+            if (location !== "release.yaml#recover") throw new Error(`${location} may not recover a bundle`);
+          }
+          if (shellInvokes(run, "npm", "publish")) {
+            directPublishes.push(location);
+            if (location !== "release.yaml#publish" && location !== "release.yaml#recover") {
+              throw new Error(`${location} may not invoke npm publish`);
+            }
+          }
+          if (shellInvokes(run, "git", "push")) {
+            releasePushes.push(location);
+            if (location !== "release.yaml#publish" && location !== "release.yaml#recover") {
+              throw new Error(`${location} may not push release state`);
+            }
+          }
+        });
+      }
+    }
+
+    const expectLocations = (actual: string[], expected: string[], label: string) => {
+      if (canonicalJson(actual) !== canonicalJson(expected)) {
+        throw new Error(`${label} locations differ: ${actual.join(", ")}`);
+      }
+    };
+    if (actions.length !== 21) throw new Error(`expected exactly 21 pinned actions, found ${actions.length}`);
+    expectLocations(oidc, ["release.yaml#publish", "release.yaml#recover"], "OIDC");
+    expectLocations(ordinaryPublishers, ["release.yaml#publish"], "ordinary publisher");
+    expectLocations(recoveryPublishers, ["release.yaml#recover"], "recovery publisher");
+    expectLocations(directPublishes, [], "direct npm publish");
+    expectLocations(releasePushes, ["release.yaml#publish", "release.yaml#recover"], "release push");
+
+    if (!proofJob) throw new Error("release.yaml#artifact-proof is required");
+    const proofPermissions = workflowRecord(
+      normalizedProperty(proofJob, "permissions", "release.yaml#artifact-proof"),
+      "release.yaml#artifact-proof permissions",
+    );
+    if (proofPermissions.actions !== "read" || proofPermissions.contents !== "read") {
+      throw new Error("artifact-proof must retain exact read-only permissions");
+    }
+    if (normalizedProperty(proofJob, "environment", "release.yaml#artifact-proof") !== undefined) {
+      throw new Error("artifact-proof may not use an environment");
+    }
+    const proofSteps = normalizedProperty(proofJob, "steps", "release.yaml#artifact-proof") as unknown[];
+    if (proofSteps.some((step) => {
+      const object = workflowRecord(step, "release.yaml#artifact-proof step");
+      const uses = normalizedProperty(object, "uses", "release.yaml#artifact-proof step");
+      return typeof uses === "string" && uses.toLowerCase().startsWith("actions/checkout@");
+    })) throw new Error("artifact-proof may not check out source");
+  }
+
+  function currentWorkflowSources(): WorkflowSources {
+    return new Map(workflowFiles.map((name) => [name, readFileSync(join(workflows, name), "utf8")]));
+  }
+
+  function withAppendedJob(
+    sources: WorkflowSources,
+    workflow: string,
+    job: string,
+  ): WorkflowSources {
+    const changed = new Map(sources);
+    changed.set(workflow, `${changed.get(workflow)!.trimEnd()}\n${job}\n`);
+    return changed;
+  }
+
+  function replaceWorkflow(
+    sources: WorkflowSources,
+    workflow: string,
+    transform: (source: string) => string,
+  ): WorkflowSources {
+    const changed = new Map(sources);
+    changed.set(workflow, transform(changed.get(workflow)!));
+    return changed;
+  }
+
   test("one release.yaml caller owns mutually exclusive release, proof, and recovery jobs", () => {
     expect(release).toContain("release:");
     expect(release).toContain("workflow_dispatch:");
@@ -706,41 +981,138 @@ describe("workflow invariants", () => {
       "release-artifact-rehearsal.yaml",
       "release.yaml",
     ]);
-    const sources = new Map(
-      workflowFiles.map((name) => [name, readFileSync(join(workflows, name), "utf8")]),
-    );
-    for (const [name, source] of sources) {
-      for (const forbidden of [
-        "NPM_TOKEN",
-        "BUN_AUTH_TOKEN",
-        "NPM_CONFIG_TOKEN",
-        "NODE_AUTH_TOKEN",
-        "_authToken",
-        ".npmrc",
-        "Configure npm auth",
-      ]) expect(source, `${name} contains ${forbidden}`).not.toContain(forbidden);
-      for (const match of source.matchAll(/uses:\s+([^\s#]+)/g)) {
-        expect(match[1], `${name} has a mutable action pin`).toMatch(/@[0-9a-f]{40}$/);
-      }
-      if (name !== "release.yaml") {
-        expect(source, `${name} grants OIDC`).not.toContain("id-token: write");
-        expect(source, `${name} publishes`).not.toMatch(/--publish(?:-bundle)?\b/);
-        expect(source, `${name} recovers`).not.toContain("--recover-bundle");
-        expect(source, `${name} pushes release state`).not.toMatch(/\bgit push\b/);
-      }
-    }
+    assertWorkflowBoundary(currentWorkflowSources());
+  });
 
-    const publish = jobBlock(release, "publish", "artifact-proof");
-    const proof = jobBlock(release, "artifact-proof", "recover");
-    const recover = jobBlock(release, "recover");
-    expect(publish.match(/id-token:\s*write/g)).toHaveLength(1);
-    expect(recover.match(/id-token:\s*write/g)).toHaveLength(1);
-    expect(proof).not.toContain("id-token: write");
-    expect(publish.match(/--publish-bundle --publish/g)).toHaveLength(1);
-    expect(recover.match(/--recover-bundle --publish/g)).toHaveLength(1);
-    expect(publish.match(/\bgit push\b/g)).toHaveLength(1);
-    expect(recover.match(/\bgit push\b/g)).toHaveLength(1);
-    expect(proof).not.toMatch(/--publish|--recover-bundle|\bgit push\b/);
+  test.each([
+    [
+      "quoted workflow-level OIDC permission",
+      () => replaceWorkflow(currentWorkflowSources(), "main.yaml", (source) => source.replace(
+        "permissions:\n  contents: read\n",
+        "permissions:\n  contents: read\n  \"id-token\" : \"write\"\n",
+      )),
+    ],
+    [
+      "quoted and spacing-equivalent OIDC permission",
+      () => withAppendedJob(currentWorkflowSources(), "main.yaml", `  quoted-oidc:
+    permissions:
+      "id-token" : "write"
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo quoted-oidc`),
+    ],
+    [
+      "quoted mutable action reference",
+      () => withAppendedJob(currentWorkflowSources(), "main.yaml", `  mutable-action:
+    runs-on: ubuntu-22.04
+    steps:
+      - "uses" : "actions/checkout@v4"`),
+    ],
+    [
+      "case-varied legacy npm auth and config indicators",
+      () => withAppendedJob(currentWorkflowSources(), "main.yaml", `  legacy-auth:
+    runs-on: ubuntu-22.04
+    env:
+      nPm_ToKeN: sentinel
+      NpM_CoNfIg_ReGiStRy: https://registry.example.test
+    steps:
+      - run: printf sentinel > .NPMRC && echo _AUTHTOKEN`),
+    ],
+    [
+      "direct npm publication",
+      () => withAppendedJob(currentWorkflowSources(), "main.yaml", `  direct-publish:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: npm --registry https://registry.example.test publish exact.tgz`),
+    ],
+    [
+      "git options before release-state push",
+      () => withAppendedJob(currentWorkflowSources(), "main.yaml", `  option-push:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: git -C /work push origin HEAD:refs/heads/v-next`),
+    ],
+    [
+      "ordinary publisher entry point moved into an unauthorized job",
+      () => replaceWorkflow(currentWorkflowSources(), "release.yaml", (source) => source
+        .replace(
+          "          bun run .github/publish-bun.effectstream.ts --publish-bundle --publish \\\n",
+          "          echo 'publication delegated to the next job'\n",
+        )
+        .replace(
+          "  artifact-proof:\n",
+          `  ordinary-backdoor:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: bun run .github/publish-bun.effectstream.ts --publish-bundle --publish
+
+  artifact-proof:
+`,
+        )),
+    ],
+    [
+      "recovery entry point moved into a job appended after recover",
+      () => withAppendedJob(
+        replaceWorkflow(currentWorkflowSources(), "release.yaml", (source) => source.replace(
+          "          bun run .github/publish-bun.effectstream.ts --recover-bundle --publish \\\n",
+          "          echo 'recovery delegated to the appended job'\n",
+        )),
+        "release.yaml",
+        `  recovery-backdoor:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: bun run .github/publish-bun.effectstream.ts --recover-bundle --publish`,
+      ),
+    ],
+    [
+      "quoted publisher path and flags in an appended unauthorized job",
+      () => withAppendedJob(currentWorkflowSources(), "release.yaml", `  quoted-publisher-backdoor:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: bun run ".github/publish-bun.effectstream.ts" "--publish-bundle" "--publish"`),
+    ],
+    [
+      "non-object workflow root",
+      () => replaceWorkflow(currentWorkflowSources(), "main.yaml", () => "- jobs\n- steps\n"),
+    ],
+    [
+      "non-object jobs collection",
+      () => replaceWorkflow(currentWorkflowSources(), "main.yaml", () => "permissions: {}\njobs: []\n"),
+    ],
+    [
+      "non-object job definition",
+      () => replaceWorkflow(currentWorkflowSources(), "main.yaml", () => "permissions: {}\njobs:\n  malformed: scalar\n"),
+    ],
+    [
+      "non-object permissions",
+      () => replaceWorkflow(currentWorkflowSources(), "main.yaml", () => "permissions: []\njobs:\n  malformed:\n    steps: []\n"),
+    ],
+    [
+      "non-array steps",
+      () => replaceWorkflow(currentWorkflowSources(), "main.yaml", () => "permissions: {}\njobs:\n  malformed:\n    steps: {}\n"),
+    ],
+    [
+      "non-string uses",
+      () => replaceWorkflow(currentWorkflowSources(), "main.yaml", () => "permissions: {}\njobs:\n  malformed:\n    steps:\n      - \"uses\": []\n"),
+    ],
+    [
+      "non-string run",
+      () => replaceWorkflow(currentWorkflowSources(), "main.yaml", () => "permissions: {}\njobs:\n  malformed:\n    steps:\n      - run: []\n"),
+    ],
+  ] as const)("structural oracle rejects %s", (_name, fixture) => {
+    const sources = fixture();
+    expect(currentLiteralBoundaryViolations(sources)).toEqual([]);
+    expect(() => assertWorkflowBoundary(sources)).toThrow();
+  });
+
+  test("structural oracle accepts a quoted spacing-equivalent immutable action", () => {
+    const pinned = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1";
+    const sources = replaceWorkflow(currentWorkflowSources(), "main.yaml", (source) => source.replace(
+      `uses: ${pinned}`,
+      `"uses" : "${pinned}"`,
+    ));
+    expect(currentLiteralBoundaryViolations(sources)).toEqual([]);
+    expect(() => assertWorkflowBoundary(sources)).not.toThrow();
   });
 
   test("ci-ok binds every result and event discriminator through inert environment values", () => {
