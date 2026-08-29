@@ -21,9 +21,10 @@ export type MessageListener<
   input: BaseStfInput & { parsedInput: ParamToData<Params> },
 ) => SyncStateUpdateStream<void>;
 
-export class Stm<
-  Grammar extends GrammarDefinition,
-  Events extends AppEvents,
+export class StateMachine<
+  const Grammar extends GrammarDefinition,
+  Events extends AppEvents = AppEvents,
+  RegisteredPrefixes extends keyof Grammar & string = never,
 > {
   public readonly keyedJsonGrammar: CommandTuples<Grammar>;
   public readonly fullJsonGrammar: FullJsonGrammar<Grammar>;
@@ -45,13 +46,14 @@ export class Stm<
   addStateTransition<const Prefix extends keyof Grammar & string>(
     prefix: Prefix,
     call: MessageListener<Events, Grammar[Prefix]>,
-  ): void {
+  ): StateMachine<Grammar, Events, RegisteredPrefixes | Prefix> {
     if (this.messageListeners.has(prefix)) {
       throw new Error(
         `Disallowed: duplicate listener for prefix ${prefix}. Duplicate prefixes can cause determinism issues`,
       );
     }
     this.messageListeners.set(prefix, call);
+    return this;
   }
 
   *processInput(input: BaseStfInput): SyncStateUpdateStream<void> {
@@ -86,3 +88,5 @@ export class Stm<
     return;
   }
 }
+
+export { StateMachine as Stm };

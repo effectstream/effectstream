@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/sync",
-  "version": "0.200.2",
+  "version": "0.200.5",
   "license": "(MIT OR Apache-2.0)",
   "homepage": "https://effectstream.github.io/docs/",
   "repository": {
@@ -22,7 +22,7 @@
     "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0-rc.3",
     "effection": "3.5.0",
     "graphql-ws": "^6.0.6",
-    "ntp-time-sync": "^0.5.0",
+    "ntp-time-sync": "0.6.0",
     "viem": "2.37.3",
     "denque": "^2.1.0",
     "pg": "^8.14.0",
