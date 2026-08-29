@@ -79,7 +79,12 @@ export class PrimitiveBuilder<
     const NewPrimitive extends {
       name: string;
       type: string;
-      startBlockHeight: number;
+      /**
+       * Optional: a primitive that omits its start inherits the owning sync
+       * protocol's committed numeric start (`@effectstream/runtime`). An
+       * explicit value always wins.
+       */
+      startBlockHeight?: number;
     }, // TODO This is the format from Primitive.getConfig()
   >(
     genSyncProtocol: (syncProtocol: SyncProtocols) => SyncProtocol,
