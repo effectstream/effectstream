@@ -7,6 +7,9 @@ import { EventBroker } from "../src/mod.ts";
 test("README: EventBroker class is exported and constructible", () => {
   const engine = new EventBroker("effectstream-engine");
   expect(typeof engine.createServer).toBe("function");
+  expect(typeof engine.start).toBe("function");
+  expect(typeof engine.shutdown).toBe("function");
+  expect(typeof engine.stop).toBe("function");
 });
 
 test("README: separate engine vs batcher brokers", () => {

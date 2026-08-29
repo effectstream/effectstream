@@ -90,9 +90,16 @@ export function* start(config: StartConfig): Operation<void> {
     yield* startSync(syncProtocol);
   }
 
-  // Create MQTT Broker
+  // Create MQTT Broker. Startup must fail fast on a bind conflict (e.g. a
+  // stale engine still holding the port) instead of running without a broker.
   if (ENV.MQTT_BROKER) {
-    new EventBroker("effectstream-engine").createServer();
+    const eventBroker = new EventBroker("effectstream-engine");
+    yield* call(() => eventBroker.start());
+    yield* ensure(function* () {
+      yield* call(() => eventBroker.shutdown().catch((error) => {
+        console.error("MQTT broker shutdown failed:", error);
+      }));
+    });
   }
 
   // 20× main clock block time (NTP if present, else protocol 0).
