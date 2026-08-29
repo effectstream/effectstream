@@ -180,13 +180,6 @@ function createWsServer(
             // socket was manually closed first. The readable wake-up settles
             // Opifex; the Bun server retains transport ownership until stop.
           },
-          remoteAddr: {
-            // This listener is bound exclusively to 127.0.0.1, so retaining
-            // that address preserves the existing localhost-only Will policy.
-            hostname: '127.0.0.1',
-            port: 0,
-            transport: 'tcp',
-          },
         };
         serveConnection(sockConn);
       },

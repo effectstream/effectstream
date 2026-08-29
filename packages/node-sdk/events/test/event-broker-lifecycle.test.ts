@@ -132,10 +132,19 @@ async function connectWs(port: number): Promise<WebSocket> {
   return ws;
 }
 
+type MqttQos = 0 | 1 | 2;
+
+type MqttWill = {
+  topic: string;
+  payload: string;
+  qos: MqttQos;
+  retain: boolean;
+};
+
 function mqttConnectPacket(
   clientId: string,
   keepAlive: number,
-  will?: { topic: string; payload: string },
+  will?: MqttWill,
 ): Uint8Array {
   const encoder = new TextEncoder();
   const id = encoder.encode(clientId);
@@ -144,7 +153,7 @@ function mqttConnectPacket(
   const body = [
     0x00, 0x04, 0x4d, 0x51, 0x54, 0x54,
     0x04,
-    will ? 0x06 : 0x02,
+    will ? 0x02 | 0x04 | (will.qos << 3) | (will.retain ? 0x20 : 0) : 0x02,
     (keepAlive >> 8) & 0xff, keepAlive & 0xff,
     0x00, id.length, ...id,
     ...(will ? [0x00, topic.length, ...topic, 0x00, payload.length, ...payload] : []),
@@ -155,6 +164,25 @@ function mqttConnectPacket(
 
 function mqttDisconnectPacket(): Uint8Array {
   return new Uint8Array([0xe0, 0x00]);
+}
+
+function mqttPublishPacket(
+  topicName: string,
+  payloadText: string,
+  qos: MqttQos,
+  retain: boolean,
+): Uint8Array {
+  const encoder = new TextEncoder();
+  const topic = encoder.encode(topicName);
+  const payload = encoder.encode(payloadText);
+  const packetId = qos === 0 ? [] : [0x00, 0x01];
+  const body = [0x00, topic.length, ...topic, ...packetId, ...payload];
+  if (body.length >= 128) throw new Error("test PUBLISH packet is unexpectedly large");
+  return new Uint8Array([0x30 | (qos << 1) | (retain ? 0x01 : 0), body.length, ...body]);
+}
+
+function mqttPingRequestPacket(): Uint8Array {
+  return new Uint8Array([0xc0, 0x00]);
 }
 
 type PublishedPacket = {
@@ -185,7 +213,7 @@ async function connectMqttTcp(
   port: number,
   clientId: string,
   keepAlive: number,
-  will?: { topic: string; payload: string },
+  will?: MqttWill,
 ): Promise<Socket> {
   const socket = await connectTcp(port);
   const response = new Promise<Uint8Array>((resolve, reject) => {
@@ -203,7 +231,7 @@ async function connectMqttWs(
   port: number,
   clientId: string,
   keepAlive: number,
-  will?: { topic: string; payload: string },
+  will?: MqttWill,
 ): Promise<WebSocket> {
   const ws = await connectWs(port);
   const response = new Promise<Uint8Array>((resolve, reject) => {
@@ -357,8 +385,12 @@ test("real TCP and WebSocket keepalive timers clear before shutdown settles and 
       return realPublish(topic, packet);
     };
     await Promise.all([
-      connectMqttTcp(tcpPort, "lifecycle-tcp", keepAlive, { topic: "lifecycle/will", payload: "tcp" }),
-      connectMqttWs(wsPort, "lifecycle-ws", keepAlive, { topic: "lifecycle/will", payload: "ws" }),
+      connectMqttTcp(tcpPort, "lifecycle-tcp", keepAlive, {
+        topic: "lifecycle/will", payload: "tcp", qos: 0, retain: false,
+      }),
+      connectMqttWs(wsPort, "lifecycle-ws", keepAlive, {
+        topic: "lifecycle/will", payload: "ws", qos: 0, retain: false,
+      }),
     ]);
     await waitUntil(() => probe.captured.size === 2);
     const stopping = internals.shutdown();
@@ -413,7 +445,92 @@ test("raw Opifex transport close and serve-task drain alone do not clear keepali
   }
 });
 
-test("abrupt TCP and WebSocket peers preserve exact-once Will and system routing while clearing timers", async () => {
+test("exact-base routing preserves TCP Will policy and rejects WebSocket publishes and Wills", async () => {
+  const [tcpPort, wsPort] = brokerPorts("effectstream-engine");
+  const broker = makeBroker();
+  await broker.start();
+  const published = capturePublishedPackets(broker);
+  const deniedRemoteAddresses: string[] = [];
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    if (args[0] === "Filtering MQTT publish from non-localhost:") {
+      deniedRemoteAddresses.push(String(args[1]));
+      return;
+    }
+    originalConsoleError(...args);
+  };
+  try {
+    const tcpClientId = "routing-tcp-client";
+    const wsClientId = "routing-ws-client";
+    const [socket, ws] = await Promise.all([
+      connectMqttTcp(tcpPort, tcpClientId, 1, {
+        topic: "lifecycle/routing/will/tcp-qos2-retained",
+        payload: "tcp-qos2-retained-payload",
+        qos: 2,
+        retain: true,
+      }),
+      connectMqttWs(wsPort, wsClientId, 1, {
+        topic: "lifecycle/routing/will/ws-qos1-retained",
+        payload: "ws-qos1-retained-payload",
+        qos: 1,
+        retain: true,
+      }),
+    ]);
+
+    const pingResponse = new Promise<Uint8Array>((resolve, reject) => {
+      ws.onmessage = (event) => resolve(new Uint8Array(event.data as ArrayBuffer));
+      ws.onerror = () => reject(new Error("WebSocket routing barrier failed"));
+    });
+    ws.send(mqttPublishPacket(
+      "lifecycle/routing/application/ws-retained",
+      "must-not-route-from-unknown-ws",
+      0,
+      true,
+    ));
+    ws.send(mqttPingRequestPacket());
+    expect(Array.from(await withDeadline(pingResponse))).toEqual([0xd0, 0x00]);
+
+    socket.destroy();
+    ws.close();
+    await waitUntil(() => {
+      const disconnected = published.filter((packet) =>
+        packet.topic === "$SYS/disconnect/clients" &&
+        (packet.payload === tcpClientId || packet.payload === wsClientId)
+      );
+      return disconnected.length === 2;
+    }, 3_000);
+
+    const application = published.filter((packet) =>
+      packet.topic === "lifecycle/routing/application/ws-retained"
+    );
+    const wills = published.filter((packet) =>
+      packet.topic.startsWith("lifecycle/routing/will/")
+    );
+    const disconnects = published.filter((packet) =>
+      packet.topic === "$SYS/disconnect/clients" &&
+      (packet.payload === tcpClientId || packet.payload === wsClientId)
+    ).sort((left, right) => left.payload.localeCompare(right.payload));
+
+    expect({ application, wills, disconnects, deniedRemoteAddresses }).toEqual({
+      application: [],
+      wills: [{
+        topic: "lifecycle/routing/will/tcp-qos2-retained",
+        payload: "tcp-qos2-retained-payload",
+        qos: 2,
+        retain: true,
+      }],
+      disconnects: [
+        { topic: "$SYS/disconnect/clients", payload: tcpClientId, qos: 0, retain: false },
+        { topic: "$SYS/disconnect/clients", payload: wsClientId, qos: 0, retain: false },
+      ],
+      deniedRemoteAddresses: ["unknown", "unknown"],
+    });
+  } finally {
+    console.error = originalConsoleError;
+  }
+});
+
+test("abrupt TCP and WebSocket peers preserve exact-base Will and system routing while clearing timers", async () => {
   const keepAlive = 181;
   const probe = instrumentKeepalive(keepAlive);
   try {
@@ -425,10 +542,14 @@ test("abrupt TCP and WebSocket peers preserve exact-once Will and system routing
       connectMqttTcp(tcpPort, "abrupt-tcp-client", keepAlive, {
         topic: "lifecycle/will/tcp",
         payload: "abrupt-tcp-payload",
+        qos: 2,
+        retain: true,
       }),
       connectMqttWs(wsPort, "abrupt-ws-client", keepAlive, {
         topic: "lifecycle/will/ws",
         payload: "abrupt-ws-payload",
+        qos: 1,
+        retain: true,
       }),
     ]);
     const internals = broker as any;
@@ -438,7 +559,7 @@ test("abrupt TCP and WebSocket peers preserve exact-once Will and system routing
       probe.cleared.size === probe.captured.size &&
       probe.cleared.size === 2 &&
       internals.connections.size === 0 &&
-      published.filter((packet) => packet.topic.startsWith("lifecycle/will/")).length === 2
+      published.filter((packet) => packet.topic === "$SYS/disconnect/clients").length === 2
     );
     expect(
       published.filter((packet) => packet.topic === "$SYS/disconnect/clients"),
@@ -449,8 +570,7 @@ test("abrupt TCP and WebSocket peers preserve exact-once Will and system routing
     expect(
       published.filter((packet) => packet.topic.startsWith("lifecycle/will/")),
     ).toEqual([
-      { topic: "lifecycle/will/tcp", payload: "abrupt-tcp-payload", qos: 0, retain: false },
-      { topic: "lifecycle/will/ws", payload: "abrupt-ws-payload", qos: 0, retain: false },
+      { topic: "lifecycle/will/tcp", payload: "abrupt-tcp-payload", qos: 2, retain: true },
     ]);
     const probeSocket = await connectTcp(tcpPort);
     const probeWs = await connectWs(wsPort);
@@ -474,10 +594,14 @@ test("graceful TCP and WebSocket DISCONNECT quiesces rearmed timers without Will
       connectMqttTcp(tcpPort, "graceful-tcp-client", keepAlive, {
         topic: "lifecycle/will/graceful-tcp",
         payload: "must-not-publish-tcp",
+        qos: 0,
+        retain: false,
       }),
       connectMqttWs(wsPort, "graceful-ws-client", keepAlive, {
         topic: "lifecycle/will/graceful-ws",
         payload: "must-not-publish-ws",
+        qos: 0,
+        retain: false,
       }),
     ]);
     const wsClosed = new Promise<void>((resolve) => {
@@ -509,7 +633,7 @@ test("graceful TCP and WebSocket DISCONNECT quiesces rearmed timers without Will
   }
 });
 
-test("timed-out WebSocket MQTT context quiesces while Bun retains transport ownership until shutdown", async () => {
+test("timed-out WebSocket MQTT context preserves exact-base no-Will routing while Bun owns transport", async () => {
   const keepAlive = 1;
   const probe = instrumentKeepalive(keepAlive);
   try {
@@ -520,6 +644,8 @@ test("timed-out WebSocket MQTT context quiesces while Bun retains transport owne
     const ws = await connectMqttWs(wsPort, "timeout-ws-client", keepAlive, {
       topic: "lifecycle/will/timeout-ws",
       payload: "timeout-ws-payload",
+      qos: 0,
+      retain: false,
     });
     const wsClosed = new Promise<void>((resolve) => {
       ws.addEventListener("close", () => resolve(), { once: true });
@@ -529,7 +655,7 @@ test("timed-out WebSocket MQTT context quiesces while Bun retains transport owne
       internals.connections.size === 0 &&
       probe.captured.size === 1 &&
       probe.cleared.size === 1 &&
-      published.some((packet) => packet.topic === "lifecycle/will/timeout-ws")
+      published.some((packet) => packet.topic === "$SYS/disconnect/clients")
     , 2_500);
     expect(
       published.filter((packet) => packet.topic === "$SYS/disconnect/clients"),
@@ -538,9 +664,7 @@ test("timed-out WebSocket MQTT context quiesces while Bun retains transport owne
     ]);
     expect(
       published.filter((packet) => packet.topic === "lifecycle/will/timeout-ws"),
-    ).toEqual([
-      { topic: "lifecycle/will/timeout-ws", payload: "timeout-ws-payload", qos: 0, retain: false },
-    ]);
+    ).toEqual([]);
     expect(ws.readyState).toBe(WebSocket.OPEN);
     await withDeadline(internals.shutdown());
     await withDeadline(wsClosed);
@@ -563,6 +687,8 @@ test("shutdown synchronously claims close(false) and clears a timer rearmed by a
     const socket = await connectMqttTcp(tcpPort, "in-flight-client", keepAlive, {
       topic: "lifecycle/will/in-flight",
       payload: "must-not-publish",
+      qos: 0,
+      retain: false,
     });
     const internals = broker as any;
     await waitUntil(() => [...internals.connections.values()].some((entry: any) => entry.context));
