@@ -461,7 +461,9 @@ export async function publishFromBundle(options: { artifactDir: string; registry
   for (const name of completion.missing) {
     const pkg = manifest.packages.find((candidate) => candidate.name === name)!;
     if (options.publish) {
-      const proc = Bun.spawn(["bun", "publish", "--access", "public", "--tag", manifest.distTag, "--registry", options.registry, join(options.artifactDir, "tarballs", pkg.filename)], { cwd: ROOT, stdout: "inherit", stderr: "inherit", env: process.env });
+      const command = options.recovery ? "bun" : "npm";
+      const env = options.recovery ? process.env : { ...process.env, NPM_CONFIG_FETCH_RETRIES: "0" };
+      const proc = Bun.spawn([command, "publish", "--access", "public", "--tag", manifest.distTag, "--registry", options.registry, join(options.artifactDir, "tarballs", pkg.filename)], { cwd: ROOT, stdout: "inherit", stderr: "inherit", env });
       if ((await proc.exited) !== 0) {
         results.push({ name, status: "failed" });
         writeResults();
@@ -478,7 +480,7 @@ export async function publishFromBundle(options: { artifactDir: string; registry
     const state = complete.find((candidate) => candidate.name === pkg.name)!;
     if (state.targetIntegrity !== pkg.integrity) throw new Error(`Post-publish integrity mismatch for ${pkg.name}`);
   }
-  for (const pkg of manifest.packages) await setDistTag(pkg.name, manifest.version, manifest.distTag, options.registry);
+  if (options.recovery) for (const pkg of manifest.packages) await setDistTag(pkg.name, manifest.version, manifest.distTag, options.registry);
   const post = await Promise.all(manifest.packages.map((pkg) => readRegistryState(options.registry, pkg.name, manifest.version)));
   verifyLatestPostcondition(manifest, post);
   return { published, skipped: completion.existing };

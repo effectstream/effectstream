@@ -301,14 +301,14 @@ describe("workflow invariants", () => {
     }
   });
 
-  test("guard and immutable upload precede auth and persisted-byte publish", () => {
+  test("guard and immutable upload precede OIDC Node setup and persisted-byte publish", () => {
     const order = [
       "Verify immutable release source identity",
       "Setup Bun",
       "Install dependencies",
       "Preflight registry and prepare exact release bundle",
       "Upload immutable release bundle before authentication or mutation",
-      "Configure npm auth",
+      "Setup exact Node and npm for OIDC publishing",
       "Publish exact persisted tarballs",
       "Commit and push version-only delta",
     ].map((needle) => release.indexOf(needle));
@@ -318,6 +318,14 @@ describe("workflow invariants", () => {
     expect(release).toContain("steps.release-source.outputs.dist-tag");
     expect(release).toContain('git push origin "HEAD:refs/heads/$SOURCE_BRANCH"');
     expect(release).not.toContain("HEAD:refs/heads/v-next");
+    expect(release.match(/id-token:\s*write/g)).toHaveLength(1);
+    expect(release).toContain("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020");
+    expect(release).toContain("node-version: 24.20.0");
+    expect(release).toContain("package-manager-cache: false");
+    for (const token of ["NPM_TOKEN", "BUN_AUTH_TOKEN", "NPM_CONFIG_TOKEN", "NODE_AUTH_TOKEN"]) {
+      expect(release).not.toContain(token);
+    }
+    expect(release).not.toContain(".npmrc");
   });
 
   test("recovery compatibility is proven before auth or registry mutation", () => {
