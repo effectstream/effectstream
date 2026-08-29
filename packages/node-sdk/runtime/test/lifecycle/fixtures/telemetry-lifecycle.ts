@@ -23,6 +23,17 @@ NodeSDK.prototype.shutdown = function (this: NodeSDK): Promise<void> {
   return realShutdown.call(this);
 };
 
+const realConsoleError = console.error;
+console.error = (...args: unknown[]) => {
+  realConsoleError(...args);
+  const rendered = args.map((arg) =>
+    arg instanceof Error ? arg.message : String(arg)
+  ).join(" ");
+  if (rendered.includes("telemetry-shutdown-boom")) {
+    console.log("TELEMETRY_SHUTDOWN_REPORTED");
+  }
+};
+
 const task = run(function* () {
   yield* init();
   // Stands in for every resource the runtime acquires after init(): broker,

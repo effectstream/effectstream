@@ -45,9 +45,17 @@ test("G4: halting the scope that ran init() shuts the OpenTelemetry SDK down", a
 test("G4: a failing telemetry shutdown neither skips other cleanup nor disappears", async () => {
   const output = await runFixture("failing-shutdown");
 
-  // Spec edge case: the sibling resource is torn down regardless.
+  // Spec edge case: the sibling resource is torn down regardless, and it is
+  // torn down first — telemetry is released last.
   expect(output).toContain("SIBLING_CLEANUP");
   expect(output).toContain("TELEMETRY_SHUTDOWN");
-  // ...and the failure is reported rather than swallowed.
-  expect(output).toContain("HALT_SETTLED:err:telemetry-shutdown-boom");
+  expect(output.indexOf("SIBLING_CLEANUP")).toBeLessThan(
+    output.indexOf("TELEMETRY_SHUTDOWN"),
+  );
+  // The failure is reported rather than swallowed silently...
+  expect(output).toContain("TELEMETRY_SHUTDOWN_REPORTED");
+  // ...but a lost telemetry flush does not turn an otherwise clean shutdown
+  // into a failed one: `shutdown()` also rejects when the collector is simply
+  // unreachable, and every resource that matters is already released.
+  expect(output).toContain("HALT_SETTLED:ok");
 }, 60_000);

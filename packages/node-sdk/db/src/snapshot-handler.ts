@@ -7,7 +7,7 @@ import {
   statMtime,
 } from "@effectstream/utils/fs";
 import { spawnOutput } from "@effectstream/utils/runtime-spawn";
-import { sleep, until, type Operation } from "effection";
+import { ensure, sleep, until, type Operation } from "effection";
 
 /** `process.env` works under Node, Bun, and Deno (via node: compat). */
 declare const process: { env: Record<string, string | undefined> };
@@ -67,10 +67,15 @@ function resolveSnapshotConfig(config?: SnapshotConfig): ResolvedSnapshotConfig 
  * Creates a database snapshot using `pg_dump` in custom format (`-F c`).
  * Must be called AFTER releasing the DB mutex (pg_dump opens its own connection).
  *
+ * @param signal - optional; aborting it kills the `pg_dump` child. Pass one
+ *   whenever the caller's own lifetime is bounded (see {@link runSnapshotLoop}),
+ *   otherwise a cancelled caller leaves a full dump running unsupervised.
+ *
  * @see docs/home/1000-effectstream-engine/1003-database-snapshots.md
  */
 export async function createSnapshot(
   config?: SnapshotConfig,
+  signal?: AbortSignal,
 ): Promise<void> {
   // pg_dump queries pg_catalog directly; PGlite's catalog may not match the
   // locally-installed pg_dump version, so skip snapshots under PGlite.
@@ -106,6 +111,7 @@ export async function createSnapshot(
     env: { ...ambientEnv, PGPASSWORD: ENV.DB_PW ?? "" },
     stdout: "inherit",
     stderr: "inherit",
+    signal,
   });
   if (!result.success) {
     throw new Error(`[Snapshot] pg_dump failed with exit code ${result.code}`);
@@ -126,15 +132,38 @@ export function* runSnapshotLoop(
   const resolved = resolveSnapshotConfig(snapshotConfig);
   const intervalMs = resolved.intervalSeconds * 1000;
   console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${resolved.path}, cwd ${cwd()})`);
+
+  // A dump is a child process holding its own database connection. `until`
+  // only abandons the promise on cancellation, so without this the loop can be
+  // torn down while `pg_dump` keeps running — the runtime would report a clean
+  // shutdown with a live child still writing.
+  let abortInFlight: (() => void) | undefined;
+  let inFlightExit: Promise<void> | undefined;
+  yield* ensure(function* () {
+    abortInFlight?.();
+    if (inFlightExit) yield* until(inFlightExit);
+  });
+
   while (true) {
     yield* sleep(intervalMs);
     console.log(`[Snapshot] Firing`);
+    const controller = new AbortController();
+    const dump = createSnapshot(resolved, controller.signal);
+    abortInFlight = () => controller.abort();
+    // Settles when the child is gone, however it ended; the rejection is
+    // observed here so abandoning `dump` cannot become an unhandled rejection.
+    inFlightExit = dump.then(() => {}, () => {});
     try {
-      yield* until(createSnapshot(resolved));
+      yield* until(dump);
       console.log(`[Snapshot] Done; sleeping ${intervalMs / 1000}s`);
     } catch (e) {
       console.error("[Snapshot] Failed:", e);
     }
+    // Deliberately not in a `finally`: on cancellation the generator's finally
+    // blocks run BEFORE the `ensure` above, which would clear the handle the
+    // ensure needs to kill the child.
+    abortInFlight = undefined;
+    inFlightExit = undefined;
   }
 }
 

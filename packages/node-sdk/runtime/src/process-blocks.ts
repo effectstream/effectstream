@@ -410,10 +410,12 @@ export function* processFinalizedBlockWithRetry(
   let attempt = 0;
   while (true) {
     let dbClient: PoolClient | undefined;
+    let checkout: Promise<PoolClient> | undefined;
     let transientErr: unknown;
     try {
       yield* acquireDBMutex(lockName);
-      dbClient = yield* until(pool.connect());
+      checkout = pool.connect();
+      dbClient = yield* until(checkout);
       return yield* processFinalizedBlock(
         value,
         config,
@@ -434,6 +436,23 @@ export function* processFinalizedBlockWithRetry(
         } catch {
           /* already released/destroyed */
         }
+      } else if (checkout) {
+        // Cancellation won the race with the checkout. `until` abandons the
+        // promise, but the pool still hands the client over afterwards and
+        // nobody is left in this scope to give it back — a leaked client keeps
+        // the pool one connection short and blocks `pool.end()` forever.
+        void checkout.then(
+          (client) => {
+            try {
+              client.release();
+            } catch {
+              /* already released/destroyed */
+            }
+          },
+          () => {
+            /* the checkout itself failed; nothing to return */
+          },
+        );
       }
     }
 
