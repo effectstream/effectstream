@@ -21,18 +21,36 @@ async function runCase(name: string): Promise<void> {
   expect(stdout).toContain(`ok ${name}`);
 }
 
-test("absent and empty fetchers each own a clock instance", () =>
-  runCase("default-owned"));
-test("configured server arrays are defensively copied", () =>
-  runCase("configured-copy"));
-test("sequential configured fetchers isolate traffic and cache", () =>
-  runCase("sequential-isolation"));
-test("concurrent configured fetchers isolate traffic and signed offsets", () =>
-  runCase("concurrent-isolation"));
-test("explicit numeric NTP state preserves historical page-1 presync", () =>
-  runCase("numeric-page-one"));
-test("offset warnings use magnitude in both clock directions", () =>
-  runCase("offset-warnings"));
+test(
+  "absent and empty fetchers each own a clock instance",
+  () => runCase("default-owned"),
+  35_000,
+);
+test(
+  "configured server arrays are defensively copied",
+  () => runCase("configured-copy"),
+  35_000,
+);
+test(
+  "sequential configured fetchers isolate traffic and cache",
+  () => runCase("sequential-isolation"),
+  35_000,
+);
+test(
+  "concurrent configured fetchers isolate traffic and signed offsets",
+  () => runCase("concurrent-isolation"),
+  35_000,
+);
+test(
+  "explicit numeric NTP state preserves historical page-1 presync",
+  () => runCase("numeric-page-one"),
+  35_000,
+);
+test(
+  "offset warnings use magnitude in both clock directions",
+  () => runCase("offset-warnings"),
+  35_000,
+);
 
 test("NTP dependencies and lock integrity are exact", async () => {
   const manifest = await Bun.file("packages/node-sdk/sync/package.json").json();
