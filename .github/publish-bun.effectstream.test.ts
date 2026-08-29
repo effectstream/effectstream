@@ -10,7 +10,9 @@ import {
   compareSemver,
   parseSemver,
   planRegistryCompletion,
+  pollRegistryPostconditions,
   preflightOrdinary,
+  readRegistryVisibilityState,
   resolveDistTag,
   resolveReleasePolicy,
   resolveReleaseVersion,
@@ -70,6 +72,327 @@ function manifest(policy: ReleasePolicy): ReleaseManifest {
     })),
   };
 }
+
+type VisibilityReader = (
+  registry: string,
+  name: string,
+  targetVersion: string,
+  signal: AbortSignal,
+) => Promise<RegistryPackageState & { documentReadable: boolean }>;
+
+type VisibilityPollingOptions = {
+  timeoutMs: number;
+  initialBackoffMs: number;
+  maxBackoffMs: number;
+  reader: VisibilityReader;
+  now: () => number;
+  sleep: (ms: number, signal: AbortSignal) => Promise<void>;
+  scheduleDeadline: (ms: number, onDeadline: () => void) => () => void;
+};
+
+async function pollPostconditions(
+  item: ReleaseManifest,
+  options: VisibilityPollingOptions,
+): Promise<void> {
+  await pollRegistryPostconditions(item, "https://registry.example.test", options);
+}
+
+function visibleState(
+  item: ReleaseManifest,
+  name: string,
+  overrides: Partial<RegistryPackageState & { documentReadable: boolean }> = {},
+): RegistryPackageState & { documentReadable: boolean } {
+  const pkg = item.packages.find((candidate) => candidate.name === name)!;
+  const latest = item.kind === "node2-stable" ? item.version : item.latestBefore[name];
+  return {
+    name,
+    documentReadable: true,
+    targetIntegrity: pkg.integrity,
+    distTags: { latest, [item.distTag]: item.version },
+    ...overrides,
+  };
+}
+
+function fakeTiming() {
+  let current = 0;
+  const sleeps: number[] = [];
+  return {
+    now: () => current,
+    setNow: (value: number) => { current = value; },
+    sleeps,
+    sleep: async (ms: number, signal: AbortSignal) => {
+      if (signal.aborted) throw signal.reason;
+      sleeps.push(ms);
+      current += ms;
+    },
+    scheduleDeadline: (_ms: number, _onDeadline: () => void) => () => {},
+  };
+}
+
+describe("post-publish visibility polling", () => {
+  test("registry reads distinguish true 404 and request fresh metadata", async () => {
+    let requestInit: RequestInit | undefined;
+    const state = await readRegistryVisibilityState(
+      "https://registry.example.test",
+      "@effectstream/missing",
+      "0.200.5",
+      (async (_input: string | URL | Request, init?: RequestInit) => {
+        requestInit = init;
+        return new Response(null, { status: 404 });
+      }) as typeof fetch,
+    );
+    expect((state as RegistryPackageState & { documentReadable?: boolean }).documentReadable).toBe(false);
+    expect(requestInit?.cache).toBe("no-store");
+    const headers = new Headers(requestInit?.headers);
+    expect(headers.get("cache-control")).toContain("no-cache");
+    expect(headers.get("pragma")).toBe("no-cache");
+  });
+
+  test("retries two absent reads and succeeds only on one coherent round", async () => {
+    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const timing = fakeTiming();
+    const reads = new Map<string, number>();
+    await pollPostconditions(item, {
+      timeoutMs: 100,
+      initialBackoffMs: 5,
+      maxBackoffMs: 20,
+      ...timing,
+      reader: async (_registry, name) => {
+        const count = (reads.get(name) ?? 0) + 1;
+        reads.set(name, count);
+        if (name === packageNames[0] && count < 3) {
+          return visibleState(item, name, { targetIntegrity: null, distTags: { latest: "0.200.2" } });
+        }
+        return visibleState(item, name);
+      },
+    });
+    expect(reads.get(packageNames[0])).toBe(3);
+    expect(timing.sleeps).toEqual([5, 10]);
+    expect(new Set(reads.values())).toEqual(new Set([3]));
+  });
+
+  test("waits for the required tag after exact integrity is visible", async () => {
+    const item = manifest(resolveReleasePolicy("v0.104.2"));
+    const timing = fakeTiming();
+    let targetReads = 0;
+    await pollPostconditions(item, {
+      timeoutMs: 100,
+      initialBackoffMs: 5,
+      maxBackoffMs: 20,
+      ...timing,
+      reader: async (_registry, name) => {
+        if (name !== packageNames[0]) return visibleState(item, name);
+        targetReads++;
+        return targetReads === 1
+          ? visibleState(item, name, { distTags: { latest: "0.200.2", "midnight-1": "0.104.1" } })
+          : visibleState(item, name);
+      },
+    });
+    expect(targetReads).toBe(2);
+    expect(timing.sleeps).toEqual([5]);
+  });
+
+  test("does not accumulate per-package success across incoherent rounds", async () => {
+    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const timing = fakeTiming();
+    let round = 0;
+    await expect(pollPostconditions(item, {
+      timeoutMs: 15,
+      initialBackoffMs: 5,
+      maxBackoffMs: 5,
+      ...timing,
+      reader: async (_registry, name) => {
+        if (name === packageNames[0]) {
+          return round === 0 ? visibleState(item, name) : visibleState(item, name, { targetIntegrity: null, distTags: { latest: "0.200.2" } });
+        }
+        if (name === packageNames[1]) {
+          const state = round === 0
+            ? visibleState(item, name, { targetIntegrity: null, distTags: { latest: "0.200.2" } })
+            : visibleState(item, name);
+          round++;
+          return state;
+        }
+        return visibleState(item, name);
+      },
+    })).rejects.toThrow(/visibility timeout/i);
+  });
+
+  test("uses one deadline and names every package still pending", async () => {
+    const item = manifest(resolveReleasePolicy("v0.200.3-rc.1"));
+    const timing = fakeTiming();
+    const pending = new Set([packageNames[2], packageNames[17]]);
+    let error: unknown;
+    try {
+      await pollPostconditions(item, {
+        timeoutMs: 25,
+        initialBackoffMs: 10,
+        maxBackoffMs: 20,
+        ...timing,
+        reader: async (_registry, name) => pending.has(name)
+          ? visibleState(item, name, { targetIntegrity: null, distTags: { latest: "0.200.2" } })
+          : visibleState(item, name),
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toMatch(/visibility timeout/i);
+    expect((error as Error).message).toContain(packageNames[2]);
+    expect((error as Error).message).toContain(packageNames[17]);
+    expect(timing.now()).toBe(25);
+    expect(timing.sleeps).toEqual([10, 15]);
+  });
+
+  test("fails immediately on a visible non-null integrity conflict", async () => {
+    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const timing = fakeTiming();
+    await expect(pollPostconditions(item, {
+      timeoutMs: 100,
+      initialBackoffMs: 5,
+      maxBackoffMs: 20,
+      ...timing,
+      reader: async (_registry, name) => name === packageNames[4]
+        ? visibleState(item, name, { targetIntegrity: "sha512-different" })
+        : visibleState(item, name),
+    })).rejects.toThrow(/integrity conflict/i);
+    expect(timing.sleeps).toEqual([]);
+    expect(timing.now()).toBe(0);
+  });
+
+  test.each([
+    ["v0.200.3", "0.200.1"],
+    ["v0.200.3", undefined],
+    ["v0.104.2", "0.200.1"],
+    ["v0.200.3-rc.1", "0.200.1"],
+  ])("fails immediately on a readable hidden-target channel conflict for %s", async (tag, latest) => {
+    const item = manifest(resolveReleasePolicy(tag));
+    const timing = fakeTiming();
+    await expect(pollPostconditions(item, {
+      timeoutMs: 100,
+      initialBackoffMs: 5,
+      maxBackoffMs: 20,
+      ...timing,
+      reader: async (_registry, name) => name === packageNames[6]
+        ? visibleState(item, name, { targetIntegrity: null, distTags: latest ? { latest } : {} })
+        : visibleState(item, name),
+    })).rejects.toThrow(/channel conflict/i);
+    expect(timing.sleeps).toEqual([]);
+  });
+
+  test.each([
+    ["v0.200.3", "0.200.2", undefined],
+    ["v0.200.3", "0.200.3", undefined],
+    ["v0.104.2", "0.200.2", "0.104.1"],
+    ["v0.200.3-rc.1", "0.200.2", "0.200.2-rc.9"],
+  ])("keeps permitted readable hidden-target state pending for %s", async (tag, latest, priorRequiredTag) => {
+    const item = manifest(resolveReleasePolicy(tag));
+    const timing = fakeTiming();
+    let targetReads = 0;
+    await pollPostconditions(item, {
+      timeoutMs: 100,
+      initialBackoffMs: 5,
+      maxBackoffMs: 20,
+      ...timing,
+      reader: async (_registry, name) => {
+        if (name !== packageNames[7]) return visibleState(item, name);
+        targetReads++;
+        if (targetReads > 1) return visibleState(item, name);
+        return visibleState(item, name, {
+          targetIntegrity: null,
+          distTags: {
+            latest,
+            ...(priorRequiredTag ? { [item.distTag]: priorRequiredTag } : {}),
+          },
+        });
+      },
+    });
+    expect(targetReads).toBe(2);
+    expect(timing.sleeps).toEqual([5]);
+  });
+
+  test("treats a true 404 as pending without trusting its channel fields", async () => {
+    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const timing = fakeTiming();
+    let targetReads = 0;
+    await pollPostconditions(item, {
+      timeoutMs: 100,
+      initialBackoffMs: 5,
+      maxBackoffMs: 20,
+      ...timing,
+      reader: async (_registry, name) => {
+        if (name !== packageNames[8]) return visibleState(item, name);
+        targetReads++;
+        return targetReads === 1
+          ? { name, documentReadable: false, targetIntegrity: null, distTags: { latest: "impossible" } }
+          : visibleState(item, name);
+      },
+    });
+    expect(targetReads).toBe(2);
+  });
+
+  test("propagates a conflict and aborts a never-settling peer immediately", async () => {
+    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const timing = fakeTiming();
+    let peerAborted = false;
+    await expect(pollPostconditions(item, {
+      timeoutMs: 100,
+      initialBackoffMs: 5,
+      maxBackoffMs: 20,
+      ...timing,
+      reader: async (_registry, name, _version, signal) => {
+        if (name === packageNames[0]) return visibleState(item, name, { targetIntegrity: "sha512-conflict" });
+        if (name === packageNames[1]) {
+          return await new Promise((_, reject) => signal.addEventListener("abort", () => {
+            peerAborted = true;
+            reject(signal.reason);
+          }, { once: true }));
+        }
+        return visibleState(item, name);
+      },
+    })).rejects.toThrow(/integrity conflict/i);
+    expect(peerAborted).toBe(true);
+    expect(timing.sleeps).toEqual([]);
+    expect(timing.now()).toBe(0);
+  });
+
+  test("aborts a never-settling read at the shared deadline and reports it pending", async () => {
+    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const timing = fakeTiming();
+    let peerAborted = false;
+    let error: unknown;
+    try {
+      await pollPostconditions(item, {
+        timeoutMs: 50,
+        initialBackoffMs: 5,
+        maxBackoffMs: 20,
+        ...timing,
+        scheduleDeadline: (ms, onDeadline) => {
+          const handle = setTimeout(() => {
+            timing.setNow(ms);
+            onDeadline();
+          }, 0);
+          return () => clearTimeout(handle);
+        },
+        reader: async (_registry, name, _version, signal) => {
+          if (name !== packageNames[9]) return visibleState(item, name);
+          return await new Promise((_, reject) => signal.addEventListener("abort", () => {
+            peerAborted = true;
+            reject(signal.reason);
+          }, { once: true }));
+        },
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toMatch(/visibility timeout/i);
+    expect((error as Error).message).toContain(packageNames[9]);
+    expect((error as Error).message).not.toContain(packageNames[10]);
+    expect(peerAborted).toBe(true);
+    expect(timing.sleeps).toEqual([]);
+    expect(timing.now()).toBe(50);
+  });
+});
 
 describe("strict SemVer", () => {
   test("orders core and prerelease values without precision loss", () => {

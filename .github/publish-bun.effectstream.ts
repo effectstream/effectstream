@@ -23,6 +23,9 @@ const ROOT = resolve(import.meta.dir, "..");
 export const EXPECTED_PACKAGE_COUNT = 39;
 export const STABLE_DIST_TAG = "latest";
 export const RELEASE_BUNDLE_SCHEMA = 1;
+export const DEFAULT_VISIBILITY_TIMEOUT_MS = 30 * 60 * 1000;
+const DEFAULT_VISIBILITY_INITIAL_BACKOFF_MS = 250;
+const DEFAULT_VISIBILITY_MAX_BACKOFF_MS = 5000;
 const DEPRECATED = new Set(["@effectstream/explorer"]);
 const LICENSE_FILES = ["LICENSE-MIT", "LICENSE-APACHE"] as const;
 const MIN_README_CHARS = 400;
@@ -53,6 +56,9 @@ export type RegistryPackageState = {
   name: string;
   targetIntegrity: string | null;
   distTags: Record<string, string>;
+};
+export type RegistryPackageReadState = RegistryPackageState & {
+  documentReadable: boolean;
 };
 export type ManifestPackage = {
   name: string;
@@ -261,6 +267,27 @@ export async function readRegistryState(registry: string, name: string, targetVe
   const document = (await response.json()) as any;
   return { name, targetIntegrity: document.versions?.[targetVersion]?.dist?.integrity ?? null, distTags: document["dist-tags"] ?? {} };
 }
+export async function readRegistryVisibilityState(
+  registry: string,
+  name: string,
+  targetVersion: string,
+  request: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<RegistryPackageReadState> {
+  const response = await request(packageRegistryUrl(registry, name), {
+    cache: "no-store",
+    signal,
+    headers: {
+      accept: "application/vnd.npm.install-v1+json, application/json",
+      "cache-control": "no-cache, no-store, max-age=0",
+      pragma: "no-cache",
+    },
+  });
+  if (response.status === 404) return { name, documentReadable: false, targetIntegrity: null, distTags: {} };
+  if (!response.ok) throw new Error(`Registry query failed for ${name}: HTTP ${response.status}`);
+  const document = (await response.json()) as any;
+  return { name, documentReadable: true, targetIntegrity: document.versions?.[targetVersion]?.dist?.integrity ?? null, distTags: document["dist-tags"] ?? {} };
+}
 function assertUniformNode2Latest(states: RegistryPackageState[]): Record<string, string> {
   const snapshot: Record<string, string> = {};
   const values = new Set<string>();
@@ -293,6 +320,181 @@ export function verifyLatestPostcondition(manifest: ReleaseManifest, states: Reg
       throw new Error(`${state.name} latest changed from ${manifest.latestBefore[state.name]} to ${latest ?? "missing"}`);
     }
     if (state.distTags[manifest.distTag] !== manifest.version) throw new Error(`${state.name} ${manifest.distTag}=${state.distTags[manifest.distTag] ?? "missing"}, expected ${manifest.version}`);
+  }
+}
+export class RegistryVisibilityTimeoutError extends Error {
+  constructor(public readonly pendingPackages: string[]) {
+    super(`Registry visibility timeout; pending packages: ${pendingPackages.join(", ")}`);
+    this.name = "RegistryVisibilityTimeoutError";
+  }
+}
+export class RegistryIntegrityConflictError extends Error {
+  constructor(name: string, version: string, expected: string, observed: string) {
+    super(`Registry integrity conflict for ${name}@${version}: expected ${expected}, observed ${observed}`);
+    this.name = "RegistryIntegrityConflictError";
+  }
+}
+export class RegistryChannelConflictError extends Error {
+  constructor(message: string) {
+    super(`Registry channel conflict: ${message}`);
+    this.name = "RegistryChannelConflictError";
+  }
+}
+type RegistryVisibilityReader = (
+  registry: string,
+  name: string,
+  targetVersion: string,
+  signal: AbortSignal,
+) => Promise<RegistryPackageReadState>;
+export type RegistryVisibilityPollingOptions = {
+  timeoutMs?: number;
+  initialBackoffMs?: number;
+  maxBackoffMs?: number;
+  reader?: RegistryVisibilityReader;
+  now?: () => number;
+  sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
+  scheduleDeadline?: (ms: number, onDeadline: () => void) => () => void;
+};
+
+class RegistryPollingDeadlineReached extends Error {}
+
+function defaultVisibilitySleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolveSleep, rejectSleep) => {
+    if (signal.aborted) {
+      rejectSleep(signal.reason);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolveSleep();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timeout);
+      rejectSleep(signal.reason);
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function defaultDeadlineScheduler(ms: number, onDeadline: () => void): () => void {
+  const timeout = setTimeout(onDeadline, ms);
+  return () => clearTimeout(timeout);
+}
+
+async function runWithinRegistryDeadline<T>(
+  remainingMs: number,
+  scheduleDeadline: (ms: number, onDeadline: () => void) => () => void,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  if (remainingMs <= 0) throw new RegistryPollingDeadlineReached();
+  const controller = new AbortController();
+  const deadlineError = new RegistryPollingDeadlineReached();
+  let cancelDeadline = () => {};
+  const deadline = new Promise<never>((_resolve, reject) => {
+    cancelDeadline = scheduleDeadline(remainingMs, () => {
+      controller.abort(deadlineError);
+      reject(deadlineError);
+    });
+  });
+  const work = operation(controller.signal).catch((error) => {
+    controller.abort(error);
+    throw error;
+  });
+  try {
+    return await Promise.race([work, deadline]);
+  } finally {
+    cancelDeadline();
+  }
+}
+
+function classifyRegistryPostcondition(
+  manifest: ReleaseManifest,
+  pkg: ManifestPackage,
+  state: RegistryPackageReadState,
+): "ready" | "pending" {
+  if (state.name !== pkg.name) {
+    throw new RegistryChannelConflictError(`reader returned ${state.name} for ${pkg.name}`);
+  }
+  if (!state.documentReadable) return "pending";
+  const latest = state.distTags.latest;
+  const latestBefore = manifest.latestBefore[pkg.name];
+  if (manifest.kind === "node2-stable") {
+    if (latest !== latestBefore && latest !== manifest.version) {
+      throw new RegistryChannelConflictError(
+        `${pkg.name} latest=${latest ?? "missing"}, expected persisted ${latestBefore} or target ${manifest.version}`,
+      );
+    }
+  } else if (latest !== latestBefore) {
+    throw new RegistryChannelConflictError(
+      `${pkg.name} latest changed from ${latestBefore} to ${latest ?? "missing"}`,
+    );
+  }
+  if (state.targetIntegrity === null) return "pending";
+  if (state.targetIntegrity !== pkg.integrity) {
+    throw new RegistryIntegrityConflictError(pkg.name, manifest.version, pkg.integrity, state.targetIntegrity);
+  }
+  if (state.distTags[manifest.distTag] !== manifest.version) return "pending";
+  return "ready";
+}
+
+export async function pollRegistryPostconditions(
+  manifest: ReleaseManifest,
+  registry: string,
+  options: RegistryVisibilityPollingOptions = {},
+): Promise<void> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_VISIBILITY_TIMEOUT_MS;
+  const initialBackoffMs = options.initialBackoffMs ?? DEFAULT_VISIBILITY_INITIAL_BACKOFF_MS;
+  const maxBackoffMs = options.maxBackoffMs ?? DEFAULT_VISIBILITY_MAX_BACKOFF_MS;
+  if (timeoutMs <= 0 || initialBackoffMs <= 0 || maxBackoffMs <= 0) {
+    throw new Error("Registry visibility timeout and backoff values must be positive");
+  }
+  const now = options.now ?? (() => performance.now());
+  const sleep = options.sleep ?? defaultVisibilitySleep;
+  const scheduleDeadline = options.scheduleDeadline ?? defaultDeadlineScheduler;
+  const reader = options.reader ?? ((source, name, version, signal) =>
+    readRegistryVisibilityState(source, name, version, fetch, signal));
+  const cutoff = now() + timeoutMs;
+  let backoffMs = Math.min(initialBackoffMs, maxBackoffMs);
+  let pendingPackages = manifest.packages.map((pkg) => pkg.name);
+
+  while (true) {
+    const readRemainingMs = cutoff - now();
+    if (readRemainingMs <= 0) throw new RegistryVisibilityTimeoutError(pendingPackages);
+    const pendingThisRound = new Set(manifest.packages.map((pkg) => pkg.name));
+    try {
+      await runWithinRegistryDeadline(readRemainingMs, scheduleDeadline, async (signal) => {
+        await Promise.all(manifest.packages.map(async (pkg) => {
+          const state = await reader(registry, pkg.name, manifest.version, signal);
+          if (classifyRegistryPostcondition(manifest, pkg, state) === "ready") {
+            pendingThisRound.delete(pkg.name);
+          }
+        }));
+      });
+    } catch (error) {
+      if (error instanceof RegistryPollingDeadlineReached) {
+        throw new RegistryVisibilityTimeoutError(
+          manifest.packages.filter((pkg) => pendingThisRound.has(pkg.name)).map((pkg) => pkg.name),
+        );
+      }
+      throw error;
+    }
+    pendingPackages = manifest.packages
+      .filter((pkg) => pendingThisRound.has(pkg.name))
+      .map((pkg) => pkg.name);
+    if (pendingPackages.length === 0) return;
+
+    const sleepRemainingMs = cutoff - now();
+    if (sleepRemainingMs <= 0) throw new RegistryVisibilityTimeoutError(pendingPackages);
+    const delayMs = Math.min(backoffMs, sleepRemainingMs);
+    try {
+      await runWithinRegistryDeadline(sleepRemainingMs, scheduleDeadline, (signal) => sleep(delayMs, signal));
+    } catch (error) {
+      if (error instanceof RegistryPollingDeadlineReached) {
+        throw new RegistryVisibilityTimeoutError(pendingPackages);
+      }
+      throw error;
+    }
+    backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
   }
 }
 export function planRegistryCompletion(manifest: ReleaseManifest, states: RegistryPackageState[], recovery: boolean): { missing: string[]; existing: string[] } {
@@ -475,6 +677,10 @@ export async function publishFromBundle(options: { artifactDir: string; registry
     writeResults();
   }
   if (!options.publish) return { published, skipped: completion.existing };
+  if (!options.recovery) {
+    await pollRegistryPostconditions(manifest, options.registry);
+    return { published, skipped: completion.existing };
+  }
   const complete = await Promise.all(manifest.packages.map((pkg) => readRegistryState(options.registry, pkg.name, manifest.version)));
   for (const pkg of manifest.packages) {
     const state = complete.find((candidate) => candidate.name === pkg.name)!;
