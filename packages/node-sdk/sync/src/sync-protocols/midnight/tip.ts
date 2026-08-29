@@ -1,3 +1,6 @@
+import { Type } from "@sinclair/typebox";
+import { Value } from "@sinclair/typebox/value";
+
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
@@ -244,6 +247,24 @@ async function postJsonRequest(
   }
 }
 
+/**
+ * Checked before the tip shape so a non-empty errors array classifies as
+ * GRAPHQL even when data is absent, and a malformed errors field (or a
+ * non-object body) classifies as INVALID_RESPONSE.
+ */
+const GraphQLEnvelopeSchema = Type.Object({
+  errors: Type.Optional(Type.Array(Type.Unknown())),
+});
+
+const TipResponseSchema = Type.Object({
+  data: Type.Object({
+    block: Type.Object({
+      // minimum + maximum encode Number.isSafeInteger(height) && height >= 0.
+      height: Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+    }),
+  }),
+});
+
 /** Query one validated numeric block height from an explicit Midnight indexer. */
 export async function getMidnightTip(
   options: GetMidnightTipOptions,
@@ -256,41 +277,19 @@ export async function getMidnightTip(
     validated.signal,
   );
 
-  if (body == null || typeof body !== "object" || Array.isArray(body)) {
-    throw invalidResponse("Midnight indexer returned a non-object GraphQL response");
+  if (!Value.Check(GraphQLEnvelopeSchema, body)) {
+    throw invalidResponse("Midnight indexer returned a malformed GraphQL response");
   }
 
-  if ("errors" in body) {
-    const errors = (body as { errors?: unknown }).errors;
-    if (!Array.isArray(errors)) {
-      throw invalidResponse("Midnight indexer returned a malformed GraphQL errors field");
-    }
-    if (errors.length > 0) {
-      throw new MidnightTipError("GRAPHQL", "Midnight indexer returned GraphQL errors", {
-        graphqlErrors: Object.freeze(errors.slice()),
-      });
-    }
+  if (body.errors !== undefined && body.errors.length > 0) {
+    throw new MidnightTipError("GRAPHQL", "Midnight indexer returned GraphQL errors", {
+      graphqlErrors: Object.freeze(body.errors.slice()),
+    });
   }
 
-  const data = (body as { data?: unknown }).data;
-  if (data == null || typeof data !== "object" || Array.isArray(data)) {
-    throw invalidResponse("Midnight indexer response is missing data");
+  if (!Value.Check(TipResponseSchema, body)) {
+    throw invalidResponse("Midnight indexer returned an invalid tip response");
   }
 
-  const block = (data as { block?: unknown }).block;
-  if (block == null || typeof block !== "object" || Array.isArray(block)) {
-    throw invalidResponse("Midnight indexer response is missing block");
-  }
-
-  const height = (block as { height?: unknown }).height;
-  if (
-    typeof height !== "number" ||
-    !Number.isFinite(height) ||
-    !Number.isSafeInteger(height) ||
-    height < 0
-  ) {
-    throw invalidResponse("Midnight indexer returned an invalid block height");
-  }
-
-  return { height };
+  return { height: body.data.block.height };
 }
