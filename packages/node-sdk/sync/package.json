@@ -22,7 +22,6 @@
     "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0-rc.3",
     "effection": "3.5.0",
     "graphql-ws": "^6.0.6",
-    "ntp-packet-parser": "0.6.1",
     "ntp-time-sync": "0.6.0",
     "viem": "2.37.3",
     "denque": "^2.1.0",

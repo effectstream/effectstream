@@ -56,7 +56,8 @@ test("NTP dependencies and lock integrity are exact", async () => {
   const manifest = await Bun.file("packages/node-sdk/sync/package.json").json();
   const lock = await Bun.file("bun.lock").text();
   expect(manifest.dependencies["ntp-time-sync"]).toBe("0.6.0");
-  expect(manifest.dependencies["ntp-packet-parser"]).toBe("0.6.1");
+  // ntp-packet-parser is ntp-time-sync's own dependency, not a direct one.
+  expect(manifest.dependencies["ntp-packet-parser"]).toBeUndefined();
   expect(lock).toContain('"ntp-time-sync": ["ntp-time-sync@0.6.0"');
   expect(lock).toContain(
     "sha512-7hKnLUZN04goatNThks+raCAI4xRkF0UTdvoj7zpGsp1LDtyAJp4yguIIFYsLng6BKlheYfIOOyqY+eqvPsaCA==",

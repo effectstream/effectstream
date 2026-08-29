@@ -59,7 +59,6 @@ const protocols = await genSyncProtocols(config);
 During deep catch-up a chain's fetch loop races to its tip far faster than the
 merge can drain (the merge applies one block per DB transaction). Without a bound
 the in-memory buffer (`SyncState.bufferedData`) grows toward the **entire backlog**
-
 - hundreds of thousands of block objects - which is an OOM risk.
 
 **The cap.** Every chain's `stateToInput` calls `bufferAtCap(state, syncProtocol)`
@@ -162,9 +161,9 @@ Every `NtpFetcher` owns its own `ntp-time-sync` client and cache, including when
 that client. This prevents a default or configured fetcher from reusing another
 fetcher's server selection or cached offset.
 
-For startup boundaries, `getNtpTip` takes one concurrent NTPv4 sample from each
-selected server and returns the inclusive page from the first fully validated
-response:
+For startup boundaries, `getNtpTip` builds a private `ntp-time-sync` client
+per call, samples the selected servers concurrently, and returns the inclusive
+page from the first validated round:
 
 ```ts
 import { getNtpTip } from "@effectstream/sync";
@@ -178,12 +177,11 @@ const { height } = await getNtpTip({
 });
 ```
 
-The operation has one deadline, sends at most one packet per selected server,
-and does not retry. Caller abort and timeout use first-winner semantics. Before
-rejecting, the operation cancels sibling requests, closes and awaits every owned
-UDP socket, clears its deadline, and removes the caller's abort listener.
-`NtpTipError.code` distinguishes invalid options, abort, timeout, network,
-invalid response, and invalid time; abort preserves the caller's reason as
+The operation has one deadline (`requestTimeoutMs`), which also bounds the
+client's own socket wait; on timeout or caller abort it clears its timer and
+abort listener and rejects, while the client's in-flight sockets close at that
+same deadline. `NtpTipError.code` distinguishes invalid options, abort,
+timeout, network, and invalid time; abort preserves the caller's reason as
 `cause`, while timeout exposes the effective `timeoutMs`.
 
 Compatibility warning: the exact `ntp-time-sync` 0.6.0 upgrade drops Node 18
