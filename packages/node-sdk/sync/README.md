@@ -219,6 +219,34 @@ application code drives them through `genSyncProtocols` rather than
 instantiating them directly. Reach for them only if you're writing a
 custom orchestration layer.
 
+## One-shot Midnight tip
+
+`getMidnightTip()` performs one bounded query for the Midnight indexer's
+current block height. The caller must supply the absolute HTTP(S) `indexer`;
+the helper has no network or endpoint default.
+
+```typescript
+import { getMidnightTip } from "@effectstream/sync";
+
+const { height } = await getMidnightTip({
+  indexer: midnight.indexer,
+  requestTimeoutMs: 15_000, // optional; 15 seconds by default
+  signal,
+});
+```
+
+The operation sends exactly one `query { block { height } }` POST and returns
+one validated non-negative safe integer. It never retries, polls, caches, or
+persists a partial or successful result.
+
+Failures are `MidnightTipError` instances with stable codes:
+`INVALID_OPTIONS`, `ABORTED`, `TIMEOUT`, `NETWORK`, `HTTP`, `GRAPHQL`, and
+`INVALID_RESPONSE`. Caller abort preserves `signal.reason`; network and JSON
+parse failures preserve their original cause; HTTP failures expose
+`status`/`statusText`; and GraphQL failures expose a frozen `graphqlErrors`
+copy. Caller abort and the operation deadline use first-winner semantics and
+release their timer, listener, and request on every settlement.
+
 ## Examples
 
 End-to-end sync test (boots a node, reads blocks, asserts the DB):
