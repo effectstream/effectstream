@@ -285,7 +285,7 @@ for (const branch of ["defaulted", "defined"] as const) {
   });
 }
 
-test("forged main and parallel callback results are rejected before entering ConfigBuilder", () => {
+test("a callback result other than the supplied builder is rejected", () => {
   expect(() =>
     new ConfigBuilder()
       .buildNetworks((builder) =>
@@ -300,33 +300,9 @@ test("forged main and parallel callback results are rejected before entering Con
             startBlockHeight: 1,
           }),
         ).build();
-        return {
-          build: () => ({
-            ...valid,
-            main: Object.assign({}, valid.main, { network: "ghost" }),
-          }),
-        };
+        return { build: () => valid };
       }) as any)
   ).toThrow(/supplied SyncProtocolBuilder/i);
-
-  expect(() =>
-    new ConfigBuilder()
-      .buildNetworks((builder) =>
-        builder.addNetwork({ type: ConfigNetworkType.NTP })
-      )
-      .buildSyncProtocols(((builder: any) => {
-        const configured = builder.addMain(
-          (networks: any) => networks.ntp,
-          () => ({
-            name: "ntp",
-            type: ConfigSyncProtocolType.NTP_MAIN,
-            startBlockHeight: 1,
-          }),
-        );
-        Object.assign(configured.data.main, { network: "same-builder-ghost" });
-        return configured;
-      }) as any)
-  ).toThrow(/invalid sync protocol builder result at main/i);
 
   expect(() =>
     new ConfigBuilder()
@@ -361,94 +337,9 @@ test("forged main and parallel callback results are rejected before entering Con
             }),
           )
           .build();
-        return {
-          build: () => ({
-            ...valid,
-            parallel: {
-              ...valid.parallel,
-              test: Object.assign({}, valid.parallel.test, { network: "ntp" }),
-            },
-          }),
-        };
+        return { build: () => ({ ...valid }) };
       }) as any)
   ).toThrow(/supplied SyncProtocolBuilder/i);
-
-  expect(() =>
-    new ConfigBuilder()
-      .buildNetworks((builder) =>
-        builder
-          .addNetwork({ type: ConfigNetworkType.NTP })
-          .addNetwork({
-            name: "test",
-            type: ConfigNetworkType.TEST,
-            startTime: 0,
-            blockTimeMS: 10,
-          })
-      )
-      .buildSyncProtocols(((builder: any) => {
-        const configured = builder
-          .addMain(
-            (networks: any) => networks.ntp,
-            () => ({
-              name: "ntp",
-              type: ConfigSyncProtocolType.NTP_MAIN,
-              startBlockHeight: 1,
-            }),
-          )
-          .addParallel(
-            (networks: any) => networks.test,
-            () => ({
-              name: "test",
-              type: ConfigSyncProtocolType.TEST_PARALLEL,
-              startBlockHeight: 1,
-              pollingInterval: 100,
-              events: [],
-            }),
-          );
-        Object.assign(configured.data.parallel.test, { network: "ntp" });
-        return configured;
-      }) as any)
-  ).toThrow(/invalid sync protocol builder result at parallel\.test/i);
-
-  expect(() =>
-    new ConfigBuilder()
-      .buildNetworks((builder) =>
-        builder.addNetwork({ type: ConfigNetworkType.NTP })
-      )
-      .buildSyncProtocols((builder) => {
-        const configured = builder.addMain(
-          (networks) => networks.ntp,
-          () => ({
-            name: "ntp",
-            type: ConfigSyncProtocolType.NTP_MAIN,
-            startBlockHeight: 1,
-          }),
-        );
-        Object.assign(configured.data, { parallel: [] });
-        return configured;
-      })
-  ).toThrow(/invalid sync protocol builder result collections/i);
-
-  expect(() =>
-    new ConfigBuilder()
-      .buildNetworks((builder) =>
-        builder.addNetwork({ type: ConfigNetworkType.NTP })
-      )
-      .buildSyncProtocols((builder) => {
-        const configured = builder.addMain(
-          (networks) => networks.ntp,
-          () => ({
-            name: "ntp",
-            type: ConfigSyncProtocolType.NTP_MAIN,
-            startBlockHeight: 1,
-          }),
-        );
-        Object.assign(configured.data.main!.syncProtocol, {
-          pollingInterval: "not-a-number",
-        });
-        return configured;
-      })
-  ).toThrow(/invalid sync protocol builder result at main/i);
 });
 
 test("__proto__ parallel and decorator names materialize as enumerable own keys", () => {
@@ -593,192 +484,7 @@ test("prototype-sensitive network names remain deterministically rejected", () =
   }
 });
 
-const buildWithInheritedStateMutation = (
-  mutate: (configured: any) => void,
-): void => {
-  new ConfigBuilder()
-    .buildNetworks((builder) =>
-      builder
-        .addNetwork({ type: ConfigNetworkType.NTP })
-        .addNetwork({
-          name: "test",
-          type: ConfigNetworkType.TEST,
-          startTime: 0,
-          blockTimeMS: 10,
-        })
-    )
-    .buildSyncProtocols(((builder: any) => {
-      const configured = builder
-        .addMain(
-          (networks: any) => networks.ntp,
-          () => ({
-            name: "ntp",
-            type: ConfigSyncProtocolType.NTP_MAIN,
-            startBlockHeight: 1,
-          }),
-        )
-        .addParallel(
-          (networks: any) => networks.test,
-          () => ({
-            name: "test",
-            type: ConfigSyncProtocolType.TEST_PARALLEL,
-            startBlockHeight: 1,
-            pollingInterval: 100,
-            events: [],
-          }),
-        )
-        .addDecorator(
-          (networks: any) => networks.test,
-          () => ({
-            name: "emulated",
-            type: ConfigSyncProtocolDecoratorType.EMULATED,
-            blockTimeMs: 100,
-          }),
-        );
-      mutate(configured);
-      return configured;
-    }) as any);
-};
-
-const inheritedStateCases: ReadonlyArray<{
-  name: string;
-  mutate: (configured: any) => void;
-  expected: RegExp;
-}> = [
-  {
-    name: "inherited main.network",
-    mutate: (configured) => {
-      const main = configured.data.main;
-      const network = main.network;
-      delete main.network;
-      Object.setPrototypeOf(main, { network });
-    },
-    expected: /invalid sync protocol builder result at main/i,
-  },
-  {
-    name: "inherited main protocol fields",
-    mutate: (configured) => {
-      configured.data.main.syncProtocol = Object.create(
-        configured.data.main.syncProtocol,
-      );
-    },
-    expected: /invalid sync protocol builder result at main/i,
-  },
-  {
-    name: "prototype-only parallel entry",
-    mutate: (configured) => {
-      const entry = configured.data.parallel.test;
-      delete configured.data.parallel.test;
-      Object.setPrototypeOf(configured.data.parallel, { test: entry });
-    },
-    expected: /invalid sync protocol builder result collections/i,
-  },
-  {
-    name: "prototype-only decorator",
-    mutate: (configured) => {
-      const protocol = configured.data.decorators.emulated;
-      delete configured.data.decorators.emulated;
-      Object.setPrototypeOf(configured.data.decorators, { emulated: protocol });
-    },
-    expected: /invalid sync protocol builder result collections/i,
-  },
-  {
-    name: "prototype-backed top-level result",
-    mutate: (configured) => {
-      Object.setPrototypeOf(configured.data, { inherited: true });
-    },
-    expected: /invalid sync protocol builder result/i,
-  },
-  {
-    name: "prototype-backed networks container",
-    mutate: (configured) => {
-      Object.setPrototypeOf(configured.networks.networks, { inherited: true });
-    },
-    expected: /invalid sync protocol builder result/i,
-  },
-];
-
-for (const inheritedCase of inheritedStateCases) {
-  test(`${inheritedCase.name} is rejected before ConfigBuilder storage`, () => {
-    expect(() => buildWithInheritedStateMutation(inheritedCase.mutate)).toThrow(
-      inheritedCase.expected,
-    );
-  });
-}
-
-test("null-prototype sync-protocol records remain valid", () => {
-  const toNullRecord = (value: Record<string, any>): Record<string, any> =>
-    Object.assign(Object.create(null), value);
-  const chain = new ConfigBuilder()
-    .buildNetworks((builder) =>
-      builder
-        .addNetwork({ type: ConfigNetworkType.NTP })
-        .addNetwork({
-          name: "test",
-          type: ConfigNetworkType.TEST,
-          startTime: 0,
-          blockTimeMS: 10,
-        })
-    )
-    .buildSyncProtocols(((builder: any) => {
-      const configured = builder
-        .addMain(
-          (networks: any) => networks.ntp,
-          () => ({
-            name: "ntp",
-            type: ConfigSyncProtocolType.NTP_MAIN,
-            startBlockHeight: 1,
-          }),
-        )
-        .addParallel(
-          (networks: any) => networks.test,
-          () => ({
-            name: "test",
-            type: ConfigSyncProtocolType.TEST_PARALLEL,
-            startBlockHeight: 1,
-            pollingInterval: 100,
-            events: [],
-          }),
-        )
-        .addDecorator(
-          (networks: any) => networks.test,
-          () => ({
-            name: "emulated",
-            type: ConfigSyncProtocolDecoratorType.EMULATED,
-            blockTimeMs: 100,
-          }),
-        );
-      const data = configured.data;
-      data.main = toNullRecord({
-        network: data.main.network,
-        syncProtocol: toNullRecord({ ...data.main.syncProtocol }),
-      });
-      const parallelEntry = data.parallel.test;
-      data.parallel = toNullRecord({
-        test: toNullRecord({
-          network: parallelEntry.network,
-          syncProtocol: toNullRecord({ ...parallelEntry.syncProtocol }),
-        }),
-      });
-      data.decorators = toNullRecord({
-        emulated: toNullRecord({ ...data.decorators.emulated }),
-      });
-      configured.networks.networks = toNullRecord({
-        ...configured.networks.networks,
-      });
-      return configured;
-    }) as any);
-
-  expect(Object.getPrototypeOf(chain.data.syncProtocols!.main)).toBeNull();
-  expect(Object.getPrototypeOf(chain.data.syncProtocols!.parallel)).toBeNull();
-  expect(Object.getPrototypeOf(chain.data.syncProtocols!.decorators)).toBeNull();
-  expect(Object.keys(chain.data.syncProtocols!.parallel)).toEqual(["test"]);
-  expect(Object.keys(chain.data.syncProtocols!.decorators)).toEqual([
-    "emulated",
-  ]);
-});
-
-test("unrelated TEST polling remains required and is never defaulted", () => {
+test("unrelated TEST polling is never given an NTP/Midnight default", () => {
   const explicit = new ConfigBuilder()
     .buildNetworks((builder) =>
       builder.addNetwork({
@@ -803,27 +509,32 @@ test("unrelated TEST polling remains required and is never defaulted", () => {
   expect(explicit.data.syncProtocols?.main.syncProtocol.pollingInterval).toBe(
     777,
   );
-  expect(() =>
-    new ConfigBuilder()
-      .buildNetworks((builder) =>
-        builder.addNetwork({
-          name: "test",
-          type: ConfigNetworkType.TEST,
-          startTime: 0,
-          blockTimeMS: 10,
-        })
-      )
-      .buildSyncProtocols((builder) =>
-        builder.addMain(
-          (networks) => networks.test,
-          () => ({
+  // Omitting the schema-required polling value stays a compile-time error
+  // (see builder-semantics.typecheck.ts); at runtime nothing must invent one.
+  const omitted = new ConfigBuilder()
+    .buildNetworks((builder) =>
+      builder.addNetwork({
+        name: "test",
+        type: ConfigNetworkType.TEST,
+        startTime: 0,
+        blockTimeMS: 10,
+      })
+    )
+    .buildSyncProtocols((builder) =>
+      builder.addMain(
+        (networks) => networks.test,
+        () =>
+          ({
             name: "test-no-default",
             type: ConfigSyncProtocolType.TEST_MAIN,
             startBlockHeight: 1,
-          }),
-        )
+          }) as any,
       )
-  ).toThrow(/invalid sync protocol builder result at main/i);
+    );
+
+  expect(
+    "pollingInterval" in omitted.data.syncProtocols!.main.syncProtocol,
+  ).toBe(false);
 });
 
 for (const deploymentStage of ["omitted", "explicit-empty"] as const) {

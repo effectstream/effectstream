@@ -7,7 +7,6 @@ import type { ConfigSyncProtocolMapping } from "../src/schema/sync-protocols/all
 import { ConfigSyncProtocolType } from "../src/schema/sync-protocols/types.ts";
 import { ConfigSyncProtocolDecoratorType } from "../src/schema/sync-protocols/decorators/types.ts";
 import type { SyncProtocolWithNetwork } from "../src/schema/sync-protocols/types.ts";
-import type { ValidatePostBuildSyncProtocolBuilderData } from "../src/config/parts/syncProtocols.ts";
 
 type IsExact<A, B> =
   (<T>() => T extends A ? 1 : 2) extends
@@ -151,52 +150,6 @@ type _MidnightPollingDefault = Assert<
     6_000
   >
 >;
-type ConflictingPollingMain =
-  & typeof minimal.syncProtocols.main.syncProtocol
-  & { pollingInterval: "not-a-number" };
-type _NeverProtocolMemberRejected = Assert<
-  IsExact<
-    ValidatePostBuildSyncProtocolBuilderData<
-      typeof minimal.allNetworks.networks,
-      {
-        main: {
-          network: "ntp";
-          syncProtocol: ConflictingPollingMain;
-        };
-        parallel: {};
-        decorators: {};
-      }
-    >,
-    never
-  >
->;
-type _NeverParallelAggregateRejected = Assert<
-  IsExact<
-    ValidatePostBuildSyncProtocolBuilderData<
-      typeof minimal.allNetworks.networks,
-      {
-        main: typeof minimal.syncProtocols.main;
-        parallel: never;
-        decorators: {};
-      }
-    >,
-    never
-  >
->;
-type _NeverDecoratorAggregateRejected = Assert<
-  IsExact<
-    ValidatePostBuildSyncProtocolBuilderData<
-      typeof minimal.allNetworks.networks,
-      {
-        main: typeof minimal.syncProtocols.main;
-        parallel: {};
-        decorators: never;
-      }
-    >,
-    never
-  >
->;
-
 const prototypeNamed = new ConfigBuilder()
   .buildNetworks((builder) =>
     builder
@@ -504,7 +457,6 @@ new ConfigBuilder()
       })
   )
   .buildSyncProtocols((builder) =>
-    // @ts-expect-error the invalid fluent result is rejected at the top boundary.
     builder
       .addMain(
         (networks) => networks.ntp,
@@ -525,85 +477,13 @@ new ConfigBuilder()
       )
   );
 
-const conditionalMainNetwork = Math.random() > 0.5
-  ? {
-    name: "conditional-main",
-    type: ConfigNetworkType.NTP,
-    startTime: 0,
-    blockTimeMS: 10,
-  } as const
-  : {
-    name: "conditional-main",
-    type: ConfigNetworkType.TEST,
-    startTime: 0,
-    blockTimeMS: 10,
-  } as const;
-new ConfigBuilder()
-  .buildNetworks((builder) => builder.addNetwork(conditionalMainNetwork))
-  .buildSyncProtocols((builder) =>
-    // @ts-expect-error NTP-only main is invalid for the possible TEST branch.
-    builder.addMain(
-      (networks) => networks["conditional-main"],
-      () => ({
-        name: "conditional-main",
-        type: ConfigSyncProtocolType.NTP_MAIN,
-        startBlockHeight: 1,
-      }),
-    )
-  );
-
-const conditionalParallelNetwork = Math.random() > 0.5
-  ? {
-    name: "conditional-parallel",
-    type: ConfigNetworkType.NTP,
-    startTime: 0,
-    blockTimeMS: 10,
-  } as const
-  : {
-    name: "conditional-parallel",
-    type: ConfigNetworkType.TEST,
-    startTime: 0,
-    blockTimeMS: 10,
-  } as const;
-new ConfigBuilder()
-  .buildNetworks((builder) =>
-    builder
-      .addNetwork({
-        type: ConfigNetworkType.NTP,
-        name: "parallel-clock",
-        startTime: 0,
-        blockTimeMS: 10,
-      })
-      .addNetwork(conditionalParallelNetwork)
-  )
-  .buildSyncProtocols((builder) =>
-    // @ts-expect-error TEST-only parallel is invalid for the possible NTP branch.
-    builder
-      .addMain(
-        (networks) => networks["parallel-clock"],
-        () => ({
-          name: "parallel-clock",
-          type: ConfigSyncProtocolType.NTP_MAIN,
-          startBlockHeight: 1,
-        }),
-      )
-      .addParallel(
-        (networks) => networks["conditional-parallel"],
-        () => ({
-          name: "conditional-parallel",
-          type: ConfigSyncProtocolType.TEST_PARALLEL,
-          startBlockHeight: 1,
-          pollingInterval: 100,
-          events: [],
-        }),
-      )
-  );
-
+// The nominal callback contract still rejects anything that is not the
+// supplied SyncProtocolBuilder instance, without any structural forgery check.
 new ConfigBuilder()
   .buildNetworks((builder) =>
     builder.addNetwork({ type: ConfigNetworkType.NTP })
   )
-  // @ts-expect-error conflicting Object.assign network overlays are invalid.
+  // @ts-expect-error the callback must return the supplied SyncProtocolBuilder.
   .buildSyncProtocols((builder) => {
     const valid = builder.addMain(
       (networks) => networks.ntp,
@@ -613,211 +493,7 @@ new ConfigBuilder()
         startBlockHeight: 1,
       }),
     ).build();
-    return {
-      build: () => ({
-        ...valid,
-        main: Object.assign({}, valid.main, { network: "assign-ghost" }),
-      }),
-    };
-  });
-
-new ConfigBuilder()
-  .buildNetworks((builder) =>
-    builder
-      .addNetwork({ type: ConfigNetworkType.NTP })
-      .addNetwork({
-        name: "assign-test",
-        type: ConfigNetworkType.TEST,
-        startTime: 0,
-        blockTimeMS: 10,
-      })
-  )
-  // @ts-expect-error conflicting Object.assign parallel overlays are invalid.
-  .buildSyncProtocols((builder) => {
-    const valid = builder
-      .addMain(
-        (networks) => networks.ntp,
-        () => ({
-          name: "ntp",
-          type: ConfigSyncProtocolType.NTP_MAIN,
-          startBlockHeight: 1,
-        }),
-      )
-      .addParallel(
-        (networks) => networks["assign-test"],
-        () => ({
-          name: "assign-test",
-          type: ConfigSyncProtocolType.TEST_PARALLEL,
-          startBlockHeight: 1,
-          pollingInterval: 100,
-          events: [],
-        }),
-      )
-      .build();
-    return {
-      build: () => ({
-        ...valid,
-        parallel: {
-          ...valid.parallel,
-          "assign-test": Object.assign({}, valid.parallel["assign-test"], {
-            network: "ntp",
-          }),
-        },
-      }),
-    };
-  });
-
-new ConfigBuilder()
-  .buildNetworks((builder) =>
-    builder.addNetwork({ type: ConfigNetworkType.NTP })
-  )
-  // @ts-expect-error explicit never members cannot vacuously validate.
-  .buildSyncProtocols((_builder) => {
-    function impossible(): never {
-      throw new Error("type-only impossible value");
-    }
-    return {
-      build: () => ({
-        main: {
-          network: impossible(),
-          syncProtocol: impossible(),
-        },
-        parallel: {},
-        decorators: {},
-      }),
-    };
-  });
-
-new ConfigBuilder()
-  .buildNetworks((builder) =>
-    builder.addNetwork({ type: ConfigNetworkType.NTP })
-  )
-  // @ts-expect-error a fabricated result cannot select an unbuilt network.
-  .buildSyncProtocols((builder) => {
-    const valid = builder.addMain(
-      (networks) => networks.ntp,
-      () => ({
-        name: "ntp",
-        type: ConfigSyncProtocolType.NTP_MAIN,
-        startBlockHeight: 1,
-      }),
-    ).build();
-    return {
-      build: () => ({
-        ...valid,
-        main: { ...valid.main, network: "ghost" },
-      }),
-    };
-  });
-
-new ConfigBuilder()
-  .buildNetworks((builder) =>
-    builder.addNetwork({ type: ConfigNetworkType.NTP })
-  )
-  // @ts-expect-error supplied fields must retain their schema-defined types.
-  .buildSyncProtocols((builder) => {
-    const valid = builder.addMain(
-      (networks) => networks.ntp,
-      () => ({
-        name: "ntp",
-        type: ConfigSyncProtocolType.NTP_MAIN,
-        startBlockHeight: 1,
-      }),
-    ).build();
-    return {
-      build: () => ({
-        ...valid,
-        main: {
-          ...valid.main,
-          syncProtocol: {
-            ...valid.main.syncProtocol,
-            pollingInterval: "bad",
-          },
-        },
-      }),
-    };
-  });
-
-new ConfigBuilder()
-  .buildNetworks((builder) =>
-    builder
-      .addNetwork({ type: ConfigNetworkType.NTP })
-      .addNetwork({
-        name: "test",
-        type: ConfigNetworkType.TEST,
-        startTime: 0,
-        blockTimeMS: 10,
-      })
-  )
-  // @ts-expect-error the protocol discriminator must match its built network.
-  .buildSyncProtocols((builder) => {
-    const valid = builder.addMain(
-      (networks) => networks.ntp,
-      () => ({
-        name: "ntp",
-        type: ConfigSyncProtocolType.NTP_MAIN,
-        startBlockHeight: 1,
-      }),
-    ).build();
-    return {
-      build: () => ({
-        ...valid,
-        main: { ...valid.main, network: "test" },
-      }),
-    };
-  });
-
-new ConfigBuilder()
-  .buildNetworks((builder) =>
-    builder.addNetwork({ type: ConfigNetworkType.NTP })
-  )
-  // @ts-expect-error a fabricated result cannot use an unknown protocol type.
-  .buildSyncProtocols((builder) => {
-    const valid = builder.addMain(
-      (networks) => networks.ntp,
-      () => ({
-        name: "ntp",
-        type: ConfigSyncProtocolType.NTP_MAIN,
-        startBlockHeight: 1,
-      }),
-    ).build();
-    return {
-      build: () => ({
-        ...valid,
-        main: {
-          ...valid.main,
-          syncProtocol: { ...valid.main.syncProtocol, type: "not-real" },
-        },
-      }),
-    };
-  });
-
-new ConfigBuilder()
-  .buildNetworks((builder) =>
-    builder.addNetwork({ type: ConfigNetworkType.NTP })
-  )
-  // @ts-expect-error a fabricated result must contain every materialized field.
-  .buildSyncProtocols((builder) => {
-    const valid = builder.addMain(
-      (networks) => networks.ntp,
-      () => ({
-        name: "ntp",
-        type: ConfigSyncProtocolType.NTP_MAIN,
-        startBlockHeight: 1,
-      }),
-    ).build();
-    return {
-      build: () => ({
-        ...valid,
-        main: {
-          ...valid.main,
-          syncProtocol: {
-            name: "ntp",
-            type: ConfigSyncProtocolType.NTP_MAIN,
-          },
-        },
-      }),
-    };
+    return { build: () => valid };
   });
 
 new ConfigBuilder()
@@ -854,7 +530,6 @@ new ConfigBuilder()
       })
   )
   .buildSyncProtocols((builder) =>
-    // @ts-expect-error the invalid fluent result is rejected at the top boundary.
     builder
       .addMain(
         (networks) => networks.ntp,

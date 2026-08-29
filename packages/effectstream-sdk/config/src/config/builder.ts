@@ -8,10 +8,8 @@ import {
 } from "./parts/deployedAddresses.ts";
 import {
   type AnyPostBuildSyncProtocolBuilderData,
-  assertValidPostBuildSyncProtocolBuilderData,
   type NetworkSyncProtocols,
   SyncProtocolBuilder,
-  type ValidatePostBuildSyncProtocolBuilderData,
 } from "./parts/syncProtocols.ts";
 import {
   PrimitiveBuilder,
@@ -172,11 +170,7 @@ export class ConfigBuilder<
         any,
         any,
         any
-      > & { build: () => NewSyncProtocols } &
-        ValidatePostBuildSyncProtocolBuilderData<
-          NonNullable<Networks>["networks"],
-          NoInfer<NewSyncProtocols>
-        >,
+      > & { build: () => NewSyncProtocols },
     ): ConfigBuilder<
       Namespace,
       Networks,
@@ -201,12 +195,7 @@ export class ConfigBuilder<
           "buildSyncProtocols callback must return the supplied SyncProtocolBuilder",
         );
       }
-      const configured = configuredBuilder.build();
-      assertValidPostBuildSyncProtocolBuilderData(
-        (this.data.allNetworks as NonNullable<Networks>).networks,
-        configured,
-      );
-      (this.data.syncProtocols as any) = configured;
+      (this.data.syncProtocols as any) = configuredBuilder.build();
       return this as any;
     },
   });
