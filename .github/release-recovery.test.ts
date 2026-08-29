@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import {
   classifyRecoveryMode,
@@ -84,11 +84,11 @@ describe("all release kinds and recovery states", () => {
 
 describe("recovery authorization and branch protections", () => {
   const workflow = readFileSync(
-    join(import.meta.dir, "workflows", "release-recovery.yaml"),
+    join(import.meta.dir, "workflows", "release.yaml"),
     "utf8",
   );
 
-  test("requires exact state, artifact, audit, authorization, and branch inputs", () => {
+  test("single trusted caller retains all ten recovery/proof inputs and invariants", () => {
     for (const input of [
       "recovery_mode",
       "original_run_id",
@@ -99,6 +99,7 @@ describe("recovery authorization and branch protections", () => {
       "source_sha",
       "expected_current_branch_sha",
       "approval_refs",
+      "proof_digests",
     ]) {
       expect(workflow).toContain(`${input}:`);
     }
@@ -108,7 +109,7 @@ describe("recovery authorization and branch protections", () => {
     expect(workflow).not.toContain("git push --force");
     expect(workflow).not.toContain("--force-with-lease");
     const compatibility = workflow.indexOf("Validate recovery branch compatibility before authentication or mutation");
-    const auth = workflow.indexOf("Configure npm auth after all artifact and source checks");
+    const auth = workflow.indexOf("Setup exact Node and npm after recovery validation");
     const mutation = workflow.indexOf("Complete exact artifact publication and apply version delta");
     expect(compatibility).toBeGreaterThan(0);
     expect(compatibility).toBeLessThan(auth);
@@ -116,11 +117,46 @@ describe("recovery authorization and branch protections", () => {
   });
 
   test("read-only proof cannot fall through to recovery mutation", () => {
-    expect(workflow).toContain("if: ${{ inputs.recovery_mode == 'artifact-proof' }}");
-    expect(workflow).toContain("if: ${{ inputs.recovery_mode != 'artifact-proof' }}");
+    expect(workflow).toContain("github.event_name == 'workflow_dispatch' && inputs.recovery_mode == 'artifact-proof'");
+    expect(workflow).toContain("github.event_name == 'workflow_dispatch' && inputs.recovery_mode != 'artifact-proof'");
     const proof = workflow.slice(workflow.indexOf("  artifact-proof:"), workflow.indexOf("  recover:"));
-    expect(proof).not.toContain("NPM_TOKEN");
+    expect(proof).not.toContain("id-token: write");
     expect(proof).not.toContain("contents: write");
     expect(proof).not.toContain("environment:");
+    expect(proof).not.toContain("actions/checkout");
+  });
+
+  test("manual recovery fails closed unless dispatched from default-branch release.yaml", () => {
+    const guard = workflow.indexOf("Require default-branch trusted caller identity");
+    const download = workflow.indexOf("Download original immutable release bundle");
+    const mutation = workflow.indexOf("Complete exact artifact publication and apply version delta");
+    expect(guard).toBeGreaterThan(0);
+    expect(guard).toBeLessThan(download);
+    expect(download).toBeLessThan(mutation);
+    expect(workflow).toContain('GITHUB_REF: ${{ github.ref }}');
+    expect(workflow).toContain('DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}');
+    expect(workflow).toContain('GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}');
+    expect(workflow).toContain('refs/heads/$DEFAULT_BRANCH');
+    expect(workflow).toContain('.github/workflows/release.yaml@refs/heads/$DEFAULT_BRANCH');
+  });
+
+  test("workflow static boundary removes tokens, pins OIDC tools, and adds aggregate release CI", () => {
+    const workflows = join(import.meta.dir, "workflows");
+    const main = readFileSync(join(workflows, "main.yaml"), "utf8");
+    expect(existsSync(join(workflows, "release-recovery.yaml"))).toBe(false);
+    expect(workflow.trimStart()).toContain("permissions: {}");
+    expect(workflow.match(/id-token:\s*write/g)).toHaveLength(2);
+    for (const forbidden of [
+      "NPM_TOKEN",
+      "BUN_AUTH_TOKEN",
+      "NPM_CONFIG_TOKEN",
+      "NODE_AUTH_TOKEN",
+      "_authToken",
+    ]) expect(workflow).not.toContain(forbidden);
+    expect(workflow).toContain("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020");
+    expect(workflow.match(/node-version:\s*24\.20\.0/g)).toHaveLength(2);
+    expect(workflow.match(/--visibility-timeout-ms 1800000/g)).toHaveLength(2);
+    expect(main).toContain("  release-tests:");
+    expect(main).toContain("needs: [changes, e2e, template-tests, frontend-build, assets-check, release-tests]");
   });
 });

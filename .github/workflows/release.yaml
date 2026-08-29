@@ -1,11 +1,53 @@
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      recovery_mode:
+        description: Exact audited state, or artifact-proof for the read-only rehearsal consumer
+        required: true
+        type: choice
+        options: [artifact-proof, partial-tag, complete-tag, partial-advanced, complete-advanced]
+      original_run_id:
+        description: Original producer run ID
+        required: true
+        type: string
+      artifact_id:
+        description: Immutable Actions artifact ID from the original producer
+        required: true
+        type: string
+      expected_service_digest:
+        description: Exact service-reported sha256 artifact digest
+        required: true
+        type: string
+      manifest_sha512:
+        description: Release manifest SHA-512; blank only for artifact-proof
+        required: false
+        type: string
+      release_tag:
+        description: Exact release tag; blank for artifact-proof
+        required: false
+        type: string
+      source_sha:
+        description: Exact original release source SHA; blank for artifact-proof
+        required: false
+        type: string
+      expected_current_branch_sha:
+        description: Exact approved current mapped-branch SHA; blank for artifact-proof
+        required: false
+        type: string
+      approval_refs:
+        description: Exact audit-ref|G4-authorization-ref pair; blank for artifact-proof
+        required: false
+        type: string
+      proof_digests:
+        description: Rehearsal manifest-sha256:payload-sha256; required only for artifact-proof
+        required: false
+        type: string
 
-name: Effectstream Release Publish
+name: Effectstream Release Publish and Recovery
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: release-publish
@@ -13,6 +55,10 @@ concurrency:
 
 jobs:
   publish:
+    if: ${{ github.event_name == 'release' }}
+    permissions:
+      contents: write
+      id-token: write
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
@@ -89,25 +135,37 @@ jobs:
             echo "- service digest: $SERVICE_DIGEST"
             echo "- manifest sha512: $MANIFEST_SHA512"
             echo "- package count: $PACKAGE_COUNT"
-            echo '- recovery: use the separate recovery workflow; do not rerun this failed run after upload.'
+            echo '- recovery: dispatch release.yaml; do not rerun this failed run after upload.'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Configure npm auth
+      - name: Setup exact Node and npm after release validation
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.20.0
+          package-manager-cache: false
+
+      - name: Assert exact Node and npm versions
+        id: npm-toolchain
         shell: bash
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > .npmrc
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = 'v24.20.0'
+          test "$(npm --version)" = '11.19.0'
+          echo 'node=v24.20.0' >> "$GITHUB_OUTPUT"
+          echo 'npm=11.19.0' >> "$GITHUB_OUTPUT"
+          {
+            echo '### Trusted publishing toolchain'
+            echo '- node: v24.20.0'
+            echo '- npm: 11.19.0'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish exact persisted tarballs and verify channel postcondition
         id: publish
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           bun run .github/publish-bun.effectstream.ts --publish-bundle --publish \
             --artifact-dir '${{ runner.temp }}/effectstream-release-bundle' \
-            --manifest-sha512 '${{ steps.prepare.outputs.manifest-sha512 }}'
+            --manifest-sha512 '${{ steps.prepare.outputs.manifest-sha512 }}' \
+            --visibility-timeout-ms 1800000
 
       - name: Persist secret-free publication result even after failure
         id: result-upload
@@ -140,7 +198,6 @@ jobs:
           SOURCE_BRANCH: ${{ steps.release-source.outputs.branch }}
         run: |
           set -euo pipefail
-          rm -f .npmrc
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add package.json ':(glob)packages/**/package.json'
@@ -155,3 +212,293 @@ jobs:
             git commit -m "chore(release): $RELEASE_TAG"
             git push origin "HEAD:refs/heads/$SOURCE_BRANCH"
           fi
+
+  artifact-proof:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.recovery_mode == 'artifact-proof' }}
+    permissions:
+      actions: read
+      contents: read
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Reject mutation inputs and require rehearsal digests
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BRANCH_SHA: ${{ inputs.expected_current_branch_sha }}
+          MANIFEST_SHA512: ${{ inputs.manifest_sha512 }}
+          APPROVAL_REFS: ${{ inputs.approval_refs }}
+          PROOF_DIGESTS: ${{ inputs.proof_digests }}
+        run: |
+          set -euo pipefail
+          test -z "$RELEASE_TAG$SOURCE_SHA$BRANCH_SHA$MANIFEST_SHA512$APPROVAL_REFS"
+          [[ "$PROOF_DIGESTS" =~ ^[0-9a-f]{64}:[0-9a-f]{64}$ ]]
+
+      - name: Download independent rehearsal artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ inputs.artifact_id }}
+          run-id: ${{ inputs.original_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/artifact-proof
+
+      - name: Verify service, manifest, and payload digests
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          EXPECTED_SERVICE_DIGEST: ${{ inputs.expected_service_digest }}
+          PROOF_DIGESTS: ${{ inputs.proof_digests }}
+        run: |
+          set -euo pipefail
+          EXPECTED_MANIFEST="${PROOF_DIGESTS%%:*}"
+          EXPECTED_FILE="${PROOF_DIGESTS#*:}"
+          actual_service="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/$ARTIFACT_ID" --jq .digest)"
+          test "$actual_service" = "$EXPECTED_SERVICE_DIGEST"
+          test "$(sha256sum '${{ runner.temp }}/artifact-proof/manifest.json' | awk '{print $1}')" = "$EXPECTED_MANIFEST"
+          test "$(sha256sum '${{ runner.temp }}/artifact-proof/payload.txt' | awk '{print $1}')" = "$EXPECTED_FILE"
+          test "$(find '${{ runner.temp }}/artifact-proof' -type f | wc -l | tr -d ' ')" = 2
+
+  recover:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.recovery_mode != 'artifact-proof' }}
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+    environment: npm-release-recovery
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Require default-branch trusted caller identity
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'effectstream/effectstream'
+          test "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH"
+          test "$GITHUB_WORKFLOW_REF" = "effectstream/effectstream/.github/workflows/release.yaml@refs/heads/$DEFAULT_BRANCH"
+
+      - name: Require the complete audited mutation identity
+        id: authorization
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BRANCH_SHA: ${{ inputs.expected_current_branch_sha }}
+          MANIFEST_SHA512: ${{ inputs.manifest_sha512 }}
+          APPROVAL_REFS: ${{ inputs.approval_refs }}
+          PROOF_DIGESTS: ${{ inputs.proof_digests }}
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_TAG" && test -n "$SOURCE_SHA" && test -n "$BRANCH_SHA"
+          test -n "$MANIFEST_SHA512" && test -n "$APPROVAL_REFS"
+          test -z "$PROOF_DIGESTS"
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BRANCH_SHA" =~ ^[0-9a-f]{40}$ ]]
+          audit_ref="${APPROVAL_REFS%%|*}"
+          authorization_ref="${APPROVAL_REFS#*|}"
+          test -n "$audit_ref" && test -n "$authorization_ref"
+          test "$audit_ref|$authorization_ref" = "$APPROVAL_REFS"
+          echo "audit-ref=$audit_ref" >> "$GITHUB_OUTPUT"
+          echo "authorization-ref=$authorization_ref" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact approved current branch head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.expected_current_branch_sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Derive and verify mapped release identities
+        id: policy
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BRANCH_SHA: ${{ inputs.expected_current_branch_sha }}
+        run: |
+          set -euo pipefail
+          policy="$(bun run .github/publish-bun.effectstream.ts --policy --release-tag "$RELEASE_TAG")"
+          branch="$(jq -r .branch <<< "$policy")"
+          dist_tag="$(jq -r .distTag <<< "$policy")"
+          git fetch --force --no-tags origin \
+            "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG" \
+            "+refs/heads/$branch:refs/remotes/origin/$branch"
+          tag_ref="refs/tags/$RELEASE_TAG"
+          branch_ref="refs/remotes/origin/$branch"
+          test "$(git rev-parse "${tag_ref}^{commit}")" = "$SOURCE_SHA"
+          test "$(git rev-parse "${branch_ref}^{commit}")" = "$BRANCH_SHA"
+          test "$(git rev-parse 'HEAD^{commit}')" = "$BRANCH_SHA"
+          git merge-base --is-ancestor "$SOURCE_SHA" "$BRANCH_SHA"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "dist-tag=$dist_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Download original immutable release bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ inputs.artifact_id }}
+          run-id: ${{ inputs.original_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/effectstream-release-bundle
+
+      - name: Verify original service and embedded identities
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          EXPECTED_SERVICE_DIGEST: ${{ inputs.expected_service_digest }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          ORIGINAL_RUN_ID: ${{ inputs.original_run_id }}
+          MANIFEST_SHA512: ${{ inputs.manifest_sha512 }}
+        run: |
+          set -euo pipefail
+          actual_service="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/$ARTIFACT_ID" --jq .digest)"
+          test "$actual_service" = "$EXPECTED_SERVICE_DIGEST"
+          manifest='${{ runner.temp }}/effectstream-release-bundle/manifest.json'
+          test "$(sha512sum "$manifest" | awk '{print $1}')" = "$MANIFEST_SHA512"
+          test "$(jq -r .releaseTag "$manifest")" = "$RELEASE_TAG"
+          test "$(jq -r .sourceSha "$manifest")" = "$SOURCE_SHA"
+          test "$(jq -r .workflow.runId "$manifest")" = "$ORIGINAL_RUN_ID"
+          test "$(jq -r .branch "$manifest")" = '${{ steps.policy.outputs.branch }}'
+          test "$(jq -r .distTag "$manifest")" = '${{ steps.policy.outputs.dist-tag }}'
+
+      - name: Validate recovery branch compatibility before authentication or mutation
+        run: |
+          bun run .github/publish-bun.effectstream.ts --validate-recovery-branch \
+            --artifact-dir '${{ runner.temp }}/effectstream-release-bundle' \
+            --manifest-sha512 '${{ inputs.manifest_sha512 }}' \
+            --expected-current-branch-sha '${{ inputs.expected_current_branch_sha }}' \
+            --recovery-mode '${{ inputs.recovery_mode }}'
+
+      - name: Setup exact Node and npm after recovery validation
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.20.0
+          package-manager-cache: false
+
+      - name: Assert exact recovery Node and npm versions
+        id: recovery-npm-toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = 'v24.20.0'
+          test "$(npm --version)" = '11.19.0'
+          echo 'node=v24.20.0' >> "$GITHUB_OUTPUT"
+          echo 'npm=11.19.0' >> "$GITHUB_OUTPUT"
+          {
+            echo '### Trusted recovery toolchain'
+            echo '- node: v24.20.0'
+            echo '- npm: 11.19.0'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Complete exact artifact publication and apply version delta
+        id: recover-publication
+        run: |
+          bun run .github/publish-bun.effectstream.ts --recover-bundle --publish \
+            --artifact-dir '${{ runner.temp }}/effectstream-release-bundle' \
+            --artifact-id '${{ inputs.artifact_id }}' \
+            --service-digest '${{ inputs.expected_service_digest }}' \
+            --manifest-sha512 '${{ inputs.manifest_sha512 }}' \
+            --expected-current-branch-sha '${{ inputs.expected_current_branch_sha }}' \
+            --recovery-mode '${{ inputs.recovery_mode }}' \
+            --audit-ref '${{ steps.authorization.outputs.audit-ref }}' \
+            --authorization-ref '${{ steps.authorization.outputs.authorization-ref }}' \
+            --visibility-timeout-ms 1800000
+
+      - name: Persist secret-free recovery publication result even after failure
+        id: recovery-result-upload
+        if: ${{ always() && steps.recover-publication.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: recovery-result-${{ inputs.release_tag }}-${{ inputs.source_sha }}-${{ inputs.original_run_id }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/effectstream-release-bundle.publish-result.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Record recovery publication result artifact identity
+        if: ${{ always() && steps.recovery-result-upload.outcome == 'success' }}
+        shell: bash
+        env:
+          RESULT_ARTIFACT_ID: ${{ steps.recovery-result-upload.outputs.artifact-id }}
+          RESULT_SERVICE_DIGEST: ${{ steps.recovery-result-upload.outputs.artifact-digest }}
+        run: |
+          {
+            echo '### Secret-free recovery publication result'
+            echo "- artifact id: $RESULT_ARTIFACT_ID"
+            echo "- service digest: $RESULT_SERVICE_DIGEST"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and push recovered version-only delta
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_BRANCH: ${{ steps.policy.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json ':(glob)packages/**/package.json'
+          if git diff --cached -U0 -- package.json ':(glob)packages/**/package.json' \
+               | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
+               | grep -vqE '^[+-][[:space:]]*"version":'; then
+            echo '::error::Recovered staged diff contains non-version changes.'
+            exit 1
+          fi
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): $RELEASE_TAG (recovery)"
+            git push origin "HEAD:refs/heads/$SOURCE_BRANCH"
+          fi
+
+      - name: Emit secret-free final recovery manifest
+        shell: bash
+        env:
+          ORIGINAL_RUN_ID: ${{ inputs.original_run_id }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          SERVICE_DIGEST: ${{ inputs.expected_service_digest }}
+          MANIFEST_SHA512: ${{ inputs.manifest_sha512 }}
+          RECOVERY_MODE: ${{ inputs.recovery_mode }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BRANCH: ${{ steps.policy.outputs.branch }}
+          DIST_TAG: ${{ steps.policy.outputs.dist-tag }}
+          AUDIT_REF: ${{ steps.authorization.outputs.audit-ref }}
+          AUTH_REF: ${{ steps.authorization.outputs.authorization-ref }}
+          NODE_VERSION: ${{ steps.recovery-npm-toolchain.outputs.node }}
+          NPM_VERSION: ${{ steps.recovery-npm-toolchain.outputs.npm }}
+        run: |
+          set -euo pipefail
+          version_commit="$(git rev-parse 'HEAD^{commit}')"
+          jq -nS \
+            --arg originalRunId "$ORIGINAL_RUN_ID" \
+            --arg recoveryRunId "$GITHUB_RUN_ID" \
+            --arg artifactId "$ARTIFACT_ID" \
+            --arg serviceDigest "$SERVICE_DIGEST" \
+            --arg manifestSha512 "$MANIFEST_SHA512" \
+            --arg recoveryMode "$RECOVERY_MODE" \
+            --arg releaseTag "$RELEASE_TAG" \
+            --arg sourceSha "$SOURCE_SHA" \
+            --arg branch "$BRANCH" \
+            --arg distTag "$DIST_TAG" \
+            --arg versionCommit "$version_commit" \
+            --arg auditRef "$AUDIT_REF" \
+            --arg authorizationRef "$AUTH_REF" \
+            --arg nodeVersion "$NODE_VERSION" \
+            --arg npmVersion "$NPM_VERSION" \
+            --slurpfile packageResults '${{ runner.temp }}/effectstream-release-bundle.publish-result.json' \
+            '{artifactId:$artifactId,auditRef:$auditRef,authorizationRef:$authorizationRef,branch:$branch,distTag:$distTag,latestPostcondition:"verified",manifestSha512:$manifestSha512,nodeVersion:$nodeVersion,npmVersion:$npmVersion,originalRunId:$originalRunId,packageResults:$packageResults[0].packages,recoveryMode:$recoveryMode,recoveryRunId:$recoveryRunId,releaseTag:$releaseTag,serviceDigest:$serviceDigest,sourceSha:$sourceSha,versionCommit:$versionCommit}' \
+            > '${{ runner.temp }}/recovery-final.json'
+          cat '${{ runner.temp }}/recovery-final.json' >> "$GITHUB_STEP_SUMMARY"

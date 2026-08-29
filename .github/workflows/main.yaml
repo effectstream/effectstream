@@ -35,12 +35,12 @@ jobs:
       templates: ${{ steps.classify.outputs.templates }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
       - name: Classify changes
         id: classify
@@ -65,7 +65,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Build testing image
         run: docker build -t testing_image:${{ github.sha }} -f .github/Dockerfile .
@@ -89,7 +89,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Build testing image
         run: docker build -t testing_image:${{ github.sha }} -f .github/Dockerfile .
@@ -117,10 +117,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -143,20 +143,79 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
       # No `bun install`: the generator only uses Bun/node builtins.
       - name: Check generated asset bundles are in sync
         run: bun run assets:check
 
+  # Release security is deliberately path-ungated: changes to any workflow,
+  # package metadata, or package discovery can affect the immutable publisher.
+  # Draft pull requests skip the work, matching the expensive repository jobs.
+  release-tests:
+    if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Build exact release-security test image
+        shell: bash
+        run: |
+          docker build --tag "effectstream-release-tests:${{ github.sha }}" --file - . <<'DOCKERFILE'
+          FROM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
+          RUN apt-get update \
+              && apt-get install -y --no-install-recommends ca-certificates git \
+              && rm -rf /var/lib/apt/lists/*
+          RUN npm install --global --ignore-scripts=false bun@1.4.0
+          RUN test "$(node --version)" = 'v24.20.0' \
+              && test "$(npm --version)" = '11.19.0' \
+              && test "$(bun --version)" = '1.4.0'
+          WORKDIR /work
+          DOCKERFILE
+
+      - name: Run release unit, registry, recovery, source, and cross-process gates
+        shell: bash
+        run: |
+          docker run --rm --name "release_tests_${{ github.run_id }}_${{ github.run_attempt }}" \
+            --volume "$PWD:/work" --workdir /work \
+            --env EFFECTSTREAM_TEST_REGISTRY_PORT=18750 \
+            "effectstream-release-tests:${{ github.sha }}" bash -lc '
+              set -euo pipefail
+              test "$(node --version)" = "v24.20.0"
+              test "$(npm --version)" = "11.19.0"
+              test "$(bun --version)" = "1.4.0"
+              git config --global --add safe.directory /work
+              bun test ./.github/publish-bun.effectstream.test.ts
+              bun test ./.github/publish-bun.effectstream.registry.test.ts
+              bun test ./.github/release-recovery.test.ts
+              bash .github/verify-release-source.test.sh
+              cross_run_dir="$(mktemp -d)"
+              trap '\''rm -rf "$cross_run_dir"'\'' EXIT
+              EFFECTSTREAM_TEST_REGISTRY_PORT=18751 EFFECTSTREAM_CROSS_RUN_DIR="$cross_run_dir" EFFECTSTREAM_CROSS_RUN_PHASE=producer \
+                bun test ./.github/publish-bun.effectstream.registry.test.ts
+              EFFECTSTREAM_TEST_REGISTRY_PORT=18751 EFFECTSTREAM_CROSS_RUN_DIR="$cross_run_dir" EFFECTSTREAM_CROSS_RUN_PHASE=consumer \
+                bun test ./.github/publish-bun.effectstream.registry.test.ts
+            '
+
+      - name: Lint every workflow with pinned actionlint
+        run: |
+          docker run --rm \
+            --volume "$PWD:/repo" --workdir /repo \
+            rhysd/actionlint@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9 \
+            -color
+
   # Aggregate gate: a single stable check to mark required in branch protection.
   # Passes when the gated jobs succeed or are skipped; fails if any fails or is
   # cancelled (or if the changes job itself failed).
   ci-ok:
-    needs: [changes, e2e, template-tests, frontend-build, assets-check]
+    needs: [changes, e2e, template-tests, frontend-build, assets-check, release-tests]
     if: ${{ always() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 5
@@ -168,6 +227,7 @@ jobs:
           echo "template-tests=${{ needs.template-tests.result }}"
           echo "frontend-build=${{ needs.frontend-build.result }}"
           echo "assets-check=${{ needs.assets-check.result }}"
+          echo "release-tests=${{ needs.release-tests.result }}"
           if [ "${{ needs.changes.result }}" = "failure" ] || \
              [ "${{ needs.e2e.result }}" = "failure" ] || \
              [ "${{ needs.e2e.result }}" = "cancelled" ] || \
@@ -176,7 +236,9 @@ jobs:
              [ "${{ needs.frontend-build.result }}" = "failure" ] || \
              [ "${{ needs.frontend-build.result }}" = "cancelled" ] || \
              [ "${{ needs.assets-check.result }}" = "failure" ] || \
-             [ "${{ needs.assets-check.result }}" = "cancelled" ]; then
+             [ "${{ needs.assets-check.result }}" = "cancelled" ] || \
+             [ "${{ needs.release-tests.result }}" = "failure" ] || \
+             [ "${{ needs.release-tests.result }}" = "cancelled" ]; then
             echo "::error::A required job failed or was cancelled."
             exit 1
           fi

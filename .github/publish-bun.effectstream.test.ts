@@ -1,15 +1,29 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
+import { tmpdir } from "os";
 import { join } from "path";
 import {
   EXPECTED_PACKAGE_COUNT,
+  RegistryVisibilityTimeoutError,
   assertRecoveryLatestPrecondition,
+  assertRecoveryExistingTagPreconditions,
+  assertSafeNpmEnvironment,
   canonicalJson,
+  createNpmExecutionSandbox,
   isSecretLikeTarEntry,
   classifyRecoveryMode,
   compareSemver,
+  npmPublishArgv,
   parseSemver,
   planRegistryCompletion,
+  pollRegistryPostconditions,
   preflightOrdinary,
   resolveDistTag,
   resolveReleasePolicy,
@@ -209,6 +223,176 @@ describe("persisted exact-tarball completion", () => {
   });
 });
 
+describe("OIDC-only npm subprocess boundary", () => {
+  test("uses the exact absolute tarball argv in the required order", () => {
+    expect(npmPublishArgv("https://registry.example.test/", "midnight-1", "/bundle/exact.tgz")).toEqual([
+      "npm",
+      "publish",
+      "--access",
+      "public",
+      "--tag",
+      "midnight-1",
+      "--registry",
+      "https://registry.example.test/",
+      "/bundle/exact.tgz",
+    ]);
+  });
+
+  test("rejects named tokens and every ambient NPM_CONFIG alias before spawn", () => {
+    for (const name of [
+      "NPM_TOKEN",
+      "BUN_AUTH_TOKEN",
+      "NPM_CONFIG_TOKEN",
+      "NODE_AUTH_TOKEN",
+      "npm_config_userconfig",
+      "NPM_CONFIG_GLOBALCONFIG",
+      "NPM_CONFIG_REGISTRY",
+    ]) {
+      expect(() => assertSafeNpmEnvironment({ PATH: "/bin", [name]: "sentinel-do-not-send" })).toThrow(
+        /forbidden npm credential|ambient npm config/i,
+      );
+    }
+  });
+
+  test("isolates project/user/global config and preserves only the OIDC pair byte-for-byte", () => {
+    const poison = mkdtempSync(join(tmpdir(), "effectstream-npm-poison-"));
+    const caller = join(poison, "caller-project");
+    const home = join(poison, "caller-home");
+    mkdirSync(caller);
+    mkdirSync(home);
+    writeFileSync(join(caller, ".npmrc"), "//registry.example.test/:_authToken=project-sentinel\n");
+    writeFileSync(join(home, ".npmrc"), "//registry.example.test/:_authToken=user-sentinel\n");
+    const oidcUrl = "https://oidc.example.test/request?opaque=byte%2Fvalue";
+    const oidcToken = "github-oidc-request-token-sentinel";
+    const sandbox = createNpmExecutionSandbox({
+      PATH: process.env.PATH,
+      PWD: caller,
+      HOME: home,
+      ACTIONS_ID_TOKEN_REQUEST_URL: oidcUrl,
+      ACTIONS_ID_TOKEN_REQUEST_TOKEN: oidcToken,
+    });
+    try {
+      expect(sandbox.cwd).not.toBe(caller);
+      expect(sandbox.home).not.toBe(home);
+      expect(readFileSync(sandbox.userConfig, "utf8")).toBe("");
+      expect(readFileSync(sandbox.globalConfig, "utf8")).toBe("");
+      expect(sandbox.env.NPM_CONFIG_USERCONFIG).toBe(sandbox.userConfig);
+      expect(sandbox.env.NPM_CONFIG_GLOBALCONFIG).toBe(sandbox.globalConfig);
+      expect(sandbox.env.ACTIONS_ID_TOKEN_REQUEST_URL).toBe(oidcUrl);
+      expect(sandbox.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN).toBe(oidcToken);
+      expect(canonicalJson({ cwd: sandbox.cwd, home: sandbox.home })).not.toContain(oidcToken);
+      expect(canonicalJson({ cwd: sandbox.cwd, home: sandbox.home })).not.toContain("sentinel");
+    } finally {
+      const root = sandbox.root;
+      sandbox.cleanup();
+      expect(existsSync(root)).toBe(false);
+      rmSync(poison, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("recovery tags and delayed registry visibility", () => {
+  test.each(["v0.104.2", "v0.200.3", "v0.200.3-rc.1"])(
+    "%s rejects exact existing bytes with a missing or wrong required channel before mutation",
+    (tag) => {
+      const item = manifest(resolveReleasePolicy(tag));
+      const exact = states(
+        item.kind === "node2-stable" ? item.version : "0.200.2",
+        (index) => (index === 0 ? "sha512-0" : null),
+        { name: item.distTag, version: item.version },
+      );
+      expect(() => assertRecoveryExistingTagPreconditions(item, exact, [packageNames[0]])).not.toThrow();
+      for (const wrong of [undefined, "9.9.9"]) {
+        const drift = structuredClone(exact);
+        if (wrong) drift[0].distTags[item.distTag] = wrong;
+        else delete drift[0].distTags[item.distTag];
+        expect(() => assertRecoveryExistingTagPreconditions(item, drift, [packageNames[0]])).toThrow(
+          /tag drift/i,
+        );
+      }
+    },
+  );
+
+  test("polls all packages in rounds under one shared deadline and succeeds after delay", async () => {
+    const item = manifest(resolveReleasePolicy("v0.104.2"));
+    let time = 100;
+    let rounds = 0;
+    const sleeps: number[] = [];
+    await pollRegistryPostconditions(item, {
+      timeoutMs: 1_000,
+      now: () => time,
+      sleep: async (ms) => {
+        sleeps.push(ms);
+        time += ms;
+        rounds++;
+      },
+      read: async (_registry, name) => {
+        const visible = rounds >= 2;
+        return {
+          name,
+          targetIntegrity: visible ? item.packages.find((pkg) => pkg.name === name)!.integrity : null,
+          distTags: visible ? { latest: "0.200.2", "midnight-1": item.version } : { latest: "0.200.2" },
+        };
+      },
+      registry: "https://registry.example.test",
+      initialBackoffMs: 100,
+      maxBackoffMs: 200,
+    });
+    expect(sleeps).toEqual([100, 200]);
+    expect(time).toBe(400);
+  });
+
+  test("one deadline marks every pending package and terminal conflicts do not sleep", async () => {
+    const item = manifest(resolveReleasePolicy("v0.104.2"));
+    let time = 0;
+    const sleeps: number[] = [];
+    try {
+      await pollRegistryPostconditions(item, {
+        timeoutMs: 250,
+        now: () => time,
+        sleep: async (ms) => {
+          sleeps.push(ms);
+          time += ms;
+        },
+        read: async (_registry, name) => ({ name, targetIntegrity: null, distTags: { latest: "0.200.2" } }),
+        registry: "https://registry.example.test",
+        initialBackoffMs: 100,
+        maxBackoffMs: 200,
+      });
+      throw new Error("expected visibility timeout");
+    } catch (error) {
+      expect(error).toBeInstanceOf(RegistryVisibilityTimeoutError);
+      expect((error as RegistryVisibilityTimeoutError).pending).toEqual(packageNames);
+    }
+    expect(sleeps).toEqual([100, 150]);
+
+    for (const terminal of ["integrity", "tag", "latest", "http"] as const) {
+      let slept = false;
+      await expect(
+        pollRegistryPostconditions(item, {
+          timeoutMs: 1_000,
+          now: () => 0,
+          sleep: async () => { slept = true; },
+          read: async (_registry, name) => {
+            if (terminal === "http") throw new Error("Registry query failed: HTTP 503");
+            const pkg = item.packages.find((candidate) => candidate.name === name)!;
+            return {
+              name,
+              targetIntegrity: terminal === "integrity" ? "sha512-conflict" : pkg.integrity,
+              distTags: {
+                latest: terminal === "latest" ? "0.200.1" : "0.200.2",
+                "midnight-1": terminal === "tag" ? "9.9.9" : item.version,
+              },
+            };
+          },
+          registry: "https://registry.example.test",
+        }),
+      ).rejects.toThrow(/integrity|tag|latest|HTTP 503/i);
+      expect(slept).toBe(false);
+    }
+  });
+});
+
 describe("release-kind postconditions", () => {
   test("maintenance and Node-2 prerelease preserve latest exactly", () => {
     for (const tag of ["v0.104.2", "v0.200.3-rc.1"]) {
@@ -291,14 +475,20 @@ describe("recovery matrix", () => {
 describe("workflow invariants", () => {
   const workflows = join(import.meta.dir, "workflows");
   const release = readFileSync(join(workflows, "release.yaml"), "utf8");
-  const recovery = readFileSync(join(workflows, "release-recovery.yaml"), "utf8");
   const rehearsal = readFileSync(join(workflows, "release-artifact-rehearsal.yaml"), "utf8");
+  const main = readFileSync(join(workflows, "main.yaml"), "utf8");
 
-  test("ordinary and recovery mutations share the exact non-cancelling lock", () => {
-    for (const workflow of [release, recovery]) {
-      expect(workflow).toContain("group: release-publish");
-      expect(workflow).toContain("cancel-in-progress: false");
-    }
+  test("one release.yaml caller owns mutually exclusive release, proof, and recovery jobs", () => {
+    expect(release).toContain("release:");
+    expect(release).toContain("workflow_dispatch:");
+    expect(release).toContain("  publish:");
+    expect(release).toContain("  artifact-proof:");
+    expect(release).toContain("  recover:");
+    expect(release).toContain("github.event_name == 'release'");
+    expect(release).toContain("github.event_name == 'workflow_dispatch'");
+    expect(existsSync(join(workflows, "release-recovery.yaml"))).toBe(false);
+    expect(release).toContain("group: release-publish");
+    expect(release).toContain("cancel-in-progress: false");
   });
 
   test("guard and immutable upload precede auth and persisted-byte publish", () => {
@@ -308,7 +498,8 @@ describe("workflow invariants", () => {
       "Install dependencies",
       "Preflight registry and prepare exact release bundle",
       "Upload immutable release bundle before authentication or mutation",
-      "Configure npm auth",
+      "Setup exact Node and npm after release validation",
+      "Assert exact Node and npm versions",
       "Publish exact persisted tarballs",
       "Commit and push version-only delta",
     ].map((needle) => release.indexOf(needle));
@@ -320,58 +511,85 @@ describe("workflow invariants", () => {
     expect(release).not.toContain("HEAD:refs/heads/v-next");
   });
 
-  test("recovery compatibility is proven before auth or registry mutation", () => {
+  test("recovery caller identity and compatibility are proven before npm setup or mutation", () => {
     const order = [
+      "Require default-branch trusted caller identity",
       "Verify original service and embedded identities",
       "Validate recovery branch compatibility before authentication or mutation",
-      "Configure npm auth after all artifact and source checks",
+      "Setup exact Node and npm after recovery validation",
+      "Assert exact recovery Node and npm versions",
       "Complete exact artifact publication and apply version delta",
-    ].map((needle) => recovery.indexOf(needle));
+    ].map((needle) => release.indexOf(needle));
     expect(order.every((position) => position >= 0)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
-    expect(recovery).toContain("--validate-recovery-branch");
+    expect(release).toContain("--validate-recovery-branch");
+    expect(release).toContain("GITHUB_WORKFLOW_REF");
+    expect(release).toContain(".github/workflows/release.yaml@refs/heads/");
   });
 
   test("ordinary and recovery attempts persist separate result evidence under always", () => {
     expect(release).toContain("steps.publish.outcome != 'skipped'");
     expect(release).toContain("effectstream-release-bundle.publish-result.json");
     expect(release).toContain("release-result-${{ github.event.release.tag_name }}");
-    expect(recovery).toContain("steps.recover-publication.outcome != 'skipped'");
-    expect(recovery).toContain("effectstream-release-bundle.publish-result.json");
-    expect(recovery).toContain("recovery-result-${{ inputs.release_tag }}");
-    for (const workflow of [release, recovery]) {
-      expect(workflow).toContain("if-no-files-found: error");
-      expect(workflow).toContain("retention-days: 90");
-    }
+    expect(release).toContain("steps.recover-publication.outcome != 'skipped'");
+    expect(release).toContain("recovery-result-${{ inputs.release_tag }}");
+    expect(release.match(/effectstream-release-bundle\.publish-result\.json/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(release).toContain("if-no-files-found: error");
+    expect(release).toContain("retention-days: 90");
   });
 
   test("all privileged actions are immutable pins", () => {
-    for (const workflow of [release, recovery, rehearsal]) {
+    for (const workflow of [release, rehearsal, main]) {
       for (const match of workflow.matchAll(/uses:\s+([^\s#]+)/g)) {
         expect(match[1]).toMatch(/@[0-9a-f]{40}$/);
       }
     }
   });
 
-  test("recovery is separate, cross-run, reviewer-gated, and never reruns release", () => {
-    expect(recovery).toContain("workflow_dispatch:");
-    expect(recovery).toContain("actions: read");
-    expect(recovery).toContain("environment: npm-release-recovery");
-    expect(recovery).toContain("run-id: ${{ inputs.original_run_id }}");
-    expect(recovery).toContain("artifact-ids: ${{ inputs.artifact_id }}");
-    expect(recovery).not.toContain("run-attempt");
+  test("recovery stays cross-run and reviewer-gated without rerunning release", () => {
+    expect(release).toContain("environment: npm-release-recovery");
+    expect(release).toContain("run-id: ${{ inputs.original_run_id }}");
+    expect(release).toContain("artifact-ids: ${{ inputs.artifact_id }}");
+    expect(release).not.toContain("run-attempt: ${{ inputs");
   });
 
-  test("artifact proof producer and consumer are incapable of npm/source mutation", () => {
+  test("only the two mutation jobs can mint OIDC and proof/PR CI remain read-only", () => {
+    expect(release.trimStart()).toContain("permissions: {}");
+    expect(release.match(/id-token:\s*write/g)).toHaveLength(2);
     expect(rehearsal).toContain("contents: read");
-    expect(rehearsal).not.toContain("NPM_TOKEN");
+    expect(rehearsal).not.toContain("id-token: write");
     expect(rehearsal).not.toContain("environment:");
     expect(rehearsal).not.toContain("actions/checkout");
-    const proof = recovery.slice(recovery.indexOf("artifact-proof:"), recovery.indexOf("  recover:"));
+    const proof = release.slice(release.indexOf("  artifact-proof:"), release.indexOf("  recover:"));
     expect(proof).toContain("actions: read");
     expect(proof).toContain("contents: read");
-    expect(proof).not.toContain("NPM_TOKEN");
+    expect(proof).not.toContain("id-token: write");
+    expect(proof).not.toContain("npm publish");
     expect(proof).not.toContain("environment:");
+    expect(main).not.toContain("id-token: write");
+  });
+
+  test("forbids legacy auth plumbing, pins exact tools, and gates release tests", () => {
+    for (const forbidden of [
+      "NPM_TOKEN",
+      "BUN_AUTH_TOKEN",
+      "NPM_CONFIG_TOKEN",
+      "NODE_AUTH_TOKEN",
+      "_authToken",
+      "Configure npm auth",
+    ]) expect(release).not.toContain(forbidden);
+    expect(release).toContain("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020");
+    expect(release.match(/node-version:\s*24\.20\.0/g)).toHaveLength(2);
+    expect(release.match(/test \"\$\(node --version\)\" = 'v24\.20\.0'/g)).toHaveLength(2);
+    expect(release.match(/test \"\$\(npm --version\)\" = '11\.19\.0'/g)).toHaveLength(2);
+    expect(release.match(/--visibility-timeout-ms 1800000/g)).toHaveLength(2);
+    expect(main).toContain("  release-tests:");
+    expect(main).toContain("!github.event.pull_request.draft");
+    expect(main).toContain('"effectstream-release-tests:${{ github.sha }}" bash -lc');
+    expect(main).not.toContain('"effectstream-release-tests:${{ github.sha }}" sh -lc');
+    expect(main).toContain("git config --global --add safe.directory /work");
+    expect(main).toContain("release-tests=${{ needs.release-tests.result }}");
+    expect(main).toContain("needs: [changes, e2e, template-tests, frontend-build, assets-check, release-tests]");
   });
 });
 
