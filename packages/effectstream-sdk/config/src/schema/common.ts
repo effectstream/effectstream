@@ -33,6 +33,22 @@ export const PollingSyncProtocol = new ConfigSchema({
   }),
 });
 
+/**
+ * Concrete polling protocols may opt into a schema-owned default without
+ * weakening the shared polling contract used by every other protocol.
+ */
+export const pollingSyncProtocolWithDefault = <const Interval extends number>(
+  pollingInterval: Interval,
+) =>
+  new ConfigSchema({
+    required: Type.Object({}),
+    optional: Type.Object({
+      pollingInterval: TypeboxHelpers.IntervalMs(),
+      ...PollingSyncProtocol.config.optional.properties,
+    }),
+    defaults: { pollingInterval },
+  });
+
 export const StartStopBlockheight = new ConfigSchema({
   required: Type.Object({
     startBlockHeight: TypeboxHelpers.BlockNumber(),

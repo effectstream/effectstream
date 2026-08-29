@@ -2,13 +2,21 @@ import type { MergeIntersects, RemoveUnknown } from "@effectstream/utils";
 import type { Static } from "@sinclair/typebox";
 import {
   type ConfigSyncProtocolAll,
+  decoratorSyncProtocolTypes,
   ConfigSyncProtocolDecorator,
   ConfigSyncProtocolMain,
   ConfigSyncProtocolParallel,
+  mainSyncProtocolTypes,
+  type MaterializedFromRegistry,
+  materializeDiscriminated,
+  parallelSyncProtocolTypes,
   type SyncProtocolFromNetwork,
 } from "../../schema/mod.ts";
-import { Value } from "@sinclair/typebox/value";
-import type { NetworkBuilderData, NetworkList } from "./network.ts";
+import type {
+  NetworkBuilderData,
+  NetworkList,
+  NetworkValues,
+} from "./network.ts";
 import type {
   DeployedAddressesBuilderData,
   DeployedAddressesList,
@@ -32,10 +40,30 @@ export type SyncProtocolConfig<RequireDefaults extends boolean = true> =
   MergeIntersects<
     Static<ReturnType<typeof ConfigSyncProtocolAll<RequireDefaults>>>
   >;
+type MaterializedMain<Config extends MainSyncProtocolConfig<false>> =
+  MaterializedFromRegistry<
+    typeof mainSyncProtocolTypes,
+    Config
+  >;
+type MaterializedParallel<Config extends ParallelSyncProtocolConfig<false>> =
+  MaterializedFromRegistry<
+    typeof parallelSyncProtocolTypes,
+    Config
+  >;
+type MaterializedDecorator<
+  Config extends DecoratorSyncProtocolConfig<false>,
+> = MaterializedFromRegistry<
+  typeof decoratorSyncProtocolTypes,
+  Config
+>;
+export type SyncProtocolShape = Readonly<{
+  name: string;
+  type: string;
+}>;
 
 export type SyncProtocolEntry<
   Network extends string = string,
-  SyncProtocolType extends SyncProtocolConfig = SyncProtocolConfig,
+  SyncProtocolType extends SyncProtocolShape = SyncProtocolConfig,
 > = Readonly<{
   network: Network;
   syncProtocol: Readonly<SyncProtocolType>;
@@ -46,10 +74,10 @@ export type SyncProtocolDecoratorList = Record<
 >;
 export type SyncProtocolList<
   Networks extends NetworkList,
-  Type extends SyncProtocolConfig,
+  Type extends SyncProtocolShape,
 > = Record<
   string,
-  SyncProtocolEntry<Networks[keyof Networks]["name"], Type>
+  SyncProtocolEntry<NetworkValues<Networks>["name"], Type>
 >;
 
 export type PreBuildSyncProtocolBuilderData<
@@ -57,11 +85,11 @@ export type PreBuildSyncProtocolBuilderData<
   Main extends
     | undefined
     | SyncProtocolEntry<
-      Networks[keyof Networks]["name"],
-      MainSyncProtocolConfig
+      NetworkValues<Networks>["name"],
+      SyncProtocolShape
     > = undefined,
-  Parallel extends SyncProtocolList<Networks, ParallelSyncProtocolConfig> = {},
-  Decorator extends SyncProtocolDecoratorList = {},
+  Parallel extends SyncProtocolList<Networks, SyncProtocolShape> = {},
+  Decorator extends Record<string, SyncProtocolShape> = {},
 > = {
   main: Main;
   parallel: Parallel;
@@ -72,14 +100,40 @@ export type PostBuildSyncProtocolBuilderData<
   Networks extends NetworkList = {},
 > = {
   main: SyncProtocolEntry<
-    Networks[keyof Networks]["name"],
+    NetworkValues<Networks>["name"],
     MainSyncProtocolConfig
   >;
   parallel: SyncProtocolList<Networks, ParallelSyncProtocolConfig>;
   decorators: SyncProtocolDecoratorList;
 };
 
-export type NetworkSyncProtocols<T extends PostBuildSyncProtocolBuilderData> =
+export type AnySyncProtocolList = Record<
+  string,
+  SyncProtocolEntry<string, SyncProtocolShape>
+>;
+
+export type AnyPostBuildSyncProtocolBuilderData = {
+  main: SyncProtocolEntry<string, SyncProtocolShape>;
+  parallel: AnySyncProtocolList;
+  decorators: Record<string, SyncProtocolShape>;
+};
+
+function defineOwnEnumerableDataProperty(
+  target: Record<PropertyKey, unknown>,
+  key: PropertyKey,
+  value: unknown,
+): void {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+}
+
+export type NetworkSyncProtocols<
+  T extends AnyPostBuildSyncProtocolBuilderData,
+> =
   & Record<
     NonNullable<T["main"]>["syncProtocol"]["name"],
     NonNullable<T["main"]>
@@ -92,15 +146,16 @@ export class SyncProtocolBuilder<
   const Main extends
     | undefined
     | SyncProtocolEntry<
-      Networks[keyof Networks]["name"],
-      MainSyncProtocolConfig
+      NetworkValues<Networks>["name"],
+      SyncProtocolShape
     > = undefined,
   const Parallel extends SyncProtocolList<
     Networks,
-    ParallelSyncProtocolConfig
+    SyncProtocolShape
   > = {},
-  const Decorator extends SyncProtocolDecoratorList = {},
+  const Decorator extends Record<string, SyncProtocolShape> = {},
 > {
+  readonly #builderIdentity = true;
   data: PreBuildSyncProtocolBuilderData<Networks, Main, Parallel, Decorator>;
 
   constructor(
@@ -121,7 +176,7 @@ export class SyncProtocolBuilder<
     key: () => this.data.main,
     name: "main",
     build: <
-      const Network extends Networks[keyof Networks],
+      const Network extends NetworkValues<Networks>,
       const NewMain extends MainSyncProtocolConfig<false> & {
         type: SyncProtocolFromNetwork<Network["type"]>;
       },
@@ -136,7 +191,7 @@ export class SyncProtocolBuilder<
       DeployedAddresses,
       SyncProtocolEntry<
         Network["name"],
-        MergeIntersects<NewMain & MainSyncProtocolConfig<true>>
+        MaterializedMain<NewMain>
       >,
       Parallel,
       Decorator
@@ -146,16 +201,16 @@ export class SyncProtocolBuilder<
         network,
         (this.deployedAddresses.deployedAddresses as any)[network.name],
       );
-      const withDefaults = Value.Default(
-        ConfigSyncProtocolMain(true),
+      const withDefaults = materializeDiscriminated(
+        mainSyncProtocolTypes,
         syncProtocol,
-      ) as NewMain & MainSyncProtocolConfig<true>;
+      );
       (this.data.main as any) = {
         network: network.name,
         syncProtocol: withDefaults,
       } satisfies SyncProtocolEntry<
         Network["name"],
-        NewMain & MainSyncProtocolConfig<true>
+        MaterializedMain<NewMain>
       >;
       return this as any;
     },
@@ -166,7 +221,7 @@ export class SyncProtocolBuilder<
     target: () => ({}) as NonNullable<Main>,
     name: "main",
     build: <
-      const Network extends Networks[keyof Networks],
+      const Network extends NetworkValues<Networks>,
       const NewParallel extends ParallelSyncProtocolConfig<false> & {
         type: SyncProtocolFromNetwork<Network["type"]>;
       },
@@ -185,7 +240,7 @@ export class SyncProtocolBuilder<
         NewParallel["name"],
         SyncProtocolEntry<
           Network["name"],
-          MergeIntersects<NewParallel & ParallelSyncProtocolConfig<true>>
+          MaterializedParallel<NewParallel>
         >
       >,
       Decorator
@@ -195,17 +250,21 @@ export class SyncProtocolBuilder<
         network,
         (this.deployedAddresses.deployedAddresses as any)[network.name],
       );
-      const withDefaults = Value.Default(
-        ConfigSyncProtocolParallel(true),
+      const withDefaults = materializeDiscriminated(
+        parallelSyncProtocolTypes,
         syncProtocol,
-      ) as NewParallel & ParallelSyncProtocolConfig<true>;
-      (this.data.parallel as any)[syncProtocol.name] = {
-        network: network.name,
-        syncProtocol: withDefaults,
-      } satisfies SyncProtocolEntry<
-        Network["name"],
-        NewParallel & ParallelSyncProtocolConfig<true>
-      >;
+      );
+      defineOwnEnumerableDataProperty(
+        this.data.parallel as any,
+        withDefaults.name,
+        {
+          network: network.name,
+          syncProtocol: withDefaults,
+        } satisfies SyncProtocolEntry<
+          Network["name"],
+          MaterializedParallel<NewParallel>
+        >,
+      );
       return this as any;
     },
   });
@@ -215,10 +274,8 @@ export class SyncProtocolBuilder<
     target: () => ({}) as NonNullable<Main>,
     name: "main",
     build: <
-      const Network extends Networks[keyof Networks],
-      const NewDecorator extends DecoratorSyncProtocolConfig<false> & {
-        type: SyncProtocolFromNetwork<Network["type"]>;
-      },
+      const Network extends NetworkValues<Networks>,
+      const NewDecorator extends DecoratorSyncProtocolConfig<false>,
     >(
       genNetwork: (networks: Networks) => Network,
       getSyncProtocol: (
@@ -233,7 +290,7 @@ export class SyncProtocolBuilder<
       & Decorator
       & Record<
         NewDecorator["name"],
-        MergeIntersects<NewDecorator & DecoratorSyncProtocolConfig<true>>
+        MaterializedDecorator<NewDecorator>
       >
     > => {
       const network = genNetwork(this.networks.networks);
@@ -241,11 +298,15 @@ export class SyncProtocolBuilder<
         network,
         (this.deployedAddresses.deployedAddresses as any)[network.name],
       );
-      const withDefaults = Value.Default(
-        ConfigSyncProtocolDecorator(true),
+      const withDefaults = materializeDiscriminated(
+        decoratorSyncProtocolTypes,
         syncProtocol,
-      ) as NewDecorator & DecoratorSyncProtocolConfig<true>;
-      (this.data.decorators as any)[syncProtocol.name] = withDefaults;
+      );
+      defineOwnEnumerableDataProperty(
+        this.data.decorators as any,
+        withDefaults.name,
+        withDefaults,
+      );
       return this as any;
     },
   });

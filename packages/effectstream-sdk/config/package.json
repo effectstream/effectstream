@@ -11,6 +11,9 @@
   "bugs": {
     "url": "https://github.com/effectstream/effectstream/issues"
   },
+  "scripts": {
+    "typecheck": "tsc --project tsconfig.json --pretty false 2>&1 | awk 'BEGIN { primitive = 0; tuple = 0; unexpected = 0 } $0 == \"src/schema/primitive/types.ts(25,14): error TS2536: Type \\047SyncProtocol\\047 cannot be used to index type \\047ProtocolPayloadMap\\047.\" { primitive++; next } $0 == \"../utils/src/types/typebox-helpers.ts(432,21): error TS2345: Argument of type \\047any[]\\047 is not assignable to parameter of type \\047never\\047.\" { tuple++; next } { print; unexpected = 1 } END { if (primitive != 1 || tuple != 1) { print \"Expected exact pinned pre-existing TS2536 and strict-null TS2345 diagnostics\" > \"/dev/stderr\"; exit 1 } exit unexpected }'"
+  },
   "exports": "./src/mod.ts",
   "dependencies": {
     "@effectstream/utils": "workspace:*",
@@ -24,6 +27,9 @@
     "buffer": "^6.0.3",
     "effection": "^3.5.0",
     "viem": "2.37.3"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
   },
   "description": "Chain and runtime configuration for EffectStream"
 }

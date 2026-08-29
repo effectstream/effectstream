@@ -3,10 +3,12 @@ import type { Static } from "@sinclair/typebox";
 import {
   ConfigNetworkAll,
   type MapNetworkTypes,
+  type MaterializedFromRegistry,
+  materializeDiscriminated,
+  networkTypes,
   viemToConfigNetwork,
 } from "../../schema/mod.ts";
 import type { Chain, ChainFormatters } from "viem";
-import { Value } from "@sinclair/typebox/value";
 // import { bound } from "@effectstream/utils";
 
 export type NetworkBuilderData<
@@ -23,7 +25,19 @@ export type NetworkConfig<RequireDefaults extends boolean = true> =
   >;
 
 export type NetworkList = Record<string, NetworkConfig>;
+export type NetworkValues<Networks extends NetworkList> = Networks extends unknown
+  ? Networks[keyof Networks]
+  : never;
 export type ViemNetworkList = Record<string, Chain>;
+type MaterializedNetwork<Network extends NetworkConfig<false>> =
+  MaterializedFromRegistry<
+    typeof networkTypes,
+    Network
+  >;
+type NamedNetworkRecord<Network> = Network extends { name: infer Name }
+  ? Name extends string ? Record<Name, Network & { name: Name }>
+  : never
+  : never;
 
 export class NetworkBuilder<
   const Networks extends NetworkList = {},
@@ -42,18 +56,18 @@ export class NetworkBuilder<
   addNetwork<const Network extends NetworkConfig<false>>(
     network: Network,
   ): NetworkBuilder<
-    Networks & Record<Network["name"], Network & NetworkConfig<true>>,
+    & Networks
+    & NamedNetworkRecord<MaterializedNetwork<Network>>,
     ViemNetworks
   > {
-    if (network.name in this.data.networks) {
+    const withDefaults = materializeDiscriminated(networkTypes, network);
+    const effectiveName = withDefaults.name;
+    if (effectiveName in this.data.networks) {
       throw new Error(
-        `Network ${network.name} is already included in your config`,
+        `Network ${effectiveName} is already included in your config; supply an explicit unique name`,
       );
     }
-    const withDefaults = Value.Default(ConfigNetworkAll(true), network) as
-      & Network
-      & NetworkConfig<true>;
-    (this.data.networks as any)[network.name] = withDefaults;
+    (this.data.networks as any)[effectiveName] = withDefaults;
     return this as any;
   }
 
