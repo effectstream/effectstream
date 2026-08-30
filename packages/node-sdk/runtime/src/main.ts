@@ -59,6 +59,46 @@ export function* init() {
 }
 
 /**
+ * Report a set of failures the way the rest of the codebase already does (see
+ * `db/scripts/start-pglite.ts` and the MQTT broker): a lone failure keeps its
+ * identity, several become one ordered `AggregateError`.
+ */
+function throwCleanupErrors(errors: unknown[], message: string): void {
+  if (errors.length === 1) throw errors[0];
+  if (errors.length > 1) throw new AggregateError(errors, message);
+}
+
+/**
+ * Spawn a child of the runtime that reports its own failure instead of only
+ * racing to become the scope's error.
+ *
+ * Effection tears the scope down on the first child failure and keeps exactly
+ * one error; anything else that fails while unwinding replaces it. Recording
+ * the failure where it happens keeps it ahead of every cleanup error in the
+ * aggregate `start()` finally throws.
+ */
+function* superviseChild(
+  causes: unknown[],
+  name: string,
+  body: () => Operation<unknown>,
+): Operation<void> {
+  yield* spawn(function* () {
+    try {
+      yield* body();
+    } catch (error) {
+      if (!causes.includes(error)) causes.push(error);
+      log.local(
+        ComponentNames.EFFECTSTREAM_RUNTIME,
+        "child-task",
+        SeverityNumber.ERROR,
+        (l) => l(`child task "${name}" failed: ${String(error)}`),
+      );
+      throw error;
+    }
+  });
+}
+
+/**
  * Main entry point to start the Paima Engine Node.
  *
  * This will launch the networks/primitives synchronization sub-processes,
@@ -67,12 +107,49 @@ export function* init() {
  * @param config - Paima Engine Node configuration object.
  */
 export function* start(config: StartConfig): Operation<void> {
-  const { syncInfo } = config;
+  // Why the runtime is stopping, in the order the failures happened.
+  const causes: unknown[] = [];
+  // What went wrong while releasing resources, in teardown order.
+  const cleanups: unknown[] = [];
+
+  // Registered first, so it runs last: one place reports everything that went
+  // wrong. Without it effection keeps only the error thrown by whichever
+  // teardown ran last, so a failing `dbConn.end()` silently replaced the real
+  // cause of the shutdown.
+  yield* ensure(function* () {
+    throwCleanupErrors(
+      [...causes, ...cleanups],
+      "Effectstream runtime did not shut down cleanly",
+    );
+  });
 
   const dbConn = getConnection();
   yield* ensure(function* () {
-    yield* call(() => dbConn.end());
+    try {
+      yield* call(() => dbConn.end());
+    } catch (error) {
+      cleanups.push(error);
+    }
   });
+
+  try {
+    // The body gets its own frame, so everything it owns — broker, HTTP
+    // server, merge/heartbeat/snapshot children — is released, and every
+    // release failure recorded, before the pool above is drained.
+    yield* call(() => runRuntime(config, dbConn, causes, cleanups));
+  } catch (error) {
+    // A body or child failure. `superviseChild` may already have recorded it.
+    if (!causes.includes(error)) causes.push(error);
+  }
+}
+
+function* runRuntime(
+  config: StartConfig,
+  dbConn: ReturnType<typeof getConnection>,
+  causes: unknown[],
+  cleanups: unknown[],
+): Operation<void> {
+  const { syncInfo } = config;
 
   const syncProtocols = yield* startup(dbConn as any, // Client,
     syncInfo, config);
@@ -94,12 +171,29 @@ export function* start(config: StartConfig): Operation<void> {
   // stale engine still holding the port) instead of running without a broker.
   if (ENV.MQTT_BROKER) {
     const eventBroker = new EventBroker("effectstream-engine");
-    yield* call(() => eventBroker.start());
+    let startFailed = false;
+    // Registered BEFORE start(): `start()` binds its TCP listener before it
+    // resolves, so a cancellation that lands while we are still awaiting it
+    // (a SIGINT during a slow bind) must still release both listeners. The
+    // broker coordinates shutdown with its own listen outcome, so calling
+    // `shutdown()` mid-start is safe and does not deadlock.
     yield* ensure(function* () {
-      yield* call(() => eventBroker.shutdown().catch((error) => {
-        console.error("MQTT broker shutdown failed:", error);
-      }));
+      // A failed start already ran — and reported — the broker's own cleanup.
+      if (startFailed) return;
+      try {
+        yield* call(() => eventBroker.shutdown());
+      } catch (error) {
+        // Recorded rather than logged away: the broker builds a causally
+        // ordered AggregateError that the host needs to see.
+        cleanups.push(error);
+      }
     });
+    try {
+      yield* call(() => eventBroker.start());
+    } catch (error) {
+      startFailed = true;
+      throw error;
+    }
   }
 
   // 20× main clock block time (NTP if present, else protocol 0).
@@ -114,7 +208,7 @@ export function* start(config: StartConfig): Operation<void> {
   const lagThresholdMs = ENV.EFFECTSTREAM_LAG_THRESHOLD_MS ??
     (clockBlockTimeMS != null ? clockBlockTimeMS * 20 : 60_000);
 
-  yield* spawn(function* () {
+  yield* superviseChild(causes, "http-server", function* () {
     yield* startHttpServer(
       dbConn,
       syncProtocols,
@@ -130,10 +224,14 @@ export function* start(config: StartConfig): Operation<void> {
   const { stream: finalizedStream, subscription: finalizedBlocks } =
     yield* createBoundedFinalizedStream(ENV.EFFECTSTREAM_FINALIZED_STREAM_CAP);
 
-  yield* spawn(() => startMerge(syncProtocols, finalizedStream));
+  yield* superviseChild(
+    causes,
+    "merge",
+    () => startMerge(syncProtocols, finalizedStream),
+  );
 
   const heartbeatIntervalMs = 60_000;
-  yield* spawn(function* () {
+  yield* superviseChild(causes, "heartbeat", function* () {
     while (true) {
       yield* sleep(heartbeatIntervalMs);
       const now = Date.now();
@@ -169,7 +267,11 @@ export function* start(config: StartConfig): Operation<void> {
     ? lastHashRow.effectstream_block_hash!.toString() as EffectstreamBlockHash
     : null;
   if (config.snapshotConfig) {
-    yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
+    yield* superviseChild(
+      causes,
+      "snapshot-loop",
+      () => runSnapshotLoop(config.snapshotConfig!),
+    );
   }
 
   const coalescer = createEmptyBlockCoalescer({

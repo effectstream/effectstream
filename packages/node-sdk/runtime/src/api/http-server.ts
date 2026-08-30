@@ -5,7 +5,7 @@ import { finalizedStreamStatus } from "./stream-status.ts";
 import { buildHealthReport, healthHttpStatus } from "./health.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
-import { ensure, run, suspend, until } from "effection";
+import { ensure, suspend, until, useScope } from "effection";
 import {
   acquireDBMutex,
   getAllAddresses,
@@ -165,6 +165,10 @@ export const startHttpServer = function* (
   apiRouter?: StartConfigApiRouter,
   grammar?: GrammarDefinition,
 ) {
+  // This operation's own scope. Work a request starts is run in it rather than
+  // in a detached `run()`, so an in-flight request is visible to — and
+  // cancelled by — the shutdown that closes the server below.
+  const scope = yield* useScope();
   // Use dbConn directly; queries are executed via pgtyped PreparedQuery.run
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.
@@ -978,7 +982,10 @@ export const startHttpServer = function* (
         reply,
       ) => {
         const { name } = request.query;
-        await run(() => acquireDBMutex(`http-server:${name}`));
+        // Scope-bound, not detached: waiting for the mutex must end when the
+        // server's scope does, otherwise shutdown blocks on a request that
+        // only cancellation could release.
+        await scope.run(() => acquireDBMutex(`http-server:${name}`));
         return "ok";
       },
     );
@@ -1039,8 +1046,13 @@ export const startHttpServer = function* (
     );
   });
 
+  // Close unconditionally, including when `listen()` below rejects. The Fastify
+  // instance is fully built by this point — CORS, Swagger and every plugin the
+  // host registered through `apiRouter` — and `close()` is what runs their
+  // `onClose` hooks. Gating on `server.server.listening` skipped all of it on a
+  // bind conflict and leaked the instance.
   yield* ensure(function* () {
-    if (server.server.listening) yield* until(server.close());
+    yield* until(server.close());
   });
   const address = yield* until(
     server.listen({ port: ENV.EFFECTSTREAM_API_PORT, host: "0.0.0.0" }),

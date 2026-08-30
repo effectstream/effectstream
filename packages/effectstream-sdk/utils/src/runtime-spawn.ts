@@ -94,12 +94,25 @@ export function spawn(command: string, options: SpawnOptions = {}): SpawnChild {
     code?: number;
     signal?: string;
   }>((resolve) => {
+    let settled = false;
+    const finish = (value: { success: boolean; code?: number; signal?: string }) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
     cp.on("close", (code: number | null, signal: string | null) => {
-      resolve({
+      finish({
         success: code === 0,
         code: code ?? undefined,
         signal: signal ?? undefined,
       });
+    });
+    // A ChildProcess "error" with no listener is an uncaught exception. It is
+    // emitted when the process cannot be spawned at all and, importantly, when
+    // `options.signal` aborts a running child — the supported way to cancel a
+    // long-lived child such as `pg_dump`.
+    cp.on("error", () => {
+      finish({ success: false });
     });
   });
 
