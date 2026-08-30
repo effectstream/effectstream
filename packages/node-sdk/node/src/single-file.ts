@@ -182,9 +182,6 @@ export async function runNode<
     process.env.DB_PORT = String(database.port);
     await database.db.waitReady;
 
-    const clockSnapshot = await readConfigSnapshot(database, "clock");
-    const clockStartTime = numberFromSnapshot(clockSnapshot, "startTime") ?? Date.now();
-    const resolvedSources = await resolveStartHeights(database, sourceEntries);
     const grammar = Object.fromEntries(
       sourceEntries.map(([name]) => [name, builtinGrammars.midnightGeneric]),
     );
@@ -209,7 +206,7 @@ export async function runNode<
     ): SyncStateUpdateStream<void> {
       yield* stm.processInput(input);
     };
-    const syncInfo = makeSyncInfo(clockStartTime, resolvedSources);
+    const syncInfo = makeSyncInfo(sourceEntries);
     const staticConfig = {
       securityNamespace: options.appName,
       allNetworks: { viemNetworks: {} },
@@ -257,89 +254,22 @@ export async function runNode<
   }
 }
 
-type ResolvedSource = {
-  name: string;
-  source: AnyMidnightSource;
-  startBlockHeight: number;
-};
-
-async function resolveStartHeights(
-  database: PgliteHandle,
-  sources: [string, AnyMidnightSource][],
-): Promise<ResolvedSource[]> {
-  const latestByIndexer = new Map<string, Promise<number>>();
-  return await Promise.all(sources.map(async ([name, source]) => {
-    const protocolName = protocolNameFor(name);
-    const snapshot = await readConfigSnapshot(database, protocolName);
-    const savedHeight = numberFromSnapshot(snapshot, "startBlockHeight");
-    if (savedHeight !== undefined) {
-      return { name, source, startBlockHeight: savedHeight };
-    }
-    if (source.startBlockHeight !== "latest") {
-      return { name, source, startBlockHeight: source.startBlockHeight };
-    }
-
-    let latest = latestByIndexer.get(source.indexer);
-    if (!latest) {
-      latest = fetchLatestHeight(source.indexer, source.network);
-      latestByIndexer.set(source.indexer, latest);
-    }
-    return { name, source, startBlockHeight: await latest };
-  }));
-}
-
-async function fetchLatestHeight(
-  indexer: string,
-  network: MidnightNetwork,
-): Promise<number> {
-  const response = await fetch(indexer, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ query: "query { block { height } }" }),
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Unable to read the Midnight ${network} tip: ${response.status} ${response.statusText}.`,
-    );
-  }
-  const body = await response.json() as {
-    data?: { block?: { height?: unknown } };
-    errors?: unknown;
-  };
-  const height = body.data?.block?.height;
-  if (!Number.isSafeInteger(height) || (height as number) < 0) {
-    throw new Error(
-      `The Midnight ${network} indexer returned an invalid latest block height.`,
-    );
-  }
-  return height as number;
-}
-
-async function readConfigSnapshot(
-  database: PgliteHandle,
-  protocolName: string,
-): Promise<Record<string, unknown> | undefined> {
-  try {
-    const result = await database.db.query<{ immutable_config: unknown }>(
-      `SELECT immutable_config
-       FROM effectstream.sync_protocol_config_snapshot
-       WHERE protocol_name = $1`,
-      [protocolName],
-    );
-    const value = result.rows[0]?.immutable_config;
-    if (typeof value === "string") return JSON.parse(value);
-    if (value && typeof value === "object") return value as Record<string, unknown>;
-    return undefined;
-  } catch (error) {
-    if ((error as { code?: string }).code === "42P01") return undefined;
-    throw error;
-  }
-}
-
+/**
+ * Build the runtime's sync configuration.
+ *
+ * Start boundaries are NOT resolved here. Every declared start — a number or
+ * the `"latest"` sentinel — is passed through verbatim, and the generic runtime
+ * (`@effectstream/runtime` `config-snapshot.ts`) resolves `"latest"` once via
+ * the protocol's own start policy, commits the numeric boundary plus its
+ * provenance, and reuses the committed value on every restart.
+ *
+ * The clock's `startTime` is likewise sampled fresh on every boot: the NTP
+ * start policy restores the saved value from the config snapshot, so the
+ * time→block mapping of an existing database is preserved without this facade
+ * pre-reading the database itself.
+ */
 function makeSyncInfo(
-  clockStartTime: number,
-  sources: ResolvedSource[],
+  sources: [string, AnyMidnightSource][],
 ): SyncProtocolWithNetwork[] {
   const clock = {
     networkType: ConfigNetworkType.NTP,
@@ -347,7 +277,7 @@ function makeSyncInfo(
     network: {
       name: "clock",
       type: ConfigNetworkType.NTP,
-      startTime: clockStartTime,
+      startTime: Date.now(),
       blockTimeMS: 1_000,
     },
     syncProtocol: {
@@ -362,7 +292,7 @@ function makeSyncInfo(
     primitives: [],
   };
 
-  return [clock, ...sources.map(({ name, source, startBlockHeight }) => {
+  return [clock, ...sources.map(([name, source]) => {
     const protocolName = protocolNameFor(name);
     return {
       networkType: ConfigNetworkType.MIDNIGHT,
@@ -376,7 +306,7 @@ function makeSyncInfo(
         name: protocolName,
         type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
         indexer: source.indexer,
-        startBlockHeight,
+        startBlockHeight: source.startBlockHeight,
         stopBlockHeight: null,
         pollingInterval: 1_000,
         requestTimeoutMs: 15_000,
@@ -385,13 +315,14 @@ function makeSyncInfo(
         confirmationDepth: 3,
         delayMs: 20_000,
       },
+      // The primitive declares no start of its own: it inherits the protocol's
+      // committed numeric boundary in the runtime (FR-007).
       primitives: [{
         id: name,
         syncProtocol: protocolName,
         primitive: {
           name,
           type: PrimitiveTypeMidnightGeneric,
-          startBlockHeight,
           contractAddress: source.address,
           stateMachinePrefix: name,
           ledgerSchema: source.ledger,
@@ -408,14 +339,6 @@ function midnightIndexer(network: MidnightNetwork): string {
 
 function protocolNameFor(sourceName: string): string {
   return `midnight-${sourceName}`;
-}
-
-function numberFromSnapshot(
-  snapshot: Record<string, unknown> | undefined,
-  field: string,
-): number | undefined {
-  const value = snapshot?.[field];
-  return typeof value === "number" && Number.isSafeInteger(value) ? value : undefined;
 }
 
 function validateName(value: string, label: string): void {

@@ -64,10 +64,15 @@ await runNode({
 
 `runNode` uses the normal Effectstream sync, primitive, STM, migration, and
 configuration-snapshot paths. It owns PGlite and runtime cleanup in the same
-process; it does not launch another script. A fresh `"latest"` source begins at
-the current indexed block. When `pglite({ dataDir: "..." })` is persistent, a
-restart reads the saved numeric start height and resumes the stored checkpoint
-instead of jumping to a new tip.
+process; it does not launch another script. The declared `startBlockHeight` -
+a number or `"latest"` - is passed to the runtime untouched: the runtime asks
+that protocol's own start policy to resolve `"latest"` exactly once, commits the
+resulting numeric boundary together with its `latest`/`explicit` provenance
+before any sync state exists, and reuses the committed value afterwards. So a
+fresh `"latest"` source begins at the current indexed block, and when
+`pglite({ dataDir: "..." })` is persistent a restart performs no tip query at
+all: it resumes from the committed boundary and the saved clock mapping instead
+of jumping to a new tip.
 
 The subpaths are thin re-exports - semantics are identical to importing
 from the underlying packages.

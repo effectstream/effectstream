@@ -4,7 +4,7 @@ import { ConfigSyncProtocolType } from "../types.ts";
 import {
   NameField,
   pollingSyncProtocolWithDefault,
-  StartStopBlockheight,
+  StartStopBlockheightWithLatest,
 } from "../../common.ts";
 import {
   CommonResponseParallelSyncProtocol,
@@ -24,7 +24,7 @@ import {
 
 export const ConfigSyncProtocolSchemaMidnightBase = NameField.cloneMerge(
   pollingSyncProtocolWithDefault(6_000),
-).cloneMerge(StartStopBlockheight).cloneMerge({
+).cloneMerge(StartStopBlockheightWithLatest).cloneMerge({
   required: Type.Object({
     indexer: Type.String(),
     // note: node URL and proof server are not needed for read-only use

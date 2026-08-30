@@ -552,6 +552,120 @@ new ConfigBuilder()
       )
   );
 
+// ───────────────────────────────────────────────────────────────────────────
+// Protocol-owned start policy (00034): the builder input accepts `"latest"`
+// for exactly NTP main and Midnight parallel, while the runtime-facing
+// `SyncProtocolWithNetwork` member stays numeric so sync states keep doing
+// arithmetic on it. A primitive may omit its start and inherit the protocol's.
+// ───────────────────────────────────────────────────────────────────────────
+
+const latestStarts = new ConfigBuilder()
+  .buildNetworks((builder) =>
+    builder
+      .addNetwork({ type: ConfigNetworkType.NTP })
+      .addNetwork({
+        type: ConfigNetworkType.MIDNIGHT,
+        networkId: "stagenet",
+      })
+  )
+  .buildSyncProtocols((builder) =>
+    builder
+      .addMain(
+        (networks) => networks.ntp,
+        () => ({
+          name: "ntp",
+          type: ConfigSyncProtocolType.NTP_MAIN,
+          startBlockHeight: "latest",
+        }),
+      )
+      .addParallel(
+        (networks) => networks.midnight,
+        () => ({
+          name: "midnight",
+          type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+          indexer: "https://indexer.example/graphql",
+          startBlockHeight: "latest",
+        }),
+      )
+  )
+  .buildPrimitives((builder) =>
+    builder.addPrimitive(
+      (protocols) => protocols.midnight,
+      () => ({
+        // No startBlockHeight: it is inherited from the owning protocol's
+        // committed numeric start (FR-007).
+        name: "round",
+        type: "Midnight:Generic",
+      }),
+    )
+  )
+  .build();
+
+type RuntimeNtp = Extract<
+  SyncProtocolWithNetwork,
+  { syncProtocolType: ConfigSyncProtocolType.NTP_MAIN }
+>;
+type RuntimeMidnight = Extract<
+  SyncProtocolWithNetwork,
+  { syncProtocolType: ConfigSyncProtocolType.MIDNIGHT_PARALLEL }
+>;
+type _RuntimeNtpStartIsNumeric = Assert<
+  RuntimeNtp["syncProtocol"]["startBlockHeight"] extends number ? true : false
+>;
+type _RuntimeMidnightStartIsNumeric = Assert<
+  RuntimeMidnight["syncProtocol"]["startBlockHeight"] extends number ? true
+    : false
+>;
+type _RuntimeNtpStartDropsSentinel = Assert<
+  IsExact<Extract<RuntimeNtp["syncProtocol"]["startBlockHeight"], string>, never>
+>;
+type _RuntimeMidnightStartDropsSentinel = Assert<
+  IsExact<
+    Extract<RuntimeMidnight["syncProtocol"]["startBlockHeight"], string>,
+    never
+  >
+>;
+// Sibling members are untouched by the re-narrowing.
+const _RuntimeMidnightIndexer: RuntimeMidnight["syncProtocol"]["indexer"] =
+  "https://indexer.example/graphql";
+
+// Every other protocol keeps a numeric-only start (FR-005).
+new ConfigBuilder()
+  .buildNetworks((builder) =>
+    builder
+      .addNetwork({ type: ConfigNetworkType.NTP })
+      .addNetwork({
+        name: "evm",
+        type: ConfigNetworkType.EVM,
+        chainId: 31_337,
+        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+        rpcUrls: { default: { http: ["http://127.0.0.1:8545"] } },
+      })
+  )
+  .buildSyncProtocols((builder) =>
+    builder
+      .addMain(
+        (networks) => networks.ntp,
+        () => ({
+          name: "ntp",
+          type: ConfigSyncProtocolType.NTP_MAIN,
+          startBlockHeight: 1,
+        }),
+      )
+      .addParallel(
+        (networks) => networks.evm,
+        () => ({
+          name: "evm",
+          type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+          // @ts-expect-error "latest" stays out of every other protocol's schema.
+          startBlockHeight: "latest",
+          chainUri: "http://127.0.0.1:8545",
+          confirmationDepth: 1,
+          pollingInterval: 1_000,
+        }),
+      )
+  );
+
 void minimal;
 void explicitEmpty;
 void nonempty;
@@ -559,3 +673,5 @@ void explicitLegacy;
 void maybeNtpFullChain;
 void optionalNtpNetworks;
 void maybeMidnightProtocol;
+void latestStarts;
+void _RuntimeMidnightIndexer;
