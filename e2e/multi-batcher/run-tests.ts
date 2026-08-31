@@ -65,6 +65,7 @@ import {
   waitForBatcher,
   waitForDrained,
 } from "./batcher-client.ts";
+import { assertNoDrift } from "./check-drift.ts";
 import {
   buildFeelessShieldedTransfer,
   buildSwapOffer,
@@ -215,6 +216,11 @@ async function main() {
   ignoreCleanWebSocketClose("multi-batcher e2e");
   setNetworkId(NETWORK.id as never);
   console.log("\n=== multi-batcher e2e: one batcher, three products ===\n");
+
+  // Before anything expensive: the wallet helpers exist in two copies (here and
+  // in the template, which must ship standalone) and have silently drifted
+  // before. Costs milliseconds; failing here beats failing 15 minutes in.
+  assertNoDrift();
 
   // compile → midnight node/indexer/proof-server → contract deploy → fund →
   // batcher, sequenced by the orchestrator's dependency graph (launcher.cli.ts).

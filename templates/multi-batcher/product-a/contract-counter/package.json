@@ -1,0 +1,12 @@
+{
+  "name": "@multi-batcher/midnight-contract",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./witnesses": "./src/witnesses.ts",
+    "./contract": "./src/managed/contract/index.js"
+  },
+  "scripts": {
+    "compact": "compact compile +0.31.0 src/counter.compact src/managed"
+  }
+}

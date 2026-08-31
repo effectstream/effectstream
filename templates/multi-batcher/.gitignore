@@ -1,0 +1,14 @@
+# Written by link.sh — carries this machine's absolute MONOREPO_ROOT.
+.env
+
+# Runtime artifacts from a local stack.
+batcher-data/
+# The tracking posture's own embedded database (docker-compose.tracking.yml).
+# Separate from batcher-data on purpose: that one holds the FileStorage queue,
+# and an embedded batcher imports any pending-inputs.jsonl beside it.
+batcher-data-tracking/
+midnight-level-db*/
+product-a/contract-counter.*.json
+
+# Compact compiler output (regenerate with `bun run compile:contract`).
+product-a/contract-counter/src/managed/

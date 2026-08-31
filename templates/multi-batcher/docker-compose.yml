@@ -1,0 +1,148 @@
+# multi-batcher — ONE batcher serving several products, full Midnight stack.
+#
+# Host ports live in the 12800 block, bound to loopback — clear of the default
+# Midnight ports, of templates/midnight-batcher (18400 block) and of the e2e
+# guard's own stack (12834/12844/12863/12888):
+#
+#   12835  batcher HTTP        (container 3334)
+#   12845  midnight node RPC   (container 9944)
+#   12864  proof load-balancer (container 6300)
+#   12889  indexer GraphQL     (container 8088)
+#
+# The `app` container bind-mounts the effectstream monorepo at the SAME
+# absolute path as the host, so host node_modules / link.sh symlinks resolve
+# unchanged and `packages/batcher` edits go live on a container restart.
+#
+# ⚠️ A compose CONFIG change + `up -d` RECREATES changed services — recreating
+# `node` wipes the chain (contract + funding + dust registration). Use
+# `docker compose restart <svc>` for restarts; see README "Reset".
+#
+#   ./link.sh && bun run compile:contract && docker compose up -d
+#   docker compose logs -f app
+
+name: multi-batcher
+
+services:
+  node:
+    restart: unless-stopped
+    image: 'midnightntwrk/midnight-node:${NODE_TAG:-1.0.0}'
+    ports:
+      - '127.0.0.1:12845:9944'
+    environment:
+      CFG_PRESET: 'dev'
+      SIDECHAIN_BLOCK_BENEFICIARY: '04bcf7ad3be7a5c790460be82a713af570f22e0f801f6659ab8e84a52be6969e'
+    healthcheck:
+      test:
+        - 'CMD-SHELL'
+        - >
+          curl -fs -H 'Content-Type: application/json' -d
+          '{"id":1,"jsonrpc":"2.0","method":"chain_getBlockHash","params":[1]}' http://localhost:9944 | grep -q
+          '"result":"0x'
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  indexer:
+    restart: unless-stopped
+    image: 'midnightntwrk/indexer-standalone:${INDEXER_TAG:-4.3.2}'
+    ports:
+      - '127.0.0.1:12889:8088'
+    environment:
+      RUST_LOG: 'indexer=info,chain_indexer=info,indexer_api=info,wallet_indexer=info,indexer_common=info,fastrace_opentelemetry=off,info'
+      APP__APPLICATION__NETWORK_ID: 'undeployed'
+      APP__INFRA__NODE__URL: 'ws://node:9944'
+      APP__INFRA__STORAGE__PASSWORD: 'indexer'
+      APP__INFRA__PUB_SUB__PASSWORD: 'indexer'
+      APP__INFRA__LEDGER_STATE_STORAGE__PASSWORD: 'indexer'
+      APP__INFRA__SECRET: '303132333435363738393031323334353637383930313233343536373839303132'
+      APP__INFRA__SPO_NODE__URL: 'ws://node:9944'
+      APP__INFRA__SPO_NODE__BLOCKFROST_ID: 'e2e-test-dummy-id'
+    healthcheck:
+      # image has neither curl nor wget — probe the file the indexer writes when running
+      test: ['CMD-SHELL', 'cat /var/run/indexer-standalone/running']
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 60s
+    depends_on:
+      node:
+        condition: service_healthy
+
+  proof-server:
+    restart: unless-stopped
+    image: 'midnightntwrk/proof-server:${PROOF_TAG:-8.1.0}'
+    environment:
+      RUST_BACKTRACE: 'full'
+      EXTRA_ARGS: '-v'
+
+  proof-server-2:
+    restart: unless-stopped
+    image: 'midnightntwrk/proof-server:${PROOF_TAG:-8.1.0}'
+    environment:
+      RUST_BACKTRACE: 'full'
+      EXTRA_ARGS: '-v'
+
+  proof-server-3:
+    restart: unless-stopped
+    image: 'midnightntwrk/proof-server:${PROOF_TAG:-8.1.0}'
+    environment:
+      RUST_BACKTRACE: 'full'
+      EXTRA_ARGS: '-v'
+
+  # Proving is stateless and CPU-bound — the end-to-end bottleneck, so it
+  # scales horizontally behind least_conn.
+  proof-lb:
+    restart: unless-stopped
+    image: 'nginx:alpine'
+    volumes:
+      - ./proof-lb.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - '127.0.0.1:12864:6300'
+    depends_on:
+      - proof-server
+      - proof-server-2
+      - proof-server-3
+
+  # Deploys product-a's contract, funds every product's fee wallet + the actor
+  # wallets, then runs THE shared batcher (see entry.ts).
+  app:
+    image: oven/bun:1
+    # Run as the host user: the bind mount is the developer's checkout,
+    # and a root-owned artifact written here cannot be cleaned up later.
+    user: '${HOST_UID:-1000}:${HOST_GID:-1000}'
+    working_dir: '${MONOREPO_ROOT}/templates/multi-batcher'
+    command: ['bun', 'run', 'entry.ts']
+    ports:
+      - '127.0.0.1:12835:3334'
+    environment:
+      MIDNIGHT_NETWORK_ID: 'undeployed'
+      MIDNIGHT_NODE_HTTP: 'http://node:9944'
+      MIDNIGHT_INDEXER_HTTP: 'http://indexer:8088/api/v3/graphql'
+      MIDNIGHT_INDEXER_WS: 'ws://indexer:8088/api/v3/graphql/ws'
+      MIDNIGHT_PROOF_SERVER_URL: 'http://proof-lb:6300'
+      MIDNIGHT_STORAGE_PASSWORD: 'YourPasswordMy1!'
+      BATCHER_PORT: '3334'
+      # Exposes the target-scoped admin routes (/clear-inputs, /force-batch)
+      # the deep suite drives. Test stack only — never enable in production.
+      ENABLE_DEV_AND_DEBUG_ENDPOINTS: 'true'
+      # Deep-suite evidence must come from the batcher's own event loop, not
+      # from the host-side driver process.
+      MEASURE_EVENT_LOOP_LAG: 'true'
+      BATCHER_POLLING_INTERVAL_MS: '${BATCHER_POLLING_INTERVAL_MS:-500}'
+      LANES_PER_PRODUCT: '${LANES_PER_PRODUCT:-10}'
+      FUND_STARS_PER_PRODUCT: '${FUND_STARS_PER_PRODUCT:-5000000000000}'
+      PRODUCT_A_SLOTS: '${PRODUCT_A_SLOTS:-5}'
+      PRODUCT_B_SLOTS: '${PRODUCT_B_SLOTS:-5}'
+      PRODUCT_C_SLOTS: '${PRODUCT_C_SLOTS:-5}'
+      SKIP_DEPLOY: '${SKIP_DEPLOY:-}'
+      SKIP_FUND: '${SKIP_FUND:-}'
+    volumes:
+      - '${MONOREPO_ROOT}:${MONOREPO_ROOT}'
+    depends_on:
+      node:
+        condition: service_healthy
+      indexer:
+        condition: service_healthy
+      proof-server:
+        condition: service_started

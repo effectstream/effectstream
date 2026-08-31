@@ -1,0 +1,25 @@
+# Deep-suite overlay: the SAME `app` service, moved onto the DEV TRACKING rung.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tracking.yml up -d app
+#
+# The tracking scenarios (M13, M14) switch the app onto this overlay themselves
+# and switch it back afterwards; M1–M12, M15 and M16 run on the base file's
+# queue-only posture. Only ONE batcher process exists at a time — the products'
+# fee wallets are the same wallets, and two adapters booking dust on one wallet
+# would double-spend it.
+#
+# Isolation between the two postures is by DATA DIRECTORY, not by port: the
+# embedded engine is in-process WASM and binds no socket (spec 00011 Addendum B
+# FR-018), so there is nothing to allocate a port for. The directory is
+# deliberately NOT `batcher-data` — that one holds the FileStorage queue the
+# queue-only posture uses and M5 tampers with, and an embedded batcher imports
+# any `pending-inputs.jsonl` it finds beside itself exactly once.
+
+services:
+  app:
+    environment:
+      # Addendum B's development rung: this batcher's OWN embedded database,
+      # request tracking fully on. Never both this and BATCHER_DB_SCHEMA — the
+      # SDK refuses to boot rather than guess which one was meant.
+      BATCHER_PGLITE: 'true'
+      BATCHER_PGLITE_DATA_DIR: '${MONOREPO_ROOT}/templates/multi-batcher/batcher-data-tracking'

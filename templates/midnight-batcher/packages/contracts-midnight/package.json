@@ -1,0 +1,18 @@
+{
+  "name": "@midnight-batcher/contracts-midnight",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {},
+  "scripts": {
+    "midnight-contract:clean": "rm -rf midnight-level-db && rm -f contract-counter.undeployed.json",
+    "midnight-contract:deploy": "bun run deploy.ts"
+  },
+  "dependencies": {
+    "@effectstream/midnight-contracts": "0.103.2",
+    "@midnight-batcher/midnight-contract": "workspace:*",
+    "@midnight-ntwrk/ledger-v8": "8.1.0",
+    "@midnight-ntwrk/compact-runtime": "0.16.0",
+    "@midnight-ntwrk/compact-js": "2.5.1",
+    "@midnight-ntwrk/onchain-runtime-v3": "3.0.0"
+  }
+}

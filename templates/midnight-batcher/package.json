@@ -1,0 +1,27 @@
+{
+  "private": true,
+  "name": "midnight-batcher-template",
+  "workspaces": ["packages/*", "packages/contracts-midnight/contract-counter"],
+  "scripts": {
+    "compile:contract": "bun run --filter @midnight-batcher/midnight-contract compact",
+    "deploy:contract": "bun run --filter @midnight-batcher/contracts-midnight midnight-contract:deploy",
+    "fund": "bun run packages/scripts/fund.ts",
+    "batcher": "bun run packages/batcher/batcher.ts",
+    "workload:zswap": "bun run packages/scripts/workload-zswap.ts",
+    "workload:calls": "bun run packages/scripts/workload-calls.ts",
+    "test:adversarial": "bun run packages/tests/run-adversarial.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.103.2",
+    "@effectstream/midnight-contracts": "0.103.2",
+    "@effectstream/utils": "0.103.2",
+    "@midnightntwrk/wallet-sdk-address-format": "3.1.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13"
+  },
+  "overrides": {
+    "@effect/platform": "0.96.1",
+    "@midnight-ntwrk/ledger-v8": "8.1.0"
+  }
+}

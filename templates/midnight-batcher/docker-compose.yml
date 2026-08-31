@@ -1,0 +1,144 @@
+# midnight-batcher — full Midnight stack + balancing batcher on Docker.
+#
+# Host ports live in the 18400–18500 block so this stack can run next to
+# another effectstream instance using the default ports:
+#
+#   18434  batcher HTTP        (container 3334)
+#   18444  midnight node RPC   (container 9944)
+#   18463  proof load-balancer (container 6300, nginx least_conn over 3 provers)
+#   18488  indexer GraphQL     (container 8088)
+#
+# The `app` container bind-mounts the effectstream monorepo worktree at the
+# SAME absolute path as on the host, so:
+#   - the host's node_modules (and link.sh symlinks) resolve unchanged
+#   - edits to packages/batcher on the host are live on `docker compose restart app`
+#     (bun runs TypeScript directly — no build step)
+#
+# Bring-up:
+#   ./link.sh                                  # once, host-side (see README)
+#   bun run compile:contract                   # once, host-side (needs `compact`)
+#   docker compose up -d
+#   docker compose logs -f app                 # deploy → fund → batcher ready
+#
+# Versions match the proven midnight-1.0.0 set (node 1.0.0 / indexer 4.3.2 /
+# proof-server 8.1.0) used by /home/eddie/midnight-wallet-dust-utxo-example.
+
+name: midnight-batcher
+
+services:
+  node:
+    restart: unless-stopped
+    image: 'midnightntwrk/midnight-node:${NODE_TAG:-1.0.0}'
+    ports:
+      - '127.0.0.1:18444:9944'
+    environment:
+      CFG_PRESET: 'dev'
+      SIDECHAIN_BLOCK_BENEFICIARY: '04bcf7ad3be7a5c790460be82a713af570f22e0f801f6659ab8e84a52be6969e'
+    healthcheck:
+      test:
+        - 'CMD-SHELL'
+        - >
+          curl -fs -H 'Content-Type: application/json' -d
+          '{"id":1,"jsonrpc":"2.0","method":"chain_getBlockHash","params":[1]}' http://localhost:9944 | grep -q
+          '"result":"0x'
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  indexer:
+    restart: unless-stopped
+    image: 'midnightntwrk/indexer-standalone:${INDEXER_TAG:-4.3.2}'
+    ports:
+      - '127.0.0.1:18488:8088'
+    environment:
+      RUST_LOG: 'indexer=info,chain_indexer=info,indexer_api=info,wallet_indexer=info,indexer_common=info,fastrace_opentelemetry=off,info'
+      APP__APPLICATION__NETWORK_ID: 'undeployed'
+      APP__INFRA__NODE__URL: 'ws://node:9944'
+      APP__INFRA__STORAGE__PASSWORD: 'indexer'
+      APP__INFRA__PUB_SUB__PASSWORD: 'indexer'
+      APP__INFRA__LEDGER_STATE_STORAGE__PASSWORD: 'indexer'
+      APP__INFRA__SECRET: '303132333435363738393031323334353637383930313233343536373839303132'
+      APP__INFRA__SPO_NODE__URL: 'ws://node:9944'
+      APP__INFRA__SPO_NODE__BLOCKFROST_ID: 'e2e-test-dummy-id'
+    healthcheck:
+      # image has neither curl nor wget — probe the file the indexer writes when running
+      test: ['CMD-SHELL', 'cat /var/run/indexer-standalone/running']
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 60s
+    depends_on:
+      node:
+        condition: service_healthy
+
+  proof-server:
+    restart: unless-stopped
+    image: 'midnightntwrk/proof-server:${PROOF_TAG:-8.1.0}'
+    environment:
+      RUST_BACKTRACE: 'full'
+      EXTRA_ARGS: '-v'
+    # distroless image: no shell for a healthcheck; consumers retry on the port
+
+  proof-server-2:
+    restart: unless-stopped
+    image: 'midnightntwrk/proof-server:${PROOF_TAG:-8.1.0}'
+    environment:
+      RUST_BACKTRACE: 'full'
+      EXTRA_ARGS: '-v'
+
+  proof-server-3:
+    restart: unless-stopped
+    image: 'midnightntwrk/proof-server:${PROOF_TAG:-8.1.0}'
+    environment:
+      RUST_BACKTRACE: 'full'
+      EXTRA_ARGS: '-v'
+
+  # Proving is stateless and CPU-bound — it is the end-to-end throughput
+  # bottleneck, so it scales horizontally behind least_conn.
+  proof-lb:
+    restart: unless-stopped
+    image: 'nginx:alpine'
+    volumes:
+      - ./proof-lb.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - '127.0.0.1:18463:6300'
+    depends_on:
+      - proof-server
+      - proof-server-2
+      - proof-server-3
+
+  # Deploys the counter contract, funds + splits the batcher wallet, then runs
+  # the balancing batcher (see entry.ts). MONOREPO_ROOT is resolved by the
+  # `.env` file written by link.sh — it must equal the worktree's absolute path.
+  app:
+    image: oven/bun:1
+    working_dir: '${MONOREPO_ROOT}/templates/midnight-batcher'
+    command: ['bun', 'run', 'entry.ts']
+    ports:
+      - '127.0.0.1:18434:3334'
+    environment:
+      MIDNIGHT_NETWORK_ID: 'undeployed'
+      MIDNIGHT_NODE_HTTP: 'http://node:9944'
+      MIDNIGHT_INDEXER_HTTP: 'http://indexer:8088/api/v3/graphql'
+      MIDNIGHT_INDEXER_WS: 'ws://indexer:8088/api/v3/graphql/ws'
+      MIDNIGHT_PROOF_SERVER_URL: 'http://proof-lb:6300'
+      MIDNIGHT_STORAGE_PASSWORD: 'YourPasswordMy1!'
+      BATCHER_PORT: '3334'
+      BATCHER_WALLET_SEED: '${BATCHER_WALLET_SEED:-0000000000000000000000000000000000000000000000000000000000000042}'
+      BATCHER_MAX_SLOTS_PER_WALLET: '${BATCHER_MAX_SLOTS_PER_WALLET:-10}'
+      BATCHER_MAX_BATCH_SIZE: '${BATCHER_MAX_BATCH_SIZE:-1}'
+      BATCHER_POLLING_INTERVAL_MS: '${BATCHER_POLLING_INTERVAL_MS:-500}'
+      TARGET_UTXOS: '${TARGET_UTXOS:-20}'
+      FUND_TOTAL_STARS: '${FUND_TOTAL_STARS:-10000000000000}'
+      SKIP_DEPLOY: '${SKIP_DEPLOY:-}'
+      SKIP_FUND: '${SKIP_FUND:-}'
+    volumes:
+      - '${MONOREPO_ROOT}:${MONOREPO_ROOT}'
+    depends_on:
+      node:
+        condition: service_healthy
+      indexer:
+        condition: service_healthy
+      proof-server:
+        condition: service_started

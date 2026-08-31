@@ -1,0 +1,14 @@
+{
+  "name": "@midnight-batcher/batcher",
+  "private": true,
+  "exports": {
+    ".": "./batcher.ts",
+    "./config": "./config.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.103.2",
+    "@effectstream/midnight-contracts": "0.103.2",
+    "@effectstream/utils": "0.103.2",
+    "effection": "^3.6.0"
+  }
+}
