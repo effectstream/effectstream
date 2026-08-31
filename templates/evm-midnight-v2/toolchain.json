@@ -1,0 +1,24 @@
+{
+  "compact": {
+    "version": "0.33.0-rc.2",
+    "releaseBaseUrl": "https://github.com/LFDT-Minokawa/compact/releases/download/compactc-v0.33.0-rc.2",
+    "targets": {
+      "aarch64-darwin": {
+        "asset": "compactc_v0.33.0-rc.2_aarch64-darwin.zip",
+        "sha256": "35a28009c9a57d20902e4fcfd12f0ca9ea94338208954cf8bcd335652e24f382"
+      },
+      "x86_64-darwin": {
+        "asset": "compactc_v0.33.0-rc.2_x86_64-darwin.zip",
+        "sha256": "dce1a57d82ce06208fcc5d9de5343f18c48654a5ff3acf6bafabe3d17bf1ef18"
+      },
+      "aarch64-unknown-linux-musl": {
+        "asset": "compactc_v0.33.0-rc.2_aarch64-unknown-linux-musl.zip",
+        "sha256": "3aa23812b0b086dbce07da3931a40dcb01bec9676b1ceed7f2d0be370ab2dc46"
+      },
+      "x86_64-unknown-linux-musl": {
+        "asset": "compactc_v0.33.0-rc.2_x86_64-unknown-linux-musl.zip",
+        "sha256": "3055ab92bbc8d5bb0d6282b661b83761d2a0de2ee37e21cf7107e25aaf2a9aad"
+      }
+    }
+  }
+}

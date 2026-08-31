@@ -12,10 +12,20 @@ This project integrates with the Midnight Network.
 
 ## Quick start
 
+Install [Bun](https://bun.sh), [Foundry](https://www.getfoundry.sh/), and the
+Compact compiler selection (`0.33.0-rc.2`) used by the EVM/Midnight template
+before starting:
+
+```sh
+curl -L https://foundry.paradigm.xyz | bash && foundryup
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+```
+
 Run a sample project:  
 ```sh
 git clone https://github.com/effectstream/effectstream.git
 cd effectstream/templates/evm-midnight-v2
+bun toolchain/compact.ts install
 bun i
 bun run dev
 ```
