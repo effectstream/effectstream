@@ -19,7 +19,8 @@ export type ProcessConfig = {
   /** Names of processes that must complete/start before this one. */
   dependsOn?: string[];
   /**
-   * If set, these ports are freed (kill any occupying process) before launch.
+   * If set, launch fails when any port is already occupied. The orchestrator
+   * never treats a configured port as permission to signal its listener.
    * Also used by the `status` command for port-based liveness detection.
    */
   stopProcessAtPort?: number[];
