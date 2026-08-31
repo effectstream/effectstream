@@ -371,7 +371,7 @@ Each row carries the token, its owner, one property, and the block heights of bo
 
 ### Frontend flow
 
-`packages/frontend/client/src/components/WalletDemo.tsx` drives the demo end to end. Minting calls the ERC-721 directly on the local Hardhat chain with viem; adding a property goes through `packages/frontend/client/src/increment.ts`, which builds a Midnight wallet in the browser (`WalletFacade.init`), joins the deployed contract with `findDeployedContract`, and invokes the circuit with fixed-width ASCII arguments:
+`packages/frontend/client/src/components/WalletDemo.tsx` drives the demo end to end. Minting calls the ERC-721 directly on the local Hardhat chain with viem; adding a property goes through `packages/frontend/client/src/increment.ts`, which connects through the published public `@effectstream/wallets/midnight-local` full-facade connector, joins the deployed contract with `findDeployedContract`, and invokes the circuit with fixed-width ASCII arguments:
 
 ```ts
 const toEncodedString = (str: string, length = 32) =>
@@ -426,11 +426,15 @@ Most values are set by `start.dev.ts` and need no attention.
 | `NTP_START_TIME` | No | NTP epoch in ms; otherwise recovered from the database, then `Date.now()` |
 | `EVM_PRIVATE_KEY` | Yes | Signs the batcher's Arbitrum transactions |
 
-### Pointing at another Midnight network
+### Midnight wallet and network boundary
 
-Midnight endpoints come from `@effectstream/midnight-contracts/midnight-env`, which is driven entirely by environment variables. Setting `MIDNIGHT_NETWORK_ID` to anything other than `undeployed` (`testnet`, `preview`, `mainnet`, …) switches the defaults to `https://indexer.<id>.midnight.network` and `https://rpc.<id>.midnight.network`; the proof server stays local unless overridden. Individual URLs can be overridden with `MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS`, `MIDNIGHT_NODE_HTTP` and `MIDNIGHT_PROOF_SERVER_URL`, and the wallet with `MIDNIGHT_WALLET_SEED` or `MIDNIGHT_WALLET_MNEMONIC` (the local genesis seed is only used on `undeployed`).
+Midnight endpoints for the backend come from `@effectstream/midnight-contracts/midnight-env`, which is driven entirely by environment variables. Setting `MIDNIGHT_NETWORK_ID` selects those backend endpoints; individual URLs can be overridden with `MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS`, `MIDNIGHT_NODE_HTTP`, and `MIDNIGHT_PROOF_SERVER_URL`.
 
-The frontend reads its endpoints from `VITE_*` variables in `.env.dev` / `.env.mainnet`:
+The current browser transaction path is deliberately local-only. It calls the published public `MidnightLocalConnector.connectFromSeed` export with `syncMode: "all"` and the exact indexer HTTP, indexer WebSocket, node, and proof-server URLs derived from the frontend's four `VITE_MIDNIGHT_*` variables. The deterministic undeployed genesis fixture is resolved only after an exact `VITE_MIDNIGHT_NETWORK_ID=undeployed` check. This path is provided by the template's pinned `@effectstream/wallets@0.200.1` artifact.
+
+Selecting `preview`, `preprod`, `mainnet`, or any other public network ID stops before seed derivation, endpoint resolution, wallet startup, provider construction, or network access. Public contract submission requires a supported external signer/profile, which this template does not yet provide; this is not a Lace or 1AM compatibility claim.
+
+The frontend build commands read their endpoints from `.env.dev` / `.env.mainnet`:
 
 ```sh
 bun run --filter @evm-midnight/frontend build:dev       # uses .env.dev

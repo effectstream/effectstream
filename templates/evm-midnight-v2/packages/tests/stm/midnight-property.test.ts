@@ -38,9 +38,10 @@ export async function midnightPropertyTest(db: Client) {
   );
 
   await assert(
-    "Midnight property: build wallet via @effectstream/wallets MidnightLocal (facade mode) and sync funds",
+    "Midnight property: build wallet via published MidnightLocal connector (facade mode) and sync funds",
     async () => {
-      // Build the wallet through the unified @effectstream/wallets entry point.
+      // Build through the public low-level export already shipped by the
+      // template's pinned @effectstream/wallets version.
       // Supplying `networkUrls` switches MidnightLocal from signing-only to the
       // full WalletFacade (shielded + dust + unshielded sub-wallets connected
       // to the live indexer + node + proof server). The facade ends up at
@@ -75,11 +76,12 @@ export async function midnightPropertyTest(db: Client) {
 
       setNetworkId(MIDNIGHT_NETWORK_ID as any);
 
-      console.log("  Building wallet via MidnightLocalConnector...");
+      console.log("  Building wallet via published MidnightLocal connector...");
       const provider = await MidnightLocalConnector.instance().connectFromSeed({
         seed: GENESIS_SEED,
         networkId: MIDNIGHT_NETWORK_ID,
         networkUrls,
+        syncMode: "all",
       });
       const api = provider.getConnection().api as any;
       const walletResult = api.walletResult as Awaited<
@@ -89,7 +91,12 @@ export async function midnightPropertyTest(db: Client) {
       >;
       if (walletResult == null) {
         throw new Error(
-          "MidnightLocalConnector did not return walletResult — facade mode wiring is broken.",
+          "Published MidnightLocal connector did not return walletResult — facade mode wiring is broken.",
+        );
+      }
+      if (api.walletFacade !== walletResult.wallet) {
+        throw new Error(
+          "Published MidnightLocal provider returned mismatched facade/result identities.",
         );
       }
       console.log("  Wallet built. Syncing funds...");
