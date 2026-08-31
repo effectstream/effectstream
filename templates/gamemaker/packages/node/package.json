@@ -1,0 +1,20 @@
+{
+  "name": "@gamemaker/node",
+  "version": "1.0.0",
+  "exports": "./main.dev.ts",
+  "dependencies": {
+    "@effectstream/config": "0.100.18",
+    "@gamemaker/contracts-evm": "workspace:*",
+    "@gamemaker/database": "workspace:*",
+    "@effectstream/concise": "0.100.18",
+    "@effectstream/coroutine": "0.100.18",
+    "@effectstream/db": "0.100.18",
+    "@effectstream/runtime": "0.100.18",
+    "@effectstream/sm": "0.100.18",
+    "@effectstream/log": "0.100.18",
+    "@sinclair/typebox": "0.34.41",
+    "effection": "^3.5.0",
+    "pg": "^8.14.0",
+    "viem": "2.37.3"
+  }
+}

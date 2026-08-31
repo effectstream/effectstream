@@ -35,6 +35,7 @@ const LINK_LOCAL = ["1", "true", "yes"].includes(
 export const ENABLED = [
   "cardano-delegation",
   "evm-cardano",
+  "gamemaker",
   "evm-midnight-v2",
   "preorder",
   "projected-nft-preorder",
