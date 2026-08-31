@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trading Cards</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="container" data-testid="trading-cards-app">
+    <h2>🃏 Trading Cards</h2>
+
+    <section id="wallet-section">
+      <h3>Connect Wallet</h3>
+      <p id="wallet-address" data-testid="wallet-address">Not connected</p>
+      <button
+        id="connect-browser"
+        data-testid="connect-browser-wallet"
+        onclick="window.uiConnectBrowser()"
+      >Connect Browser Wallet</button>
+      <button
+        id="connect-local"
+        data-testid="connect-local-wallet"
+        onclick="window.uiConnectLocal()"
+      >Connect Local Wallet (dev)</button>
+    </section>
+
+    <!-- Main menu: NFTs, packs, create lobby, stats. -->
+    <section id="main-menu" data-testid="main-menu" style="margin-top: 1rem;">
+      <h3>Main Menu</h3>
+      <div id="nft-row">
+        <label>Your account NFT id:
+          <input id="nft-id" data-testid="nft-id-input" type="number" value="1" min="0" style="width:80px;" />
+        </label>
+      </div>
+
+      <!-- Mint / collection -->
+      <div id="collection" data-testid="collection" style="margin-top: 0.5rem;">
+        <h4>Collection</h4>
+        <label>Token id: <input id="mint-token-id" type="number" value="1" min="0" style="width:70px;" /></label>
+        <button data-testid="account-mint-btn" onclick="window.uiAccountMint()">Mint Account NFT</button>
+        <button data-testid="trade-nft-mint-btn" onclick="window.uiTradeNftMint()">Mint Trade NFT</button>
+        <button data-testid="buy-pack-btn" onclick="window.uiBuyPack()">Buy Card Pack</button>
+        <button data-testid="refresh-cards-btn" onclick="window.uiRefreshCards()">Refresh Cards</button>
+        <div id="cards-text" data-testid="cards-text">—</div>
+      </div>
+
+      <!-- Trade NFTs -->
+      <div id="trade-nfts" data-testid="trade-nfts" style="margin-top: 0.5rem;">
+        <h4>Trade NFTs</h4>
+        <label>Trade NFT id: <input id="trade-nft-id" type="number" value="1" min="0" style="width:70px;" /></label>
+        <label>Card ids (csv): <input id="trade-card-ids" type="text" value="1,2" style="width:100px;" /></label>
+        <button data-testid="set-trade-cards-btn" onclick="window.uiSetTradeCards()">Assign Cards to Trade NFT</button>
+      </div>
+
+      <div id="create-lobby" data-testid="create-lobby" style="margin-top: 0.5rem;">
+        <h4>Create Lobby</h4>
+        <label>Rounds: <input id="rounds" type="number" value="3" min="1" style="width:60px;" /></label>
+        <label>Turn length: <input id="turn-length" type="number" value="100" min="1" style="width:70px;" /></label>
+        <button data-testid="create-lobby-btn" onclick="window.uiCreateLobby()">Create Lobby</button>
+      </div>
+
+      <div id="stats" data-testid="stats" style="margin-top: 0.5rem;">
+        <h4>Your Stats</h4>
+        <button data-testid="refresh-stats-btn" onclick="window.uiRefreshStats()">Refresh Stats</button>
+        <span id="stats-text" data-testid="stats-text">—</span>
+      </div>
+    </section>
+
+    <!-- Open lobbies you can join. -->
+    <section id="open-lobbies" data-testid="open-lobbies" style="margin-top: 1rem;">
+      <h3>Open Lobbies</h3>
+      <button data-testid="refresh-lobbies-btn" onclick="window.uiRefreshLobbies()">Refresh</button>
+      <ul id="lobby-list" data-testid="lobby-list"></ul>
+    </section>
+
+    <!-- The active card game: lobby, players (HP + hand + board), play controls.
+         This IS the gameplay surface. -->
+    <section id="card-game" data-testid="card-game" style="margin-top: 1rem; display:none;">
+      <h3>Card Game</h3>
+      <p>Lobby: <span id="game-lobby-id" data-testid="game-lobby-id"></span></p>
+      <div id="players" data-testid="players"></div>
+      <div id="board" data-testid="board" style="margin: 0.5rem 0;">🃏 board 🃏</div>
+      <label>Hand position: <input id="hand-pos" type="number" value="0" min="0" style="width:60px;" /></label>
+      <button data-testid="play-card-btn" onclick="window.uiPlayCard()">Play Card</button>
+      <button data-testid="end-turn-btn" onclick="window.uiEndTurn()">End Turn</button>
+      <button data-testid="leave-game-btn" onclick="window.uiLeaveGame()">Back to Menu</button>
+    </section>
+  </div>
+
+  <script type="module" src="./min.js"></script>
+
+  <script>
+    let currentLobby = null;
+
+    function nftId() {
+      return parseInt(document.getElementById("nft-id").value || "1", 10);
+    }
+    function setAddress(addr) {
+      document.getElementById("wallet-address").innerText = addr ?? "Not connected";
+    }
+
+    window.uiConnectBrowser = async () => {
+      try {
+        await window.tradingCards.connectBrowserWallet();
+        setAddress(window.tradingCards.getAddress());
+        await window.uiRefreshLobbies();
+      } catch (err) {
+        console.error("connect-browser failed:", err);
+        setAddress(`Browser wallet error: ${err.message}`);
+      }
+    };
+
+    window.uiConnectLocal = async () => {
+      try {
+        await window.tradingCards.connectLocalWallet();
+        setAddress(window.tradingCards.getAddress());
+        await window.uiRefreshLobbies();
+      } catch (err) {
+        console.error("connect-local failed:", err);
+        setAddress(`Local wallet error: ${err.message}`);
+      }
+    };
+
+    window.uiAccountMint = async () => {
+      const tokenId = parseInt(document.getElementById("mint-token-id").value || "1", 10);
+      await window.tradingCards.accountMint(tokenId);
+    };
+    window.uiTradeNftMint = async () => {
+      const tokenId = parseInt(document.getElementById("mint-token-id").value || "1", 10);
+      await window.tradingCards.tradeNftMint(tokenId);
+    };
+    window.uiBuyPack = async () => {
+      await window.tradingCards.buyCardPack();
+      setTimeout(window.uiRefreshCards, 4000);
+    };
+    window.uiRefreshCards = async () => {
+      const data = await window.tradingCards.fetchCards(nftId());
+      const text = document.getElementById("cards-text");
+      if (!data) { text.innerText = "no cards"; return; }
+      const cardIds = (data.cards ?? []).map((c) => `#${c.id}(t${c.registry_id})`).join(" ");
+      text.innerText = `cards: ${cardIds || "none"} | packs: ${(data.packs ?? []).length}`;
+    };
+
+    window.uiSetTradeCards = async () => {
+      const tradeNftId = parseInt(document.getElementById("trade-nft-id").value || "1", 10);
+      const cards = (document.getElementById("trade-card-ids").value || "")
+        .split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !Number.isNaN(n));
+      await window.tradingCards.setTradeNftCards(tradeNftId, cards);
+    };
+
+    window.uiCreateLobby = async () => {
+      const rounds = parseInt(document.getElementById("rounds").value || "3", 10);
+      const turnLength = parseInt(document.getElementById("turn-length").value || "100", 10);
+      await window.tradingCards.createLobby(nftId(), "", rounds, turnLength);
+      setTimeout(window.uiRefreshLobbies, 4000);
+    };
+
+    window.uiRefreshLobbies = async () => {
+      const lobbies = await window.tradingCards.fetchOpenLobbies();
+      const list = document.getElementById("lobby-list");
+      list.innerHTML = "";
+      (lobbies ?? []).forEach((lobby) => {
+        const li = document.createElement("li");
+        li.dataset.testid = `lobby-${lobby.lobby_id}`;
+        li.innerHTML = `<span>${lobby.lobby_id} (rounds: ${lobby.num_of_rounds})</span> `;
+        const joinBtn = document.createElement("button");
+        joinBtn.innerText = "Join";
+        joinBtn.dataset.testid = `join-${lobby.lobby_id}`;
+        joinBtn.onclick = () => window.uiJoinLobby(lobby.lobby_id);
+        li.appendChild(joinBtn);
+        list.appendChild(li);
+      });
+    };
+
+    window.uiJoinLobby = async (lobbyId) => {
+      await window.tradingCards.joinLobby(nftId(), lobbyId, "");
+      setTimeout(() => window.uiOpenGame(lobbyId), 4000);
+    };
+
+    window.uiRefreshStats = async () => {
+      const stats = await window.tradingCards.fetchStats(nftId());
+      const text = document.getElementById("stats-text");
+      if (!stats) { text.innerText = "no stats"; return; }
+      text.innerText = `W:${stats.wins} L:${stats.losses} T:${stats.ties}`;
+    };
+
+    window.uiOpenGame = async (lobbyId) => {
+      currentLobby = lobbyId;
+      document.getElementById("card-game").style.display = "block";
+      document.getElementById("game-lobby-id").innerText = lobbyId;
+      await window.uiRenderGame();
+    };
+
+    window.uiRenderGame = async () => {
+      if (!currentLobby) return;
+      const lobby = await window.tradingCards.fetchLobby(currentLobby);
+      const playersDiv = document.getElementById("players");
+      if (!lobby) { playersDiv.innerText = "lobby not found"; return; }
+      playersDiv.innerHTML = (lobby.players ?? [])
+        .map((p) =>
+          `<div data-testid="player-${p.nftId}">NFT ${p.nftId} — turn ${p.turn}, HP ${p.hitPoints}, hand [${(p.currentHand ?? []).join(",")}], board [${(p.currentBoard ?? []).join(",")}]${p.currentResult ? ` (${p.currentResult})` : ""}</div>`
+        )
+        .join("");
+    };
+
+    async function submitGameMove(move) {
+      if (!currentLobby) return;
+      const lobby = await window.tradingCards.fetchLobby(currentLobby);
+      if (!lobby) return;
+      await window.tradingCards.submitMove(
+        nftId(),
+        currentLobby,
+        lobby.current_match ?? 0,
+        lobby.current_round ?? 0,
+        move,
+      );
+      setTimeout(window.uiRenderGame, 4000);
+    }
+
+    window.uiPlayCard = async () => {
+      const handPos = parseInt(document.getElementById("hand-pos").value || "0", 10);
+      const lobby = await window.tradingCards.fetchLobby(currentLobby);
+      const me = (lobby?.players ?? []).find((p) => p.nftId === nftId());
+      const registryId = me?.currentHand?.[handPos] ?? 0;
+      await submitGameMove(`play+${handPos}+${registryId}`);
+    };
+
+    window.uiEndTurn = async () => {
+      await submitGameMove("end");
+    };
+
+    window.uiLeaveGame = () => {
+      currentLobby = null;
+      document.getElementById("card-game").style.display = "none";
+    };
+  </script>
+</body>
+
+</html>
