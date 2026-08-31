@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "node": {
+    "version": "2.0.0-rc.4",
+    "ledgerGeneration": 9
+  },
+  "indexer": {
+    "version": "4.4.0-rc.1"
+  },
+  "cachedChain": {
+    "policy": "same-ledger-generation-only",
+    "verifiedIncompatibilitySignal": "runtime requires function imports which are not present on the host: 'env:ext_ledger_8_bridge_construct_distribute_treasury_system_tx_version_1'",
+    "projectLocalBasePath": "node_modules/.cache/effectstream/midnight-node"
+  },
+  "proofServer": {
+    "included": false,
+    "reason": "No primary evidence ties proof-server state to the node cached-chain format."
+  }
+}

@@ -3,8 +3,81 @@ const path = require("path");
 const fs = require("fs");
 const yaml = require("js-yaml");
 const axios = require("axios");
+const compatibility = require("./compatibility.json");
 
 const BINARY_NAME = "indexer-standalone";
+
+function logConditionalCompatibilityContext(prefix = "midnight-indexer") {
+  const localState = compatibility.cachedChain.projectLocalBasePath;
+  console.error(
+    `[${prefix}] Compatibility context: bundled node ${compatibility.node.version} / Ledger ${compatibility.node.ledgerGeneration} and indexer ${compatibility.indexer.version}. This child result alone does not prove incompatible cached state.`,
+  );
+  console.error(
+    `[${prefix}] Only the exact verified node error "${compatibility.cachedChain.verifiedIncompatibilitySignal}" proves an incompatible Ledger-8 cache; otherwise do not reset state solely because this child failed.`,
+  );
+  console.error(
+    `[${prefix}] If that exact node error is present, indexer --clean still removes only indexer SQLite data. After stopping the stack, archive or remove only the project-local node state at ${localState} if you choose to reset it; no automatic reset is performed.`,
+  );
+}
+
+function logUnknownReadinessGuidance(prefix = "midnight-indexer") {
+  console.error(
+    `[${prefix}] unknown startup/readiness failure for node ${compatibility.node.version} / Ledger ${compatibility.node.ledgerGeneration} and indexer ${compatibility.indexer.version}.`,
+  );
+  console.error(`[${prefix}] Inspect the node and indexer logs.`);
+  logConditionalCompatibilityContext(prefix);
+}
+
+/**
+ * Waits for a spawned service process and converts every completion mode to a
+ * CLI-compatible exit code. The launcher itself remains synchronous and keeps
+ * returning the ChildProcess for existing API consumers.
+ *
+ * @param {import("child_process").ChildProcess} childProcess
+ * @param {{ serviceName?: string }} [options]
+ * @returns {Promise<number>}
+ */
+function waitForChildCompletion(childProcess, options = {}) {
+  const serviceName = options.serviceName || "midnight-indexer";
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (exitCode) => {
+      if (settled) return;
+      settled = true;
+      resolve(exitCode);
+    };
+
+    childProcess.once("error", (error) => {
+      console.error(
+        `[${serviceName}] child process failed to start: ${error.message}`,
+      );
+      finish(1);
+    });
+
+    childProcess.once("exit", (code, signal) => {
+      if (code === 0) {
+        finish(0);
+        return;
+      }
+
+      if (typeof code === "number") {
+        console.error(
+          `[${serviceName}] child process exited with nonzero code ${code}; startup cannot continue.`,
+        );
+        logConditionalCompatibilityContext(serviceName);
+        finish(code || 1);
+        return;
+      }
+
+      console.error(
+        `[${serviceName}] child process terminated by signal ${signal || "unknown"}; startup cannot continue.`,
+      );
+      logConditionalCompatibilityContext(serviceName);
+      finish(1);
+    });
+  });
+}
 
 function isValidIndexerSecret(secret) {
   return typeof secret === "string" && /^[0-9a-fA-F]{64}$/.test(secret);
@@ -16,44 +89,57 @@ function isValidIndexerSecret(secret) {
  * The v4.4.0-rc.1 indexer bundles an spo-indexer that, on a fresh DB, reads block #1
  * to anchor the first epoch and exits(1) — killing the whole indexer — if that
  * block does not exist yet. Gating startup on block #1 avoids that startup race.
- * 
+ *
  * @param {Object} env - Environment variables (used to resolve the node URL)
  * @param {Object} [opts]
  * @param {number} [opts.minBlock=1] - Block number that must exist
- * @param {number} [opts.timeoutMs=120000] - Give up (and proceed) after this
+ * @param {number} [opts.timeoutMs=55000] - Give up before the outer 60s readiness bound
  * @param {number} [opts.intervalMs=1000] - Poll interval
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} Whether block readiness was observed
  */
 async function waitForNodeBlock(env, opts = {}) {
-  const { minBlock = 1, timeoutMs = 120000, intervalMs = 1000 } = opts;
-  const wsUrl = env.SUBSTRATE_NODE_WS_URL ||
+  const { minBlock = 1, timeoutMs = 55000, intervalMs = 1000 } = opts;
+  const wsUrl =
+    env.SUBSTRATE_NODE_WS_URL ||
     env.APP__INFRA__NODE__URL ||
     "ws://localhost:9944";
   const httpUrl = wsUrl.replace(/^ws:/, "http:").replace(/^wss:/, "https:");
 
   const deadline = Date.now() + timeoutMs;
   console.log(
-    `Waiting for node to produce block #${minBlock} at ${httpUrl} (spo-indexer startup guard)...`,
+    `Waiting for node ${compatibility.node.version} / Ledger ${compatibility.node.ledgerGeneration} to produce block #${minBlock} at ${httpUrl} (indexer ${compatibility.indexer.version} startup guard)...`,
   );
   while (Date.now() < deadline) {
     try {
       const { data } = await axios.post(
         httpUrl,
-        { jsonrpc: "2.0", id: 1, method: "chain_getBlockHash", params: [minBlock] },
-        { headers: { "Content-Type": "application/json" }, timeout: 5000 },
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "chain_getBlockHash",
+          params: [minBlock],
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+          timeout: Math.min(5000, Math.max(1, deadline - Date.now())),
+        },
       );
       if (data && data.result) {
-        console.log(`Node has block #${minBlock} (${data.result}); starting indexer.`);
-        return;
+        console.log(
+          `Node has block #${minBlock} (${data.result}); starting indexer.`,
+        );
+        return true;
       }
     } catch {
       // node not reachable yet; keep polling
     }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
-  console.warn(
-    `Timed out waiting for node block #${minBlock} after ${timeoutMs}ms; starting indexer anyway.`,
+  console.error(
+    `[midnight-indexer] missing block-one readiness: node ${compatibility.node.version} / Ledger ${compatibility.node.ledgerGeneration} did not produce block #${minBlock} within ${timeoutMs}ms; indexer startup is stopping.`,
   );
+  logUnknownReadinessGuidance("midnight-indexer");
+  return false;
 }
 
 /**
@@ -87,7 +173,8 @@ function ensureConfigExists(configPath, env) {
   );
 
   const networkId = env.LEDGER_NETWORK_ID || "Undeployed";
-  const nodeUrl = env.SUBSTRATE_NODE_WS_URL ||
+  const nodeUrl =
+    env.SUBSTRATE_NODE_WS_URL ||
     env.APP__INFRA__NODE__URL ||
     "ws://localhost:9944";
   const cnnUrl = env.APP__INFRA__STORAGE__CNN_URL || "./data/indexer.sqlite";
@@ -284,11 +371,7 @@ function handleCleanFlag(env, workingDir) {
  * @returns {ChildProcess} The spawned child process
  */
 function runMidnightIndexer(env = process.env, args = []) {
-  const binaryPath = path.join(
-    __dirname,
-    "indexer-standalone",
-    BINARY_NAME,
-  );
+  const binaryPath = path.join(__dirname, "indexer-standalone", BINARY_NAME);
   const workingDir = path.join(__dirname, "indexer-standalone");
 
   const configPath = resolveConfigPath(env, workingDir);
@@ -337,8 +420,10 @@ function runMidnightIndexer(env = process.env, args = []) {
 }
 
 module.exports = {
+  compatibility,
   ensureConfigExists,
   isValidIndexerSecret,
   runMidnightIndexer,
+  waitForChildCompletion,
   waitForNodeBlock,
 };

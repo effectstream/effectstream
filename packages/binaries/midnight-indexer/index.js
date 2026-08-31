@@ -1,10 +1,15 @@
 const { binary, getPlatform, cleanBinaries } = require("./binary");
-const { runMidnightIndexer, waitForNodeBlock, isValidIndexerSecret } = require(
-  "./run_midnight_indexer",
-);
-const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
-  "./docker",
-);
+const {
+  runMidnightIndexer,
+  waitForChildCompletion,
+  waitForNodeBlock,
+  isValidIndexerSecret,
+} = require("./run_midnight_indexer");
+const {
+  checkIfDockerExists,
+  pullDockerImage,
+  runDockerContainer,
+} = require("./docker");
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
@@ -130,7 +135,8 @@ async function runWithDocker(env, args) {
     await pullDockerImage();
 
     // Run the container
-    return runDockerContainer(env, args);
+    const childProcess = runDockerContainer(env, args);
+    return waitForChildCompletion(childProcess);
   } catch (error) {
     console.error("Failed to run with Docker:", error.message);
     console.log("Falling back to binary execution...");
@@ -171,9 +177,13 @@ async function runWithBinary(env, args, forceClean = false) {
 
   // Check for required environment variable
   if (!isValidIndexerSecret(env.APP__INFRA__SECRET)) {
-    console.error("Error: APP__INFRA__SECRET must be exactly 64 hexadecimal characters");
-    console.log("Please set APP__INFRA__SECRET=<64_hex_characters> and run again");
-    process.exit(1);
+    console.error(
+      "Error: APP__INFRA__SECRET must be exactly 64 hexadecimal characters",
+    );
+    console.log(
+      "Please set APP__INFRA__SECRET=<64_hex_characters> and run again",
+    );
+    return 1;
   }
 
   if (forceClean || !checkIfBinaryExists()) {
@@ -190,9 +200,20 @@ async function runWithBinary(env, args, forceClean = false) {
 
   // Gate startup on block #1 so the bundled spo-indexer does not crash the
   // process on a fresh chain (see waitForNodeBlock for details).
-  await waitForNodeBlock(binaryEnv);
+  const nodeWaitTimeoutMs = Number(
+    binaryEnv.MIDNIGHT_INDEXER_NODE_WAIT_TIMEOUT_MS || 55000,
+  );
+  const nodeWaitIntervalMs = Number(
+    binaryEnv.MIDNIGHT_INDEXER_NODE_WAIT_INTERVAL_MS || 1000,
+  );
+  const nodeReady = await waitForNodeBlock(binaryEnv, {
+    timeoutMs: nodeWaitTimeoutMs,
+    intervalMs: nodeWaitIntervalMs,
+  });
+  if (!nodeReady) return 1;
 
-  return runMidnightIndexer(binaryEnv, args);
+  const childProcess = runMidnightIndexer(binaryEnv, args);
+  return waitForChildCompletion(childProcess);
 }
 
 async function main(args) {
@@ -202,7 +223,7 @@ async function main(args) {
   // Show help if requested
   if (flags.showHelp) {
     showUsage();
-    process.exit(0);
+    return 0;
   }
 
   // Handle --only-clean flag
@@ -214,7 +235,7 @@ async function main(args) {
     } else {
       console.log("No downloaded binaries found to delete.");
     }
-    process.exit(0);
+    return 0;
   }
 
   // If both flags are provided, show error
@@ -222,7 +243,7 @@ async function main(args) {
     console.error(
       "Error: Cannot use both --docker and --binary flags simultaneously",
     );
-    process.exit(1);
+    return 1;
   }
 
   // Validate clean flag usage
@@ -230,7 +251,7 @@ async function main(args) {
     console.error(
       "Error: --clean-binaries flag cannot be used with --docker flag",
     );
-    process.exit(1);
+    return 1;
   }
 
   // If --docker flag is explicitly provided
@@ -239,7 +260,7 @@ async function main(args) {
     if (!dockerAvailable) {
       console.error("Error: Docker is not installed or not available");
       console.log("Please install Docker or use the --binary flag");
-      process.exit(1);
+      return 1;
     }
 
     // Check for required environment variable
@@ -250,7 +271,7 @@ async function main(args) {
       console.log(
         "Please set APP__INFRA__SECRET=<64_hex_characters> when running with --docker",
       );
-      process.exit(1);
+      return 1;
     }
 
     return runWithDocker(env, flags.remainingArgs);
@@ -268,7 +289,7 @@ async function main(args) {
       console.log(
         "Please use --docker flag instead, or run without flags to use Docker automatically",
       );
-      process.exit(1);
+      return 1;
     }
     return runWithBinary(env, flags.remainingArgs, flags.cleanBinaries);
   }
@@ -289,7 +310,7 @@ async function main(args) {
       console.log(
         "Please install Docker or ensure your platform is supported for binary execution",
       );
-      process.exit(1);
+      return 1;
     }
     console.log(
       "Binary execution not supported on this platform - using Docker",
@@ -300,8 +321,10 @@ async function main(args) {
       console.error(
         "Error: APP__INFRA__SECRET must be exactly 64 hexadecimal characters",
       );
-      console.log("Please set APP__INFRA__SECRET=<64_hex_characters> and run again");
-      process.exit(1);
+      console.log(
+        "Please set APP__INFRA__SECRET=<64_hex_characters> and run again",
+      );
+      return 1;
     }
 
     return runWithDocker(env, flags.remainingArgs);
@@ -319,7 +342,7 @@ async function main(args) {
         console.log(
           "Please set APP__INFRA__SECRET=<64_hex_characters> and run again",
         );
-        process.exit(1);
+        return 1;
       }
       return runWithDocker(env, flags.remainingArgs);
     }
@@ -332,7 +355,7 @@ async function main(args) {
 // Handle unhandled promise rejections
 process.on("unhandledRejection", (error) => {
   console.error("Unhandled promise rejection:", error);
-  process.exit(1);
+  process.exitCode = 1;
 });
 
 // Handle SIGINT (Ctrl+C) gracefully
@@ -343,6 +366,17 @@ process.on("SIGINT", () => {
 
 module.exports = {
   cleanBinaries,
+  main,
+  runWithBinary,
 };
 
-main(process.argv.slice(2));
+if (require.main === module) {
+  main(process.argv.slice(2))
+    .then((exitCode) => {
+      if (typeof exitCode === "number") process.exitCode = exitCode;
+    })
+    .catch((error) => {
+      console.error("midnight-indexer startup failed:", error);
+      process.exitCode = 1;
+    });
+}

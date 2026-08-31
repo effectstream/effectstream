@@ -1,6 +1,12 @@
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import type { ProcessConfig } from "../src/config.ts";
 import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
+
+const waitTcpScript = new URL("./wait-tcp.ts", import.meta.url).pathname;
+export const MIDNIGHT_COMPATIBILITY_FILE_ENV =
+  "EFFECTSTREAM_MIDNIGHT_COMPATIBILITY_FILE";
 
 /**
  * Midnight's `compact` compiler is required to compile the Compact contracts
@@ -40,11 +46,68 @@ const REQUIRED_SCRIPTS = {
   "midnight-node:start": "Start the Midnight substrate node",
   "midnight-node:wait": "Wait for the Midnight node RPC (e.g. tcp:9944)",
   "midnight-indexer:start": "Start the Midnight indexer",
-  "midnight-indexer:wait": "Wait for the Midnight indexer (e.g. tcp:8088)",
   "midnight-proof-server:start": "Start the Midnight proof server",
-  "midnight-proof-server:wait": "Wait for the Midnight proof server (e.g. tcp:6300)",
+  "midnight-proof-server:wait":
+    "Wait for the Midnight proof server (e.g. tcp:6300)",
   "midnight-contract:deploy": "Deploy Midnight contracts (Compact-compiled)",
 } as const;
+
+export function resolveMidnightCompatibilityFile(cwd: string): string {
+  const requireFromProject = createRequire(join(cwd, "package.json"));
+  const packageJson = requireFromProject.resolve(
+    "@effectstream/npm-midnight-indexer/package.json",
+  );
+  return join(dirname(packageJson), "compatibility.json");
+}
+
+export function projectLocalMidnightNodeState(cwd: string): string {
+  return join(cwd, "node_modules", ".cache", "effectstream", "midnight-node");
+}
+
+export function buildMidnightNodeProcess(
+  cwd: string,
+  packageName: string,
+  compatibilityFile: string,
+): ProcessConfig {
+  return {
+    name: MidnightNames.NODE,
+    description: `Start Midnight node (${packageName} midnight-node:start)`,
+    cwd,
+    stopProcessAtPort: [9944, 30333],
+    args: ["run", "midnight-node:start"],
+    env: {
+      BASE_PATH: projectLocalMidnightNodeState(cwd),
+      [MIDNIGHT_COMPATIBILITY_FILE_ENV]: compatibilityFile,
+    },
+    waitToExit: false,
+    critical: true,
+  };
+}
+
+export function buildMidnightIndexerWaitProcess(
+  cwd: string,
+  compatibilityFile: string,
+): ProcessConfig {
+  return {
+    name: MidnightNames.INDEXER_WAIT,
+    description: "Wait up to 60 seconds for the Midnight indexer",
+    cwd,
+    args: [
+      waitTcpScript,
+      "8088",
+      "--service",
+      "Midnight indexer",
+      "--timeout-ms",
+      "60000",
+      "--log-hint",
+      "inspect logs/midnight-indexer.log and logs/midnight-node.log",
+      "--compatibility-file",
+      compatibilityFile,
+    ],
+    waitToExit: true,
+    dependsOn: [MidnightNames.INDEXER],
+  };
+}
 
 export function launchMidnight(
   packageName: string,
@@ -54,8 +117,14 @@ export function launchMidnight(
     dependsOn?: string[];
   },
 ): ProcessConfig[] {
-  const cwd = resolvePackageDir("launchMidnight", packageName, location, REQUIRED_SCRIPTS);
+  const cwd = resolvePackageDir(
+    "launchMidnight",
+    packageName,
+    location,
+    REQUIRED_SCRIPTS,
+  );
   assertCompactInstalled();
+  const compatibilityFile = resolveMidnightCompatibilityFile(cwd);
   const deployEnv: Record<string, string> = {};
   if (opts?.env?.MIDNIGHT_STORAGE_PASSWORD) {
     deployEnv.MIDNIGHT_STORAGE_PASSWORD = opts.env.MIDNIGHT_STORAGE_PASSWORD;
@@ -63,15 +132,7 @@ export function launchMidnight(
   const extraDeps = opts?.dependsOn ?? [];
 
   return [
-    {
-      name: MidnightNames.NODE,
-      description: `Start Midnight node (${packageName} midnight-node:start)`,
-      cwd,
-      stopProcessAtPort: [9944, 30333],
-      args: ["run", "midnight-node:start"],
-      waitToExit: false,
-      critical: true,
-    },
+    buildMidnightNodeProcess(cwd, packageName, compatibilityFile),
     {
       name: MidnightNames.INDEXER,
       description: `Start Midnight indexer (${packageName} midnight-indexer:start)`,
@@ -100,14 +161,7 @@ export function launchMidnight(
       waitToExit: true,
       dependsOn: [MidnightNames.NODE],
     },
-    {
-      name: MidnightNames.INDEXER_WAIT,
-      description: `Wait for Midnight indexer (${packageName} midnight-indexer:wait)`,
-      cwd,
-      args: ["run", "midnight-indexer:wait"],
-      waitToExit: true,
-      dependsOn: [MidnightNames.INDEXER],
-    },
+    buildMidnightIndexerWaitProcess(cwd, compatibilityFile),
     {
       name: MidnightNames.PROOF_SERVER_WAIT,
       description: `Wait for Midnight proof server (${packageName} midnight-proof-server:wait)`,

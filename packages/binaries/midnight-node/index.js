@@ -1,5 +1,8 @@
 const { binary, cleanBinaries } = require("./binary");
-const { runMidnightNode } = require("./run_midnight_node");
+const {
+  runMidnightNode,
+  waitForNodeCompletion,
+} = require("./run_midnight_node");
 const fs = require("fs");
 const path = require("path");
 
@@ -50,7 +53,7 @@ async function main(args) {
 
   if (flags.showHelp) {
     showUsage();
-    process.exit(0);
+    return 0;
   }
 
   if (flags.onlyClean) {
@@ -61,7 +64,7 @@ async function main(args) {
     } else {
       console.log("No downloaded binaries found to delete.");
     }
-    process.exit(0);
+    return 0;
   }
 
   if (flags.cleanBinaries || !checkIfBinaryExists()) {
@@ -71,11 +74,22 @@ async function main(args) {
     }
     await binary();
   }
-  runMidnightNode(process.env, flags.remainingArgs);
+  const childProcess = runMidnightNode(process.env, flags.remainingArgs);
+  return waitForNodeCompletion(childProcess);
 }
 
 module.exports = {
   cleanBinaries,
+  main,
 };
 
-main(process.argv.slice(2));
+if (require.main === module) {
+  main(process.argv.slice(2))
+    .then((exitCode) => {
+      if (typeof exitCode === "number") process.exitCode = exitCode;
+    })
+    .catch((error) => {
+      console.error("midnight-node startup failed:", error);
+      process.exitCode = 1;
+    });
+}
