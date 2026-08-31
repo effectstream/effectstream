@@ -54,7 +54,7 @@ yield* start({
   appVersion: "1.0.0",
   syncInfo: toSyncProtocolWithNetwork(config),
   migrations: migrationTable,
-  // …grammar, gameStateTransitions, apiRouter
+  // …grammar, appStateTransitions, apiRouter
 });
 ```
 

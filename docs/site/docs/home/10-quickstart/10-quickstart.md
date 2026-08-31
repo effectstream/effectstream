@@ -142,7 +142,7 @@ main(function* () {
       appName: "My-dApp",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(localhostConfig),
-      gameStateTransitions,
+      appStateTransitions,
       migrations,
       apiRouter,
       grammar,

@@ -1,7 +1,7 @@
 import { Stm } from "@effectstream/sm";
 import { grammar } from "./grammar.ts";
 import type { BaseStfInput } from "@effectstream/sm";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import {
   getUser,
@@ -721,7 +721,7 @@ stm.addStateTransition("cardano-payment", function* (data) {
   );
 });
 
-export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+export const appStateTransitions: StartConfigAppStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {

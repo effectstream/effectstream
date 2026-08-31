@@ -1,7 +1,7 @@
 import { PaimaSTM } from "@paimaexample/sm";
 import { grammar } from "@dice/data-types/grammar";
 import type { BaseStfInput } from "@paimaexample/sm";
-import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
+import type { StartConfigAppStateTransitions } from "@paimaexample/runtime";
 import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
 import {
   getLobbyById,
@@ -296,7 +296,7 @@ stm.addStateTransition("userScheduledData", function* (data) {
  * that includes new logic, this router allows your game node to cleanly maintain
  * backwards compatibility with the old history before the new update came into effect.
  */
-export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+export const appStateTransitions: StartConfigAppStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput
 ): SyncStateUpdateStream<void> {

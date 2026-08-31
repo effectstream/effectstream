@@ -1,7 +1,7 @@
 import {
   init,
   start,
-  type StartConfigGameStateTransitions,
+  type StartConfigAppStateTransitions,
 } from "@effectstream/runtime";
 import { main, suspend } from "effection";
 import {
@@ -153,7 +153,7 @@ stm.addStateTransition("midnightTokenMintState", function* (data) {
   ));
 });
 
-const gameStateTransitions: StartConfigGameStateTransitions = function* (
+const appStateTransitions: StartConfigAppStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {
@@ -179,7 +179,7 @@ main(function* () {
       appName: "e2e-midnight",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       grammar,
     });

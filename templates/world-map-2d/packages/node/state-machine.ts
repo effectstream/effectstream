@@ -1,6 +1,6 @@
 import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import {
   createGlobalUserState,
@@ -28,7 +28,7 @@ stm.addStateTransition("submitIncrement", function* (data) {
   yield* World.resolve(updateWorldStateCounter, { x, y });
 });
 
-export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+export const appStateTransitions: StartConfigAppStateTransitions = function* (
   _blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {
