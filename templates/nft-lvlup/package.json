@@ -1,0 +1,23 @@
+{
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build:evm": "bun run --filter @nft-lvlup/contracts-evm build:mod",
+    "dev": "NODE_ENV=development bunx orchestrator start",
+    "check": "bun run --filter @nft-lvlup/node check",
+    "test": "bun run packages/tests/run-tests.ts",
+    "build:pgtypes": "bun run --filter @nft-lvlup/database pgtyped:update"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.10",
+    "@effectstream/evm-contracts": "0.100.18",
+    "@effectstream/orchestrator": "0.100.18",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "wait-on": "8.0.3"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
+  }
+}

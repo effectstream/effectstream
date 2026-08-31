@@ -36,6 +36,7 @@ export const ENABLED = [
   "cardano-delegation",
   "evm-cardano",
   "evm-midnight-v2",
+  "nft-lvlup",
   "preorder",
   "projected-nft-preorder",
   "shinkai-v2",
