@@ -124,6 +124,8 @@ export const Icon = {
   wallet: (p: SvgProps) => (<svg viewBox="0 0 16 16" fill="none" width="13" height="13" {...p}><rect x="1.8" y="3.6" width="12.4" height="9" rx="2.2" stroke="currentColor" strokeWidth="1.4" /><path d="M10.6 8.2h1.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><path d="M2 5.4h8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>),
   ext: (p: SvgProps) => (<svg viewBox="0 0 16 16" fill="none" width="12" height="12" {...p}><path d="M6 3h7v7M13 3l-7.5 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>),
   dot: (p: SvgProps) => (<svg viewBox="0 0 8 8" width="8" height="8" {...p}><circle cx="4" cy="4" r="3" fill="currentColor" /></svg>),
+  copy: (p: SvgProps) => (<svg viewBox="0 0 16 16" fill="none" width="12" height="12" {...p}><rect x="5.6" y="5.6" width="8.2" height="8.2" rx="2" stroke="currentColor" strokeWidth="1.4" /><path d="M10.4 3.6a2 2 0 00-2-1.4H4.2a2 2 0 00-2 2v4.2a2 2 0 001.4 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>),
+  check: (p: SvgProps) => (<svg viewBox="0 0 16 16" fill="none" width="12" height="12" {...p}><path d="M3 8.4l3.2 3.2L13 4.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>),
 };
 
 // Inline tag marking a token's privacy mode.
