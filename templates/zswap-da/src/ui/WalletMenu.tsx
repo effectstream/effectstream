@@ -1,9 +1,9 @@
 // Connected wallet dropdown: shielded identity, real address + balances,
 // disconnect. Adapted from app/ZSwap.html WalletMenu — wired to live wallet data.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { WalletPill, type WalletInfo } from './WalletPill';
 import { Icon } from './icons';
-import { truncateAddress } from '../utils';
+import { isShieldedAddress, truncateAddress } from '../utils';
 import { fmtBalance } from '../state/format';
 import { formatShieldedAddress } from '../state/shieldedAddress';
 import { TokenChip } from './TokenChip';
@@ -13,6 +13,21 @@ const NETWORK_ID = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string) || 'unde
 
 /** How long the "Copied" confirmation stays up. */
 const COPIED_MS = 1500;
+
+/**
+ * A shielded address renders 33 characters (`mn_shield-addr_undeployed1…qhz8fj`)
+ * against the ~213px this row leaves for text inside the 280px card. At the
+ * 12.5px used for the short unshielded/hex forms that wraps onto a second line,
+ * so shielded addresses drop a notch. Both numbers are measured, not guessed —
+ * see the plan's Phase 6.
+ */
+const ADDRESS_FONT_SIZE = { shielded: 11, other: 12.5 } as const;
+
+/** Visually hidden, still read out by screen readers. */
+const SR_ONLY: CSSProperties = {
+  position: 'absolute', width: 1, height: 1, margin: -1, padding: 0,
+  overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
+};
 
 interface WalletMenuState {
   wallet: WalletInfo | null;
@@ -114,17 +129,27 @@ export function WalletMenu({ st }: { st: WalletMenuState }) {
             }}
           >
             <Icon.shield style={{ color: 'var(--accent)', flex: '0 0 auto' }} />
-            <span className="zs-num" style={{ fontSize: 12.5, fontWeight: 600, wordBreak: 'break-all', color: 'var(--ink-2)' }}>{truncateAddress(addr)}</span>
+            <span
+              className="zs-num"
+              style={{
+                fontSize: isShieldedAddress(addr) ? ADDRESS_FONT_SIZE.shielded : ADDRESS_FONT_SIZE.other,
+                fontWeight: 600, wordBreak: 'break-all', color: 'var(--ink-2)',
+              }}
+            >{truncateAddress(addr)}</span>
             {addr && (
+              /* Glyph-only in BOTH states, so the confirmation cannot resize
+                 this box and reflow the address next to it — a spelled-out
+                 "Copied" costs 38px, more than the wider head gained. The word
+                 is still announced: it lives in the aria-live region, hidden. */
               <span
                 aria-live="polite"
                 style={{
                   marginLeft: 'auto', flex: '0 0 auto', display: 'inline-flex',
-                  alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600,
-                  color: copied ? 'var(--accent)' : 'var(--ink-3)',
+                  alignItems: 'center', color: copied ? 'var(--accent)' : 'var(--ink-3)',
                 }}
               >
-                {copied ? <><Icon.check /> Copied</> : <Icon.copy />}
+                {copied ? <Icon.check /> : <Icon.copy />}
+                {copied && <span style={SR_ONLY}>Copied</span>}
               </span>
             )}
           </button>
