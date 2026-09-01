@@ -28,7 +28,18 @@ export interface TradeWallet {
   mintShielded(domainSep: Uint8Array, amount: bigint, nonce: bigint, name: string): Promise<BrowserMintResult>;
   mintUnshielded(domainSep: Uint8Array, amount: bigint, name: string): Promise<BrowserMintResult>;
   buildOfferBlob(networkId: string, gives: OfferLeg[], wants: OfferLeg[]): Promise<string>;
-  settleOffer(config: MidnightBrowserConfig, blob: string): Promise<{ txHash: string }>;
+  /**
+   * Take one or more offers. The whole selection goes through a single call so
+   * the wallet can settle a ladder as ONE transaction — settling offer by offer
+   * re-spent the taker's only coin and the node rejected everything after the
+   * first (`Zswap(NullifierAlreadyPresent)`).
+   *
+   * The JS wallet merges the maker halves and submits once. Lace still settles
+   * one at a time (see `makeInjectedTradeWallet`).
+   *
+   * @returns The settlement's tx hash — for Lace, the last one submitted.
+   */
+  settleOffers(config: MidnightBrowserConfig, blobs: string[]): Promise<{ txHash: string }>;
 }
 
 export interface MintFns {
@@ -46,13 +57,26 @@ export function makeInjectedTradeWallet(connectedApi: ConnectedAPI, mint: MintFn
     mintShielded: mint.mintShielded,
     mintUnshielded: mint.mintUnshielded,
     buildOfferBlob: (networkId, gives, wants) => buildMakerOfferBlob(connectedApi, networkId, gives, wants),
-    settleOffer: (config, blob) => {
-      dlog('tradeWallet.settleOffer → proveAndSubmitOffer (injected/Lace)', {
+    // Lace keeps settling one offer at a time. Merging the maker halves first
+    // would change what `proveAndSubmitOffer` is handed — its mirror+merge and
+    // sealed-balance strategies both reason about the maker tx's segments — and
+    // there is no Lace wallet on a headless stack to verify that against, so
+    // this path is left exactly as it was rather than changed on a guess.
+    // Consequence: a ladder taken through Lace is still N transactions, and a
+    // single-coin Lace wallet still hits the double spend the JS wallet no
+    // longer can.
+    settleOffers: async (config, blobs) => {
+      if (blobs.length === 0) throw new Error('No offers to settle.');
+      dlog('tradeWallet.settleOffers → proveAndSubmitOffer ×N (injected/Lace, sequential)', {
         networkId: config.networkId,
         contractAddress: config.contractAddress,
-        blobLen: blob.length,
+        offers: blobs.length,
       });
-      return proveAndSubmitOffer(connectedApi, config, blob);
+      let last: { txHash: string } | undefined;
+      for (const blob of blobs) {
+        last = await proveAndSubmitOffer(connectedApi, config, blob);
+      }
+      return last!;
     },
   };
 }
@@ -76,13 +100,15 @@ export function makeLocalTradeWallet(localApi: unknown, mint: MintFns): TradeWal
       const { buildMakerOfferBlobLocal } = await import('../services/localTradeOffers');
       return buildMakerOfferBlobLocal(localApi as never, networkId, gives, wants);
     },
-    settleOffer: async (config, blob) => {
-      dlog('tradeWallet.settleOffer → settleOfferLocal (JS wallet facade)', {
+    // One settlement for the whole selection: the maker halves are merged, the
+    // taker side is balanced once, and the batcher sees a single submission.
+    settleOffers: async (config, blobs) => {
+      dlog('tradeWallet.settleOffers → settleOffersLocal (JS wallet facade, merged)', {
         networkId: config.networkId,
-        blobLen: blob.length,
+        offers: blobs.length,
       });
-      const { settleOfferLocal } = await import('../services/localTradeOffers');
-      return settleOfferLocal(localApi as never, config, blob);
+      const { settleOffersLocal } = await import('../services/localTradeOffers');
+      return settleOffersLocal(localApi as never, config, blobs);
     },
   };
 }
