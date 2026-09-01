@@ -134,6 +134,8 @@ export interface ZSwapApp {
   localApi: any | null;
   status: 'disconnected' | 'connecting' | 'connected';
   shieldedAddress: string | null;
+  /** Other half of the shielded address — display-side only (WalletMenu). */
+  shieldedEncryptionPublicKey: string | null;
   unshieldedAddress: string | null;
   shieldedBalances: Record<string, string> | null;
   unshieldedBalances: Record<string, string> | null;
@@ -890,6 +892,7 @@ export function useZSwapApp(): ZSwapApp {
     localApi: connected?.localApi ?? null,
     status,
     shieldedAddress: wstate?.shieldedAddress ?? null,
+    shieldedEncryptionPublicKey: wstate?.shieldedEncryptionPublicKey ?? null,
     unshieldedAddress: wstate?.unshieldedAddress ?? null,
     shieldedBalances: wstate?.shieldedBalances ?? null,
     unshieldedBalances: wstate?.unshieldedBalances ?? null,

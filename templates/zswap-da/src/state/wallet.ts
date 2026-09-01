@@ -40,7 +40,16 @@ export interface Connected {
 }
 
 export interface WalletState {
+  /**
+   * As the wallet reports it, NEVER normalized: bech32m from Lace, but the raw
+   * hex coin public key from the local JS wallet. Faucet's `toAddr` and the
+   * shielded-output builders consume these as-is — for a canonical
+   * `mn_shield-addr_…` to show a user, run it through `formatShieldedAddress`
+   * with `shieldedEncryptionPublicKey`.
+   */
   shieldedAddress: string | null;
+  /** The other half of the shielded address. Same encoding rule as above. */
+  shieldedEncryptionPublicKey: string | null;
   unshieldedAddress: string | null;
   shieldedBalances: Record<string, string>;
   unshieldedBalances: Record<string, string>;
@@ -102,6 +111,7 @@ export async function readState(c: Connected): Promise<WalletState> {
     ]);
     return {
       shieldedAddress: sh.shieldedAddress ?? null,
+      shieldedEncryptionPublicKey: sh.shieldedEncryptionPublicKey ?? null,
       unshieldedAddress: unsh.unshieldedAddress ?? null,
       shieldedBalances: stringify(shB),
       unshieldedBalances: stringify(unshB),
@@ -121,6 +131,7 @@ export async function readState(c: Connected): Promise<WalletState> {
   } catch { /* still syncing */ }
   return {
     shieldedAddress: c.localApi?.shieldedAddress ?? null,
+    shieldedEncryptionPublicKey: c.localApi?.shieldedEncryptionPublicKey ?? null,
     unshieldedAddress: c.localApi?.unshieldedAddress ?? null,
     shieldedBalances,
     unshieldedBalances,
