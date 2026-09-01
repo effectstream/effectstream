@@ -7,7 +7,10 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '../ui/icons';
 import { MAX_TOKEN_NAME_LENGTH } from '../constants';
+import { formatShieldedAddress } from '../state/shieldedAddress';
 import type { ZSwapApp } from '../state/useZSwapApp';
+
+const NETWORK_ID = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string) || 'undeployed';
 
 type Kind = 'shielded' | 'unshielded';
 interface Preset { name: string; kind: Kind; glyph: string; tint: string; desc: string }
@@ -61,7 +64,12 @@ export function Faucet({ st }: { st: ZSwapApp }) {
 
   const valid = name.length > 0;
   const activePreset = PRESETS.find((p) => p.name === name && p.kind === kind);
-  const toAddr = kind === 'shielded' ? st.shieldedAddress : st.unshieldedAddress;
+  // Caption only — the mint recipient is derived inside the contract wallet
+  // from getShieldedKeys(), never from this string, so formatting it for
+  // display changes nothing about what is submitted.
+  const toAddr = kind === 'shielded'
+    ? formatShieldedAddress(st.shieldedAddress, st.shieldedEncryptionPublicKey, NETWORK_ID)
+    : st.unshieldedAddress;
 
   const selectPreset = (p: Preset) => {
     setName(p.name);
