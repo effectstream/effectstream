@@ -17,15 +17,22 @@
 // one coin selection, one proof pass, one dust fee and one submission: the
 // double-spend window is removed rather than waited out.
 //
-// The one limit is segment ids. The facade builds an offer's unshielded half
-// with `Transaction.fromParts`, which always lands its Intent at segment 1, and
-// `merge` refuses two transactions that both occupy it ("key (segment_id)
-// collision during intents merge: 1"). Shielded-only offers carry no Intent at
-// all, so they always compose. Re-segmenting is not an option on this side: it
-// needs an unproven transaction, and a maker blob decodes to a bound one
-// ("Transaction is already bound."). A batch that would collide is therefore
-// rejected HERE, before anything is submitted — a ladder settles whole or not
-// at all.
+// The one limit is segment ids. `merge` keys intents by segment, and refuses
+// two transactions that occupy the same one ("key (segment_id) collision during
+// intents merge: 1"). Shielded-only offers carry no Intent at all, so they
+// always compose; offers with an unshielded leg do carry one, and where it
+// lands decides whether they can share a ladder:
+//
+//   - offers created by THIS template's JS-wallet maker path put it on a random
+//     segment (services/offerSegment.ts), so any number of them compose;
+//   - offers created before that change, and every Lace-made offer, sit at
+//     segment 1 — so at most one of THOSE fits in a batch.
+//
+// Re-segmenting is not an option on this side: it needs an unproven
+// transaction, and a maker blob decodes to a bound one ("Transaction is already
+// bound."). A batch that would collide — two legacy offers, or the ~1-in-65534
+// case of two random ids matching — is therefore rejected HERE, before anything
+// is submitted: a ladder settles whole or not at all.
 //
 // BOTH wallets fold their ladder through this module. The JS wallet facade
 // takes the merged ledger object (services/localTradeOffers.ts); Lace takes its
@@ -101,9 +108,9 @@ function mergeFailureMessage(cause: unknown, count: number): string {
   if (/segment_id|intents merge/i.test(detail)) {
     return (
       `These ${count} offers can't be settled together — two of them occupy the same ` +
-      `transaction segment (${detail}). Offers with an unshielded leg are always built ` +
-      `at segment 1, so only one of those fits in a batch. Take them one at a time. ` +
-      `Nothing was submitted.`
+      `transaction segment (${detail}). Older offers with an unshielded leg, and ` +
+      `Lace-made ones, all sit at segment 1, so only one of those fits in a batch. ` +
+      `Take them one at a time. Nothing was submitted.`
     );
   }
   if (/same coins?|spend the same/i.test(detail)) {

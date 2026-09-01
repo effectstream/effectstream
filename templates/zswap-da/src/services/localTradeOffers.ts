@@ -8,7 +8,8 @@
 // balanceSealedTransaction and the shielded mirror+merge workaround. The
 // facade's swap API was built for this handshake:
 //
-//   maker:  initSwap → [signRecipe if unshielded gives] → finalizeRecipe(prove)
+//   maker:  initSwap → move the Intent to a random segment (if there is one)
+//           → [signRecipe if unshielded gives] → finalizeRecipe(prove)
 //           → serialize → MIP-0005 encode
 //   taker:  decode N → merge the N maker txs → balanceFinalizedTransaction →
 //           [signRecipe if the taker pays unshielded anywhere in the batch] →
@@ -29,7 +30,10 @@
 // Omitting it is not an immediate error; the node rejects the settlement later
 // with SIGNATURE_INVALID (exactly the trap the kernel repo's e2e STRETCH hit).
 // Shielded legs carry no signatures (ZK proofs + Pedersen binding), so the
-// sign step is skipped when no unshielded leg is involved.
+// sign step is skipped when no unshielded leg is involved. For the same reason
+// the Intent's segment is randomized BEFORE signing: `signatureData` is
+// segment-dependent, so a signature taken first would not cover the segment the
+// offer is published with (services/offerSegment.ts).
 
 import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import { MidnightBech32m, UnshieldedAddress } from '@midnightntwrk/wallet-sdk-address-format';
@@ -37,6 +41,11 @@ import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 import type { OfferLeg } from './makerOffer';
 import type { MidnightBrowserConfig } from './browserContract';
 import { batchPaysUnshielded, decodeMakerOffers, mergeMakerOffers } from './offerBatch';
+import {
+  INTENT_SEGMENT_MAX,
+  INTENT_SEGMENT_MIN,
+  randomizeRecipeIntentSegment,
+} from './offerSegment';
 import { submitToBatcher } from './api';
 import { dlog, timed } from '../debug';
 
@@ -138,7 +147,7 @@ export async function buildMakerOfferBlobLocal(
   });
 
   setNetworkId(networkId as NetworkId);
-  let recipe = await timed('localOffer.build: facade.initSwap', () =>
+  let recipe: any = await timed('localOffer.build: facade.initSwap', () =>
     facade.initSwap(inputs, outputs, secretKeys, {
       ttl: new Date(Date.now() + OFFER_TTL_MS),
       // The offer stays imbalanced and carries no Dust — taker balances,
@@ -146,6 +155,28 @@ export async function buildMakerOfferBlobLocal(
       payFees: false,
     }),
   );
+
+  // Move this offer's Intent off segment 1, where `initSwap` always puts it, so
+  // two unshielded-leg offers can be taken in ONE action instead of colliding
+  // ("key (segment_id) collision during intents merge: 1"). See
+  // services/offerSegment.ts for the full rationale. This is the only moment it
+  // can happen: the transaction is still unproven and unbound, and the
+  // signature below has to cover the segment the offer ends up carrying.
+  // Shielded-only offers carry no Intent, so they pass through untouched.
+  const resegmented = randomizeRecipeIntentSegment(recipe);
+  recipe = resegmented.recipe;
+  if (resegmented.skipped) {
+    dlog('localOffer.build: Intent re-segment SKIPPED — recipe is not an unproven transaction', {
+      recipeType: (recipe as { type?: string } | null)?.type,
+    });
+  } else if (resegmented.moves.length === 0) {
+    dlog('localOffer.build: no Intent to re-segment (shielded-only offer)');
+  } else {
+    dlog('localOffer.build: Intent moved to a random segment (so ladders can merge)', {
+      moves: resegmented.moves,
+      range: `${INTENT_SEGMENT_MIN}..${INTENT_SEGMENT_MAX}`,
+    });
+  }
 
   if (gives.some((g) => g.kind === 'unshielded')) {
     recipe = await timed('localOffer.build: facade.signRecipe (unshielded gives)', () =>
