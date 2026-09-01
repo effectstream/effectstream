@@ -10,9 +10,14 @@
 //
 //   maker:  initSwap → [signRecipe if unshielded gives] → finalizeRecipe(prove)
 //           → serialize → MIP-0005 encode
-//   taker:  decode → balanceFinalizedTransaction → [signRecipe if the taker
-//           pays unshielded] → finalizeRecipe (proves the balancing tx and
-//           merges it with the maker tx) → batcher submit
+//   taker:  decode N → merge the N maker txs → balanceFinalizedTransaction →
+//           [signRecipe if the taker pays unshielded anywhere in the batch] →
+//           finalizeRecipe (proves the balancing tx and merges it with the
+//           merged maker tx) → ONE batcher submit
+//
+// Taking several offers is one settlement, not several: see
+// services/offerBatch.ts for why (per-offer settlement double-spent the taker's
+// only coin) and for the single constraint on merging.
 //
 // Fee policy matches the rest of the app: nobody here pays Dust. The maker
 // offer is intentionally imbalanced (payFees:false); the taker balances only
@@ -26,15 +31,12 @@
 // Shielded legs carry no signatures (ZK proofs + Pedersen binding), so the
 // sign step is skipped when no unshielded leg is involved.
 
-import {
-  Transaction as LedgerV8Transaction,
-} from '@midnight-ntwrk/ledger-v8';
 import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import { MidnightBech32m, UnshieldedAddress } from '@midnightntwrk/wallet-sdk-address-format';
 import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 import type { OfferLeg } from './makerOffer';
 import type { MidnightBrowserConfig } from './browserContract';
-import { parseTakerLegs } from './offerParse';
+import { batchPaysUnshielded, decodeMakerOffers, mergeMakerOffers } from './offerBatch';
 import { submitToBatcher } from './api';
 import { dlog, timed } from '../debug';
 
@@ -161,25 +163,39 @@ export async function buildMakerOfferBlobLocal(
 }
 
 /**
- * Take an offer via the wallet facade: balance the taker side of the maker's
- * proven, imbalanced tx and route the merged settlement through the batcher.
+ * Take one or more offers via the wallet facade, as a SINGLE transaction: fold
+ * the makers' proven, imbalanced txs together, balance the taker side of the
+ * whole ladder once, and route the merged settlement through the batcher.
  * Facade twin of browserContract.proveAndSubmitOffer (Lace).
+ *
+ * Balancing the batch once is what makes a ladder work at all. Per-offer
+ * settlement re-selected the taker's coins from wallet state that had not seen
+ * the previous take's spend, so the node rejected take #2 as a double spend
+ * (`Zswap(NullifierAlreadyPresent)`) and only the first offer was ever bought.
+ * See services/offerBatch.ts for the merge and its one constraint.
+ *
+ * The whole batch is decoded and merged BEFORE anything is submitted, so a
+ * ladder either settles as one transaction or does not settle at all.
  */
-export async function settleOfferLocal(
+export async function settleOffersLocal(
   localApi: LocalApiShape,
   config: MidnightBrowserConfig,
-  offerBech32m: string,
+  offerBech32ms: string[],
 ): Promise<{ txHash: string }> {
   const { facade, secretKeys, keystore } = facadeParts(localApi);
-  setNetworkId(config.networkId as NetworkId);
+  const networkId = config.networkId as NetworkId;
+  setNetworkId(networkId);
 
-  const rawBytes = OfferFiles.decode(offerBech32m);
-  const makerTx = LedgerV8Transaction.deserialize('signature', 'proof', 'binding', rawBytes);
-  dlog('localOffer.settle: maker tx decoded', { bytes: rawBytes.length });
+  const decoded = decodeMakerOffers(offerBech32ms, networkId);
+  const makerTx = mergeMakerOffers(decoded);
+  dlog('localOffer.settle: maker txs decoded + merged', {
+    offers: decoded.length,
+    bytes: decoded.map((d) => d.bytes),
+  });
 
-  // What the taker pays = the maker's wants. Drives the sign decision below.
-  const parsed = parseTakerLegs(offerBech32m, config.networkId as NetworkId);
-  const paysUnshielded = parsed?.pays.some((l) => l.kind === 'unshielded') ?? true;
+  // What the taker pays = the makers' wants. Any unshielded leg anywhere in the
+  // batch puts an unshielded input in the settlement, so it must be signed.
+  const paysUnshielded = batchPaysUnshielded(offerBech32ms, networkId);
 
   let recipe = await timed('localOffer.settle: facade.balanceFinalizedTransaction', () =>
     facade.balanceFinalizedTransaction(makerTx, secretKeys, {
@@ -195,14 +211,30 @@ export async function settleOfferLocal(
     );
   }
 
-  // Proves the taker's balancing tx and merges it with the maker tx —
-  // merge keeps each party's signatures on their own segments.
+  // Proves the taker's balancing tx and merges it with the (already merged)
+  // maker txs — merge keeps each party's signatures on their own segments.
   const settlement: any = await timed('localOffer.settle: facade.finalizeRecipe (prove+merge)', () =>
     facade.finalizeRecipe(recipe),
   );
 
   const serializedHex = toHex(settlement.serialize());
   const address = localApi.unshieldedAddress ?? keystore.getBech32Address().asString();
+  dlog('localOffer.settle: → submitToBatcher (one submission for the whole batch)', {
+    offers: decoded.length,
+    bytes: serializedHex.length / 2,
+  });
   const { txHash } = await submitToBatcher(serializedHex, 'finalized', address);
   return { txHash };
+}
+
+/**
+ * Single-offer take — the degenerate N=1 of {@link settleOffersLocal}, so both
+ * paths prove, merge and submit through exactly the same code.
+ */
+export function settleOfferLocal(
+  localApi: LocalApiShape,
+  config: MidnightBrowserConfig,
+  offerBech32m: string,
+): Promise<{ txHash: string }> {
+  return settleOffersLocal(localApi, config, [offerBech32m]);
 }

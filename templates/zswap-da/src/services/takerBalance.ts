@@ -113,8 +113,10 @@ export function batchTakerShortfalls(
  * Greedily pick the offers (by their `pays` legs, in the given order — the book
  * is already best-price-first) the wallet can afford when their cost accumulates.
  * An offer is included only if adding it keeps EVERY (kind, color) within balance.
- * Conservative: sums pays, ignores receives — settle is sequential, so an earlier
- * offer can't be assumed funded by a later one. Returns the indices to take.
+ * Conservative: sums pays, ignores receives. The taker's balancing side is built
+ * by coin selection over the wallet's own state, so what an offer in the batch
+ * pays out to the taker cannot fund another offer in the same settlement.
+ * Returns the indices to take.
  */
 export function affordableIndices(
   offerPays: ParsedLeg[][],
