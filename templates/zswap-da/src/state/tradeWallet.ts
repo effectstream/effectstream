@@ -13,7 +13,7 @@
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import type { BrowserMintResult } from '../hooks/useContract';
-import { proveAndSubmitOffer, type MidnightBrowserConfig } from '../services/browserContract';
+import { proveAndSubmitOffers, type MidnightBrowserConfig } from '../services/browserContract';
 import { buildMakerOfferBlob, type OfferLeg } from '../services/makerOffer';
 import { dlog } from '../debug';
 
@@ -34,10 +34,10 @@ export interface TradeWallet {
    * re-spent the taker's only coin and the node rejected everything after the
    * first (`Zswap(NullifierAlreadyPresent)`).
    *
-   * The JS wallet merges the maker halves and submits once. Lace still settles
-   * one at a time (see `makeInjectedTradeWallet`).
+   * BOTH wallets merge the maker halves and submit once; the merge itself is
+   * shared code (services/offerBatch.ts), so the two paths cannot drift.
    *
-   * @returns The settlement's tx hash — for Lace, the last one submitted.
+   * @returns The settlement's tx hash.
    */
   settleOffers(config: MidnightBrowserConfig, blobs: string[]): Promise<{ txHash: string }>;
 }
@@ -48,7 +48,7 @@ export interface MintFns {
 }
 
 // Injected (Lace): mint via the OfferFiles contract client (useContract),
-// create via makeIntent+encodeOffer, take via proveAndSubmitOffer.
+// create via makeIntent+encodeOffer, take via proveAndSubmitOffers.
 export function makeInjectedTradeWallet(connectedApi: ConnectedAPI, mint: MintFns): TradeWallet {
   return {
     kind: 'injected',
@@ -57,26 +57,23 @@ export function makeInjectedTradeWallet(connectedApi: ConnectedAPI, mint: MintFn
     mintShielded: mint.mintShielded,
     mintUnshielded: mint.mintUnshielded,
     buildOfferBlob: (networkId, gives, wants) => buildMakerOfferBlob(connectedApi, networkId, gives, wants),
-    // Lace keeps settling one offer at a time. Merging the maker halves first
-    // would change what `proveAndSubmitOffer` is handed — its mirror+merge and
-    // sealed-balance strategies both reason about the maker tx's segments — and
-    // there is no Lace wallet on a headless stack to verify that against, so
-    // this path is left exactly as it was rather than changed on a guess.
-    // Consequence: a ladder taken through Lace is still N transactions, and a
-    // single-coin Lace wallet still hits the double spend the JS wallet no
-    // longer can.
+    // Lace settles the whole ladder in one transaction, like the JS wallet:
+    // `proveAndSubmitOffers` folds the maker halves through the shared
+    // services/offerBatch.ts helpers (same pre-submission guard for offers that
+    // cannot compose) and Lace balances the merged result once. A ladder taken
+    // through Lace would otherwise be N transactions built from wallet state
+    // that has not seen the previous take's spend — the same double spend the
+    // JS wallet used to hit.
+    //
+    // N=1 is byte-for-byte the old path: one blob's own decoded bytes, one
+    // balance, one submission.
     settleOffers: async (config, blobs) => {
-      if (blobs.length === 0) throw new Error('No offers to settle.');
-      dlog('tradeWallet.settleOffers → proveAndSubmitOffer ×N (injected/Lace, sequential)', {
+      dlog('tradeWallet.settleOffers → proveAndSubmitOffers (injected/Lace, merged)', {
         networkId: config.networkId,
         contractAddress: config.contractAddress,
         offers: blobs.length,
       });
-      let last: { txHash: string } | undefined;
-      for (const blob of blobs) {
-        last = await proveAndSubmitOffer(connectedApi, config, blob);
-      }
-      return last!;
+      return proveAndSubmitOffers(connectedApi, config, blobs);
     },
   };
 }

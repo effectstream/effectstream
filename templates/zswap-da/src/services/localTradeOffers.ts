@@ -190,7 +190,7 @@ export async function settleOffersLocal(
   const makerTx = mergeMakerOffers(decoded);
   dlog('localOffer.settle: maker txs decoded + merged', {
     offers: decoded.length,
-    bytes: decoded.map((d) => d.bytes),
+    bytes: decoded.map((d) => d.raw.length),
   });
 
   // What the taker pays = the makers' wants. Any unshielded leg anywhere in the
