@@ -38,9 +38,13 @@ import { parseCoinPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
 // below: that is the MIP-0005 codec, unrelated to this contract despite the
 // name.
 import * as OfferFilesContract from '../contract/managed/contract/index.js';
-import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 import { API_BASE } from '../config';
 import { submitToBatcher } from './api';
+import {
+  chooseLaceBalancing,
+  decodeMakerOffers,
+  mergeMakerOffersToBytes,
+} from './offerBatch';
 import { dlog, timed } from '../debug';
 
 export interface MidnightBrowserConfig {
@@ -250,54 +254,6 @@ export async function connectBrowserContract(
 }
 
 /**
- * Inspect the maker tx and pick the single segment that carries the swap's
- * shielded/unshielded asset imbalances. Used to decide which balancing
- * strategy `proveAndSubmitOffer` will use.
- */
-function pickSwapSegment(makerTx: any): { segId: number; imbalances: Map<any, bigint> } {
-  // Lace's makeIntent populates `intents` (Intent objects) and may also touch
-  // `fallibleOffer` (ZswapOffer). Union them with segment 0 (guaranteed),
-  // then keep only segments with non-empty asset imbalances.
-  const intentIds: number[] = makerTx.intents
-    ? (Array.from(makerTx.intents.keys()) as number[])
-    : [];
-  const fallibleIds: number[] = makerTx.fallibleOffer
-    ? (Array.from(makerTx.fallibleOffer.keys()) as number[])
-    : [];
-  const candidates = Array.from(new Set<number>([0, ...intentIds, ...fallibleIds]));
-
-  const swaps: Array<{ segId: number; imbalances: Map<any, bigint> }> = [];
-  for (const segId of candidates) {
-    let imb: Map<any, bigint>;
-    try {
-      imb = makerTx.imbalances(segId) as Map<any, bigint>;
-    } catch {
-      continue;
-    }
-    const hasAssets = Array.from(imb.entries()).some(([tt, v]) => {
-      const tag = (tt as any).tag;
-      return (tag === 'shielded' || tag === 'unshielded') && v !== 0n;
-    });
-    if (hasAssets) swaps.push({ segId, imbalances: imb });
-  }
-
-  if (swaps.length === 0) {
-    throw new Error(
-      `Maker offer has no shielded/unshielded asset imbalances — nothing to mirror. ` +
-        `(intent ids: ${JSON.stringify(intentIds)}, fallible ids: ${JSON.stringify(fallibleIds)})`,
-    );
-  }
-  if (swaps.length > 1) {
-    throw new Error(
-      `Multi-segment offers are not supported (asset imbalances in segments ${
-        swaps.map(s => s.segId).join(', ')
-      }).`,
-    );
-  }
-  return swaps[0]!;
-}
-
-/**
  * Shielded-only path: maker tx has no Intent slots and asset deltas live in
  * segment 0's guaranteed Zswap offer. `balanceSealedTransaction` can't be
  * used here — it walks `tx.intents` and throws "No segments found in the
@@ -306,7 +262,7 @@ function pickSwapSegment(makerTx: any): { segId: number; imbalances: Map<any, bi
  * keyed Intents.
  *
  * Unshielded offers are dispatched away from this function in
- * `proveAndSubmitOffer` because Lace's unshielded `makeIntent` adds an
+ * `proveAndSubmitOffers` because Lace's unshielded `makeIntent` adds an
  * empty structural Intent[1] to *both* maker and taker txs, which collides
  * on merge with "key (segment_id) collision during intents merge: 1".
  */
@@ -397,7 +353,7 @@ async function balanceShieldedViaMirrorMerge(
   );
 
   // Full taker tx shape (mirror of the maker tx segment log earlier in
-  // proveAndSubmitOffer). Tells us which segIds Lace actually populated and
+  // proveAndSubmitOffers). Tells us which segIds Lace actually populated and
   // what's in each segment — enough to diagnose any "intents merge: N"
   // collision or zswap-offer composition error.
   const takerIntentIds: number[] = takerTx.intents
@@ -431,7 +387,7 @@ async function balanceShieldedViaMirrorMerge(
 
   // Sanity check: under the shielded-only dispatch, neither maker nor taker
   // should have any Intent slots, so `overlapping` is expected to be empty.
-  // A non-empty list here means the dispatch in `proveAndSubmitOffer` is
+  // A non-empty list here means the dispatch in `proveAndSubmitOffers` is
   // mis-routing an offer that has Intents into mirror+merge.
   const overlap = makerIntentIds.filter((id) => takerIntentIds.includes(id));
   console.log('[browserContract] complete (mirror+merge): about to merge', {
@@ -500,9 +456,28 @@ async function balanceMixedViaSealedBalance(
 }
 
 /**
- * Complete a maker's bech32m offer blob as the connected browser wallet.
+ * Complete one or more makers' bech32m offer blobs as the connected browser
+ * wallet, in a SINGLE transaction.
  *
- * Two strategies, dispatched on the maker tx shape:
+ * The N maker halves are decoded and folded together first (see
+ * services/offerBatch.ts), and the wallet then balances the merged result once.
+ * Settling a ladder offer-by-offer re-spent the taker's only coin — nothing
+ * told the wallet about take #k's spend before take #k+1 was balanced, and the
+ * node rejected everything after the first with
+ * `Zswap(NullifierAlreadyPresent)`. One balancing pass, one submission, no
+ * window.
+ *
+ * A merged shielded↔shielded ladder is the same SHAPE as one shielded offer as
+ * far as this function's dispatch is concerned — no Intents, deltas summed in
+ * segment 0 — so it takes the same mirror+merge route, and the mirrored taker
+ * side covers the ladder's totals. `offerBatch.test.ts` asserts that against
+ * the real ledger. Offers that cannot compose (two unshielded legs both at
+ * segment 1) are refused by `mergeMakerOffersToBytes` before anything is sent.
+ *
+ * N=1 is byte-for-byte the old single-offer path: the wallet is handed the
+ * blob's own decoded bytes, not a re-serialization of them.
+ *
+ * Two balancing strategies, dispatched on the merged maker tx's shape:
  *   - segment-0 deltas, no Intent slots (shielded-only) → mirror+merge
  *   - any Intent slot present (unshielded or numbered)  → balanceSealedTransaction
  *
@@ -514,32 +489,32 @@ async function balanceMixedViaSealedBalance(
  *     merge: 1" on unshielded offers — Lace's unshielded `makeIntent` always
  *     lands its Intent at segId 1, so maker and taker would both carry it.
  */
-export async function proveAndSubmitOffer(
+export async function proveAndSubmitOffers(
   connectedApi: ConnectedAPI,
   config: MidnightBrowserConfig,
-  offerBech32m: string,
+  offerBech32ms: string[],
 ): Promise<{ txHash: string }> {
-  dlog('proveAndSubmitOffer: enter', {
+  dlog('proveAndSubmitOffers: enter', {
     networkId: config.networkId,
     contractAddress: config.contractAddress,
     proofServerUri: config.proofServerUri,
-    offerLen: offerBech32m.length,
+    offers: offerBech32ms.length,
+    offerLens: offerBech32ms.map((b) => b.length),
   });
   setNetworkId(config.networkId as NetworkId);
 
   console.log('[browserContract] complete: decoding offer bytes');
-  dlog('proveAndSubmitOffer: → OfferFiles.decode + deserialize maker tx (sync)');
-  const rawBytes = OfferFiles.decode(offerBech32m);
-  const makerTx = LedgerV8Transaction.deserialize(
-    'signature',
-    'proof',
-    'binding',
-    rawBytes,
-  );
-  dlog('proveAndSubmitOffer: ✓ maker tx deserialized', { bytes: rawBytes.length });
+  dlog('proveAndSubmitOffers: → decode + merge maker txs (sync)');
+  const decoded = decodeMakerOffers(offerBech32ms, config.networkId as NetworkId);
+  const { tx: makerTx, bytes: makerBytes } = mergeMakerOffersToBytes(decoded);
+  dlog('proveAndSubmitOffers: ✓ maker txs deserialized + merged', {
+    offers: decoded.length,
+    bytes: decoded.map((d) => d.raw.length),
+    mergedBytes: makerBytes.length,
+  });
 
-  // Diagnostic: full segment shape of the maker tx. Drives the dispatch
-  // decision below (Intent slot present? → sealed balance; else →
+  // Diagnostic: full segment shape of the (merged) maker tx. Drives the
+  // dispatch decision below (Intent slot present? → sealed balance; else →
   // mirror+merge) and gives fast triage on any balance/merge error.
   const intentIds: number[] = makerTx.intents
     ? (Array.from(makerTx.intents.keys()) as number[])
@@ -548,6 +523,7 @@ export async function proveAndSubmitOffer(
     ? (Array.from(makerTx.fallibleOffer.keys()) as number[])
     : [];
   console.log('[browserContract] complete: maker tx segments', {
+    offers: decoded.length,
     intentIds,
     fallibleIds,
     segmentImbalances: Object.fromEntries(
@@ -569,15 +545,7 @@ export async function proveAndSubmitOffer(
     ),
   });
 
-  const swap = pickSwapSegment(makerTx);
-
-  // Mirror+merge requires both halves to have no Intent slots (see function
-  // docstring). Unshielded makeIntent puts asset deltas in segment 0 but
-  // also tacks on an empty Intent[1] — that empty Intent doesn't move
-  // `swap.segId` away from 0, so the segId test alone is insufficient.
-  const makerHasIntents = !!makerTx.intents
-    && Array.from(makerTx.intents.keys() as Iterable<number>).length > 0;
-  const useMirrorMerge = swap.segId === 0 && !makerHasIntents;
+  const { useMirrorMerge, ...swap } = chooseLaceBalancing(makerTx);
   const strategy = useMirrorMerge
     ? 'mirror+merge (segment 0 / guaranteed offer)'
     : 'balanceSealedTransaction (numbered Intent)';
@@ -595,13 +563,14 @@ export async function proveAndSubmitOffer(
       ));
     } else {
       ({ balancedHex, txHash } = await timed('balance via sealed-balance', () =>
-        balanceMixedViaSealedBalance(connectedApi, toHex(rawBytes)),
+        balanceMixedViaSealedBalance(connectedApi, toHex(makerBytes)),
       ));
     }
-    dlog('proveAndSubmitOffer: ✓ balanced', { strategy, balancedBytes: balancedHex.length / 2, txHash });
+    dlog('proveAndSubmitOffers: ✓ balanced', { strategy, balancedBytes: balancedHex.length / 2, txHash });
   } catch (e: any) {
     console.error('[browserContract] complete: balancing failed', {
       strategy,
+      offers: decoded.length,
       name: e?.name,
       message: e?.message,
       raw: e,
@@ -613,15 +582,18 @@ export async function proveAndSubmitOffer(
   }
 
   const coinPublicKeyHex = parseCoinPublicKeyToHex(
-    (await timed('proveAndSubmitOffer: wallet.getShieldedAddresses() (for batcher addr)', () =>
+    (await timed('proveAndSubmitOffers: wallet.getShieldedAddresses() (for batcher addr)', () =>
       connectedApi.getShieldedAddresses(),
     )).shieldedCoinPublicKey,
     config.networkId as NetworkId,
   );
 
-  console.log('[browserContract] complete: submitting to batcher', { txHash });
+  console.log('[browserContract] complete: submitting to batcher', {
+    txHash,
+    offers: decoded.length,
+  });
   try {
-    await timed('proveAndSubmitOffer: submitToBatcher', () =>
+    await timed('proveAndSubmitOffers: submitToBatcher (one submission for the whole batch)', () =>
       submitToBatcher(balancedHex, 'finalized', coinPublicKeyHex),
     );
   } catch (e: any) {
@@ -635,6 +607,18 @@ export async function proveAndSubmitOffer(
     );
   }
 
-  console.log('[browserContract] complete: done', { txHash });
+  console.log('[browserContract] complete: done', { txHash, offers: decoded.length });
   return { txHash };
+}
+
+/**
+ * Single-offer take — the degenerate N=1 of {@link proveAndSubmitOffers}, so
+ * both paths decode, balance and submit through exactly the same code.
+ */
+export function proveAndSubmitOffer(
+  connectedApi: ConnectedAPI,
+  config: MidnightBrowserConfig,
+  offerBech32m: string,
+): Promise<{ txHash: string }> {
+  return proveAndSubmitOffers(connectedApi, config, [offerBech32m]);
 }

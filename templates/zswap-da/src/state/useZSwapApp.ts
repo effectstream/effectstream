@@ -512,22 +512,33 @@ export function useZSwapApp(): ZSwapApp {
     [requireWallet, connected, contract.config, knownTokens, toast, zapi, refreshBalances],
   );
 
-  // Take an existing offer: reconstruct the maker tx from its blob, balance the
-  // taker side via the browser wallet, and route to the batcher to settle.
-  const takeOffer = useCallback(
-    async (blob: string) => {
-      dlog('takeOffer: enter', { blobLen: blob.length, blobHead: blob.slice(0, 24) });
+  // Take one or more existing offers: reconstruct the maker txs from their
+  // blobs, balance the taker side via the browser wallet, and route to the
+  // batcher to settle.
+  //
+  // The whole selection is handed to the wallet in ONE call. The JS wallet
+  // merges the maker halves and settles the ladder as a single transaction —
+  // taking them one at a time re-spent the taker's only coin, so the node threw
+  // out everything after the first offer. N=1 runs the identical path, so a
+  // single take is unchanged.
+  const takeOffers = useCallback(
+    async (blobs: string[]) => {
+      const n = blobs.length;
+      if (n === 0) return;
+      dlog('takeOffers: enter', { offers: n, blobHeads: blobs.map((b) => b.slice(0, 24)) });
       const w = requireWallet();
-      dlog('takeOffer: wallet', { kind: w.kind, canTrade: w.canTrade });
+      dlog('takeOffers: wallet', { kind: w.kind, canTrade: w.canTrade });
 
       // Authoritative balance guard: every take path funnels here, so block once
       // on fresh balances (a missing input coin makes Lace's makeIntent hang).
+      // The guard is on the AGGREGATE cost — checking each offer against the
+      // full balance would pass a batch that only overspends in sum.
       if (connected) {
-        const fresh = await timed('takeOffer: readState (fresh balances)', () =>
+        const fresh = await timed('takeOffers: readState (fresh balances)', () =>
           readState(connected),
         );
-        const short = takerShortfalls(
-          blob,
+        const short = batchTakerShortfalls(
+          blobs,
           fresh.shieldedBalances,
           fresh.unshieldedBalances,
           NETWORK_ID as any,
@@ -535,35 +546,42 @@ export function useZSwapApp(): ZSwapApp {
         );
         if (short.length > 0) {
           const msg = shortfallMessage(short)!;
-          dlog('takeOffer: BLOCKED — insufficient balance', {
+          dlog('takeOffers: BLOCKED — insufficient balance', {
+            offers: n,
             shortfalls: short.map((s) => ({ ...s, need: s.need.toString(), have: s.have.toString() })),
           });
           throw new Error(msg);
         }
-        dlog('takeOffer: balance check passed');
+        dlog('takeOffers: balance check passed');
       }
 
       const cfg = contract.config
-        ? (dlog('takeOffer: using cached midnight config', contract.config), contract.config)
-        : await timed('takeOffer: GET /v1/midnight/config', () => api.getMidnightConfig());
-      dlog('takeOffer: config resolved', {
+        ? (dlog('takeOffers: using cached midnight config', contract.config), contract.config)
+        : await timed('takeOffers: GET /v1/midnight/config', () => api.getMidnightConfig());
+      dlog('takeOffers: config resolved', {
         contractAddress: cfg.contractAddress,
         indexerUri: cfg.indexerUri,
         proofServerUri: cfg.proofServerUri,
         networkId: cfg.networkId,
       });
-      const res = await timed('takeOffer: settleOffer (wallet balance + batcher submit)', () =>
-        w.settleOffer(cfg, blob),
+      const res = await timed('takeOffers: settleOffers (wallet balance + batcher submit)', () =>
+        w.settleOffers(cfg, blobs),
       );
-      dlog('takeOffer: settleOffer returned', res);
-      toast('Offer taken — settling via batcher', 'ok');
-      dlog('takeOffer: refreshing offers + balances');
+      dlog('takeOffers: settleOffers returned', res);
+      toast(
+        n > 1 ? `${n} offers taken — settling via batcher` : 'Offer taken — settling via batcher',
+        'ok',
+      );
+      dlog('takeOffers: refreshing offers + balances');
       zapi.fetchOffers();
       refreshBalances();
-      dlog('takeOffer: exit');
+      dlog('takeOffers: exit');
     },
     [requireWallet, connected, knownTokens, contract.config, toast, zapi, refreshBalances],
   );
+
+  /** Single take — the N=1 case of {@link takeOffers}, same code, same result. */
+  const takeOffer = useCallback((blob: string) => takeOffers([blob]), [takeOffers]);
 
   // Proactive (pre-settle) balance check for an offer blob against the CURRENT
   // wallet balances.
@@ -641,7 +659,8 @@ export function useZSwapApp(): ZSwapApp {
 
   // Take one or more order-book offers in a single confirm dialog. Filters out
   // your own offers (you can't take them) and blobs we can't settle; aggregates
-  // the pay/receive across the selection; settles each via the batcher in turn.
+  // the pay/receive across the selection; settles the whole selection as one
+  // transaction via the batcher.
   const requestTakeMany = useCallback(
     async (orders: Order[]) => {
       if (!tradeWallet?.canTrade) {
@@ -701,10 +720,17 @@ export function useZSwapApp(): ZSwapApp {
       const n = takeable.length;
       const payAmt = takeable.reduce((s, o) => s + o.amtTo, 0);
       const recvAmt = takeable.reduce((s, o) => s + o.amtFrom, 0);
-      // Settle each selected offer via the batcher, in book order.
+      // Settle the whole selection as ONE transaction. This used to loop
+      // `takeOffer` per offer, which re-spent the taker's coin from wallet state
+      // that hadn't seen the previous take, so the node rejected every offer
+      // after the first with `Zswap(NullifierAlreadyPresent)`.
+      //
+      // History stays per offer — the UI's unit is the offer even though the
+      // chain's unit is now a single settlement — and nothing is recorded unless
+      // that settlement succeeded, so a failed batch leaves no phantom trades.
       const settle = (orders: (Order & { blob: string })[]) => async () => {
+        await takeOffers(orders.map((o) => o.blob));
         for (const o of orders) {
-          await takeOffer(o.blob);
           addTrade({
             kind: 'take',
             give: { sym: o.to, amt: o.amtTo },
@@ -758,7 +784,7 @@ export function useZSwapApp(): ZSwapApp {
         onConfirm: settle(takeable),
       });
     },
-    [toast, takeOffer, tradeWallet, wstate, knownTokens, loadOfferBlob, selfUnshieldedHex, zapi],
+    [toast, takeOffers, tradeWallet, wstate, knownTokens, loadOfferBlob, selfUnshieldedHex, zapi],
   );
   const closeConfirm = useCallback(() => setPendingConfirm(null), []);
 
