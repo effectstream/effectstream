@@ -77,18 +77,21 @@ export function usePrices(
   refreshKey?: unknown,
 ): PricesResponse | null {
   const key = pricesKey(colors);
-  const [prices, setPrices] = useState<PricesResponse | null>(() => cachedFor(key));
+  // The response is held WITH the key it answers, so one pair's prices can
+  // never be read under another pair's key — and so a refresh keeps showing
+  // the prices it already has instead of blinking through "no reference".
+  const [held, setHeld] = useState<{ key: string; data: PricesResponse } | null>(null);
   useEffect(() => {
-    let cancelled = false;
-    // Never show one pair's prices under another pair's key.
-    setPrices(cachedFor(key));
     if (!key) return;
+    let cancelled = false;
     loadPrices(key).then((data) => {
-      if (!cancelled && data) setPrices(data);
+      if (!cancelled && data) setHeld({ key, data });
     });
     return () => {
       cancelled = true;
     };
   }, [key, refreshKey]);
-  return prices;
+  // On a pair change this falls back to that pair's cached body, or to null —
+  // "no reference" — until its own response lands.
+  return held && held.key === key ? held.data : cachedFor(key);
 }
