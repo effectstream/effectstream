@@ -140,13 +140,17 @@ export function describeQuote(
   };
 }
 
-/** The `/v1/prices` row for one token colour, or null when it is not priced. */
+/** The `/v1/prices` row for one token colour, or null when it is not priced.
+ *  Matched case-insensitively: the lookup query is lower-cased on the way out
+ *  (master plan §3a), so the row that comes back need not be spelled the way
+ *  the caller spelled it. */
 export function tokenPriceOf(
   prices: PricesResponse | null | undefined,
   color: string | null | undefined,
 ): TokenPrice | null {
   if (!prices || !color) return null;
-  return prices.tokens.find((t) => t.token_color === color) ?? null;
+  const want = color.trim().toLowerCase();
+  return prices.tokens.find((t) => t.token_color?.toLowerCase() === want) ?? null;
 }
 
 /** A pair's reference rate, derived from two token prices. */

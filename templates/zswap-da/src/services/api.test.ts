@@ -71,10 +71,15 @@ const QUOTE_FIXTURE = {
 };
 
 describe('getPrices', () => {
-  test('parses the §3 body and hits /v1/prices', async () => {
+  const WBTC = 'e7'.repeat(32);
+  const WETH = 'fd'.repeat(32);
+
+  test('parses the §3 body and asks /v1/prices for exactly the colours given', async () => {
     const calls = serve(200, PRICES_FIXTURE);
-    const p: PricesResponse = await api.getPrices();
-    expect(calls[0]).toContain('/v1/prices');
+    const p: PricesResponse = await api.getPrices([WBTC, WETH]);
+    const url = new URL(calls[0]);
+    expect(url.pathname.endsWith('/v1/prices')).toBe(true);
+    expect(url.searchParams.get('tokens')).toBe(`${WBTC},${WETH}`);
     expect(p.sponsor_discount).toBe(0.025);
     expect(p.feed?.provider).toBe('coingecko');
     expect(p.assets).toHaveLength(2);
@@ -82,9 +87,41 @@ describe('getPrices', () => {
     expect(p.tokens[1].source).toBe('fallback');
   });
 
+  test('colours are lower-cased and de-duplicated in the query', async () => {
+    const calls = serve(200, PRICES_FIXTURE);
+    await api.getPrices([WBTC.toUpperCase(), ` ${WBTC} `, WETH]);
+    expect(new URL(calls[0]).searchParams.get('tokens')).toBe(`${WBTC},${WETH}`);
+  });
+
+  // §3a: `tokens` is REQUIRED and the node answers 400 without it. Never send
+  // the unfiltered form — refuse it here, with a message that says why.
+  test('an empty list is refused client-side, with no request', async () => {
+    const calls = serve(200, PRICES_FIXTURE);
+    await expect(api.getPrices([])).rejects.toThrow('at least one token color');
+    await expect(api.getPrices(['', '  '])).rejects.toThrow('at least one token color');
+    expect(calls).toHaveLength(0);
+  });
+
+  test('more than 50 colours is refused client-side, with no request', async () => {
+    const calls = serve(200, PRICES_FIXTURE);
+    const many = Array.from({ length: 51 }, (_, i) => i.toString(16).padStart(64, '0'));
+    expect(many).toHaveLength(51);
+    await expect(api.getPrices(many)).rejects.toThrow('at most 50 token colors');
+    expect(calls).toHaveLength(0);
+  });
+
   test('a node without the route throws ApiError 404, not a parse crash', async () => {
     serve(404, { error: 'NOT_FOUND', reason: 'Route GET /v1/prices not found' });
-    await expect(api.getPrices()).rejects.toThrow('Route GET /v1/prices not found');
+    await expect(api.getPrices([WBTC])).rejects.toThrow('Route GET /v1/prices not found');
+  });
+
+  test('a rejected query throws ApiError 400 with the node reason', async () => {
+    serve(400, { error: 'VALIDATION', reason: 'tokens must be 1-50 64-hex colors' });
+    const err = await api.getPrices([WBTC]).catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.status).toBe(400);
+    expect(err.code).toBe('VALIDATION');
+    expect(err.message).toBe('tokens must be 1-50 64-hex colors');
   });
 });
 

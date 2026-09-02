@@ -215,4 +215,11 @@ describe('tokenPriceOf', () => {
     expect(tokenPriceOf(null, WBTC)).toBeNull();
     expect(tokenPriceOf(prices(), undefined)).toBeNull();
   });
+
+  // The lookup query is lower-cased before it is sent (master plan §3a), so the
+  // rows that come back must still match a colour spelled any other way.
+  test('matches case-insensitively', () => {
+    expect(tokenPriceOf(prices(), WBTC.toUpperCase())?.name).toBe('WBTC');
+    expect(tokenPriceOf(prices(), ` ${WBTC} `)?.name).toBe('WBTC');
+  });
 });
