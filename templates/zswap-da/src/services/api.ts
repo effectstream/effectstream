@@ -283,6 +283,38 @@ export const api = {
     const res = await fetch(`${V1}/midnight/config`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
+    // THE ONE PLACE endpoint URIs are made browser-reachable. The kernel reports
+    // the URIs it dials ITSELF, which inside Docker Compose are service names on
+    // a network no browser can resolve (indexer, proof-server) on container
+    // ports no host publishes. Every consumer of this config — the in-page JS
+    // wallet, the contract client, the take-offer flow — goes through here, so
+    // fixing it once here fixes all of them.
+    const w = window as unknown as Record<string, string | undefined>;
+    const d = data as Record<string, unknown>;
+    // 1. Explicit overrides win, and are injected even when the backend omits
+    //    the key (`nodeUri` is never reported, but the local wallet needs it).
+    //    <camelCase>Uri maps to window.<SCREAMING_SNAKE_CASE>, which the image
+    //    entrypoint writes into /config.js from the compose environment. This
+    //    is what makes a non-default host-port layout work: a hostname-only
+    //    rewrite keeps the CONTAINER port, which only the default port block
+    //    happens to publish unchanged.
+    for (const key of ['nodeUri', 'indexerUri', 'indexerWsUri', 'proofServerUri']) {
+      const override = w[key.replace(/([A-Z])/g, '_$1').toUpperCase()];
+      if (override) d[key] = override;
+    }
+    // 2. Otherwise a bare (dot-less, non-localhost) hostname is a compose
+    //    service name: re-point it at the page's own host, keeping scheme, port
+    //    and path. Correct whenever the stack publishes each service on the same
+    //    port it uses internally, which is the default port block.
+    const pageHost = typeof location !== 'undefined' ? location.hostname : '127.0.0.1';
+    for (const key of Object.keys(d)) {
+      const value = d[key];
+      if (!key.endsWith('Uri') || typeof value !== 'string') continue;
+      const m = value.match(/^(\w+:\/\/)([^/:]+)(.*)$/);
+      if (m && !m[2].includes('.') && m[2] !== 'localhost') {
+        d[key] = `${m[1]}${pageHost}${m[3]}`;
+      }
+    }
     return data;
   },
 
