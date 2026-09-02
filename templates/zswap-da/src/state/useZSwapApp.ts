@@ -22,13 +22,22 @@ import { type OfferLeg } from '../services/makerOffer';
 import { makeInjectedTradeWallet, makeLocalTradeWallet, type TradeWallet } from './tradeWallet';
 import { injectedContractWallet, localContractWallet, type ContractWallet } from '../services/contractWallet';
 import { api } from '../services/api';
-import { addMyOffer } from './myOffers';
+import { addMyOffer, isMyOfferIn, setActiveScope as setMyOffersScope } from './myOffers';
 import type { ConfirmPayload } from '../ui/ConfirmModal';
 import { fmtAmt } from './format';
-import { addTrade, clearTrades, listTrades, removeTrade, subscribeTrades, updateTradeStatus, type MyTrade } from './myTrades';
+import {
+  addTrade,
+  clearTrades,
+  listTrades,
+  removeTrade,
+  setActiveScope as setMyTradesScope,
+  subscribeTrades,
+  updateTradeStatus,
+  type MyTrade,
+} from './myTrades';
+import { buildScope } from './scope';
 import { parseTakerLegs } from '../services/offerParse';
 import { isOwnOffer, parseOfferSender, unshieldedAddressToHex } from '../services/offerSender';
-import { isMyOffer } from './myOffers';
 import { findTokenName, shortToken } from '../utils';
 import { log } from '../lib/log';
 import { dlog, timed } from '../debug';
@@ -193,6 +202,9 @@ export interface ZSwapApp {
   closeConfirm: () => void;
   // my trades — local, on-device log of created/taken offers
   myTrades: MyTrade[];
+  /** Storage scope of the connected wallet (`<networkId>::<shieldedAddress>`),
+   *  or null with no wallet — the records shown are then legacy-only. */
+  walletScope: string | null;
   clearTrade: (id: string) => void;
   clearAllTrades: () => void;
   importOffer: (blob: string) => Promise<void>;
@@ -225,6 +237,20 @@ export function useZSwapApp(): ZSwapApp {
   const [mintTick, setMintTick] = useState(0);
   const [myTrades, setMyTrades] = useState<MyTrade[]>(() => listTrades());
   useEffect(() => subscribeTrades(() => setMyTrades([...listTrades()])), []);
+
+  // The on-device records belong to a WALLET on a NETWORK, not to the browser:
+  // two wallets in one browser used to share one bucket, so wallet B inherited
+  // wallet A's offers as "mine" and could never take them (issue 00003).
+  // `null` = no wallet ⇒ nothing is mine and writes are refused (see scope.ts).
+  //
+  // Declared AFTER the subscription above so that on mount the subscriber is
+  // already registered when the scope is installed and fires it.
+  const walletScope = useMemo(() => buildScope(NETWORK_ID, wstate?.shieldedAddress), [wstate?.shieldedAddress]);
+  useEffect(() => {
+    setMyOffersScope(walletScope);
+    // Notifies subscribeTrades, which re-reads the log for the new wallet.
+    setMyTradesScope(walletScope);
+  }, [walletScope]);
 
   // The active wallet's transaction capability (mint/create/take). Injected
   // (Lace) goes through the dapp-connector; local (JS facade) through the
@@ -314,8 +340,9 @@ export function useZSwapApp(): ZSwapApp {
   // keep them non-takeable.
   //
   // Ownership: shielded offers are anonymous on-chain, so the primary signal is
-  // a local record of what this browser created — now keyed by offerId, which
-  // is what the blob-free list carries. The unshielded-sender match needs the
+  // a local record of what the CONNECTED WALLET created (plus the unattributable
+  // pre-scoping records) — keyed by offerId, which is what the blob-free list
+  // carries. The unshielded-sender match needs the
   // blob, so it can only run for offers whose blob we've already fetched; the
   // authoritative check happens at selection time in requestTake(), where the
   // blob is always loaded.
@@ -325,14 +352,15 @@ export function useZSwapApp(): ZSwapApp {
         const order = toOrder(o, knownTokens);
         if (!order) return null;
         const blob = order.offerId ? blobById[order.offerId] : undefined;
-        let mine = isMyOffer(order.offerId) || isMyOffer(blob);
+        let mine = isMyOfferIn(order.offerId, walletScope) || isMyOfferIn(blob, walletScope);
         if (!mine && selfUnshieldedHex && blob) {
           mine = isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex);
         }
         return { ...order, blob, isMine: mine };
       })
       .filter((o): o is Order => o !== null);
-  }, [zapi.offers, knownTokens, selfUnshieldedHex, blobById]);
+    // `walletScope` is a real input here: switching wallets changes who owns what.
+  }, [zapi.offers, knownTokens, selfUnshieldedHex, blobById, walletScope]);
 
   const toast = useCallback((msg: string, kind?: 'ok' | string) => {
     const id = Math.random().toString(36).slice(2);
@@ -959,6 +987,7 @@ export function useZSwapApp(): ZSwapApp {
     takerShortfall,
     closeConfirm,
     myTrades,
+    walletScope,
     clearTrade,
     clearAllTrades,
     importOffer,
