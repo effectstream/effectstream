@@ -7,6 +7,9 @@ import type {
 } from '../types';
 import { API_BASE, BATCHER_URL, BATCHER_TARGET } from '../config';
 import { dlog, timed } from '../debug';
+import type { PriceSource } from '../state/format';
+
+export type { PriceSource };
 
 /** Every offer route lives under /v1 with MIP-0006 vocabulary. */
 const V1 = `${API_BASE}/v1`;
@@ -85,6 +88,61 @@ export interface Quote {
   sponsored: boolean;
   from_usd: number;
   to_usd: number | null;
+  // ── reference-price fields (kernel 00005 part A) ──────────────────────────
+  // OPTIONAL ON PURPOSE: a node that predates the price service (preprod today,
+  // and every stack the midnight-1 port runs against until it is redeployed)
+  // answers without them. Typing them as required would compile a lie and the
+  // UI would read `undefined.toFixed()`. Every consumer must degrade to "no
+  // reference known" rather than invent a number.
+  /** Sponsorship threshold as a fraction, e.g. 0.025 = 2.5% below reference. */
+  sponsor_discount?: number;
+  /** Where the price of the token being paid came from. */
+  from_source?: PriceSource;
+  /** Where the price of the token being received came from. */
+  to_source?: PriceSource;
+  /** Older of the two token price timestamps; null when either side is demo. */
+  prices_updated_at?: string | null;
+  /** Pre-existing top-level field: 'token-prices' | 'demo-fallback'. */
+  source?: string;
+}
+
+/** One row of `GET /v1/prices.assets` — a USD price per coin of a market asset. */
+export interface AssetPrice {
+  asset_id: string;
+  /** Decimal STRING (NUMERIC on the wire) — never parse it for money maths. */
+  price_usd: string;
+  source: 'feed' | 'seed' | 'fixed';
+  provider_updated_at: string | null;
+  updated_at: string;
+}
+
+/** One row of `GET /v1/prices.tokens` — USD per BASE UNIT of a known token. */
+export interface TokenPrice {
+  token_color: string;
+  name: string;
+  kind: 'shielded' | 'unshielded';
+  decimals: number;
+  asset_id: string | null;
+  price_usd: string;
+  source: PriceSource;
+  updated_at: string;
+}
+
+/** `GET /v1/prices.feed` — the price-feed process's last run. All-null when it
+ *  has never run (a stack serving only the seeded prices). */
+export interface PriceFeedStatus {
+  provider: string;
+  last_run_at: string | null;
+  last_ok_at: string | null;
+  last_error: string | null;
+}
+
+/** `GET /v1/prices` (master plan §3). */
+export interface PricesResponse {
+  sponsor_discount: number;
+  feed: PriceFeedStatus | null;
+  assets: AssetPrice[];
+  tokens: TokenPrice[];
 }
 
 // NOTE: there is no /v1/chart/depth endpoint — the node serves only
@@ -169,7 +227,11 @@ export const api = {
    * The offer only appears in `GET /v1/offers` after the Celestia round-trip
    * (seconds to ~a minute), so poll status until it leaves `not_found`.
    *
-   * Throws ApiError. Notable codes: `DUPLICATE_OFFER` (409, carries the existing
+   * Throws ApiError. `NOT_SPONSORED` (422, kernel 00005 part B) carries the
+   * node's `reason` as the error message plus `give_usd` / `want_usd` /
+   * `implied_discount` / `sponsor_discount` on `.data`; createOffer rethrows it
+   * untouched so the Swap error area shows the reason verbatim.
+   * Other notable codes: `DUPLICATE_OFFER` (409, carries the existing
    * `offerId` + `status`) and `DUPLICATE_MARKERS` (409, carries `activeOfferId`
    * of the live offer that owns the same declared markers, plus `offerId` for this
    * attempt) — both are not failures from the user's point of view. Everything in
@@ -252,6 +314,12 @@ export const api = {
     // The node no longer fabricates a rate for tokens it doesn't know:
     // 404 UNKNOWN_TOKEN (not in /v1/known-tokens), 400 VALIDATION (malformed
     // color). Give both a message a user can act on.
+    //
+    // Everything else — including 422 NOT_SPONSORED — falls through to parse(),
+    // which builds an ApiError whose `.message` IS the server's `reason` and
+    // keeps the numbers (`give_usd`, `want_usd`, `implied_discount`,
+    // `sponsor_discount`) on `.data`. That is what the Swap error area renders,
+    // so a refusal explains itself instead of reading "Request failed".
     if (res.status === 404 || res.status === 400) {
       const body = await res.json().catch(() => null);
       if (body?.error === 'UNKNOWN_TOKEN') {
@@ -260,6 +328,19 @@ export const api = {
       throw new ApiError(res.status, body, 'That token pair is not quotable');
     }
     return parse(res, 'Failed to fetch quote');
+  },
+
+  /**
+   * Reference prices: the sponsorship threshold, the price-feed's last run,
+   * every market asset and every priced known token (master plan §3).
+   *
+   * Prices are decimal STRINGS per base unit. Throws ApiError — a node that
+   * predates the price service answers 404, which callers treat as "no
+   * reference available" rather than as an error to show.
+   */
+  getPrices: async (): Promise<PricesResponse> => {
+    const res = await fetch(`${V1}/prices`);
+    return parse(res, 'Failed to fetch prices');
   },
 
   getChartStats: async (base: string, quote: string): Promise<ChartStats> => {
