@@ -5,6 +5,11 @@
     "start": "bun minimal.ts"
   },
   "dependencies": {
-    "@effectstream/node-sdk": "0.200.1"
+    "@effectstream/config": "0.200.5",
+    "@effectstream/db": "0.200.5",
+    "@effectstream/midnight-contracts": "0.200.5",
+    "@effectstream/runtime": "0.200.5",
+    "@effectstream/sm": "0.200.5",
+    "effection": "3.5.0"
   }
 }
