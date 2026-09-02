@@ -3,8 +3,9 @@
 // (price / amount / total) are built from REAL open offers (st.orders); only the
 // 24h stats + trade history still come from the backend GET /v1/chart/** routes.
 // Selecting price levels and pressing "Take" settles the underlying real offers
-// via the shared confirm dialog (st.requestTakeMany); your own offers are
-// skipped (you can't take your own ZSwap).
+// via the shared confirm dialog (st.requestTakeMany); levels holding one of your
+// own offers are marked "Yours" and ask before taking it (taking your own ZSwap
+// is allowed on-chain, so it is a question, not a block).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Coin, Icon, isShielded } from '../ui/icons';
@@ -244,8 +245,8 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
 
   const takeDepth = () => {
     // Settle the real offers behind the selected price levels via the shared
-    // confirm dialog (st.requestTakeMany filters out your own offers + guards
-    // the wallet, then opens the Take popup).
+    // confirm dialog (st.requestTakeMany guards the wallet, asks about any of
+    // your own offers in the selection, then opens the Take popup).
     const side = activeSide;
     if (!side) return;
     const rows = side === 'ask' ? asks : bids;
@@ -260,6 +261,9 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
     const on = isActive(side, idx);
     const prev = isPreview(side, idx);
     const dPct = (r.price / mid - 1) * 100;
+    // A level aggregates same-price offers, so one of yours in it is enough to
+    // mark it: the take path will ask about that offer specifically.
+    const mine = r.orders.some((o) => o.isMine);
     return (
       <div onClick={() => clickRow(side, idx)} onMouseEnter={() => setHover({ side, idx })}
         title={on ? 'Click to remove this row' : 'Click to select up to here'}
@@ -268,6 +272,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
         <span className="zs-num" style={{ position: 'relative', fontSize: 13, fontWeight: 600, color: col, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           {fmtPrice(r.price)}
           {(on || prev) && <span style={{ fontSize: 10.5, color: 'var(--ink-3)', fontWeight: 600 }}>{dPct >= 0 ? '↑' : '↓'}{Math.abs(dPct).toFixed(2)}%</span>}
+          {mine && <span className="zs-pill" title="You created an offer at this price. Taking it is allowed — we'll ask first." style={{ padding: '1px 6px', fontSize: 9.5, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-soft)', borderColor: 'var(--accent-line)' }}>Yours</span>}
         </span>
         <span className="zs-num" style={{ position: 'relative', fontSize: 13, textAlign: 'right', color: 'var(--ink)' }}>{fmtQty(r.amt)}</span>
         <span className="zs-num" style={{ position: 'relative', fontSize: 13, textAlign: 'right', color: 'var(--ink-2)' }}>{fmtQty(r.total)}</span>
