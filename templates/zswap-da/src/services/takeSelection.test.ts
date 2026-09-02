@@ -123,6 +123,24 @@ describe('defaultSelection', () => {
     expect(summarize(items, defaultSelection(items, balances('1')), balances('1'), known).blocked)
       .toBe('Insufficient WETH: need 12, have 1');
   });
+
+  // `settle(ids)` has no "if nothing is checked, take everything" fallback any
+  // more — an empty id list settles nothing. That is only safe because a
+  // non-empty selection always opens with at least one row checked, including
+  // the single-offer dialog, which renders no checkbox list at all and would
+  // otherwise confirm with an empty set.
+  test('a non-empty selection never opens with nothing checked', () => {
+    for (const bal of ['100', '8', '1', '0']) {
+      expect(defaultSelection(items, balances(bal)).length).toBeGreaterThan(0);
+    }
+    const single = [offer('solo', 5, 20)];
+    expect(defaultSelection(single, balances('100'))).toEqual(['solo']);
+    expect(defaultSelection(single, balances('0'))).toEqual(['solo']);
+  });
+
+  test('an empty item list yields an empty default — the dialog is never opened for it', () => {
+    expect(defaultSelection([], balances('100'))).toEqual([]);
+  });
 });
 
 describe('own offers stay identifiable in the list', () => {
