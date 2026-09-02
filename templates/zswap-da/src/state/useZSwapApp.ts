@@ -24,6 +24,15 @@ import { injectedContractWallet, localContractWallet, type ContractWallet } from
 import { api } from '../services/api';
 import { addMyOffer, isMyOfferIn, setActiveScope as setMyOffersScope } from './myOffers';
 import type { ConfirmPayload } from '../ui/ConfirmModal';
+import type { DecisionOption, DecisionPayload } from '../ui/DecisionModal';
+import {
+  applyOwnOfferChoice,
+  decideOwnOffers,
+  ownOfferChoiceLabel,
+  partitionOwn,
+  type OwnOfferDecision,
+  type OwnOfferSplit,
+} from '../services/ownOffers';
 import { fmtAmt } from './format';
 import {
   addTrade,
@@ -190,6 +199,10 @@ export interface ZSwapApp {
   takeOffer: (blob: string) => Promise<void>;
   // shared take-confirm dialog (driven by any screen, rendered once in App)
   pendingConfirm: ConfirmPayload | null;
+  /** Shared question dialog (own offers). Rendered once in App, next to the
+   *  confirm dialog; answering it continues or abandons the take. */
+  pendingDecision: DecisionPayload | null;
+  closeDecision: () => void;
   /** Async: the offer's blob is fetched on selection (the book is blob-free). */
   requestTake: (o: Order) => Promise<void>;
   requestTakeMany: (orders: Order[]) => Promise<void>;
@@ -628,124 +641,64 @@ export function useZSwapApp(): ZSwapApp {
   );
 
   const [pendingConfirm, setPendingConfirm] = useState<ConfirmPayload | null>(null);
+  const [pendingDecision, setPendingDecision] = useState<DecisionPayload | null>(null);
+  const closeDecision = useCallback(() => setPendingDecision(null), []);
   // Selecting an offer now costs a GET /v1/offers/:offerId per offer. Expose that
   // as a pending flag so the screens can disable their take controls instead of
   // appearing frozen between click and confirm dialog.
   const [takePreparing, setTakePreparing] = useState(false);
-  const requestTake = useCallback(
-    async (o: Order) => {
-      if (!o.offerId) {
-        // Legacy row indexed before content addressing — the node can't serve
-        // its blob by hash, so there's nothing to settle from.
-        toast('This offer predates content addressing and can no longer be taken.');
-        return;
+
+  /**
+   * Ask about the own offers in a selection, then continue with whatever the
+   * user picked. Taking your own offer is legal on-chain, so this is the whole
+   * of the enforcement: a question, never a block — and never the connect modal,
+   * which is what this used to do (issue 00003).
+   *
+   * Cancel — and dismissing the dialog — settle nothing.
+   */
+  const askOwnOffers = useCallback(
+    <T,>(split: OwnOfferSplit<T>, decision: OwnOfferDecision, proceed: (chosen: T[]) => void) => {
+      // Cancel first, mirroring the confirm dialog's button order; the
+      // continue-with-everything option is the accented one on the right.
+      const options: DecisionOption[] = [{ label: 'Cancel', onPick: () => {} }];
+      for (const choice of decision.choices) {
+        if (choice === 'cancel') continue;
+        options.push({
+          label: ownOfferChoiceLabel(choice, decision),
+          kind: choice === 'take-all' ? 'primary' : 'plain',
+          onPick: () => {
+            const chosen = applyOwnOfferChoice(split, choice);
+            if (chosen) proceed(chosen);
+          },
+        });
       }
-      // Selection is where the blob gets fetched — the order book itself is
-      // blob-free, so nothing was prefetched for the rest of the page.
-      setTakePreparing(true);
-      let blob: string | null;
-      try {
-        blob = await loadOfferBlob(o.offerId);
-      } finally {
-        setTakePreparing(false);
-      }
-      if (!blob) {
-        toast('This offer is no longer available — it may have just been taken.');
-        zapi.fetchOffers();
-        return;
-      }
-      // The list can't tell whether an unshielded offer is ours (that needs the
-      // blob). Now that we have it, check before letting the user take it.
-      if (selfUnshieldedHex && isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex)) {
-        toast("That's your own offer — you can't take it.");
-        return;
-      }
-      // Taker pays what the order WANTS (o.to / amtTo) and receives what it
-      // GIVES (o.from / amtFrom).
-      setPendingConfirm({
-        title: 'Take offer',
-        pay: { sym: o.to, amt: fmtAmt(o.amtTo) },
-        receive: { sym: o.from, amt: fmtAmt(o.amtFrom) },
-        cta: 'Take offer',
-        blocked: takerShortfall(blob) ?? undefined,
-        onConfirm: async () => {
-          await takeOffer(blob);
-          addTrade({
-            kind: 'take',
-            give: { sym: o.to, amt: o.amtTo },
-            get: { sym: o.from, amt: o.amtFrom },
-            status: 'consumed',
-            shielded: false,
-            blob,
-            offerId: o.offerId ?? undefined,
-          });
-        },
+      setPendingDecision({
+        title: decision.kind === 'mixed' ? 'Some offers are yours' : 'Your own offer',
+        body: decision.message ?? '',
+        options,
       });
     },
-    [toast, takeOffer, takerShortfall, loadOfferBlob, selfUnshieldedHex, zapi],
+    [],
   );
 
-  // Take one or more order-book offers in a single confirm dialog. Filters out
-  // your own offers (you can't take them) and blobs we can't settle; aggregates
-  // the pay/receive across the selection; settles the whole selection as one
-  // transaction via the batcher.
-  const requestTakeMany = useCallback(
-    async (orders: Order[]) => {
-      if (!tradeWallet?.canTrade) {
-        toast('Use the browser wallet (Lace) to take offers.');
-        return;
-      }
-      const candidates = orders.filter((o) => !o.isMine && o.offerId);
-      if (candidates.length === 0) {
-        if (orders.some((o) => o.isMine)) {
-          setConnectOpen(true);
-          return;
-        }
-        toast(
-          orders.some((o) => !o.offerId)
-            ? 'These offers predate content addressing and can no longer be taken.'
-            : 'No live offer to take here.',
-        );
-        return;
-      }
+  /** True when this offer belongs to the connected wallet: the on-device record
+   *  (the only signal a shielded offer has) or the blob's unshielded sender. */
+  const ownsOffer = useCallback(
+    (o: Order, blob: string): boolean =>
+      o.isMine ||
+      (!!selfUnshieldedHex && isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex)),
+    [selfUnshieldedHex],
+  );
 
-      // Fetch the blobs for the SELECTION only — bounded by what the user
-      // picked, never the whole book. Offers that 404 here were consumed
-      // between render and click.
-      setTakePreparing(true);
-      let resolved: { o: Order; blob: string | null }[];
-      try {
-        resolved = await Promise.all(
-          candidates.map(async (o) => ({ o, blob: await loadOfferBlob(o.offerId) })),
-        );
-      } finally {
-        setTakePreparing(false);
-      }
-      // Only real bech32m offers (swapoffer1…) can be settled. Seeded demo
-      // liquidity carries a placeholder blob and must be skipped with a clear
-      // message rather than a cryptic decode error.
-      const isReal = (b: string | null) => !!b && /^swapoffer1/i.test(b);
-      const takeable = resolved
-        .filter((r): r is { o: Order; blob: string } => isReal(r.blob))
-        // The list can't detect unshielded ownership without the blob; now that
-        // we have it, drop anything that turns out to be ours.
-        .filter(({ blob }) =>
-          !selfUnshieldedHex || !isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex))
-        .map(({ o, blob }) => ({ ...o, blob }));
-
-      if (takeable.length === 0) {
-        const vanished = resolved.some((r) => r.blob === null);
-        toast(
-          vanished
-            ? 'Those offers are no longer available — they may have just been taken.'
-            : resolved.some((r) => r.blob && !isReal(r.blob))
-              ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (swapoffer1…) offer to test taking."
-              : 'No live offer to take here.',
-        );
-        if (vanished) zapi.fetchOffers();
-        return;
-      }
+  /**
+   * Open the take-confirm dialog for a resolved selection. Split out of
+   * `requestTakeMany` because the own-offer question sits in front of it: the
+   * dialog is opened from the question's answer, not from the click.
+   */
+  const openTakeConfirm = useCallback(
+    (takeable: (Order & { blob: string })[]) => {
       const n = takeable.length;
+      if (n === 0) return;
       const payAmt = takeable.reduce((s, o) => s + o.amtTo, 0);
       const recvAmt = takeable.reduce((s, o) => s + o.amtFrom, 0);
       // Settle the whole selection as ONE transaction. This used to loop
@@ -812,7 +765,126 @@ export function useZSwapApp(): ZSwapApp {
         onConfirm: settle(takeable),
       });
     },
-    [toast, takeOffers, tradeWallet, wstate, knownTokens, loadOfferBlob, selfUnshieldedHex, zapi],
+    [takeOffers, wstate, knownTokens],
+  );
+
+  const requestTake = useCallback(
+    async (o: Order) => {
+      if (!o.offerId) {
+        // Legacy row indexed before content addressing — the node can't serve
+        // its blob by hash, so there's nothing to settle from.
+        toast('This offer predates content addressing and can no longer be taken.');
+        return;
+      }
+      // Selection is where the blob gets fetched — the order book itself is
+      // blob-free, so nothing was prefetched for the rest of the page.
+      setTakePreparing(true);
+      let blob: string | null;
+      try {
+        blob = await loadOfferBlob(o.offerId);
+      } finally {
+        setTakePreparing(false);
+      }
+      if (!blob) {
+        toast('This offer is no longer available — it may have just been taken.');
+        zapi.fetchOffers();
+        return;
+      }
+      // Taker pays what the order WANTS (o.to / amtTo) and receives what it
+      // GIVES (o.from / amtFrom).
+      const b = blob;
+      const open = () =>
+        setPendingConfirm({
+          title: 'Take offer',
+          pay: { sym: o.to, amt: fmtAmt(o.amtTo) },
+          receive: { sym: o.from, amt: fmtAmt(o.amtFrom) },
+          cta: 'Take offer',
+          blocked: takerShortfall(b) ?? undefined,
+          onConfirm: async () => {
+            await takeOffer(b);
+            addTrade({
+              kind: 'take',
+              give: { sym: o.to, amt: o.amtTo },
+              get: { sym: o.from, amt: o.amtFrom },
+              status: 'consumed',
+              shielded: false,
+              blob: b,
+              offerId: o.offerId ?? undefined,
+            });
+          },
+        });
+      // Own offer? The list can't tell for an unshielded offer (that needs the
+      // blob) — now that we have it, ask instead of refusing with a toast.
+      const split = partitionOwn([o], () => ownsOffer(o, b));
+      const decision = decideOwnOffers(split);
+      if (decision.kind === 'none') { open(); return; }
+      askOwnOffers(split, decision, open);
+    },
+    [toast, takeOffer, takerShortfall, loadOfferBlob, ownsOffer, askOwnOffers, zapi],
+  );
+
+  // Take one or more order-book offers in a single confirm dialog. Drops blobs
+  // we can't settle, asks about the ones that are yours, aggregates the
+  // pay/receive across what's left and settles it as one transaction.
+  const requestTakeMany = useCallback(
+    async (orders: Order[]) => {
+      if (!tradeWallet?.canTrade) {
+        toast('Use the browser wallet (Lace) to take offers.');
+        return;
+      }
+      // Own offers deliberately stay IN the candidate set: they are a question
+      // for the user further down, not a reason to redirect to the connect
+      // modal — which is exactly what this used to do, silently (issue 00003).
+      const candidates = orders.filter((o) => o.offerId);
+      if (candidates.length === 0) {
+        toast(
+          orders.some((o) => !o.offerId)
+            ? 'These offers predate content addressing and can no longer be taken.'
+            : 'No live offer to take here.',
+        );
+        return;
+      }
+
+      // Fetch the blobs for the SELECTION only — bounded by what the user
+      // picked, never the whole book. Offers that 404 here were consumed
+      // between render and click.
+      setTakePreparing(true);
+      let resolved: { o: Order; blob: string | null }[];
+      try {
+        resolved = await Promise.all(
+          candidates.map(async (o) => ({ o, blob: await loadOfferBlob(o.offerId) })),
+        );
+      } finally {
+        setTakePreparing(false);
+      }
+      // Only real bech32m offers (swapoffer1…) can be settled. Seeded demo
+      // liquidity carries a placeholder blob and must be skipped with a clear
+      // message rather than a cryptic decode error.
+      const isReal = (b: string | null) => !!b && /^swapoffer1/i.test(b);
+      const takeable = resolved
+        .filter((r): r is { o: Order; blob: string } => isReal(r.blob))
+        .map(({ o, blob }) => ({ ...o, blob }));
+
+      if (takeable.length === 0) {
+        const vanished = resolved.some((r) => r.blob === null);
+        toast(
+          vanished
+            ? 'Those offers are no longer available — they may have just been taken.'
+            : resolved.some((r) => r.blob && !isReal(r.blob))
+              ? "Seeded demo liquidity — these offers aren't settle-able. Use a real (swapoffer1…) offer to test taking."
+              : 'No live offer to take here.',
+        );
+        if (vanished) zapi.fetchOffers();
+        return;
+      }
+      // Ownership is only fully knowable now: the local record covers shielded
+      // offers, the unshielded-sender match needs the blob we just fetched.
+      const split = partitionOwn(takeable, (o) => ownsOffer(o, o.blob));
+      const decision = decideOwnOffers(split);
+      if (decision.kind === 'none') { openTakeConfirm(takeable); return; }
+      askOwnOffers(split, decision, openTakeConfirm);
+    },
+    [toast, tradeWallet, loadOfferBlob, ownsOffer, askOwnOffers, openTakeConfirm, zapi],
   );
   const closeConfirm = useCallback(() => setPendingConfirm(null), []);
 
@@ -981,6 +1053,8 @@ export function useZSwapApp(): ZSwapApp {
     createOffer,
     takeOffer,
     pendingConfirm,
+    pendingDecision,
+    closeDecision,
     requestTake,
     requestTakeMany,
     takePreparing,
