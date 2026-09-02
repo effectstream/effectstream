@@ -137,12 +137,31 @@ export interface PriceFeedStatus {
   last_error: string | null;
 }
 
-/** `GET /v1/prices` (master plan §3). */
+/** `GET /v1/prices?tokens=…` (master plan §3, filtered per §3a). Holds only the
+ *  requested colours that resolve to a price, and the assets they reference. */
 export interface PricesResponse {
   sponsor_discount: number;
   feed: PriceFeedStatus | null;
   assets: AssetPrice[];
   tokens: TokenPrice[];
+}
+
+/** The node's cap on `GET /v1/prices?tokens=` (master plan §3a: 1–50). */
+export const MAX_PRICE_TOKENS = 50;
+
+/**
+ * Colours as `/v1/prices` wants them: trimmed, lower-cased, de-duplicated,
+ * empties dropped, input order kept. Exported so a caller can build the same
+ * list it will be asked about (see state/usePrices.ts, which sorts it into a
+ * cache key).
+ */
+export function normalizeColors(tokens: readonly (string | null | undefined)[]): string[] {
+  const out: string[] = [];
+  for (const t of tokens) {
+    const c = (t ?? '').trim().toLowerCase();
+    if (c && !out.includes(c)) out.push(c);
+  }
+  return out;
 }
 
 // NOTE: there is no /v1/chart/depth endpoint — the node serves only
@@ -331,15 +350,36 @@ export const api = {
   },
 
   /**
-   * Reference prices: the sponsorship threshold, the price-feed's last run,
-   * every market asset and every priced known token (master plan §3).
+   * Reference prices for the colours asked for — a PER-PAIR lookup, never a
+   * dump of the price table (master plan §3a, Q-11).
+   *
+   * `tokens` is REQUIRED by the node: 1–50 lower-case 64-hex colours, comma
+   * separated; without it, or malformed, it answers `400 VALIDATION`. The list
+   * is lower-cased and deduplicated here, and an empty list is refused before
+   * any request goes out — an unfiltered call would only ever earn a 400 and
+   * would not tell the caller why.
+   *
+   * The response carries only the requested colours that resolve to a price
+   * (an unknown colour is silently absent, not an error) and the assets those
+   * tokens reference; `sponsor_discount` and `feed` are always present.
    *
    * Prices are decimal STRINGS per base unit. Throws ApiError — a node that
-   * predates the price service answers 404, which callers treat as "no
-   * reference available" rather than as an error to show.
+   * predates the price service answers 404, and a node that rejects the query
+   * answers 400; callers treat both as "no reference available" rather than as
+   * an error to show.
    */
-  getPrices: async (): Promise<PricesResponse> => {
-    const res = await fetch(`${V1}/prices`);
+  getPrices: async (tokens: readonly string[]): Promise<PricesResponse> => {
+    const wanted = normalizeColors(tokens);
+    if (wanted.length === 0) {
+      throw new Error('getPrices needs at least one token color');
+    }
+    if (wanted.length > MAX_PRICE_TOKENS) {
+      throw new Error(
+        `getPrices takes at most ${MAX_PRICE_TOKENS} token colors, got ${wanted.length}`,
+      );
+    }
+    const p = new URLSearchParams({ tokens: wanted.join(',') });
+    const res = await fetch(`${V1}/prices?${p.toString()}`);
     return parse(res, 'Failed to fetch prices');
   },
 

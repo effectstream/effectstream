@@ -200,12 +200,16 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
   const change24 = stats?.change24 ?? 0;
   const lastUp = change24 >= 0;
 
-  // —— reference price (GET /v1/prices) ——
+  // —— reference price (GET /v1/prices?tokens=…) ——
   // "1 base = r quote" at the node's reference prices, plus how far the book's
   // own mid sits from it. Null whenever either token has no market-backed price
   // (test tokens), in which case the header says "no reference" rather than
   // dressing up the demo price as a market.
-  const prices = usePrices(nonce);
+  //
+  // Only the selected pair's two colours are asked for (master plan §3a): the
+  // node never dumps its price table, and with no pair selected nothing is
+  // fetched at all.
+  const prices = usePrices([baseColor, quoteColor], nonce);
   const reference = useMemo(
     () => referenceRate(prices, baseColor, quoteColor),
     [prices, baseColor, quoteColor],
