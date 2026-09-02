@@ -50,7 +50,14 @@ import { isOwnOffer, parseOfferSender, unshieldedAddressToHex } from '../service
 import { findTokenName, shortToken } from '../utils';
 import { log } from '../lib/log';
 import { dlog, timed } from '../debug';
-import { takerShortfalls, shortfallsFromLegs, shortfallMessage, batchTakerShortfalls, affordableIndices } from '../services/takerBalance';
+import { takerShortfalls, shortfallsFromLegs, shortfallMessage, batchTakerShortfalls } from '../services/takerBalance';
+import {
+  affordableSelection,
+  defaultSelection,
+  summarize,
+  type SelectableOffer,
+  type TakeSummary,
+} from '../services/takeSelection';
 import type { KnownToken, OfferStatus, ZSwapOffer } from '../types';
 
 const NETWORK_ID = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string) || 'undeployed';
@@ -699,19 +706,48 @@ export function useZSwapApp(): ZSwapApp {
     (takeable: (Order & { blob: string })[]) => {
       const n = takeable.length;
       if (n === 0) return;
-      const payAmt = takeable.reduce((s, o) => s + o.amtTo, 0);
-      const recvAmt = takeable.reduce((s, o) => s + o.amtFrom, 0);
-      // Settle the whole selection as ONE transaction. This used to loop
-      // `takeOffer` per offer, which re-spent the taker's coin from wallet state
-      // that hadn't seen the previous take, so the node rejected every offer
-      // after the first with `Zswap(NullifierAlreadyPresent)`.
+      const balances = { shielded: wstate?.shieldedBalances, unshielded: wstate?.unshieldedBalances };
+      // One selectable row per offer: display amounts come from the book, the
+      // exact legs from the blob — the balance maths must never run on the
+      // display floats.
+      const items: SelectableOffer[] = takeable.map((o) => ({
+        id: o.offerId ?? o.blob,
+        pay: { sym: o.to, amt: o.amtTo },
+        receive: { sym: o.from, amt: o.amtFrom },
+        pays: parseTakerLegs(o.blob, NETWORK_ID as any)?.pays ?? [],
+        // The user may have chosen to include their own offers a dialog ago;
+        // keep saying which ones they are.
+        mine: ownsOffer(o, o.blob),
+      }));
+      const orderById = new Map(items.map((it, i) => [it.id, takeable[i]]));
+      // Affordability is an AGGREGATE property: each offer can look affordable
+      // on its own while the batch overspends, so this is the best-price-first
+      // prefix that fits, not a per-row test.
+      const affordable = new Set(affordableSelection(items, balances));
+      const checkedByDefault = new Set(defaultSelection(items, balances));
+      const initial = summarize(items, checkedByDefault, balances, knownTokens);
+      const toView = (s: TakeSummary) => ({
+        pay: { sym: s.pay.sym, amt: fmtAmt(s.pay.amt) },
+        receive: { sym: s.receive.sym, amt: fmtAmt(s.receive.amt) },
+        blocked: s.blocked ?? undefined,
+        cta: s.cta,
+      });
+
+      // Settle exactly what the dialog had checked, as ONE transaction. Taking
+      // them one at a time re-spent the taker's coin from wallet state that
+      // hadn't seen the previous take, so the node rejected every offer after
+      // the first with `Zswap(NullifierAlreadyPresent)`.
       //
       // History stays per offer — the UI's unit is the offer even though the
       // chain's unit is now a single settlement — and nothing is recorded unless
       // that settlement succeeded, so a failed batch leaves no phantom trades.
-      const settle = (orders: (Order & { blob: string })[]) => async () => {
-        await takeOffers(orders.map((o) => o.blob));
-        for (const o of orders) {
+      const settle = async (ids: string[]) => {
+        const chosen = ids.length > 0
+          ? ids.map((id) => orderById.get(id)).filter((o): o is Order & { blob: string } => !!o)
+          : takeable;
+        if (chosen.length === 0) return;
+        await takeOffers(chosen.map((o) => o.blob));
+        for (const o of chosen) {
           addTrade({
             kind: 'take',
             give: { sym: o.to, amt: o.amtTo },
@@ -723,51 +759,26 @@ export function useZSwapApp(): ZSwapApp {
           });
         }
       };
-      // Block on the AGGREGATE cost — checking each offer against the full
-      // balance would pass a batch that only overspends in sum. When the whole
-      // batch is short, compute the affordable prefix (best-priced first) so the
-      // user can take part instead of nothing.
-      const blocked = shortfallMessage(
-        batchTakerShortfalls(
-          takeable.map((o) => o.blob),
-          wstate?.shieldedBalances,
-          wstate?.unshieldedBalances,
-          NETWORK_ID as any,
-          knownTokens,
-        ),
-      ) ?? undefined;
-      const okIdx = blocked
-        ? new Set(
-            affordableIndices(
-              takeable.map((o) => parseTakerLegs(o.blob, NETWORK_ID as any)?.pays ?? []),
-              wstate?.shieldedBalances,
-              wstate?.unshieldedBalances,
-            ),
-          )
-        : null;
-      const affordable = okIdx ? takeable.filter((_, i) => okIdx.has(i)) : takeable;
+
       setPendingConfirm({
+        // The title states what was selected; the CTA below tracks what is
+        // currently checked.
         title: n > 1 ? `Take ${n} offers` : 'Take offer',
-        pay: { sym: takeable[0].to, amt: fmtAmt(payAmt) },
-        receive: { sym: takeable[0].from, amt: fmtAmt(recvAmt) },
-        cta: n > 1 ? `Take ${n} offers` : 'Take offer',
-        blocked,
-        items: n > 1
-          ? takeable.map((o, i) => ({
-              pay: `${fmtAmt(o.amtTo)} ${o.to}`,
-              receive: `${fmtAmt(o.amtFrom)} ${o.from}`,
-              ok: okIdx ? okIdx.has(i) : true,
-            }))
-          : undefined,
-        partial: blocked && affordable.length > 0
-          ? { cta: `Take affordable ${affordable.length} of ${n}`, onConfirm: settle(affordable) }
-          : undefined,
-        onConfirm: settle(takeable),
+        ...toView(initial),
+        items: items.map((it) => ({
+          id: it.id,
+          pay: `${fmtAmt(it.pay.amt)} ${it.pay.sym}`,
+          receive: `${fmtAmt(it.receive.amt)} ${it.receive.sym}`,
+          ok: affordable.has(it.id),
+          mine: it.mine,
+          checked: checkedByDefault.has(it.id),
+        })),
+        assess: (ids) => toView(summarize(items, ids, balances, knownTokens)),
+        onConfirm: settle,
       });
     },
-    [takeOffers, wstate, knownTokens],
+    [takeOffers, wstate, knownTokens, ownsOffer],
   );
-
   const requestTake = useCallback(
     async (o: Order) => {
       if (!o.offerId) {
