@@ -650,6 +650,27 @@ export function useZSwapApp(): ZSwapApp {
   const [pendingConfirm, setPendingConfirm] = useState<ConfirmPayload | null>(null);
   const [pendingDecision, setPendingDecision] = useState<DecisionPayload | null>(null);
   const closeDecision = useCallback(() => setPendingDecision(null), []);
+
+  // A wallet disconnect must not leave a take dialog behind. Settlement already
+  // refuses without a wallet (`requireWallet` throws and the error lands in the
+  // dialog), so nothing could ever settle after a disconnect — this is the
+  // visible half of the same guarantee: the stale question closes instead of
+  // waiting to fail.
+  //
+  // Deliberately edge-triggered on connected → disconnected: a level-triggered
+  // "close whenever there is no wallet" would also shut a dialog that was opened
+  // while disconnected, and would fire during the connect handshake (`connected`
+  // is set before `readState` fills `wstate`).
+  const hadWallet = useRef(false);
+  useEffect(() => {
+    const has = !!connected && !!wstate;
+    if (hadWallet.current && !has) {
+      setPendingConfirm(null);
+      setPendingDecision(null);
+    }
+    hadWallet.current = has;
+  }, [connected, wstate]);
+
   // Selecting an offer now costs a GET /v1/offers/:offerId per offer. Expose that
   // as a pending flag so the screens can disable their take controls instead of
   // appearing frozen between click and confirm dialog.
@@ -741,10 +762,13 @@ export function useZSwapApp(): ZSwapApp {
       // History stays per offer — the UI's unit is the offer even though the
       // chain's unit is now a single settlement — and nothing is recorded unless
       // that settlement succeeded, so a failed batch leaves no phantom trades.
+      // No "all" fallback for an empty id list: the ids ARE the user's answer,
+      // and an empty answer settles nothing. Falling back to the whole selection
+      // would put offers on chain that the dialog showed as unchecked.
       const settle = async (ids: string[]) => {
-        const chosen = ids.length > 0
-          ? ids.map((id) => orderById.get(id)).filter((o): o is Order & { blob: string } => !!o)
-          : takeable;
+        const chosen = ids
+          .map((id) => orderById.get(id))
+          .filter((o): o is Order & { blob: string } => !!o);
         if (chosen.length === 0) return;
         await takeOffers(chosen.map((o) => o.blob));
         for (const o of chosen) {
