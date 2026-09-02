@@ -3,16 +3,15 @@
 // anonymous on-chain, so the only reliable "mine" signal for them is what we
 // created locally.
 //
-// Keyed by `offerId` (hex sha256 of the raw MIP-0005 transaction bytes),
-// which is what the blob-free order book now carries. Entries written by older
-// builds were keyed by the full bech32m blob; those are kept and still match, so
-// trades made before that migration don't lose their "mine" marking.
+// Keyed by `offerId` (hex sha256 of the raw MIP-0005 transaction bytes), which
+// is what the blob-free order book now carries. A full bech32m blob is also
+// accepted as a key, so a caller that only holds the blob still matches.
 //
 // Records are bucketed per `<networkId>::<shieldedAddress>` (see scope.ts): one
 // browser can hold several wallets, and before scoping every wallet inherited
 // every other wallet's offers — the dead end reported as issue 00003.
 
-import { LEGACY_SCOPE, bucketOf, readBuckets, writeBuckets, type Buckets } from './scope';
+import { bucketOf, readBuckets, writeBuckets, type Buckets } from './scope';
 
 const KEY = 'zswap-da:my-offers';
 
@@ -41,8 +40,7 @@ export function getActiveScope(): string | null {
 
 /**
  * Record an offer this wallet created. Pass the `offerId` returned by
- * `POST /v1/offers`; the blob is also accepted so legacy callers and
- * pre-migration records keep working.
+ * `POST /v1/offers`; the blob is also accepted as a key.
  *
  * With no wallet connected there is no bucket to write to. Every caller reaches
  * here only after a successful transaction, so that combination means the wallet
@@ -63,9 +61,8 @@ export function addMyOffer(key: string | null | undefined): void {
 }
 
 /**
- * True when this offer hash (or legacy blob) was created by `scope`'s wallet —
- * or by a pre-scoping build in this browser, which we cannot attribute to a
- * wallet and therefore keep showing to everyone (Q-1 option 1).
+ * True when this offer hash (or blob) was created by `scope`'s wallet. With no
+ * wallet — `scope === null` — nothing is mine.
  *
  * Takes the scope explicitly because the order book computes ownership during
  * RENDER, while the active scope is installed from an effect: reading the module
@@ -74,8 +71,7 @@ export function addMyOffer(key: string | null | undefined): void {
  */
 export function isMyOfferIn(key: string | null | undefined, scope: string | null): boolean {
   if (!key) return false;
-  const buckets = all();
-  return bucketOf(buckets, scope).includes(key) || bucketOf(buckets, LEGACY_SCOPE).includes(key);
+  return bucketOf(all(), scope).includes(key);
 }
 
 /** {@link isMyOfferIn} against the active scope. */

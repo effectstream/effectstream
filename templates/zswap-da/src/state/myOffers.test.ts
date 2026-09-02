@@ -83,34 +83,34 @@ describe('no wallet connected (null scope)', () => {
     expect(mem.has(KEY)).toBe(false);
   });
 
-  test('nothing is mine except legacy records', () => {
-    mem.set(KEY, JSON.stringify({ [W1]: ['offer-1'], legacy: ['old-offer'] }));
+  test('nothing is mine — not even another bucket\'s records', () => {
+    mem.set(KEY, JSON.stringify({ [W1]: ['offer-1'] }));
     setActiveScope(null);
     expect(isMyOffer('offer-1')).toBe(false);
-    expect(isMyOffer('old-offer')).toBe(true);
   });
 });
 
-describe('legacy read-through (Q-1 option 1)', () => {
-  test('a pre-scoping flat array migrates and still matches for every wallet', () => {
+// Q-1, resolved by Eddie: pre-scoping records are DISCARDED, not migrated.
+describe('pre-scoping records (no compatibility)', () => {
+  test('a pre-scoping flat array is not mine for any wallet', () => {
     mem.set(KEY, JSON.stringify(['old-offer']));
     setActiveScope(W1);
-    expect(isMyOffer('old-offer')).toBe(true);
+    expect(isMyOffer('old-offer')).toBe(false);
     setActiveScope(W2);
-    expect(isMyOffer('old-offer')).toBe(true);
+    expect(isMyOffer('old-offer')).toBe(false);
   });
 
-  test('writing after a migration keeps the legacy bucket', () => {
+  test('the next write replaces the flat array with a bucket store', () => {
     mem.set(KEY, JSON.stringify(['old-offer']));
     setActiveScope(W1);
     addMyOffer('offer-1');
-    expect(stored()).toEqual({ legacy: ['old-offer'], [W1]: ['offer-1'] });
+    expect(stored()).toEqual({ [W1]: ['offer-1'] });
   });
 
-  test('legacy blob keys (pre-offerId builds) keep matching', () => {
+  test('a blob key is a valid key like any other', () => {
     const blob = 'swapoffer1' + 'q'.repeat(64);
-    mem.set(KEY, JSON.stringify([blob]));
     setActiveScope(W1);
+    addMyOffer(blob);
     expect(isMyOffer(blob)).toBe(true);
   });
 });
@@ -123,9 +123,9 @@ describe('isMyOfferIn', () => {
     expect(isMyOfferIn('offer-1', W2)).toBe(false);
   });
 
-  test('null scope still sees legacy', () => {
-    mem.set(KEY, JSON.stringify({ legacy: ['old-offer'] }));
+  test('null scope owns nothing, whatever the active scope is', () => {
+    mem.set(KEY, JSON.stringify({ [W1]: ['offer-1'] }));
     setActiveScope(W1);
-    expect(isMyOfferIn('old-offer', null)).toBe(true);
+    expect(isMyOfferIn('offer-1', null)).toBe(false);
   });
 });

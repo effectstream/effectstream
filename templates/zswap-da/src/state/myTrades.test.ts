@@ -1,7 +1,7 @@
 // The on-device trade log, bucketed per wallet. The "bottom section" of the app
 // used to show wallet A's history to wallet B; these cases pin the isolation,
-// the legacy read-through, and the fact that mutations find whichever bucket
-// holds the record (a legacy row must still be updatable and clearable).
+// the fact that pre-scoping records are discarded rather than migrated (Q-1),
+// and that every mutation stays inside the active wallet's bucket.
 import { beforeEach, describe, expect, test } from 'bun:test';
 import {
   addTrade,
@@ -71,28 +71,27 @@ describe('per-wallet isolation', () => {
   });
 });
 
-describe('legacy records (Q-1 option 1)', () => {
-  test('a pre-scoping flat array is shown to every wallet, tagged', () => {
+// Q-1, resolved by Eddie: no compatibility with the pre-scoping shape.
+describe('pre-scoping records are discarded', () => {
+  test('a pre-scoping flat array is invisible to every wallet', () => {
     mem.set(KEY, JSON.stringify([trade('old')]));
     setActiveScope(W1);
-    const [row] = listTrades();
-    expect(row.id).toBe('old');
-    expect(row.legacy).toBe(true);
+    expect(listTrades()).toEqual([]);
     setActiveScope(W2);
-    expect(listTrades()[0].legacy).toBe(true);
+    expect(listTrades()).toEqual([]);
   });
 
-  test('the wallet\'s own trades come first, legacy after', () => {
+  test('the next write replaces the flat array with a bucket store', () => {
     mem.set(KEY, JSON.stringify([trade('old')]));
     setActiveScope(W1);
     addTrade(trade('mine'));
-    expect(listTrades().map((t) => [t.id, !!t.legacy])).toEqual([['mine', false], ['old', true]]);
+    expect(stored()).toEqual({ [W1]: [trade('mine')] });
   });
 
-  test('no wallet connected → legacy only', () => {
-    mem.set(KEY, JSON.stringify({ [W1]: [trade('t1')], legacy: [trade('old')] }));
+  test('no wallet connected → an empty log, not another bucket\'s', () => {
+    mem.set(KEY, JSON.stringify({ [W1]: [trade('t1')] }));
     setActiveScope(null);
-    expect(listTrades().map((t) => t.id)).toEqual(['old']);
+    expect(listTrades()).toEqual([]);
   });
 
   test('with no wallet, a trade is not recorded into someone else\'s bucket', () => {
@@ -101,20 +100,14 @@ describe('legacy records (Q-1 option 1)', () => {
     expect(mem.has(KEY)).toBe(false);
   });
 
-  test('old status vocabulary is mapped on read', () => {
-    mem.set(KEY, JSON.stringify([{ ...trade('old'), status: 'completed' }]));
+  test('a malformed store degrades to an empty log', () => {
+    mem.set(KEY, '{not json');
     setActiveScope(W1);
-    expect(listTrades()[0].status).toBe('consumed');
-  });
-
-  test('pre-/v1 offerHash is read as offerId', () => {
-    mem.set(KEY, JSON.stringify([{ ...trade('old'), offerHash: 'abc123' }]));
-    setActiveScope(W1);
-    expect(listTrades()[0].offerId).toBe('abc123');
+    expect(listTrades()).toEqual([]);
   });
 });
 
-describe('mutations find the bucket holding the record', () => {
+describe('mutations stay inside the active bucket', () => {
   test('updateTradeStatus works on the active bucket', () => {
     setActiveScope(W1);
     addTrade(trade('t1', 'not_public'));
@@ -122,11 +115,20 @@ describe('mutations find the bucket holding the record', () => {
     expect(listTrades()[0].status).toBe('live');
   });
 
-  test('updateTradeStatus works on a legacy record', () => {
-    mem.set(KEY, JSON.stringify([trade('old', 'live')]));
+  test('updateTradeStatus never reaches another wallet\'s record', () => {
+    mem.set(KEY, JSON.stringify({ [W1]: [trade('t1')], [W2]: [trade('t2', 'live')] }));
     setActiveScope(W1);
-    updateTradeStatus('old', 'consumed');
-    expect(stored().legacy[0].status).toBe('consumed');
+    updateTradeStatus('t2', 'consumed');
+    expect(stored()[W2][0].status).toBe('live');
+  });
+
+  test('with no wallet, mutations are no-ops', () => {
+    mem.set(KEY, JSON.stringify({ [W1]: [trade('t1', 'live')] }));
+    setActiveScope(null);
+    updateTradeStatus('t1', 'consumed');
+    removeTrade('t1');
+    clearTrades();
+    expect(stored()).toEqual({ [W1]: [trade('t1', 'live')] });
   });
 
   test('an unknown id is a no-op', () => {
@@ -146,8 +148,8 @@ describe('mutations find the bucket holding the record', () => {
 });
 
 describe('clearTrades', () => {
-  test('clears what the user can see — active + legacy — and nothing else', () => {
-    mem.set(KEY, JSON.stringify({ [W1]: [trade('t1')], [W2]: [trade('t2')], legacy: [trade('old')] }));
+  test('clears what the user can see — this wallet — and nothing else', () => {
+    mem.set(KEY, JSON.stringify({ [W1]: [trade('t1')], [W2]: [trade('t2')] }));
     setActiveScope(W1);
     clearTrades();
     expect(stored()).toEqual({ [W2]: [trade('t2')] });

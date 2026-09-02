@@ -7,17 +7,17 @@
 //
 // The fix is a scope level in the stored JSON:
 //
-//   { "preprod::mn_shield-addr_…": [...], "undeployed::a1b2…": [...], "legacy": [...] }
+//   { "preprod::mn_shield-addr_…": [...], "undeployed::a1b2…": [...] }
 //
 // The scope is `<networkId>::<shieldedAddress>` — the network matters because the
 // same wallet on preprod and undeployed holds different coins and different
-// offers. Records written before scoping cannot be attributed to any wallet, so
-// they migrate once into the `legacy` bucket, which every wallet still reads
-// (Q-1 option 1: no data loss; the own-offer decision dialog of (B) turns a
-// misattributed legacy record into a confirmable choice, not a dead end).
-
-/** Bucket for records written before wallet scoping existed. Read by everyone. */
-export const LEGACY_SCOPE = 'legacy';
+// offers.
+//
+// There is no compatibility path for the pre-scoping flat arrays: the app is
+// alpha, and a wallet-less record cannot be attributed to a wallet without
+// guessing. A stored value that is not a bucket object is read as an empty store
+// and overwritten by the next write (Q-1, resolved by Eddie: breaking change
+// accepted).
 
 /**
  * The storage scope for a connected wallet, or `null` when no wallet is
@@ -31,16 +31,15 @@ export function buildScope(
   return `${networkId}::${shieldedAddress}`;
 }
 
-/** The on-disk shape after migration: one bucket per scope. */
+/** The on-disk shape: one bucket per scope. */
 export type Buckets<T> = Record<string, T[]>;
 
 /**
- * Read a scoped store from localStorage, migrating the pre-scoping shape.
+ * Read a scoped store from localStorage.
  *
- * A flat array is what every build before this one wrote; it becomes the
- * `legacy` bucket. Anything unreadable (absent, malformed, wrong type) degrades
- * to an empty store rather than throwing — these records are a convenience log,
- * never a correctness input.
+ * Anything that is not a bucket object — absent, malformed, or the flat array
+ * older builds wrote — degrades to an empty store rather than throwing. These
+ * records are a convenience log, never a correctness input.
  */
 export function readBuckets<T>(key: string): Buckets<T> {
   let raw: unknown;
@@ -51,10 +50,8 @@ export function readBuckets<T>(key: string): Buckets<T> {
   } catch {
     return {};
   }
-  // Pre-scoping flat array → the legacy bucket. Migration is lazy (on first
-  // read) and idempotent: once written back, the value is already an object.
-  if (Array.isArray(raw)) return { [LEGACY_SCOPE]: raw as T[] };
-  if (!raw || typeof raw !== 'object') return {};
+  // An array is the pre-scoping shape. It is discarded, not migrated.
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const out: Buckets<T> = {};
   for (const [scope, value] of Object.entries(raw as Record<string, unknown>)) {
     if (Array.isArray(value)) out[scope] = value as T[];
