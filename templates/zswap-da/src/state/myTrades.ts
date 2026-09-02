@@ -1,19 +1,15 @@
-// Local trade log — every offer this browser CREATES or TAKES, kept on-device.
+// Local trade log — every offer this WALLET creates or takes, kept on-device.
 // Shielded ZSwaps are secret on-chain, so this client-side record is the only
 // durable history of them (cleared = unrecoverable, surfaced in the UI). Keyed
 // by a local id; the `blob` is the real bech32m offer for export/re-share.
+//
+// Bucketed per `<networkId>::<shieldedAddress>` (see scope.ts) — one browser can
+// hold several wallets, and an unscoped log showed wallet A's history to wallet
+// B. Records written before scoping are discarded, not migrated (Q-1).
+
+import { bucketOf, readBuckets, writeBuckets, type Buckets } from './scope';
 
 export type MyTradeStatus = 'not_public' | 'live' | 'consumed' | 'cancelled' | 'expired';
-
-/** Pre-/v1 records used the old vocabulary; map them on read. */
-const LEGACY_STATUS: Record<string, MyTradeStatus> = {
-  open: 'live',
-  completed: 'consumed',
-  // The old 'cancelled' was a local "user abandoned this" marker that was never
-  // actually written by any code path. The name now means something specific
-  // and server-authoritative, so any stray value maps onto the closest state.
-  cancelled: 'cancelled',
-};
 
 export interface TradeLeg { sym: string; amt: number }
 export interface MyTrade {
@@ -39,35 +35,41 @@ export interface MyTrade {
 }
 
 const KEY = 'zswap-da:my-trades';
-let cache: MyTrade[] | null = null;
+
+let activeScope: string | null = null;
+let cache: Buckets<MyTrade> | null = null;
 const subs = new Set<() => void>();
 
-function read(): MyTrade[] {
-  if (cache) return cache;
-  try {
-    const raw = JSON.parse(localStorage.getItem(KEY) || '[]') as (MyTrade & { offerHash?: string })[];
-    cache = raw.map((t) => ({
-      ...t,
-      status: LEGACY_STATUS[t.status as string] ?? t.status,
-      // Pre-/v1 records stored the content hash as `offerHash`; it is the same
-      // value, renamed to match the wire.
-      offerId: t.offerId ?? t.offerHash,
-    }));
-  } catch {
-    cache = [];
-  }
-  return cache!;
+// No read-time normalization: the bucketed shape is only ever written by this
+// build, so the old status vocabulary (`open`/`completed`) and the old
+// `offerHash` field can no longer appear in a bucket. Both lived in the flat
+// pre-scoping arrays, which are now discarded on read (see scope.ts).
+function all(): Buckets<MyTrade> {
+  if (!cache) cache = readBuckets<MyTrade>(KEY);
+  return cache;
 }
-function write(list: MyTrade[]): void {
-  cache = list;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-  } catch { /* ignore quota */ }
+
+function persist(next: Buckets<MyTrade>): void {
+  cache = next;
+  writeBuckets(KEY, next);
   subs.forEach((f) => f());
 }
 
+/**
+ * Point the log at the connected wallet's bucket (`null` = no wallet, so the log
+ * is empty). Drops the cache and notifies subscribers, because switching wallets
+ * changes what `listTrades()` returns just as much as a write.
+ */
+export function setActiveScope(scope: string | null): void {
+  const changed = scope !== activeScope;
+  activeScope = scope;
+  cache = null;
+  if (changed) subs.forEach((f) => f());
+}
+
+/** The connected wallet's trades, newest first. Empty with no wallet. */
 export function listTrades(): MyTrade[] {
-  return read();
+  return [...bucketOf(all(), activeScope)];
 }
 
 export function addTrade(t: Omit<MyTrade, 'id' | 'at'> & { id?: string; at?: number }): MyTrade {
@@ -82,26 +84,52 @@ export function addTrade(t: Omit<MyTrade, 'id' | 'at'> & { id?: string; at?: num
     blob: t.blob,
     offerId: t.offerId,
   };
-  write([rec, ...read()]);
+  // No wallet ⇒ no bucket. Callers only get here after a transaction the wallet
+  // signed, so this means the wallet went away mid-flow: warn, hand back the
+  // record (so the caller's flow completes) and drop it.
+  if (!activeScope) {
+    console.warn('[my-trades] no wallet connected — not recording trade', rec.id);
+    return rec;
+  }
+  const buckets = all();
+  persist({ ...buckets, [activeScope]: [rec, ...bucketOf(buckets, activeScope)] });
   return rec;
 }
 
+// Mutations only ever touch the ACTIVE bucket: `listTrades()` is the only way a
+// record reaches the UI, so an id the user can act on is always this wallet's.
+// Searching every bucket would let one wallet rewrite another's history.
+
 export function updateTradeStatus(id: string, status: MyTrade['status']): void {
-  const list = read();
+  if (!activeScope) return;
+  const buckets = all();
+  const list = bucketOf(buckets, activeScope);
   let changed = false;
   const next = list.map((t) => {
     if (t.id === id && t.status !== status) { changed = true; return { ...t, status }; }
     return t;
   });
-  if (changed) write(next);
+  if (changed) persist({ ...buckets, [activeScope]: next });
 }
 
 export function removeTrade(id: string): void {
-  write(read().filter((t) => t.id !== id));
+  if (!activeScope) return;
+  const buckets = all();
+  const list = bucketOf(buckets, activeScope);
+  if (!list.some((t) => t.id === id)) return;
+  persist({ ...buckets, [activeScope]: list.filter((t) => t.id !== id) });
 }
 
+/**
+ * "Clear all" clears what the user can SEE: this wallet's records. Other
+ * wallets' buckets are left alone — clearing them from here would be destroying
+ * history the user isn't looking at.
+ */
 export function clearTrades(): void {
-  write([]);
+  if (!activeScope) return;
+  const next = { ...all() };
+  delete next[activeScope];
+  persist(next);
 }
 
 export function subscribeTrades(fn: () => void): () => void {

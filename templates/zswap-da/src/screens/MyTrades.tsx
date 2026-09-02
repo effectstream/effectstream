@@ -128,6 +128,15 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
     </div>
   );
 
+  // The log is per wallet, so with none connected this list can only be the
+  // unattributable pre-scoping records — otherwise "no trades yet" reads as
+  // data loss to someone who posted offers a minute ago with a wallet.
+  const scopeHint = !st.walletScope ? (
+    <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.5, marginBottom: 10 }}>
+      Trades are kept per wallet — connect a wallet to see its trades.
+    </div>
+  ) : null;
+
   const tableCard = (
     <div className="zs-card" style={compact ? { padding: '8px 6px 6px', maxHeight: 380, overflowY: 'auto' } : { padding: '16px 8px 8px' }}>
       {rows.length === 0 ? (
@@ -157,7 +166,7 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
                         <div className="zs-num" style={{ fontSize: 12.5, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>{d.toISOString().slice(0, 10)}</div>
                         <div className="zs-num" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{d.toTimeString().slice(0, 8)}</div>
                       </td>
-                      <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><StatusBadge status={t.status} />{t.shielded && <Icon.shield style={{ color: 'var(--accent)' }} />}</div></td>
+                      <td><div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><StatusBadge status={t.status} />{t.shielded && <Icon.shield style={{ color: 'var(--accent)' }} />}</div></td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: 6 }}>
                           <button onClick={() => setViewing(t)} title="View offer file" className="zs-btn" style={{ padding: '6px 11px', fontSize: 12.5 }} disabled={!t.blob}>View</button>
@@ -235,6 +244,7 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
           {filterSeg}
           {actions}
         </div>
+        {scopeHint}
         {tableCard}
         {modals}
       </div>
@@ -260,6 +270,7 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
 
       <div style={{ marginBottom: 16 }}>{filterSeg}</div>
 
+      {scopeHint}
       {tableCard}
       {modals}
     </div>

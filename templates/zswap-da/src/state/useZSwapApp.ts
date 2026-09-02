@@ -22,17 +22,42 @@ import { type OfferLeg } from '../services/makerOffer';
 import { makeInjectedTradeWallet, makeLocalTradeWallet, type TradeWallet } from './tradeWallet';
 import { injectedContractWallet, localContractWallet, type ContractWallet } from '../services/contractWallet';
 import { api } from '../services/api';
-import { addMyOffer } from './myOffers';
+import { addMyOffer, isMyOfferIn, setActiveScope as setMyOffersScope } from './myOffers';
 import type { ConfirmPayload } from '../ui/ConfirmModal';
+import type { DecisionOption, DecisionPayload } from '../ui/DecisionModal';
+import {
+  applyOwnOfferChoice,
+  decideOwnOffers,
+  ownOfferChoiceLabel,
+  partitionOwn,
+  type OwnOfferDecision,
+  type OwnOfferSplit,
+} from '../services/ownOffers';
 import { fmtAmt } from './format';
-import { addTrade, clearTrades, listTrades, removeTrade, subscribeTrades, updateTradeStatus, type MyTrade } from './myTrades';
+import {
+  addTrade,
+  clearTrades,
+  listTrades,
+  removeTrade,
+  setActiveScope as setMyTradesScope,
+  subscribeTrades,
+  updateTradeStatus,
+  type MyTrade,
+} from './myTrades';
+import { buildScope } from './scope';
 import { parseTakerLegs } from '../services/offerParse';
 import { isOwnOffer, parseOfferSender, unshieldedAddressToHex } from '../services/offerSender';
-import { isMyOffer } from './myOffers';
 import { findTokenName, shortToken } from '../utils';
 import { log } from '../lib/log';
 import { dlog, timed } from '../debug';
-import { takerShortfalls, shortfallsFromLegs, shortfallMessage, batchTakerShortfalls, affordableIndices } from '../services/takerBalance';
+import { takerShortfalls, shortfallsFromLegs, shortfallMessage, batchTakerShortfalls } from '../services/takerBalance';
+import {
+  affordableSelection,
+  defaultSelection,
+  summarize,
+  type SelectableOffer,
+  type TakeSummary,
+} from '../services/takeSelection';
 import type { KnownToken, OfferStatus, ZSwapOffer } from '../types';
 
 const NETWORK_ID = (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string) || 'undeployed';
@@ -181,6 +206,10 @@ export interface ZSwapApp {
   takeOffer: (blob: string) => Promise<void>;
   // shared take-confirm dialog (driven by any screen, rendered once in App)
   pendingConfirm: ConfirmPayload | null;
+  /** Shared question dialog (own offers). Rendered once in App, next to the
+   *  confirm dialog; answering it continues or abandons the take. */
+  pendingDecision: DecisionPayload | null;
+  closeDecision: () => void;
   /** Async: the offer's blob is fetched on selection (the book is blob-free). */
   requestTake: (o: Order) => Promise<void>;
   requestTakeMany: (orders: Order[]) => Promise<void>;
@@ -193,6 +222,9 @@ export interface ZSwapApp {
   closeConfirm: () => void;
   // my trades — local, on-device log of created/taken offers
   myTrades: MyTrade[];
+  /** Storage scope of the connected wallet (`<networkId>::<shieldedAddress>`),
+   *  or null with no wallet — nothing is then "mine" and the trade log is empty. */
+  walletScope: string | null;
   clearTrade: (id: string) => void;
   clearAllTrades: () => void;
   importOffer: (blob: string) => Promise<void>;
@@ -225,6 +257,20 @@ export function useZSwapApp(): ZSwapApp {
   const [mintTick, setMintTick] = useState(0);
   const [myTrades, setMyTrades] = useState<MyTrade[]>(() => listTrades());
   useEffect(() => subscribeTrades(() => setMyTrades([...listTrades()])), []);
+
+  // The on-device records belong to a WALLET on a NETWORK, not to the browser:
+  // two wallets in one browser used to share one bucket, so wallet B inherited
+  // wallet A's offers as "mine" and could never take them (issue 00003).
+  // `null` = no wallet ⇒ nothing is mine and writes are refused (see scope.ts).
+  //
+  // Declared AFTER the subscription above so that on mount the subscriber is
+  // already registered when the scope is installed and fires it.
+  const walletScope = useMemo(() => buildScope(NETWORK_ID, wstate?.shieldedAddress), [wstate?.shieldedAddress]);
+  useEffect(() => {
+    setMyOffersScope(walletScope);
+    // Notifies subscribeTrades, which re-reads the log for the new wallet.
+    setMyTradesScope(walletScope);
+  }, [walletScope]);
 
   // The active wallet's transaction capability (mint/create/take). Injected
   // (Lace) goes through the dapp-connector; local (JS facade) through the
@@ -314,8 +360,9 @@ export function useZSwapApp(): ZSwapApp {
   // keep them non-takeable.
   //
   // Ownership: shielded offers are anonymous on-chain, so the primary signal is
-  // a local record of what this browser created — now keyed by offerId, which
-  // is what the blob-free list carries. The unshielded-sender match needs the
+  // a local record of what the CONNECTED WALLET created (plus the unattributable
+  // pre-scoping records) — keyed by offerId, which is what the blob-free list
+  // carries. The unshielded-sender match needs the
   // blob, so it can only run for offers whose blob we've already fetched; the
   // authoritative check happens at selection time in requestTake(), where the
   // blob is always loaded.
@@ -325,14 +372,15 @@ export function useZSwapApp(): ZSwapApp {
         const order = toOrder(o, knownTokens);
         if (!order) return null;
         const blob = order.offerId ? blobById[order.offerId] : undefined;
-        let mine = isMyOffer(order.offerId) || isMyOffer(blob);
+        let mine = isMyOfferIn(order.offerId, walletScope) || isMyOfferIn(blob, walletScope);
         if (!mine && selfUnshieldedHex && blob) {
           mine = isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex);
         }
         return { ...order, blob, isMine: mine };
       })
       .filter((o): o is Order => o !== null);
-  }, [zapi.offers, knownTokens, selfUnshieldedHex, blobById]);
+    // `walletScope` is a real input here: switching wallets changes who owns what.
+  }, [zapi.offers, knownTokens, selfUnshieldedHex, blobById, walletScope]);
 
   const toast = useCallback((msg: string, kind?: 'ok' | string) => {
     const id = Math.random().toString(36).slice(2);
@@ -600,10 +648,161 @@ export function useZSwapApp(): ZSwapApp {
   );
 
   const [pendingConfirm, setPendingConfirm] = useState<ConfirmPayload | null>(null);
+  const [pendingDecision, setPendingDecision] = useState<DecisionPayload | null>(null);
+  const closeDecision = useCallback(() => setPendingDecision(null), []);
+
+  // A wallet disconnect must not leave a take dialog behind. Settlement already
+  // refuses without a wallet (`requireWallet` throws and the error lands in the
+  // dialog), so nothing could ever settle after a disconnect — this is the
+  // visible half of the same guarantee: the stale question closes instead of
+  // waiting to fail.
+  //
+  // Deliberately edge-triggered on connected → disconnected: a level-triggered
+  // "close whenever there is no wallet" would also shut a dialog that was opened
+  // while disconnected, and would fire during the connect handshake (`connected`
+  // is set before `readState` fills `wstate`).
+  const hadWallet = useRef(false);
+  useEffect(() => {
+    const has = !!connected && !!wstate;
+    if (hadWallet.current && !has) {
+      setPendingConfirm(null);
+      setPendingDecision(null);
+    }
+    hadWallet.current = has;
+  }, [connected, wstate]);
+
   // Selecting an offer now costs a GET /v1/offers/:offerId per offer. Expose that
   // as a pending flag so the screens can disable their take controls instead of
   // appearing frozen between click and confirm dialog.
   const [takePreparing, setTakePreparing] = useState(false);
+
+  /**
+   * Ask about the own offers in a selection, then continue with whatever the
+   * user picked. Taking your own offer is legal on-chain, so this is the whole
+   * of the enforcement: a question, never a block — and never the connect modal,
+   * which is what this used to do (issue 00003).
+   *
+   * Cancel — and dismissing the dialog — settle nothing.
+   */
+  const askOwnOffers = useCallback(
+    <T,>(split: OwnOfferSplit<T>, decision: OwnOfferDecision, proceed: (chosen: T[]) => void) => {
+      // Cancel first, mirroring the confirm dialog's button order; the
+      // continue-with-everything option is the accented one on the right.
+      const options: DecisionOption[] = [{ label: 'Cancel', onPick: () => {} }];
+      for (const choice of decision.choices) {
+        if (choice === 'cancel') continue;
+        options.push({
+          label: ownOfferChoiceLabel(choice, decision),
+          kind: choice === 'take-all' ? 'primary' : 'plain',
+          onPick: () => {
+            const chosen = applyOwnOfferChoice(split, choice);
+            if (chosen) proceed(chosen);
+          },
+        });
+      }
+      setPendingDecision({
+        title: decision.kind === 'mixed' ? 'Some offers are yours' : 'Your own offer',
+        body: decision.message ?? '',
+        options,
+      });
+    },
+    [],
+  );
+
+  /** True when this offer belongs to the connected wallet: the on-device record
+   *  (the only signal a shielded offer has) or the blob's unshielded sender. */
+  const ownsOffer = useCallback(
+    (o: Order, blob: string): boolean =>
+      o.isMine ||
+      (!!selfUnshieldedHex && isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex)),
+    [selfUnshieldedHex],
+  );
+
+  /**
+   * Open the take-confirm dialog for a resolved selection. Split out of
+   * `requestTakeMany` because the own-offer question sits in front of it: the
+   * dialog is opened from the question's answer, not from the click.
+   */
+  const openTakeConfirm = useCallback(
+    (takeable: (Order & { blob: string })[]) => {
+      const n = takeable.length;
+      if (n === 0) return;
+      const balances = { shielded: wstate?.shieldedBalances, unshielded: wstate?.unshieldedBalances };
+      // One selectable row per offer: display amounts come from the book, the
+      // exact legs from the blob — the balance maths must never run on the
+      // display floats.
+      const items: SelectableOffer[] = takeable.map((o) => ({
+        id: o.offerId ?? o.blob,
+        pay: { sym: o.to, amt: o.amtTo },
+        receive: { sym: o.from, amt: o.amtFrom },
+        pays: parseTakerLegs(o.blob, NETWORK_ID as any)?.pays ?? [],
+        // The user may have chosen to include their own offers a dialog ago;
+        // keep saying which ones they are.
+        mine: ownsOffer(o, o.blob),
+      }));
+      const orderById = new Map(items.map((it, i) => [it.id, takeable[i]]));
+      // Affordability is an AGGREGATE property: each offer can look affordable
+      // on its own while the batch overspends, so this is the best-price-first
+      // prefix that fits, not a per-row test.
+      const affordable = new Set(affordableSelection(items, balances));
+      const checkedByDefault = new Set(defaultSelection(items, balances));
+      const initial = summarize(items, checkedByDefault, balances, knownTokens);
+      const toView = (s: TakeSummary) => ({
+        pay: { sym: s.pay.sym, amt: fmtAmt(s.pay.amt) },
+        receive: { sym: s.receive.sym, amt: fmtAmt(s.receive.amt) },
+        blocked: s.blocked ?? undefined,
+        cta: s.cta,
+      });
+
+      // Settle exactly what the dialog had checked, as ONE transaction. Taking
+      // them one at a time re-spent the taker's coin from wallet state that
+      // hadn't seen the previous take, so the node rejected every offer after
+      // the first with `Zswap(NullifierAlreadyPresent)`.
+      //
+      // History stays per offer — the UI's unit is the offer even though the
+      // chain's unit is now a single settlement — and nothing is recorded unless
+      // that settlement succeeded, so a failed batch leaves no phantom trades.
+      // No "all" fallback for an empty id list: the ids ARE the user's answer,
+      // and an empty answer settles nothing. Falling back to the whole selection
+      // would put offers on chain that the dialog showed as unchecked.
+      const settle = async (ids: string[]) => {
+        const chosen = ids
+          .map((id) => orderById.get(id))
+          .filter((o): o is Order & { blob: string } => !!o);
+        if (chosen.length === 0) return;
+        await takeOffers(chosen.map((o) => o.blob));
+        for (const o of chosen) {
+          addTrade({
+            kind: 'take',
+            give: { sym: o.to, amt: o.amtTo },
+            get: { sym: o.from, amt: o.amtFrom },
+            status: 'consumed',
+            shielded: false,
+            blob: o.blob,
+            offerId: o.offerId ?? undefined,
+          });
+        }
+      };
+
+      setPendingConfirm({
+        // The title states what was selected; the CTA below tracks what is
+        // currently checked.
+        title: n > 1 ? `Take ${n} offers` : 'Take offer',
+        ...toView(initial),
+        items: items.map((it) => ({
+          id: it.id,
+          pay: `${fmtAmt(it.pay.amt)} ${it.pay.sym}`,
+          receive: `${fmtAmt(it.receive.amt)} ${it.receive.sym}`,
+          ok: affordable.has(it.id),
+          mine: it.mine,
+          checked: checkedByDefault.has(it.id),
+        })),
+        assess: (ids) => toView(summarize(items, ids, balances, knownTokens)),
+        onConfirm: settle,
+      });
+    },
+    [takeOffers, wstate, knownTokens, ownsOffer],
+  );
   const requestTake = useCallback(
     async (o: Order) => {
       if (!o.offerId) {
@@ -626,53 +825,53 @@ export function useZSwapApp(): ZSwapApp {
         zapi.fetchOffers();
         return;
       }
-      // The list can't tell whether an unshielded offer is ours (that needs the
-      // blob). Now that we have it, check before letting the user take it.
-      if (selfUnshieldedHex && isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex)) {
-        toast("That's your own offer — you can't take it.");
-        return;
-      }
       // Taker pays what the order WANTS (o.to / amtTo) and receives what it
       // GIVES (o.from / amtFrom).
-      setPendingConfirm({
-        title: 'Take offer',
-        pay: { sym: o.to, amt: fmtAmt(o.amtTo) },
-        receive: { sym: o.from, amt: fmtAmt(o.amtFrom) },
-        cta: 'Take offer',
-        blocked: takerShortfall(blob) ?? undefined,
-        onConfirm: async () => {
-          await takeOffer(blob);
-          addTrade({
-            kind: 'take',
-            give: { sym: o.to, amt: o.amtTo },
-            get: { sym: o.from, amt: o.amtFrom },
-            status: 'consumed',
-            shielded: false,
-            blob,
-            offerId: o.offerId ?? undefined,
-          });
-        },
-      });
+      const b = blob;
+      const open = () =>
+        setPendingConfirm({
+          title: 'Take offer',
+          pay: { sym: o.to, amt: fmtAmt(o.amtTo) },
+          receive: { sym: o.from, amt: fmtAmt(o.amtFrom) },
+          cta: 'Take offer',
+          blocked: takerShortfall(b) ?? undefined,
+          onConfirm: async () => {
+            await takeOffer(b);
+            addTrade({
+              kind: 'take',
+              give: { sym: o.to, amt: o.amtTo },
+              get: { sym: o.from, amt: o.amtFrom },
+              status: 'consumed',
+              shielded: false,
+              blob: b,
+              offerId: o.offerId ?? undefined,
+            });
+          },
+        });
+      // Own offer? The list can't tell for an unshielded offer (that needs the
+      // blob) — now that we have it, ask instead of refusing with a toast.
+      const split = partitionOwn([o], () => ownsOffer(o, b));
+      const decision = decideOwnOffers(split);
+      if (decision.kind === 'none') { open(); return; }
+      askOwnOffers(split, decision, open);
     },
-    [toast, takeOffer, takerShortfall, loadOfferBlob, selfUnshieldedHex, zapi],
+    [toast, takeOffer, takerShortfall, loadOfferBlob, ownsOffer, askOwnOffers, zapi],
   );
 
-  // Take one or more order-book offers in a single confirm dialog. Filters out
-  // your own offers (you can't take them) and blobs we can't settle; aggregates
-  // the pay/receive across the selection; settles the whole selection as one
-  // transaction via the batcher.
+  // Take one or more order-book offers in a single confirm dialog. Drops blobs
+  // we can't settle, asks about the ones that are yours, aggregates the
+  // pay/receive across what's left and settles it as one transaction.
   const requestTakeMany = useCallback(
     async (orders: Order[]) => {
       if (!tradeWallet?.canTrade) {
         toast('Use the browser wallet (Lace) to take offers.');
         return;
       }
-      const candidates = orders.filter((o) => !o.isMine && o.offerId);
+      // Own offers deliberately stay IN the candidate set: they are a question
+      // for the user further down, not a reason to redirect to the connect
+      // modal — which is exactly what this used to do, silently (issue 00003).
+      const candidates = orders.filter((o) => o.offerId);
       if (candidates.length === 0) {
-        if (orders.some((o) => o.isMine)) {
-          setConnectOpen(true);
-          return;
-        }
         toast(
           orders.some((o) => !o.offerId)
             ? 'These offers predate content addressing and can no longer be taken.'
@@ -699,10 +898,6 @@ export function useZSwapApp(): ZSwapApp {
       const isReal = (b: string | null) => !!b && /^swapoffer1/i.test(b);
       const takeable = resolved
         .filter((r): r is { o: Order; blob: string } => isReal(r.blob))
-        // The list can't detect unshielded ownership without the blob; now that
-        // we have it, drop anything that turns out to be ours.
-        .filter(({ blob }) =>
-          !selfUnshieldedHex || !isOwnOffer(parseOfferSender(blob, NETWORK_ID as any), selfUnshieldedHex))
         .map(({ o, blob }) => ({ ...o, blob }));
 
       if (takeable.length === 0) {
@@ -717,74 +912,14 @@ export function useZSwapApp(): ZSwapApp {
         if (vanished) zapi.fetchOffers();
         return;
       }
-      const n = takeable.length;
-      const payAmt = takeable.reduce((s, o) => s + o.amtTo, 0);
-      const recvAmt = takeable.reduce((s, o) => s + o.amtFrom, 0);
-      // Settle the whole selection as ONE transaction. This used to loop
-      // `takeOffer` per offer, which re-spent the taker's coin from wallet state
-      // that hadn't seen the previous take, so the node rejected every offer
-      // after the first with `Zswap(NullifierAlreadyPresent)`.
-      //
-      // History stays per offer — the UI's unit is the offer even though the
-      // chain's unit is now a single settlement — and nothing is recorded unless
-      // that settlement succeeded, so a failed batch leaves no phantom trades.
-      const settle = (orders: (Order & { blob: string })[]) => async () => {
-        await takeOffers(orders.map((o) => o.blob));
-        for (const o of orders) {
-          addTrade({
-            kind: 'take',
-            give: { sym: o.to, amt: o.amtTo },
-            get: { sym: o.from, amt: o.amtFrom },
-            status: 'consumed',
-            shielded: false,
-            blob: o.blob,
-            offerId: o.offerId ?? undefined,
-          });
-        }
-      };
-      // Block on the AGGREGATE cost — checking each offer against the full
-      // balance would pass a batch that only overspends in sum. When the whole
-      // batch is short, compute the affordable prefix (best-priced first) so the
-      // user can take part instead of nothing.
-      const blocked = shortfallMessage(
-        batchTakerShortfalls(
-          takeable.map((o) => o.blob),
-          wstate?.shieldedBalances,
-          wstate?.unshieldedBalances,
-          NETWORK_ID as any,
-          knownTokens,
-        ),
-      ) ?? undefined;
-      const okIdx = blocked
-        ? new Set(
-            affordableIndices(
-              takeable.map((o) => parseTakerLegs(o.blob, NETWORK_ID as any)?.pays ?? []),
-              wstate?.shieldedBalances,
-              wstate?.unshieldedBalances,
-            ),
-          )
-        : null;
-      const affordable = okIdx ? takeable.filter((_, i) => okIdx.has(i)) : takeable;
-      setPendingConfirm({
-        title: n > 1 ? `Take ${n} offers` : 'Take offer',
-        pay: { sym: takeable[0].to, amt: fmtAmt(payAmt) },
-        receive: { sym: takeable[0].from, amt: fmtAmt(recvAmt) },
-        cta: n > 1 ? `Take ${n} offers` : 'Take offer',
-        blocked,
-        items: n > 1
-          ? takeable.map((o, i) => ({
-              pay: `${fmtAmt(o.amtTo)} ${o.to}`,
-              receive: `${fmtAmt(o.amtFrom)} ${o.from}`,
-              ok: okIdx ? okIdx.has(i) : true,
-            }))
-          : undefined,
-        partial: blocked && affordable.length > 0
-          ? { cta: `Take affordable ${affordable.length} of ${n}`, onConfirm: settle(affordable) }
-          : undefined,
-        onConfirm: settle(takeable),
-      });
+      // Ownership is only fully knowable now: the local record covers shielded
+      // offers, the unshielded-sender match needs the blob we just fetched.
+      const split = partitionOwn(takeable, (o) => ownsOffer(o, o.blob));
+      const decision = decideOwnOffers(split);
+      if (decision.kind === 'none') { openTakeConfirm(takeable); return; }
+      askOwnOffers(split, decision, openTakeConfirm);
     },
-    [toast, takeOffers, tradeWallet, wstate, knownTokens, loadOfferBlob, selfUnshieldedHex, zapi],
+    [toast, tradeWallet, loadOfferBlob, ownsOffer, askOwnOffers, openTakeConfirm, zapi],
   );
   const closeConfirm = useCallback(() => setPendingConfirm(null), []);
 
@@ -953,12 +1088,15 @@ export function useZSwapApp(): ZSwapApp {
     createOffer,
     takeOffer,
     pendingConfirm,
+    pendingDecision,
+    closeDecision,
     requestTake,
     requestTakeMany,
     takePreparing,
     takerShortfall,
     closeConfirm,
     myTrades,
+    walletScope,
     clearTrade,
     clearAllTrades,
     importOffer,

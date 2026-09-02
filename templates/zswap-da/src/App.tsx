@@ -17,6 +17,7 @@ import { Market } from './screens/Market';
 import { Faucet } from './screens/Faucet';
 import { HowItWorks } from './screens/HowItWorks';
 import { ConfirmModal } from './ui/ConfirmModal';
+import { DecisionModal } from './ui/DecisionModal';
 // Place Order + My trades live in the bottom console dock, not in the top nav.
 type PageId = 'market' | 'how' | 'faucet';
 
@@ -107,6 +108,9 @@ export default function App() {
         onPickLocal={st.connectLocalWallet}
       />
       <ConfirmModal payload={st.pendingConfirm} onClose={st.closeConfirm} />
+      {/* Asked BEFORE the confirm dialog when a selection contains your own
+          offers — answering it opens the confirm dialog (or settles nothing). */}
+      <DecisionModal payload={st.pendingDecision} onClose={st.closeDecision} />
       <Toasts items={st.toasts} />
     </div>
   );
