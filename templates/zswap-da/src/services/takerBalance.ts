@@ -78,17 +78,15 @@ export function takerShortfalls(
 }
 
 /**
- * Sum the `pays` legs across many offer blobs into one leg per (kind, color).
- * Undecodable blobs are skipped. Used to check a whole batch against the wallet
- * in a single comparison — checking each offer against the full balance would
- * wrongly pass a batch that only overspends in aggregate.
+ * Sum per-offer `pays` legs into one leg per (kind, color). Used to check a
+ * whole batch against the wallet in a single comparison — checking each offer
+ * against the full balance would wrongly pass a batch that only overspends in
+ * aggregate.
  */
-export function aggregatePays(blobs: string[], networkId: NetworkId): ParsedLeg[] {
+export function sumLegs(perOffer: ParsedLeg[][]): ParsedLeg[] {
   const need = new Map<string, ParsedLeg>();
-  for (const blob of blobs) {
-    const parsed = parseTakerLegs(blob, networkId);
-    if (!parsed) continue;
-    for (const leg of parsed.pays) {
+  for (const legs of perOffer) {
+    for (const leg of legs) {
       const key = `${leg.kind}:${leg.color}`;
       const cur = need.get(key);
       if (cur) cur.amount += leg.amount;
@@ -96,6 +94,14 @@ export function aggregatePays(blobs: string[], networkId: NetworkId): ParsedLeg[
     }
   }
   return [...need.values()];
+}
+
+/**
+ * {@link sumLegs} over offer blobs. Undecodable blobs contribute nothing — the
+ * settle path surfaces them, this check must not invent a cost for them.
+ */
+export function aggregatePays(blobs: string[], networkId: NetworkId): ParsedLeg[] {
+  return sumLegs(blobs.map((blob) => parseTakerLegs(blob, networkId)?.pays ?? []));
 }
 
 /** Aggregate `pays` across a batch of blobs, then return the uncovered legs. */
@@ -113,8 +119,10 @@ export function batchTakerShortfalls(
  * Greedily pick the offers (by their `pays` legs, in the given order — the book
  * is already best-price-first) the wallet can afford when their cost accumulates.
  * An offer is included only if adding it keeps EVERY (kind, color) within balance.
- * Conservative: sums pays, ignores receives — settle is sequential, so an earlier
- * offer can't be assumed funded by a later one. Returns the indices to take.
+ * Conservative: sums pays, ignores receives. The taker's balancing side is built
+ * by coin selection over the wallet's own state, so what an offer in the batch
+ * pays out to the taker cannot fund another offer in the same settlement.
+ * Returns the indices to take.
  */
 export function affordableIndices(
   offerPays: ParsedLeg[][],
