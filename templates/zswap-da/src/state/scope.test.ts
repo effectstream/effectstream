@@ -1,7 +1,8 @@
-// Scoped-storage primitives: key format, the one-time migration of pre-scoping
-// flat arrays, and the "never throw on junk" contract the callers rely on.
+// Scoped-storage primitives: key format, the "anything that isn't a bucket
+// object reads as empty" rule that discards the pre-scoping flat arrays, and the
+// "never throw on junk" contract the callers rely on.
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { LEGACY_SCOPE, bucketOf, buildScope, readBuckets, writeBuckets } from './scope';
+import { bucketOf, buildScope, readBuckets, writeBuckets } from './scope';
 
 // Minimal localStorage stand-in — bun's test runtime has no DOM.
 const mem = new Map<string, string>();
@@ -42,20 +43,21 @@ describe('readBuckets', () => {
     expect(readBuckets(KEY)).toEqual({});
   });
 
-  test('pre-scoping flat array migrates into the legacy bucket', () => {
+  // The pre-scoping shape. It is DISCARDED, not migrated: an unscoped record
+  // cannot be attributed to a wallet without guessing, and the app is alpha.
+  test('a pre-scoping flat array reads as empty and is not migrated', () => {
     mem.set(KEY, JSON.stringify(['offer-a', 'offer-b']));
-    expect(readBuckets<string>(KEY)).toEqual({ [LEGACY_SCOPE]: ['offer-a', 'offer-b'] });
+    expect(readBuckets<string>(KEY)).toEqual({});
   });
 
-  test('migration is idempotent once written back', () => {
+  test('the discarded array is simply overwritten by the next write', () => {
     mem.set(KEY, JSON.stringify(['offer-a']));
-    const migrated = readBuckets<string>(KEY);
-    writeBuckets(KEY, migrated);
-    expect(readBuckets<string>(KEY)).toEqual(migrated);
+    writeBuckets(KEY, { ...readBuckets<string>(KEY), 'preprod::w1': ['new'] });
+    expect(readBuckets<string>(KEY)).toEqual({ 'preprod::w1': ['new'] });
   });
 
   test('already-scoped object is read as-is', () => {
-    const stored = { 'preprod::w1': ['a'], 'preprod::w2': ['b'], legacy: ['c'] };
+    const stored = { 'preprod::w1': ['a'], 'preprod::w2': ['b'] };
     mem.set(KEY, JSON.stringify(stored));
     expect(readBuckets<string>(KEY)).toEqual(stored);
   });
@@ -94,8 +96,8 @@ describe('bucketOf', () => {
 
 describe('writeBuckets round-trip', () => {
   test('stores the scoped shape and reads it back', () => {
-    writeBuckets(KEY, { 'preprod::w1': ['a', 'b'], legacy: ['c'] });
-    expect(JSON.parse(mem.get(KEY)!)).toEqual({ 'preprod::w1': ['a', 'b'], legacy: ['c'] });
-    expect(readBuckets<string>(KEY)).toEqual({ 'preprod::w1': ['a', 'b'], legacy: ['c'] });
+    writeBuckets(KEY, { 'preprod::w1': ['a', 'b'], 'preprod::w2': ['c'] });
+    expect(JSON.parse(mem.get(KEY)!)).toEqual({ 'preprod::w1': ['a', 'b'], 'preprod::w2': ['c'] });
+    expect(readBuckets<string>(KEY)).toEqual({ 'preprod::w1': ['a', 'b'], 'preprod::w2': ['c'] });
   });
 });

@@ -5,22 +5,11 @@
 //
 // Bucketed per `<networkId>::<shieldedAddress>` (see scope.ts) — one browser can
 // hold several wallets, and an unscoped log showed wallet A's history to wallet
-// B. Records written before scoping live in the `legacy` bucket: they can't be
-// attributed to a wallet, so they are shown to every wallet, tagged (Q-1).
+// B. Records written before scoping are discarded, not migrated (Q-1).
 
-import { LEGACY_SCOPE, bucketOf, readBuckets, writeBuckets, type Buckets } from './scope';
+import { bucketOf, readBuckets, writeBuckets, type Buckets } from './scope';
 
 export type MyTradeStatus = 'not_public' | 'live' | 'consumed' | 'cancelled' | 'expired';
-
-/** Pre-/v1 records used the old vocabulary; map them on read. */
-const LEGACY_STATUS: Record<string, MyTradeStatus> = {
-  open: 'live',
-  completed: 'consumed',
-  // The old 'cancelled' was a local "user abandoned this" marker that was never
-  // actually written by any code path. The name now means something specific
-  // and server-authoritative, so any stray value maps onto the closest state.
-  cancelled: 'cancelled',
-};
 
 export interface TradeLeg { sym: string; amt: number }
 export interface MyTrade {
@@ -43,9 +32,6 @@ export interface MyTrade {
    *  the key for all subsequent status polling. Absent on records created before
    *  content addressing, which fall back to blob-based status lookup. */
   offerId?: string;
-  /** DERIVED on read, never stored: this record predates wallet scoping, so it
-   *  belongs to "some wallet in this browser" and is shown to all of them. */
-  legacy?: boolean;
 }
 
 const KEY = 'zswap-da:my-trades';
@@ -54,22 +40,12 @@ let activeScope: string | null = null;
 let cache: Buckets<MyTrade> | null = null;
 const subs = new Set<() => void>();
 
-function normalize(t: MyTrade & { offerHash?: string }): MyTrade {
-  return {
-    ...t,
-    status: LEGACY_STATUS[t.status as string] ?? t.status,
-    // Pre-/v1 records stored the content hash as `offerHash`; it is the same
-    // value, renamed to match the wire.
-    offerId: t.offerId ?? t.offerHash,
-  };
-}
-
+// No read-time normalization: the bucketed shape is only ever written by this
+// build, so the old status vocabulary (`open`/`completed`) and the old
+// `offerHash` field can no longer appear in a bucket. Both lived in the flat
+// pre-scoping arrays, which are now discarded on read (see scope.ts).
 function all(): Buckets<MyTrade> {
-  if (cache) return cache;
-  const raw = readBuckets<MyTrade & { offerHash?: string }>(KEY);
-  const out: Buckets<MyTrade> = {};
-  for (const [scope, list] of Object.entries(raw)) out[scope] = list.map(normalize);
-  cache = out;
+  if (!cache) cache = readBuckets<MyTrade>(KEY);
   return cache;
 }
 
@@ -80,9 +56,9 @@ function persist(next: Buckets<MyTrade>): void {
 }
 
 /**
- * Point the log at the connected wallet's bucket (`null` = no wallet, so only
- * legacy records are visible). Drops the cache and notifies subscribers, because
- * switching wallets changes what `listTrades()` returns just as much as a write.
+ * Point the log at the connected wallet's bucket (`null` = no wallet, so the log
+ * is empty). Drops the cache and notifies subscribers, because switching wallets
+ * changes what `listTrades()` returns just as much as a write.
  */
 export function setActiveScope(scope: string | null): void {
   const changed = scope !== activeScope;
@@ -91,15 +67,9 @@ export function setActiveScope(scope: string | null): void {
   if (changed) subs.forEach((f) => f());
 }
 
-/**
- * The connected wallet's trades, newest first, followed by the unattributable
- * pre-scoping records tagged `legacy` so the UI can say where they came from.
- */
+/** The connected wallet's trades, newest first. Empty with no wallet. */
 export function listTrades(): MyTrade[] {
-  const buckets = all();
-  const mine = activeScope && activeScope !== LEGACY_SCOPE ? bucketOf(buckets, activeScope) : [];
-  const legacy = bucketOf(buckets, LEGACY_SCOPE).map((t) => ({ ...t, legacy: true }));
-  return [...mine, ...legacy];
+  return [...bucketOf(all(), activeScope)];
 }
 
 export function addTrade(t: Omit<MyTrade, 'id' | 'at'> & { id?: string; at?: number }): MyTrade {
@@ -116,8 +86,7 @@ export function addTrade(t: Omit<MyTrade, 'id' | 'at'> & { id?: string; at?: num
   };
   // No wallet ⇒ no bucket. Callers only get here after a transaction the wallet
   // signed, so this means the wallet went away mid-flow: warn, hand back the
-  // record (so the caller's flow completes) and drop it rather than polluting
-  // the legacy bucket, which is reserved for genuinely pre-scoping data.
+  // record (so the caller's flow completes) and drop it.
   if (!activeScope) {
     console.warn('[my-trades] no wallet connected — not recording trade', rec.id);
     return rec;
@@ -127,42 +96,39 @@ export function addTrade(t: Omit<MyTrade, 'id' | 'at'> & { id?: string; at?: num
   return rec;
 }
 
-/** Find the bucket holding `id` — a record can be in the active OR legacy one. */
-function scopeHolding(buckets: Buckets<MyTrade>, id: string): string | null {
-  for (const [scope, list] of Object.entries(buckets)) {
-    if (list.some((t) => t.id === id)) return scope;
-  }
-  return null;
-}
+// Mutations only ever touch the ACTIVE bucket: `listTrades()` is the only way a
+// record reaches the UI, so an id the user can act on is always this wallet's.
+// Searching every bucket would let one wallet rewrite another's history.
 
 export function updateTradeStatus(id: string, status: MyTrade['status']): void {
+  if (!activeScope) return;
   const buckets = all();
-  const scope = scopeHolding(buckets, id);
-  if (!scope) return;
+  const list = bucketOf(buckets, activeScope);
   let changed = false;
-  const next = buckets[scope].map((t) => {
+  const next = list.map((t) => {
     if (t.id === id && t.status !== status) { changed = true; return { ...t, status }; }
     return t;
   });
-  if (changed) persist({ ...buckets, [scope]: next });
+  if (changed) persist({ ...buckets, [activeScope]: next });
 }
 
 export function removeTrade(id: string): void {
+  if (!activeScope) return;
   const buckets = all();
-  const scope = scopeHolding(buckets, id);
-  if (!scope) return;
-  persist({ ...buckets, [scope]: buckets[scope].filter((t) => t.id !== id) });
+  const list = bucketOf(buckets, activeScope);
+  if (!list.some((t) => t.id === id)) return;
+  persist({ ...buckets, [activeScope]: list.filter((t) => t.id !== id) });
 }
 
 /**
- * "Clear all" clears what the user can SEE: this wallet's records and the legacy
- * ones. Other wallets' buckets are left alone — clearing them from here would be
- * destroying history the user isn't looking at.
+ * "Clear all" clears what the user can SEE: this wallet's records. Other
+ * wallets' buckets are left alone — clearing them from here would be destroying
+ * history the user isn't looking at.
  */
 export function clearTrades(): void {
+  if (!activeScope) return;
   const next = { ...all() };
-  if (activeScope) delete next[activeScope];
-  delete next[LEGACY_SCOPE];
+  delete next[activeScope];
   persist(next);
 }
 

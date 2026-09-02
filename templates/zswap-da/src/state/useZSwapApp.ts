@@ -223,7 +223,7 @@ export interface ZSwapApp {
   // my trades — local, on-device log of created/taken offers
   myTrades: MyTrade[];
   /** Storage scope of the connected wallet (`<networkId>::<shieldedAddress>`),
-   *  or null with no wallet — the records shown are then legacy-only. */
+   *  or null with no wallet — nothing is then "mine" and the trade log is empty. */
   walletScope: string | null;
   clearTrade: (id: string) => void;
   clearAllTrades: () => void;

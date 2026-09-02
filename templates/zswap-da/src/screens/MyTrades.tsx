@@ -60,23 +60,6 @@ function StatusBadge({ status }: { status: MyTrade['status'] }) {
   return <span title={s.hint} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: s.c, background: s.bg, borderRadius: 'var(--r-pill)', padding: '4px 10px', whiteSpace: 'nowrap', cursor: s.hint ? 'help' : undefined }}><Icon.dot /> {s.label}</span>;
 }
 
-/**
- * Records written before the log was scoped per wallet. They cannot be
- * attributed to a wallet, so they are shown to every wallet — say so, rather
- * than letting them read as "trades of the wallet you have connected".
- */
-function LegacyPill() {
-  return (
-    <span
-      className="zs-pill"
-      title="Recorded before this browser kept trades per wallet, so we can't tell which wallet made it. Shown for every wallet until you clear it."
-      style={{ padding: '3px 8px', fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap', cursor: 'help' }}
-    >
-      before wallet scoping
-    </span>
-  );
-}
-
 function Cell({ amt, sym, accent }: { amt: number; sym: string; accent?: boolean }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap' }}>
@@ -183,7 +166,7 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
                         <div className="zs-num" style={{ fontSize: 12.5, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>{d.toISOString().slice(0, 10)}</div>
                         <div className="zs-num" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{d.toTimeString().slice(0, 8)}</div>
                       </td>
-                      <td><div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><StatusBadge status={t.status} />{t.shielded && <Icon.shield style={{ color: 'var(--accent)' }} />}{t.legacy && <LegacyPill />}</div></td>
+                      <td><div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><StatusBadge status={t.status} />{t.shielded && <Icon.shield style={{ color: 'var(--accent)' }} />}</div></td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: 6 }}>
                           <button onClick={() => setViewing(t)} title="View offer file" className="zs-btn" style={{ padding: '6px 11px', fontSize: 12.5 }} disabled={!t.blob}>View</button>
