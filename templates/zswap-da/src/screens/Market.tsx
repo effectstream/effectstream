@@ -12,6 +12,9 @@ import { Coin, Icon, isShielded } from '../ui/icons';
 import { api, type ChartHistoryRow, type ChartStats, type PairInfo } from '../services/api';
 import { shortToken } from '../utils';
 import { TokenChip } from '../ui/TokenChip';
+import { fmtAge, fmtOffsetPct } from '../state/format';
+import { referenceRate } from '../state/reference';
+import { usePrices } from '../state/usePrices';
 import type { Order, ZSwapApp } from '../state/useZSwapApp';
 
 type Side = 'ask' | 'bid';
@@ -34,9 +37,9 @@ function fmtQty(q: number): string {
   return parseFloat(q.toPrecision(3)).toString();
 }
 
-function Stat({ label, children, sub }: { label: string; children: React.ReactNode; sub?: string }) {
+function Stat({ label, children, sub, title }: { label: string; children: React.ReactNode; sub?: string; title?: string }) {
   return (
-    <div style={{ minWidth: 0 }}>
+    <div style={{ minWidth: 0 }} title={title}>
       <div className="zs-tag" style={{ marginBottom: 5 }}>{label}</div>
       <div className="zs-num" style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-.02em', whiteSpace: 'nowrap' }}>{children}</div>
       {sub && <div className="zs-num" style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap', marginTop: 2 }}>{sub}</div>}
@@ -197,6 +200,21 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
   const change24 = stats?.change24 ?? 0;
   const lastUp = change24 >= 0;
 
+  // —— reference price (GET /v1/prices) ——
+  // "1 base = r quote" at the node's reference prices, plus how far the book's
+  // own mid sits from it. Null whenever either token has no market-backed price
+  // (test tokens), in which case the header says "no reference" rather than
+  // dressing up the demo price as a market.
+  const prices = usePrices(nonce);
+  const reference = useMemo(
+    () => referenceRate(prices, baseColor, quoteColor),
+    [prices, baseColor, quoteColor],
+  );
+  const referenceSub = reference
+    ? [reference.label, fmtAge(reference.updatedAt)].filter(Boolean).join(' · ')
+    : null;
+  const midVsReference = reference && mid > 0 ? fmtOffsetPct(mid, reference.rate) : null;
+
   // —— row selection: hover previews a cumulative range, click commits ——
   const [active, setActive] = useState<Record<string, boolean>>({});
   const [hover, setHover] = useState<{ side: Side; idx: number } | null>(null);
@@ -334,13 +352,31 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
           </div>
         </div>
 
-        {pair && stats && (
+        {pair && (stats || reference) && (
           <div style={{ display: 'flex', gap: 30, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <Stat label="Last price">{fmtPrice(stats.last)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{quote}</span></Stat>
-            <Stat label="24h"><span style={{ color: lastUp ? 'var(--pos)' : 'var(--neg)' }}>{lastUp ? '+' : ''}{change24.toFixed(2)}%</span></Stat>
-            <Stat label="High">{fmtPrice(stats.high)}</Stat>
-            <Stat label="Low">{fmtPrice(stats.low)}</Stat>
-            <Stat label="Volume" sub={fmtQty(stats.volume_quote) + ' ' + quote}>{fmtQty(stats.volume_base)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{base}</span></Stat>
+            {stats && <>
+              <Stat label="Last price">{fmtPrice(stats.last)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{quote}</span></Stat>
+              <Stat label="24h"><span style={{ color: lastUp ? 'var(--pos)' : 'var(--neg)' }}>{lastUp ? '+' : ''}{change24.toFixed(2)}%</span></Stat>
+              <Stat label="High">{fmtPrice(stats.high)}</Stat>
+              <Stat label="Low">{fmtPrice(stats.low)}</Stat>
+              <Stat label="Volume" sub={fmtQty(stats.volume_quote) + ' ' + quote}>{fmtQty(stats.volume_base)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{base}</span></Stat>
+            </>}
+            <Stat
+              label="Reference"
+              sub={referenceSub ?? undefined}
+              title={reference
+                ? `Reference price from GET /v1/prices (${reference.label})`
+                : `No market reference for this pair - at least one token is priced by the demo fallback`}
+            >
+              {reference
+                ? <>1 {base} = {fmtPrice(reference.rate)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{quote}</span></>
+                : <span style={{ color: 'var(--ink-3)', fontWeight: 600 }}>no reference</span>}
+            </Stat>
+            <Stat label="Mid vs reference" title="How far the order book's mid price sits from the reference price">
+              {midVsReference
+                ? <span style={{ color: mid <= (reference?.rate ?? 0) ? 'var(--pos)' : 'var(--neg)' }}>{midVsReference}</span>
+                : <span style={{ color: 'var(--ink-3)', fontWeight: 600 }}>{reference ? 'no book' : 'no reference'}</span>}
+            </Stat>
             <Stat label="Asset ID"><TokenChip color={baseColor} knownTokens={st.knownTokens} size="sm" /></Stat>
           </div>
         )}
