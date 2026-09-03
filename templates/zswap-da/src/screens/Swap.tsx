@@ -17,6 +17,7 @@ import { TokenPicker } from '../ui/TokenPicker';
 import { api, type Quote } from '../services/api';
 import { log } from '../lib/log';
 import { fmtUsd, rateDisplay } from '../state/format';
+import { describeQuote } from '../state/reference';
 import type { KnownToken } from '../types';
 import type { OfferLeg } from '../services/makerOffer';
 import type { ZSwapApp } from '../state/useZSwapApp';
@@ -98,6 +99,10 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
   const [posting, setPosting] = useState(false);
   const [postStatus, setPostStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // The node's machine code for the last failure. NOT_SPONSORED (422) is the
+  // one the maker can act on from here, so it gets the same "Apply best price"
+  // escape hatch as the pre-submit warning.
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   // External "start the order flow" trigger → open the Pay-with picker once.
   useEffect(() => {
@@ -148,6 +153,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
 
   const post = async () => {
     setError(null);
+    setErrorCode(null);
     if (!from || !to) return;
     if (!sameKind) { setError('Both tokens must be the same privacy kind (all shielded or all unshielded).'); return; }
     if (payAmt.trim() !== '' && payBig === null) { setError('Amounts are whole base units — no decimals or separators.'); return; }
@@ -174,7 +180,11 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     } catch (e: any) {
       const msg = e?.message ?? String(e);
       log.error('[create-offer] failed during', phase, e);
+      // ApiError.message IS the node's `reason` (see services/api.ts), so a
+      // 422 NOT_SPONSORED explains itself here verbatim - numbers included -
+      // instead of reading "Failed to submit offer".
       setError(msg);
+      setErrorCode(typeof e?.code === 'string' ? e.code : null);
     } finally {
       setPosting(false);
       setPostStatus('');
@@ -207,7 +217,10 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     else { label = bothShielded ? 'Create shielded order' : 'Create order'; action = post; }
   }
 
-  const dPct = quote?.discount != null ? quote.discount * 100 : null;
+  // Everything the reference price lets us say: the rate itself, the maker's
+  // offset from it, the sponsorship threshold, and where the price came from.
+  // Pure and unit-tested in state/reference.test.ts.
+  const ref = quote ? describeQuote(quote, from?.name ?? '', to?.name ?? '') : null;
 
   return (
     <>
@@ -232,23 +245,35 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
               <>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '4px 14px', fontSize: 13 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}><Icon.shield style={{ color: 'var(--accent)', flex: '0 0 auto' }} /> Your rate · 1 {from!.name} = <RateInline value={quote.implied_rate ?? 0} /> {to!.name}</span>
-                  {dPct != null && <span className="zs-num" style={{ color: dPct >= 0 ? 'var(--pos)' : 'var(--neg)', whiteSpace: 'nowrap', fontWeight: 600 }}>{dPct >= 0 ? '−' : '+'}{Math.abs(dPct).toFixed(1)}% vs market</span>}
+                  {ref?.offset && <span className="zs-num" style={{ color: ref.offsetBelow ? 'var(--pos)' : 'var(--neg)', whiteSpace: 'nowrap', fontWeight: 600 }}>{ref.offset} vs reference</span>}
                 </div>
-                {!autoPrice && <div style={{ fontSize: 11.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>Market · 1 {from!.name} = <RateInline value={quote.market_rate} /> {to!.name}</div>}
+                {/* The reference rate is shown in BOTH price modes now: in auto
+                    mode the maker still has to see what the price is anchored to
+                    and how far below it the sponsorship threshold sits. */}
+                {ref?.referenceRate != null && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 12px', fontSize: 11.5, color: 'var(--ink-3)' }}>
+                    <span style={{ whiteSpace: 'nowrap' }}>Reference · 1 {from!.name} = <RateInline value={ref.referenceRate} /> {to!.name}</span>
+                    {ref.thresholdText && <span style={{ whiteSpace: 'nowrap' }}>{ref.thresholdText}</span>}
+                  </div>
+                )}
+                {ref?.sourceText && <div style={{ fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.4 }}>{ref.sourceText}</div>}
 
                 {quote.sponsored ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 11, background: 'var(--pos-soft)', border: '1px solid color-mix(in srgb, var(--pos) 25%, transparent)' }}>
                     <Icon.shield style={{ color: 'var(--pos)', flex: '0 0 auto' }} />
                     <span style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.4 }}><b style={{ color: 'var(--pos)' }}>Celestia fee sponsored.</b> Good trades get filled fast.</span>
                   </div>
-                ) : (
+                ) : ref?.showNotSponsored ? (
+                  // Suppressed for demo-priced pairs: the batcher sponsors
+                  // unpriced tokens (BATCHER_SPONSOR_UNPRICED=allow), so
+                  // warning about a test-token trade would be a lie.
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '9px 11px', borderRadius: 11, background: 'var(--warn-soft)', border: '1px solid color-mix(in srgb, var(--warn) 22%, transparent)' }}>
                     <span style={{ color: 'var(--warn)', fontWeight: 800, flex: '0 0 auto', lineHeight: 1.3 }}>!</span>
-                    <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.45 }}>This price won't be sponsored to Celestia.
+                    <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.45 }}>{ref.notSponsoredText ?? "This price won't be sponsored to Celestia."}
                       <button onClick={() => setAutoPrice(true)} style={{ marginLeft: 6, border: 'none', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Apply best price</button>
                     </div>
                   </div>
-                )}
+                ) : null}
               </>
             )}
           </div>
@@ -259,7 +284,13 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
           {st.wallet && bothShielded && payBig !== null && payBig > 0n && recvBig !== null && recvBig > 0n && <Icon.shield />} {label}
         </button>
 
-        {error && <div style={{ fontSize: 12.5, color: 'var(--neg)', lineHeight: 1.45, wordBreak: 'break-word', marginTop: 4 }}>{error}</div>}
+        {error && (
+          <div style={{ fontSize: 12.5, color: 'var(--neg)', lineHeight: 1.45, wordBreak: 'break-word', marginTop: 4 }}>{error}
+            {errorCode === 'NOT_SPONSORED' && (
+              <button onClick={() => { setAutoPrice(true); setError(null); setErrorCode(null); }} style={{ marginLeft: 6, border: 'none', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Apply best price</button>
+            )}
+          </div>
+        )}
 
         {bothSel && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: compact ? 8 : 12, fontSize: 12, color: 'var(--ink-3)' }}>
