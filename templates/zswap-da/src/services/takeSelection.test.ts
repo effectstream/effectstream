@@ -7,35 +7,42 @@ import type { KnownToken } from '../types';
 import { affordableSelection, defaultSelection, summarize, type SelectableOffer } from './takeSelection';
 
 const WETH = 'aa'.repeat(32);
-const known: KnownToken[] = [{ token_color: WETH, name: 'WETH', kind: 'shielded' } as KnownToken];
+const DECIMALS = 6;
+/** One whole WETH coin in base units. Every fixture below is written in coins
+ *  and scaled here, because the module's own unit is base units. */
+const COIN = 10 ** DECIMALS;
+const known: KnownToken[] = [{ token_color: WETH, name: 'WETH', kind: 'shielded', decimals: DECIMALS } as KnownToken];
 const leg = (amount: bigint): ParsedLeg => ({ color: WETH, kind: 'shielded', amount });
 
-/** Taker pays `cost` WETH and receives `gets` WBTC — the shape of one book row. */
+/** Taker pays `cost` WETH coins and receives `gets` WBTC coins — one book row. */
 const offer = (id: string, cost: number, gets: number, mine = false): SelectableOffer => ({
   id,
-  pay: { sym: 'WETH', amt: cost },
-  receive: { sym: 'WBTC', amt: gets },
-  pays: [leg(BigInt(cost))],
+  pay: { sym: 'WETH', amt: cost * COIN, decimals: DECIMALS },
+  receive: { sym: 'WBTC', amt: gets * COIN, decimals: DECIMALS },
+  pays: [leg(BigInt(cost * COIN))],
   mine,
 });
 
 const items = [offer('a', 3, 15), offer('b', 4, 18), offer('c', 5, 20)];
-const balances = (weth: string) => ({ shielded: { [WETH]: weth }, unshielded: null });
+/** Wallet balance in WETH coins → the base-unit string the wallet reports. */
+const balances = (weth: string) => ({ shielded: { [WETH]: String(Number(weth) * COIN) }, unshielded: null });
 
 describe('summarize totals', () => {
   test('all checked → the full pay/receive of the selection', () => {
     const s = summarize(items, ['a', 'b', 'c'], balances('100'), known);
     expect(s.count).toBe(3);
-    expect(s.pay).toEqual({ sym: 'WETH', amt: 12 });
-    expect(s.receive).toEqual({ sym: 'WBTC', amt: 53 });
+    // Totals are summed in BASE UNITS — integers add exactly; the caller
+    // renders them as coins with the `decimals` carried alongside.
+    expect(s.pay).toEqual({ sym: 'WETH', amt: 12 * COIN, decimals: DECIMALS });
+    expect(s.receive).toEqual({ sym: 'WBTC', amt: 53 * COIN, decimals: DECIMALS });
     expect(s.blocked).toBeNull();
   });
 
   test('unchecking a row recomputes both totals', () => {
     const s = summarize(items, ['a', 'c'], balances('100'), known);
     expect(s.count).toBe(2);
-    expect(s.pay.amt).toBe(8);
-    expect(s.receive.amt).toBe(35);
+    expect(s.pay.amt).toBe(8 * COIN);
+    expect(s.receive.amt).toBe(35 * COIN);
   });
 
   test('the checked order is irrelevant — it is a fold, not a sequence', () => {
@@ -50,8 +57,8 @@ describe('summarize totals', () => {
   test('nothing checked → zero totals, the pair still named', () => {
     const s = summarize(items, [], balances('100'), known);
     expect(s.count).toBe(0);
-    expect(s.pay).toEqual({ sym: 'WETH', amt: 0 });
-    expect(s.receive).toEqual({ sym: 'WBTC', amt: 0 });
+    expect(s.pay).toEqual({ sym: 'WETH', amt: 0, decimals: DECIMALS });
+    expect(s.receive).toEqual({ sym: 'WBTC', amt: 0, decimals: DECIMALS });
     // Not a shortfall: an empty selection costs nothing, it is simply not
     // confirmable (the dialog disables the CTA).
     expect(s.blocked).toBeNull();
@@ -65,8 +72,9 @@ describe('summarize totals', () => {
 });
 
 describe('summarize blocked message', () => {
-  test('the checked subset is what gets balance-checked', () => {
-    // 12 WETH for all three, but only 9 in the wallet.
+  test('the checked subset is what gets balance-checked, in WHOLE COINS', () => {
+    // 12 WETH for all three, but only 9 in the wallet. The message reads in
+    // coins, not the 12000000/9000000 base units it compares.
     expect(summarize(items, ['a', 'b', 'c'], balances('9'), known).blocked)
       .toBe('Insufficient WETH: need 12, have 9');
     // Uncheck the 5 and it fits.
@@ -149,6 +157,6 @@ describe('own offers stay identifiable in the list', () => {
     expect(withMine.filter((i) => i.mine).map((i) => i.id)).toEqual(['a']);
     // Including your own offer is a normal selection — it costs and pays like
     // any other row.
-    expect(summarize(withMine, ['a', 'b'], balances('100')).pay.amt).toBe(7);
+    expect(summarize(withMine, ['a', 'b'], balances('100')).pay.amt).toBe(7 * COIN);
   });
 });

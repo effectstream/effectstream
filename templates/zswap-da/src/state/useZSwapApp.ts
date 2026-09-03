@@ -33,7 +33,7 @@ import {
   type OwnOfferDecision,
   type OwnOfferSplit,
 } from '../services/ownOffers';
-import { fmtAmt } from './format';
+import { DEFAULT_DECIMALS, formatAmount, scaleRate } from './amount';
 import {
   addTrade,
   clearTrades,
@@ -47,7 +47,7 @@ import {
 import { buildScope } from './scope';
 import { parseTakerLegs } from '../services/offerParse';
 import { isOwnOffer, parseOfferSender, unshieldedAddressToHex } from '../services/offerSender';
-import { findTokenName, shortToken } from '../utils';
+import { decimalsOf, findTokenName, shortToken } from '../utils';
 import { log } from '../lib/log';
 import { dlog, timed } from '../debug';
 import { takerShortfalls, shortfallsFromLegs, shortfallMessage, batchTakerShortfalls } from '../services/takerBalance';
@@ -68,8 +68,16 @@ export interface Order {
   to: string;
   fromColor: string;
   toColor: string;
+  /** BASE UNITS, as the node serves them. Render with `decimalsFrom`. */
   amtFrom: number;
+  /** BASE UNITS, as the node serves them. Render with `decimalsTo`. */
   amtTo: number;
+  /** Precision of each leg's token, so every consumer can turn the base-unit
+   *  amounts above into whole coins without another registry lookup. */
+  decimalsFrom: number;
+  decimalsTo: number;
+  /** WHOLE-COIN rate: how many `to` coins one `from` coin buys. Already scaled
+   *  by 10^(decimalsFrom − decimalsTo), so it is directly displayable. */
   impliedRate: number;
   /** Conservative floor on expiry — shielded offers can outlive it. Display as
    *  "expires ≥ …"; `status` is the authoritative end state. */
@@ -92,10 +100,11 @@ export interface Order {
   isMine: boolean;
 }
 
-/** Taker-perspective preview of an importable offer blob. */
+/** Taker-perspective preview of an importable offer blob. Amounts are BASE
+ *  UNITS; `decimals` is what turns each one into coins at render time. */
 export interface OfferPreview {
-  pays: { sym: string; amt: number }[];
-  gets: { sym: string; amt: number }[];
+  pays: { sym: string; amt: number; decimals: number }[];
+  gets: { sym: string; amt: number; decimals: number }[];
   shielded: boolean;
 }
 
@@ -107,12 +116,16 @@ function toOrder(offer: ZSwapOffer, knownTokens: KnownToken[]): Order | null {
   if (!give || !want) return null;
   const fromColor = String(give.token ?? '');
   const toColor = String(want.token ?? '');
-  // NOTE: amounts are decimal strings (u128 on-chain). Number() is lossy above
-  // 2^53 and is used here only for display and for the book's price ordering,
-  // which the existing UI has always done in floats. Anything exact (balance
-  // checks, settlement) works from the blob's own legs, not these.
+  // NOTE: amounts are decimal strings of BASE UNITS (u128 on-chain). Number()
+  // is lossy above 2^53 and is used here only for display and for the book's
+  // price ordering, which the existing UI has always done in floats. Anything
+  // exact (balance checks, settlement) works from the blob's own legs, not
+  // these. The unit is deliberately NOT converted here: coins are a rendering
+  // concern, and `decimalsFrom`/`decimalsTo` carry what each consumer needs.
   const amtFrom = Number(give.amount);
   const amtTo = Number(want.amount);
+  const decimalsFrom = decimalsOf(fromColor, knownTokens);
+  const decimalsTo = decimalsOf(toColor, knownTokens);
   return {
     from: findTokenName(fromColor, knownTokens) ?? shortToken(fromColor),
     to: findTokenName(toColor, knownTokens) ?? shortToken(toColor),
@@ -120,7 +133,10 @@ function toOrder(offer: ZSwapOffer, knownTokens: KnownToken[]): Order | null {
     toColor,
     amtFrom,
     amtTo,
-    impliedRate: amtFrom > 0 ? amtTo / amtFrom : 0,
+    decimalsFrom,
+    decimalsTo,
+    // A base-unit ratio scaled to whole coins — "1 from = impliedRate to".
+    impliedRate: amtFrom > 0 ? scaleRate(amtTo / amtFrom, decimalsFrom, decimalsTo) : 0,
     // `expiresAt` is a conservative FLOOR — a shielded offer can stay fillable
     // past it. Surfaced for display only; the status field is the authority.
     expiresAt: offer.computed?.expiresAt ?? null,
@@ -197,8 +213,10 @@ export interface ZSwapApp {
   // faucet / mint — browser-wallet (ConnectedAPI) path only
   canMint: boolean;
   contractBusy: boolean;
-  mintShielded: (domainSepBytes: Uint8Array, amount: bigint, nonce: bigint, name: string) => Promise<BrowserMintResult>;
-  mintUnshielded: (domainSepBytes: Uint8Array, amount: bigint, name: string) => Promise<BrowserMintResult>;
+  /** `amount` is BASE UNITS; `decimals` is what the colour is REGISTERED with,
+   *  so the rest of the app knows how to read the balance it creates. */
+  mintShielded: (domainSepBytes: Uint8Array, amount: bigint, nonce: bigint, name: string, decimals?: number) => Promise<BrowserMintResult>;
+  mintUnshielded: (domainSepBytes: Uint8Array, amount: bigint, name: string, decimals?: number) => Promise<BrowserMintResult>;
   onMinted: () => void;
   // swap — create / take offers (browser-wallet ConnectedAPI path)
   canTrade: boolean;
@@ -539,8 +557,8 @@ export function useZSwapApp(): ZSwapApp {
       const want = wants[0];
       addTrade({
         kind: 'create',
-        give: { sym: findTokenName(give.color, knownTokens) ?? shortToken(give.color), amt: Number(give.amount) },
-        get: { sym: findTokenName(want.color, knownTokens) ?? shortToken(want.color), amt: Number(want.amount) },
+        give: { sym: findTokenName(give.color, knownTokens) ?? shortToken(give.color), amt: Number(give.amount), decimals: decimalsOf(give.color, knownTokens) },
+        get: { sym: findTokenName(want.color, knownTokens) ?? shortToken(want.color), amt: Number(want.amount), decimals: decimalsOf(want.color, knownTokens) },
         // A duplicate is already indexed, so skip 'not_public' and take the
         // server's word for where it is in its lifecycle.
         status: duplicateStatus ?? 'not_public',
@@ -733,8 +751,10 @@ export function useZSwapApp(): ZSwapApp {
       // display floats.
       const items: SelectableOffer[] = takeable.map((o) => ({
         id: o.offerId ?? o.blob,
-        pay: { sym: o.to, amt: o.amtTo },
-        receive: { sym: o.from, amt: o.amtFrom },
+        // Base units in, coins out at `toView` — summing base-unit integers is
+        // exact, summing coins would accumulate float error across a ladder.
+        pay: { sym: o.to, amt: o.amtTo, decimals: o.decimalsTo },
+        receive: { sym: o.from, amt: o.amtFrom, decimals: o.decimalsFrom },
         pays: parseTakerLegs(o.blob, NETWORK_ID as any)?.pays ?? [],
         // The user may have chosen to include their own offers a dialog ago;
         // keep saying which ones they are.
@@ -748,8 +768,8 @@ export function useZSwapApp(): ZSwapApp {
       const checkedByDefault = new Set(defaultSelection(items, balances));
       const initial = summarize(items, checkedByDefault, balances, knownTokens);
       const toView = (s: TakeSummary) => ({
-        pay: { sym: s.pay.sym, amt: fmtAmt(s.pay.amt) },
-        receive: { sym: s.receive.sym, amt: fmtAmt(s.receive.amt) },
+        pay: { sym: s.pay.sym, amt: formatAmount(s.pay.amt, s.pay.decimals) },
+        receive: { sym: s.receive.sym, amt: formatAmount(s.receive.amt, s.receive.decimals) },
         blocked: s.blocked ?? undefined,
         cta: s.cta,
       });
@@ -774,8 +794,8 @@ export function useZSwapApp(): ZSwapApp {
         for (const o of chosen) {
           addTrade({
             kind: 'take',
-            give: { sym: o.to, amt: o.amtTo },
-            get: { sym: o.from, amt: o.amtFrom },
+            give: { sym: o.to, amt: o.amtTo, decimals: o.decimalsTo },
+            get: { sym: o.from, amt: o.amtFrom, decimals: o.decimalsFrom },
             status: 'consumed',
             shielded: false,
             blob: o.blob,
@@ -791,8 +811,8 @@ export function useZSwapApp(): ZSwapApp {
         ...toView(initial),
         items: items.map((it) => ({
           id: it.id,
-          pay: `${fmtAmt(it.pay.amt)} ${it.pay.sym}`,
-          receive: `${fmtAmt(it.receive.amt)} ${it.receive.sym}`,
+          pay: `${formatAmount(it.pay.amt, it.pay.decimals ?? DEFAULT_DECIMALS)} ${it.pay.sym}`,
+          receive: `${formatAmount(it.receive.amt, it.receive.decimals ?? DEFAULT_DECIMALS)} ${it.receive.sym}`,
           ok: affordable.has(it.id),
           mine: it.mine,
           checked: checkedByDefault.has(it.id),
@@ -831,16 +851,16 @@ export function useZSwapApp(): ZSwapApp {
       const open = () =>
         setPendingConfirm({
           title: 'Take offer',
-          pay: { sym: o.to, amt: fmtAmt(o.amtTo) },
-          receive: { sym: o.from, amt: fmtAmt(o.amtFrom) },
+          pay: { sym: o.to, amt: formatAmount(o.amtTo, o.decimalsTo) },
+          receive: { sym: o.from, amt: formatAmount(o.amtFrom, o.decimalsFrom) },
           cta: 'Take offer',
           blocked: takerShortfall(b) ?? undefined,
           onConfirm: async () => {
             await takeOffer(b);
             addTrade({
               kind: 'take',
-              give: { sym: o.to, amt: o.amtTo },
-              get: { sym: o.from, amt: o.amtFrom },
+              give: { sym: o.to, amt: o.amtTo, decimals: o.decimalsTo },
+              get: { sym: o.from, amt: o.amtFrom, decimals: o.decimalsFrom },
               status: 'consumed',
               shielded: false,
               blob: b,
@@ -930,9 +950,14 @@ export function useZSwapApp(): ZSwapApp {
       if (!parsed) return null;
       const nm = (color: string) => findTokenName(color, knownTokens) ?? shortToken(color);
       const legs = [...parsed.pays, ...parsed.gets];
+      const leg = (l: { color: string; amount: bigint }) => ({
+        sym: nm(l.color),
+        amt: Number(l.amount),
+        decimals: decimalsOf(l.color, knownTokens),
+      });
       return {
-        pays: parsed.pays.map((l) => ({ sym: nm(l.color), amt: Number(l.amount) })),
-        gets: parsed.gets.map((l) => ({ sym: nm(l.color), amt: Number(l.amount) })),
+        pays: parsed.pays.map(leg),
+        gets: parsed.gets.map(leg),
         shielded: legs.length > 0 && legs.every((l) => l.kind === 'shielded'),
       };
     },
@@ -948,8 +973,8 @@ export function useZSwapApp(): ZSwapApp {
       await takeOffer(b);
       addTrade({
         kind: 'take',
-        give: preview?.pays[0] ?? { sym: '—', amt: 0 },
-        get: preview?.gets[0] ?? { sym: '—', amt: 0 },
+        give: preview?.pays[0] ?? { sym: '—', amt: 0, decimals: DEFAULT_DECIMALS },
+        get: preview?.gets[0] ?? { sym: '—', amt: 0, decimals: DEFAULT_DECIMALS },
         status: 'consumed',
         shielded: preview?.shielded ?? false,
         blob: b,

@@ -23,7 +23,7 @@ const BODY = {
   feed: { provider: 'coingecko', last_run_at: null, last_ok_at: null, last_error: null },
   assets: [],
   tokens: [
-    { token_color: A, name: 'WBTC', kind: 'shielded', decimals: 0, asset_id: 'bitcoin', price_usd: '77387', source: 'feed', updated_at: '2026-09-03T00:00:04.000Z' },
+    { token_color: A, name: 'WBTC', kind: 'shielded', decimals: 6, asset_id: 'bitcoin', price_usd: '77387', source: 'feed', updated_at: '2026-09-03T00:00:04.000Z' },
   ],
 };
 

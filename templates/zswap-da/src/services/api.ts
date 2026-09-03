@@ -6,6 +6,7 @@ import type {
   OfferStatusLookup,
 } from '../types';
 import { API_BASE, BATCHER_URL, BATCHER_TARGET } from '../config';
+import { DEFAULT_DECIMALS } from '../state/amount';
 import { dlog, timed } from '../debug';
 import type { PriceSource } from '../state/format';
 
@@ -407,11 +408,24 @@ export const api = {
     return data;
   },
 
-  registerKnownToken: async (color: string, name: string, kind: 'shielded' | 'unshielded') => {
+  /**
+   * Register a freshly minted colour in the node's `known_tokens` registry.
+   *
+   * `decimals` is sent EXPLICITLY rather than relying on the server default: an
+   * older node still defaults the column to 0, and a token registered at 0
+   * would render a million times too large everywhere. Sending it also makes a
+   * future non-6 token a deliberate override rather than a silent inheritance.
+   */
+  registerKnownToken: async (
+    color: string,
+    name: string,
+    kind: 'shielded' | 'unshielded',
+    decimals: number = DEFAULT_DECIMALS,
+  ) => {
     const res = await fetch(`${V1}/known-tokens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ color, name, kind }),
+      body: JSON.stringify({ color, name, kind, decimals }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
