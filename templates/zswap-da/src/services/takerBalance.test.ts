@@ -6,7 +6,9 @@ import { shortfallsFromLegs, shortfallMessage, takerShortfalls, batchTakerShortf
 const A = 'aa'.repeat(32); // shielded token color
 const B = 'bb'.repeat(32); // unshielded token color
 const leg = (color: string, kind: ParsedLeg['kind'], amount: bigint): ParsedLeg => ({ color, kind, amount });
-const known: KnownToken[] = [{ token_color: A, name: 'TESTTOKENA', kind: 'shielded' } as KnownToken];
+const known: KnownToken[] = [{ token_color: A, name: 'TESTTOKENA', kind: 'shielded', decimals: 6 } as KnownToken];
+/** One whole TESTTOKENA coin in base units. */
+const COIN = 1_000_000n;
 
 describe('shortfallsFromLegs', () => {
   test('sufficient balance → no shortfall', () => {
@@ -50,6 +52,23 @@ describe('shortfallsFromLegs', () => {
     expect(shortfallsFromLegs([leg(A, 'shielded', 1500n)], { [A]: '1,000' }, null)[0]).toMatchObject({ have: 1000n });
   });
 
+  test('balances are BASE-UNIT strings — a whole-coin string is truncated', () => {
+    // Pin, not a feature: `toBig` cuts at the '.', so handing this comparison a
+    // whole-coin string ("1.5") would silently read 1 base unit and block every
+    // take. Wallet balances and ParsedLeg.amount are both base units, and this
+    // test exists so a future refactor that "helpfully" formats a balance into
+    // coins on the way in fails here instead of in a user's wallet.
+    expect(shortfallsFromLegs([leg(A, 'shielded', 2n)], { [A]: '1.5' }, null)[0]).toMatchObject({ have: 1n });
+    expect(shortfallsFromLegs([leg(A, 'shielded', 1_500_000n)], { [A]: '1500000' }, null)).toEqual([]);
+  });
+
+  test('the shortfall carries the token precision it will be rendered with', () => {
+    const sf = shortfallsFromLegs([leg(A, 'shielded', 51n)], { [A]: '10' }, null, known);
+    expect(sf[0].decimals).toBe(6);
+    // Unregistered colour: nothing says otherwise, so the default applies.
+    expect(shortfallsFromLegs([leg(B, 'unshielded', 5n)], null, {})[0].decimals).toBe(6);
+  });
+
   test('no pays legs → nothing to block', () => {
     expect(shortfallsFromLegs([], null, null)).toEqual([]);
   });
@@ -59,14 +78,24 @@ describe('shortfallMessage', () => {
   test('null when fundable', () => {
     expect(shortfallMessage([])).toBeNull();
   });
-  test('names the first token + need/have', () => {
-    const msg = shortfallMessage(shortfallsFromLegs([leg(A, 'shielded', 51n)], { [A]: '10' }, null, known));
+  test('names the first token + need/have IN WHOLE COINS', () => {
+    // The comparison is in base units; the sentence sits beside the confirm
+    // dialog's coin totals, so it has to speak the same unit the user does.
+    const msg = shortfallMessage(
+      shortfallsFromLegs([leg(A, 'shielded', 51n * COIN)], { [A]: '10000000' }, null, known),
+    );
     expect(msg).toBe('Insufficient TESTTOKENA: need 51, have 10');
+  });
+  test('a sub-coin shortfall keeps its precision rather than reading as 0', () => {
+    const msg = shortfallMessage(
+      shortfallsFromLegs([leg(A, 'shielded', 1_500_000n)], { [A]: '1' }, null, known),
+    );
+    expect(msg).toBe('Insufficient TESTTOKENA: need 1.5, have 0.000001');
   });
   test('summarizes extra shortfalls', () => {
     const msg = shortfallMessage([
-      { color: A, kind: 'shielded', need: 5n, have: 0n, sym: 'TESTTOKENA' },
-      { color: B, kind: 'unshielded', need: 2n, have: 0n, sym: 'USDC' },
+      { color: A, kind: 'shielded', need: 5n * COIN, have: 0n, sym: 'TESTTOKENA', decimals: 6 },
+      { color: B, kind: 'unshielded', need: 2n * COIN, have: 0n, sym: 'USDC', decimals: 6 },
     ]);
     expect(msg).toBe('Insufficient TESTTOKENA: need 5, have 0 (+1 more)');
   });

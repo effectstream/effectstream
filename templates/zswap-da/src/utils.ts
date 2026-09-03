@@ -1,3 +1,4 @@
+import { DEFAULT_DECIMALS } from './state/amount';
 import type { KnownToken } from './types';
 
 export function shortToken(t?: string): string {
@@ -43,6 +44,22 @@ export function truncateAddress(addr: string): string {
   return addr.slice(0, HEAD) + '...' + addr.slice(-TAIL);
 }
 
+export function findToken(token: string, knownTokens: KnownToken[]): KnownToken | undefined {
+  return knownTokens.find(k => k.token_color === token);
+}
+
 export function findTokenName(token: string, knownTokens: KnownToken[]): string | undefined {
-  return knownTokens.find(k => k.token_color === token)?.name;
+  return findToken(token, knownTokens)?.name;
+}
+
+/**
+ * How many base units make one whole coin of this colour.
+ *
+ * DEFAULT_DECIMALS when the colour is not in the registry — a wallet-only
+ * token, or a node that predates `known_tokens.decimals`. Assuming 6 is the
+ * honest guess here: every token this stack mints has 6, and assuming 0 would
+ * render a faucet balance a million times too large (spec Q8).
+ */
+export function decimalsOf(token: string, knownTokens: KnownToken[]): number {
+  return findToken(token, knownTokens)?.decimals ?? DEFAULT_DECIMALS;
 }

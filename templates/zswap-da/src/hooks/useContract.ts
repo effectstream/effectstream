@@ -9,6 +9,7 @@ import {
 import { MidnightBech32m, UnshieldedAddress } from '@midnightntwrk/wallet-sdk-address-format';
 import { api } from '../services/api';
 import { enqueueMintName, removeMintName } from '../services/mintQueue';
+import { DEFAULT_DECIMALS } from '../state/amount';
 
 export interface BrowserMintResult {
   color: string;
@@ -76,9 +77,10 @@ export function useContract(wallet: ContractWallet | null) {
     name: string,
     kind: 'shielded' | 'unshielded',
     queuedId: string,
+    decimals: number = DEFAULT_DECIMALS,
   ) => {
     try {
-      await api.registerKnownToken(color, name, kind);
+      await api.registerKnownToken(color, name, kind, decimals);
       removeMintName(queuedId);
     } catch (e: any) {
       // Leave the entry in the queue — the reconciler will retry when it
@@ -93,16 +95,19 @@ export function useContract(wallet: ContractWallet | null) {
       amount: bigint,
       nonce: bigint,
       name: string,
+      decimals: number = DEFAULT_DECIMALS,
     ): Promise<BrowserMintResult> => {
       const c = await ensureContract();
-      const queued = enqueueMintName(name);
-      console.log('[useContract] callTx.mint_shielded', { amount, nonce });
+      const queued = enqueueMintName(name, decimals);
+      // `amount` is BASE UNITS — the circuit's `Uint<64>` has no decimals
+      // notion, so the caller has already scaled the whole-coin allotment.
+      console.log('[useContract] callTx.mint_shielded', { amount, nonce, decimals });
       const txData: any = await (c as any).callTx.mint_shielded(domainSepBytes, amount, nonce);
       const colorBytes = txData.private?.result?.color as Uint8Array | undefined;
       if (!colorBytes) throw new Error('mint_shielded: missing color in result');
       const color = Array.from(colorBytes, (b) => b.toString(16).padStart(2, '0')).join('');
       const txHash: string = txData.public?.txHash ?? '';
-      await tryRegister(color, name, 'shielded', queued.id);
+      await tryRegister(color, name, 'shielded', queued.id, decimals);
       return { color, txHash };
     },
     [ensureContract, tryRegister],
@@ -124,11 +129,13 @@ export function useContract(wallet: ContractWallet | null) {
       domainSepBytes: Uint8Array,
       amount: bigint,
       name: string,
+      decimals: number = DEFAULT_DECIMALS,
     ): Promise<BrowserMintResult> => {
       const c = await ensureContract();
-      const queued = enqueueMintName(name);
+      const queued = enqueueMintName(name, decimals);
       const recipientBytes = await resolveRecipientBytes();
-      console.log('[useContract] callTx.mint_unshielded', { amount });
+      // `amount` is BASE UNITS; see mint_shielded above.
+      console.log('[useContract] callTx.mint_unshielded', { amount, decimals });
       const txData: any = await (c as any).callTx.mint_unshielded(
         domainSepBytes,
         amount,
@@ -138,7 +145,7 @@ export function useContract(wallet: ContractWallet | null) {
       if (!colorBytes) throw new Error('mint_unshielded: missing color in result');
       const color = Array.from(colorBytes, (b) => b.toString(16).padStart(2, '0')).join('');
       const txHash: string = txData.public?.txHash ?? '';
-      await tryRegister(color, name, 'unshielded', queued.id);
+      await tryRegister(color, name, 'unshielded', queued.id, decimals);
       return { color, txHash };
     },
     [ensureContract, resolveRecipientBytes, tryRegister],

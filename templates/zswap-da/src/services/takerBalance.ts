@@ -10,20 +10,31 @@
 import type { NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import type { KnownToken } from '../types';
 import { parseTakerLegs, type ParsedLeg } from './offerParse';
-import { findTokenName, shortToken } from '../utils';
+import { DEFAULT_DECIMALS, formatBaseUnits } from '../state/amount';
+import { decimalsOf, findTokenName, shortToken } from '../utils';
 
 export interface Shortfall {
   color: string;
   kind: 'shielded' | 'unshielded';
+  /** BASE UNITS — the comparison unit. Rendered as coins via `decimals`. */
   need: bigint;
   have: bigint;
   sym: string;
+  /** The token's precision, for the message. DEFAULT_DECIMALS when unknown. */
+  decimals: number;
 }
 
 type Balances = Record<string, string> | null | undefined;
 
-// Parse a raw balance string ("1000", possibly comma-grouped) to bigint. Never
-// throws — an unparseable balance counts as zero (safe: it can only over-block).
+// Parse a raw balance string ("1000", possibly comma-grouped) to bigint.
+//
+// It must ONLY ever be handed BASE-UNIT strings — that is what the wallet
+// reports and what `ParsedLeg.amount` is, so the comparison below needs no
+// scaling at all. It truncates at the '.', so a whole-coin string sneaking in
+// here would silently compare 1.5 as 1: pinned by a test.
+//
+// Never throws — an unparseable balance counts as zero (safe: it can only
+// over-block).
 function toBig(raw: string | undefined): bigint {
   if (raw == null) return 0n;
   try {
@@ -54,6 +65,7 @@ export function shortfallsFromLegs(
         need: leg.amount,
         have,
         sym: findTokenName(leg.color, knownTokens) ?? shortToken(leg.color),
+        decimals: decimalsOf(leg.color, knownTokens),
       });
     }
   }
@@ -146,10 +158,17 @@ export function affordableIndices(
   return idxs;
 }
 
-/** One-line reason for the first shortfall, for a disabled CTA / toast. */
+/**
+ * One-line reason for the first shortfall, for a disabled CTA / toast.
+ *
+ * Rendered in WHOLE COINS: this string sits next to the confirm dialog's own
+ * coin totals, and "need 1500000, have 0" beside "1.5 WBTC" is exactly the
+ * confusion project 00024 exists to remove.
+ */
 export function shortfallMessage(shortfalls: Shortfall[]): string | null {
   if (shortfalls.length === 0) return null;
   const [first] = shortfalls;
+  const d = first.decimals ?? DEFAULT_DECIMALS;
   const more = shortfalls.length > 1 ? ` (+${shortfalls.length - 1} more)` : '';
-  return `Insufficient ${first.sym}: need ${first.need.toString()}, have ${first.have.toString()}${more}`;
+  return `Insufficient ${first.sym}: need ${formatBaseUnits(first.need, d)}, have ${formatBaseUnits(first.have, d)}${more}`;
 }

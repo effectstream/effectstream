@@ -13,6 +13,7 @@ import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import type { KnownToken } from '../types';
 import { api } from '../services/api';
 import { listPending, peekOldest, removeMintName, subscribe } from '../services/mintQueue';
+import { DEFAULT_DECIMALS } from '../state/amount';
 
 const NIGHT_TOKEN_ID = '0'.repeat(64);
 
@@ -68,9 +69,13 @@ export function useMintReconciler(
           const kind: 'shielded' | 'unshielded' = unshieldedColors.has(color)
             ? 'unshielded'
             : 'shielded';
-          console.log('[mintReconciler] registering', { color, name: next.name, kind });
+          // Same precision the immediate registration would have sent; an
+          // entry queued by a pre-00024 build carries none and takes the
+          // default, which is what that build minted at anyway.
+          const decimals = next.decimals ?? DEFAULT_DECIMALS;
+          console.log('[mintReconciler] registering', { color, name: next.name, kind, decimals });
           try {
-            await api.registerKnownToken(color, next.name, kind);
+            await api.registerKnownToken(color, next.name, kind, decimals);
             removeMintName(next.id);
             progressed = true;
           } catch (e: any) {

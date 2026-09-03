@@ -5,6 +5,18 @@ export interface KnownToken {
   token_color: string;
   name: string;
   kind: 'shielded' | 'unshielded';
+  /**
+   * Base units per whole coin: 1 coin = 10^decimals base units.
+   *
+   * Off-chain metadata from the kernel registry (`known_tokens.decimals`) — the
+   * ledger itself has no decimals notion, so this is the ONLY thing that says
+   * how an on-chain integer should be read. `useTokens` fills in
+   * DEFAULT_DECIMALS when a node predates the field, and TokenPicker does the
+   * same for a wallet-held colour that is in no registry.
+   */
+  decimals: number;
+  /** Market asset the node prices this token against, when it has one. */
+  asset_id?: string | null;
 }
 
 /**

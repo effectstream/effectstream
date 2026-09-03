@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Modal, ModalHead } from './Modal';
 import { Coin, Icon } from './icons';
 import { shortToken } from '../utils';
-import { fmtBalance } from '../state/format';
+import { DEFAULT_DECIMALS, formatAmount } from '../state/amount';
 import type { KnownToken } from '../types';
 
 const HEX_RE = /^[0-9a-fA-F]+$/;
@@ -50,7 +50,11 @@ export function TokenPicker({
     for (const t of tokens) byColor.set(t.token_color, t);
     const addWallet = (map: Record<string, string> | null | undefined, kind: 'shielded' | 'unshielded') => {
       for (const color of Object.keys(map ?? {})) {
-        if (!byColor.has(color)) byColor.set(color, { token_color: color, name: shortToken(color), kind });
+        // Wallet-only colour: nothing in the registry says how to read it, so
+        // it takes the default precision like every other unregistered token.
+        if (!byColor.has(color)) {
+          byColor.set(color, { token_color: color, name: shortToken(color), kind, decimals: DEFAULT_DECIMALS });
+        }
       }
     };
     addWallet(shieldedBalances, 'shielded');
@@ -74,7 +78,7 @@ export function TokenPicker({
     if (!manualValid) return;
     // If the id already matches a known/held token, reuse its real record.
     const existing = merged.find((t) => t.token_color === manualNorm);
-    onPick(existing ?? { token_color: manualNorm, name: shortToken(manualNorm), kind: manualKind });
+    onPick(existing ?? { token_color: manualNorm, name: shortToken(manualNorm), kind: manualKind, decimals: DEFAULT_DECIMALS });
     onClose();
   };
 
@@ -100,7 +104,7 @@ export function TokenPicker({
                   <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
                   <div className="zs-num" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{shortToken(t.token_color)}</div>
                 </div>
-                {bal != null && <span className="zs-num" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', flex: '0 0 auto' }}>{fmtBalance(bal)}</span>}
+                {bal != null && <span className="zs-num" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', flex: '0 0 auto' }}>{formatAmount(bal, t.decimals)}</span>}
                 {t.kind === 'shielded'
                   ? <span className="zs-badge-shield" style={{ padding: '4px 8px', flex: '0 0 auto' }}><Icon.shield /> Shielded</span>
                   : <span className="zs-pill" style={{ padding: '4px 8px', flex: '0 0 auto' }}><Icon.eye /> Unshielded</span>}
