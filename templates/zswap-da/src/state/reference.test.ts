@@ -7,6 +7,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { PricesResponse, Quote, TokenPrice } from '../services/api';
 import { describeQuote, referenceRate, sourceLabel, tokenPriceOf } from './reference';
+import { scaleRate } from './amount';
 
 const NOW = Date.parse('2026-09-02T12:00:00.000Z');
 const HOURS_AGO = (h: number) => new Date(NOW - h * 3_600_000).toISOString();
@@ -156,7 +157,7 @@ describe('sourceLabel', () => {
 });
 
 const token = (over: Partial<TokenPrice> & Pick<TokenPrice, 'token_color' | 'price_usd'>): TokenPrice => ({
-  name: 'T', kind: 'shielded', decimals: 0, asset_id: null, source: 'feed', updated_at: HOURS_AGO(1), ...over,
+  name: 'T', kind: 'shielded', decimals: 6, asset_id: null, source: 'feed', updated_at: HOURS_AGO(1), ...over,
 });
 
 const WBTC = 'e7'.repeat(32);
@@ -205,6 +206,32 @@ describe('referenceRate', () => {
     const p = prices();
     p.tokens[1] = token({ token_color: WETH, name: 'USDM', price_usd: '0.000001', source: 'fixed' });
     expect(referenceRate(p, WBTC, WETH)!.label).toBe('CoinGecko + pegged');
+  });
+});
+
+// `price_usd` is USD per BASE UNIT, so `referenceRate` is a BASE-UNIT rate like
+// everything else the node publishes. Turning it into the "1 WBTC = X WETH" a
+// screen prints is `scaleRate(rate, dFrom, dTo)` — the identity while every
+// token is 6, and the whole point of carrying decimals the day one is not
+// (project 00024, FR-104).
+describe('referenceRate → whole-coin rate', () => {
+  test('equal decimals: the displayed rate is the raw ratio', () => {
+    const r = referenceRate(prices(), WBTC, WETH)!;
+    expect(scaleRate(r.rate, 6, 6)).toBeCloseTo(77387 / 2393.28, 9);
+  });
+
+  test('a 6-decimals base against an 8-decimals quote divides by 100', () => {
+    const r = referenceRate(prices(), WBTC, WETH)!;
+    // One WBTC coin is 10^6 base units, one WETH coin 10^8: the same USD ratio
+    // buys a hundredth as many whole quote coins.
+    expect(scaleRate(r.rate, 6, 8)).toBeCloseTo((77387 / 2393.28) / 100, 9);
+    // …and the mirror direction multiplies by 100.
+    expect(scaleRate(r.rate, 8, 6)).toBeCloseTo((77387 / 2393.28) * 100, 6);
+  });
+
+  test('scaling is exactly reversible, so a round trip cannot drift the book', () => {
+    const r = referenceRate(prices(), WBTC, WETH)!;
+    expect(scaleRate(scaleRate(r.rate, 6, 8), 8, 6)).toBeCloseTo(r.rate, 9);
   });
 });
 

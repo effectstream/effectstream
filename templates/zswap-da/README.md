@@ -178,7 +178,8 @@ src/
                         takerBalance (+ its test), mintQueue
   shims/                crypto polyfill and loose .d.ts files for @effectstream/wallets
   state/                useZSwapApp orchestration, wallet + tradeWallet adapters,
-                        local myOffers / myTrades stores, formatting
+                        local myOffers / myTrades stores, amount (coins ⇄ base
+                        units) and swapAmounts, formatting
   styles/               Design tokens and global CSS
   types/                Shared types and the window.midnight declaration
   ui/                   Modals, toasts, wallet and network menus, console dock, icons
@@ -251,14 +252,39 @@ states the limit plainly: shielded-only offers stay anonymous by construction, b
 commitments hide the recipient's coin public key and only the holding wallet can decrypt the
 ciphertext. For those the function returns `undefined` and the caller falls back to a neutral label.
 
+### Amounts: whole coins on screen, base units everywhere else
+
+Every amount the chain, the wallet and the node API carry is an **integer of base units**. A token's
+`decimals` — served by `GET /v1/known-tokens` and carried on `KnownToken` — says how many base units
+make one whole coin: `1 coin = 10^decimals base units`. The UI reads and writes **whole coins**; the
+conversion lives in one place, `src/state/amount.ts`, and nothing below the screens ever sees a coin.
+
+- `parseWholeCoins('1.5', 6) === 1500000n` — string/bigint maths only. `Number(x) * 1e6` is banned:
+  the product is inexact for most inputs (`0.07 * 1e6 === 70000.00000000001`) and above 2^53 a double
+  rounds silently, which would post an offer for an amount nobody typed.
+- Over-precise input is **refused with a message naming the token's precision**, never rounded — the
+  amount is what settles on chain.
+- Rates the node publishes (`implied_rate`, `market_rate`, `/v1/chart` prices) are base-unit ratios;
+  `scaleRate(rate, dFrom, dTo)` turns them into the "1 WBTC = X WETH" a screen prints. That is the
+  identity while every token is 6 decimals, and correct the day one is not.
+- A token with no `decimals` — an older node, or a wallet-held colour in no registry — is read at
+  `DEFAULT_DECIMALS` (6), because every token this stack mints has 6.
+
+`src/state/swapAmounts.ts` is the Swap screen's half of that boundary (per-leg parsing, the
+auto-price suggestion, the affordability gate, the displayed rate), extracted so it is unit-tested
+without a DOM.
+
 ### Minting test tokens
 
 The Faucet screen (`src/screens/Faucet.tsx`) calls the `mint_shielded` and `mint_unshielded` circuits
 on the deployed OfferFiles contract through `src/services/browserContract.ts`, which assembles the
 standard midnight-js provider stack — `indexerPublicDataProvider`, `httpClientProofProvider`,
 `FetchZkConfigProvider`, `levelPrivateStateProvider` — and resolves the contract with
-`findDeployedContract`. Newly minted token names are held in `src/services/mintQueue.ts` and
-registered against their derived color once the mint lands, via `POST /v1/known-tokens`.
+`findDeployedContract`. The allotment is **1,000 whole coins**, so the circuit is called with
+`1_000_000_000` base units. Newly minted token names are held in `src/services/mintQueue.ts` and
+registered against their derived color once the mint lands, via `POST /v1/known-tokens` — carrying
+`decimals: 6` explicitly, so a node whose column still defaults to 0 does not record the token at a
+precision that would render every balance a million times too large.
 
 ### Browser build workarounds
 
@@ -294,17 +320,27 @@ both take precedence over the build-time values. The network is not user-selecta
 
 ## Testing
 
-The template ships one unit suite, `src/services/takerBalance.test.ts`, run with Bun's test runner:
+The template's unit suites run with Bun's test runner:
 
 ```sh
 bun test
 ```
 
-It covers the pure shortfall calculator: sufficient and exact balances producing no shortfall, a
-missing token counting as zero, shielded and unshielded legs reading from their own balance maps, and
-multi-leg offers reporting only the uncovered leg. That logic is deliberately separated from blob
-decoding inside `src/services/takerBalance.ts` precisely so it can be tested without a wallet or a
-chain.
+They cover the pure logic that must not be wrong, all of it deliberately separated from React, a
+wallet and a chain so it can be tested without any of them:
+
+- `src/state/amount.test.ts` — the coin ⇄ base-unit conversion: the `1.5 → 1500000n` round trip,
+  over-precision refused rather than rounded, values past 2^53 staying exact, and the `2^64 − 1`
+  ledger ceiling.
+- `src/state/swapAmounts.test.ts` — the Swap screen's boundary: per-leg parsing at each token's own
+  precision, the node's auto-price suggestion landing in the field as coins, and the affordability
+  gate comparing base units in bigint.
+- `src/services/takerBalance.test.ts` — the shortfall calculator: sufficient and exact balances
+  producing no shortfall, a missing token counting as zero, shielded and unshielded legs reading from
+  their own balance maps, multi-leg offers reporting only the uncovered leg, and a pin that balances
+  handed to it are base-unit strings.
+- `src/services/takeSelection.test.ts`, `src/state/reference.test.ts`, `src/state/myTrades.test.ts`
+  and the rest — selection totals, reference-price strings, the local trade log and offer parsing.
 
 > [!NOTE]
 > This template is **excluded from the repository's template test runner**. The reason is recorded

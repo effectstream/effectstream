@@ -10,8 +10,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Coin, Icon, isShielded } from '../ui/icons';
 import { api, type ChartHistoryRow, type ChartStats, type PairInfo } from '../services/api';
-import { shortToken } from '../utils';
+import { decimalsOf, shortToken } from '../utils';
 import { TokenChip } from '../ui/TokenChip';
+import { scaleRate, toWholeCoinsNumber } from '../state/amount';
 import { fmtAge, fmtOffsetPct } from '../state/format';
 import { referenceRate } from '../state/reference';
 import { usePrices } from '../state/usePrices';
@@ -21,6 +22,12 @@ type Side = 'ask' | 'bid';
 type View = 'both' | 'asks' | 'bids';
 interface Pair { base: string; quote: string }
 // A real order-book level — keeps the underlying offers so it can be taken.
+//
+// UNITS: `price`, `amt` and `total` are WHOLE COINS. Everything the node serves
+// (offer legs, /v1/chart prices and volumes) is base units, and this screen is
+// where that is converted — once, on the way into the ladder — so every
+// formatter below reads a coin number and the take path keeps the untouched
+// base-unit `orders`.
 interface BookRow { price: number; amt: number; total: number; orders: Order[] }
 interface Book { mid: number; asks: BookRow[]; bids: BookRow[]; maxTotal: number; spread: number }
 
@@ -65,6 +72,14 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
   }, [st.knownTokens]);
   const baseColor = colorByName[base] ?? base;
   const quoteColor = colorByName[quote] ?? quote;
+  // Precision of each side of the pair. Amounts divide by their own token's
+  // 10^decimals; a PRICE is quote-per-base, so it scales by 10^(dBase − dQuote)
+  // — the identity while every token is 6, and correct the day one is not.
+  const baseDecimals = decimalsOf(baseColor, st.knownTokens);
+  const quoteDecimals = decimalsOf(quoteColor, st.knownTokens);
+  const toBaseCoins = (v: number) => toWholeCoinsNumber(v, baseDecimals);
+  const toQuoteCoins = (v: number) => toWholeCoinsNumber(v, quoteDecimals);
+  const toCoinPrice = (p: number) => scaleRate(p, baseDecimals, quoteDecimals);
 
   const [stats, setStats] = useState<ChartStats | null>(null);
   const [history, setHistory] = useState<ChartHistoryRow[]>([]);
@@ -169,12 +184,22 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
     };
     for (const o of st.orders) {
       if (!(o.amtFrom > 0 && o.amtTo > 0)) continue;
-      if (o.from === base && o.to === quote) push(askAt, o.amtTo / o.amtFrom, o);
-      else if (o.from === quote && o.to === base) push(bidAt, o.amtFrom / o.amtTo, o);
+      // `o.impliedRate` is already the whole-coin rate of from→to, so an ask
+      // (giving base, wanting quote) prices directly off it and a bid — quoted
+      // the other way round — off its reciprocal.
+      if (o.from === base && o.to === quote) push(askAt, o.impliedRate, o);
+      else if (o.from === quote && o.to === base) push(bidAt, o.impliedRate > 0 ? 1 / o.impliedRate : 0, o);
     }
+    // The BASE token's amount at this level, in coins: an ask gives base
+    // (`amtFrom`), a bid wants it (`amtTo`).
     const mkRows = (m: Map<number, Order[]>, side: Side): BookRow[] =>
       [...m.entries()]
-        .map(([price, orders]) => ({ price, amt: orders.reduce((s, o) => s + (side === 'ask' ? o.amtFrom : o.amtTo), 0), total: 0, orders }))
+        .map(([price, orders]) => ({
+          price,
+          amt: orders.reduce((s, o) => s + toBaseCoins(side === 'ask' ? o.amtFrom : o.amtTo), 0),
+          total: 0,
+          orders,
+        }))
         .sort((a, b) => b.price - a.price);
     const asks = mkRows(askAt, 'ask');
     const bids = mkRows(bidAt, 'bid');
@@ -189,7 +214,8 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
     const spread = bestAsk && bestBid ? bestAsk - bestBid : 0;
     const maxTotal = Math.max(1, asks.length ? asks[0].total : 0, bids.length ? bids[bids.length - 1].total : 0);
     return { mid, asks, bids, maxTotal, spread };
-  }, [st.orders, pair, base, quote]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st.orders, pair, base, quote, baseDecimals]);
 
   // depth-derived locals (empty-safe)
   const asks = realDepth?.asks ?? [];
@@ -214,10 +240,14 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
     () => referenceRate(prices, baseColor, quoteColor),
     [prices, baseColor, quoteColor],
   );
+  // `referenceRate` divides two per-BASE-UNIT USD prices, so it is a base-unit
+  // rate like everything else the node publishes: scale it before comparing it
+  // with the book's coin mid or printing "1 base = … quote".
+  const referenceCoinRate = reference ? toCoinPrice(reference.rate) : null;
   const referenceSub = reference
     ? [reference.label, fmtAge(reference.updatedAt)].filter(Boolean).join(' · ')
     : null;
-  const midVsReference = reference && mid > 0 ? fmtOffsetPct(mid, reference.rate) : null;
+  const midVsReference = referenceCoinRate != null && mid > 0 ? fmtOffsetPct(mid, referenceCoinRate) : null;
 
   // —— row selection: hover previews a cumulative range, click commits ——
   const [active, setActive] = useState<Record<string, boolean>>({});
@@ -359,11 +389,13 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
         {pair && (stats || reference) && (
           <div style={{ display: 'flex', gap: 30, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             {stats && <>
-              <Stat label="Last price">{fmtPrice(stats.last)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{quote}</span></Stat>
+              {/* /v1/chart/* serves base units and base-unit price ratios; the
+                  API shape is untouched and the scaling happens here (Q7). */}
+              <Stat label="Last price">{fmtPrice(toCoinPrice(stats.last))} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{quote}</span></Stat>
               <Stat label="24h"><span style={{ color: lastUp ? 'var(--pos)' : 'var(--neg)' }}>{lastUp ? '+' : ''}{change24.toFixed(2)}%</span></Stat>
-              <Stat label="High">{fmtPrice(stats.high)}</Stat>
-              <Stat label="Low">{fmtPrice(stats.low)}</Stat>
-              <Stat label="Volume" sub={fmtQty(stats.volume_quote) + ' ' + quote}>{fmtQty(stats.volume_base)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{base}</span></Stat>
+              <Stat label="High">{fmtPrice(toCoinPrice(stats.high))}</Stat>
+              <Stat label="Low">{fmtPrice(toCoinPrice(stats.low))}</Stat>
+              <Stat label="Volume" sub={fmtQty(toQuoteCoins(stats.volume_quote)) + ' ' + quote}>{fmtQty(toBaseCoins(stats.volume_base))} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{base}</span></Stat>
             </>}
             <Stat
               label="Reference"
@@ -372,13 +404,13 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                 ? `Reference price from GET /v1/prices (${reference.label})`
                 : `No market reference for this pair - at least one token is priced by the demo fallback`}
             >
-              {reference
-                ? <>1 {base} = {fmtPrice(reference.rate)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{quote}</span></>
+              {reference && referenceCoinRate != null
+                ? <>1 {base} = {fmtPrice(referenceCoinRate)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{quote}</span></>
                 : <span style={{ color: 'var(--ink-3)', fontWeight: 600 }}>no reference</span>}
             </Stat>
             <Stat label="Mid vs reference" title="How far the order book's mid price sits from the reference price">
               {midVsReference
-                ? <span style={{ color: mid <= (reference?.rate ?? 0) ? 'var(--pos)' : 'var(--neg)' }}>{midVsReference}</span>
+                ? <span style={{ color: mid <= (referenceCoinRate ?? 0) ? 'var(--pos)' : 'var(--neg)' }}>{midVsReference}</span>
                 : <span style={{ color: 'var(--ink-3)', fontWeight: 600 }}>{reference ? 'no book' : 'no reference'}</span>}
             </Stat>
             <Stat label="Asset ID"><TokenChip color={baseColor} knownTokens={st.knownTokens} size="sm" /></Stat>
@@ -537,8 +569,8 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                   const ts = at.toISOString().slice(0, 16).replace('T', ' ');
                   rows.push(
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', padding: '5px 12px', alignItems: 'center' }}>
-                      <span className="zs-num" style={{ fontSize: 13, fontWeight: 600, color: h.up ? 'var(--pos)' : 'var(--neg)' }}>{fmtPrice(h.price)}</span>
-                      <span className="zs-num" style={{ fontSize: 13, textAlign: 'right', color: 'var(--ink)' }}>{fmtQty(h.amt)}</span>
+                      <span className="zs-num" style={{ fontSize: 13, fontWeight: 600, color: h.up ? 'var(--pos)' : 'var(--neg)' }}>{fmtPrice(toCoinPrice(h.price))}</span>
+                      <span className="zs-num" style={{ fontSize: 13, textAlign: 'right', color: 'var(--ink)' }}>{fmtQty(toBaseCoins(h.amt))}</span>
                       <span className="zs-num" style={{ fontSize: 12, textAlign: 'right', color: 'var(--ink-3)' }}>{ts}</span>
                     </div>,
                   );

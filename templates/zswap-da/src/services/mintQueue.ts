@@ -12,12 +12,18 @@
 // registers it with the oldest queued name. The queue is persisted to
 // localStorage so it survives reloads.
 
+import { DEFAULT_DECIMALS } from '../state/amount';
+
 const STORAGE_KEY = 'zswap-da:pending-mint-names';
 
 export interface PendingMintName {
   id: string;        // unique — used to remove entries once consumed
   name: string;
   enqueuedAt: number;
+  /** Precision the mint was made at, so the reconciler's retry registers the
+   *  same value the immediate call would have. Optional: entries persisted by a
+   *  build before project 00024 have none and fall back to DEFAULT_DECIMALS. */
+  decimals?: number;
 }
 
 function read(): PendingMintName[] {
@@ -55,11 +61,12 @@ export function listPending(): PendingMintName[] {
   return read();
 }
 
-export function enqueueMintName(name: string): PendingMintName {
+export function enqueueMintName(name: string, decimals: number = DEFAULT_DECIMALS): PendingMintName {
   const entry: PendingMintName = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name,
     enqueuedAt: Date.now(),
+    decimals,
   };
   const next = [...read(), entry];
   write(next);

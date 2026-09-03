@@ -8,7 +8,9 @@
 // inside the bottom console dock (`compact`). `Swap` keeps the standalone hero
 // layout for any full-page use.
 //
-// Amounts are integer base units (the ledger has no decimals). Requires the
+// Amounts are typed and shown in WHOLE COINS, scaled by each token's own
+// `decimals` from the registry; everything below this screen — the quote
+// request, the offer legs, the chain — stays integer base units. Requires the
 // browser wallet (Lace / ConnectedAPI); the local JS wallet can't makeIntent.
 
 import { useEffect, useState } from 'react';
@@ -17,35 +19,30 @@ import { TokenPicker } from '../ui/TokenPicker';
 import { api, type Quote } from '../services/api';
 import { log } from '../lib/log';
 import { fmtUsd, rateDisplay } from '../state/format';
+import {
+  amountErrorText,
+  formatAmount,
+  formatBaseUnits,
+  sanitizeAmountInput,
+} from '../state/amount';
+import {
+  displayRate,
+  hasBalanceFor,
+  legDecimals,
+  parseLeg,
+  suggestedFieldValue,
+} from '../state/swapAmounts';
 import { describeQuote } from '../state/reference';
 import type { KnownToken } from '../types';
 import type { OfferLeg } from '../services/makerOffer';
 import type { ZSwapApp } from '../state/useZSwapApp';
-
-/**
- * Parse a typed amount into exact integer base units.
- *
- * Returns null for anything that isn't a whole non-negative number — including
- * decimals, which the ledger has no notion of. Rejecting them here beats
- * `BigInt(1.5)` throwing a bare RangeError from inside the submit path.
- */
-function parseUnits(raw: string): bigint | null {
-  const s = raw.trim().replace(/[,_\s]/g, '');
-  if (!/^\d+$/.test(s)) return null;
-  try {
-    return BigInt(s);
-  } catch {
-    return null;
-  }
-}
-
-const intize = (v: string) => v.replace(/[^0-9]/g, '');
 
 function RateInline({ value }: { value: number }) {
   const r = rateDisplay(value);
   return <span className="zs-num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{r.kind === 'plain' ? r.text : (<>{r.mant} × 10<sup style={{ fontSize: '.72em' }}>{r.exp}</sup></>)}</span>;
 }
 
+/** Raw base-unit balance string for a token, or null when there is none. */
 function balanceFor(st: ZSwapApp, token: KnownToken | null): string | null {
   if (!token) return null;
   const map = token.kind === 'shielded' ? st.shieldedBalances : st.unshieldedBalances;
@@ -54,20 +51,29 @@ function balanceFor(st: ZSwapApp, token: KnownToken | null): string | null {
 
 function FieldRow({ label, token, value, onValue, onPick, onClear, readOnly, accent, balance, usd, compact }: {
   label: string; token: KnownToken | null; value: string; onValue?: (v: string) => void;
-  onPick: () => void; onClear?: () => void; readOnly?: boolean; accent?: boolean; balance?: string | null; usd?: number | null; compact?: boolean;
+  onPick: () => void; onClear?: () => void; readOnly?: boolean; accent?: boolean;
+  /** RAW base-unit balance string, as the wallet reports it. Rendered in coins. */
+  balance?: string | null; usd?: number | null; compact?: boolean;
 }) {
+  // The token's own precision drives both the keystroke filter and the balance
+  // chip; with no token picked yet, fall back to the app-wide default.
+  const decimals = legDecimals(token);
   return (
     <div className="zs-field">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: compact ? 7 : 12 }}>
         <span className="zs-field-label">{label}</span>
         {token && balance != null && (
-          <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>Balance <span className="zs-num" style={{ color: 'var(--ink-2)' }}>{balance}</span>
-            {!readOnly && <button onClick={() => onValue?.(intize(balance))} className="zs-num" style={{ marginLeft: 7, border: 'none', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 6, padding: '2px 6px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>MAX</button>}
+          <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>Balance <span className="zs-num" style={{ color: 'var(--ink-2)' }}>{formatAmount(balance, decimals)}</span>
+            {/* MAX pastes the EXACT balance in coins (`formatBaseUnits`, not the
+                grouped/rounded `formatAmount`), so re-parsing it returns the
+                wallet's balance to the base unit and "spend everything" is
+                actually everything. */}
+            {!readOnly && <button onClick={() => onValue?.(formatBaseUnits(balance, decimals))} className="zs-num" style={{ marginLeft: 7, border: 'none', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 6, padding: '2px 6px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>MAX</button>}
           </span>
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <input value={value} onChange={(e) => onValue?.(intize(e.target.value))} readOnly={readOnly} placeholder="0" inputMode="numeric"
+        <input value={value} onChange={(e) => onValue?.(sanitizeAmountInput(e.target.value, decimals))} readOnly={readOnly} placeholder="0" inputMode="decimal"
           className="zs-amount" style={{ fontSize: compact ? 24 : undefined, color: value ? (accent ? 'var(--accent)' : 'var(--ink)') : 'var(--ink-4)', cursor: readOnly ? 'default' : 'text' }} />
         {token ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
@@ -110,20 +116,24 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestPayPicker]);
 
-  // Amounts are parsed straight from the input STRING to bigint. Going via
-  // Number() first would silently round anything past 2^53 (a double's exact
-  // integer range) and the BigInt() afterwards would faithfully preserve the
-  // corrupted value — so the wallet would build an offer for an amount the user
-  // never typed. Ledger amounts are u128 integer base units, so a plain decimal
-  // string is the whole grammar.
-  const payBig = parseUnits(payAmt);
-  const recvBig = parseUnits(recvAmt);
+  // Amounts are parsed straight from the input STRING to bigint, EACH LEG WITH
+  // ITS OWN TOKEN'S DECIMALS. Going via Number() first would silently round
+  // anything past 2^53 (a double's exact integer range) and the BigInt()
+  // afterwards would faithfully preserve the corrupted value — so the wallet
+  // would build an offer for an amount the user never typed. `parseLeg` also
+  // says WHY it refused, which is how an over-precise amount gets a message
+  // naming the token's precision instead of a generic "invalid".
+  const payParsed = parseLeg(payAmt, from);
+  const recvParsed = parseLeg(recvAmt, to);
+  const payBig = payParsed.value;
+  const recvBig = recvParsed.value;
   const bothSel = !!(from && to);
   const sameKind = from && to ? from.kind === to.kind : true;
   const bothShielded = !!(from && to && from.kind === 'shielded' && to.kind === 'shielded');
 
-  // Canonical decimal strings — the quote endpoint takes strings, so the whole
-  // path stays exact with no double round-trip.
+  // Canonical BASE-UNIT decimal strings — `/v1/quote` speaks base units and
+  // always has, so this is the conversion boundary: coins above it, base units
+  // below it. No double round-trip anywhere on the path.
   const payStr = payBig?.toString() ?? '';
   const recvStr = recvBig?.toString() ?? '';
 
@@ -137,7 +147,8 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
         const qres = await api.getQuote(from.token_color, to.token_color, payStr, autoPrice ? undefined : (recvBig && recvBig > 0n ? recvStr : undefined));
         if (cancelled) return;
         setQuote(qres);
-        if (autoPrice) setRecvAmt(qres.suggested_to_amount);
+        // `suggested_to_amount` is base units; the field is coins.
+        if (autoPrice) setRecvAmt(suggestedFieldValue(qres.suggested_to_amount, to));
       } catch {
         if (!cancelled) setQuote(null);
       }
@@ -156,8 +167,10 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     setErrorCode(null);
     if (!from || !to) return;
     if (!sameKind) { setError('Both tokens must be the same privacy kind (all shielded or all unshielded).'); return; }
-    if (payAmt.trim() !== '' && payBig === null) { setError('Amounts are whole base units — no decimals or separators.'); return; }
-    if (recvAmt.trim() !== '' && recvBig === null) { setError('Amounts are whole base units — no decimals or separators.'); return; }
+    // Over-precision is REFUSED here, never rounded: the amount below is what
+    // settles on chain, and quietly posting a different one is not an option.
+    if (payAmt.trim() !== '' && payParsed.error) { setError(amountErrorText(payParsed.error, from.decimals, from.name)); return; }
+    if (recvAmt.trim() !== '' && recvParsed.error) { setError(amountErrorText(recvParsed.error, to.decimals, to.name)); return; }
     if (payBig === null || recvBig === null || payBig <= 0n || recvBig <= 0n) { setError('Enter both amounts.'); return; }
     setPosting(true);
     let phase = 'Building offer in wallet…';
@@ -166,7 +179,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     try {
       const gives: OfferLeg[] = [{ kind: from.kind, color: from.token_color, amount: payBig }];
       const wants: OfferLeg[] = [{ kind: to.kind, color: to.token_color, amount: recvBig }];
-      log.info('[create-offer] start', { pay: payBig.toString(), recv: recvBig.toString(), from: from.name, to: to.name, kind: from.kind, fromColor: from.token_color, toColor: to.token_color });
+      log.info('[create-offer] start', { payCoins: payAmt, recvCoins: recvAmt, pay: payBig.toString(), recv: recvBig.toString(), from: from.name, to: to.name, kind: from.kind, fromColor: from.token_color, toColor: to.token_color });
       // Bound the whole flow so a hung wallet/proof step can't sit on "Creating…"
       // forever — surface a clear, retryable error naming the phase it stuck on.
       await Promise.race([
@@ -191,13 +204,13 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     }
   };
 
-  // Maker can only offer to pay tokens it holds. Compared in bigint: balances
-  // are raw integer strings, so Number() on either side could round two
-  // distinct amounts onto the same double and let an unaffordable offer through
-  // this gate. (createOffer re-checks authoritatively in bigint regardless.)
+  // Maker can only offer to pay tokens it holds. Compared in bigint AND IN THE
+  // SAME UNIT on both sides: the wallet reports raw base-unit integer strings
+  // and `payBig` is already base units, so no scaling happens here — doing it
+  // in Number() could round two distinct amounts onto the same double and let
+  // an unaffordable offer through. (createOffer re-checks in bigint regardless.)
   const payBalance = balanceFor(st, from);
-  const payBalanceBig = parseUnits(String(payBalance ?? '0')) ?? 0n;
-  const insufficientPay = !!from && payBig !== null && payBig > 0n && payBalanceBig < payBig;
+  const insufficientPay = !!from && payBig !== null && payBig > 0n && !hasBalanceFor(payBig, payBalance);
 
   // primary button state machine (mirrors the mock)
   let label = 'Connect wallet';
@@ -207,8 +220,8 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     if (!st.canTrade) { label = 'Use the browser wallet (Lace) to create offers'; disabled = true; action = () => {}; }
     else if (!bothSel) { label = 'Select tokens'; disabled = true; action = () => {}; }
     else if (!sameKind) { label = 'Tokens must share privacy kind'; disabled = true; action = () => {}; }
-    else if (payAmt.trim() !== '' && payBig === null) { label = 'Whole base units only'; disabled = true; action = () => {}; }
-    else if (recvAmt.trim() !== '' && recvBig === null) { label = 'Whole base units only'; disabled = true; action = () => {}; }
+    else if (payAmt.trim() !== '' && payParsed.error) { label = payParsed.error === 'precision' ? `Max ${from!.decimals} decimals for ${from!.name}` : 'Check the amount you pay'; disabled = true; action = () => {}; }
+    else if (recvAmt.trim() !== '' && recvParsed.error) { label = recvParsed.error === 'precision' ? `Max ${to!.decimals} decimals for ${to!.name}` : 'Check the amount you want'; disabled = true; action = () => {}; }
     else if (payBig === null || payBig <= 0n) { label = 'Enter the amount you pay'; disabled = true; action = () => {}; }
     else if (recvBig === null || recvBig <= 0n) { label = 'Enter the amount you want'; disabled = true; action = () => {}; }
     else if (insufficientPay) { label = `Insufficient ${from!.name}`; disabled = true; action = () => {}; }
@@ -221,6 +234,13 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
   // offset from it, the sponsorship threshold, and where the price came from.
   // Pure and unit-tested in state/reference.test.ts.
   const ref = quote ? describeQuote(quote, from?.name ?? '', to?.name ?? '') : null;
+
+  // The node's `implied_rate` / `market_rate` are BASE-UNIT rates (base units of
+  // `to` per base unit of `from`). "1 WBTC = X WETH" is a WHOLE-COIN rate, so
+  // both are scaled by 10^(dFrom − dTo) — the identity while every token is 6,
+  // and the reason a future 8-decimals token still reads right. `ref.offset` and
+  // the sponsorship percentages are ratios of two rates and so need no scaling.
+  const rateScale = (r: number | null | undefined): number => displayRate(r, from, to);
 
   return (
     <>
@@ -244,7 +264,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
             {payBig !== null && payBig > 0n && recvBig !== null && recvBig > 0n && quote && (
               <>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '4px 14px', fontSize: 13 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}><Icon.shield style={{ color: 'var(--accent)', flex: '0 0 auto' }} /> Your rate · 1 {from!.name} = <RateInline value={quote.implied_rate ?? 0} /> {to!.name}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}><Icon.shield style={{ color: 'var(--accent)', flex: '0 0 auto' }} /> Your rate · 1 {from!.name} = <RateInline value={rateScale(quote.implied_rate)} /> {to!.name}</span>
                   {ref?.offset && <span className="zs-num" style={{ color: ref.offsetBelow ? 'var(--pos)' : 'var(--neg)', whiteSpace: 'nowrap', fontWeight: 600 }}>{ref.offset} vs reference</span>}
                 </div>
                 {/* The reference rate is shown in BOTH price modes now: in auto
@@ -252,7 +272,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
                     and how far below it the sponsorship threshold sits. */}
                 {ref?.referenceRate != null && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 12px', fontSize: 11.5, color: 'var(--ink-3)' }}>
-                    <span style={{ whiteSpace: 'nowrap' }}>Reference · 1 {from!.name} = <RateInline value={ref.referenceRate} /> {to!.name}</span>
+                    <span style={{ whiteSpace: 'nowrap' }}>Reference · 1 {from!.name} = <RateInline value={rateScale(ref.referenceRate)} /> {to!.name}</span>
                     {ref.thresholdText && <span style={{ whiteSpace: 'nowrap' }}>{ref.thresholdText}</span>}
                   </div>
                 )}
