@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '../ui/icons';
 import { MAX_TOKEN_NAME_LENGTH } from '../constants';
+import { DEFAULT_DECIMALS, formatAmount, parseWholeCoins } from '../state/amount';
 import { formatShieldedAddress } from '../state/shieldedAddress';
 import type { ZSwapApp } from '../state/useZSwapApp';
 
@@ -50,9 +51,16 @@ function shortAddr(a: string | null): string {
 
 interface Receipt { name: string; amount: string; kind: Kind; color: string; txHash: string }
 
-// Fixed faucet allotment (matches the mock — one button, one amount).
-const MINT_AMOUNT = 1000;
-const MINT_AMOUNT_STR = MINT_AMOUNT.toLocaleString('en-US');
+// Fixed faucet allotment: 1,000 WHOLE COINS.
+//
+// Faucet tokens are minted at DEFAULT_DECIMALS and registered as such, so the
+// circuit is called with 1,000 × 10^6 = 1_000_000_000 base units while the user
+// is told, correctly, that they received 1,000 of the token. The scaling is
+// `parseWholeCoins`, never `1000 * 1e6`.
+const MINT_DECIMALS = DEFAULT_DECIMALS;
+const MINT_COINS = '1000';
+const MINT_BASE_UNITS = parseWholeCoins(MINT_COINS, MINT_DECIMALS)!;
+const MINT_AMOUNT_STR = formatAmount(MINT_BASE_UNITS, MINT_DECIMALS);
 
 export function Faucet({ st }: { st: ZSwapApp }) {
   const net = st.network || 'Undeployed';
@@ -88,10 +96,9 @@ export function Faucet({ st }: { st: ZSwapApp }) {
     setErr(null);
     try {
       const dsep = domainSepFromName(name);
-      const amountBig = BigInt(MINT_AMOUNT);
       const res = kind === 'shielded'
-        ? await st.mintShielded(dsep, amountBig, BigInt(Date.now()), name)
-        : await st.mintUnshielded(dsep, amountBig, name);
+        ? await st.mintShielded(dsep, MINT_BASE_UNITS, BigInt(Date.now()), name, MINT_DECIMALS)
+        : await st.mintUnshielded(dsep, MINT_BASE_UNITS, name, MINT_DECIMALS);
       setReceipt({ name, amount: MINT_AMOUNT_STR, kind, color: res.color, txHash: res.txHash });
       setStatus('done');
       st.toast(`${MINT_AMOUNT_STR} ${name} minted`, 'ok');
@@ -151,7 +158,7 @@ export function Faucet({ st }: { st: ZSwapApp }) {
           {kind === 'shielded' ? <Icon.shield style={{ color: 'var(--accent)' }} /> : <Icon.eye style={{ color: 'var(--ink-3)' }} />}
           <input value={name} onChange={(e) => { setName(sanitizeName(e.target.value)); setStatus('idle'); }} placeholder="e.g. ZTOKEN" spellCheck={false}
             style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--ink)', textTransform: 'uppercase' }} />
-          <span className="zs-num" style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{MINT_AMOUNT_STR} units</span>
+          <span className="zs-num" style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{MINT_AMOUNT_STR} coins</span>
         </div>
 
         <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 18 }}>

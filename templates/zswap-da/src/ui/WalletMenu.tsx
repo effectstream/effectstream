@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { WalletPill, type WalletInfo } from './WalletPill';
 import { Icon } from './icons';
-import { isShieldedAddress, truncateAddress } from '../utils';
-import { fmtBalance } from '../state/format';
+import { decimalsOf, isShieldedAddress, truncateAddress } from '../utils';
+import { formatAmount } from '../state/amount';
 import { formatShieldedAddress } from '../state/shieldedAddress';
 import { TokenChip } from './TokenChip';
 import type { KnownToken } from '../types';
@@ -54,7 +54,7 @@ function BalRows({ title, balances, knownTokens }: { title: string; balances: Re
           {entries.map(([color, amt]) => (
             <div key={color} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <TokenChip color={color} knownTokens={knownTokens} size="sm" />
-              <span className="zs-num" style={{ fontWeight: 600, fontSize: 13 }}>{fmtBalance(amt)}</span>
+              <span className="zs-num" style={{ fontWeight: 600, fontSize: 13 }}>{formatAmount(amt, decimalsOf(color, knownTokens))}</span>
             </div>
           ))}
         </div>

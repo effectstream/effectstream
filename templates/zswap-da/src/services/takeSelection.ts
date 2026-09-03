@@ -9,14 +9,22 @@
 
 import type { ParsedLeg } from './offerParse';
 import type { KnownToken } from '../types';
+import { DEFAULT_DECIMALS } from '../state/amount';
 import { affordableIndices, shortfallMessage, shortfallsFromLegs, sumLegs } from './takerBalance';
 
-/** One selectable offer of a take. Display amounts are floats (the book's own
- *  unit); `pays` carries the exact bigint legs the balance check needs. */
+/**
+ * One selectable offer of a take.
+ *
+ * `pay.amt`/`receive.amt` are BASE UNITS as floats (the book's own unit) with
+ * the token's `decimals` beside them; the caller renders coins. Totals are
+ * summed in base units on purpose — integers add exactly below 2^53, whereas
+ * summing already-divided coins would drift across a deep ladder. `pays`
+ * carries the exact bigint legs the balance check needs.
+ */
 export interface SelectableOffer {
   id: string;
-  pay: { sym: string; amt: number };
-  receive: { sym: string; amt: number };
+  pay: { sym: string; amt: number; decimals?: number };
+  receive: { sym: string; amt: number; decimals?: number };
   /** Legs the taker must SUPPLY for this offer. Empty for an undecodable blob,
    *  which then contributes no cost — the settle path surfaces those. */
   pays: ParsedLeg[];
@@ -31,8 +39,9 @@ export interface TakerBalances {
 
 export interface TakeSummary {
   count: number;
-  pay: { sym: string; amt: number };
-  receive: { sym: string; amt: number };
+  /** Totals in BASE UNITS, with the precision needed to render them as coins. */
+  pay: { sym: string; amt: number; decimals: number };
+  receive: { sym: string; amt: number; decimals: number };
   /** Why the checked set can't be funded, or null. */
   blocked: string | null;
   cta: string;
@@ -86,8 +95,16 @@ export function summarize(
       );
   return {
     count: n,
-    pay: { sym: shape?.pay.sym ?? '—', amt: sel.reduce((s, i) => s + i.pay.amt, 0) },
-    receive: { sym: shape?.receive.sym ?? '—', amt: sel.reduce((s, i) => s + i.receive.amt, 0) },
+    pay: {
+      sym: shape?.pay.sym ?? '—',
+      amt: sel.reduce((s, i) => s + i.pay.amt, 0),
+      decimals: shape?.pay.decimals ?? DEFAULT_DECIMALS,
+    },
+    receive: {
+      sym: shape?.receive.sym ?? '—',
+      amt: sel.reduce((s, i) => s + i.receive.amt, 0),
+      decimals: shape?.receive.decimals ?? DEFAULT_DECIMALS,
+    },
     blocked,
     // The CTA states the size of the commitment; with nothing checked it names
     // what's missing rather than offering "Take 0 offers".

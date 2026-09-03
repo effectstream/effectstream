@@ -1,22 +1,18 @@
 // Display formatters, ported from the mock's data.jsx. Pure + reusable.
-// Symbol-keyed `dp` is kept for the mock token symbols; real (color-keyed)
-// balances use `fmtBalance`.
-
-export function dp(sym?: string): number {
-  if (!sym) return 2;
-  if (sym === 'wBTC' || sym === 'wsBTC') return 5;
-  if (/^(w|ws)(ETH|SOL)$/.test(sym)) return 3;
-  return 2;
-}
+//
+// TOKEN AMOUNTS DO NOT LIVE HERE. They are base-unit integers whose meaning
+// depends on the token's `decimals`, so they are rendered by
+// `state/amount.ts::formatAmount(baseUnits, decimals)`. The symbol-keyed `dp()`
+// and the decimals-blind `fmtAmt`/`fmtBalance` that used to sit here were
+// removed in project 00024: they keyed precision off a hard-coded list of mock
+// symbols and printed raw base units as if they were coins.
+//
+// What remains is USD, rates and percentages — none of which is a token amount.
 
 export function fmt(n: number | null | undefined, d?: number): string {
   if (n == null || isNaN(n)) return '0';
   if (d == null) d = n >= 1000 ? 2 : 4;
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
-}
-
-export function fmtAmt(n: number, sym?: string): string {
-  return fmt(n, dp(sym));
 }
 
 export function fmtUsd(n: number): string {
@@ -37,15 +33,6 @@ export function rateDisplay(v: number): RateDisplay {
   const sciLen = mantStr.length + 4 + String(Math.abs(exp)).length;
   if (plain.length <= sciLen) return { kind: 'plain', text: plain };
   return { kind: 'sci', mant: mantStr, exp };
-}
-
-/** Format a balance amount that arrives as a string (real wallet balances are
- *  string-encoded). Falls back to the raw string if it isn't numeric. */
-export function fmtBalance(amount: string | number | null | undefined): string {
-  if (amount == null) return '0';
-  const n = typeof amount === 'number' ? amount : Number(String(amount).replace(/,/g, ''));
-  if (!isFinite(n)) return String(amount);
-  return fmt(n, n >= 1000 ? 2 : n === Math.floor(n) ? 0 : 4);
 }
 
 // ── Reference-price helpers (00005) ───────────────────────────────────────────

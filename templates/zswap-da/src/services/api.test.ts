@@ -46,8 +46,8 @@ const PRICES_FIXTURE = {
     { asset_id: 'usdm', price_usd: '1', source: 'fixed', provider_updated_at: null, updated_at: '2026-09-03T00:00:04.000Z' },
   ],
   tokens: [
-    { token_color: 'e7'.repeat(32), name: 'WBTC', kind: 'shielded', decimals: 0, asset_id: 'bitcoin', price_usd: '77387', source: 'feed', updated_at: '2026-09-03T00:00:04.000Z' },
-    { token_color: 'aa'.repeat(32), name: 'TESTTOKENA', kind: 'shielded', decimals: 0, asset_id: null, price_usd: '13.02', source: 'fallback', updated_at: '2026-09-01T10:00:00.000Z' },
+    { token_color: 'e7'.repeat(32), name: 'WBTC', kind: 'shielded', decimals: 6, asset_id: 'bitcoin', price_usd: '77387', source: 'feed', updated_at: '2026-09-03T00:00:04.000Z' },
+    { token_color: 'aa'.repeat(32), name: 'TESTTOKENA', kind: 'shielded', decimals: 6, asset_id: null, price_usd: '13.02', source: 'fallback', updated_at: '2026-09-01T10:00:00.000Z' },
   ],
 };
 

@@ -6,8 +6,9 @@
 import { useState } from 'react';
 import { Coin, Icon } from '../ui/icons';
 import { Modal, ModalHead } from '../ui/Modal';
-import { fmtAmt, rateDisplay } from '../state/format';
-import type { MyTrade } from '../state/myTrades';
+import { DEFAULT_DECIMALS, formatAmount, scaleRate } from '../state/amount';
+import { rateDisplay } from '../state/format';
+import type { MyTrade, TradeLeg } from '../state/myTrades';
 import type { ZSwapApp } from '../state/useZSwapApp';
 
 function downloadText(name: string, text: string) {
@@ -60,12 +61,14 @@ function StatusBadge({ status }: { status: MyTrade['status'] }) {
   return <span title={s.hint} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: s.c, background: s.bg, borderRadius: 'var(--r-pill)', padding: '4px 10px', whiteSpace: 'nowrap', cursor: s.hint ? 'help' : undefined }}><Icon.dot /> {s.label}</span>;
 }
 
-function Cell({ amt, sym, accent }: { amt: number; sym: string; accent?: boolean }) {
+/** A recorded leg. `amt` is base units; `decimals` is absent on records written
+ *  before project 00024, which are then read at the default precision. */
+function Cell({ leg, accent }: { leg: TradeLeg; accent?: boolean }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap' }}>
-      <Coin sym={sym} size="sm" />
-      <span className="zs-num" style={{ fontWeight: 600, fontSize: 13.5, color: accent ? 'var(--accent)' : 'var(--ink)' }}>{fmtAmt(amt)}</span>
-      <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{sym}</span>
+      <Coin sym={leg.sym} size="sm" />
+      <span className="zs-num" style={{ fontWeight: 600, fontSize: 13.5, color: accent ? 'var(--accent)' : 'var(--ink)' }}>{formatAmount(leg.amt, leg.decimals ?? DEFAULT_DECIMALS)}</span>
+      <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{leg.sym}</span>
     </span>
   );
 }
@@ -152,13 +155,17 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
               </tr></thead>
               <tbody>
                 {rows.map((t) => {
-                  const price = t.give.amt > 0 ? t.get.amt / t.give.amt : 0;
+                  // Both legs are base units, so their ratio is a base-unit
+                  // rate — scaled to "1 offered coin = price requested coins".
+                  const price = t.give.amt > 0
+                    ? scaleRate(t.get.amt / t.give.amt, t.give.decimals ?? DEFAULT_DECIMALS, t.get.decimals ?? DEFAULT_DECIMALS)
+                    : 0;
                   const r = rateDisplay(price);
                   const d = new Date(t.at);
                   return (
                     <tr key={t.id}>
-                      <td><Cell amt={t.give.amt} sym={t.give.sym} /></td>
-                      <td><Cell amt={t.get.amt} sym={t.get.sym} accent /></td>
+                      <td><Cell leg={t.give} /></td>
+                      <td><Cell leg={t.get} accent /></td>
                       <td style={{ textAlign: 'right' }}>
                         <div className="zs-num" style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{r.kind === 'plain' ? r.text : (<>{r.mant} × 10<sup style={{ fontSize: '.72em' }}>{r.exp}</sup></>)} <span style={{ color: 'var(--ink-3)', fontWeight: 400 }}>{t.get.sym}</span></div>
                       </td>
@@ -192,9 +199,9 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
             <ModalHead title="Offer file" onClose={() => setViewing(null)} />
             <div style={{ padding: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Coin sym={viewing.give.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 600, fontSize: 13 }}>{fmtAmt(viewing.give.amt)} {viewing.give.sym}</span>
+                <Coin sym={viewing.give.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 600, fontSize: 13 }}>{formatAmount(viewing.give.amt, viewing.give.decimals ?? DEFAULT_DECIMALS)} {viewing.give.sym}</span>
                 <Icon.arrow style={{ color: 'var(--ink-3)' }} />
-                <Coin sym={viewing.get.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent)' }}>{fmtAmt(viewing.get.amt)} {viewing.get.sym}</span>
+                <Coin sym={viewing.get.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent)' }}>{formatAmount(viewing.get.amt, viewing.get.decimals ?? DEFAULT_DECIMALS)} {viewing.get.sym}</span>
                 {viewing.shielded && <span className="zs-badge-shield" style={{ marginLeft: 'auto' }}><Icon.shield /> Shielded</span>}
               </div>
               <textarea readOnly value={viewing.blob ?? '(no offer blob stored for this trade)'} onFocus={(e) => e.currentTarget.select()}
@@ -218,10 +225,10 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
           {preview && (preview.pays.length > 0 || preview.gets.length > 0) ? (
             <div style={{ marginTop: 12, padding: '11px 13px', borderRadius: 'var(--r-field)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 13 }}>
               <span style={{ color: 'var(--ink-3)' }}>You pay</span>
-              {preview.pays.map((l, i) => <span key={'p' + i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Coin sym={l.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 700 }}>{fmtAmt(l.amt)}</span> {l.sym}</span>)}
+              {preview.pays.map((l, i) => <span key={'p' + i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Coin sym={l.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 700 }}>{formatAmount(l.amt, l.decimals)}</span> {l.sym}</span>)}
               <Icon.arrow style={{ color: 'var(--ink-3)' }} />
               <span style={{ color: 'var(--ink-3)' }}>receive</span>
-              {preview.gets.map((l, i) => <span key={'g' + i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Coin sym={l.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 700, color: 'var(--accent)' }}>{fmtAmt(l.amt)}</span> {l.sym}</span>)}
+              {preview.gets.map((l, i) => <span key={'g' + i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Coin sym={l.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 700, color: 'var(--accent)' }}>{formatAmount(l.amt, l.decimals)}</span> {l.sym}</span>)}
               {preview.shielded && <span className="zs-badge-shield" style={{ marginLeft: 'auto' }}><Icon.shield /> Shielded</span>}
             </div>
           ) : dump.trim() ? (

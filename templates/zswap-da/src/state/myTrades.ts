@@ -11,7 +11,16 @@ import { bucketOf, readBuckets, writeBuckets, type Buckets } from './scope';
 
 export type MyTradeStatus = 'not_public' | 'live' | 'consumed' | 'cancelled' | 'expired';
 
-export interface TradeLeg { sym: string; amt: number }
+/**
+ * One leg of a recorded trade.
+ *
+ * `amt` is BASE UNITS — the same unit the chain and the node use — and
+ * `decimals` says how to read it. `decimals` is OPTIONAL because records
+ * written before project 00024 have no such field; read them with
+ * DEFAULT_DECIMALS rather than migrating localStorage (spec Q4: pre-change
+ * amounts re-read at 10^-6 of their old face value, which is accepted).
+ */
+export interface TradeLeg { sym: string; amt: number; decimals?: number }
 export interface MyTrade {
   id: string;
   kind: 'create' | 'take';
