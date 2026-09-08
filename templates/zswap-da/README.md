@@ -305,6 +305,9 @@ At runtime a hosting page may set `window.API_BASE` and `window.BATCHER_URL` bef
 both take precedence over the build-time values. The network is not user-selectable — the
 `NetworkMenu` displays what the build was configured with.
 
+Keep protocol branches paired: Effectstream `v-next` runs with the Offer Files kernel `ledger-v9`,
+while Effectstream `midnight-1` runs with the kernel `main` branch.
+
 ## Testing
 
 The template's unit suites run with Bun's test runner:
