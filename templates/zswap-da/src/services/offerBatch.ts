@@ -28,10 +28,10 @@
 // at all.
 //
 // BOTH wallets fold their ladder through this module. The JS wallet facade
-// takes the merged ledger object (services/localTradeOffers.ts); Lace takes its
-// serialized bytes and picks a balancing strategy from its shape
+// takes the merged ledger object (services/localTradeOffers.ts); the browser
+// wallet connector takes its serialized bytes and picks a balancing strategy from its shape
 // (services/browserOffers.ts), which is why `pickSwapSegment` and
-// `chooseLaceBalancing` live here too — a merged transaction has to satisfy the
+// `chooseBrowserWalletBalancing` live here too — a merged transaction has to satisfy the
 // same dispatch a single offer did, and that is something a unit test can check
 // without a wallet in the room.
 
@@ -139,8 +139,8 @@ export function mergeMakerOffers(decoded: DecodedMakerOffer[]): any {
 }
 
 /**
- * The folded maker side, plus the serialized form a wallet that speaks bytes
- * (Lace) needs.
+ * The folded maker side, plus the serialized form a browser wallet connector
+ * needs.
  */
 export interface MergedMakerBatch {
   /** ledger-v8 transaction — the merged maker half. */
@@ -173,7 +173,8 @@ export function mergeMakerOffersToBytes(decoded: DecodedMakerOffer[]): MergedMak
  * the balancing strategies below each mirror exactly one segment.
  */
 export function pickSwapSegment(makerTx: any): { segId: number; imbalances: Map<any, bigint> } {
-  // Lace's makeIntent populates `intents` (Intent objects) and may also touch
+  // Connector makeIntent implementations may populate `intents` (Intent objects)
+  // and may also touch
   // `fallibleOffer` (ZswapOffer). Union them with segment 0 (guaranteed),
   // then keep only segments with non-empty asset imbalances.
   const intentIds: number[] = makerTx.intents
@@ -215,8 +216,8 @@ export function pickSwapSegment(makerTx: any): { segId: number; imbalances: Map<
   return swaps[0]!;
 }
 
-/** Which side Lace is asked to build — see services/browserOffers.ts. */
-export interface LaceBalancing {
+/** Which side the browser wallet is asked to build — see services/browserOffers.ts. */
+export interface BrowserWalletBalancing {
   segId: number;
   imbalances: Map<any, bigint>;
   /**
@@ -227,21 +228,23 @@ export interface LaceBalancing {
 }
 
 /**
- * Pick Lace's balancing strategy from the maker transaction's shape.
+ * Pick the browser-wallet balancing strategy from the maker transaction's shape.
  *
- * Mirror+merge requires both halves to have no Intent slots: Lace's unshielded
- * `makeIntent` puts asset deltas in segment 0 but also tacks on an empty
- * Intent[1], and two of those collide on merge — so the segment test alone is
- * not enough, the maker must additionally carry no Intent.
+ * Mirror+merge requires both halves to have no Intent slots. The connector
+ * behavior this path was developed against puts unshielded asset deltas in
+ * segment 0 but also adds an empty Intent[1], and two of those collide on
+ * merge. The segment test alone is therefore not enough: the maker must also
+ * carry no Intent.
  *
  * A merged shielded↔shielded ladder satisfies both conditions exactly as one
  * shielded offer does (no Intents anywhere, deltas summed in segment 0), which
- * is why merging is safe to hand Lace; `offerBatch.test.ts` asserts that on a
- * genuinely merged transaction rather than trusting the reasoning.
+ * is why merging is safe to hand the browser wallet; `offerBatch.test.ts`
+ * asserts that on a genuinely merged transaction rather than trusting the
+ * reasoning.
  *
  * @throws Whatever {@link pickSwapSegment} throws.
  */
-export function chooseLaceBalancing(makerTx: any): LaceBalancing {
+export function chooseBrowserWalletBalancing(makerTx: any): BrowserWalletBalancing {
   const swap = pickSwapSegment(makerTx);
   const makerHasIntents = !!makerTx.intents
     && Array.from(makerTx.intents.keys() as Iterable<number>).length > 0;

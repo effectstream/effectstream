@@ -12,7 +12,7 @@ import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 import type { NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import {
   batchPaysUnshielded,
-  chooseLaceBalancing,
+  chooseBrowserWalletBalancing,
   decodeMakerOffers,
   mergeMakerOffers,
   mergeMakerOffersToBytes,
@@ -43,8 +43,8 @@ const KEYS = L.ZswapSecretKeys.fromSeed(new Uint8Array(32).fill(3));
  * A shielded-only offer that actually moves value: one output of TOKEN, so the
  * maker pays it out and the TAKER pays for it. Shielded value lives in the
  * transaction's guaranteed Zswap offer — segment 0, no Intent anywhere — which
- * is the shape a shielded↔shielded ladder has, and the shape Lace's
- * mirror+merge strategy exists for.
+ * is the shape a shielded↔shielded ladder has, and the shape the browser
+ * wallet's mirror+merge strategy exists for.
  */
 const shieldedTx = (value = 7n) => {
   const coin = L.createShieldedCoinInfo(TOKEN, value);
@@ -179,12 +179,11 @@ describe('mergeMakerOffers', () => {
   });
 });
 
-// Lace takes bytes, not a ledger object, and picks a balancing strategy from
-// the maker transaction's shape. Both are asserted here because there is no
-// Lace wallet in this environment: what CAN be proved offline is that a merged
-// ladder is handed the right bytes and still selects the strategy Lace has
-// always been given.
-describe('mergeMakerOffersToBytes — the Lace entry point', () => {
+// The browser wallet takes bytes, not a ledger object, and picks a balancing
+// strategy from the maker transaction's shape. Both are asserted here without
+// a live wallet: what CAN be proved offline is that a merged ladder is handed
+// the right bytes and still selects the same connector strategy.
+describe('mergeMakerOffersToBytes — the browser-wallet entry point', () => {
   test("N=1 hands the wallet the blob's OWN bytes, not a re-serialization", () => {
     const blob = encode(shieldedTx());
     const decoded = decodeMakerOffers([blob], NETWORK);
@@ -217,9 +216,9 @@ describe('mergeMakerOffersToBytes — the Lace entry point', () => {
   });
 });
 
-describe('chooseLaceBalancing — a merged ladder keeps Lace’s strategy', () => {
+describe('chooseBrowserWalletBalancing — a merged ladder keeps the connector strategy', () => {
   test('one shielded offer → mirror+merge at segment 0 (today’s behaviour)', () => {
-    const choice = chooseLaceBalancing(shieldedTx());
+    const choice = chooseBrowserWalletBalancing(shieldedTx());
     expect(choice.useMirrorMerge).toBe(true);
     expect(choice.segId).toBe(0);
   });
@@ -228,12 +227,12 @@ describe('chooseLaceBalancing — a merged ladder keeps Lace’s strategy', () =
     const blobs = [encode(shieldedTx()), encode(shieldedTx())];
     const merged = mergeMakerOffers(decodeMakerOffers(blobs, NETWORK));
     // Both legs of the dispatch predicate, checked explicitly: still segment 0,
-    // and still no Intent for Lace's taker-side makeIntent to collide with.
+    // and still no Intent for the taker-side makeIntent to collide with.
     expect(segments(merged)).toEqual([]);
-    const choice = chooseLaceBalancing(merged);
+    const choice = chooseBrowserWalletBalancing(merged);
     expect(choice.useMirrorMerge).toBe(true);
     expect(choice.segId).toBe(0);
-    // What Lace is asked to mirror is the ladder's total, so one taker side
+    // What the browser wallet is asked to mirror is the ladder's total, so one taker side
     // settles both offers.
     const deltas = Array.from(choice.imbalances.entries()).map(([tt, v]) => [
       (tt as any).tag,
@@ -254,7 +253,7 @@ describe('chooseLaceBalancing — a merged ladder keeps Lace’s strategy', () =
   test('an unshielded-leg offer still routes to sealed-balance', () => {
     // Regression: the empty structural Intent[1] keeps mirror+merge off, exactly
     // as before batching. A single unshielded offer is unaffected by the merge.
-    const choice = chooseLaceBalancing(unshieldedTx('pays'));
+    const choice = chooseBrowserWalletBalancing(unshieldedTx('pays'));
     expect(choice.useMirrorMerge).toBe(false);
     expect(choice.segId).toBe(0);
   });

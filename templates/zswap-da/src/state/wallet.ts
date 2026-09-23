@@ -1,5 +1,5 @@
 // Wallet connection abstraction.
-//   - injected (Lace etc.): discovered + connected via the browser's
+//   - injected browser wallets: discovered + connected via the browser's
 //     `window.midnight` provider map (dapp-connector ConnectedAPI →
 //     browserOffers path).
 //   - local JS wallet (undeployed only): @effectstream/wallets' MidnightLocal
@@ -42,8 +42,9 @@ export interface Connected {
 
 export interface WalletState {
   /**
-   * As the wallet reports it, NEVER normalized: bech32m from Lace, but the raw
-   * hex coin public key from the local JS wallet. Faucet's `toAddr` and the
+   * As the wallet reports it, NEVER normalized: browser wallets may return
+   * bech32m, while the local JS wallet returns the raw hex coin public key.
+   * Faucet's `toAddr` and the
    * shielded-output builders consume these as-is — for a canonical
    * `mn_shield-addr_…` to show a user, run it through `formatShieldedAddress`
    * with `shieldedEncryptionPublicKey`.

@@ -39,12 +39,14 @@ blob back into a `Transaction`, works out which segment carries the asset imbala
 `wants` become the taker's inputs, the maker's `gives` become the taker's outputs — before merging
 and proving. The two code paths differ by token kind for a concrete wallet reason, documented in the
 source: shielded-only offers have no Intent slots, so `balanceSealedTransaction` throws
-"No segments found", and the code mirrors via `makeIntent` and merges segment-0 offers instead;
-unshielded offers cannot take that path because Lace's unshielded `makeIntent` adds an empty
-structural `Intent[1]` to both sides, which collides on merge.
+"No segments found", and the code mirrors via `makeIntent` and merges segment-0 offers instead.
+Unshielded offers cannot take that path with the connector behavior observed in the affected
+implementation: its `makeIntent` adds an empty structural `Intent[1]` to both sides, which collides
+on merge.
 
-That mirror-then-merge dance is a *Lace* workaround, not the shape of the protocol. The built-in JS
-wallet uses the wallet facade's own swap API instead (`src/services/localTradeOffers.ts`):
+That mirror-then-merge dance is a workaround for the observed connector behavior, not the shape of
+the protocol or a claim about every wallet. The built-in JS wallet uses the wallet facade's own swap
+API instead (`src/services/localTradeOffers.ts`):
 `initSwap` for the maker, `balanceFinalizedTransaction` then `finalizeRecipe` for the taker — no
 segment guessing, because nothing hardcodes a balancing slot. Comparing the two files is the
 clearest illustration in this repo of what the dapp-connector costs you.
@@ -88,12 +90,12 @@ offer out of the book, and names the gap the DA model creates:
 ```
 
 **Balance guards as a correctness requirement, not a nicety.** `src/services/takerBalance.ts` exists
-because of a specific failure mode: when the wallet does not hold a coin the transaction needs,
-Lace's `makeIntent` hangs indefinitely instead of erroring. So both `createOffer` and `takeOffer` in
-`src/state/useZSwapApp.ts` re-read *fresh* balances — `readState(connected)`, not the cached React
-state — and refuse before touching the wallet. The comparison is exact-integer with no decimal
-scaling, because offer amounts are raw `bigint`s and wallet balances are raw integer strings keyed by
-token color.
+because of a specific observed connector failure: when the wallet does not hold a coin the
+transaction needs, `makeIntent` can remain pending instead of returning an error. This is not a claim
+about every wallet. Both `createOffer` and `takeOffer` in `src/state/useZSwapApp.ts` therefore re-read
+*fresh* balances — `readState(connected)`, not the cached React state — and refuse before touching the
+wallet. The comparison is exact-integer with no decimal scaling, because offer amounts are raw
+`bigint`s and wallet balances are raw integer strings keyed by token color.
 
 ## Effectstream features used
 
@@ -115,7 +117,7 @@ Prerequisites:
 
 - **Bun.** The app has no local Faucet contract or generated Compact assets; test-token minting is
   handled by the external Faucet service.
-- **A wallet.** Either works, for everything: any Midnight wallet extension (Lace, for example) via the
+- **A wallet.** Either works, for everything: a compatible Midnight wallet extension via the
   dapp-connector, or the **built-in JS wallet** via the Midnight wallet facade — no extension
   needed. `src/services/browserOffers.ts` and `src/services/localTradeOffers.ts` implement the two
   offer-settlement paths.
@@ -204,7 +206,8 @@ Faucet contract.
 2. `buildMakerOfferBlob` (`src/services/makerOffer.ts`) collects the wallet's shielded and unshielded
    addresses, maps `gives` to inputs and `wants` to outputs routed back to the maker, and calls
    `makeIntent`. The intent id is drawn at random from `≥ 2`, because segment 0 is the guaranteed
-   offer and Lace's `balanceSealedTransaction` lands its balancing intent at segment 1.
+   offer and the connector implementation this path was developed against lands its balancing
+   intent at segment 1.
 3. The serialized transaction is encoded with `OfferFiles` into a `swapoffer1…` string.
 4. `api.submitSwapOfferRetrying(blob)` POSTs it to `/v1/offers`, retrying on `ROOT_UNKNOWN`
    while the status line reads "Waiting for chain to sync root…".

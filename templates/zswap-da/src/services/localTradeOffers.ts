@@ -1,12 +1,13 @@
 // Create and settle offers with the built-in JS wallet (wallet facade) — the
-// facade-side counterpart of makerOffer.ts (Lace makeIntent) and
-// browserOffers.proveAndSubmitOffer (Lace balanceSealedTransaction /
+// facade-side counterpart of makerOffer.ts (browser-wallet makeIntent) and
+// browserOffers.proveAndSubmitOffer (browser-wallet balanceSealedTransaction /
 // mirror-merge).
 //
-// The facade path is structurally SIMPLER than the Lace one: Lace's makeIntent
-// hardcodes its balancing Intent at segment 1, which forced the taker flow into
+// The facade path is structurally simpler than the browser-connector path. The
+// connector behavior observed in the affected implementation hardcodes its
+// balancing Intent at segment 1, which forced the taker flow into
 // balanceSealedTransaction and the shielded mirror+merge workaround. The
-// facade's swap API was built for this handshake:
+// facade swap API was built for this handshake:
 //
 //   maker:  initSwap → [signRecipe if unshielded gives] → finalizeRecipe(prove)
 //           → serialize → MIP-0005 encode
@@ -70,7 +71,7 @@ const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2,
 
 /**
  * Build a maker's bech32m offer blob via the wallet facade.
- * Facade twin of makerOffer.buildMakerOfferBlob (Lace).
+ * Facade twin of makerOffer.buildMakerOfferBlob (browser wallet).
  */
 export async function buildMakerOfferBlobLocal(
   localApi: LocalApiShape,
@@ -166,7 +167,7 @@ export async function buildMakerOfferBlobLocal(
  * Take one or more offers via the wallet facade, as a SINGLE transaction: fold
  * the makers' proven, imbalanced txs together, balance the taker side of the
  * whole ladder once, and route the merged settlement through the batcher.
- * Facade twin of browserOffers.proveAndSubmitOffer (Lace).
+ * Facade twin of browserOffers.proveAndSubmitOffer (browser wallet).
  *
  * Balancing the batch once is what makes a ladder work at all. Per-offer
  * settlement re-selected the taker's coins from wallet state that had not seen

@@ -77,7 +77,7 @@ export function WalletMenu({ st }: { st: WalletMenuState }) {
   useEffect(() => () => { if (copyTimer.current) clearTimeout(copyTimer.current); }, []);
 
   // The local JS wallet reports the shielded identity as a raw hex coin public
-  // key; Lace reports the canonical bech32m address. Normalize for display only
+  // key; browser wallets may report the canonical bech32m address. Normalize for display only
   // — st.shieldedAddress itself is what the faucet and offer builders consume.
   // The unshielded fallback (shown when there is no shielded address yet) is
   // already bech32m and passes straight through.

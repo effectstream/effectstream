@@ -28,24 +28,24 @@ export interface TradeWallet {
   settleOffers(config: MidnightRuntimeConfig, blobs: string[]): Promise<{ txHash: string }>;
 }
 
-// Injected (Lace): create via makeIntent+encodeOffer, take via proveAndSubmitOffers.
+// Injected browser wallet: create via makeIntent+encodeOffer, take via proveAndSubmitOffers.
 export function makeInjectedTradeWallet(connectedApi: ConnectedAPI): TradeWallet {
   return {
     kind: 'injected',
     canTrade: true,
     buildOfferBlob: (networkId, gives, wants) => buildMakerOfferBlob(connectedApi, networkId, gives, wants),
-    // Lace settles the whole ladder in one transaction, like the JS wallet:
+    // The browser wallet settles the whole ladder in one transaction, like the JS wallet:
     // `proveAndSubmitOffers` folds the maker halves through the shared
     // services/offerBatch.ts helpers (same pre-submission guard for offers that
-    // cannot compose) and Lace balances the merged result once. A ladder taken
-    // through Lace would otherwise be N transactions built from wallet state
+    // cannot compose) and the wallet balances the merged result once. A ladder
+    // taken through the browser connector would otherwise be N transactions built from wallet state
     // that has not seen the previous take's spend — the same double spend the
     // JS wallet used to hit.
     //
     // N=1 is byte-for-byte the old path: one blob's own decoded bytes, one
     // balance, one submission.
     settleOffers: async (config, blobs) => {
-      dlog('tradeWallet.settleOffers → proveAndSubmitOffers (injected/Lace, merged)', {
+      dlog('tradeWallet.settleOffers → proveAndSubmitOffers (injected browser wallet, merged)', {
         networkId: config.networkId,
         offers: blobs.length,
       });
