@@ -94,6 +94,41 @@ describe('token metadata configuration', () => {
 });
 
 describe('TokenMetadataStore', () => {
+  test('calls default browser timers with the global receiver', async () => {
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+    const setReceivers: unknown[] = [];
+    const clearReceivers: unknown[] = [];
+    const handles = new Map<number, () => void>();
+    let nextHandle = 1;
+    let store: TokenMetadataStore | null = null;
+    try {
+      (globalThis as any).setTimeout = function (this: unknown, fn: () => void) {
+        setReceivers.push(this);
+        const handle = nextHandle++;
+        handles.set(handle, fn);
+        return handle;
+      };
+      (globalThis as any).clearTimeout = function (this: unknown, handle: number) {
+        clearReceivers.push(this);
+        handles.delete(handle);
+      };
+      store = new TokenMetadataStore(config, {
+        fetch: async () => response([token(1)]),
+      });
+      expect(await store.request(COLOR, 'shielded')).toBe('Private Example');
+      store.clear();
+      expect(setReceivers.length).toBeGreaterThanOrEqual(2); // attempt + positive expiry
+      expect(clearReceivers.length).toBeGreaterThanOrEqual(2);
+      expect(setReceivers.every((receiver) => receiver === globalThis)).toBe(true);
+      expect(clearReceivers.every((receiver) => receiver === globalThis)).toBe(true);
+    } finally {
+      store?.clear();
+      (globalThis as any).setTimeout = originalSetTimeout;
+      (globalThis as any).clearTimeout = originalClearTimeout;
+    }
+  });
+
   test('disabled configuration makes no request', async () => {
     let calls = 0;
     const store = new TokenMetadataStore(null, { fetch: async () => { calls++; return response([]); } });

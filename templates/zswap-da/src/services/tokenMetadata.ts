@@ -155,8 +155,12 @@ export class TokenMetadataStore {
     this.config = config;
     this.fetcher = options.fetch ?? ((input, init) => fetch(input, init));
     this.now = options.now ?? Date.now;
-    this.setTimer = options.setTimer ?? setTimeout;
-    this.clearTimer = options.clearTimer ?? clearTimeout;
+    // Window timer functions require Window/globalThis as their receiver in
+    // browsers. Storing the native function directly and later calling
+    // `this.setTimer(...)` supplies this store as the receiver and throws
+    // `TypeError: Illegal invocation` before fetch can start.
+    this.setTimer = options.setTimer ?? ((fn, ms) => globalThis.setTimeout(fn, ms));
+    this.clearTimer = options.clearTimer ?? ((handle) => globalThis.clearTimeout(handle));
     this.attemptTimeoutMs = Math.min(3_000, Math.max(1, options.attemptTimeoutMs ?? 3_000));
     this.positiveTtlMs = Math.min(300_000, Math.max(1, options.positiveTtlMs ?? 300_000));
     this.negativeTtlMs = Math.max(30_000, options.negativeTtlMs ?? 30_000);
