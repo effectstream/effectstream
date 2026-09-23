@@ -20,7 +20,15 @@ export type MyTradeStatus = 'not_public' | 'live' | 'consumed' | 'cancelled' | '
  * DEFAULT_DECIMALS rather than migrating localStorage (spec Q4: pre-change
  * amounts re-read at 10^-6 of their old face value, which is accepted).
  */
-export interface TradeLeg { sym: string; amt: number; decimals?: number }
+export interface TradeLeg {
+  /** Internal fallback label retained for legacy/offline display. */
+  sym: string;
+  amt: number;
+  decimals?: number;
+  /** Additive identity for records created by metadata-aware builds. */
+  color?: string;
+  kind?: 'shielded' | 'unshielded';
+}
 export interface MyTrade {
   id: string;
   kind: 'create' | 'take';

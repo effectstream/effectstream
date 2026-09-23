@@ -69,6 +69,22 @@ describe('per-wallet isolation', () => {
     addTrade(trade('newer'));
     expect(listTrades().map((t) => t.id)).toEqual(['newer', 'older']);
   });
+
+  test('new records preserve authoritative leg identity while legacy records stay readable', () => {
+    const color = 'ab'.repeat(32);
+    mem.set(KEY, JSON.stringify({ [W1]: [trade('legacy')] }));
+    setActiveScope(W1);
+    addTrade({
+      ...trade('identified'),
+      give: { sym: 'INTERNAL_PRIVATE', color, kind: 'shielded', amt: 3, decimals: 6 },
+      get: { sym: 'INTERNAL_PUBLIC', color, kind: 'unshielded', amt: 15, decimals: 18 },
+    });
+    const [identified, legacy] = listTrades();
+    expect(identified.give).toMatchObject({ sym: 'INTERNAL_PRIVATE', color, kind: 'shielded', amt: 3, decimals: 6 });
+    expect(identified.get).toMatchObject({ sym: 'INTERNAL_PUBLIC', color, kind: 'unshielded', amt: 15, decimals: 18 });
+    expect(legacy.give).toEqual({ sym: 'WETH', amt: 3 });
+    expect(legacy.get).toEqual({ sym: 'WBTC', amt: 15 });
+  });
 });
 
 // Q-1, resolved by Eddie: no compatibility with the pre-scoping shape.

@@ -42,6 +42,10 @@ function RateInline({ value }: { value: number }) {
   return <span className="zs-num" style={{ fontWeight: 600, color: 'var(--ink)' }}>{r.kind === 'plain' ? r.text : (<>{r.mant} × 10<sup style={{ fontSize: '.72em' }}>{r.exp}</sup></>)}</span>;
 }
 
+function DisplayName({ value }: { value: string }) {
+  return <span title={value} style={{ display: 'inline-block', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>{value}</span>;
+}
+
 /** Raw base-unit balance string for a token, or null when there is none. */
 function balanceFor(st: ZSwapApp, token: KnownToken | null): string | null {
   if (!token) return null;
@@ -49,8 +53,9 @@ function balanceFor(st: ZSwapApp, token: KnownToken | null): string | null {
   return map?.[token.token_color] ?? null;
 }
 
-function FieldRow({ label, token, value, onValue, onPick, onClear, readOnly, accent, balance, usd, compact }: {
+function FieldRow({ label, token, displayName, value, onValue, onPick, onClear, readOnly, accent, balance, usd, compact }: {
   label: string; token: KnownToken | null; value: string; onValue?: (v: string) => void;
+  displayName?: string;
   onPick: () => void; onClear?: () => void; readOnly?: boolean; accent?: boolean;
   /** RAW base-unit balance string, as the wallet reports it. Rendered in coins. */
   balance?: string | null; usd?: number | null; compact?: boolean;
@@ -77,7 +82,7 @@ function FieldRow({ label, token, value, onValue, onPick, onClear, readOnly, acc
           className="zs-amount" style={{ fontSize: compact ? 24 : undefined, color: value ? (accent ? 'var(--accent)' : 'var(--ink)') : 'var(--ink-4)', cursor: readOnly ? 'default' : 'text' }} />
         {token ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
-            <button className="zs-token" onClick={onPick}><Coin sym={token.name} /> {token.name} <Icon.caret /></button>
+            <button className="zs-token" onClick={onPick} title={displayName} style={{ minWidth: 0, maxWidth: compact ? 200 : 240 }}><Coin sym={token.name} /> <DisplayName value={displayName ?? token.name} /> <Icon.caret /></button>
             <button onClick={onClear} title="Clear token" style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: '0 0 auto' }}>
               <svg viewBox="0 0 16 16" width="12" height="12" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
             </button>
@@ -109,6 +114,8 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
   // one the maker can act on from here, so it gets the same "Apply best price"
   // escape hatch as the pre-submit warning.
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const fromLabel = from ? st.tokenLabel(from.token_color, from.kind, from.name) : '';
+  const toLabel = to ? st.tokenLabel(to.token_color, to.kind, to.name) : '';
 
   // External "start the order flow" trigger → open the Pay-with picker once.
   useEffect(() => {
@@ -155,7 +162,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     }, 300);
     return () => { cancelled = true; clearTimeout(id); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from?.token_color, to?.token_color, payStr, autoPrice, sameKind, recvDep]);
+  }, [from?.token_color, from?.kind, to?.token_color, to?.kind, payStr, autoPrice, sameKind, recvDep]);
 
   const doSwitch = () => {
     setFrom(to); setTo(from);
@@ -169,8 +176,8 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     if (!sameKind) { setError('Both tokens must be the same privacy kind (all shielded or all unshielded).'); return; }
     // Over-precision is REFUSED here, never rounded: the amount below is what
     // settles on chain, and quietly posting a different one is not an option.
-    if (payAmt.trim() !== '' && payParsed.error) { setError(amountErrorText(payParsed.error, from.decimals, from.name)); return; }
-    if (recvAmt.trim() !== '' && recvParsed.error) { setError(amountErrorText(recvParsed.error, to.decimals, to.name)); return; }
+    if (payAmt.trim() !== '' && payParsed.error) { setError(amountErrorText(payParsed.error, from.decimals, fromLabel)); return; }
+    if (recvAmt.trim() !== '' && recvParsed.error) { setError(amountErrorText(recvParsed.error, to.decimals, toLabel)); return; }
     if (payBig === null || recvBig === null || payBig <= 0n || recvBig <= 0n) { setError('Enter both amounts.'); return; }
     setPosting(true);
     let phase = 'Building offer in wallet…';
@@ -179,7 +186,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     try {
       const gives: OfferLeg[] = [{ kind: from.kind, color: from.token_color, amount: payBig }];
       const wants: OfferLeg[] = [{ kind: to.kind, color: to.token_color, amount: recvBig }];
-      log.info('[create-offer] start', { payCoins: payAmt, recvCoins: recvAmt, pay: payBig.toString(), recv: recvBig.toString(), from: from.name, to: to.name, kind: from.kind, fromColor: from.token_color, toColor: to.token_color });
+      log.info('[create-offer] start', { payCoins: payAmt, recvCoins: recvAmt, pay: payBig.toString(), recv: recvBig.toString(), from: fromLabel, to: toLabel, kind: from.kind, fromColor: from.token_color, toColor: to.token_color });
       // Bound the whole flow so a hung wallet/proof step can't sit on "Creating…"
       // forever — surface a clear, retryable error naming the phase it stuck on.
       await Promise.race([
@@ -220,11 +227,11 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
     if (!st.canTrade) { label = 'Use a Midnight Wallet extension to create offers'; disabled = true; action = () => {}; }
     else if (!bothSel) { label = 'Select tokens'; disabled = true; action = () => {}; }
     else if (!sameKind) { label = 'Tokens must share privacy kind'; disabled = true; action = () => {}; }
-    else if (payAmt.trim() !== '' && payParsed.error) { label = payParsed.error === 'precision' ? `Max ${from!.decimals} decimals for ${from!.name}` : 'Check the amount you pay'; disabled = true; action = () => {}; }
-    else if (recvAmt.trim() !== '' && recvParsed.error) { label = recvParsed.error === 'precision' ? `Max ${to!.decimals} decimals for ${to!.name}` : 'Check the amount you want'; disabled = true; action = () => {}; }
+    else if (payAmt.trim() !== '' && payParsed.error) { label = payParsed.error === 'precision' ? `Max ${from!.decimals} decimals for ${fromLabel}` : 'Check the amount you pay'; disabled = true; action = () => {}; }
+    else if (recvAmt.trim() !== '' && recvParsed.error) { label = recvParsed.error === 'precision' ? `Max ${to!.decimals} decimals for ${toLabel}` : 'Check the amount you want'; disabled = true; action = () => {}; }
     else if (payBig === null || payBig <= 0n) { label = 'Enter the amount you pay'; disabled = true; action = () => {}; }
     else if (recvBig === null || recvBig <= 0n) { label = 'Enter the amount you want'; disabled = true; action = () => {}; }
-    else if (insufficientPay) { label = `Insufficient ${from!.name}`; disabled = true; action = () => {}; }
+    else if (insufficientPay) { label = `Insufficient ${fromLabel}`; disabled = true; action = () => {}; }
     else if (posting) { label = postStatus || 'Creating…'; disabled = true; action = () => {}; }
     else if (quote && !quote.sponsored) { label = 'Create offer file'; action = post; }
     else { label = bothShielded ? 'Create shielded order' : 'Create order'; action = post; }
@@ -233,7 +240,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
   // Everything the reference price lets us say: the rate itself, the maker's
   // offset from it, the sponsorship threshold, and where the price came from.
   // Pure and unit-tested in state/reference.test.ts.
-  const ref = quote ? describeQuote(quote, from?.name ?? '', to?.name ?? '') : null;
+  const ref = quote ? describeQuote(quote, fromLabel, toLabel) : null;
 
   // The node's `implied_rate` / `market_rate` are BASE-UNIT rates (base units of
   // `to` per base unit of `from`). "1 WBTC = X WETH" is a WHOLE-COIN rate, so
@@ -245,11 +252,11 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
   return (
     <>
       <div className="zs-card" style={{ marginTop: compact ? 0 : -22, position: 'relative', padding: 'var(--pad-card)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <FieldRow label="You pay" token={from} value={payAmt} onValue={setPayAmt} onPick={() => setPicking('from')} onClear={() => { setFrom(null); setQuote(null); }} balance={balanceFor(st, from)} usd={quote?.from_usd ?? null} compact={compact} />
+        <FieldRow label="You pay" token={from} displayName={fromLabel} value={payAmt} onValue={setPayAmt} onPick={() => setPicking('from')} onClear={() => { setFrom(null); setQuote(null); }} balance={balanceFor(st, from)} usd={quote?.from_usd ?? null} compact={compact} />
         <div style={{ display: 'flex', justifyContent: 'center', margin: '-9px 0', position: 'relative', zIndex: 2 }}>
           <button className="zs-switch" onClick={doSwitch} title="Switch"><Icon.swap /></button>
         </div>
-        <FieldRow label="You receive" token={to} value={recvAmt} onValue={(v) => { setAutoPrice(false); setRecvAmt(v); }} accent onPick={() => setPicking('to')} onClear={() => { setTo(null); setQuote(null); }} usd={quote?.to_usd ?? null} compact={compact} />
+        <FieldRow label="You receive" token={to} displayName={toLabel} value={recvAmt} onValue={(v) => { setAutoPrice(false); setRecvAmt(v); }} accent onPick={() => setPicking('to')} onClear={() => { setTo(null); setQuote(null); }} usd={quote?.to_usd ?? null} compact={compact} />
 
         {bothSel && sameKind && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 4px 2px' }}>
@@ -264,7 +271,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
             {payBig !== null && payBig > 0n && recvBig !== null && recvBig > 0n && quote && (
               <>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '4px 14px', fontSize: 13 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}><Icon.shield style={{ color: 'var(--accent)', flex: '0 0 auto' }} /> Your rate · 1 {from!.name} = <RateInline value={rateScale(quote.implied_rate)} /> {to!.name}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-2)', minWidth: 0 }}><Icon.shield style={{ color: 'var(--accent)', flex: '0 0 auto' }} /> Your rate · 1 <DisplayName value={fromLabel} /> = <RateInline value={rateScale(quote.implied_rate)} /> <DisplayName value={toLabel} /></span>
                   {ref?.offset && <span className="zs-num" style={{ color: ref.offsetBelow ? 'var(--pos)' : 'var(--neg)', whiteSpace: 'nowrap', fontWeight: 600 }}>{ref.offset} vs reference</span>}
                 </div>
                 {/* The reference rate is shown in BOTH price modes now: in auto
@@ -272,7 +279,7 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
                     and how far below it the sponsorship threshold sits. */}
                 {ref?.referenceRate != null && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 12px', fontSize: 11.5, color: 'var(--ink-3)' }}>
-                    <span style={{ whiteSpace: 'nowrap' }}>Reference · 1 {from!.name} = <RateInline value={rateScale(ref.referenceRate)} /> {to!.name}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>Reference · 1 <DisplayName value={fromLabel} /> = <RateInline value={rateScale(ref.referenceRate)} /> <DisplayName value={toLabel} /></span>
                     {ref.thresholdText && <span style={{ whiteSpace: 'nowrap' }}>{ref.thresholdText}</span>}
                   </div>
                 )}
@@ -321,8 +328,8 @@ export function PlaceOrderForm({ st, compact, requestPayPicker, onPayPickerHandl
         )}
       </div>
 
-      <TokenPicker open={picking === 'from'} onClose={() => setPicking(null)} tokens={st.knownTokens} shieldedBalances={st.shieldedBalances} unshieldedBalances={st.unshieldedBalances} excludeColor={to?.token_color} title="Pay with" onPick={(t) => { setFrom(t); setQuote(null); }} />
-      <TokenPicker open={picking === 'to'} onClose={() => setPicking(null)} tokens={st.knownTokens} shieldedBalances={st.shieldedBalances} unshieldedBalances={st.unshieldedBalances} excludeColor={from?.token_color} title="Receive" onPick={(t) => { setTo(t); setQuote(null); }} />
+      <TokenPicker open={picking === 'from'} onClose={() => setPicking(null)} tokens={st.knownTokens} shieldedBalances={st.shieldedBalances} unshieldedBalances={st.unshieldedBalances} exclude={to} labelFor={st.tokenLabel} onTrack={st.trackTokenLabel} title="Pay with" onPick={(t) => { setFrom(t); setQuote(null); }} />
+      <TokenPicker open={picking === 'to'} onClose={() => setPicking(null)} tokens={st.knownTokens} shieldedBalances={st.shieldedBalances} unshieldedBalances={st.unshieldedBalances} exclude={from} labelFor={st.tokenLabel} onTrack={st.trackTokenLabel} title="Receive" onPick={(t) => { setTo(t); setQuote(null); }} />
     </>
   );
 }

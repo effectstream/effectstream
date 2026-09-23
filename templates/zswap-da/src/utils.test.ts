@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { isShieldedAddress, truncateAddress } from './utils';
+import { decimalsOf, findTokenName, isShieldedAddress, truncateAddress } from './utils';
+import type { KnownToken } from './types';
 
 // Real 135-character shielded address (local JS wallet keys, undeployed).
 const SHIELDED =
@@ -90,5 +91,29 @@ describe('truncateAddress — everything else keeps the original 10 + 6 rule', (
     // Only the exact shielded tag opts in; mn_shield_ (no '-addr') does not.
     const nearMiss = 'mn_shield_undeployed1qrdysugev8mhtgn8wvl64kpepy4zuwj06jrl0jkerfax7';
     expect(truncateAddress(nearMiss)).toBe(nearMiss.slice(0, 10) + '...' + nearMiss.slice(-6));
+  });
+});
+
+describe('token identity lookup', () => {
+  const color = 'ef'.repeat(32);
+  const tokens: KnownToken[] = [
+    { token_color: color, kind: 'shielded', name: 'PRIVATE', decimals: 6 },
+    { token_color: color, kind: 'unshielded', name: 'PUBLIC', decimals: 18 },
+  ];
+
+  test('kind-aware controls distinguish two native assets sharing one color', () => {
+    expect(findTokenName(color, tokens, 'shielded')).toBe('PRIVATE');
+    expect(findTokenName(color, tokens, 'unshielded')).toBe('PUBLIC');
+    expect(decimalsOf(color, tokens, 'shielded')).toBe(6);
+    expect(decimalsOf(color, tokens, 'unshielded')).toBe(18);
+  });
+
+  test('color-only history never chooses one kind name and keeps stable scaling', () => {
+    expect(findTokenName(color, tokens)).toBeUndefined();
+    const historicalDecimals = decimalsOf(color, tokens);
+    expect(historicalDecimals).toBe(6);
+    expect(historicalDecimals).not.toBe(decimalsOf(color, tokens, 'unshielded'));
+    // The historical choice follows registry order only; selecting a live kind
+    // cannot feed its kind-specific precision into color-only chart conversion.
   });
 });

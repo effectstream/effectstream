@@ -12,6 +12,12 @@ import type { KnownToken } from '../types';
 import { DEFAULT_DECIMALS } from '../state/amount';
 import { affordableIndices, shortfallMessage, shortfallsFromLegs, sumLegs } from './takerBalance';
 
+type TokenLabelResolver = (
+  color: string,
+  kind: 'shielded' | 'unshielded',
+  fallback?: string | null,
+) => string;
+
 /**
  * One selectable offer of a take.
  *
@@ -23,8 +29,8 @@ import { affordableIndices, shortfallMessage, shortfallsFromLegs, sumLegs } from
  */
 export interface SelectableOffer {
   id: string;
-  pay: { sym: string; amt: number; decimals?: number };
-  receive: { sym: string; amt: number; decimals?: number };
+  pay: { sym: string; amt: number; decimals?: number; iconSym?: string };
+  receive: { sym: string; amt: number; decimals?: number; iconSym?: string };
   /** Legs the taker must SUPPLY for this offer. Empty for an undecodable blob,
    *  which then contributes no cost — the settle path surfaces those. */
   pays: ParsedLeg[];
@@ -40,8 +46,8 @@ export interface TakerBalances {
 export interface TakeSummary {
   count: number;
   /** Totals in BASE UNITS, with the precision needed to render them as coins. */
-  pay: { sym: string; amt: number; decimals: number };
-  receive: { sym: string; amt: number; decimals: number };
+  pay: { sym: string; amt: number; decimals: number; iconSym?: string };
+  receive: { sym: string; amt: number; decimals: number; iconSym?: string };
   /** Why the checked set can't be funded, or null. */
   blocked: string | null;
   cta: string;
@@ -81,6 +87,7 @@ export function summarize(
   checkedIds: Iterable<string>,
   balances: TakerBalances,
   knownTokens: KnownToken[] = [],
+  labelFor?: TokenLabelResolver,
 ): TakeSummary {
   const checked = new Set(checkedIds);
   const sel = items.filter((i) => checked.has(i.id));
@@ -91,17 +98,25 @@ export function summarize(
   const blocked = n === 0
     ? null
     : shortfallMessage(
-        shortfallsFromLegs(sumLegs(sel.map((i) => i.pays)), balances.shielded, balances.unshielded, knownTokens),
+        shortfallsFromLegs(
+          sumLegs(sel.map((i) => i.pays)),
+          balances.shielded,
+          balances.unshielded,
+          knownTokens,
+          labelFor,
+        ),
       );
   return {
     count: n,
     pay: {
       sym: shape?.pay.sym ?? '—',
+      iconSym: shape?.pay.iconSym,
       amt: sel.reduce((s, i) => s + i.pay.amt, 0),
       decimals: shape?.pay.decimals ?? DEFAULT_DECIMALS,
     },
     receive: {
       sym: shape?.receive.sym ?? '—',
+      iconSym: shape?.receive.iconSym,
       amt: sel.reduce((s, i) => s + i.receive.amt, 0),
       decimals: shape?.receive.decimals ?? DEFAULT_DECIMALS,
     },
