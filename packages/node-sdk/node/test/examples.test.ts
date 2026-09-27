@@ -24,53 +24,55 @@ test("README: concise re-export keeps generateStmInput in shape", async () => {
   expect(typeof concise.parseStmInput).toBe("function");
 });
 
-test("single-file facade declares a typed Midnight source and embedded database", async () => {
+// The template-only single-file facade was removed. It was a parallel
+// configuration/runtime language that existed for one example, so its absence is
+// asserted here rather than left to a reviewer's memory: applications compose
+// the ordinary public packages directly (see templates/single-file/minimal.ts).
+const REMOVED_FACADE_EXPORTS = [
+  "runNode",
+  "pglite",
+  "midnightContract",
+  "MidnightNetwork",
+  "PgliteOptions",
+  "PgliteDatabase",
+  "LedgerState",
+  "MidnightContractOptions",
+  "MidnightContractSource",
+  "MidnightTransition",
+  "RunNodeOptions",
+] as const;
+
+test("the single-file facade source file is gone", async () => {
+  const facade = new URL("../src/single-file.ts", import.meta.url);
+  expect(await Bun.file(facade).exists()).toBe(false);
+});
+
+test("no facade symbol survives on the root entrypoint under any alias", async () => {
   const node = await import("../src/mod.ts");
-  expect(node.pglite()).toEqual({
-    kind: "pglite",
-    dataDir: "memory://",
-    port: 0,
-  });
-  expect(node.midnightContract({
-    network: "preview",
-    address: "a".repeat(64),
-    startBlockHeight: "latest",
-    ledger: { round: "uint128" },
-  })).toEqual({
-    kind: "midnight-contract",
-    network: "preview",
-    address: "a".repeat(64),
-    startBlockHeight: "latest",
-    ledger: { round: "uint128" },
-    indexer: "https://indexer.preview.midnight.network/api/v4/graphql",
-  });
+  const exported = new Set(Object.keys(node));
+  const survivors = REMOVED_FACADE_EXPORTS.filter((name) => exported.has(name));
+  expect(survivors).toEqual([]);
+
+  // Types erase at runtime, so also assert on the source text: a re-export or a
+  // renamed alias of the facade would still name the file.
+  const mod = await Bun.file(new URL("../src/mod.ts", import.meta.url)).text();
+  expect(mod).not.toMatch(/single-file/);
 });
 
-test("single-file facade rejects malformed declarations early", async () => {
-  const { midnightContract } = await import("../src/mod.ts");
-  expect(() => midnightContract({
-    network: "preview",
-    address: "not-an-address",
-    startBlockHeight: "latest",
-    ledger: { round: "uint128" },
-  })).toThrow(/64 hexadecimal/);
-});
+test("the ordinary composition surface an application uses stays resolvable", async () => {
+  const config = await import("../src/config.ts");
+  expect(typeof config.ConfigBuilder).toBe("function");
+  expect(typeof config.withEffectstreamStaticConfig).toBe("function");
+  expect(typeof config.toSyncProtocolWithNetwork).toBe("function");
+  expect("ConfigNetworkType" in config).toBe(true);
+  expect("ConfigSyncProtocolType" in config).toBe(true);
 
-test("single-file template is one source file plus a manifest, importing only the SDK", async () => {
-  const templateDir = new URL("../../../../templates/single-file/", import.meta.url);
-  const files = [...new Bun.Glob("**/*").scanSync({
-    cwd: templateDir.pathname,
-    onlyFiles: true,
-  })].sort();
-  expect(files).toEqual(["minimal.ts", "package.json"]);
+  const startPglite = await import("../src/db-start-pglite.ts");
+  expect(typeof startPglite.startPglite).toBe("function");
 
-  const source = await Bun.file(new URL("minimal.ts", templateDir)).text();
-  const imports = [...source.matchAll(/from\s+["']([^"']+)["']/g)].map((match) => match[1]);
-  expect(imports).toEqual(["@effectstream/node-sdk"]);
-  expect(source).not.toMatch(/contract-counter|wallet|proofServer|generated|child_process/);
+  const builtin = await import("../src/sm-builtin.ts");
+  expect("PrimitiveTypeMidnightGeneric" in builtin).toBe(true);
 
-  // The version is pinned in the manifest, never in the import specifier, so
-  // `update-packages.ts` can bump it without a release turning this test red.
-  const manifest = await Bun.file(new URL("package.json", templateDir)).json();
-  expect(manifest.dependencies["@effectstream/node-sdk"]).toMatch(/^\d+\.\d+\.\d+$/);
+  const grammar = await import("../src/sm-grammar.ts");
+  expect("midnightGeneric" in grammar.builtinGrammars).toBe(true);
 });

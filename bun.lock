@@ -1092,7 +1092,6 @@
         "@effectstream/sm": "workspace:*",
         "@effectstream/sync": "workspace:*",
         "@effectstream/utils": "workspace:*",
-        "effection": "^3.5.0",
       },
     },
     "packages/node-sdk/runtime": {

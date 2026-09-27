@@ -25,26 +25,12 @@ async function* walkJsonFiles(dir: string, pattern: RegExp): AsyncGenerator<stri
   }
 }
 
-async function* walkSourceFiles(dir: string): AsyncGenerator<string> {
-  const entries = await readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = join(dir, entry.name);
-    if (entry.isDirectory() && entry.name !== "node_modules" && entry.name !== ".git") {
-      yield* walkSourceFiles(fullPath);
-    } else if (entry.isFile() && /\.[cm]?[jt]sx?$/.test(entry.name)) {
-      yield fullPath;
-    }
-  }
-}
-
 async function isTemplateDirectory(dir: string): Promise<boolean> {
-  for (const marker of ["package.json", "minimal.ts"]) {
-    try {
-      await stat(join(dir, marker));
-      return true;
-    } catch (error: any) {
-      if (error.code !== "ENOENT") throw error;
-    }
+  try {
+    await stat(join(dir, "package.json"));
+    return true;
+  } catch (error: any) {
+    if (error.code !== "ENOENT") throw error;
   }
   return false;
 }
@@ -131,8 +117,6 @@ async function main(): Promise<void> {
     /(jsr|npm):@(paimaexample|effectstream)\/([\w-]+)@[\^~]?(\d+\.\d+\.\d+)/g;
   const packageJsonRegex =
     /"@(paimaexample|effectstream)\/([\w-]+)": "[\^~]?(\d+\.\d+\.\d+)"/g;
-  const inlineImportRegex =
-    /@effectstream\/([\w-]+)@(\d+\.\d+\.\d+)/g;
 
   for (const dir of packageDirs) {
     // 4. now for each package delete bun.lock and node_modules folder.
@@ -207,27 +191,6 @@ async function main(): Promise<void> {
           await writeFile(filePath, newContent);
           console.log(`Successfully updated ${filePath}`);
         }
-      }
-    }
-
-    for await (const filePath of walkSourceFiles(dir)) {
-      const content = await readFile(filePath, "utf-8");
-      const matches = [...content.matchAll(inlineImportRegex)];
-      if (matches.length === 0) continue;
-
-      if (dryRun) {
-        console.log(`\n[dry-run] Changes for ${filePath}:`);
-        for (const match of matches) {
-          console.log(`  - ${match[0]} -> @effectstream/${match[1]}@${version}`);
-        }
-      } else {
-        console.log(`\nUpdating ${filePath}...`);
-        const newContent = content.replace(
-          inlineImportRegex,
-          `@effectstream/$1@${version}`,
-        );
-        await writeFile(filePath, newContent);
-        console.log(`Successfully updated ${filePath}`);
       }
     }
   }
