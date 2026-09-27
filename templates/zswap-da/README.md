@@ -195,6 +195,61 @@ The Midnight network id, indexer URI, indexer WS URI and proof server URI are fe
 from `GET /v1/midnight/config`. Offer creation and settlement do not discover or call a local
 Faucet contract.
 
+### Optional token display names
+
+Offer Files can enrich token labels from the Umbra token metadata API. This is display-only:
+colors, privacy kinds, decimals, balances and offer files still come from their existing sources.
+With no, invalid, or network-mismatched configuration, the UI immediately uses the internal
+`GET /v1/known-tokens` name (then the shortened color for unknown tokens) and sends no metadata
+request. An unavailable configured service keeps that same fallback while bounded attempts retry
+with backoff.
+
+Both the endpoint and the network it represents are required. Runtime values set before the bundle
+loads take precedence over the equivalent Vite build variables:
+
+```html
+<script>
+  window.TOKEN_METADATA_API_BASE = '/token-metadata';
+  window.TOKEN_METADATA_NETWORK_ID = 'stagenet';
+</script>
+```
+
+```sh
+VITE_TOKEN_METADATA_API_BASE=/token-metadata \
+VITE_TOKEN_METADATA_NETWORK_ID=stagenet \
+VITE_MIDNIGHT_NETWORK_ID=stagenet bun run build
+```
+
+`TOKEN_METADATA_NETWORK_ID` must equal the active `VITE_MIDNIGHT_NETWORK_ID`; a mismatch disables
+enrichment. Verify that binding against the token indexer's configured `NET` (available to the
+operator at `/internal/status`) during deployment. The frontend only calls
+`GET <base>/v1/tokens/by-color/<lowercase-64-hex-color>`. That route returns a bare array. The UI
+matches the exact native privacy row and reads only its `name`, or `symbol` when the name is blank.
+
+The pinned indexer binds `127.0.0.1:10020` and does not supply browser CORS headers, so a same-origin
+proxy is the usual setup. This nginx example runs on the same host/network namespace as the indexer,
+forwards only the browser route, and leaves `/internal/status` private:
+
+```nginx
+location ~ "^/token-metadata/v1/tokens/by-color/[0-9a-f]{64}$" {
+    rewrite ^/token-metadata/(.*)$ /$1 break;
+    proxy_pass http://127.0.0.1:10020;
+    proxy_set_header Host $host;
+}
+```
+
+If nginx runs in a container, `127.0.0.1` names that nginx container, not the host. Put both services
+on one container network and use the indexer service name (for example
+`proxy_pass http://token-indexer:10020`), with the indexer listening on that network; alternatively
+route through an explicitly configured host gateway. Confirm the public by-color URL from a browser
+before enabling it. Do not expose the diagnostic route just to make the frontend work.
+
+The `midnight-2-offers` reference stack currently provides neither this token API nor its proxy and
+configuration. Adding those services is separate deployment work. This `v-next` template still
+declares ledger-v8, so its ordinary build is not evidence of Midnight 2 compatibility. The supported
+integration is checked by applying the reference stack's ledger-v9 frontend transformation and
+testing it against a reachable compatible API; the metadata client itself imports no ledger SDK.
+
 ### Making an offer
 
 `createOffer` in `src/state/useZSwapApp.ts`:

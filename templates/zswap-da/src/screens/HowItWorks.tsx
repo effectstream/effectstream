@@ -112,17 +112,24 @@ function AnimatedLifecycle() {
   );
 }
 
-function TokenList({ tokens, emptyHint }: { tokens: KnownToken[]; emptyHint: string }) {
+function TokenList({ tokens, emptyHint, labelFor }: {
+  tokens: KnownToken[];
+  emptyHint: string;
+  labelFor: ZSwapApp['tokenLabel'];
+}) {
   if (tokens.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{emptyHint}</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-      {tokens.slice(0, 6).map((t) => (
-        <div key={t.token_color} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-          <Coin sym={t.name} size="sm" />
-          <span style={{ fontWeight: 700, fontSize: 13.5 }}>{t.name}</span>
-          <span className="zs-num" style={{ fontSize: 12, color: 'var(--ink-3)' }}>{shortToken(t.token_color)}</span>
-        </div>
-      ))}
+      {tokens.slice(0, 6).map((t) => {
+        const label = labelFor(t.token_color, t.kind, t.name);
+        return (
+          <div key={`${t.kind}:${t.token_color}`} style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+            <Coin sym={t.name} size="sm" />
+            <span title={label} style={{ minWidth: 0, fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+            <span className="zs-num" style={{ fontSize: 12, color: 'var(--ink-3)', flex: '0 0 auto' }}>{shortToken(t.token_color)}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -149,7 +156,7 @@ export function HowItWorks({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') =
             <span className="zs-badge-shield">private</span>
           </div>
           <p style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 16px' }}>Traded via <b>ZSwaps</b>. Amounts are hidden and the order book is zero-knowledge.</p>
-          <TokenList tokens={shielded} emptyHint="No shielded tokens yet — mint some on the Faucet." />
+          <TokenList tokens={shielded} emptyHint="No shielded tokens yet — mint some on the Faucet." labelFor={st.tokenLabel} />
         </div>
         <div className="zs-card" style={{ padding: 22 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -157,7 +164,7 @@ export function HowItWorks({ st, onGo }: { st: ZSwapApp; onGo?: (page: 'swap') =
             <span className="zs-pill">public</span>
           </div>
           <p style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 16px' }}>Swap in the open — balances and trades are visible on-chain.</p>
-          <TokenList tokens={unshielded} emptyHint="No unshielded tokens yet — mint some on the Faucet." />
+          <TokenList tokens={unshielded} emptyHint="No unshielded tokens yet — mint some on the Faucet." labelFor={st.tokenLabel} />
         </div>
       </div>
 

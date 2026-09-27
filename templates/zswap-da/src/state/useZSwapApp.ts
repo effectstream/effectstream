@@ -17,6 +17,7 @@ import {
 } from './wallet';
 import { useZSwapAPI } from '../hooks/useZSwapAPI';
 import { useTokens } from '../hooks/useTokens';
+import { useTokenMetadata } from '../hooks/useTokenMetadata';
 import { type OfferLeg } from '../services/makerOffer';
 import { makeInjectedTradeWallet, makeLocalTradeWallet, type TradeWallet } from './tradeWallet';
 import { api } from '../services/api';
@@ -59,6 +60,7 @@ import {
 } from '../services/takeSelection';
 import type { KnownToken, OfferStatus, ZSwapOffer } from '../types';
 import { MIDNIGHT_NETWORK_ID } from '../config';
+import type { TokenPrivacy } from '../services/tokenMetadata';
 
 const NETWORK_ID = MIDNIGHT_NETWORK_ID;
 
@@ -68,6 +70,8 @@ export interface Order {
   to: string;
   fromColor: string;
   toColor: string;
+  fromKind: TokenPrivacy;
+  toKind: TokenPrivacy;
   /** BASE UNITS, as the node serves them. Render with `decimalsFrom`. */
   amtFrom: number;
   /** BASE UNITS, as the node serves them. Render with `decimalsTo`. */
@@ -103,12 +107,16 @@ export interface Order {
 /** Taker-perspective preview of an importable offer blob. Amounts are BASE
  *  UNITS; `decimals` is what turns each one into coins at render time. */
 export interface OfferPreview {
-  pays: { sym: string; amt: number; decimals: number }[];
-  gets: { sym: string; amt: number; decimals: number }[];
+  pays: { sym: string; color: string; kind: TokenPrivacy; amt: number; decimals: number }[];
+  gets: { sym: string; color: string; kind: TokenPrivacy; amt: number; decimals: number }[];
   shielded: boolean;
 }
 
-function toOrder(offer: ZSwapOffer, knownTokens: KnownToken[]): Order | null {
+function toOrder(
+  offer: ZSwapOffer,
+  knownTokens: KnownToken[],
+  tokenLabel: (color: string, kind?: TokenPrivacy | null, fallback?: string | null) => string,
+): Order | null {
   // Legs live under `computed` — they are derived by the indexer from the
   // transaction itself, not supplied by the maker.
   const give = offer.computed?.gives?.[0];
@@ -116,6 +124,8 @@ function toOrder(offer: ZSwapOffer, knownTokens: KnownToken[]): Order | null {
   if (!give || !want) return null;
   const fromColor = String(give.token ?? '');
   const toColor = String(want.token ?? '');
+  const fromKind: TokenPrivacy = give.type === 'UNSHIELDED' ? 'unshielded' : 'shielded';
+  const toKind: TokenPrivacy = want.type === 'UNSHIELDED' ? 'unshielded' : 'shielded';
   // NOTE: amounts are decimal strings of BASE UNITS (u128 on-chain). Number()
   // is lossy above 2^53 and is used here only for display and for the book's
   // price ordering, which the existing UI has always done in floats. Anything
@@ -124,13 +134,17 @@ function toOrder(offer: ZSwapOffer, knownTokens: KnownToken[]): Order | null {
   // concern, and `decimalsFrom`/`decimalsTo` carry what each consumer needs.
   const amtFrom = Number(give.amount);
   const amtTo = Number(want.amount);
-  const decimalsFrom = decimalsOf(fromColor, knownTokens);
-  const decimalsTo = decimalsOf(toColor, knownTokens);
+  const decimalsFrom = decimalsOf(fromColor, knownTokens, fromKind);
+  const decimalsTo = decimalsOf(toColor, knownTokens, toKind);
+  const internalFrom = findTokenName(fromColor, knownTokens, fromKind) ?? shortToken(fromColor);
+  const internalTo = findTokenName(toColor, knownTokens, toKind) ?? shortToken(toColor);
   return {
-    from: findTokenName(fromColor, knownTokens) ?? shortToken(fromColor),
-    to: findTokenName(toColor, knownTokens) ?? shortToken(toColor),
+    from: tokenLabel(fromColor, fromKind, internalFrom),
+    to: tokenLabel(toColor, toKind, internalTo),
     fromColor,
     toColor,
+    fromKind,
+    toKind,
     amtFrom,
     amtTo,
     decimalsFrom,
@@ -207,6 +221,8 @@ export interface ZSwapApp {
    *  auto-paginate, so a deep book never silently fans out into many requests. */
   loadMoreOrders: () => void;
   knownTokens: KnownToken[];
+  tokenLabel: (color: string, kind?: TokenPrivacy | null, fallback?: string | null) => string;
+  trackTokenLabel: (color: string, kind: TokenPrivacy) => void;
   refetchOffers: () => void;
   refetchTokens: () => void;
   selfUnshieldedHex: string | null;
@@ -253,6 +269,29 @@ export function useZSwapApp(): ZSwapApp {
   const zapi = useZSwapAPI();
   const { knownTokens, refetchTokens } = useTokens();
   const [myTrades, setMyTrades] = useState<MyTrade[]>(() => listTrades());
+  const metadataIdentities = useMemo(() => {
+    const identities: { color: string; kind: TokenPrivacy }[] = [];
+    // Current book and wallet assets precede history so a large persisted log
+    // cannot crowd active controls out of the bounded metadata registry.
+    for (const offer of zapi.offers ?? []) {
+      for (const leg of [...(offer.computed?.gives ?? []), ...(offer.computed?.wants ?? [])]) {
+        identities.push({
+          color: String(leg.token ?? ''),
+          kind: leg.type === 'UNSHIELDED' ? 'unshielded' : 'shielded',
+        });
+      }
+    }
+    for (const color of Object.keys(wstate?.shieldedBalances ?? {})) identities.push({ color, kind: 'shielded' });
+    for (const color of Object.keys(wstate?.unshieldedBalances ?? {})) identities.push({ color, kind: 'unshielded' });
+    for (const trade of myTrades) {
+      for (const leg of [trade.give, trade.get]) {
+        if (leg.color && leg.kind) identities.push({ color: leg.color, kind: leg.kind });
+      }
+    }
+    for (const token of knownTokens) identities.push({ color: token.token_color, kind: token.kind });
+    return identities;
+  }, [myTrades, knownTokens, wstate?.shieldedBalances, wstate?.unshieldedBalances, zapi.offers]);
+  const { labelFor: tokenLabel, track: trackTokenLabel } = useTokenMetadata(metadataIdentities, knownTokens);
   useEffect(() => subscribeTrades(() => setMyTrades([...listTrades()])), []);
 
   // The on-device records belong to a WALLET on a NETWORK, not to the browser:
@@ -348,7 +387,7 @@ export function useZSwapApp(): ZSwapApp {
   const orders = useMemo<Order[]>(() => {
     return (zapi.offers ?? [])
       .map((o): Order | null => {
-        const order = toOrder(o, knownTokens);
+        const order = toOrder(o, knownTokens, tokenLabel);
         if (!order) return null;
         const blob = order.offerId ? blobById[order.offerId] : undefined;
         let mine = isMyOfferIn(order.offerId, walletScope) || isMyOfferIn(blob, walletScope);
@@ -359,7 +398,7 @@ export function useZSwapApp(): ZSwapApp {
       })
       .filter((o): o is Order => o !== null);
     // `walletScope` is a real input here: switching wallets changes who owns what.
-  }, [zapi.offers, knownTokens, selfUnshieldedHex, blobById, walletScope]);
+  }, [zapi.offers, knownTokens, tokenLabel, selfUnshieldedHex, blobById, walletScope]);
 
   const toast = useCallback((msg: string, kind?: 'ok' | string) => {
     const id = Math.random().toString(36).slice(2);
@@ -464,6 +503,7 @@ export function useZSwapApp(): ZSwapApp {
           fresh.shieldedBalances,
           fresh.unshieldedBalances,
           knownTokens,
+          tokenLabel,
         );
         if (short.length > 0) {
           dlog('createOffer: BLOCKED — insufficient balance', {
@@ -510,10 +550,12 @@ export function useZSwapApp(): ZSwapApp {
       addMyOffer(offerId ?? blob);
       const give = gives[0];
       const want = wants[0];
+      const giveSym = findTokenName(give.color, knownTokens, give.kind) ?? shortToken(give.color);
+      const wantSym = findTokenName(want.color, knownTokens, want.kind) ?? shortToken(want.color);
       addTrade({
         kind: 'create',
-        give: { sym: findTokenName(give.color, knownTokens) ?? shortToken(give.color), amt: Number(give.amount), decimals: decimalsOf(give.color, knownTokens) },
-        get: { sym: findTokenName(want.color, knownTokens) ?? shortToken(want.color), amt: Number(want.amount), decimals: decimalsOf(want.color, knownTokens) },
+        give: { sym: giveSym, color: give.color, kind: give.kind, amt: Number(give.amount), decimals: decimalsOf(give.color, knownTokens, give.kind) },
+        get: { sym: wantSym, color: want.color, kind: want.kind, amt: Number(want.amount), decimals: decimalsOf(want.color, knownTokens, want.kind) },
         // A duplicate is already indexed, so skip 'not_public' and take the
         // server's word for where it is in its lifecycle.
         status: duplicateStatus ?? 'not_public',
@@ -526,7 +568,7 @@ export function useZSwapApp(): ZSwapApp {
       zapi.fetchOffers();
       refreshBalances();
     },
-    [requireWallet, connected, knownTokens, toast, zapi, refreshBalances],
+    [requireWallet, connected, knownTokens, tokenLabel, toast, zapi, refreshBalances],
   );
 
   // Take one or more existing offers: reconstruct the maker txs from their
@@ -560,6 +602,7 @@ export function useZSwapApp(): ZSwapApp {
           fresh.unshieldedBalances,
           NETWORK_ID as any,
           knownTokens,
+          tokenLabel,
         );
         if (short.length > 0) {
           const msg = shortfallMessage(short)!;
@@ -592,7 +635,7 @@ export function useZSwapApp(): ZSwapApp {
       refreshBalances();
       dlog('takeOffers: exit');
     },
-    [requireWallet, connected, knownTokens, toast, zapi, refreshBalances],
+    [requireWallet, connected, knownTokens, tokenLabel, toast, zapi, refreshBalances],
   );
 
   /** Single take — the N=1 case of {@link takeOffers}, same code, same result. */
@@ -609,9 +652,10 @@ export function useZSwapApp(): ZSwapApp {
           wstate?.unshieldedBalances,
           NETWORK_ID as any,
           knownTokens,
+          tokenLabel,
         ),
       ),
-    [wstate, knownTokens],
+    [wstate, knownTokens, tokenLabel],
   );
 
   const [pendingConfirm, setPendingConfirm] = useState<ConfirmPayload | null>(null);
@@ -702,8 +746,18 @@ export function useZSwapApp(): ZSwapApp {
         id: o.offerId ?? o.blob,
         // Base units in, coins out at `toView` — summing base-unit integers is
         // exact, summing coins would accumulate float error across a ladder.
-        pay: { sym: o.to, amt: o.amtTo, decimals: o.decimalsTo },
-        receive: { sym: o.from, amt: o.amtFrom, decimals: o.decimalsFrom },
+        pay: {
+          sym: o.to,
+          iconSym: findTokenName(o.toColor, knownTokens, o.toKind) ?? shortToken(o.toColor),
+          amt: o.amtTo,
+          decimals: o.decimalsTo,
+        },
+        receive: {
+          sym: o.from,
+          iconSym: findTokenName(o.fromColor, knownTokens, o.fromKind) ?? shortToken(o.fromColor),
+          amt: o.amtFrom,
+          decimals: o.decimalsFrom,
+        },
         pays: parseTakerLegs(o.blob, NETWORK_ID as any)?.pays ?? [],
         // The user may have chosen to include their own offers a dialog ago;
         // keep saying which ones they are.
@@ -715,10 +769,10 @@ export function useZSwapApp(): ZSwapApp {
       // prefix that fits, not a per-row test.
       const affordable = new Set(affordableSelection(items, balances));
       const checkedByDefault = new Set(defaultSelection(items, balances));
-      const initial = summarize(items, checkedByDefault, balances, knownTokens);
+      const initial = summarize(items, checkedByDefault, balances, knownTokens, tokenLabel);
       const toView = (s: TakeSummary) => ({
-        pay: { sym: s.pay.sym, amt: formatAmount(s.pay.amt, s.pay.decimals) },
-        receive: { sym: s.receive.sym, amt: formatAmount(s.receive.amt, s.receive.decimals) },
+        pay: { sym: s.pay.sym, iconSym: s.pay.iconSym, amt: formatAmount(s.pay.amt, s.pay.decimals) },
+        receive: { sym: s.receive.sym, iconSym: s.receive.iconSym, amt: formatAmount(s.receive.amt, s.receive.decimals) },
         blocked: s.blocked ?? undefined,
         cta: s.cta,
       });
@@ -743,8 +797,8 @@ export function useZSwapApp(): ZSwapApp {
         for (const o of chosen) {
           addTrade({
             kind: 'take',
-            give: { sym: o.to, amt: o.amtTo, decimals: o.decimalsTo },
-            get: { sym: o.from, amt: o.amtFrom, decimals: o.decimalsFrom },
+            give: { sym: findTokenName(o.toColor, knownTokens, o.toKind) ?? shortToken(o.toColor), color: o.toColor, kind: o.toKind, amt: o.amtTo, decimals: o.decimalsTo },
+            get: { sym: findTokenName(o.fromColor, knownTokens, o.fromKind) ?? shortToken(o.fromColor), color: o.fromColor, kind: o.fromKind, amt: o.amtFrom, decimals: o.decimalsFrom },
             status: 'consumed',
             shielded: false,
             blob: o.blob,
@@ -766,11 +820,11 @@ export function useZSwapApp(): ZSwapApp {
           mine: it.mine,
           checked: checkedByDefault.has(it.id),
         })),
-        assess: (ids) => toView(summarize(items, ids, balances, knownTokens)),
+        assess: (ids) => toView(summarize(items, ids, balances, knownTokens, tokenLabel)),
         onConfirm: settle,
       });
     },
-    [takeOffers, wstate, knownTokens, ownsOffer],
+    [takeOffers, wstate, knownTokens, tokenLabel, ownsOffer],
   );
   const requestTake = useCallback(
     async (o: Order) => {
@@ -800,16 +854,24 @@ export function useZSwapApp(): ZSwapApp {
       const open = () =>
         setPendingConfirm({
           title: 'Take offer',
-          pay: { sym: o.to, amt: formatAmount(o.amtTo, o.decimalsTo) },
-          receive: { sym: o.from, amt: formatAmount(o.amtFrom, o.decimalsFrom) },
+          pay: {
+            sym: o.to,
+            iconSym: findTokenName(o.toColor, knownTokens, o.toKind) ?? shortToken(o.toColor),
+            amt: formatAmount(o.amtTo, o.decimalsTo),
+          },
+          receive: {
+            sym: o.from,
+            iconSym: findTokenName(o.fromColor, knownTokens, o.fromKind) ?? shortToken(o.fromColor),
+            amt: formatAmount(o.amtFrom, o.decimalsFrom),
+          },
           cta: 'Take offer',
           blocked: takerShortfall(b) ?? undefined,
           onConfirm: async () => {
             await takeOffer(b);
             addTrade({
               kind: 'take',
-              give: { sym: o.to, amt: o.amtTo, decimals: o.decimalsTo },
-              get: { sym: o.from, amt: o.amtFrom, decimals: o.decimalsFrom },
+              give: { sym: findTokenName(o.toColor, knownTokens, o.toKind) ?? shortToken(o.toColor), color: o.toColor, kind: o.toKind, amt: o.amtTo, decimals: o.decimalsTo },
+              get: { sym: findTokenName(o.fromColor, knownTokens, o.fromKind) ?? shortToken(o.fromColor), color: o.fromColor, kind: o.fromKind, amt: o.amtFrom, decimals: o.decimalsFrom },
               status: 'consumed',
               shielded: false,
               blob: b,
@@ -824,7 +886,7 @@ export function useZSwapApp(): ZSwapApp {
       if (decision.kind === 'none') { open(); return; }
       askOwnOffers(split, decision, open);
     },
-    [toast, takeOffer, takerShortfall, loadOfferBlob, ownsOffer, askOwnOffers, zapi],
+    [toast, takeOffer, takerShortfall, loadOfferBlob, ownsOffer, askOwnOffers, zapi, knownTokens],
   );
 
   // Take one or more order-book offers in a single confirm dialog. Drops blobs
@@ -897,12 +959,13 @@ export function useZSwapApp(): ZSwapApp {
     (blob: string): OfferPreview | null => {
       const parsed = parseTakerLegs(blob.trim(), NETWORK_ID as any);
       if (!parsed) return null;
-      const nm = (color: string) => findTokenName(color, knownTokens) ?? shortToken(color);
       const legs = [...parsed.pays, ...parsed.gets];
-      const leg = (l: { color: string; amount: bigint }) => ({
-        sym: nm(l.color),
+      const leg = (l: { color: string; kind: TokenPrivacy; amount: bigint }) => ({
+        sym: findTokenName(l.color, knownTokens, l.kind) ?? shortToken(l.color),
+        color: l.color,
+        kind: l.kind,
         amt: Number(l.amount),
-        decimals: decimalsOf(l.color, knownTokens),
+        decimals: decimalsOf(l.color, knownTokens, l.kind),
       });
       return {
         pays: parsed.pays.map(leg),
@@ -996,6 +1059,8 @@ export function useZSwapApp(): ZSwapApp {
     hasMoreOrders: zapi.hasMore,
     loadMoreOrders: zapi.loadMore,
     knownTokens,
+    tokenLabel,
+    trackTokenLabel,
     refetchOffers: zapi.fetchOffers,
     refetchTokens,
     selfUnshieldedHex,

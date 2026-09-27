@@ -44,12 +44,23 @@ export function truncateAddress(addr: string): string {
   return addr.slice(0, HEAD) + '...' + addr.slice(-TAIL);
 }
 
-export function findToken(token: string, knownTokens: KnownToken[]): KnownToken | undefined {
-  return knownTokens.find(k => k.token_color === token);
+export function findToken(
+  token: string,
+  knownTokens: KnownToken[],
+  kind?: KnownToken['kind'],
+): KnownToken | undefined {
+  return knownTokens.find(k => k.token_color === token && (!kind || k.kind === kind));
 }
 
-export function findTokenName(token: string, knownTokens: KnownToken[]): string | undefined {
-  return findToken(token, knownTokens)?.name;
+export function findTokenName(
+  token: string,
+  knownTokens: KnownToken[],
+  kind?: KnownToken['kind'],
+): string | undefined {
+  if (kind) return findToken(token, knownTokens, kind)?.name;
+  const names = [...new Set(knownTokens.filter((t) => t.token_color === token).map((t) => t.name))];
+  // A color-only history row cannot choose between opposite native kinds.
+  return names.length === 1 ? names[0] : undefined;
 }
 
 /**
@@ -60,6 +71,6 @@ export function findTokenName(token: string, knownTokens: KnownToken[]): string 
  * honest guess here: every token this stack mints has 6, and assuming 0 would
  * render a faucet balance a million times too large (spec Q8).
  */
-export function decimalsOf(token: string, knownTokens: KnownToken[]): number {
-  return findToken(token, knownTokens)?.decimals ?? DEFAULT_DECIMALS;
+export function decimalsOf(token: string, knownTokens: KnownToken[], kind?: KnownToken['kind']): number {
+  return findToken(token, knownTokens, kind)?.decimals ?? DEFAULT_DECIMALS;
 }

@@ -38,12 +38,19 @@ interface WalletMenuState {
   shieldedBalances: Record<string, string> | null;
   unshieldedBalances: Record<string, string> | null;
   knownTokens?: KnownToken[];
+  tokenLabel: (color: string, kind?: KnownToken['kind'] | null, fallback?: string | null) => string;
   disconnect: () => void;
   refreshBalances?: () => void;
   refreshing?: boolean;
 }
 
-function BalRows({ title, balances, knownTokens }: { title: string; balances: Record<string, string> | null; knownTokens: KnownToken[] }) {
+function BalRows({ title, kind, balances, knownTokens, labelFor }: {
+  title: string;
+  kind: KnownToken['kind'];
+  balances: Record<string, string> | null;
+  knownTokens: KnownToken[];
+  labelFor: WalletMenuState['tokenLabel'];
+}) {
   const entries = Object.entries(balances ?? {}).filter(([, v]) => Number(v) > 0);
   return (
     <div style={{ marginBottom: 10 }}>
@@ -54,8 +61,8 @@ function BalRows({ title, balances, knownTokens }: { title: string; balances: Re
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {entries.map(([color, amt]) => (
             <div key={color} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <TokenChip color={color} knownTokens={knownTokens} size="sm" />
-              <span className="zs-num" style={{ fontWeight: 600, fontSize: 13 }}>{formatAmount(amt, decimalsOf(color, knownTokens))}</span>
+              <TokenChip color={color} kind={kind} label={labelFor(color, kind)} knownTokens={knownTokens} size="sm" />
+              <span className="zs-num" style={{ fontWeight: 600, fontSize: 13 }}>{formatAmount(amt, decimalsOf(color, knownTokens, kind))}</span>
             </div>
           ))}
         </div>
@@ -154,8 +161,8 @@ export function WalletMenu({ st }: { st: WalletMenuState }) {
               </span>
             )}
           </button>
-          <BalRows title="Shielded" balances={st.shieldedBalances} knownTokens={st.knownTokens ?? []} />
-          <BalRows title="Unshielded" balances={st.unshieldedBalances} knownTokens={st.knownTokens ?? []} />
+          <BalRows title="Shielded" kind="shielded" balances={st.shieldedBalances} knownTokens={st.knownTokens ?? []} labelFor={st.tokenLabel} />
+          <BalRows title="Unshielded" kind="unshielded" balances={st.unshieldedBalances} knownTokens={st.knownTokens ?? []} labelFor={st.tokenLabel} />
           <button className="zs-btn zs-btn--block" style={{ padding: 11, fontSize: 14 }} onClick={() => { setOpen(false); st.disconnect(); }}>Disconnect</button>
         </div>
       )}
