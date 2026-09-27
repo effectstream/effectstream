@@ -66,7 +66,7 @@ export function parseOfferSender(offerBech32m: string, networkId: NetworkId): Of
   return { unshieldedOwners: Array.from(owners) };
 }
 
-// Convert a Lace bech32m unshielded address to the same lowercased hex form
+// Convert a browser wallet's bech32m unshielded address to the same lowercased hex form
 // used in `OfferSenderInfo.unshieldedOwners`.
 export function unshieldedAddressToHex(unshieldedBech32m: string, networkId: NetworkId): string | undefined {
   try {

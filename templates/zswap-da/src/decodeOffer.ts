@@ -28,7 +28,7 @@ export async function decodeOfferForDisplay(bech32: string): Promise<DecodeResul
     const { gives, wants } = P2pAtomicSwaps.deriveTokenLegs(tx as UnprovenTransaction);
 
     // Segments: 0 = guaranteed, plus union of intents.keys() and
-    // fallibleOffer.keys() (Lace's makeIntent may populate either).
+    // fallibleOffer.keys() (connector makeIntent implementations may populate either).
     const intentKeys = [...(tx.intents?.keys() ?? [])] as number[];
     const fallibleKeys = [...(tx.fallibleOffer?.keys() ?? [])] as number[];
     const otherSegs = Array.from(new Set<number>([...intentKeys, ...fallibleKeys]));

@@ -1,8 +1,8 @@
 // Wallet scoping for the on-device records (`my-offers`, `my-trades`).
 //
 // Both stores used to be flat, per-BROWSER lists. That is wrong as soon as two
-// wallets share one browser: an offer posted with Lace stayed "mine" after
-// connecting 1am, so the order book refused to let the second wallet take it
+// wallets share one browser: an offer posted with one wallet stayed "mine"
+// after connecting a second, so the order book refused to let the second wallet take it
 // (issue 00003) and My Trades showed the other wallet's history as your own.
 //
 // The fix is a scope level in the stored JSON:

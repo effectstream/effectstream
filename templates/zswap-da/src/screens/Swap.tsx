@@ -11,7 +11,7 @@
 // Amounts are typed and shown in WHOLE COINS, scaled by each token's own
 // `decimals` from the registry; everything below this screen — the quote
 // request, the offer legs, the chain — stays integer base units. Requires the
-// browser wallet (Lace / ConnectedAPI); the local JS wallet can't makeIntent.
+// browser wallet (ConnectedAPI); the local JS wallet can't makeIntent.
 
 import { useEffect, useState } from 'react';
 import { Coin, Icon, Mark } from '../ui/icons';

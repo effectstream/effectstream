@@ -1,5 +1,5 @@
 // Build a maker's bech32m offer blob via the connected browser wallet
-// (ConnectedAPI / Lace). Extracted from the old frontend's SwapInterface:
+// (ConnectedAPI). Extracted from the old frontend's SwapInterface:
 // makeIntent(payFees:false) → serialize → encodeOffer. The offer is
 // intentionally imbalanced (gives ≠ wants); the taker's wallet balances + the
 // batcher pays fees, so the maker commits no Dust.
@@ -26,16 +26,17 @@ function hexToBytes(hex: string): Uint8Array {
   for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
   return out;
 }
-// makeIntent returns an opaque serialized tx; Lace/midnight-js use hex, fall
-// back to base64 if it doesn't look like hex.
+// makeIntent returns an opaque serialized tx; connector implementations may
+// use hex, so fall back to base64 if it doesn't look like hex.
 function decodeConnectorTx(tx: string): Uint8Array {
   const isHex = /^(0x)?[0-9a-fA-F]+$/.test(tx) && tx.replace(/^0x/, '').length % 2 === 0;
   return isHex ? hexToBytes(tx) : base64ToBytes(tx);
 }
 
-// Lace's balanceSealedTransaction lands its balancing Intent at segment 1, and
-// 'random' often collides there. Pick a wide-range id ≥ 2 to avoid the reserved
-// slots (0 = guaranteed offer, 1 = Lace's balancing slot).
+// The connector behavior observed in the affected implementation lands its
+// balancing Intent at segment 1, and 'random' often collides there. Pick a
+// wide-range id ≥ 2 to avoid the reserved slots (0 = guaranteed offer,
+// 1 = the connector's balancing slot).
 function pickMakerIntentId(): number {
   const buf = new Uint32Array(1);
   crypto.getRandomValues(buf);

@@ -1,6 +1,6 @@
 // Lightweight in-app debug log. Buffers timestamped lines in memory, mirrors to
 // the browser console, and (once installed) also captures console.error/warn so
-// third-party failures (Lace / midnight-js proof errors) land in the same place.
+// third-party failures (wallet / midnight-js proof errors) land in the same place.
 //
 // Copy it from the console dock's "Copy log" button, or from the devtools
 // console via `zlog.dump()` / `zlog.copy()`.

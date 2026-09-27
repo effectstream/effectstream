@@ -10,12 +10,11 @@ export interface WalletOptionMeta {
 }
 
 function brandTint(name: string): string {
-  if (/lace/i.test(name)) return '#0A0A0A';
   if (name === 'midnight-local') return '#0000FE';
   return '#5A6473';
 }
 
-function Row({ tint, glyph, icon, title, sub, getUrl, onClick }: { tint: string; glyph?: string; icon?: string; title: string; sub?: string; getUrl?: string; onClick: () => void }) {
+function Row({ tint, glyph, icon, title, sub, onClick }: { tint: string; glyph?: string; icon?: string; title: string; sub?: string; onClick: () => void }) {
   const hasIcon = !!(icon || glyph);
   return (
     <div onClick={onClick} className="zs-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 13, cursor: 'pointer', textAlign: 'left', border: '1px solid var(--line)', background: 'var(--surface)' }}
@@ -28,7 +27,6 @@ function Row({ tint, glyph, icon, title, sub, getUrl, onClick }: { tint: string;
       <span style={{ flex: 1, fontWeight: 700, fontSize: 15, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
         {title}{sub && <span className="zs-pill" style={{ padding: '3px 8px', fontSize: 10.5 }}>{sub}</span>}
       </span>
-      {getUrl && <a href={getUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', textDecoration: 'none', padding: '4px 8px' }}>Get <Icon.ext /></a>}
       <Icon.arrow style={{ color: 'var(--ink-3)' }} />
     </div>
   );
@@ -59,10 +57,12 @@ export function ConnectModal({
             <Row key={w.name} tint={brandTint(w.name)} glyph="◧" icon={w.icon} title={w.displayName} onClick={() => onPickInjected(w.name)} />
           ))}
           {injected.length === 0 && (
-            <>
-              <Row tint="#0A0A0A" title="Lace" sub="not detected" getUrl="https://www.lace.io/" onClick={() => window.open('https://www.lace.io/', '_blank')} />
-              <Row tint="#1A1A2E" title="1am" sub="not detected" getUrl="https://1am.xyz/" onClick={() => window.open('https://1am.xyz/', '_blank')} />
-            </>
+            <div role="status" className="zs-card" style={{ padding: 13, border: '1px solid var(--line)', background: 'var(--surface)', lineHeight: 1.45 }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>No compatible browser wallet detected</div>
+              <div style={{ marginTop: 4, color: 'var(--ink-3)', fontSize: 12 }}>
+                Install or enable a Midnight wallet that supports transaction signing, then reopen this dialog.
+              </div>
+            </div>
           )}
           {localAvailable && (
             <Row tint="#0000FE" glyph="JS" title="JS Wallet" sub="local · undeployed" onClick={onPickLocal} />

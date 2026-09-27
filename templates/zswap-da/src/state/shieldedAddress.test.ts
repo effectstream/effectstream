@@ -55,9 +55,9 @@ describe('formatShieldedAddress — local wallet (hex → bech32m)', () => {
 });
 
 describe('formatShieldedAddress — pass-through (FR-004)', () => {
-  test('an already-bech32m Lace address is returned verbatim, never re-encoded', () => {
-    const lace = formatShieldedAddress(COIN, ENC, 'undeployed');
-    expect(formatShieldedAddress(lace, ENC, 'undeployed')).toBe(lace);
+  test('an already-bech32m browser-wallet address is returned verbatim, never re-encoded', () => {
+    const browserWalletAddress = formatShieldedAddress(COIN, ENC, 'undeployed');
+    expect(formatShieldedAddress(browserWalletAddress, ENC, 'undeployed')).toBe(browserWalletAddress);
   });
 
   test('an unshielded mn_addr_ fallback is left alone', () => {

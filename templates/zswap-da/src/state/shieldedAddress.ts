@@ -1,8 +1,8 @@
 // Display-only formatting of the shielded identity.
 //
-// The two Midnight wallets hand the shielded identity over in different shapes:
+// Midnight wallets can hand the shielded identity over in different shapes:
 //
-//   - Lace (injected) already returns the canonical bech32m address from
+//   - An injected browser wallet may return the canonical bech32m address from
 //     `getShieldedAddresses()` — `mn_shield-addr_<network>1…`.
 //   - The built-in JS wallet returns the raw hex COIN PUBLIC KEY, because that
 //     is what shielded-output builders consume: @effectstream/wallets'
@@ -32,7 +32,7 @@ const stripHexPrefix = (h: string): string => (h.startsWith('0x') ? h.slice(2) :
  * when it cannot be derived.
  *
  * Pass-through cases, all deliberate:
- *  - anything already bech32m (`mn_…`) — the Lace address, and the
+ *  - anything already bech32m (`mn_…`) — a browser-wallet address, and the
  *    `mn_addr_…` unshielded fallback the menu shows when there is no shielded
  *    address. Re-encoding either one would produce a wrong artifact.
  *  - a coin key that is not 32 bytes of hex, or a missing/short encryption key

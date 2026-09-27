@@ -11,7 +11,7 @@ import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-networ
 import { parseCoinPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
 import { submitToBatcher, type MidnightRuntimeConfig } from './api';
 import {
-  chooseLaceBalancing,
+  chooseBrowserWalletBalancing,
   decodeMakerOffers,
   mergeMakerOffersToBytes,
 } from './offerBatch';
@@ -39,9 +39,10 @@ const fromHex = (hex: string): Uint8Array => {
  * keyed Intents.
  *
  * Unshielded offers are dispatched away from this function in
- * `proveAndSubmitOffers` because Lace's unshielded `makeIntent` adds an
- * empty structural Intent[1] to *both* maker and taker txs, which collides
- * on merge with "key (segment_id) collision during intents merge: 1".
+ * `proveAndSubmitOffers` because the connector behavior observed in the
+ * affected implementation adds an empty structural Intent[1] to *both* maker
+ * and taker unshielded txs, which collides on merge with
+ * "key (segment_id) collision during intents merge: 1".
  */
 async function balanceShieldedViaMirrorMerge(
   connectedApi: ConnectedAPI,
@@ -90,7 +91,7 @@ async function balanceShieldedViaMirrorMerge(
 
   // Shielded `makeIntent` doesn't populate an Intent slot, so the requested
   // id is moot — the resulting taker tx will have intents.size === 0
-  // regardless. Pass a non-1 value defensively in case Lace ever changes
+  // regardless. Pass a non-1 value defensively in case a connector changes
   // shielded `makeIntent` to add a structural Intent[1].
   const requestedTakerIntentId: number | 'random' = 1000;
 
@@ -102,10 +103,10 @@ async function balanceShieldedViaMirrorMerge(
     outputs: takerOutputs.map(o => ({ ...o, value: o.value.toString() })),
   });
 
-  // ⬇ THE reported hang lands here: this is a call into the Lace wallet to build
-  // the taker's intent. If it never resolves you'll see the `▶ wallet.makeIntent`
-  // line below with no matching `✓` — the wallet is stuck (pending popup, coin
-  // selection, or indexer sync), NOT the backend.
+  // ⬇ THE reported hang lands here: this is a call into the browser wallet to
+  // build the taker's intent. If it never resolves you'll see the
+  // `▶ wallet.makeIntent` line below with no matching `✓` — the connector is
+  // stuck (pending popup, coin selection, or indexer sync), NOT the backend.
   dlog('mirror+merge: → calling wallet.makeIntent', {
     takerInputs: takerInputs.map((i) => ({ ...i, value: i.value.toString() })),
     takerOutputs: takerOutputs.map((o) => ({ ...o, value: o.value.toString() })),
@@ -130,7 +131,7 @@ async function balanceShieldedViaMirrorMerge(
   );
 
   // Full taker tx shape (mirror of the maker tx segment log earlier in
-  // proveAndSubmitOffers). Tells us which segIds Lace actually populated and
+  // proveAndSubmitOffers). Tells us which segIds the connector actually populated and
   // what's in each segment — enough to diagnose any "intents merge: N"
   // collision or zswap-offer composition error.
   const takerIntentIds: number[] = takerTx.intents
@@ -192,14 +193,15 @@ async function balanceShieldedViaMirrorMerge(
 
 /**
  * Sealed-balance path: maker tx has at least one Intent slot. Hand the
- * sealed tx to Lace's `balanceSealedTransaction(payFees: false)` — Lace
- * adds the counterparty side, the batcher pays fees in DUST.
+ * sealed tx to the browser wallet's
+ * `balanceSealedTransaction(payFees: false)`; the connector adds the
+ * counterparty side and the batcher pays fees in DUST.
  *
  * Reached for unshielded4unshielded (segment-0 deltas + empty Intent[1])
  * and any future numbered-Intent offers. Mirror+merge can't be used here
- * because Lace's unshielded `makeIntent` would put a colliding Intent[1]
- * on the taker side; sealed-balance has no such issue because it doesn't
- * go through `makeIntent` on the taker side.
+ * because the observed connector's unshielded `makeIntent` would put a
+ * colliding Intent[1] on the taker side; sealed-balance has no such issue
+ * because it doesn't go through `makeIntent` on the taker side.
  */
 async function balanceMixedViaSealedBalance(
   connectedApi: ConnectedAPI,
@@ -263,8 +265,9 @@ async function balanceMixedViaSealedBalance(
  *     transaction" on shielded-only offers (it walks `tx.intents`, which is
  *     empty there).
  *   - mirror+merge collides with "key (segment_id) collision during intents
- *     merge: 1" on unshielded offers — Lace's unshielded `makeIntent` always
- *     lands its Intent at segId 1, so maker and taker would both carry it.
+ *     merge: 1" on unshielded offers in the affected connector implementation,
+ *     whose `makeIntent` lands its Intent at segId 1, so maker and taker would
+ *     both carry it.
  */
 export async function proveAndSubmitOffers(
   connectedApi: ConnectedAPI,
@@ -321,7 +324,7 @@ export async function proveAndSubmitOffers(
     ),
   });
 
-  const { useMirrorMerge, ...swap } = chooseLaceBalancing(makerTx);
+  const { useMirrorMerge, ...swap } = chooseBrowserWalletBalancing(makerTx);
   const strategy = useMirrorMerge
     ? 'mirror+merge (segment 0 / guaranteed offer)'
     : 'balanceSealedTransaction (numbered Intent)';
@@ -398,4 +401,3 @@ export function proveAndSubmitOffer(
 ): Promise<{ txHash: string }> {
   return proveAndSubmitOffers(connectedApi, config, [offerBech32m]);
 }
-

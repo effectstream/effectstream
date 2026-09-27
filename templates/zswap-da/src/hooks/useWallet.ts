@@ -5,7 +5,7 @@ import { MIDNIGHT_NETWORK_ID } from '../config';
 type WalletStatus = 'disconnected' | 'connecting' | 'connected' | 'unavailable';
 
 const NETWORK_ID = MIDNIGHT_NETWORK_ID;
-const POLL_INTERVAL_MS = 10_000; // detect silent Lace disconnects
+const POLL_INTERVAL_MS = 10_000; // detect silent browser-wallet disconnects
 
 function isChannelShutdownError(e: unknown): boolean {
   const msg = String((e as any)?.message ?? e ?? '');
@@ -140,9 +140,9 @@ export function useWallet() {
     try {
       // Pull the full picture — balances + dust + recent tx history + addresses —
       // so we can see at a glance whether (a) the wallet has synced past the
-      // mint's block (dust > 0 or any history entries), (b) Lace registered
+      // mint's block (dust > 0 or any history entries), (b) the wallet registered
       // the mint tx as relevant to it (tx in history), and (c) the keys we're
-      // using on the dapp side match what Lace reports.
+      // using on the dapp side match what the wallet reports.
       const [shBalances, unshBalances, dust, shielded, unshielded, history] = await Promise.all([
         api.getShieldedBalances(),
         api.getUnshieldedBalances(),
@@ -192,7 +192,7 @@ export function useWallet() {
     setRefreshing(false);
   }, []);
 
-  // Poll wallet availability so we can auto-reconnect after Lace silently drops
+  // Poll wallet availability so we can auto-reconnect after a browser wallet silently drops
   // its connection (no channel-shutdown error — getConnectionStatus just returns
   // something other than 'connected').
   useEffect(() => {

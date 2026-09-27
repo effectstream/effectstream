@@ -162,7 +162,6 @@ const DISPLAY_NETWORK =
 
 function brandStyle(name: string): { tint: string; glyph: string } {
   if (name === 'midnight-local') return { tint: '#0000FE', glyph: 'JS' };
-  if (/lace/i.test(name)) return { tint: '#0A0A0A', glyph: '◧' };
   return { tint: '#5A6473', glyph: '◓' };
 }
 
@@ -269,8 +268,8 @@ export function useZSwapApp(): ZSwapApp {
     setMyTradesScope(walletScope);
   }, [walletScope]);
 
-  // The active wallet's offer transaction capability. Injected
-  // (Lace) goes through the dapp-connector; local (JS facade) through the
+  // The active wallet's offer transaction capability. An injected browser
+  // wallet goes through the dapp-connector; local (JS facade) through the
   // wallet facade's own APIs. Every transaction below routes through this seam.
   const tradeWallet = useMemo<TradeWallet | null>(() => {
     if (connected?.kind === 'injected' && connected.connectedApi) {
@@ -547,7 +546,8 @@ export function useZSwapApp(): ZSwapApp {
       dlog('takeOffers: wallet', { kind: w.kind, canTrade: w.canTrade });
 
       // Authoritative balance guard: every take path funnels here, so block once
-      // on fresh balances (a missing input coin makes Lace's makeIntent hang).
+      // on fresh balances (the affected connector can leave makeIntent pending
+      // indefinitely when an input coin is missing).
       // The guard is on the AGGREGATE cost — checking each offer against the
       // full balance would pass a batch that only overspends in sum.
       if (connected) {
