@@ -73,3 +73,9 @@ SELECT protocol_name, network_type, immutable_config
 FROM effectstream.sync_protocol_config_snapshot
 WHERE protocol_name = :protocolName!
 ;
+
+/* @name updateSyncProtocolConfigSnapshot */
+UPDATE effectstream.sync_protocol_config_snapshot
+SET immutable_config = :immutableConfig!
+WHERE protocol_name = :protocolName!
+;

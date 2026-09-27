@@ -49,6 +49,13 @@ export type RunSpec = {
    */
   waitPages?: Record<string, number>;
   coalesce?: boolean;
+  /**
+   * Exit as soon as `startup()` finished (`dev.onStarted`), skipping every
+   * height/page wait. For tests whose subject is startup itself — config
+   * reconciliation, snapshot persistence, primitive construction — where block
+   * production is beside the point but a genuine subprocess boot is not.
+   */
+  bootOnly?: boolean;
 };
 
 const noopStf: StartConfigGameStateTransitions = function* () {};
@@ -128,10 +135,12 @@ async function main() {
   }
 
   try {
-    await guard(waitForHeight(pool, spec.target));
-    await guard(waitUntilStable(pool));
-    for (const [name, page] of Object.entries(spec.waitPages ?? {})) {
-      await guard(waitForPage(pool, name, page));
+    if (!spec.bootOnly) {
+      await guard(waitForHeight(pool, spec.target));
+      await guard(waitUntilStable(pool));
+      for (const [name, page] of Object.entries(spec.waitPages ?? {})) {
+        await guard(waitForPage(pool, name, page));
+      }
     }
   } catch (e) {
     const probe = live.map((p) =>

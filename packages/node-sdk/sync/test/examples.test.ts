@@ -20,3 +20,11 @@ test("README: per-chain fetchers and states are exported", () => {
   expect(typeof sync.getNtpTip).toBe("function");
   expect(typeof sync.NtpTipError).toBe("function");
 });
+
+test("README: protocol-owned start policies are exported", () => {
+  // The generic runtime imports exactly this registry — no per-chain hooks.
+  expect(typeof sync.startPolicyRegistry).toBe("object");
+  expect(typeof sync.numericStartPolicy.projectImmutable).toBe("function");
+  expect(typeof sync.ntpStartPolicy.resolveLatest).toBe("function");
+  expect(typeof sync.midnightStartPolicy.resolveLatest).toBe("function");
+});

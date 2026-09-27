@@ -52,7 +52,12 @@ export type SyncProtocolFromNetwork<T extends ConfigNetworkType> =
 type BasePrimitive = {
   name: string;
   type: `${string}:${string}`;
-  startBlockHeight: number;
+  /**
+   * Omit it to inherit the owning sync protocol's committed numeric start
+   * (`@effectstream/runtime` fills it in before the primitive class is
+   * constructed). An explicit value always wins.
+   */
+  startBlockHeight?: number;
   /**
    * Grammar prefix used to route this primitive's payload into the state
    * machine. Omit it and the primitive still writes accounting rows, but
@@ -267,11 +272,27 @@ export type NetworkFromSyncProtocol<
   ? Extract<NetworkConfig, { type: NetworkTypeFromSyncProtocol<T> }>
   : undefined;
 
+/**
+ * Re-narrows the `"latest"` sentinel out of the runtime-facing protocol shape.
+ *
+ * NTP main and Midnight parallel accept `startBlockHeight: "latest"` on the
+ * builder-input side (`schema/common.ts` `StartStopBlockheightWithLatest`), but
+ * `@effectstream/runtime` reconciles that to a committed numeric boundary
+ * before any sync state or primitive exists. Applying the narrowing here — the
+ * single place every runtime and sync consumer types through — keeps
+ * `startBlockHeight - 1` and friends compiling in every per-chain sync state
+ * without touching those files.
+ */
+type NumericStartBlockHeight<T> = {
+  [Field in keyof T]: Field extends "startBlockHeight" ? Extract<T[Field], number>
+    : T[Field];
+};
+
 export type SyncProtocolWithNetwork = {
   [K in keyof typeof SyncProtocolToNetwork]: {
     networkType: NetworkFromSyncProtocol<K>["type"];
     syncProtocolType: ConfigSyncProtocolMapping[K]["type"];
-    syncProtocol: ConfigSyncProtocolMapping[K];
+    syncProtocol: NumericStartBlockHeight<ConfigSyncProtocolMapping[K]>;
     network: NetworkFromSyncProtocol<K>;
     primitives: Extract<
       PrimitiveEntry,

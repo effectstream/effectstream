@@ -354,3 +354,31 @@ const getSyncProtocolConfigSnapshotIR: any = {"usedParamSet":{"protocolName":tru
 export const getSyncProtocolConfigSnapshot = new PreparedQuery<IGetSyncProtocolConfigSnapshotParams,IGetSyncProtocolConfigSnapshotResult>(getSyncProtocolConfigSnapshotIR);
 
 
+/** 'UpdateSyncProtocolConfigSnapshot' parameters type */
+export interface IUpdateSyncProtocolConfigSnapshotParams {
+  immutableConfig: Json;
+  protocolName: string;
+}
+
+/** 'UpdateSyncProtocolConfigSnapshot' return type */
+export type IUpdateSyncProtocolConfigSnapshotResult = void;
+
+/** 'UpdateSyncProtocolConfigSnapshot' query type */
+export interface IUpdateSyncProtocolConfigSnapshotQuery {
+  params: IUpdateSyncProtocolConfigSnapshotParams;
+  result: IUpdateSyncProtocolConfigSnapshotResult;
+}
+
+const updateSyncProtocolConfigSnapshotIR: any = {"usedParamSet":{"immutableConfig":true,"protocolName":true},"params":[{"name":"immutableConfig","required":true,"transform":{"type":"scalar"},"locs":[{"a":73,"b":89}]},{"name":"protocolName","required":true,"transform":{"type":"scalar"},"locs":[{"a":113,"b":126}]}],"statement":"UPDATE effectstream.sync_protocol_config_snapshot\nSET immutable_config = :immutableConfig!\nWHERE protocol_name = :protocolName!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * UPDATE effectstream.sync_protocol_config_snapshot
+ * SET immutable_config = :immutableConfig!
+ * WHERE protocol_name = :protocolName!
+ * ```
+ */
+export const updateSyncProtocolConfigSnapshot = new PreparedQuery<IUpdateSyncProtocolConfigSnapshotParams,IUpdateSyncProtocolConfigSnapshotResult>(updateSyncProtocolConfigSnapshotIR);
+
+

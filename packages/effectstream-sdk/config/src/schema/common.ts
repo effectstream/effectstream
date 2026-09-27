@@ -1,4 +1,4 @@
-import { TypeboxHelpers } from "@effectstream/utils";
+import { type BlockNumber, TypeboxHelpers } from "@effectstream/utils";
 import { Type } from "@sinclair/typebox";
 import { ConfigSchema } from "./utils.ts";
 
@@ -52,6 +52,39 @@ export const pollingSyncProtocolWithDefault = <const Interval extends number>(
 export const StartStopBlockheight = new ConfigSchema({
   required: Type.Object({
     startBlockHeight: TypeboxHelpers.BlockNumber(),
+  }),
+  optional: Type.Object({
+    stopBlockHeight: TypeboxHelpers.Nullable(TypeboxHelpers.BlockNumber(), {
+      default: null,
+    }),
+  }),
+});
+
+/**
+ * Start/stop pair for protocols that can discover their own first boundary.
+ *
+ * ONLY the NTP main and Midnight parallel schemas use this (FR-005); every
+ * other protocol keeps the numeric `StartStopBlockheight` above, byte for byte.
+ *
+ * The widening is two-sided on purpose. `Static` yields exactly one type per
+ * schema node, so a single `Type.Unsafe` override cannot make the builder input
+ * and the runtime-facing type differ. Instead:
+ *  1. here, the validator AND the builder-input static both widen to
+ *     `BlockNumber | "latest"`, so `.addMain`/`.addParallel` callbacks compile
+ *     with the sentinel;
+ *  2. `schema/sync-protocols/types.ts` re-narrows the `startBlockHeight` member
+ *     back to a number inside the `SyncProtocolWithNetwork` mapped type.
+ *
+ * That is truthful rather than a convenience: reconciliation
+ * (`@effectstream/runtime` `config-snapshot.ts`, the sentinel's only consumer)
+ * replaces `"latest"` with a committed numeric boundary before any sync state
+ * or primitive is constructed.
+ */
+export const StartStopBlockheightWithLatest = new ConfigSchema({
+  required: Type.Object({
+    startBlockHeight: Type.Unsafe<BlockNumber | "latest">(
+      Type.Union([Type.Number(), Type.Literal("latest")]),
+    ),
   }),
   optional: Type.Object({
     stopBlockHeight: TypeboxHelpers.Nullable(TypeboxHelpers.BlockNumber(), {

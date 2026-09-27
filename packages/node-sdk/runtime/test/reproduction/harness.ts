@@ -325,6 +325,15 @@ export type RunToHeightOpts = {
   /** Enable/disable empty-block coalescing. */
   coalesce?: boolean;
   /**
+   * Exit as soon as `startup()` has completed (the `dev.onStarted` callback),
+   * without waiting for any finalized height. Used by tests whose subject is
+   * startup itself — config reconciliation, snapshot persistence, primitive
+   * construction — rather than block production. `target`/`tips` are then
+   * irrelevant, but a genuine subprocess still boots the real runtime against
+   * the real database, so a "restart" is still a real restart.
+   */
+  bootOnly?: boolean;
+  /**
    * Full ConfigBuilder output, for tests that need protocols the default
    * scenario doesn't provide. When omitted the node-runner builds the standard
    * two-protocol scenario from `events`/`parallelStepSize`.
@@ -359,6 +368,7 @@ function makeRunToHeight(
       apiPort: opts.apiPort,
       waitPages: opts.waitPages,
       coalesce: opts.coalesce,
+      bootOnly: opts.bootOnly,
       // Forwarded so a caller can supply its own protocols; node-runner already
       // prefers `spec.config` over the default scenario.
       config: opts.config,

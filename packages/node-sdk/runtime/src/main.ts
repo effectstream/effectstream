@@ -430,17 +430,6 @@ function* startup(
   // Pull the security namespace from the static config so primitives that
   // re-verify batched signatures can access it synchronously.
   const staticConfig = yield* usePaimaStaticConfig();
-  // Create Runtime Primitives Instances
-  syncInfo.forEach((syncProtocol) => {
-    syncProtocol.primitives.forEach((primitive, primitiveIndex) => {
-      processPrimitives(
-        syncProtocol.primitives,
-        primitiveIndex,
-        staticConfig.securityNamespace,
-        config.userDefinedPrimitives
-      );
-    });
-  });
 
   yield* acquireDBMutex(`startup-node`);
   // `finally` releases the mutex on error/cancellation too; a throw in any step
@@ -461,10 +450,28 @@ function* startup(
       config.migrations,
     );
 
-    // Validate that immutable config fields (e.g. NTP startTime, startBlockHeight)
-    // have not changed since the last run. Persists a snapshot on first start.
-    // Must run after system migrations so the snapshot table exists.
+    // Reconcile every protocol's immutable start configuration: resolve a
+    // `"latest"` start exactly once, commit the numeric boundary plus its
+    // provenance, and reuse the committed value on every later boot. Must run
+    // after system migrations so the snapshot table exists.
     yield* validateAndSnapshotConfig(syncInfo, dbConn);
+
+    // Create Runtime Primitives Instances.
+    // Deliberately AFTER reconciliation (FR-006): every protocol now carries a
+    // committed numeric `startBlockHeight`, so a primitive that omits its own
+    // start can inherit it (FR-007) and no primitive can ever be constructed
+    // from an unresolved `"latest"` sentinel.
+    inheritPrimitiveStartHeights(syncInfo);
+    syncInfo.forEach((syncProtocol) => {
+      syncProtocol.primitives.forEach((primitive, primitiveIndex) => {
+        processPrimitives(
+          syncProtocol.primitives,
+          primitiveIndex,
+          staticConfig.securityNamespace,
+          config.userDefinedPrimitives
+        );
+      });
+    });
 
     const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
       syncInfo);
@@ -486,6 +493,53 @@ function* startup(
     return syncProtocols;
   } finally {
     releaseDBMutex(`startup-node`);
+  }
+}
+
+/**
+ * FR-007: a primitive that omits `startBlockHeight` inherits its owning sync
+ * protocol's committed numeric start; an explicit primitive value always wins
+ * (including an explicit `0`).
+ *
+ * This is generic — it works for every protocol precisely because
+ * `validateAndSnapshotConfig` has already committed a numeric boundary by the
+ * time it runs. Protocols that start from something other than a block height
+ * (Cardano's slot / chain point) simply have nothing to hand down, so their
+ * primitives must still declare their own start.
+ *
+ * Exported for the runtime's unit oracle; `startup()` is the only caller.
+ */
+export function inheritPrimitiveStartHeights(
+  syncInfo: SyncProtocolWithNetwork[],
+): void {
+  for (const protocol of syncInfo) {
+    const protocolStart =
+      (protocol.syncProtocol as unknown as { startBlockHeight?: unknown })
+        .startBlockHeight;
+    const inheritable = typeof protocolStart === "number"
+      ? protocolStart
+      : undefined;
+    const protocolName = (protocol.syncProtocol as unknown as { name?: string })
+      .name ?? String(protocol.syncProtocolType);
+
+    for (
+      const entry of protocol.primitives as unknown as {
+        id: string;
+        primitive: { name?: string; startBlockHeight?: number };
+      }[]
+    ) {
+      if (entry.primitive.startBlockHeight !== undefined) continue;
+      const primitiveName = entry.primitive.name ?? entry.id;
+      if (inheritable === undefined) {
+        throw new Error(
+          `[runtime] Cannot inherit startBlockHeight for primitive ` +
+            `"${primitiveName}": sync protocol "${protocolName}" has no ` +
+            `numeric start to inherit from, so the primitive must declare its ` +
+            `own startBlockHeight.`,
+        );
+      }
+      entry.primitive.startBlockHeight = inheritable;
+    }
   }
 }
 
