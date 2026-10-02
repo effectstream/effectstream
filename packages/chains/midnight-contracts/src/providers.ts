@@ -14,7 +14,7 @@ import {
 } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import type { WalletProvider, MidnightProvider, MidnightProviders, UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
 import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
-import type { NetworkUrls } from "./types.ts";
+import type { NetworkUrls, NetworkUrlsWithContractProver } from "./types.ts";
 import type { UnshieldedKeystore } from "@midnightntwrk/wallet-sdk-unshielded-wallet";
 import { CONSTANTS } from "./constants.ts";
 // import { Contract } from "@midnight-ntwrk/compact-js";
@@ -74,6 +74,10 @@ function createWalletAndMidnightProvider(
   
   /**
    * Configure all providers needed for contract deployment
+   *
+   * The wallet (and its DUST prover) is built by the caller. Here the proof
+   * server only proves contract circuits: `networkUrls.contractProofServer`
+   * when set, otherwise `networkUrls.proofServer`.
    */
   export async function configureMidnightNodeProviders(
     wallet: WalletFacade,
@@ -81,7 +85,8 @@ function createWalletAndMidnightProvider(
     walletZswapSecretKeys: ZswapSecretKeys,
     dustSecretKey: DustSecretKey,
     walletDustSecretKey: DustSecretKey,
-    networkUrls: Required<Omit<NetworkUrls, "id">>,
+    networkUrls: Required<Omit<NetworkUrls, "id">> &
+      Pick<NetworkUrlsWithContractProver, "contractProofServer">,
     privateStateStoreName: string,
     zkConfigPath: string,
     unshieldedKeystore: UnshieldedKeystore
@@ -122,7 +127,7 @@ function createWalletAndMidnightProvider(
       ),
       zkConfigProvider,
       proofProvider: httpClientProofProvider(
-        networkUrls.proofServer,
+        networkUrls.contractProofServer?.trim() || networkUrls.proofServer,
         zkConfigRegistry,
       ),
       walletProvider: walletAndMidnightProvider,

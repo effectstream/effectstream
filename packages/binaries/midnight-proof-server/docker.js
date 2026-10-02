@@ -1,10 +1,14 @@
-const { spawn, exec, execSync } = require("child_process");
+const { spawn, exec } = require("child_process");
 const { promisify } = require("util");
 const execAsync = promisify(exec);
 
-const IMAGE_NAME = "midnightntwrk/proof-server";
-const IMAGE_TAG = "9.0.0-rc.5";
-const CONTAINER_NAME = "midnight-proof-server";
+const {
+  DEFAULT_VERSION,
+  DEFAULT_PORT,
+  containerNameForPort,
+  imageRef,
+  dockerRunArgs,
+} = require("./config.js");
 
 async function checkIfDockerExists() {
   try {
@@ -15,9 +19,9 @@ async function checkIfDockerExists() {
   }
 }
 
-async function pullDockerImage(tag = IMAGE_TAG) {
+async function pullDockerImage(tag = DEFAULT_VERSION) {
   return new Promise((resolve, reject) => {
-    const child = spawn("docker", ["pull", `${IMAGE_NAME}:${tag}`], {
+    const child = spawn("docker", ["pull", imageRef(tag)], {
       stdio: "inherit",
     });
     child.on(
@@ -65,55 +69,84 @@ async function checkIfContainerRunning(containerName) {
 }
 
 /**
- * Runs the proof server container. Maps port 6300 by default. Additional CLI args are passed as command args.
+ * Image reference an existing container was created from, or undefined.
+ * @param {string} containerName
+ * @returns {Promise<string | undefined>}
+ */
+async function getContainerImage(containerName) {
+  try {
+    const { stdout } = await execAsync(
+      `docker inspect -f '{{.Config.Image}}' ${containerName}`,
+    );
+    return stdout.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The container name only encodes the port, so an existing container on that
+ * port may run another proof-server version. On a non-default port that is
+ * refused. On the default port it is only a warning, which keeps the
+ * historical behavior of reusing `midnight-proof-server` as it is.
+ */
+async function assertContainerImage(containerName, tag, port) {
+  const image = await getContainerImage(containerName);
+  if (!image || image === imageRef(tag)) return;
+  const message =
+    `Container ${containerName} exists with image ${image}, but ${imageRef(tag)} ` +
+    `was requested. Remove that container or choose another --port.`;
+  if (port === DEFAULT_PORT) {
+    console.warn(`WARNING: ${message}`);
+    return;
+  }
+  throw new Error(message);
+}
+
+/**
+ * Runs the proof server container. Maps host port 6300 by default (`--port` /
+ * MIDNIGHT_PROOF_SERVER_PORT selects another one; the container is then named
+ * `midnight-proof-server-<port>`). Additional CLI args are passed as command args.
  * @param {Object} env Env vars to set inside container.
  * @param {Array<string>} args CLI args.
- * @param {string} tag Docker tag.
+ * @param {string} tag Docker tag (the proof-server version).
+ * @param {number} port Host port.
  */
 async function runDockerContainer(
   env = process.env,
   args = [],
-  tag = IMAGE_TAG,
+  tag = DEFAULT_VERSION,
+  port = DEFAULT_PORT,
 ) {
-  const containerExists = await checkIfContainerExists(CONTAINER_NAME);
-  const containerRunning = await checkIfContainerRunning(CONTAINER_NAME);
+  const containerName = containerNameForPort(port);
+  const containerExists = await checkIfContainerExists(containerName);
+  const containerRunning = await checkIfContainerRunning(containerName);
+
+  if (containerExists || containerRunning) {
+    await assertContainerImage(containerName, tag, port);
+  }
 
   if (containerRunning) {
-    console.log(`Container ${CONTAINER_NAME} is already running`);
+    console.log(`Container ${containerName} is already running`);
     // Attach to the running container to see logs
-    const child = spawn("docker", ["logs", "-f", CONTAINER_NAME], {
+    const child = spawn("docker", ["logs", "-f", containerName], {
       stdio: "inherit",
     });
     return child;
   }
 
   if (containerExists) {
-    console.log(`Starting existing container: ${CONTAINER_NAME}`);
-    const child = spawn("docker", ["start", "-a", CONTAINER_NAME], {
+    console.log(`Starting existing container: ${containerName}`);
+    const child = spawn("docker", ["start", "-a", containerName], {
       stdio: "inherit",
     });
     return child;
   }
 
   // Container doesn't exist, create and run new one
-  console.log(`Creating new container: ${CONTAINER_NAME}`);
+  console.log(`Creating new container: ${containerName}`);
 
-  const dockerArgs = [
-    "run",
-    "--name",
-    CONTAINER_NAME,
-    "-p",
-    "6300:6300",
-  ];
-
-  // pass env vars
-  Object.entries(env).forEach(([k, v]) => {
-    if (v) dockerArgs.push("-e", `${k}=${v}`);
-  });
-
-  dockerArgs.push(`${IMAGE_NAME}:${tag}`);
-
-  if (args.length > 0) dockerArgs.push(...args);
+  const dockerArgs = dockerRunArgs({ env, args, version: tag, port });
 
   console.log(
     `Running proof server with Docker: docker ${dockerArgs.join(" ")}`,

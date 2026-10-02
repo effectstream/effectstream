@@ -86,6 +86,20 @@ const network: NetworkUrls = {
 const address = await deployMidnightContract(config, network);
 ```
 
+### Separate contract prover
+
+`proofServer` is the wallet's prover: it proves DUST fee spends and zswap balancing. Contract circuits prove on the same server unless a separate one is set, either per call with `contractProofServer` or with `MIDNIGHT_CONTRACT_PROOF_SERVER_URL`. This matters when the contract needs a newer prover than DUST, for example a compactc 0.35.0 contract with `ed25519Verify` (proof server 9.0.0-rc.8) while DUST still needs a `dust/9` prover (9.0.0-rc.5 / rc.6):
+
+```typescript
+const address = await deployMidnightContract(config, {
+  ...network,
+  proofServer: "http://localhost:6300",          // wallet / DUST
+  contractProofServer: "http://localhost:6301",  // contract circuits
+});
+```
+
+Precedence for the contract prover: `contractProofServer`, then `MIDNIGHT_CONTRACT_PROOF_SERVER_URL`, then `proofServer`. With neither set, behavior is unchanged. `isContractProofServerConfigured` (from `/midnight-env`) is true when the environment variable is set; such a prover is already running, so launchers should not start one.
+
 The deploy helper creates and funds a wallet from the genesis mint seed, runs the deployment, and writes the resulting address to `${contractName}.${networkId}.json` so the next `readMidnightContract` call picks it up.
 
 ### Contracts with many circuits (phased deployment)
@@ -119,9 +133,9 @@ The circuit list is enumerated automatically from the contract's compiled `keys/
 
 `@effectstream/midnight-contracts/deploy`:
 
-- `deployMidnightContract(config, networkUrls?)`: deploys and returns the address. Persists the address to a JSON file. Set `config.phasedVerifierKeys` for contracts whose circuits don't fit in a single deploy transaction.
+- `deployMidnightContract(config, networkUrls?)`: deploys and returns the address. Persists the address to a JSON file. Set `config.phasedVerifierKeys` for contracts whose circuits don't fit in a single deploy transaction. `networkUrls.contractProofServer` (or `MIDNIGHT_CONTRACT_PROOF_SERVER_URL`) proves the contract on a separate prover.
 - `deployMidnightContractPhased(...)`: the phased deploy routine `deployMidnightContract` delegates to when `phasedVerifierKeys` is set. Exported for advanced callers that already have built providers and a wallet.
-- `DeployConfig`, `NetworkUrls`: input types.
+- `DeployConfig`, `NetworkUrls`, `NetworkUrlsWithContractProver`: input types.
 
 Wallet and dust helpers, exported from the package root:
 
@@ -134,7 +148,7 @@ Wallet and dust helpers, exported from the package root:
 Other subpaths:
 
 - `@effectstream/midnight-contracts/wallet-info` - wallet inspection plus the dust-state persistence helpers above, and `resolveWalletSyncTimeoutMs()`.
-- `@effectstream/midnight-contracts/midnight-env` - `midnightNetworkConfig` (the resolved `{ id, indexer, indexerWS, node, proofServer }` endpoints, env-overridable), `MidnightNetworkConfig`, and `isExternalProofServerConfigured`.
+- `@effectstream/midnight-contracts/midnight-env` - `midnightNetworkConfig` (the resolved `{ id, indexer, indexerWS, node, proofServer, contractProofServer }` endpoints, env-overridable), `MidnightNetworkConfig`, `isExternalProofServerConfigured`, `isContractProofServerConfigured` and `resolveContractProofServer(proofServer, explicit?)`.
 - `@effectstream/midnight-contracts/ledger-from-tx-state` - `midnightLedgerFromTxStateHex(...)` and the `MidnightLedgerFn` / `MidnightContractStateDeserializer` types, for decoding contract ledger state from a serialized transaction state.
 - `@effectstream/midnight-contracts/types` - shared types.
 

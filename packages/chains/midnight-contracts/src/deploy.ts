@@ -19,11 +19,16 @@ const log = console;
 
 import { findContractDirectoryForDeploy } from "./read-contract.ts";
 import { mnemonicToSeed } from "./mnemonicToSeed.ts";
-import type { NetworkUrls, DeployConfig, WalletResult } from "./types.ts";
+import type {
+  NetworkUrls,
+  NetworkUrlsWithContractProver,
+  DeployConfig,
+  WalletResult,
+} from "./types.ts";
 import { buildWalletAndWaitForFunds, extractInitialOwnerFromWallet } from "./build-wallet.ts";
 import { configureMidnightNodeProviders } from "./providers.ts";
 import { deployMidnightContractPhased } from "./deploy-phased.ts";
-import { midnightNetworkConfig } from "./midnight-env.ts";
+import { midnightNetworkConfig, resolveContractProofServer } from "./midnight-env.ts";
 
 function checkEnvVariables(): void {
   if (!getEnv("MIDNIGHT_STORAGE_PASSWORD")) {
@@ -85,12 +90,15 @@ function findCompilerSubdirectory(managedDir: string): string {
  * and zkConfigPath automatically using readMidnightContract.
  *
  * @param config - Deployment configuration
- * @param networkUrls - Optional network endpoint URLs (defaults to local undeployed endpoints)
+ * @param networkUrls - Optional network endpoint URLs (defaults to local undeployed endpoints).
+ *   `proofServer` is the wallet's prover (DUST). `contractProofServer` proves the
+ *   contract's circuits; it falls back to `MIDNIGHT_CONTRACT_PROOF_SERVER_URL`,
+ *   then to `proofServer`.
  * @returns The deployed contract address
  */
 export async function deployMidnightContract(
   config: DeployConfig,
-  networkUrls?: NetworkUrls,
+  networkUrls?: NetworkUrlsWithContractProver,
   seedOrMnemonic?: { seed: string; mnemonic: string },
   opts?: { walletResult?: WalletResult },
 ): Promise<string> {
@@ -125,7 +133,11 @@ export async function deployMidnightContract(
     `${config.contractName.replace("contract-", "")}-private-state`;
 
   // Merge network URLs with defaults
-  const { id: networkIdOverride, ...endpoints } = networkUrls ?? {};
+  const {
+    id: networkIdOverride,
+    contractProofServer: contractProofServerOverride,
+    ...endpoints
+  } = networkUrls ?? {};
   const resolvedNetworkId = (networkIdOverride ??
     midnightNetworkConfig.id) as NetworkId.NetworkId;
   const resolvedNetworkUrls: Required<NetworkUrls> = {
@@ -135,10 +147,19 @@ export async function deployMidnightContract(
     node: endpoints.node ?? midnightNetworkConfig.node,
     proofServer: endpoints.proofServer ?? midnightNetworkConfig.proofServer,
   };
+  // Contract circuits may prove on a different server than the wallet's DUST
+  // prover; by default both are `proofServer`.
+  const contractProofServer = resolveContractProofServer(
+    resolvedNetworkUrls.proofServer,
+    contractProofServerOverride,
+  );
 
   log.info(
     `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${resolvedNetworkId}`,
   );
+  if (contractProofServer !== resolvedNetworkUrls.proofServer) {
+    log.info(`Contract circuits prove on contractProofServer=${contractProofServer}`);
+  }
 
   setNetworkId(resolvedNetworkId);
 
@@ -207,7 +228,7 @@ export async function deployMidnightContract(
       walletZswapSecretKeys,
       dustSecretKey,
       walletDustSecretKey,
-      resolvedNetworkUrls,
+      { ...resolvedNetworkUrls, contractProofServer },
       deployPrivateStateStoreName,
       zkConfigPath,
       unshieldedKeystore,

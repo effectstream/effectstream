@@ -109,6 +109,10 @@ Per-adapter, you choose how `runBatcher` decides to submit:
 - `wait-receipt`: waits for the blockchain transaction receipt.
 - `wait-effectstream-processed`: waits until Effectstream has processed the resulting rollup block.
 
+### Midnight adapter provers
+
+`MidnightAdapterConfig.proofServer` is the wallet's prover (DUST fees, zswap balancing). Contract circuits prove there too unless `contractProofServer` is set, for example to `midnightNetworkConfig.contractProofServer` from `@effectstream/midnight-contracts/midnight-env` (`MIDNIGHT_CONTRACT_PROOF_SERVER_URL`). Use it when the contract needs another prover than DUST, such as a compactc 0.35.0 `ed25519Verify` circuit on proof server 9.0.0-rc.8 next to a `dust/9` DUST prover.
+
 ### Rate limiting
 
 > **Breaking change for custom stores:** `RateLimitStore` now requires the
