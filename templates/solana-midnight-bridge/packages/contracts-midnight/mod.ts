@@ -1,15 +1,21 @@
 // @solana-midnight-bridge/contracts-midnight — the Midnight side of the bridge.
 //
-// TODO(PR-2 T2.1) bridge.compact (compactc 0.35.0, --feature-zkir-v3) with
-//   scripts/fetch-compactc.sh (SHA-256 pins) and scripts/pin-contract-runtime.mjs,
-//   which rewrites the compiled module's import to the
-//   `@midnight-ntwrk/compact-runtime-0.20` alias declared in package.json;
-//   `src/managed/` stays gitignored; the 7 launchMidnight scripts.
-// TODO(PR-2 T2.2) deploy.ts (local devnet + stagenet) writing the `midnight`
-//   section of deployments/<mode>.json.
-// TODO(PR-2 T2.3) signing.ts (mintDigest via the contract's pure circuit).
+// - contract-bridge/src/bridge.compact: compactc 0.35.0, --feature-zkir-v3,
+//   witness-free; `mintFromSolana` is authorized in-circuit by the operator's
+//   Solana Ed25519 signature, `lockForSolana` burns a bridge-colour coin.
+// - scripts/compile.sh: fetch-compactc.sh (SHA-256 pins) + compile with keys +
+//   pin-contract-runtime.mjs (the `@midnight-ntwrk/compact-runtime-0.20` alias).
+// - contract.ts: the compiled module, its ContractState (0.20 alias) and the
+//   batcher-compatible contract info.
+// - signing.ts: the mint message (via the contract's pure `mintDigest`) and the
+//   Ed25519 signature argument.
+// - network.ts / wallets.ts: endpoints, two provers, seeds (dev seeds local only).
+// - deploy.ts: local devnet + stagenet deploy, writing the `midnight` section
+//   of deployments/<mode>.json.
 //
-// Until then this package only carries the runtime alias, so link.sh and
-// scripts/check-runtime-alias.ts can prove the alias survives the single-copy
-// WASM step (sub-plan T0.2).
-export {};
+// The seven `launchMidnight` scripts live in package.json; the contract prover
+// (9.0.0-rc.8) has its own `midnight-contract-prover:*` pair.
+export * from "./contract.ts";
+export * from "./signing.ts";
+export * from "./network.ts";
+export * from "./wallets.ts";

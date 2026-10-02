@@ -3,7 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./mod.ts",
+    "./args": "./args.ts"
+  },
   "dependencies": {
-    "@solana-midnight-bridge/contracts-solana": "workspace:*"
+    "@effectstream/midnight-contracts": "0.200.6",
+    "@midnight-ntwrk/compact-js": "2.5.5-rc.7",
+    "@midnight-ntwrk/midnight-js-contracts": "5.0.0-beta.6",
+    "@solana-midnight-bridge/contracts-midnight": "workspace:*",
+    "@solana-midnight-bridge/contracts-solana": "workspace:*",
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.95.0"
   }
 }

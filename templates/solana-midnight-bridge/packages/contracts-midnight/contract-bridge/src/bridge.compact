@@ -1,0 +1,111 @@
+// 00050 P0 spike S1 — the Solana <-> Midnight bridge contract (POC).
+//
+// compactc 0.35.0 (language 0.27.0, runtime 0.20.0), compiled with --feature-zkir-v3 (the
+// `ed25519Verify` stdlib circuit is ZKIR 3.1; proving needs proof server 9.0.0-rc.8).
+//
+// Witness-free, no cross-contract calls. Map-only ledger (Midnight:Generic serialises Set to {}).
+//
+//   mintFromSolana: the operator's Solana Ed25519 key authorises, in-circuit, the mint of `amount`
+//     bridge-colour coins to `recipient` for Solana lock `lockNonce`. The signed message is
+//     "SMBRDG1:" || mintDigest(kernel.self(), networkTag, lockNonce, recipient, amount)  (40 bytes,
+//     one SHA-512 block, the spike-3 F1 shape). A lock nonce mints once (mintedLocks). The minted
+//     coin is RETURNED so a calling account could receiveShielded it in the same transaction.
+//   lockForSolana: the caller surrenders a bridge-colour coin (receiveShielded, no witness, no
+//     QualifiedShieldedCoinInfo kept: unspendable forever = burned) and records a withdrawal
+//     {solanaRecipient, amount} under a fresh id from withdrawalNonce.
+pragma language_version >= 0.27.0;
+
+import CompactStandardLibrary;
+
+export struct Withdrawal {
+  solanaRecipient: Bytes<32>,
+  amount: Uint<64>,
+}
+
+// The operator's Solana Ed25519 public key A (decoded strictly off-chain).
+export sealed ledger operatorKey: Curve25519Point;
+// The Solana SPL mint this bridge custodies; the colour domain.
+export sealed ledger sourceMint: Bytes<32>;
+// Binds signatures to one network (e.g. sha256("midnight:undeployed")).
+export sealed ledger networkTag: Bytes<32>;
+// Solana lock nonce -> minted amount (the replay guard and the state machine's settle view).
+export ledger mintedLocks: Map<Uint<64>, Uint<64>>;
+// Withdrawal id -> {solanaRecipient, amount}.
+export ledger withdrawals: Map<Uint<64>, Withdrawal>;
+export ledger withdrawalNonce: Counter;
+
+constructor(operator: Curve25519Point, mint: Bytes<32>, network: Bytes<32>) {
+  operatorKey = disclose(operator);
+  sourceMint = disclose(mint);
+  networkTag = disclose(network);
+}
+
+// The colour domain separator for a Solana mint.
+export pure circuit domainSep(mint: Bytes<32>): Bytes<32> {
+  return persistentHash<[Bytes<32>, Bytes<32>]>([pad(32, "effectstream:bridge:sol:v1"), mint]);
+}
+
+// The bridge colour of a Solana mint at a bridge contract address.
+export pure circuit tokenColor(mint: Bytes<32>, bridge: ContractAddress): Bytes<32> {
+  return tokenType(domainSep(mint), bridge);
+}
+
+// The 32-byte digest the operator signs (behind the "SMBRDG1:" prefix).
+export pure circuit mintDigest(
+  bridge: ContractAddress,
+  network: Bytes<32>,
+  lockNonce: Uint<64>,
+  recipient: Either<ZswapCoinPublicKey, ContractAddress>,
+  amount: Uint<64>
+): Bytes<32> {
+  return persistentHash<[Bytes<32>, Bytes<32>, Bytes<32>, Uint<64>, Boolean, Bytes<32>, Bytes<32>, Uint<64>]>([
+    pad(32, "effectstream:bridge:mint:v1"),
+    bridge.bytes,
+    network,
+    lockNonce,
+    recipient.is_left,
+    recipient.left.bytes,
+    recipient.right.bytes,
+    amount
+  ]);
+}
+
+export circuit mintFromSolana(
+  lockNonce: Uint<64>,
+  recipient: Either<ZswapCoinPublicKey, ContractAddress>,
+  amount: Uint<64>,
+  mintNonce: Bytes<32>,
+  sig: Ed25519Signature
+): ShieldedCoinInfo {
+  const c = mintDigest(kernel.self(), networkTag, lockNonce, recipient, amount) as Vector<32, Uint<8>>;
+  // "SMBRDG1:" || digest
+  const msg = Bytes[83, 77, 66, 82, 68, 71, 49, 58,
+                    c[0],  c[1],  c[2],  c[3],  c[4],  c[5],  c[6],  c[7],
+                    c[8],  c[9],  c[10], c[11], c[12], c[13], c[14], c[15],
+                    c[16], c[17], c[18], c[19], c[20], c[21], c[22], c[23],
+                    c[24], c[25], c[26], c[27], c[28], c[29], c[30], c[31]];
+  // libsodium's small-order-R rule, the one case ed25519Verify accepts and libsodium refuses
+  // (spike 3, +411 rows).
+  assert((curve25519PointX(sig.r) as Bytes<32>) != pad(32, ""), "R is the identity");
+  assert(ed25519Verify<40>(msg, sig, operatorKey), "bad signature");
+  const n = disclose(lockNonce);
+  const v = disclose(amount);
+  assert(v > 0, "zero amount");
+  assert(!mintedLocks.member(n), "lock already minted");
+  mintedLocks.insert(n, v);
+  return mintShieldedToken(domainSep(sourceMint), v, disclose(mintNonce), disclose(recipient));
+}
+
+export circuit lockForSolana(coin: ShieldedCoinInfo, solanaRecipient: Bytes<32>): Uint<64> {
+  const c = disclose(coin);
+  assert(c.color == tokenType(domainSep(sourceMint), kernel.self()), "not the bridge colour");
+  assert(c.value > 0, "zero amount");
+  assert(c.value <= 18446744073709551615 as Uint<128>, "amount exceeds Uint<64>");
+  // The burn: the coin is received by this contract, which keeps no QualifiedShieldedCoinInfo and
+  // has no witness, so it can never be spent again.
+  receiveShielded(c);
+  const id = withdrawalNonce.read();
+  withdrawals.insert(id, Withdrawal { solanaRecipient: disclose(solanaRecipient), amount: c.value as Uint<64> });
+  withdrawalNonce.increment(1);
+  return id;
+}

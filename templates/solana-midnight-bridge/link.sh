@@ -91,27 +91,36 @@ link_pkg "solana-midnight-bridge" "tests"              "$SCRIPT_DIR/packages/tes
 
 echo ""
 echo "Linking @effectstream packages from monorepo..."
-link_pkg "effectstream" "batcher-sdk"               "$P/batcher"
-link_pkg "effectstream" "chain-types"               "$P/effectstream-sdk/chain-types"
-link_pkg "effectstream" "concise"                   "$P/effectstream-sdk/concise"
-link_pkg "effectstream" "config"                    "$P/effectstream-sdk/config"
-link_pkg "effectstream" "coroutine"                 "$P/effectstream-sdk/coroutine"
-link_pkg "effectstream" "crypto"                    "$P/effectstream-sdk/crypto"
-link_pkg "effectstream" "db"                        "$P/node-sdk/db"
-link_pkg "effectstream" "event-client"              "$P/effectstream-sdk/events"
-link_pkg "effectstream" "explorer"                  "$P/build-tools/explorer"
-link_pkg "effectstream" "log"                       "$P/effectstream-sdk/log"
-link_pkg "effectstream" "midnight-contracts"        "$P/chains/midnight-contracts"
-link_pkg "effectstream" "npm-midnight-indexer"      "$P/binaries/midnight-indexer"
-link_pkg "effectstream" "npm-midnight-node"         "$P/binaries/midnight-node"
-link_pkg "effectstream" "npm-midnight-proof-server" "$P/binaries/midnight-proof-server"
-link_pkg "effectstream" "orchestrator"              "$P/build-tools/orchestrator"
-link_pkg "effectstream" "runtime"                   "$P/node-sdk/runtime"
-link_pkg "effectstream" "sm"                        "$P/node-sdk/sm"
-link_pkg "effectstream" "solana-node"               "$P/binaries/solana-node"
-link_pkg "effectstream" "sync"                      "$P/node-sdk/sync"
-link_pkg "effectstream" "utils"                     "$P/effectstream-sdk/utils"
-link_pkg "effectstream" "wallets"                   "$P/effectstream-sdk/wallets"
+# Called twice: here, and again after verify-linked-deps.ts --install below,
+# whose `bun install --no-save` re-creates npm copies (new
+# .bun/@effectstream+<name>@<ver>+<hash>/ store entries and the hoisted
+# node_modules/@effectstream/<name> links). Without the second pass the
+# workspace packages (packages/node, contracts-midnight, cli, tests) silently
+# resolve the PUBLISHED engine instead of this working tree.
+link_effectstream_packages() {
+  link_pkg "effectstream" "batcher-sdk"               "$P/batcher"
+  link_pkg "effectstream" "chain-types"               "$P/effectstream-sdk/chain-types"
+  link_pkg "effectstream" "concise"                   "$P/effectstream-sdk/concise"
+  link_pkg "effectstream" "config"                    "$P/effectstream-sdk/config"
+  link_pkg "effectstream" "coroutine"                 "$P/effectstream-sdk/coroutine"
+  link_pkg "effectstream" "crypto"                    "$P/effectstream-sdk/crypto"
+  link_pkg "effectstream" "db"                        "$P/node-sdk/db"
+  link_pkg "effectstream" "event-client"              "$P/effectstream-sdk/events"
+  link_pkg "effectstream" "explorer"                  "$P/build-tools/explorer"
+  link_pkg "effectstream" "log"                       "$P/effectstream-sdk/log"
+  link_pkg "effectstream" "midnight-contracts"        "$P/chains/midnight-contracts"
+  link_pkg "effectstream" "npm-midnight-indexer"      "$P/binaries/midnight-indexer"
+  link_pkg "effectstream" "npm-midnight-node"         "$P/binaries/midnight-node"
+  link_pkg "effectstream" "npm-midnight-proof-server" "$P/binaries/midnight-proof-server"
+  link_pkg "effectstream" "orchestrator"              "$P/build-tools/orchestrator"
+  link_pkg "effectstream" "runtime"                   "$P/node-sdk/runtime"
+  link_pkg "effectstream" "sm"                        "$P/node-sdk/sm"
+  link_pkg "effectstream" "solana-node"               "$P/binaries/solana-node"
+  link_pkg "effectstream" "sync"                      "$P/node-sdk/sync"
+  link_pkg "effectstream" "utils"                     "$P/effectstream-sdk/utils"
+  link_pkg "effectstream" "wallets"                   "$P/effectstream-sdk/wallets"
+}
+link_effectstream_packages
 
 # @effectstream/solana-node provides the Solana binaries (solana-test-validator,
 # cargo-build-sbf, the solana CLI). Provision the monorepo wrapper directly into
@@ -250,6 +259,10 @@ bun run "$MONOREPO_ROOT/packages/build-tools/verify-linked-deps.ts" \
   --template "$SCRIPT_DIR" \
   --link-sh "$SCRIPT_DIR/link.sh" \
   --install
+
+echo ""
+echo "Re-linking @effectstream packages after the --no-save install..."
+link_effectstream_packages
 
 echo ""
 # The single-copy step links INTO the monorepo root's node_modules. Without it

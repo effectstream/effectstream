@@ -1,0 +1,9 @@
+# The pinned compactc 0.35.0 (scripts/fetch-compactc.sh).
+/.tools/
+# Compiler output (scripts/compile.sh), as in every Midnight template.
+/contract-bridge/src/managed/
+/contract-bridge/src/managed.tmp.*
+# Written by deployMidnightContract next to the contract directory.
+/contract-bridge.*.json
+# midnight-js LevelDB private-state stores (deploy, relayer, CLI).
+midnight-level-db/
