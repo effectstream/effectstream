@@ -101,4 +101,6 @@ export {
 export {
   MidnightBatchBuilderLogic,
   type MidnightBatchPayload,
+  type CoinEncPublicKeyMappings,
+  validateCoinEncPublicKeyMappings,
 } from "./batch-data-builder/midnight-builder-logic.ts";

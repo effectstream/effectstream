@@ -42,6 +42,25 @@ export circuit mint_shielded(
   );
 }
 
+// Third-party shielded mint (00050 E3): the coin goes to another wallet's coin
+// public key. midnight-js must also know that wallet's encryption public key
+// to seal the output, so the batcher input carries it in
+// `coinEncPublicKeyMappings`; without it the call fails with
+// "Unable to resolve encryption public key for recipient".
+export circuit mint_shielded_to(
+  recipient: Either<ZswapCoinPublicKey, ContractAddress>,
+  domain_sep: Bytes<32>,
+  amount: Uint<64>,
+  nonce: Uint<128>,
+): ShieldedCoinInfo {
+  return mintShieldedToken(
+    disclose(domain_sep),
+    disclose(amount),
+    evolveNonce(disclose(nonce), disclose(domain_sep)),
+    disclose(recipient)
+  );
+}
+
 export circuit mint_unshielded(
   domain_sep: Bytes<32>,
   amount: Uint<64>,

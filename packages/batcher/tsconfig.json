@@ -15,6 +15,7 @@
     "core/types.ts",
     "test/midnight-v9-live.ts",
     "test/midnight-v9-migration.test.ts",
-    "test/midnight-contract-prover.test.ts"
+    "test/midnight-contract-prover.test.ts",
+    "test/midnight-coin-enc-mappings.test.ts"
   ]
 }

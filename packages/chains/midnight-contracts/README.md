@@ -149,6 +149,7 @@ Other subpaths:
 
 - `@effectstream/midnight-contracts/wallet-info` - wallet inspection plus the dust-state persistence helpers above, and `resolveWalletSyncTimeoutMs()`.
 - `@effectstream/midnight-contracts/midnight-env` - `midnightNetworkConfig` (the resolved `{ id, indexer, indexerWS, node, proofServer, contractProofServer }` endpoints, env-overridable), `MidnightNetworkConfig`, `isExternalProofServerConfigured`, `isContractProofServerConfigured` and `resolveContractProofServer(proofServer, explicit?)`.
+- `@effectstream/midnight-contracts/shielded-address` - `parseShieldedAddress(address, expectedNetworkId?)` → `{ coinPublicKey, encryptionPublicKey, networkId }` for a `mn_shield-addr[_<network>]1…` address (bech32m without the 90-character cap, see issue 00043), `formatShieldedAddress(keys, networkId)`, `shieldedAddressToCoinEncPublicKeyMapping(...)` (the `[cpk, epk]` pair a third-party shielded mint passes to midnight-js / the batcher's `coinEncPublicKeyMappings`) and `ShieldedAddressError`. Also exported from the package root.
 - `@effectstream/midnight-contracts/ledger-from-tx-state` - `midnightLedgerFromTxStateHex(...)` and the `MidnightLedgerFn` / `MidnightContractStateDeserializer` types, for decoding contract ledger state from a serialized transaction state.
 - `@effectstream/midnight-contracts/types` - shared types.
 

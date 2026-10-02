@@ -6,4 +6,6 @@ export {
 export {
   MidnightBatchBuilderLogic,
   type MidnightBatchPayload,
+  type CoinEncPublicKeyMappings,
+  validateCoinEncPublicKeyMappings,
 } from "./midnight-builder-logic.ts";

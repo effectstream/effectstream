@@ -712,6 +712,28 @@ async function runSyncTests(
   );
 }
 
+// -- Third-party shielded mint (00050 E3) ---------------------------------------
+
+async function runThirdPartyMintTests(): Promise<void> {
+  console.log("\n--- Phase 3b: Third-party shielded mint (MidnightAdapter) ---\n");
+  const { runThirdPartyShieldedMint } = await import("./batcher/third-party-mint.ts");
+  const outcome = await runThirdPartyShieldedMint();
+
+  await assert(
+    "Midnight E3: a third-party shielded mint without coinEncPublicKeyMappings is refused",
+    async () => (outcome.unmappedError ?? "").includes("Unable to resolve encryption public key"),
+  );
+  await assert(
+    "Midnight E3: the mint with coinEncPublicKeyMappings is confirmed",
+    async () => !outcome.error && !!outcome.txHash && outcome.confirmed,
+  );
+  await assert(
+    "Midnight E3: the recipient wallet's own sync shows the minted coin",
+    async () =>
+      Object.values(outcome.recipientBalances ?? {}).some((value) => value === outcome.amount),
+  );
+}
+
 // -- Main ---------------------------------------------------------------------
 
 async function test() {
@@ -749,6 +771,10 @@ async function test() {
     // 5. Connect to DB and run sync tests
     db = getDBConnection();
     await runSyncTests(db, minted, uswap);
+
+    // 5b. Third-party shielded mint through MidnightAdapter (00050 E3). Runs
+    // after the sync assertions so its extra token-mint row cannot race them.
+    await runThirdPartyMintTests();
 
     // 6. Wait for batcher + run batcher tests
     await waitForProcess("batcher-wait", { waitForExit: true, timeoutMs: 120_000 });

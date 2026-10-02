@@ -113,6 +113,20 @@ Per-adapter, you choose how `runBatcher` decides to submit:
 
 `MidnightAdapterConfig.proofServer` is the wallet's prover (DUST fees, zswap balancing). Contract circuits prove there too unless `contractProofServer` is set, for example to `midnightNetworkConfig.contractProofServer` from `@effectstream/midnight-contracts/midnight-env` (`MIDNIGHT_CONTRACT_PROOF_SERVER_URL`). Use it when the contract needs another prover than DUST, such as a compactc 0.35.0 `ed25519Verify` circuit on proof server 9.0.0-rc.8 next to a `dust/9` DUST prover.
 
+### Midnight shielded mints to another wallet
+
+A circuit that mints a shielded coin to another wallet's coin public key needs that wallet's encryption public key too; midnight-js only knows the batcher wallet's own and otherwise fails with `Unable to resolve encryption public key for recipient`. Pass the pair in the input:
+
+```json
+{
+  "circuit": "mint_shielded_to",
+  "args": [{ "is_left": true, "left": { "bytes": "<coinPublicKeyHex>" }, "right": { "bytes": "00…00" } }, "…"],
+  "coinEncPublicKeyMappings": [["<coinPublicKeyHex>", "<encryptionPublicKeyHex>"]]
+}
+```
+
+Each key is 32 bytes as 64 lowercase hex characters without `0x`; `validateInput` rejects anything else. `parseShieldedAddress` / `shieldedAddressToCoinEncPublicKeyMapping` (`@effectstream/midnight-contracts/shielded-address`) decode a `mn_shield-addr_<network>1…` address into the pair. With mappings, `MidnightAdapter` runs the call in a contract-scoped transaction carrying midnight-js `additionalCoinEncPublicKeyMappings`; inputs without them use the unchanged `callTx` path. Only the transaction root may mint to a wallet key, so the circuit must be the one the batcher calls directly.
+
 ### Rate limiting
 
 > **Breaking change for custom stores:** `RateLimitStore` now requires the
