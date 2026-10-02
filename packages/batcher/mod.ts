@@ -60,6 +60,24 @@ export type {
   SolanaAdapterConfig,
   SolanaBatchPayload,
 } from "./adapters/solana-adapter.ts";
+export {
+  SolanaSignerAdapter,
+  buildSolanaSignerMessage,
+  encodeSolanaSignerInput,
+  signSolanaSignerInput,
+  toSolanaSignerInstruction,
+  SOLANA_SIGNER_MESSAGE_DOMAIN,
+} from "./adapters/solana-signer-adapter.ts";
+export type {
+  SolanaSignerAccountMeta,
+  SolanaSignerAdapterConfig,
+  SolanaSignerBatchPayload,
+  SolanaSignerCommitment,
+  SolanaSignerInput,
+  SolanaSignerInputLike,
+  SolanaSignerInstruction,
+  SolanaSignerTransactionOutcome,
+} from "./adapters/solana-signer-adapter.ts";
 
 export { NearAdapter } from "./adapters/near-adapter.ts";
 export type {

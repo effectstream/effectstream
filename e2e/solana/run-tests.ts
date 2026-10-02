@@ -34,6 +34,7 @@ import {
   runTokenAccountTest,
 } from "./sync/token-account.test.ts";
 import { runBatcherTest } from "./sync/batcher.test.ts";
+import { runSignerBatcherTest } from "./sync/signer-batcher.test.ts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 
@@ -80,6 +81,8 @@ async function test() {
     console.log("\n--- Phase 3: Batcher Tests ---\n");
     await waitForProcess("batcher");
     await runBatcherTest(db);
+    // Embedded operator-signer batcher (SolanaSignerAdapter): in-process, no HTTP.
+    await runSignerBatcherTest(db);
 
     printSummary();
   } catch (e) {

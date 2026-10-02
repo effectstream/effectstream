@@ -59,4 +59,22 @@ export type {
 // Solana adapter implementation
 export { SolanaAdapter, CapacityExchangeClient } from "./solana-adapter.ts";
 export type { SolanaAdapterConfig, SolanaBatchPayload } from "./solana-adapter.ts";
+export {
+  SolanaSignerAdapter,
+  buildSolanaSignerMessage,
+  encodeSolanaSignerInput,
+  signSolanaSignerInput,
+  toSolanaSignerInstruction,
+  SOLANA_SIGNER_MESSAGE_DOMAIN,
+} from "./solana-signer-adapter.ts";
+export type {
+  SolanaSignerAccountMeta,
+  SolanaSignerAdapterConfig,
+  SolanaSignerBatchPayload,
+  SolanaSignerCommitment,
+  SolanaSignerInput,
+  SolanaSignerInputLike,
+  SolanaSignerInstruction,
+  SolanaSignerTransactionOutcome,
+} from "./solana-signer-adapter.ts";
 
