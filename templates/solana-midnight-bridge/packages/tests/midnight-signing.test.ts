@@ -1,7 +1,7 @@
 // Native unit tests (no chain, no ports) for the Midnight signing path:
 // the mint digest through the compiled contract's pure circuit, the operator's
 // Ed25519 signature and its circuit encoding, the network tag, and the
-// batcher-compatible contract info (questions-file Q16).
+// batcher's parsing of the raw 0.35.0 contract info (engine E8, questions-file Q16).
 //
 // Needs the compiled contract: `bun run --filter @solana-midnight-bridge/contracts-midnight compile`.
 //
@@ -13,7 +13,6 @@ import { parseCircuitArgs } from "@effectstream/batcher-sdk";
 import {
   ED25519_L,
   MINT_MESSAGE_PREFIX,
-  batcherContractInfo,
   bytesToHex,
   decodeEd25519Signature,
   ed25519PointFromBytes,
@@ -148,19 +147,24 @@ describe("token colour", () => {
   });
 });
 
-describe("batcher contract info (Q16)", () => {
+describe("batcher argument parsing of the raw contract info (engine E8, Q16)", () => {
   const { sig } = signMint(operator.secretKey, base);
   const mintNonce = rnd(32);
   const json = JSON.parse(JSON.stringify(mintArgsJson({ ...base, mintNonce, sig })));
+  const raw = readContractInfo();
 
-  test("the raw 0.35.0 contract info is refused by the engine parser", () => {
-    expect(() => parseCircuitArgs("mintFromSolana", json, readContractInfo() as any)).toThrow(
-      /Unsupported type: Curve25519Point/,
-    );
+  test("the compiled contract info carries 0.35.0's Curve25519 type names for `sig`", () => {
+    const mint = raw.circuits.find((c) => c.name === "mintFromSolana")!;
+    const sigType = mint.arguments.find((a) => a.name === "sig")!.type;
+    expect(sigType.name).toBe("Ed25519Signature");
+    expect(sigType.elements).toEqual([
+      { name: "r", type: { "type-name": "Curve25519Point" } },
+      { name: "s", type: { "type-name": "Curve25519Scalar" } },
+    ]);
   });
 
-  test("the translated info parses mintFromSolana's JSON args back to the circuit values", () => {
-    const parsed = parseCircuitArgs("mintFromSolana", json, batcherContractInfo() as any);
+  test("the raw info parses mintFromSolana's JSON args back to the circuit values", () => {
+    const parsed = parseCircuitArgs("mintFromSolana", json, raw as any);
     expect(parsed[0]).toBe(base.lockNonce);
     expect(parsed[1].is_left).toBe(true);
     expect(bytesToHex(parsed[1].left.bytes)).toBe(bytesToHex(base.recipient.left.bytes));
@@ -170,11 +174,17 @@ describe("batcher contract info (Q16)", () => {
     expect(parsed[4]).toEqual({ r: { x: sig.r.x, y: sig.r.y }, s: sig.s });
   });
 
-  test("lockForSolana args are unchanged by the translation", () => {
-    const raw = readContractInfo();
-    const t = batcherContractInfo(raw);
-    const rawLock = raw.circuits.find((c) => c.name === "lockForSolana")!;
-    const tLock = t.circuits.find((c) => c.name === "lockForSolana")!;
-    expect(tLock.arguments).toEqual(rawLock.arguments);
+  test("a non-canonical s or an out-of-range R coordinate is refused before queueing", () => {
+    const withSig = (r: { x: string; y: string }, s: string) => [...json.slice(0, 4), { r, s }];
+    expect(() =>
+      parseCircuitArgs("mintFromSolana", withSig(json[4].r, ED25519_L.toString()), raw as any),
+    ).toThrow(/argument "sig".*Curve25519Scalar must be < L/);
+    expect(() =>
+      parseCircuitArgs(
+        "mintFromSolana",
+        withSig({ x: ((1n << 255n) - 19n).toString(), y: json[4].r.y }, json[4].s),
+        raw as any,
+      ),
+    ).toThrow(/argument "sig".*Curve25519Point x must be < 2\^255 - 19/);
   });
 });

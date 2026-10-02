@@ -32,10 +32,10 @@ import {
 import {
   Bridge,
   BridgeRuntime as rt,
-  batcherContractInfo,
   bytesToHex,
   networkTagFor,
   operatorKeyFromSolanaPublicKey,
+  readContractInfo,
   tokenColor,
 } from "@solana-midnight-bridge/contracts-midnight";
 import { asConnection, freshDb, transferRows } from "./helpers/pglite-db.ts";
@@ -231,7 +231,7 @@ describe("counterpart inputs", () => {
   const epk = rnd(32);
   const recipientHex = bytesToHex(cpk) + bytesToHex(epk);
 
-  test("the mint input parses with the batcher's contract info and passes the circuit (run locally)", async () => {
+  test("the mint input parses with the batcher's parser over the raw contract info and passes the circuit (run locally)", async () => {
     // A bridge instance in the local runtime, sealed with this operator and network.
     const tag = networkTagFor("undeployed");
     const sourceMint = mint.toBytes();
@@ -252,7 +252,8 @@ describe("counterpart inputs", () => {
     expect(body.coinEncPublicKeyMappings).toEqual([mapping]);
     expect(validateCoinEncPublicKeyMappings(body.coinEncPublicKeyMappings)).toBeFalsy();
 
-    const args = parseCircuitArgs("mintFromSolana", body.args, batcherContractInfo() as any);
+    // The relayer's MidnightAdapter gets the raw compactc 0.35.0 contract info (engine E8).
+    const args = parseCircuitArgs("mintFromSolana", body.args, readContractInfo() as any);
     const ctx = rt.createCircuitContext({ circuitId: "mintFromSolana", contractAddress: address, coinPublicKeyOrZswapState: cpkCaller, contractState: ctor.currentContractState, privateState: {} });
     const r = await (contract.circuits as any).mintFromSolana(ctx, ...args);
     expect(r.result.value).toBe(10_000_000n);

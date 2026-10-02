@@ -163,8 +163,8 @@ export function tokenColor(sourceMint: Uint8Array, contractAddress: Uint8Array):
 
 /**
  * JSON form of `mintFromSolana`'s arguments for the batcher's `MidnightAdapter`
- * (decimal strings for integers, hex for bytes), parsed back by
- * `parseCircuitArgs` with `batcherContractInfo()`.
+ * (decimal strings for integers, hex for bytes), parsed back by the batcher's
+ * `parseCircuitArgs` with the raw contract info (`readContractInfo()`).
  */
 export function mintArgsJson(args: {
   lockNonce: bigint;

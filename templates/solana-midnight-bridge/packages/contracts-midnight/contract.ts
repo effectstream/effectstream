@@ -57,62 +57,15 @@ export interface ContractInfo {
   contracts: unknown[];
 }
 
-/** `managed/compiler/contract-info.json`, as compactc wrote it. */
+/**
+ * `managed/compiler/contract-info.json`, as compactc wrote it. The relayer's
+ * `MidnightAdapter` takes it as is: since engine E8 the batcher's argument
+ * parser understands 0.35.0's `Curve25519Point` (`{x, y}`, each < 2^255 - 19)
+ * and `Curve25519Scalar` (< L), the types of `mintFromSolana`'s
+ * `sig: Ed25519Signature` (questions-file Q16).
+ */
 export function readContractInfo(managedDir: string = MANAGED_DIR): ContractInfo {
   return JSON.parse(
     readFileSync(path.join(managedDir, "compiler", "contract-info.json"), "utf8"),
   ) as ContractInfo;
-}
-
-/** Curve25519 base field modulus p = 2^255 - 19 (point coordinates are < p). */
-const CURVE25519_P = (1n << 255n) - 19n;
-/** Ed25519 group order L (scalars are < L). */
-const ED25519_L = (1n << 252n) + 27742317777372353535851937790883648493n;
-
-/**
- * Rewrites the two compactc 0.35.0 type names the batcher's argument parser
- * does not know into shapes it does:
- *   Curve25519Point  → Struct { x: Uint, y: Uint }   (the runtime value is `{x, y}` bigints)
- *   Curve25519Scalar → Uint                          (the runtime value is a bigint)
- *
- * WHY: `MidnightAdapter` validates and parses every circuit argument through
- * `parseCircuitArgs(contractInfo)`, which supports Uint/Bytes/Boolean/Opaque/
- * Struct/Tuple only and throws `Unsupported type: Curve25519Point` for the
- * `sig: Ed25519Signature` argument of `mintFromSolana`. The contract info is a
- * constructor argument of the adapter, so the template hands it this
- * translated copy; the parsed values are exactly what the circuit takes. The
- * engine-side fix (teach the parser these types) is questions-file Q16.
- */
-export function batcherContractInfo(info: ContractInfo = readContractInfo()): ContractInfo {
-  const translate = (t: TypeDefinition): TypeDefinition => {
-    switch (t["type-name"]) {
-      case "Curve25519Point":
-        return {
-          "type-name": "Struct",
-          name: "Curve25519Point",
-          elements: [
-            { name: "x", type: { "type-name": "Uint", maxval: (CURVE25519_P - 1n).toString() } },
-            { name: "y", type: { "type-name": "Uint", maxval: (CURVE25519_P - 1n).toString() } },
-          ],
-        };
-      case "Curve25519Scalar":
-        return { "type-name": "Uint", maxval: (ED25519_L - 1n).toString() };
-      default:
-        return {
-          ...t,
-          ...(t.elements
-            ? { elements: t.elements.map((e) => ({ name: e.name, type: translate(e.type) })) }
-            : {}),
-          ...(t.types ? { types: t.types.map(translate) } : {}),
-        };
-    }
-  };
-  return {
-    ...info,
-    circuits: info.circuits.map((c) => ({
-      ...c,
-      arguments: c.arguments.map((a) => ({ name: a.name, type: translate(a.type) })),
-      "result-type": translate(c["result-type"]),
-    })),
-  };
 }

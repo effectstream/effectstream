@@ -31,7 +31,7 @@ import {
   BridgeContract,
   CONTRACT_NAME,
   MANAGED_DIR,
-  batcherContractInfo,
+  readContractInfo,
 } from "@solana-midnight-bridge/contracts-midnight/contract";
 import type { BridgeMidnightUrls } from "@solana-midnight-bridge/contracts-midnight/network";
 import { MIDNIGHT_SYNC_PROTOCOL, SOLANA_SYNC_PROTOCOL } from "../config.ts";
@@ -84,9 +84,11 @@ export function createEmbeddedBatcher(o: EmbeddedBatcherOptions) {
     },
     BridgeContract,
     {},
-    // The 0.35.0 contract info with Curve25519Point/Scalar translated for the
-    // batcher's argument parser (questions-file Q16).
-    batcherContractInfo() as any,
+    // The raw compactc 0.35.0 contract info: the batcher parses its
+    // Curve25519Point/Scalar argument types itself (engine E8, Q16). The cast
+    // is only because compactc writes `maxval` as a JSON number, while the
+    // engine's ContractInfo type declares a string (the parser ignores it).
+    readContractInfo() as any,
     MIDNIGHT_SYNC_PROTOCOL,
     1,
   );
