@@ -1,0 +1,16 @@
+{
+  "name": "@solana-midnight-bridge/tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "bun test ./solana-instructions.test.ts",
+    "test:solana-program": "bun test ./solana-program.test.ts"
+  },
+  "dependencies": {
+    "@effectstream/solana-node": "0.200.6",
+    "@solana-midnight-bridge/contracts-solana": "workspace:*",
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.95.0"
+  }
+}
