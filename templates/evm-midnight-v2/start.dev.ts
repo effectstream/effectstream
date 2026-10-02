@@ -1,30 +1,70 @@
 import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
-import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
+import {
+  launchPglite,
+  DbNames,
+} from "@effectstream/orchestrator/launch-pglite";
 import { launchEvm, EvmNames } from "@effectstream/orchestrator/launch-evm";
-import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
+import {
+  launchMidnight,
+  MidnightNames,
+} from "@effectstream/orchestrator/launch-midnight";
+import {
+  compactSelection,
+  validateCompactSelection,
+} from "./toolchain/compact";
 
 const root = import.meta.dirname!;
 const midnightDeps = [MidnightNames.CONTRACT_DEPLOY];
+const compactPreflight = "midnight-compact-preflight";
+
+// Validate the template's exact selection before the shared launcher performs
+// its generic executable check, then keep the runtime task as a dependency of
+// every Midnight process so partial/targeted orchestrator runs remain gated.
+validateCompactSelection();
+const midnightProcesses = launchMidnight(
+  "@evm-midnight/contracts-midnight",
+  { cwd: path.join(root, "packages/contracts-midnight") },
+  {
+    env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
+    dependsOn: ["midnight-contract-compile"],
+  },
+).map((process) => ({
+  ...process,
+  dependsOn: [
+    compactPreflight,
+    ...(process.dependsOn ?? []).filter(
+      (dependency) => dependency !== compactPreflight,
+    ),
+  ],
+}));
 
 export default {
   processes: [
-    ...launchPglite().map(p =>
-      p.name === "pglite" ? { ...p, env: { ...p.env, DEBUG_PGLITE: "0" } } : p
+    ...launchPglite().map((p) =>
+      p.name === "pglite" ? { ...p, env: { ...p.env, DEBUG_PGLITE: "0" } } : p,
     ),
-    ...launchEvm("@evm-midnight/contracts-evm", { cwd: path.join(root, "packages/contracts-evm") }),
+    ...launchEvm("@evm-midnight/contracts-evm", {
+      cwd: path.join(root, "packages/contracts-evm"),
+    }),
+    {
+      name: compactPreflight,
+      description: `Validate Compact compiler selection ${compactSelection}`,
+      cwd: root,
+      args: ["run", "toolchain/compact.ts", "check"],
+      waitToExit: true,
+      critical: true,
+    },
     {
       name: "midnight-contract-compile",
-      description: "Compile Compact contract (compact compile +0.33.0-rc.2)",
+      description: `Compile Compact contract (compact compile ${compactSelection})`,
       cwd: path.join(root, "packages/contracts-midnight/contract-round-value"),
       args: ["run", "compact"],
       waitToExit: true,
       critical: true,
+      dependsOn: [compactPreflight],
     },
-    ...launchMidnight("@evm-midnight/contracts-midnight", { cwd: path.join(root, "packages/contracts-midnight") }, {
-          env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
-          dependsOn: ["midnight-contract-compile"],
-    }),
+    ...midnightProcesses,
 
     {
       name: "sync",
@@ -33,11 +73,7 @@ export default {
       waitToExit: false,
       type: "system-dependency",
       env: { PGLITE: "true" },
-      dependsOn: [
-        DbNames.PGLITE_WAIT,
-        EvmNames.GENERATE_MOD,
-        ...midnightDeps,
-      ],
+      dependsOn: [DbNames.PGLITE_WAIT, EvmNames.GENERATE_MOD, ...midnightDeps],
     },
 
     {
@@ -73,6 +109,5 @@ export default {
       stopProcessAtPort: [10599],
       dependsOn: ["frontend-build"],
     },
-
   ],
 } satisfies OrchestratorConfig;

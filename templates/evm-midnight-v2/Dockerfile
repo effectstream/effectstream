@@ -6,6 +6,7 @@ FROM oven/bun:1
 
 RUN apt-get update && apt-get install -y \
     curl \
+    build-essential \
     lsof \
     iproute2 \
     xz-utils \
@@ -34,9 +35,11 @@ RUN forge --version && cast --version && anvil --version
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 RUN which compact
-RUN compact update 0.31.0
-RUN compact --version
-RUN compact compile --version
+COPY toolchain.json /tmp/toolchain.json
+COPY toolchain /tmp/toolchain
+RUN bun /tmp/toolchain/compact.ts install \
+    && compact --version \
+    && bun /tmp/toolchain/compact.ts check
 
 # Pre-download solc 0.8.30 into Hardhat's cache to avoid Bun's broken
 # webstreams polyfill triggering during download (known Bun bug in Docker).

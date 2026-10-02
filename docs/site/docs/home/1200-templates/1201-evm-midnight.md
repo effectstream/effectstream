@@ -55,11 +55,17 @@ Prerequisites beyond [Bun](https://bun.sh):
   ```sh
   curl -L https://foundry.paradigm.xyz | bash && foundryup
   ```
-- **[Compact](https://github.com/midnightntwrk/compact)** — the Midnight circuit compiler, pinned to `0.31.0`. Also checked on PATH before the Midnight processes launch.
+- **[Compact](https://github.com/midnightntwrk/compact)** — the Midnight circuit compiler. This template selects `0.33.0-rc.2` and checks that exact selection before any Midnight process launches.
   ```sh
   curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
-  compact update 0.31.0
+  bun toolchain/compact.ts install
   ```
+
+`toolchain.json` is the template's source of truth for the Compact selection.
+The installer downloads the immutable upstream asset for the current platform
+and verifies its published checksum. The local build runner, startup preflight,
+and Docker build all read the same declaration; the documentation consistency
+test keeps the commands above aligned with it.
 
 Then:
 
@@ -97,14 +103,16 @@ bun run dev
 Individual build steps are also available on their own:
 
 ```sh
-bun run build:midnight   # compact compile +0.31.0 src/counter.compact src/managed
+bun run build:midnight   # compile with the Compact selection in toolchain.json
 bun run build:evm        # Forge + Hardhat compile, deploy, generate TS bindings
 bun run build:pgtypes    # regenerate pgtyped query types from sql/*.sql
 ```
 
 ### Docker
 
-The `Dockerfile` installs Bun, Node, Foundry and the Compact compiler, pre-warms the solc cache, and starts the same orchestrator config.
+The `Dockerfile` installs Bun, Node, Foundry and the Compact compiler selection
+from `toolchain.json`, pre-warms the solc cache, and starts the same orchestrator
+config.
 
 ```sh
 # On macOS Apple Silicon
