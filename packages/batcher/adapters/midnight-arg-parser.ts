@@ -91,9 +91,115 @@ function parseValue(value: any, typeSpec: TypeDefinition): any {
       return parseStruct(value, typeSpec);
     case "Tuple":
       return parseTuple(value, typeSpec);
+    case "Curve25519Point":
+      return parseCurve25519Point(value);
+    case "Curve25519Scalar":
+      return parseCurve25519Scalar(value);
     default:
       throw new Error(`Unsupported type: ${typeName}`);
   }
+}
+
+/** Curve25519 base field modulus p = 2^255 - 19: point coordinates are < p. */
+export const CURVE25519_FIELD_MODULUS: bigint = (1n << 255n) - 19n;
+
+/** Ed25519 group order L = 2^252 + 27742317777372353535851937790883648493: scalars are < L. */
+export const ED25519_GROUP_ORDER: bigint = (1n << 252n) +
+  27742317777372353535851937790883648493n;
+
+/**
+ * Parse a non-negative integer given as a decimal string or a bigint, and
+ * check it is below `bound`. JSON numbers are refused: they cannot hold a
+ * 255-bit value exactly.
+ */
+function parseBoundedBigint(
+  value: unknown,
+  bound: bigint,
+  what: string,
+  boundName: string,
+): bigint {
+  let parsed: bigint;
+  if (typeof value === "bigint") {
+    parsed = value;
+  } else if (typeof value === "string") {
+    if (!/^[0-9]+$/.test(value)) {
+      throw new Error(
+        `${what} must be a non-negative decimal integer string, got "${value}"`,
+      );
+    }
+    parsed = BigInt(value);
+  } else {
+    throw new Error(
+      `${what} must be a decimal string or a bigint, got ${
+        value === null ? "null" : typeof value
+      }`,
+    );
+  }
+  if (parsed < 0n) {
+    throw new Error(`${what} must be non-negative`);
+  }
+  if (parsed >= bound) {
+    throw new Error(`${what} must be < ${boundName}`);
+  }
+  return parsed;
+}
+
+/**
+ * Parse a compactc 0.35.0 `Curve25519Point` (affine `{x, y}`) to bigints.
+ *
+ * Only the coordinate range is checked here (each `< 2^255 - 19`). Curve
+ * membership is checked by the contract's own runtime (0.20) when the circuit
+ * is called, and `ed25519Verify` asserts the rest, so the batcher needs no
+ * curve library.
+ */
+export function parseCurve25519Point(value: any): { x: bigint; y: bigint } {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(
+      `Curve25519Point value must be an object {x, y}, got ${
+        value === null ? "null" : Array.isArray(value) ? "array" : typeof value
+      }`,
+    );
+  }
+  for (const key of Object.keys(value)) {
+    if (key !== "x" && key !== "y") {
+      throw new Error(
+        `Curve25519Point has unknown field "${key}"; expected exactly {x, y} (affine coordinates)`,
+      );
+    }
+  }
+  if (!("x" in value)) {
+    throw new Error('Curve25519Point is missing field "x"');
+  }
+  if (!("y" in value)) {
+    throw new Error('Curve25519Point is missing field "y"');
+  }
+  return {
+    x: parseBoundedBigint(
+      value.x,
+      CURVE25519_FIELD_MODULUS,
+      "Curve25519Point x",
+      "2^255 - 19",
+    ),
+    y: parseBoundedBigint(
+      value.y,
+      CURVE25519_FIELD_MODULUS,
+      "Curve25519Point y",
+      "2^255 - 19",
+    ),
+  };
+}
+
+/**
+ * Parse a compactc 0.35.0 `Curve25519Scalar` to a bigint, checked `< L`
+ * (the Ed25519 group order).
+ */
+export function parseCurve25519Scalar(value: any): bigint {
+  return parseBoundedBigint(
+    value,
+    ED25519_GROUP_ORDER,
+    "Curve25519Scalar",
+    "L (the Ed25519 group order)",
+  );
 }
 
 /**
