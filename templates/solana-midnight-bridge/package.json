@@ -1,7 +1,9 @@
 {
   "name": "solana-midnight-bridge",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "NODE_ENV=development bunx orchestrator start",
     "live": "bunx orchestrator start start.live.ts",
@@ -9,7 +11,13 @@
     "build:solana": "bun run --filter @solana-midnight-bridge/contracts-solana build",
     "build:solana:program": "bun run --filter @solana-midnight-bridge/contracts-solana build:program",
     "init:local": "bun run --filter @solana-midnight-bridge/contracts-solana init:local",
-    "deploy:devnet": "bun run --filter @solana-midnight-bridge/contracts-solana deploy:devnet"
+    "deploy:devnet": "bun run --filter @solana-midnight-bridge/contracts-solana deploy:devnet",
+    "bridge:to-midnight": "bun run packages/cli/main.ts to-midnight",
+    "bridge:to-solana": "bun run packages/cli/main.ts to-solana",
+    "bridge:status": "bun run packages/cli/main.ts status",
+    "node:live": "bun run packages/node/main.ts live",
+    "compile:midnight": "bun run --filter @solana-midnight-bridge/contracts-midnight compile",
+    "deploy:stagenet": "bun run --filter @solana-midnight-bridge/contracts-midnight deploy:stagenet"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",

@@ -24,6 +24,7 @@
         "@solana-midnight-bridge/contracts-solana": "workspace:*",
         "@solana/spl-token": "^0.4.9",
         "@solana/web3.js": "^1.95.0",
+        "rxjs": "^7.8.2",
       },
     },
     "packages/contracts-midnight": {
