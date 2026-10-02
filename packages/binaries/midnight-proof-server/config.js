@@ -199,6 +199,22 @@ function dockerRunArgs({ env = {}, args = [], version, port }) {
   return dockerArgs;
 }
 
+/**
+ * `docker run` arguments safe to print: every `-e KEY=VALUE` keeps its key
+ * and hides its value. The wrapper forwards the whole environment into the
+ * container, which can include wallet seeds, mnemonics and passwords
+ * (00050 E7: never log secrets).
+ * @param {string[]} dockerArgs
+ * @returns {string[]}
+ */
+function redactDockerArgs(dockerArgs) {
+  return dockerArgs.map((arg, i) => {
+    if (i === 0 || dockerArgs[i - 1] !== "-e") return arg;
+    const eq = arg.indexOf("=");
+    return eq === -1 ? arg : `${arg.slice(0, eq)}=<redacted>`;
+  });
+}
+
 module.exports = {
   DEFAULT_VERSION,
   DEFAULT_PORT,
@@ -220,4 +236,5 @@ module.exports = {
   MissingProofServerBinaryError,
   parseFlags,
   dockerRunArgs,
+  redactDockerArgs,
 };

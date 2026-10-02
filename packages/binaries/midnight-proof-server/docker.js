@@ -8,6 +8,7 @@ const {
   containerNameForPort,
   imageRef,
   dockerRunArgs,
+  redactDockerArgs,
 } = require("./config.js");
 
 async function checkIfDockerExists() {
@@ -148,8 +149,9 @@ async function runDockerContainer(
 
   const dockerArgs = dockerRunArgs({ env, args, version: tag, port });
 
+  // Env values are redacted: the whole environment is forwarded (00050 E7).
   console.log(
-    `Running proof server with Docker: docker ${dockerArgs.join(" ")}`,
+    `Running proof server with Docker: docker ${redactDockerArgs(dockerArgs).join(" ")}`,
   );
   const child = spawn("docker", dockerArgs, { stdio: "inherit" });
   return child;

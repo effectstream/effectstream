@@ -64,7 +64,7 @@ async function main() {
     log.info("SAVE THIS SEED! YOU WILL NEED IT TO RESTORE THIS WALLET.");
     log.info("==========================================");
   } else {
-    log.info("Using provided seed: " + seed);
+    log.info("Using the provided seed (not printed).");
   }
 
   if (seed?.startsWith("000000000000000000000000000000000000000000000000000000000000000")) {

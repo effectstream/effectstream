@@ -11,6 +11,7 @@ const {
   dockerRunArgs,
   imageRef,
   parseFlags,
+  redactDockerArgs,
   resolvePort,
   resolveVersion,
   zipPath,
@@ -175,6 +176,28 @@ describe("proof-server Docker mode", () => {
       "--verbose",
     ]);
     expect(imageRef("9.0.0-rc.8")).toBe("midnightntwrk/proof-server:9.0.0-rc.8");
+  });
+});
+
+describe("docker command logging (E7)", () => {
+  test("env values are redacted, keys and other arguments are kept", () => {
+    const seed = "5eed".repeat(16);
+    const args = dockerRunArgs({
+      env: { MIDNIGHT_WALLET_SEED: seed, MIDNIGHT_STORAGE_PASSWORD: "hunter2hunter2", A: "x=y" },
+      args: ["--verbose"],
+      version: "9.0.0-rc.8",
+      port: 6301,
+    });
+    const printed = redactDockerArgs(args).join(" ");
+    expect(printed).not.toContain(seed);
+    expect(printed).not.toContain("hunter2hunter2");
+    expect(printed).toBe(
+      "run --name midnight-proof-server-6301 -p 6301:6300 " +
+        "-e MIDNIGHT_WALLET_SEED=<redacted> -e MIDNIGHT_STORAGE_PASSWORD=<redacted> " +
+        "-e A=<redacted> -e PORT=<redacted> midnightntwrk/proof-server:9.0.0-rc.8 --verbose",
+    );
+    // The command that actually runs is unchanged.
+    expect(args).toContain(`MIDNIGHT_WALLET_SEED=${seed}`);
   });
 });
 
