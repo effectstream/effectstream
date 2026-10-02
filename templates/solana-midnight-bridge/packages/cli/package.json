@@ -1,0 +1,9 @@
+{
+  "name": "@solana-midnight-bridge/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@solana-midnight-bridge/contracts-solana": "workspace:*"
+  }
+}

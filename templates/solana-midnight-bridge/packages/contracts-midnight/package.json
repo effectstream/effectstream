@@ -1,0 +1,14 @@
+{
+  "name": "@solana-midnight-bridge/contracts-midnight",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:runtime-alias": "bun run scripts/check-runtime-alias.ts"
+  },
+  "dependencies": {
+    "@effectstream/midnight-contracts": "0.200.6",
+    "@midnight-ntwrk/compact-runtime": "0.18.0-rc.1",
+    "@midnight-ntwrk/compact-runtime-0.20": "npm:@midnight-ntwrk/compact-runtime@0.20.0"
+  }
+}
