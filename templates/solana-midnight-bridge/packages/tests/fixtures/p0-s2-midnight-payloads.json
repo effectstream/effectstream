@@ -1,0 +1,104 @@
+{
+  "source": "evidence/00050-solana-midnight-bridge/p0/s2/payloads.json (P0 S2: Midnight:Generic payloads of the S1 bridge contract, delivered by a real node)",
+  "payloads": [
+    {
+      "effectstreamBlock": 238,
+      "payload": {
+        "operatorKey": {
+          "x": "50087795020505605798482810850979986636267271374380613869845015634089425188765",
+          "y": "7551062098947779119989329979174326363827073095372262107980523282835112377933"
+        },
+        "sourceMint": "351a9cc67f377c5404edfd75aaa044df74f67dc02a4accb6fdc775af7671cc65",
+        "networkTag": "c3a7d1a422e45906240064d53c5b9570f43edb734ce665aa01563f614dc7ad8f",
+        "mintedLocks": {},
+        "withdrawals": {},
+        "withdrawalNonce": "0"
+      }
+    },
+    {
+      "effectstreamBlock": 346,
+      "payload": {
+        "operatorKey": {
+          "x": "50087795020505605798482810850979986636267271374380613869845015634089425188765",
+          "y": "7551062098947779119989329979174326363827073095372262107980523282835112377933"
+        },
+        "sourceMint": "351a9cc67f377c5404edfd75aaa044df74f67dc02a4accb6fdc775af7671cc65",
+        "networkTag": "c3a7d1a422e45906240064d53c5b9570f43edb734ce665aa01563f614dc7ad8f",
+        "mintedLocks": {
+          "1": "10"
+        },
+        "withdrawals": {},
+        "withdrawalNonce": "0"
+      }
+    },
+    {
+      "effectstreamBlock": 370,
+      "payload": {
+        "operatorKey": {
+          "x": "50087795020505605798482810850979986636267271374380613869845015634089425188765",
+          "y": "7551062098947779119989329979174326363827073095372262107980523282835112377933"
+        },
+        "sourceMint": "351a9cc67f377c5404edfd75aaa044df74f67dc02a4accb6fdc775af7671cc65",
+        "networkTag": "c3a7d1a422e45906240064d53c5b9570f43edb734ce665aa01563f614dc7ad8f",
+        "mintedLocks": {
+          "1": "10"
+        },
+        "withdrawals": {
+          "0": {
+            "solanaRecipient": "cc63de1ba249b0bddafcf3295f10bcf6f46003416b6339f168e75a8037a1d01e",
+            "amount": "4"
+          }
+        },
+        "withdrawalNonce": "1"
+      }
+    },
+    {
+      "effectstreamBlock": 1192,
+      "payload": {
+        "operatorKey": {
+          "x": "50087795020505605798482810850979986636267271374380613869845015634089425188765",
+          "y": "7551062098947779119989329979174326363827073095372262107980523282835112377933"
+        },
+        "sourceMint": "351a9cc67f377c5404edfd75aaa044df74f67dc02a4accb6fdc775af7671cc65",
+        "networkTag": "c3a7d1a422e45906240064d53c5b9570f43edb734ce665aa01563f614dc7ad8f",
+        "mintedLocks": {
+          "1": "10",
+          "2": "10"
+        },
+        "withdrawals": {
+          "0": {
+            "solanaRecipient": "cc63de1ba249b0bddafcf3295f10bcf6f46003416b6339f168e75a8037a1d01e",
+            "amount": "4"
+          }
+        },
+        "withdrawalNonce": "1"
+      }
+    },
+    {
+      "effectstreamBlock": 1217,
+      "payload": {
+        "operatorKey": {
+          "x": "50087795020505605798482810850979986636267271374380613869845015634089425188765",
+          "y": "7551062098947779119989329979174326363827073095372262107980523282835112377933"
+        },
+        "sourceMint": "351a9cc67f377c5404edfd75aaa044df74f67dc02a4accb6fdc775af7671cc65",
+        "networkTag": "c3a7d1a422e45906240064d53c5b9570f43edb734ce665aa01563f614dc7ad8f",
+        "mintedLocks": {
+          "1": "10",
+          "2": "10"
+        },
+        "withdrawals": {
+          "0": {
+            "solanaRecipient": "cc63de1ba249b0bddafcf3295f10bcf6f46003416b6339f168e75a8037a1d01e",
+            "amount": "4"
+          },
+          "1": {
+            "solanaRecipient": "cc63de1ba249b0bddafcf3295f10bcf6f46003416b6339f168e75a8037a1d01e",
+            "amount": "4"
+          }
+        },
+        "withdrawalNonce": "2"
+      }
+    }
+  ]
+}

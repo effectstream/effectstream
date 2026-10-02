@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:unit": "bun test ./solana-instructions.test.ts ./midnight-signing.test.ts ./midnight-contract-logic.test.ts ./state-machine.test.ts ./relayer-jobs.test.ts ./cli-args.test.ts",
+    "test:unit": "bun test ./solana-instructions.test.ts ./midnight-signing.test.ts ./midnight-contract-logic.test.ts ./state-machine.test.ts ./node-config-api.test.ts ./relayer-jobs.test.ts ./cli-args.test.ts",
     "test:solana-program": "bun test ./solana-program.test.ts",
     "test:contract": "bun test ./contract.test.ts"
   },
   "dependencies": {
     "@effectstream/batcher-sdk": "0.200.6",
+    "@effectstream/config": "0.200.6",
     "@effectstream/solana-node": "0.200.6",
     "@electric-sql/pglite": "^0.3.14",
     "@pgtyped/runtime": "2.4.2",
@@ -20,6 +21,8 @@
     "@solana-midnight-bridge/node": "workspace:*",
     "@solana/spl-token": "^0.4.9",
     "@solana/web3.js": "^1.95.0",
+    "bs58": "^6.0.0",
+    "fastify": "^5.4.0",
     "tweetnacl": "^1.0.3"
   }
 }

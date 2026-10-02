@@ -12,10 +12,11 @@
 //   midnight-contract: compile (pinned compactc 0.35.0) + deploy the bridge,
 //     after init-local-solana (it seals the SPL mint and the operator key);
 //     writes the `midnight` section.
-//   TODO(PR-2 T3/T4) the "sync" node with the in-process relayer.
+//   sync: the Effectstream node (packages/node/main.ts local) with the
+//     in-process relayer, after PGLite, init-local-solana and the deploy.
 import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
-import { launchPglite } from "@effectstream/orchestrator/launch-pglite";
+import { DbNames, launchPglite } from "@effectstream/orchestrator/launch-pglite";
 import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 import { launchSolana, SolanaNames } from "@effectstream/orchestrator/scripts/launch-solana";
 
@@ -43,6 +44,7 @@ export const BridgeProcessNames = {
   INIT_LOCAL: "init-local-solana",
   CONTRACT_PROVER: "midnight-contract-prover",
   CONTRACT_PROVER_WAIT: "midnight-contract-prover-wait",
+  SYNC: "sync",
 } as const;
 
 // Q10 A: an explicit contract-prover URL means "already running, do not launch".
@@ -118,8 +120,15 @@ export default {
     ...contractProverProcesses,
     ...midnightProcesses,
 
-    // TODO(PR-2 T3): { name: "sync", args: ["run", "packages/node/main.dev.ts"], env: { PGLITE: "true" },
-    //   dependsOn: [DbNames.PGLITE_WAIT, BridgeProcessNames.INIT_LOCAL, <midnight deploy>] }
-    // TODO(PR-2 T4): the relayer runs in the sync process (no separate entry).
+    {
+      name: BridgeProcessNames.SYNC,
+      description: "Bridge node: sync (SOLANA:ProgramLog + Midnight:Generic), state machine, API, relayer",
+      args: ["run", "packages/node/main.ts", "local"],
+      waitToExit: false,
+      type: "system-dependency",
+      env: { PGLITE: "true" },
+      link: "http://localhost:9999/transfers",
+      dependsOn: [DbNames.PGLITE_WAIT, BridgeProcessNames.INIT_LOCAL, MidnightNames.CONTRACT_DEPLOY],
+    },
   ],
 } satisfies OrchestratorConfig;

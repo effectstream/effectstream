@@ -111,6 +111,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@effectstream/batcher-sdk": "0.200.6",
+        "@effectstream/config": "0.200.6",
         "@effectstream/solana-node": "0.200.6",
         "@electric-sql/pglite": "^0.3.14",
         "@pgtyped/runtime": "2.4.2",
@@ -121,6 +122,8 @@
         "@solana-midnight-bridge/node": "workspace:*",
         "@solana/spl-token": "^0.4.9",
         "@solana/web3.js": "^1.95.0",
+        "bs58": "^6.0.0",
+        "fastify": "^5.4.0",
         "tweetnacl": "^1.0.3",
       },
     },

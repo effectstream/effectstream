@@ -1,23 +1,97 @@
 // Live orchestrator: `bun run live` — Solana devnet + Midnight stagenet.
 //
 // No local chains run in live mode. The contracts are deployed once by
-//   packages/contracts-solana/scripts/deploy-devnet.ts   (Solana section)
-//   TODO(PR-2 T2.2/T7.3) the stagenet Midnight deploy    (Midnight section)
-// into deployments/devnet-stagenet.json, and this file starts only local
-// services against those deployments.
-//
-// Still to wire (sub-plan plans/00050-solana-midnight-bridge-pr2-template.md):
-//   TODO(PR-2 T7.4) the rc.8 contract prover and the dust/9 DUST prover;
-//   TODO(PR-2 T3/T7.4) the "sync" node with config.live.ts (devnet RPC from
-//                      SOLANA_DEVNET_RPC_URL, stagenet indexer), relayer in-process,
-//                      operator keys read from ~/.config/effectstream-00050/ only.
+//   packages/contracts-solana/scripts/deploy-devnet.ts --out devnet-stagenet   (solana section)
+//   packages/contracts-midnight/deploy.ts --mode stagenet                      (midnight section)
+// into deployments/devnet-stagenet.json (BRIDGE_DEPLOYMENT selects another),
+// and this file starts only local services against that deployment:
+//   - the DUST prover (engine rc.5 binary, dust/9 as stagenet requires) on :6300,
+//     unless MIDNIGHT_PROOF_SERVER_URL points at one;
+//   - the contract prover 9.0.0-rc.8 on :6301 (Docker image; Q9 A), unless
+//     MIDNIGHT_CONTRACT_PROOF_SERVER_URL points at one (Q10 A);
+//   - PGLite and the bridge node (sync + state machine + API + relayer),
+//     `packages/node/main.ts live`. Solana RPC from SOLANA_DEVNET_RPC_URL
+//     (default the public devnet RPC); operator keys only from
+//     ~/.config/effectstream-00050/ (never from the repo).
+import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
-import { launchPglite } from "@effectstream/orchestrator/launch-pglite";
+import { DbNames, launchPglite } from "@effectstream/orchestrator/launch-pglite";
+
+const root = import.meta.dirname!;
+const contractsMidnight = path.join(root, "packages/contracts-midnight");
+
+const externalDustProver = !!process.env.MIDNIGHT_PROOF_SERVER_URL?.trim();
+const externalContractProver = !!process.env.MIDNIGHT_CONTRACT_PROOF_SERVER_URL?.trim();
+const contractProverPort = Number(process.env.BRIDGE_CONTRACT_PROOF_SERVER_PORT ?? "6301");
+
+export const LiveProcessNames = {
+  DUST_PROVER: "midnight-dust-prover",
+  DUST_PROVER_WAIT: "midnight-dust-prover-wait",
+  CONTRACT_PROVER: "midnight-contract-prover",
+  CONTRACT_PROVER_WAIT: "midnight-contract-prover-wait",
+  SYNC: "sync",
+} as const;
+
+const proverWaits: string[] = [LiveProcessNames.CONTRACT_PROVER_WAIT];
+if (!externalDustProver) proverWaits.push(LiveProcessNames.DUST_PROVER_WAIT);
 
 export default {
   processes: [
     ...launchPglite(),
-    // TODO(PR-2 T7.4): proof servers (rc.8 contract + dust/9 DUST).
-    // TODO(PR-2 T3/T7.4): { name: "sync", args: ["run", "packages/node/main.live.ts"], … }.
+
+    ...(externalDustProver
+      ? []
+      : [
+          {
+            name: LiveProcessNames.DUST_PROVER,
+            description: "DUST prover (9.0.0-rc.5, dust/9) for wallet fees",
+            cwd: contractsMidnight,
+            args: ["run", "midnight-proof-server:start"],
+            waitToExit: false,
+            critical: true,
+            stopProcessAtPort: [6300],
+          },
+          {
+            name: LiveProcessNames.DUST_PROVER_WAIT,
+            description: "Wait for the DUST prover",
+            cwd: contractsMidnight,
+            args: ["run", "midnight-proof-server:wait"],
+            waitToExit: true,
+            dependsOn: [LiveProcessNames.DUST_PROVER],
+          },
+        ]),
+
+    ...(externalContractProver
+      ? []
+      : [
+          {
+            name: LiveProcessNames.CONTRACT_PROVER,
+            description: "Contract prover 9.0.0-rc.8 (ed25519 mint circuit; Docker image)",
+            cwd: contractsMidnight,
+            args: ["run", "midnight-contract-prover:start"],
+            waitToExit: false,
+            critical: true,
+            stopProcessAtPort: [contractProverPort],
+          },
+        ]),
+    {
+      name: LiveProcessNames.CONTRACT_PROVER_WAIT,
+      description: "Wait for the contract prover (9.0.0-rc.8)",
+      cwd: contractsMidnight,
+      args: ["run", "midnight-contract-prover:wait"],
+      waitToExit: true,
+      ...(externalContractProver ? {} : { dependsOn: [LiveProcessNames.CONTRACT_PROVER] }),
+    },
+
+    {
+      name: LiveProcessNames.SYNC,
+      description: "Bridge node (live): sync devnet + stagenet, state machine, API, relayer",
+      args: ["run", "packages/node/main.ts", "live"],
+      waitToExit: false,
+      type: "system-dependency",
+      env: { PGLITE: "true" },
+      link: "http://localhost:9999/transfers",
+      dependsOn: [DbNames.PGLITE_WAIT, ...proverWaits],
+    },
   ],
 } satisfies OrchestratorConfig;

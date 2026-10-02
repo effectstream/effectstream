@@ -9,7 +9,8 @@
     "./stf-logic": "./stf-logic.ts",
     "./grammar": "./grammar.ts",
     "./api": "./api.ts",
-    "./relayer": "./relayer/mod.ts"
+    "./relayer": "./relayer/mod.ts",
+    "./config": "./config.ts"
   },
   "scripts": {
     "start:dev": "bun run main.ts local",

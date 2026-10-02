@@ -1,13 +1,12 @@
-// @solana-midnight-bridge/node — the Effectstream sync node.
+// @solana-midnight-bridge/node — the Effectstream sync node and its relayer.
 //
-// TODO(PR-2 T3.1) config.dev.ts / config.live.ts: NTP main, SOLANA_RPC_PARALLEL
-//   + SOLANA:ProgramLog on the bridge program (start slot from the deployment
-//   file), MIDNIGHT_PARALLEL + Midnight:Generic through
-//   midnightLedgerFromTxStateHex(ledger, ContractState from the 0.20 alias).
-// TODO(PR-2 T3.3) state-machine.ts: LOCK / RELEASE via parseBridgeLogs() from
-//   @solana-midnight-bridge/contracts-solana (every line of a transaction), and
-//   the Generic snapshot reconciliation.
-// TODO(PR-2 T3.4) api.ts: GET /transfers, GET /transfers/:id, GET /health.
-// TODO(PR-2 T4) relayer/ (in process): embedded batcher with the `midnight`
-//   and `solanaOperator` adapters.
-export {};
+// - config.ts         NTP main + SOLANA:ProgramLog + Midnight:Generic (two modes)
+// - grammar.ts        the two state-machine inputs
+// - stf-logic.ts      pure planning: inputs -> idempotent row ops
+// - state-machine.ts  applies the ops (owns bridge_transfers)
+// - api.ts            GET /transfers, GET /transfers/:id
+// - main.ts           `bun run main.ts <local|live>`
+export * from "./grammar.ts";
+export * from "./stf-logic.ts";
+export { createBridgeStateMachine, applyOp } from "./state-machine.ts";
+export { apiRouter, parseTransferId, toTransferView, type TransferView } from "./api.ts";
