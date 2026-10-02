@@ -10,6 +10,7 @@
     "adapters/midnight-adapter.ts",
     "adapters/midnight-arg-parser.ts",
     "adapters/midnight-balancing-adapter.ts",
+    "adapters/solana-signer-adapter.ts",
     "adapters/worker-pool.ts",
     "batch-data-builder/midnight-builder-logic.ts",
     "core/types.ts",
