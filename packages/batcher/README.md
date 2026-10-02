@@ -109,6 +109,24 @@ Per-adapter, you choose how `runBatcher` decides to submit:
 - `wait-receipt`: waits for the blockchain transaction receipt.
 - `wait-effectstream-processed`: waits until Effectstream has processed the resulting rollup block.
 
+### Midnight adapter provers
+
+`MidnightAdapterConfig.proofServer` is the wallet's prover (DUST fees, zswap balancing). Contract circuits prove there too unless `contractProofServer` is set, for example to `midnightNetworkConfig.contractProofServer` from `@effectstream/midnight-contracts/midnight-env` (`MIDNIGHT_CONTRACT_PROOF_SERVER_URL`). Use it when the contract needs another prover than DUST, such as a compactc 0.35.0 `ed25519Verify` circuit on proof server 9.0.0-rc.8 next to a `dust/9` DUST prover.
+
+### Midnight shielded mints to another wallet
+
+A circuit that mints a shielded coin to another wallet's coin public key needs that wallet's encryption public key too; midnight-js only knows the batcher wallet's own and otherwise fails with `Unable to resolve encryption public key for recipient`. Pass the pair in the input:
+
+```json
+{
+  "circuit": "mint_shielded_to",
+  "args": [{ "is_left": true, "left": { "bytes": "<coinPublicKeyHex>" }, "right": { "bytes": "00…00" } }, "…"],
+  "coinEncPublicKeyMappings": [["<coinPublicKeyHex>", "<encryptionPublicKeyHex>"]]
+}
+```
+
+Each key is 32 bytes as 64 lowercase hex characters without `0x`; `validateInput` rejects anything else. `parseShieldedAddress` / `shieldedAddressToCoinEncPublicKeyMapping` (`@effectstream/midnight-contracts/shielded-address`) decode a `mn_shield-addr_<network>1…` address into the pair. With mappings, `MidnightAdapter` runs the call in a contract-scoped transaction carrying midnight-js `additionalCoinEncPublicKeyMappings`; inputs without them use the unchanged `callTx` path. Only the transaction root may mint to a wallet key, so the circuit must be the one the batcher calls directly.
+
 ### Rate limiting
 
 > **Breaking change for custom stores:** `RateLimitStore` now requires the
@@ -174,6 +192,90 @@ must check and record every bucket in one phase together; the pre-authentication
 and authenticated phases are intentionally separate calls. `InMemoryRateLimitStore`
 is the built-in single-process implementation.
 
+## Solana operator signer
+
+`SolanaAdapter` co-signs, as fee payer, transactions a user already built and
+signed. `SolanaSignerAdapter` is for the other case: the batcher holds an
+**operator** key and builds, signs and submits transactions from instruction
+lists, for example a bridge relayer that releases SPL tokens from a vault. The
+operator is the fee payer and the only signer of every transaction.
+
+```typescript
+// `createAtaIdempotentIx` and `releaseIx` are ordinary @solana/web3.js
+// TransactionInstructions built by your program's client code.
+import {
+  createNewBatcher,
+  FileStorage,
+  signSolanaSignerInput,
+  SolanaSignerAdapter,
+} from "@effectstream/batcher-sdk";
+
+const adapter = new SolanaSignerAdapter({
+  rpcUrl: "http://127.0.0.1:8899",
+  operatorSecretKey: process.env.SOLANA_OPERATOR_SECRET_KEY!, // base58, 64 bytes
+  // Every top-level instruction must target one of these (ComputeBudget is
+  // always allowed). List the associated-token-account program explicitly if
+  // a transaction creates the recipient's token account.
+  allowedProgramIds: [BRIDGE_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID],
+  syncProtocolName: "parallelSolanaRPC",
+});
+
+const batcher = createNewBatcher(
+  { pollingIntervalMs: 1000, enableHttpServer: false, confirmationLevel: "wait-receipt" },
+  new FileStorage("./batcher-data"),
+);
+batcher.addBlockchainAdapter("solanaOperator", adapter, { criteriaType: "size", maxBatchSize: 1 });
+await batcher.init();
+
+// One input = one transaction. Sign it with the operator key.
+const input = signSolanaSignerInput({
+  input: { instructions: [createAtaIdempotentIx, releaseIx], computeUnitLimit: 100_000 },
+  operatorSecretKey: process.env.SOLANA_OPERATOR_SECRET_KEY!,
+  target: "solanaOperator",
+});
+const receipt = await batcher.batchInput(input, "wait-receipt");
+// receipt.hash is the transaction signature; receipt.status is 1 if it succeeded on chain.
+```
+
+**Input** (`DefaultBatcherInput.input`, JSON):
+`{"instructions":[{"programId","keys":[{"pubkey","isSigner","isWritable"}],"dataBase64"}],"computeUnitLimit"?}`.
+`encodeSolanaSignerInput` writes it from web3.js instructions, and
+`signSolanaSignerInput` returns a complete input. Unknown fields are refused.
+
+**What it refuses**:
+- an input whose `signature` is not the operator's Ed25519 signature over
+  `buildSolanaSignerMessage(input)` (domain tag, `target`, `timestamp`,
+  `input`), or whose `address` is not the operator. A batcher with the HTTP
+  server enabled therefore cannot be used by anyone else to make the operator
+  sign instructions;
+- an instruction to a program outside `allowedProgramIds` (plus ComputeBudget);
+- any signer other than the operator;
+- a `SetComputeUnitPrice` above `maxPriorityFeeMicroLamports` (default 0, so
+  priority fees are refused unless you allow them), unknown or duplicate
+  ComputeBudget instructions;
+- malformed JSON, keys or base64, and a transaction larger than a Solana packet.
+
+**Submission**: each attempt fetches a fresh blockhash; preflight simulation is
+on. If no transaction of a batch can be sent, the error carries the RPC's error
+texts, so an outage of your own RPC parks the inputs instead of spending their
+retries. Delivery is **at-least-once**: make the instructions idempotent (for
+example a receipt PDA per withdrawal id). For a transaction it submitted, the
+receipt wait runs until it has landed or its blockhash has expired (then it can
+never land, and a retry is safe). Identical instructions submitted within one
+blockhash window produce the same transaction and land once.
+
+**Replays**: the batcher keeps no record of the signed inputs it has executed.
+Anyone who sees one can POST it again to a batcher with the HTTP server enabled,
+and its instructions run again (bounded by the rate limit). Idempotent
+instructions are refused by preflight simulation and cost nothing; others cost
+the operator a fee per replay. Prefer an embedded batcher
+(`enableHttpServer: false`), or keep an HTTP-enabled one private.
+
+**Batch size**: `maxBatchSize` defaults to 1, so each receipt belongs to exactly
+one input. With more, inputs that could not be sent are retried on their own,
+each input gets its own signature, and `status` is 0 if any transaction of the
+batch failed on chain (per-transaction outcomes are in `receipt.signatures`).
+
 ## Customising the batcher
 
 The four interfaces you'd implement, in order of frequency:
@@ -192,7 +294,7 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 - `createNewBatcher(config, storage)`: build a batcher instance.
 - `BatcherConfig`: configuration type. See `pollingIntervalMs`, `adapters`, `defaultTarget`, `batchingCriteria`, `confirmationLevel`, `enableHttpServer`, `port`, `enableEventSystem`, `namespace`, `batchBuilding`.
 - `FileStorage(dir)`: default JSONL storage.
-- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`, `NearAdapter`, `NearIntentAdapter`.
+- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`, `SolanaSignerAdapter` (operator-signed; helpers `signSolanaSignerInput`, `encodeSolanaSignerInput`, `buildSolanaSignerMessage`, `toSolanaSignerInstruction`), `NearAdapter`, `NearIntentAdapter`.
 - Batcher operations: `runBatcher`, `batchInput`, `addStateTransition`, `gracefulShutdownOp`, `getPublicConfig`, `getBatchingStatus`.
 - Rate limiting: `RateLimiter`, `InMemoryRateLimitStore`, and the `RateLimitStore` / `RateLimitBucket` / `RateLimitKeyStrategy` / `RateLimitCheckResult` types. See [Rate limiting](#rate-limiting).
 - `DatabaseStorage`: a `BatcherStorage` shell that is **not implemented yet** — its methods throw. Use `FileStorage` or your own implementation.

@@ -599,13 +599,14 @@ export async function waitForDustFundsWithRetry(
   // Lazy import keeps node:fs out of the browser's static graph — this retry
   // flow is node-side (long-running dust sync with disk caching), while the
   // module as a whole is bundled for browsers via `./wallet-info`.
-  const { loadDustState, saveDustState, getDustStatePath } = await import("./dust-state.ts");
+  const { loadDustState, saveDustState } = await import("./dust-state.ts");
 
   // Pre-load cached state from disk before building any wallet.
   // Uses seed-based path so we don't need the dust address yet.
   const cachedState: string | null = loadDustState(dustStateDir, networkIdStr, seed);
   if (cachedState) {
-    log.info(`Loaded cached dust state from disk (${getDustStatePath(dustStateDir, networkIdStr, seed)})`);
+    // The cache file name embeds a seed prefix, so log only its directory (00050 E7).
+    log.info(`Loaded cached dust state from disk (${dustStateDir})`);
   }
   let inMemoryState: string | null = null;
 

@@ -4,6 +4,21 @@ const execAsync = promisify(exec);
 const IMAGE = 'midnightntwrk/indexer-standalone:4.4.0-rc.1';
 
 /**
+ * `docker run` arguments safe to print: every `-e KEY=VALUE` keeps its key
+ * and hides its value (APP__INFRA__SECRET, and any secret in the forwarded
+ * environment such as a wallet seed; 00050 E7: never log secrets).
+ * @param {string[]} dockerArgs
+ * @returns {string[]}
+ */
+function redactDockerArgs(dockerArgs) {
+    return dockerArgs.map((arg, i) => {
+        if (i === 0 || dockerArgs[i - 1] !== '-e') return arg;
+        const eq = arg.indexOf('=');
+        return eq === -1 ? arg : `${arg.slice(0, eq)}=<redacted>`;
+    });
+}
+
+/**
  * Checks if Docker is installed and available on the system
  * @returns {Promise<boolean>} True if Docker is available, false otherwise
  */
@@ -129,7 +144,7 @@ function runDockerContainer(env = process.env, args = []) {
         dockerArgs.push(...args);
     }
     
-    console.log(`Starting Docker container: docker ${dockerArgs.join(' ')}`);
+    console.log(`Starting Docker container: docker ${redactDockerArgs(dockerArgs).join(' ')}`);
     
     const childProcess = spawn('docker', dockerArgs, {
         stdio: 'inherit'
@@ -158,5 +173,6 @@ function runDockerContainer(env = process.env, args = []) {
 module.exports = {
     checkIfDockerExists,
     pullDockerImage,
-    runDockerContainer
+    runDockerContainer,
+    redactDockerArgs
 };

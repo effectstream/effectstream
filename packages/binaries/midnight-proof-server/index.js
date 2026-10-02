@@ -1,21 +1,19 @@
 #!/usr/bin/env node
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-
-const { binary, getPlatform, cleanBinaries } = require("./binary.js");
+const { getPlatform, cleanBinaries, binary, checkIfBinaryExists } = require(
+  "./binary.js",
+);
 const { runMidnightProofServer } = require("./run_midnight_proof_server.js");
 const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
   "./docker.js",
 );
-
-const FINAL_BINARY_NAME = "midnight-proof-server";
-
-function checkIfBinaryExists() {
-  return fs.existsSync(
-    path.join(__dirname, "proof-server", FINAL_BINARY_NAME),
-  );
-}
+const {
+  DEFAULT_VERSION,
+  DEFAULT_PORT,
+  MissingProofServerBinaryError,
+  parseFlags,
+  resolvePort,
+  resolveVersion,
+} = require("./config.js");
 
 function isBinarySupported() {
   const supported = require("./package.json").supportedPlatforms;
@@ -27,57 +25,60 @@ function showUsage() {
 Options:
   --docker         Force use of Docker container
   --binary         Force binary execution (macOS arm64 or Linux amd64)
+  --port, -p <n>   Host port (default: MIDNIGHT_PROOF_SERVER_PORT or ${DEFAULT_PORT}).
+                   In Docker mode a non-default port gets its own container,
+                   named midnight-proof-server-<port>.
   --clean-binaries Delete downloaded binaries and download them again
   --only-clean     Only delete downloaded binaries without downloading them again
-  --help, -h       Show this help message\n`);
+  --help, -h       Show this help message
+
+Environment:
+  MIDNIGHT_PROOF_SERVER_VERSION  Proof server version (default: ${DEFAULT_VERSION}).
+                                 Binary mode needs a published effectstream/binaries
+                                 asset; Docker mode uses midnightntwrk/proof-server:<version>.
+  MIDNIGHT_PROOF_SERVER_PORT     Host port when --port is not given.\n`);
 }
 
-function parseFlags(argv) {
-  const flags = {
-    useDocker: false,
-    useBinary: false,
-    cleanBinaries: false,
-    onlyClean: false,
-    showHelp: false,
-    remaining: [],
-  };
-  for (const arg of argv) {
-    if (arg === "--docker") flags.useDocker = true;
-    else if (arg === "--binary") flags.useBinary = true;
-    else if (arg === "--clean-binaries") flags.cleanBinaries = true;
-    else if (arg === "--only-clean") flags.onlyClean = true;
-    else if (arg === "--help" || arg === "-h") flags.showHelp = true;
-    else flags.remaining.push(arg);
-  }
-  return flags;
-}
-
-async function runWithBinary(env, args, forceClean = false) {
-  if (forceClean || !checkIfBinaryExists()) {
+async function runWithBinary(env, args, version, forceClean = false) {
+  if (forceClean || !checkIfBinaryExists(version)) {
     if (forceClean) {
       console.log("Cleaning downloaded binaries...");
       await cleanBinaries();
     }
-    console.log("Downloading binary...");
-    await binary();
+    console.log(`Downloading proof server ${version} binary...`);
+    await binary(version);
   } else {
-    console.log("Using existing binary found in proof-server directory");
+    console.log(`Using existing proof server ${version} binary`);
   }
-  return runMidnightProofServer(env, args);
+  return runMidnightProofServer(env, args, version);
 }
 
-async function runWithDocker(env, args) {
+async function runWithDocker(env, args, version, port) {
   if (!(await checkIfDockerExists())) {
     console.error("Docker is required but not installed or not running.");
     process.exit(1);
   }
-  await pullDockerImage();
-  return runDockerContainer(env, args);
+  await pullDockerImage(version);
+  return runDockerContainer(env, args, version, port);
 }
 
 (async () => {
-  const flags = parseFlags(process.argv.slice(2));
+  let flags;
+  let version;
+  let port;
+  try {
+    flags = parseFlags(process.argv.slice(2));
+    version = resolveVersion(process.env);
+    port = resolvePort({ flagPort: flags.port, env: process.env });
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
   const env = process.env;
+  // The binary reads --port itself; MIDNIGHT_PROOF_SERVER_PORT is inherited.
+  const binaryArgs = flags.port !== undefined
+    ? [...flags.remaining, "--port", String(port)]
+    : flags.remaining;
 
   if (flags.showHelp) {
     showUsage();
@@ -110,7 +111,7 @@ async function runWithDocker(env, args) {
   }
 
   if (flags.useDocker) {
-    await runWithDocker(env, flags.remaining);
+    await runWithDocker(env, flags.remaining, version, port);
     return;
   }
 
@@ -121,18 +122,33 @@ async function runWithDocker(env, args) {
       );
       process.exit(1);
     }
-    await runWithBinary(env, flags.remaining, flags.cleanBinaries);
+    try {
+      await runWithBinary(env, binaryArgs, version, flags.cleanBinaries);
+    } catch (error) {
+      if (error instanceof MissingProofServerBinaryError) {
+        console.error(error.message);
+        process.exit(1);
+      }
+      throw error;
+    }
     return;
   }
 
   // Automatic selection
   if (isBinarySupported()) {
-    await runWithBinary(env, flags.remaining, flags.cleanBinaries);
+    try {
+      await runWithBinary(env, binaryArgs, version, flags.cleanBinaries);
+    } catch (error) {
+      if (!(error instanceof MissingProofServerBinaryError)) throw error;
+      console.warn(error.message);
+      console.log(`Falling back to Docker for proof server ${version}...`);
+      await runWithDocker(env, flags.remaining, version, port);
+    }
   } else {
     console.log(
       "Binary not supported on this platform, falling back to Docker...",
     );
-    await runWithDocker(env, flags.remaining);
+    await runWithDocker(env, flags.remaining, version, port);
   }
 })();
 

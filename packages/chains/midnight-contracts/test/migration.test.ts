@@ -277,6 +277,7 @@ describe("network defaults", () => {
         MIDNIGHT_NODE_HTTP: "",
         MIDNIGHT_PROOF_SERVER_URL: "",
         MIDNIGHT_PROOF_SERVER: "",
+        MIDNIGHT_CONTRACT_PROOF_SERVER_URL: "",
         MIDNIGHT_WALLET_SEED: "",
         MIDNIGHT_WALLET_MNEMONIC: "",
       },
@@ -299,6 +300,8 @@ describe("network defaults", () => {
         indexerWS: "wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws",
         node: "wss://rpc.stagenet.shielded.tools",
         proofServer: "http://127.0.0.1:6300",
+        // E2 (00050): one prover for everything unless the contract prover is set.
+        contractProofServer: "http://127.0.0.1:6300",
         faucetUrl: "https://faucet.stagenet.shielded.tools/api/drips",
         walletSeed: "",
       },

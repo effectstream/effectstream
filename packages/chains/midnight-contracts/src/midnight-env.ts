@@ -89,20 +89,59 @@ export type MidnightNetworkConfig = {
   indexer: string;
   indexerWS: string;
   node: string;
+  /** Wallet prover: DUST fees and zswap balancing (and contracts, by default). */
   proofServer: string;
+  /**
+   * Contract-circuit prover (the midnight-js `proofProvider`). Defaults to
+   * `proofServer`; set `MIDNIGHT_CONTRACT_PROOF_SERVER_URL` to split it.
+   */
+  contractProofServer?: string;
   faucetUrl?: string;
   walletSeed: string;
 };
 
-export const midnightNetworkConfig: MidnightNetworkConfig = {
+/**
+ * `MIDNIGHT_CONTRACT_PROOF_SERVER_URL`, when set: a separate, already running
+ * proof server for contract circuits (e.g. 9.0.0-rc.8 for compactc 0.35.0
+ * `ed25519Verify` circuits), while `proofServer` keeps proving DUST.
+ */
+const contractProofServerFromEnv: string | undefined =
+  env("MIDNIGHT_CONTRACT_PROOF_SERVER_URL") || undefined;
+
+/**
+ * Resolve the contract-circuit prover. Precedence: an explicit URL, then
+ * `MIDNIGHT_CONTRACT_PROOF_SERVER_URL`, then the wallet `proofServer` (one
+ * prover for everything, the behavior before this option existed).
+ */
+export const resolveContractProofServer = (
+  proofServer: string,
+  explicit?: string,
+  envOverride: string | undefined = contractProofServerFromEnv,
+): string => explicit?.trim() || envOverride?.trim() || proofServer;
+
+const proofServer = env(
+  ["MIDNIGHT_PROOF_SERVER_URL", "MIDNIGHT_PROOF_SERVER"],
+  selectedNetworkConfig.proofServer,
+);
+
+export const midnightNetworkConfig: MidnightNetworkConfig & {
+  contractProofServer: string;
+} = {
   id: selectedNetworkConfig.networkId,
   indexer: env("MIDNIGHT_INDEXER_HTTP", selectedNetworkConfig.indexer),
   indexerWS: env("MIDNIGHT_INDEXER_WS", selectedNetworkConfig.indexerWS),
   node: env("MIDNIGHT_NODE_HTTP", selectedNetworkConfig.node),
-  proofServer: env(["MIDNIGHT_PROOF_SERVER_URL", "MIDNIGHT_PROOF_SERVER"], selectedNetworkConfig.proofServer),
+  proofServer,
+  contractProofServer: resolveContractProofServer(proofServer),
   faucetUrl: selectedNetworkConfig.faucetUrl,
   walletSeed,
 };
+
+/**
+ * True when `MIDNIGHT_CONTRACT_PROOF_SERVER_URL` is set. The contract prover
+ * is then external and already running, so launchers must not start one.
+ */
+export const isContractProofServerConfigured = contractProofServerFromEnv !== undefined;
 
 const isLocalProofServer = !!midnightNetworkConfig.proofServer.match(/(localhost|127\.0\.0\.1)/);
 export const isExternalProofServerConfigured = !isLocalProofServer;
