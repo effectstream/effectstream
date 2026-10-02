@@ -35,11 +35,15 @@ export type BridgeAddresses = {
   mint: string;
 };
 
-let tsCounter = 0;
-/** Unique, increasing timestamps: the batcher keys its receipt callbacks on them. */
+let lastTimestamp = 0;
+/**
+ * Unique, strictly increasing millisecond timestamps (within this process):
+ * the batcher keys its receipt callbacks on the input, timestamp included.
+ */
 export function nextTimestamp(): string {
-  tsCounter = (tsCounter + 1) % 1000;
-  return (Date.now() * 1000 + tsCounter).toString();
+  const now = Date.now();
+  lastTimestamp = now > lastTimestamp ? now : lastTimestamp + 1;
+  return String(lastTimestamp);
 }
 
 /**

@@ -25,6 +25,7 @@ import {
   buildReleaseInput,
   isDue,
   isReplayRefusal,
+  nextTimestamp,
   selectDueJobs,
   type RelayerCandidate,
 } from "@solana-midnight-bridge/node/relayer";
@@ -70,6 +71,13 @@ describe("backoff and selection (pure)", () => {
     const due = selectDueJobs(c, { now: Date.now(), inFlight: new Set() });
     expect(due.map((j) => `${j.direction}:${j.sourceId}`)).toEqual(["s2m:2", "m2s:9"]);
     expect(selectDueJobs(c, { now: Date.now(), inFlight: new Set(["s2m:7"]) }).map((j) => j.direction)).toEqual(["m2s"]);
+  });
+
+  test("input timestamps are unique, increasing milliseconds", () => {
+    const ts = Array.from({ length: 50 }, () => Number(nextTimestamp()));
+    expect(new Set(ts).size).toBe(50);
+    expect(ts.every((t, i) => i === 0 || t > ts[i - 1]!)).toBe(true);
+    expect(Math.abs(ts[0]! - Date.now())).toBeLessThan(60_000);
   });
 
   test("replay refusals are recognized (left to sync)", () => {
