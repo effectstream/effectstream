@@ -5,7 +5,7 @@
  *                 0.35.0; skipped when contract-bridge/src/managed is up to date).
  *   1. unit     — no chain, no ports:
  *                   solana-instructions.test.ts     layouts, log parser, FR-009 guards
- *                   midnight-signing.test.ts        mint digest/signature, Q16 contract info
+ *                   midnight-signing.test.ts        mint digest/signature, raw contract info (E8)
  *                   midnight-contract-logic.test.ts circuits run locally on runtime 0.20
  *                   state-machine.test.ts           STF over recorded P0 payloads (PGLite)
  *                   node-config-api.test.ts         sync config + API (Fastify inject, PGLite)
