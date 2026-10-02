@@ -246,6 +246,13 @@ receipt wait runs until it has landed or its blockhash has expired (then it can
 never land, and a retry is safe). Identical instructions submitted within one
 blockhash window produce the same transaction and land once.
 
+**Replays**: the batcher keeps no record of the signed inputs it has executed.
+Anyone who sees one can POST it again to a batcher with the HTTP server enabled,
+and its instructions run again (bounded by the rate limit). Idempotent
+instructions are refused by preflight simulation and cost nothing; others cost
+the operator a fee per replay. Prefer an embedded batcher
+(`enableHttpServer: false`), or keep an HTTP-enabled one private.
+
 **Batch size**: `maxBatchSize` defaults to 1, so each receipt belongs to exactly
 one input. With more, inputs that could not be sent are retried on their own,
 each input gets its own signature, and `status` is 0 if any transaction of the

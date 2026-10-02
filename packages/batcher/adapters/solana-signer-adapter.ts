@@ -45,6 +45,12 @@ import nacl from "tweetnacl";
 // make their instructions idempotent (e.g. a receipt PDA per withdrawal id).
 // `waitForTransactionReceipt` narrows the window: it reports a transaction as
 // definitively expired (safe to resubmit) once its blockhash can no longer land.
+//
+// Replays: the batcher keeps no record of executed inputs, so a captured signed
+// input POSTed again to an HTTP-enabled batcher re-executes its instructions
+// (bounded by the rate limit). Idempotent instructions are refused by preflight
+// and cost nothing; others cost the operator a fee per replay. Keep such
+// batchers private, or embedded (`enableHttpServer: false`).
 
 /** Solana ComputeBudget program — always allowed, bounded by the price cap. */
 const COMPUTE_BUDGET_PROGRAM_ID = new PublicKey(
