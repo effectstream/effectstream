@@ -214,6 +214,29 @@ test("verifySignature: the signed bytes are the documented canonical message", (
   ).toBe(true);
 });
 
+test("signSolanaSignerInput: web3.js instructions, JSON form and pre-encoded string sign the same input", () => {
+  const adapter = new SolanaSignerAdapter(config());
+  const ix = memoIx("same bytes");
+  const encoded = encodeSolanaSignerInput({ instructions: [ix], computeUnitLimit: 9_000 });
+  const fromWeb3 = signSolanaSignerInput({
+    input: { instructions: [ix], computeUnitLimit: 9_000 },
+    operatorSecretKey: operator.secretKey,
+    timestamp: "1",
+  });
+  const fromJson = signSolanaSignerInput({
+    input: JSON.parse(encoded),
+    operatorSecretKey,
+    timestamp: "1",
+  });
+  const fromString = signSolanaSignerInput({ input: encoded, operatorSecretKey, timestamp: "1" });
+  expect(fromWeb3.input).toBe(encoded);
+  expect(fromJson.input).toBe(encoded);
+  expect(fromString).toEqual(fromWeb3);
+  expect(fromWeb3.target).toBeUndefined();
+  expect(adapter.verifySignature(fromWeb3)).toBe(true);
+  expect(adapter.validateInput(fromWeb3)).toEqual({ valid: true });
+});
+
 test("verifySignature: refuses a signature by another key (bad operator signature)", () => {
   const adapter = new SolanaSignerAdapter(config());
   const input = signed({ instructions: [memoIx()] });

@@ -73,6 +73,7 @@ export type {
   SolanaSignerBatchPayload,
   SolanaSignerCommitment,
   SolanaSignerInput,
+  SolanaSignerInputLike,
   SolanaSignerInstruction,
   SolanaSignerTransactionOutcome,
 } from "./solana-signer-adapter.ts";

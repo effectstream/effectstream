@@ -215,13 +215,18 @@ function isWeb3Instruction(
 }
 
 /**
+ * An input as callers build it: web3.js instructions, the JSON form, or a mix.
+ */
+export interface SolanaSignerInputLike {
+  instructions: Array<TransactionInstruction | SolanaSignerInstruction>;
+  computeUnitLimit?: number;
+}
+
+/**
  * Canonical JSON for an input: fixed key order, no whitespace. Accepts web3.js
  * instructions or the JSON form.
  */
-export function encodeSolanaSignerInput(input: {
-  instructions: Array<TransactionInstruction | SolanaSignerInstruction>;
-  computeUnitLimit?: number;
-}): string {
+export function encodeSolanaSignerInput(input: SolanaSignerInputLike): string {
   const instructions = input.instructions.map((ix) => {
     const j = isWeb3Instruction(ix) ? toSolanaSignerInstruction(ix) : ix;
     return {
@@ -268,7 +273,8 @@ export function buildSolanaSignerMessage(
  * requires.
  */
 export function signSolanaSignerInput(opts: {
-  input: SolanaSignerInput | string;
+  /** The input (web3.js or JSON instructions), or an already-encoded string. */
+  input: SolanaSignerInputLike | SolanaSignerInput | string;
   operatorSecretKey: Uint8Array | string;
   timestamp?: string;
   target?: string;
