@@ -174,6 +174,83 @@ must check and record every bucket in one phase together; the pre-authentication
 and authenticated phases are intentionally separate calls. `InMemoryRateLimitStore`
 is the built-in single-process implementation.
 
+## Solana operator signer
+
+`SolanaAdapter` co-signs, as fee payer, transactions a user already built and
+signed. `SolanaSignerAdapter` is for the other case: the batcher holds an
+**operator** key and builds, signs and submits transactions from instruction
+lists, for example a bridge relayer that releases SPL tokens from a vault. The
+operator is the fee payer and the only signer of every transaction.
+
+```typescript
+// `createAtaIdempotentIx` and `releaseIx` are ordinary @solana/web3.js
+// TransactionInstructions built by your program's client code.
+import {
+  createNewBatcher,
+  FileStorage,
+  signSolanaSignerInput,
+  SolanaSignerAdapter,
+} from "@effectstream/batcher-sdk";
+
+const adapter = new SolanaSignerAdapter({
+  rpcUrl: "http://127.0.0.1:8899",
+  operatorSecretKey: process.env.SOLANA_OPERATOR_SECRET_KEY!, // base58, 64 bytes
+  // Every top-level instruction must target one of these (ComputeBudget is
+  // always allowed). List the associated-token-account program explicitly if
+  // a transaction creates the recipient's token account.
+  allowedProgramIds: [BRIDGE_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID],
+  syncProtocolName: "parallelSolanaRPC",
+});
+
+const batcher = createNewBatcher(
+  { pollingIntervalMs: 1000, enableHttpServer: false, confirmationLevel: "wait-receipt" },
+  new FileStorage("./batcher-data"),
+);
+batcher.addBlockchainAdapter("solanaOperator", adapter, { criteriaType: "size", maxBatchSize: 1 });
+await batcher.init();
+
+// One input = one transaction. Sign it with the operator key.
+const input = signSolanaSignerInput({
+  input: { instructions: [createAtaIdempotentIx, releaseIx], computeUnitLimit: 100_000 },
+  operatorSecretKey: process.env.SOLANA_OPERATOR_SECRET_KEY!,
+  target: "solanaOperator",
+});
+const receipt = await batcher.batchInput(input, "wait-receipt");
+// receipt.hash is the transaction signature; receipt.status is 1 if it succeeded on chain.
+```
+
+**Input** (`DefaultBatcherInput.input`, JSON):
+`{"instructions":[{"programId","keys":[{"pubkey","isSigner","isWritable"}],"dataBase64"}],"computeUnitLimit"?}`.
+`encodeSolanaSignerInput` writes it from web3.js instructions, and
+`signSolanaSignerInput` returns a complete input. Unknown fields are refused.
+
+**What it refuses**:
+- an input whose `signature` is not the operator's Ed25519 signature over
+  `buildSolanaSignerMessage(input)` (domain tag, `target`, `timestamp`,
+  `input`), or whose `address` is not the operator. A batcher with the HTTP
+  server enabled therefore cannot be used by anyone else to make the operator
+  sign instructions;
+- an instruction to a program outside `allowedProgramIds` (plus ComputeBudget);
+- any signer other than the operator;
+- a `SetComputeUnitPrice` above `maxPriorityFeeMicroLamports` (default 0, so
+  priority fees are refused unless you allow them), unknown or duplicate
+  ComputeBudget instructions;
+- malformed JSON, keys or base64, and a transaction larger than a Solana packet.
+
+**Submission**: each attempt fetches a fresh blockhash; preflight simulation is
+on. If no transaction of a batch can be sent, the error carries the RPC's error
+texts, so an outage of your own RPC parks the inputs instead of spending their
+retries. Delivery is **at-least-once**: make the instructions idempotent (for
+example a receipt PDA per withdrawal id). For a transaction it submitted, the
+receipt wait runs until it has landed or its blockhash has expired (then it can
+never land, and a retry is safe). Identical instructions submitted within one
+blockhash window produce the same transaction and land once.
+
+**Batch size**: `maxBatchSize` defaults to 1, so each receipt belongs to exactly
+one input. With more, inputs that could not be sent are retried on their own,
+each input gets its own signature, and `status` is 0 if any transaction of the
+batch failed on chain (per-transaction outcomes are in `receipt.signatures`).
+
 ## Customising the batcher
 
 The four interfaces you'd implement, in order of frequency:
@@ -192,7 +269,7 @@ The batcher is the on-ramp between user wallets and Effectstream's state machine
 - `createNewBatcher(config, storage)`: build a batcher instance.
 - `BatcherConfig`: configuration type. See `pollingIntervalMs`, `adapters`, `defaultTarget`, `batchingCriteria`, `confirmationLevel`, `enableHttpServer`, `port`, `enableEventSystem`, `namespace`, `batchBuilding`.
 - `FileStorage(dir)`: default JSONL storage.
-- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`, `NearAdapter`, `NearIntentAdapter`.
+- Adapters: `EffectstreamL2DefaultAdapter`, `EvmContractAdapter`, `MidnightAdapter`, `MidnightBalancingAdapter`, `BitcoinAdapter`, `CelestiaAdapter`, `SolanaAdapter`, `SolanaSignerAdapter` (operator-signed; helpers `signSolanaSignerInput`, `encodeSolanaSignerInput`, `buildSolanaSignerMessage`, `toSolanaSignerInstruction`), `NearAdapter`, `NearIntentAdapter`.
 - Batcher operations: `runBatcher`, `batchInput`, `addStateTransition`, `gracefulShutdownOp`, `getPublicConfig`, `getBatchingStatus`.
 - Rate limiting: `RateLimiter`, `InMemoryRateLimitStore`, and the `RateLimitStore` / `RateLimitBucket` / `RateLimitKeyStrategy` / `RateLimitCheckResult` types. See [Rate limiting](#rate-limiting).
 - `DatabaseStorage`: a `BatcherStorage` shell that is **not implemented yet** — its methods throw. Use `FileStorage` or your own implementation.
