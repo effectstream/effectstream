@@ -34,6 +34,7 @@
     "@solana-midnight-bridge/contracts-midnight": "workspace:*",
     "@solana-midnight-bridge/contracts-solana": "workspace:*",
     "@solana-midnight-bridge/database": "workspace:*",
+    "@solana/spl-token": "^0.4.9",
     "@solana/web3.js": "^1.95.0",
     "bs58": "^6.0.0",
     "effection": "^3.5.0",
