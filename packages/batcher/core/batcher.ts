@@ -217,6 +217,10 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       }),
       setTargetCooldown: (target: string, ms: number) =>
         this.setTargetCooldown(target, ms),
+      // Read lazily: `enableEventSystem` is assigned further down. It is
+      // `undefined` when the config omits it (the config cast does not fill
+      // optional defaults); like the emit paths, treat that as off.
+      isEventSystemEnabled: () => Boolean(this.enableEventSystem),
     });
     this.shutdownManager = new ShutdownManager<T>(
       {
