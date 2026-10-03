@@ -357,6 +357,9 @@ The queries are in `packages/database/sql/queries.sql`.
   Configuration); a keyed RPC is recommended.
 - **Proof server 9.0.0-rc.8 runs from Docker** until a binary is published, and it needs about
   4 GiB of memory for a mint proof.
+- **The local validator's RPC is reachable from your network.** `solana-test-validator` (Agave
+  3.0.14) listens for JSON-RPC and faucet requests on every interface; `--bind-address` only
+  covers gossip. Its coins are worthless, but do not run `bun run dev` on an untrusted network.
 
 ## Configuration
 

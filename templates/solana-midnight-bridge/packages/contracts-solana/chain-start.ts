@@ -2,9 +2,12 @@
 // @effectstream/solana-node): preloads build/bridge.so at the local program id
 // and resets the ledger each boot (SOLANA_RESET=false keeps it).
 //
-// Download, SHA-256 verification, ledger setup and the loopback bind live in
-// @effectstream/solana-node's `run()`. In a container, set SOLANA_BIND_ADDRESS
-// to the container's own IP to expose the RPC: Agave 3.0.14 panics on 0.0.0.0.
+// Download, SHA-256 verification and ledger setup live in
+// @effectstream/solana-node's `run()`. Its `--bind-address` (default 127.0.0.1,
+// SOLANA_BIND_ADDRESS overrides it; Agave 3.0.14 panics on 0.0.0.0) only keeps
+// gossip/TPU on that address: the JSON-RPC and the faucet listen on EVERY
+// interface, and Agave 3.0.14 has no flag to change that (questions file Q19).
+// Do not run the local stack on an untrusted network.
 import { run } from "@effectstream/solana-node";
 import fs from "node:fs";
 import path from "node:path";
