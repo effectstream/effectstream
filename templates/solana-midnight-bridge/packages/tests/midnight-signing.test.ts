@@ -188,3 +188,34 @@ describe("batcher argument parsing of the raw contract info (engine E8, Q16)", (
     ).toThrow(/argument "sig".*Curve25519Point x must be < 2\^255 - 19/);
   });
 });
+
+// T6 F-T6.4: the template's midnight-js-contracts reads the network id from its
+// OWN copy of @midnight-ntwrk/midnight-js-network-id. Under ./link.sh that is
+// not the engine's copy (which the engine's wallet/deploy helpers set), so
+// `bridge:to-solana` failed with "Network ID has not been configured. Call
+// setNetworkId() …". bridgeProviders must set it for the copy that
+// midnight-js-contracts uses. Checked in a fresh process (no other module may
+// have set it first).
+describe("client: midnight-js network id (F-T6.4)", () => {
+  test("bridgeProviders sets the network id seen by the template's midnight-js-contracts", async () => {
+    const script = `
+      import path from "node:path";
+      const contractsMidnight = path.dirname(Bun.resolveSync("@solana-midnight-bridge/contracts-midnight/client", process.cwd()));
+      const mjsContracts = Bun.resolveSync("@midnight-ntwrk/midnight-js-contracts", contractsMidnight);
+      const nid = await import(Bun.resolveSync("@midnight-ntwrk/midnight-js-network-id", path.dirname(mjsContracts)));
+      const { bridgeProviders } = await import("@solana-midnight-bridge/contracts-midnight/client");
+      const { midnightUrls } = await import("@solana-midnight-bridge/contracts-midnight/network");
+      // A wallet stub: building the providers may fail on it; the network id must be set before that.
+      try { await bridgeProviders({}, midnightUrls("local"), "f-t6-4-" + Date.now()); } catch {}
+      let id;
+      try { id = nid.getNetworkId(); } catch (e) { id = "ERR " + e.message; }
+      console.log("NETWORK_ID=" + id);
+      process.exit(0);
+    `;
+    const p = Bun.spawn(["bun", "-e", script], { cwd: import.meta.dirname!, stdout: "pipe", stderr: "pipe" });
+    const [out, err] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text()]);
+    await p.exited;
+    const line = out.split("\n").find((l) => l.startsWith("NETWORK_ID=")) ?? `no output: ${err.slice(0, 500)}`;
+    expect(line).toBe("NETWORK_ID=undeployed");
+  }, 60_000);
+});

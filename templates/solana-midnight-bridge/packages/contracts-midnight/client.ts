@@ -10,6 +10,7 @@
 import { randomBytes } from "node:crypto";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { submitCallTx } from "@midnight-ntwrk/midnight-js-contracts";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { configureMidnightNodeProviders, type WalletResult } from "@effectstream/midnight-contracts";
 import { BridgeContract, CONTRACT_NAME, MANAGED_DIR, bridgeLedger } from "./contract.ts";
 import type { BridgeMidnightUrls } from "./network.ts";
@@ -23,12 +24,22 @@ export function compiledBridgeContract() {
   );
 }
 
-/** midnight-js providers for `wallet`: contract proofs on rc.8, DUST on the wallet's prover. */
+/**
+ * midnight-js providers for `wallet`: contract proofs on rc.8, DUST on the wallet's prover.
+ *
+ * It also sets the midnight-js network id for THIS package's copy of
+ * `@midnight-ntwrk/midnight-js-network-id`, the one the template's
+ * `midnight-js-contracts` reads. The engine's wallet and deploy helpers set
+ * their own copy, which is a different module once the engine is linked
+ * (`./link.sh`), so without this `bridge:to-solana` failed with "Network ID
+ * has not been configured" (PR-2 T6, F-T6.4).
+ */
 export async function bridgeProviders(
   w: WalletResult,
   urls: BridgeMidnightUrls,
   privateStateStoreName: string,
 ): Promise<any> {
+  setNetworkId(urls.id as never);
   return configureMidnightNodeProviders(
     w.wallet,
     w.zswapSecretKeys,
