@@ -48,25 +48,29 @@ export async function listTransfers(
  * Polls `GET /transfers/:id` until the transfer is `completed` (sync saw the
  * counterpart on chain), reporting each status change. A missing transfer is
  * normal for a while: sync needs the confirmation depth before it observes it.
+ * A failed request (the node is starting, busy past the request timeout, or
+ * down) is reported with its `error`, not as a missing transfer (PR-2 T6,
+ * F-T6.6), and polling continues.
  */
 export async function waitForCompleted(
   api: string,
   id: string,
-  opts: { timeoutMs: number; pollMs?: number; onChange?: (t: TransferView | null) => void },
+  opts: { timeoutMs: number; pollMs?: number; onChange?: (t: TransferView | null, error?: string) => void },
 ): Promise<TransferView> {
   const started = Date.now();
   let last = "";
   while (Date.now() - started < opts.timeoutMs) {
     let t: TransferView | null = null;
+    let error: string | undefined;
     try {
       t = await getTransfer(api, id);
     } catch (e) {
-      const state = `api-error:${(e as Error).message}`;
-      if (state !== last) opts.onChange?.(null);
-      last = state;
+      error = e instanceof Error ? e.message : String(e);
     }
-    const state = t ? `${t.status}:${t.relayer?.attempts ?? 0}:${t.relayer?.lastError ?? ""}` : "unseen";
-    if (state !== last) opts.onChange?.(t);
+    const state = error !== undefined
+      ? "api-error"
+      : t ? `${t.status}:${t.relayer?.attempts ?? 0}:${t.relayer?.lastError ?? ""}` : "unseen";
+    if (state !== last) opts.onChange?.(t, error);
     last = state;
     if (t?.status === "completed") return t;
     await Bun.sleep(opts.pollMs ?? 3_000);

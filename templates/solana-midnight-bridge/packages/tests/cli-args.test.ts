@@ -20,6 +20,7 @@ import {
   parseToSolanaArgs,
 } from "@solana-midnight-bridge/cli";
 import { renderTable } from "@solana-midnight-bridge/cli/commands";
+import { waitForCompleted } from "@solana-midnight-bridge/cli/api-client";
 
 const hex = (n: number) => Buffer.from(randomBytes(n)).toString("hex");
 const keys = { coinPublicKey: hex(32), encryptionPublicKey: hex(32) };
@@ -158,3 +159,40 @@ describe("status table", () => {
     expect(lines[2]).toContain("…");
   });
 });
+
+// T6 F-T6.6: while the node was busy (or starting: 503) the CLI's API request
+// failed, and waitForCompleted reported it as `onChange(null)`, which the CLI
+// prints as "not yet observed by sync" — right after it had printed
+// "submitted". An API error must be reported as an API error.
+describe("waitForCompleted reports API errors as errors (F-T6.6)", () => {
+  test("a 503 is passed on as an error, not as an unseen transfer; a 404 is unseen", async () => {
+    const transfer = { id: "s2m:0", direction: "s2m", sourceId: "0", amount: "1", recipient: null, sender: null, status: "completed", srcRef: null, dstRef: "midnight-block:1", observedBlock: 1, completedBlock: 2, relayer: null };
+    let n = 0;
+    const server = Bun.serve({
+      port: 0,
+      fetch() {
+        n++;
+        if (n === 1) return Response.json({ error: "transfer not found" }, { status: 404 });
+        if (n === 2) return Response.json({ error: "the node is starting" }, { status: 503 });
+        return Response.json({ transfer });
+      },
+    });
+    try {
+      const seen: { t: unknown; error?: string }[] = [];
+      const t = await waitForCompleted(`http://127.0.0.1:${server.port}`, "s2m:0", {
+        timeoutMs: 10_000,
+        pollMs: 10,
+        onChange: (x, error) => seen.push({ t: x, error }),
+      });
+      expect(t.status).toBe("completed");
+      expect(seen.length).toBe(3);
+      expect(seen[0]).toEqual({ t: null, error: undefined }); // 404: not observed yet
+      expect(seen[1]!.t).toBeNull();
+      expect(seen[1]!.error).toContain("503");
+      expect(seen[2]!.error).toBeUndefined();
+    } finally {
+      server.stop(true);
+    }
+  });
+});
+

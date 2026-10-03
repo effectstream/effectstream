@@ -84,7 +84,8 @@ function loadDepositor(mode: CliMode, rpcUrl: string, keypairPath?: string): Key
   return loadLiveKeypair(liveKeyPaths().user, "user");
 }
 
-function describe(t: TransferView | null, decimals?: number): string {
+function describe(t: TransferView | null, decimals?: number, apiError?: string): string {
+  if (apiError !== undefined) return `node API did not answer (${apiError}); retrying`;
   if (!t) return "not yet observed by sync";
   const amt = decimals === undefined ? t.amount : `${formatAmount(BigInt(t.amount), decimals)} (${t.amount} base units)`;
   const r = t.relayer;
@@ -124,7 +125,7 @@ export async function toMidnight(args: ToMidnightArgs): Promise<void> {
   out(`Waiting for the mint on Midnight (API ${api})...`);
   const t = await waitForCompleted(api, id, {
     timeoutMs: args.timeoutSeconds * 1000,
-    onChange: (x) => out(`  ${id}: ${describe(x, solana.mintDecimals)}`),
+    onChange: (x, error) => out(`  ${id}: ${describe(x, solana.mintDecimals, error)}`),
   });
   out(`Completed.     Solana lock ${sent.signature}; Midnight mint ${t.relayer?.lastTx ?? "(see relayer)"} (sync ${t.dstRef})`);
 }
@@ -161,7 +162,7 @@ export async function toSolana(args: ToSolanaArgs): Promise<void> {
     out(`Waiting for the release on Solana (API ${api})...`);
     const t = await waitForCompleted(api, id, {
       timeoutMs: args.timeoutSeconds * 1000,
-      onChange: (x) => out(`  ${id}: ${describe(x, solana.mintDecimals)}`),
+      onChange: (x, error) => out(`  ${id}: ${describe(x, solana.mintDecimals, error)}`),
     });
     out(`Completed.     Midnight burn ${r.txHash ?? r.txId}; Solana release ${t.relayer?.lastTx ?? "(see relayer)"} (sync ${t.dstRef})`);
   } finally {
