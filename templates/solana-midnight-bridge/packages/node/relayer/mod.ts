@@ -24,6 +24,7 @@ import { BridgeRelayer } from "./relayer.ts";
 export * from "./policy.ts";
 export * from "./jobs.ts";
 export { BridgeRelayer, toCandidate, type RelayerDeps, type Queryable } from "./relayer.ts";
+export { MIDNIGHT_BATCH_MAX_BYTES } from "./batcher.ts";
 
 const POLL_MS = Number(process.env.BRIDGE_RELAYER_POLL_MS ?? 5_000);
 const MINT_TIMEOUT_MS = Number(process.env.BRIDGE_RELAYER_MINT_TIMEOUT_MS ?? 900_000);

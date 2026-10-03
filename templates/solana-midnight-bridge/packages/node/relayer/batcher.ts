@@ -58,6 +58,16 @@ const errText = (e: unknown): string => {
   return parts.join(" <- ");
 };
 
+/**
+ * Byte budget of one Midnight batch: `MidnightAdapter`'s last constructor
+ * argument, `maxBatchSize`, is a size in BYTES (engine default 10000), not an
+ * input count. A mint input is about 0.9 kB. It was once 1 ("one input per
+ * batch"), which made the batch builder skip every mint (PR-2 T6, F-T6.3).
+ * One mint per batch comes from the batching criteria below (size 1) and the
+ * relayer's one-attempt-in-flight rule.
+ */
+export const MIDNIGHT_BATCH_MAX_BYTES = 10_000;
+
 export function createEmbeddedBatcher(o: EmbeddedBatcherOptions) {
   const log = o.log ?? ((m: string) => console.log(`[relayer-batcher] ${m}`));
   const storageDir = fs.mkdtempSync(path.join(os.tmpdir(), "bridge-relayer-batcher-"));
@@ -90,7 +100,7 @@ export function createEmbeddedBatcher(o: EmbeddedBatcherOptions) {
     // engine's ContractInfo type declares a string (the parser ignores it).
     readContractInfo() as any,
     MIDNIGHT_SYNC_PROTOCOL,
-    1,
+    MIDNIGHT_BATCH_MAX_BYTES,
   );
 
   const solana = new SolanaSignerAdapter({

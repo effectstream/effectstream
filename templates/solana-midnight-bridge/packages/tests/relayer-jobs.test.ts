@@ -13,6 +13,7 @@ import { Keypair, PublicKey } from "@solana/web3.js";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import type { PGlite } from "@electric-sql/pglite";
 import {
+  MidnightBatchBuilderLogic,
   SolanaSignerAdapter,
   parseCircuitArgs,
   validateCoinEncPublicKeyMappings,
@@ -20,6 +21,7 @@ import {
 import {
   BridgeRelayer,
   DEFAULT_POLICIES,
+  MIDNIGHT_BATCH_MAX_BYTES,
   backoffMs,
   buildMintInput,
   buildReleaseInput,
@@ -263,6 +265,24 @@ describe("counterpart inputs", () => {
     const other = await contract.initialState(rt.createConstructorContext({}, cpkCaller), operatorKeyFromSolanaPublicKey(operator.publicKey.toBytes()), sourceMint, networkTagFor("stagenet"));
     const ctx2 = rt.createCircuitContext({ circuitId: "mintFromSolana", contractAddress: address, coinPublicKeyOrZswapState: cpkCaller, contractState: other.currentContractState, privateState: {} });
     await expect((contract.circuits as any).mintFromSolana(ctx2, ...args)).rejects.toThrow(/bad signature/);
+  });
+
+  // T6 F-T6.3: the relayer once passed 1 as MidnightAdapter's maxBatchSize,
+  // read as "one input per batch"; it is a byte budget, so the batch builder
+  // skipped every mint ("No valid inputs for target midnight") and no mint was
+  // ever sent. The largest possible mint input must fit, with room to spare.
+  test("a mint input fits the relayer's Midnight batch byte budget (the adapter's builder selects it)", () => {
+    const max = 0xffff_ffff_ffff_ffffn;
+    const { input } = buildMintInput(
+      { sourceId: max, amount: max, recipient: recipientHex },
+      { contractAddress: "ab".repeat(32), networkTag: "cd".repeat(32) },
+      operator.secretKey,
+    );
+    const built = new MidnightBatchBuilderLogic().buildBatchData([input], { maxSize: MIDNIGHT_BATCH_MAX_BYTES });
+    expect(built?.selectedInputs.length).toBe(1);
+    expect(built?.data?.payloads[0]?.circuit).toBe("mintFromSolana");
+    expect(built?.data?.payloads[0]?.coinEncPublicKeyMappings).toEqual([[bytesToHex(cpk), bytesToHex(epk)]]);
+    expect(new TextEncoder().encode(JSON.stringify(built!.data)).length).toBeLessThan(MIDNIGHT_BATCH_MAX_BYTES / 2);
   });
 
   test("the release input passes the SolanaSignerAdapter's signature and allow-list checks", () => {
