@@ -84,12 +84,22 @@ onchain-runtime, so ledger values cross the boundary unchanged.
 ## Quick start
 
 > [!IMPORTANT]
-> This template needs engine features that are not in a published `@effectstream/*` release
-> yet: the split contract prover, third-party shielded mints, `SolanaSignerAdapter` and the
-> Curve25519 argument types. Until they are released, run it **inside the Effectstream
-> monorepo**, linked to the local engine with `./link.sh`. A plain `bun i` installs the
-> published 0.200.6 packages, which lack them.
-> <!-- PLACEHOLDER(T8.2): replace this note with the engine release version once PR-1 is published, and pin package.json to it. -->
+> **This template requires the engine changes in
+> [effectstream/effectstream PR #935](https://github.com/effectstream/effectstream/pull/935).
+> Use `./link.sh` / `LINK_LOCAL=1` until they are released.**
+>
+> PR #935 adds:
+> - the split contract prover;
+> - third-party shielded mints;
+> - `SolanaSignerAdapter`;
+> - the Curve25519 argument types;
+> - the local validator's ledger-size option.
+>
+> None of these is in a published `@effectstream/*` release yet. Until they are, run the
+> template **inside the Effectstream monorepo**, linked to the local engine with `./link.sh`.
+> A plain `bun i` installs the published 0.200.6 packages, which lack them. For the same reason,
+> CI does not run this template yet: it is not in the `ENABLED` list of
+> `templates/run-template-tests.ts`.
 
 **Prerequisites**
 
@@ -458,8 +468,10 @@ bun run test
 
 `packages/tests/run-tests.ts` compiles the contract if needed, then runs:
 
-- **unit**, no chain and no ports (105 tests): instruction layouts, the log parser, the key
-  guards and `sendTx`'s handling of landed failures (`solana-instructions.test.ts`); the mint
+- **unit**, no chain and no ports (112 tests): instruction layouts, the log parser, the key
+  guards, the live secrets directory, the live deploy's cluster check and its parsing of the
+  `solana program deploy` output, the local ledger-size default, and `sendTx`'s handling of
+  landed failures (`solana-instructions.test.ts`); the mint
   digest, signature encoding, the batcher's parsing of the raw contract info and the midnight-js
   network id (`midnight-signing.test.ts`); every circuit run locally on runtime 0.20, including bad
   signatures, cross-contract and cross-network replays, a reused nonce and the wrong colour
@@ -506,12 +518,16 @@ bun run test
 
 > [!NOTE]
 > Last full run (2026-10-03, `LINK_LOCAL=1` in a linux/amd64 Docker container under emulation, with
-> the rc.8 prover as a native sibling container): unit 107/107, program 8/8,
-> end to end 14/14 (1740 s), contract 6/6 (256 s); the whole run
+> the rc.8 prover as a native sibling container): unit 112/112, program 8/8,
+> end to end 14/14 (1762 s), contract 6/6 (251 s); the whole run
 > took 43 minutes, including a cold contract compile.
 >
-> PLACEHOLDER(T8.2): `LINK_LOCAL=1 bun run templates/run-template-tests.ts solana-midnight-bridge`
-> from the monorepo root, once the template is registered there.
+> The template is not in the `ENABLED` list of `templates/run-template-tests.ts` yet, because CI
+> installs `@effectstream/*` from npm and this template needs the unreleased engine changes in
+> [PR #935](https://github.com/effectstream/effectstream/pull/935). Until they are released, run
+> `./link.sh && bun run test` here. Once the template is registered,
+> `LINK_LOCAL=1 bun run templates/run-template-tests.ts solana-midnight-bridge` from the monorepo
+> root runs the same steps.
 
 ## Where to go next
 
