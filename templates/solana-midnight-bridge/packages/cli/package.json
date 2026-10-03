@@ -7,7 +7,8 @@
     ".": "./mod.ts",
     "./args": "./args.ts",
     "./main": "./main.ts",
-    "./commands": "./commands.ts"
+    "./commands": "./commands.ts",
+    "./api-client": "./api-client.ts"
   },
   "dependencies": {
     "@effectstream/midnight-contracts": "0.200.6",
