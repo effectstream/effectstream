@@ -4,8 +4,16 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
-const CURRENT_BINARY_VERSION = "9.0.0-rc.5";
-const FINAL_BINARY_NAME = "midnight-proof-server";
+const {
+  DEFAULT_VERSION,
+  CACHE_DIR,
+  binaryDir,
+  binaryPath,
+  zipPath,
+  assetBinaryName,
+  assetUrl,
+  MissingProofServerBinaryError,
+} = require("./config.js");
 
 /**
  * @returns {string} The platform and architecture of the current machine. Example: "linux-amd64"
@@ -28,7 +36,7 @@ function getPlatform() {
   }
 }
 
-function getBinaryUrl() {
+function getBinaryUrl(version = DEFAULT_VERSION) {
   const platform = getPlatform();
   const supportedPlatforms = require("./package.json").supportedPlatforms;
 
@@ -36,16 +44,38 @@ function getBinaryUrl() {
     throw new Error(`Unsupported platform for binary execution: ${platform}`);
   }
 
-  return `https://github.com/effectstream/binaries/releases/download/0.3.120/midnight-proof-server-${platform}-${CURRENT_BINARY_VERSION}.zip`;
+  return assetUrl(platform, version);
 }
 
-async function downloadAndSaveBinary() {
-  const url = getBinaryUrl();
-  console.log(`Downloading midnight proof server binary from ${url}`);
+/** True when the binary of this version is already in the per-version cache. */
+function checkIfBinaryExists(version = DEFAULT_VERSION) {
+  return fs.existsSync(binaryPath(version));
+}
 
-  const response = await axios.get(url, { responseType: "stream" });
-  const zipPath = path.join(__dirname, "proof-server.zip");
-  const writer = fs.createWriteStream(zipPath);
+/**
+ * @param {string} version
+ * @param {{ get: typeof axios.get }} http HTTP client (injectable for tests)
+ */
+async function downloadAndSaveBinary(version = DEFAULT_VERSION, http = axios) {
+  const url = getBinaryUrl(version);
+  console.log(`Downloading midnight proof server ${version} binary from ${url}`);
+
+  let response;
+  try {
+    response = await http.get(url, { responseType: "stream" });
+  } catch (error) {
+    const status = error && error.response ? error.response.status : undefined;
+    if (status === 404) {
+      throw new MissingProofServerBinaryError({
+        version,
+        platform: getPlatform(),
+        url,
+        status,
+      });
+    }
+    throw error;
+  }
+  const writer = fs.createWriteStream(zipPath(version));
 
   response.data.pipe(writer);
 
@@ -55,20 +85,20 @@ async function downloadAndSaveBinary() {
   });
 }
 
-async function unzipBinary() {
-  const zipPath = path.join(__dirname, "proof-server.zip");
-  const destDir = path.join(__dirname, "proof-server");
+async function unzipBinary(version = DEFAULT_VERSION) {
+  const zip = zipPath(version);
+  const destDir = binaryDir(version);
   if (!fs.existsSync(destDir)) {
     fs.mkdirSync(destDir, { recursive: true });
   }
-  await extract(zipPath, { dir: destDir });
-  
+  await extract(zip, { dir: destDir });
+
   const platform = getPlatform();
   const extractedBinaryPath = path.join(
     destDir,
-    `midnight-proof-server-${platform}-${CURRENT_BINARY_VERSION}`,
+    assetBinaryName(platform, version),
   );
-  const finalBinaryPath = path.join(destDir, FINAL_BINARY_NAME);
+  const finalBinaryPath = binaryPath(version);
 
   // Rename the extracted file to midnight-proof-server
   if (fs.existsSync(extractedBinaryPath)) {
@@ -95,39 +125,52 @@ async function unzipBinary() {
 
   fs.chmodSync(finalBinaryPath, 0o755);
 
-  fs.unlinkSync(zipPath);
+  fs.unlinkSync(zip);
 }
 
-async function binary() {
-  await downloadAndSaveBinary();
-  await unzipBinary();
+/**
+ * Download and unpack one version into `proof-server/<version>/`.
+ * @param {string} version
+ * @param {{ http?: { get: typeof axios.get } }} [options]
+ */
+async function binary(version = DEFAULT_VERSION, options = {}) {
+  await downloadAndSaveBinary(version, options.http ?? axios);
+  await unzipBinary(version);
 }
 
+/** Delete every cached version and any leftover download. */
 async function cleanBinaries() {
-  const binaryDir = path.join(__dirname, "proof-server");
-  const zipPath = path.join(__dirname, "proof-server.zip");
+  const zipFiles = fs.readdirSync(__dirname)
+    .filter((name) => /^proof-server(-.+)?\.zip$/.test(name))
+    .map((name) => path.join(__dirname, name));
 
   let deletedFiles = [];
 
-  if (fs.existsSync(binaryDir)) {
+  if (fs.existsSync(CACHE_DIR)) {
     try {
-      fs.rmSync(binaryDir, { recursive: true, force: true });
-      deletedFiles.push(binaryDir);
+      fs.rmSync(CACHE_DIR, { recursive: true, force: true });
+      deletedFiles.push(CACHE_DIR);
     } catch (error) {
-      console.error(`Error removing directory ${binaryDir}:`, error.message);
+      console.error(`Error removing directory ${CACHE_DIR}:`, error.message);
     }
   }
 
-  if (fs.existsSync(zipPath)) {
+  for (const zip of zipFiles) {
     try {
-      fs.unlinkSync(zipPath);
-      deletedFiles.push(zipPath);
+      fs.unlinkSync(zip);
+      deletedFiles.push(zip);
     } catch (error) {
-      console.error(`Error removing file ${zipPath}:`, error.message);
+      console.error(`Error removing file ${zip}:`, error.message);
     }
   }
 
   return deletedFiles;
 }
 
-module.exports = { binary, getPlatform, cleanBinaries };
+module.exports = {
+  binary,
+  getPlatform,
+  getBinaryUrl,
+  checkIfBinaryExists,
+  cleanBinaries,
+};

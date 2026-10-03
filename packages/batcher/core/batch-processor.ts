@@ -32,6 +32,13 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           target: string,
           maxRetries: number,
         ) => Promise<void>;
+        /**
+         * Read the queue back. After a refused submission it tells which
+         * inputs `incrementRetryCount` dropped, so their waiting callers can
+         * be rejected at once. Optional; when absent those callers wait for
+         * their receipt timeout (historical behaviour).
+         */
+        getAllInputs?: () => Promise<T[]>;
       };
       submissionCallbacks: Map<
         string,
@@ -49,6 +56,14 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       getCallbackKey: (input: T) => string;
       getRetryPolicy: () => { maxRetries: number; retryDelayMs: number };
       setTargetCooldown: (target: string, ms: number) => void;
+      /**
+       * Whether the batcher's event system is on. The post-receipt
+       * EffectStream wait only emits state-transition events, so it is
+       * skipped when this returns false: an embedded batcher with
+       * `enableEventSystem: false` then opens no event-bus subscription.
+       * Optional; when absent the wait always runs (historical behaviour).
+       */
+      isEventSystemEnabled?: () => boolean;
     },
   ) {}
 
@@ -145,11 +160,23 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         debugLog(
           `[BatchProcessor] submitBatch threw for target ${target}, incrementing retry counts for ${inputsSnapshot.length} inputs (maxRetries=${maxRetries})`,
         );
-        await this.batcher.storage
+        const charged = await this.batcher.storage
           .incrementRetryCount(inputsSnapshot, target, maxRetries)
-          .catch((e) =>
-            debugLog(`[BatchProcessor] Failed to increment retry counts: ${e}`)
+          .then(() => true, (e) => {
+            debugLog(`[BatchProcessor] Failed to increment retry counts: ${e}`);
+            return false;
+          });
+        // A dropped input is never submitted again: tell its waiting caller
+        // now instead of at its receipt timeout. Skipped when the charge
+        // failed, because the storage state is then unknown.
+        if (charged) {
+          await this.rejectCallersOfDroppedInputs(
+            inputsSnapshot,
+            target,
+            maxRetries,
+            error,
           );
+        }
         throw error;
       }
       debugLog(`[BatchProcessor] adapter.submitBatch returned hash: ${hash}`);
@@ -257,18 +284,85 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     // Individual callers will decide if they want to continue waiting for EffectStream
     this.resolveInputCallbacks(selectedInputs, receipt);
 
-    // Optional: Still trigger EffectStream processing check for event emission
-    this.waitForEffectStreamProcessing(
-      receipt,
-      adapter,
-      target,
-      timeout,
-    ).catch((error) => {
-      console.error(
-        `⚠️ Error waiting for EffectStream processing for target ${target}:`,
-        error,
+    // Optional: wait for EffectStream to process the receipt's block, only to
+    // emit `batch:effectstream-processed` / `error` state transitions. Those
+    // are no-ops when the event system is off, so the wait (and its event-bus
+    // subscription) is skipped then. Callers that asked for
+    // "wait-effectstream-processed" wait on their own path in
+    // `Batcher.batchInput`, which this does not affect.
+    if (this.isEventSystemEnabled()) {
+      this.waitForEffectStreamProcessing(
+        receipt,
+        adapter,
+        target,
+        timeout,
+      ).catch((error) => {
+        console.error(
+          `⚠️ Error waiting for EffectStream processing for target ${target}:`,
+          error,
+        );
+      });
+    }
+  }
+
+  private isEventSystemEnabled(): boolean {
+    return this.batcher.isEventSystemEnabled?.() ?? true;
+  }
+
+  /**
+   * After a refused submission charged `inputs` a retry, reject the waiting
+   * callers (`wait-receipt` / `wait-effectstream-processed`) of the inputs
+   * the storage dropped, with the submit error. Without this they only learn
+   * of the failure from their receipt timeout, and with the event system off
+   * nothing else tells them either.
+   *
+   * An input counts as dropped only if both hold: this attempt reached the
+   * documented limit (`retryCount + 1 >= maxRetries`, the rule
+   * `BatcherStorage.incrementRetryCount` applies), and the input is no longer
+   * queued. Inputs with retries left keep their callers waiting. Any problem
+   * here is logged and leaves the callers as they were: it never changes the
+   * error the processor rethrows.
+   */
+  private async rejectCallersOfDroppedInputs(
+    inputs: T[],
+    target: string,
+    maxRetries: number,
+    error: unknown,
+  ): Promise<void> {
+    const { storage, submissionCallbacks, getCallbackKey } = this.batcher;
+    if (typeof storage.getAllInputs !== "function") return;
+    try {
+      const lastTry = inputs.filter((input) =>
+        (input.retryCount ?? 0) + 1 >= maxRetries &&
+        submissionCallbacks.has(getCallbackKey(input))
       );
-    });
+      if (lastTry.length === 0) return;
+
+      const queued = new Set(
+        (await storage.getAllInputs()).map((input) => getCallbackKey(input)),
+      );
+      const reason = error instanceof Error ? error : new Error(String(error));
+      let rejected = 0;
+      for (const input of lastTry) {
+        const key = getCallbackKey(input);
+        if (queued.has(key)) continue; // the storage kept it
+        const callbacks = submissionCallbacks.get(key);
+        if (!callbacks) continue; // settled meanwhile
+        clearTimeout(callbacks.timeoutId);
+        submissionCallbacks.delete(key);
+        callbacks.reject(reason);
+        rejected++;
+      }
+      if (rejected > 0) {
+        console.warn(
+          `[BatchProcessor] Rejected ${rejected} waiting caller(s) of input(s) dropped for target ${target}: ${reason.message}`,
+        );
+      }
+    } catch (e) {
+      debugLog(
+        `[BatchProcessor] Could not reject the callers of dropped inputs for target ${target}: ${e}`,
+      );
+    }
   }
 
   private async waitForEffectStreamProcessing(

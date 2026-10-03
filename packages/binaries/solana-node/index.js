@@ -1,6 +1,7 @@
 import BinWrapper from '@xhmikosr/bin-wrapper';
 import { verifyBinaryChecksum } from '@effectstream/binary-checksum';
 import { CHECKSUMS } from './checksums.js';
+import { buildValidatorArgs, resolveLimitLedgerSize } from './args.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -84,23 +85,42 @@ export async function run(options = {}) {
     reset = true,
     rpcPort = 8899,
     faucetPort = 9900,
-    // The test validator has no authentication, so binding 0.0.0.0 exposed the
-    // RPC to the whole network. Default to loopback; override for container
-    // setups that genuinely need to reach it from outside.
+    // `--bind-address`, loopback by default. In the pinned Agave 3.0.14 it only
+    // covers the validator's own ports (gossip, TPU and the rest).
     //
-    // CAVEAT: this only covers the RPC and gossip/TPU. The FAUCET ignores
-    // --bind-address and always listens on 0.0.0.0 — there is no flag to
-    // change that in Agave 4.1.2 (only the --faucet-per-request-sol-cap /
-    // --faucet-per-time-sol-cap rate limits). It hands out worthless localnet
-    // SOL, but anyone on the LAN can still reach it, so don't run this on an
-    // untrusted network.
+    // CAVEAT: it does NOT keep the JSON-RPC or the faucet on loopback. Measured
+    // on 3.0.14 (linux-x64), both listen on 0.0.0.0 whatever this says
+    // (`ss -ltn`: 0.0.0.0:<rpcPort>, 0.0.0.0:<faucetPort>), and the RPC answers
+    // on the machine's other addresses. 3.0.14 has no flag to bind them
+    // elsewhere; the faucet has only the --faucet-per-request-sol-cap /
+    // --faucet-per-time-sol-cap rate limits. The test validator has no
+    // authentication: its state and SOL are worthless localnet ones, but anyone
+    // who can reach this machine can use the RPC and the faucet, so don't run
+    // this on an untrusted network.
+    //
+    // 0.0.0.0 itself makes 3.0.14 panic at start (`UnspecifiedIpAddr(0.0.0.0)`
+    // in gossip). In a container, pass the container's own IP (`hostname -i`)
+    // when gossip must be reachable from outside.
     bindAddress = process.env.SOLANA_BIND_ADDRESS ?? '127.0.0.1',
     // Programs to preload into the genesis ledger, as
     // `[{ address, soPath }, …]` -> `--bpf-program <address> <soPath>`. Callers
     // used to spawn the binary themselves to pass this, which duplicated all the
     // ledger/reset handling below AND skipped the checksum verification above.
     bpfPrograms = [],
+    // Data shreds the validator keeps in rooted slots: `--limit-ledger-size
+    // <n>`. Falls back to SOLANA_LIMIT_LEDGER_SIZE; unset = no flag, so the
+    // validator keeps its own default (10,000 shreds in 3.0.14). With that
+    // default an idle validator first purges 2,700-3,200 slots after the start
+    // (~20-25 min) and from then on keeps only a few dozen slots, so a sync
+    // that trails the tip by its confirmation depth, or re-syncs from an older
+    // slot, finds the slots it needs already deleted. An idle validator writes
+    // ~100 data shreds (~0.25 MB of ledger) per slot, so the limit keeps about
+    // limit/100 slots; see the README's "Ledger size" for the disk cost.
+    limitLedgerSize: limitLedgerSizeOption,
   } = options;
+
+  // Refuse a bad limit before downloading or starting anything.
+  const limitLedgerSize = resolveLimitLedgerSize(limitLedgerSizeOption, process.env);
 
   // Download (if needed) and verify BEFORE executing anything. `bin.run()`
   // would execute the binary to check its version first, which defeats the
@@ -124,29 +144,18 @@ export async function run(options = {}) {
     fs.mkdirSync(ledgerDir, { recursive: true });
   }
 
-  const args = [
-    '--ledger', ledgerDir,
-    '--rpc-port', String(rpcPort),
-    '--faucet-port', String(faucetPort),
-    '--bind-address', bindAddress,
-  ];
-
-  for (const { address, soPath } of bpfPrograms) {
-    if (!address || !soPath) {
-      throw new Error(
-        `[solana-node] bpfPrograms entries need both 'address' and 'soPath'; got ${JSON.stringify({ address, soPath })}`,
-      );
-    }
-    if (!fs.existsSync(soPath)) {
-      throw new Error(
-        `[solana-node] program binary not found at ${soPath} (for ${address}). Build it before starting the validator.`,
-      );
-    }
-    args.push('--bpf-program', address, soPath);
-  }
-
-  if (reset) {
-    args.push('--reset');
+  // Programs to preload are checked here (both fields set, the .so exists).
+  const args = buildValidatorArgs({
+    ledgerDir,
+    rpcPort,
+    faucetPort,
+    bindAddress,
+    bpfPrograms,
+    reset,
+    limitLedgerSize,
+  });
+  if (verbose && limitLedgerSize !== undefined) {
+    console.log(`[solana-node] --limit-ledger-size ${limitLedgerSize}`);
   }
 
   // COPYFILE_DISABLE prevents macOS from materializing AppleDouble (`._`)
@@ -195,6 +204,8 @@ export async function run(options = {}) {
     ledgerDir,
     rpcPort,
     faucetPort,
+    // The --limit-ledger-size value passed, or undefined (validator default).
+    limitLedgerSize,
     stop: () => child.kill(),
   };
 }

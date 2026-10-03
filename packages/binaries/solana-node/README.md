@@ -41,6 +41,7 @@ const validator = await run({
   // bindAddress: "127.0.0.1",
   // dataDir: "/tmp/my-ledger",
   // verbose: false,
+  // limitLedgerSize: 5_000_000, // see "Ledger size" below
 });
 
 // … use http://127.0.0.1:8899 …
@@ -67,17 +68,59 @@ attest that it was correct to begin with. Regenerating them through
 `scripts/generate-binary-checksums.ts`, so an Agave-published checksum backs them
 the way bitcoin-core and the Grafana wrappers now are, is open work.
 
+## Ledger size
+
+The validator keeps a limited number of **data shreds** in rooted slots
+(`--limit-ledger-size`) and deletes older slots. The default in Agave 3.0.14 is
+**10,000 shreds**, which is small for anything that indexes the chain. Measured
+on an idle 3.0.14 validator:
+
+- It writes roughly 100 data shreds per slot: about 0.25 MB of ledger per slot
+  with the coding shreds, so about 2 GB per hour.
+- The cleanup counts shreds with RocksDB's estimate, which only moves when the
+  shred memtable is flushed (every 256 MiB, about 2,200 idle slots). The first
+  purge therefore comes at the first check after that flush, roughly 2,700 to
+  3,200 slots (20 to 25 minutes) after the start, whatever the limit. Later
+  checks run about every 512 slots.
+- With the default limit, each purge leaves only a few dozen slots. Anything
+  that reads older slots then fails with `Block N cleaned up, does not exist on
+  node`: a sync that trails the tip by its confirmation depth, or a re-sync from
+  an earlier start slot.
+
+So the limit sets roughly how many slots survive: about `limit / 100` on an idle
+validator, fewer with traffic. For example, 5,000,000 keeps about 50,000 slots
+(5 to 6 hours, about 12 GB of shreds), and 50,000,000 keeps about two days
+(about 120 GB). Pick the smallest value that covers the history your stack has
+to read again.
+
+```ts
+await run({ limitLedgerSize: 5_000_000 });
+```
+
+Or set `SOLANA_LIMIT_LEDGER_SIZE=5000000` in the environment of the process that
+calls `run()` (a `chain:start` script, the orchestrator, the `solana-node` bin).
+The option wins over the variable. The value must be a positive integer; anything
+else is refused before the validator is downloaded or started. Unset, no flag is
+passed and the validator keeps its default.
+
 ## Networking
 
-RPC and gossip bind `127.0.0.1` by default — the validator has no
-authentication, so exposing it broadly is a hazard on a shared network.
-Override with `SOLANA_BIND_ADDRESS` (or the `bindAddress` option) for container
-setups that need external reachability.
+The validator has no authentication. `bindAddress` (default `127.0.0.1`,
+override with `SOLANA_BIND_ADDRESS`) is passed as `--bind-address`, which in
+Agave 3.0.14 binds the validator's own ports (gossip, TPU and the rest) only.
 
-The **faucet ignores this** and always listens on all interfaces; Agave offers no
-flag to restrict it, only the `--faucet-per-request-sol-cap` /
-`--faucet-per-time-sol-cap` rate limits. It hands out worthless localnet SOL, but
-don't run this on an untrusted network.
+**The JSON-RPC and the faucet listen on all interfaces** whatever
+`--bind-address` says: measured on 3.0.14, both are on `0.0.0.0`, and the RPC
+answers on the machine's other addresses. 3.0.14 offers no flag to bind them
+elsewhere; the faucet has only the `--faucet-per-request-sol-cap` /
+`--faucet-per-time-sol-cap` rate limits. The SOL and state are worthless
+localnet ones, but anyone who can reach the machine can use the RPC and the
+faucet, so don't run this on an untrusted network. In a container, the RPC is
+therefore reachable from other containers with the default bind.
+
+`SOLANA_BIND_ADDRESS=0.0.0.0` makes 3.0.14 panic at start
+(`UnspecifiedIpAddr(0.0.0.0)`). If gossip must be reachable from outside a
+container, pass the container's own IP (`hostname -i`) instead.
 
 ## Platform support
 

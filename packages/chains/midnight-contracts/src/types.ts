@@ -73,6 +73,18 @@ export interface NetworkUrls {
   proofServer?: string;
 }
 
+/**
+ * `NetworkUrls` plus an optional separate prover for contract circuits.
+ *
+ * `proofServer` stays the wallet's prover (DUST fees, zswap balancing).
+ * `contractProofServer` proves the contract's circuits; when omitted it falls
+ * back to `MIDNIGHT_CONTRACT_PROOF_SERVER_URL`, then to `proofServer`.
+ */
+export interface NetworkUrlsWithContractProver extends NetworkUrls {
+  /** Contract-circuit proof server (default: `proofServer`) */
+  contractProofServer?: string;
+}
+
 // WalletResult is now imported from get-wallet-info.ts
 
 /** Initial owner structure for contracts that need wallet address */

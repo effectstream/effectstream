@@ -32,6 +32,14 @@ export function getDustStatePath(baseDir: string, networkId: string, seed: strin
   return path.join(baseDir, `${safeNetworkId}-${seedKey}.json`);
 }
 
+/**
+ * `text` with the seed-derived file name of `filePath` replaced, for logs
+ * (00050 E7: the name embeds the first 16 hex characters of the seed).
+ */
+function redactPath(text: string, filePath: string): string {
+  return text.split(path.basename(filePath)).join("<dust-state file>");
+}
+
 function isUndeployedNetwork(networkId: string): boolean {
   return networkId.toLowerCase() === "undeployed";
 }
@@ -52,10 +60,14 @@ export function saveDustState(
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, serializedState, "utf-8");
-    log.info(`Dust state saved to ${filePath}`);
+    // The file name embeds a seed prefix: log only the directory (00050 E7).
+    log.info(`Dust state saved in ${path.dirname(filePath)} (${networkId})`);
     return filePath;
   } catch (e) {
-    log.warn(`Failed to save dust state to ${filePath}: ${e instanceof Error ? e.message : String(e)}`);
+    log.warn(
+      `Failed to save dust state in ${path.dirname(filePath)} (${networkId}): ` +
+        redactPath(e instanceof Error ? e.message : String(e), filePath),
+    );
     return null;
   }
 }

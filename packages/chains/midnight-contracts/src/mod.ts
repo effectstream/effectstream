@@ -40,3 +40,10 @@ export {
 export { readMidnightContract } from "./read-contract.ts";
 export { configureMidnightNodeProviders } from "./providers.ts";
 export { midnightNetworkConfig } from "./midnight-env.ts";
+export {
+    ShieldedAddressError,
+    parseShieldedAddress,
+    formatShieldedAddress,
+    shieldedAddressToCoinEncPublicKeyMapping,
+} from "./shielded-address.ts";
+export type { ParsedShieldedAddress } from "./shielded-address.ts";

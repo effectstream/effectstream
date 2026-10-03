@@ -16,7 +16,12 @@ import type {
 import type { ContractInfo } from "./midnight-arg-parser.ts";
 import { parseCircuitArgs } from "./midnight-arg-parser.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
-import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "../batch-data-builder/midnight-builder-logic.ts";
+import {
+  type CoinEncPublicKeyMappings,
+  MidnightBatchBuilderLogic,
+  type MidnightBatchPayload,
+  validateCoinEncPublicKeyMappings,
+} from "../batch-data-builder/midnight-builder-logic.ts";
 import { hexStringToUint8Array } from "@effectstream/utils";
 import type {
   UnboundTransaction,
@@ -38,6 +43,7 @@ import {
   type DeployedContract,
   findDeployedContract,
   type FoundContract,
+  withContractScopedTransaction,
 } from "@midnight-ntwrk/midnight-js-contracts";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
@@ -71,7 +77,19 @@ export interface MidnightAdapterConfig {
   indexer: string;
   indexerWS: string;
   node: string;
+  /**
+   * Proof server used by the wallet facade (DUST fees and zswap balancing).
+   * Also used for contract circuits unless `contractProofServer` is set.
+   */
   proofServer: string;
+  /**
+   * Optional proof server for contract circuits (the midnight-js
+   * `proofProvider`). Defaults to `proofServer`. Set it when the contract
+   * needs a different prover than DUST, e.g. a compactc 0.35.0 contract with
+   * `ed25519Verify` proves on 9.0.0-rc.8 while DUST spends still need a
+   * `dust/9` prover (9.0.0-rc.5 / rc.6).
+   */
+  contractProofServer?: string;
   zkConfigPath: string;
   contractName: string; // Compact contract name used in CompiledContract.make (e.g. 'contract-eip-20')
   privateStateStoreName: string; // LevelDB store name (local)
@@ -92,6 +110,17 @@ const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
 const DUST_REGISTRATION_PRECHECK_TIMEOUT_MS = 60_000;
 const DUST_REFRESH_THROTTLE_MS = 5_000;
+
+/**
+ * The proof server for contract circuits: `contractProofServer` when set,
+ * otherwise `proofServer` (one prover for everything, the default).
+ */
+export function resolveContractProofServerUrl(
+  config: Pick<MidnightAdapterConfig, "proofServer" | "contractProofServer">,
+): string {
+  const contractProofServer = config.contractProofServer?.trim();
+  return contractProofServer ? contractProofServer : config.proofServer;
+}
 
 function formatDust(specks: bigint): string {
   const abs = specks < 0n ? -specks : specks;
@@ -126,6 +155,8 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private walletResults: (WalletResult | null)[];
   private walletProviders: ((WalletProvider & MidnightProvider) | null)[];
   private deployedContracts: (any | null)[];
+  /** midnight-js providers each wallet joined the contract with (reused for scoped calls). */
+  private contractProviders: (any | null)[];
   private publicDataProvider: any | null = null;
   private hasFundsPerWallet: boolean[];
   private lastFundingBalancesPerWallet:
@@ -154,6 +185,8 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private readonly walletFundingTimeoutMs: number;
   private readonly callTxTimeoutMs: number;
   private readonly walletNetworkId: WalletNetworkId.NetworkId;
+  /** Contract-circuit prover: `config.contractProofServer`, else `config.proofServer`. */
+  private readonly contractProofServerUrl: string;
 
   /**
    * Wait for at least one dust UTXO to become available.
@@ -246,6 +279,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 600) * 1000;
     this.callTxTimeoutMs = (config.callTxTimeoutSeconds ?? 120) * 1000;
     this.walletNetworkId = config.walletNetworkId ?? "undeployed" as WalletNetworkId.NetworkId;
+    this.contractProofServerUrl = resolveContractProofServerUrl(config);
 
     // Store contract info for lazy joining
     this.witnesses = witnesses;
@@ -254,6 +288,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.walletResults = new Array(seeds.length).fill(null);
     this.walletProviders = new Array(seeds.length).fill(null);
     this.deployedContracts = new Array(seeds.length).fill(null);
+    this.contractProviders = new Array(seeds.length).fill(null);
     this.walletAddresses = new Array(seeds.length).fill(null);
     this.walletInitialized = new Array(seeds.length).fill(false);
     this.hasFundsPerWallet = new Array(seeds.length).fill(false);
@@ -279,6 +314,11 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private async initialize(): Promise<void> {
     try {
       this.log.log(`Initializing Midnight Adapter (${this.walletSeeds.length} wallet(s))...`);
+      if (this.contractProofServerUrl !== this.config.proofServer) {
+        this.log.log(
+          `Split provers: wallet/DUST=${this.config.proofServer}, contract=${this.contractProofServerUrl}`,
+        );
+      }
       // Use lowercase network ID to match the wallet SDK expectations
       // This is consistent with the working e2e tests and manual scripts
       setNetworkId(this.walletNetworkId as any);
@@ -420,33 +460,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       try {
         this.log.log(`Wallet ${label}: configuring providers for contract join...`);
 
-        const walletAndMidnightProvider = this.walletProviders[walletIndex]!;
-
-        const zkConfigProvider = new NodeZkConfigProvider(
-          this.config.zkConfigPath,
-          { verify: "require" },
-        );
-        // Midnight.js 5 resolves proof artifacts by verifier key through a
-        // registry. Search from the managed-artifact parent so sibling
-        // contracts used by cross-contract calls are available as well.
-        const zkConfigRegistry = await nodeZkConfigRegistry(
-          path.dirname(this.config.zkConfigPath),
-        );
-        const providers = {
-          privateStateProvider: levelPrivateStateProvider({
-            privateStateStoreName: this.config.privateStateStoreName,
-            privateStoragePasswordProvider: async () => "YourPasswordMy1!",
-            accountId: Buffer.from(this.walletResults[walletIndex]!.zswapSecretKeys.coinPublicKey).toString('hex'),
-          }),
-          publicDataProvider: this.publicDataProvider,
-          zkConfigProvider,
-          proofProvider: httpClientProofProvider(
-            this.config.proofServer,
-            zkConfigRegistry,
-          ),
-          walletProvider: walletAndMidnightProvider,
-          midnightProvider: walletAndMidnightProvider,
-        };
+        const providers = await this.createContractProviders(walletIndex);
 
         this.log.log(`Wallet ${label}: joining contract at address: ${this.contractAddress}`);
 
@@ -506,6 +520,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           )
         ]);
 
+        this.contractProviders[walletIndex] = providers;
         this.log.log(`Wallet ${label}: contract joined successfully`);
         this.contractsJoined[walletIndex] = true;
       } catch (error) {
@@ -516,6 +531,41 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     })();
 
     await this.contractJoiningPromises[walletIndex];
+  }
+
+  /**
+   * midnight-js providers for one wallet's contract calls. Contract circuits
+   * prove on `contractProofServerUrl`; the wallet provider balances and pays
+   * DUST through the facade, which proves on `config.proofServer`.
+   */
+  private async createContractProviders(walletIndex: number) {
+    const walletAndMidnightProvider = this.walletProviders[walletIndex]!;
+
+    const zkConfigProvider = new NodeZkConfigProvider(
+      this.config.zkConfigPath,
+      { verify: "require" },
+    );
+    // Midnight.js 5 resolves proof artifacts by verifier key through a
+    // registry. Search from the managed-artifact parent so sibling
+    // contracts used by cross-contract calls are available as well.
+    const zkConfigRegistry = await nodeZkConfigRegistry(
+      path.dirname(this.config.zkConfigPath),
+    );
+    return {
+      privateStateProvider: levelPrivateStateProvider({
+        privateStateStoreName: this.config.privateStateStoreName,
+        privateStoragePasswordProvider: async () => "YourPasswordMy1!",
+        accountId: Buffer.from(this.walletResults[walletIndex]!.zswapSecretKeys.coinPublicKey).toString('hex'),
+      }),
+      publicDataProvider: this.publicDataProvider,
+      zkConfigProvider,
+      proofProvider: httpClientProofProvider(
+        this.contractProofServerUrl,
+        zkConfigRegistry,
+      ),
+      walletProvider: walletAndMidnightProvider,
+      midnightProvider: walletAndMidnightProvider,
+    };
   }
 
   /**
@@ -855,7 +905,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         );
       }
 
-      const { circuit, args } = data.payloads[0];
+      const { circuit, args, coinEncPublicKeyMappings } = data.payloads[0];
 
       // Check if circuit is pure (read-only query) or impure (state-changing transaction)
       const circuitDef = this.contractInfo.circuits.find((c) =>
@@ -931,8 +981,11 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         try {
           result = await this.runSerializedWalletOperation(
             walletIndex,
-            () => this.deployedContracts[walletIndex].callTx[circuit](
-              ...parsedArgs,
+            () => this.invokeCallTx(
+              walletIndex,
+              circuit,
+              parsedArgs,
+              coinEncPublicKeyMappings,
             ),
             this.callTxTimeoutMs,
             `callTx timed out after ${this.callTxTimeoutMs}ms — the Midnight SDK ` +
@@ -990,6 +1043,46 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     } finally {
       this.pool.releaseWorker(worker.walletIdx, worker.slotIdx);
     }
+  }
+
+  /**
+   * Submit one state-changing circuit call for a wallet.
+   *
+   * Without mappings this is the historical `callTx[circuit](...args)` path.
+   * With mappings (a circuit that mints a shielded coin to another wallet),
+   * the call runs in a contract-scoped transaction that carries
+   * `additionalCoinEncPublicKeyMappings`, so midnight-js can encrypt the
+   * recipient's output; without it midnight-js throws
+   * "Unable to resolve encryption public key for recipient".
+   */
+  private invokeCallTx(
+    walletIndex: number,
+    circuit: string,
+    parsedArgs: unknown[],
+    coinEncPublicKeyMappings?: CoinEncPublicKeyMappings,
+  ): Promise<any> {
+    const deployedContract = this.deployedContracts[walletIndex];
+    if (!coinEncPublicKeyMappings || coinEncPublicKeyMappings.length === 0) {
+      return deployedContract.callTx[circuit](...parsedArgs);
+    }
+    const providers = this.contractProviders[walletIndex];
+    if (!providers) {
+      throw new Error(
+        `Wallet ${walletIndex + 1}: contract providers unavailable for a mapped call`,
+      );
+    }
+    const additionalCoinEncPublicKeyMappings = new Map(coinEncPublicKeyMappings);
+    this.log.log(
+      `[wallet ${walletIndex + 1}/${this.walletSeeds.length}] callTx "${circuit}" ` +
+        `with ${additionalCoinEncPublicKeyMappings.size} coin/encryption key mapping(s)`,
+    );
+    return withContractScopedTransaction(
+      providers,
+      async (txCtx: unknown) => {
+        await deployedContract.callTx[circuit](txCtx, ...parsedArgs);
+      },
+      { scopeName: circuit, additionalCoinEncPublicKeyMappings },
+    );
   }
 
   /**
@@ -1348,6 +1441,14 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           error:
             "Invalid input structure. Expected { circuit: string, args: [] }",
         };
+      }
+
+      // Optional third-party shielded mint key mappings (E3).
+      const mappingError = validateCoinEncPublicKeyMappings(
+        parsed.coinEncPublicKeyMappings,
+      );
+      if (mappingError) {
+        return { valid: false, error: mappingError };
       }
 
       // 3. Deep Parse (from submitBatch)

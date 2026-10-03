@@ -34,7 +34,7 @@ export async function buildWalletAndWaitForFunds(
   
     const initialState = await getInitialShieldedState(result.wallet.shielded);
     const address = initialState.address.coinPublicKeyString();
-    log.info(`Wallet seed: ${seed}`);
+    // Never log the seed (00050 E7): it controls the wallet's funds.
     log.info(`Wallet address: ${address}`);
     log.info(`Dust address: ${result.dustAddress}`);
   

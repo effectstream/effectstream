@@ -268,7 +268,7 @@ It expects the target workspace package to expose two scripts:
 }
 ```
 
-`@effectstream/solana-node` downloads a pinned `solana-test-validator` on first use and **verifies its SHA-256** before executing it. RPC binds `127.0.0.1` by default (override with `SOLANA_BIND_ADDRESS`); note the faucet ignores that and always listens on all interfaces, as the validator offers no flag to restrict it.
+`@effectstream/solana-node` downloads a pinned `solana-test-validator` on first use and **verifies its SHA-256** before executing it. With Agave 3.0.14 the JSON-RPC and faucet ports listen on **all interfaces** even though the wrapper passes `--bind-address 127.0.0.1` (`SOLANA_BIND_ADDRESS` only moves the gossip/TPU bind; the validator offers no flag to restrict RPC or faucet, and `0.0.0.0` makes it panic at start). Keep the ports off untrusted networks, e.g. publish them only on `127.0.0.1` from Docker. The local ledger is capped at the validator's default 10,000 shreds unless you pass `limitLedgerSize` / `SOLANA_LIMIT_LEDGER_SIZE` (see the package README); with the default, history older than roughly 20–25 minutes is purged.
 
 :::caution Agave version pin
 The binary is pinned to **Agave 3.0.14**, not the latest release. Agave ≥ 3.1 hard-asserts io_uring support on Linux and panics during init where it is unavailable — including inside Docker, whose default seccomp profile blocks the io_uring syscalls. Since the e2e suite runs containerized, 3.1+ cannot start in CI as currently configured. macOS builds don't compile the assert in, so a newer version appears to work locally and then fails in CI. Read the note in `packages/binaries/solana-node/index.js` before bumping it.
