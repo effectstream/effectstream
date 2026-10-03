@@ -31,7 +31,7 @@ import {
   splitRecipientHex,
   u64le,
 } from "@solana-midnight-bridge/contracts-solana/instructions";
-import { customErrorOf } from "@solana-midnight-bridge/contracts-solana/chain";
+import { customErrorOf, sendTx } from "@solana-midnight-bridge/contracts-solana/chain";
 import {
   LOCAL_KEYS,
   assertLocalRpc,
@@ -312,3 +312,41 @@ describe("deployment files", () => {
     }
   });
 });
+
+// T6 F-T6.5: with skipPreflight a failing transaction lands on chain, and
+// sendTx must return its error (the tests assert on-chain refusals that way).
+// web3.js' confirmTransaction, however, REJECTS with the bare TransactionError
+// object when its signature-status poll sees the failure before the
+// signature-notification does (a race; @solana/web3.js 1.99 index.cjs.js:6797).
+// The e2e's non-operator release hit it: a correct refusal, thrown instead of
+// returned.
+describe("sendTx returns a landed failure (F-T6.5)", () => {
+  const payer = Keypair.generate();
+  const ix = SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: Keypair.generate().publicKey, lamports: 1 });
+  const landedErr = { InstructionError: [1, { Custom: 5 }] };
+  function fakeConnection(confirm: () => Promise<unknown>) {
+    return {
+      getLatestBlockhash: async () => ({ blockhash: Keypair.generate().publicKey.toBase58(), lastValidBlockHeight: 100 }),
+      sendRawTransaction: async () => "sig1111",
+      confirmTransaction: confirm,
+      getTransaction: async () => ({ slot: 42, meta: { err: landedErr, logMessages: ["Program log: refused"] } }),
+    } as any;
+  }
+
+  test("when confirmTransaction rejects with the transaction's own error", async () => {
+    const sent = await sendTx(fakeConnection(() => Promise.reject(landedErr)), [ix], [payer], { skipPreflight: true });
+    expect(sent).toEqual({ signature: "sig1111", slot: 42, err: landedErr, logs: ["Program log: refused"] });
+    expect(customErrorOf(sent.err)).toEqual({ index: 1, code: 5 });
+  });
+
+  test("when confirmTransaction resolves with it (the notification won the race)", async () => {
+    const sent = await sendTx(fakeConnection(async () => ({ context: { slot: 42 }, value: { err: landedErr } })), [ix], [payer], { skipPreflight: true });
+    expect(customErrorOf(sent.err)).toEqual({ index: 1, code: 5 });
+  });
+
+  test("a real failure to confirm (an Error) still throws", async () => {
+    const boom = new Error("block height exceeded");
+    await expect(sendTx(fakeConnection(() => Promise.reject(boom)), [ix], [payer], { skipPreflight: true })).rejects.toThrow("block height exceeded");
+  });
+});
+

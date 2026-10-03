@@ -46,7 +46,15 @@ export async function sendTx(
     skipPreflight: opts.skipPreflight ?? false,
     preflightCommitment: "confirmed",
   });
-  await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+  try {
+    await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+  } catch (e) {
+    // web3.js rejects with the bare TransactionError (a plain object, not an
+    // Error) when its signature-status poll sees a failed transaction before
+    // the signature notification does. The transaction landed: read it below,
+    // so callers get its error and logs either way (PR-2 T6, F-T6.5).
+    if (e instanceof Error || e === null || typeof e !== "object") throw e;
+  }
   // getTransaction can lag confirmTransaction by a moment on a busy validator.
   for (let i = 0; i < 20; i++) {
     const info = await conn.getTransaction(signature, {
