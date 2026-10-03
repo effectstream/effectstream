@@ -138,7 +138,11 @@ bun run bridge:status
 Each command prints the transaction on the source chain, then polls the API until the transfer
 is `completed` and prints the counterpart transaction.
 
-<!-- PLACEHOLDER(Q11/T6): the measured local round-trip times (lock → mint, burn → release) from the T6 run go here. -->
+Measured round trip on the local stack (the end-to-end suite in Docker, linux/amd64 emulated on
+an arm64 Mac, so slower than a native run): `bridge:to-midnight --amount 10` reached `completed`
+117 s after the lock landed (124 s for the whole command, the relayer's first
+mint proof included); `bridge:to-solana --amount 4` reached `completed` 31 s after the
+burn (119 s for the whole command, most of it the CLI syncing its Midnight wallet first).
 
 | Service | URL |
 | --- | --- |
@@ -210,7 +214,7 @@ packages/
   node/                  Sync config, grammar, state machine, API, entry point
     relayer/             In-process relayer: job selection and backoff, embedded batcher, operator keys
   cli/                   bridge:to-midnight, bridge:to-solana, bridge:status
-  tests/                 Unit suites, the program suite and the contract suite
+  tests/                 Unit, program, contract and end-to-end suites (start.test.ts = the dev stack)
 ```
 
 `deployments/<mode>.json` (written by the deploy scripts) holds every address and start height
@@ -388,6 +392,10 @@ Local mode needs no configuration. These variables exist:
 | `BRIDGE_MIDNIGHT_POLLING_MS`, `BRIDGE_MIDNIGHT_DELAY_MS` | `1000`, `6000`/`18000` | Midnight sync |
 | `BRIDGE_API_URL` | `http://localhost:9999` | CLI |
 | `EFFECTSTREAM_API_PORT` | `9999` | Node API port (and the CLI's default URL) |
+| `BRIDGE_E2E` | auto | `0` skips the end-to-end phase of `bun run test`, `1` requires it; by default it runs when a contract prover is reachable or Docker is available |
+| `BRIDGE_E2E_BOOT_TIMEOUT_MS` | `2700000` | How long `run-tests.ts` waits for the stack to boot |
+| `BRIDGE_E2E_LOG_DIR` | `logs/e2e-<timestamp>/` | Where the end-to-end suite writes its logs and `e2e-report.json` |
+| `BRIDGE_E2E_ORCHESTRATOR_PORT` | `4747` | Orchestrator API the suite uses to stop, kill and restart processes |
 
 A deployment file has one section per chain. Each deploy script writes only its own section:
 `solana` (cluster, program id, mint and decimals, config/authority/vault PDAs, operator, start
@@ -401,28 +409,60 @@ do not match: another Midnight network, or a contract that seals another SPL min
 bun run test
 ```
 
-`packages/tests/run-tests.ts` compiles the contract if needed, then runs three suites:
+`packages/tests/run-tests.ts` compiles the contract if needed, then runs:
 
-- **unit**, no chain and no ports (97 tests): instruction layouts, the log parser and the key
-  guards (`solana-instructions.test.ts`); the mint digest, signature encoding and the batcher's
-  parsing of the raw contract info (`midnight-signing.test.ts`); every circuit run locally on
-  runtime 0.20, including bad signatures, cross-contract and cross-network replays, a reused
-  nonce and the wrong colour (`midnight-contract-logic.test.ts`); the state machine over
-  recorded chain payloads, replayed and reordered (`state-machine.test.ts`); the sync
-  configuration and the API (`node-config-api.test.ts`); relayer selection, backoff and both
-  counterpart inputs (`relayer-jobs.test.ts`); and CLI argument validation before any chain call
-  (`cli-args.test.ts`).
+- **unit**, no chain and no ports (105 tests): instruction layouts, the log parser, the key
+  guards and `sendTx`'s handling of landed failures (`solana-instructions.test.ts`); the mint
+  digest, signature encoding, the batcher's parsing of the raw contract info and the midnight-js
+  network id (`midnight-signing.test.ts`); every circuit run locally on runtime 0.20, including bad
+  signatures, cross-contract and cross-network replays, a reused nonce and the wrong colour
+  (`midnight-contract-logic.test.ts`); the state machine over recorded chain payloads, replayed
+  and reordered (`state-machine.test.ts`); the sync configuration and the API, including a request
+  that arrives before the node has created its tables (`node-config-api.test.ts`); relayer
+  selection, backoff, the on-chain pre-checks and both counterpart inputs (`relayer-jobs.test.ts`);
+  and CLI argument validation before any chain call (`cli-args.test.ts`).
 - **program**: `solana-program.test.ts` on a throwaway validator on random ports: a lock logs
   and fills the vault; a non-operator release, a second release of the same id and zero amounts
   are refused.
-- **contract**: `contract.test.ts` proves and submits on a local Midnight devnet (valid mint seen
-  by a third wallet; another key, another amount, a reused nonce and the wrong colour refused).
-  It skips, and says why, when no devnet is running.
+- **e2e**: the whole bridge on the local stack. `run-tests.ts` starts
+  `packages/tests/start.test.ts` (the `bun run dev` stack, with the node non-critical so a test
+  can kill it), then runs:
+  - `e2e.test.ts`, through the CLI as a user would:
+    - US1: `bridge:to-midnight --amount 10` reaches `completed` in under 5 minutes; the vault
+      gains 10, the user's SPL loses 10, the recipient wallet gains 10 of the bridge colour.
+    - US2: `bridge:to-solana --amount 4` reaches `completed` in under 5 minutes; the user's SPL
+      gains 4, the vault keeps 6, the wallet keeps 6, and `withdrawals` has one entry.
+    - Negatives, each refused where it should be: a mint signed by another key, a mint for an
+      already-minted lock, an operator signature replayed against a second bridge instance and a
+      burn of another colour (in the circuit); a release by a non-operator and a re-sent release
+      (by the program); a zero amount, a malformed key and an address for another network (by the
+      CLI, before any chain call).
+    - Restarts: the database is wiped and the node re-syncs from the deployment's start heights
+      (every transfer comes back `completed`, nothing is sent on either chain); and the node with
+      its relayer is killed with SIGKILL between `submitted` and `completed` — while the mint is
+      being proved, after the mint landed but before sync saw it, and for a release to a fresh
+      address (its token account is created in the release). Each transfer settles exactly once.
+    - On-chain totals: `mintedLocks` equals the locks, release receipts equal the withdrawals, the
+      vault equals locks minus releases, and the contract's transactions are exactly the deploy,
+      one mint per lock and one burn per withdrawal.
+  - `contract.test.ts` on the same devnet, after the node is stopped (its payer is the relayer's
+    dev wallet): it deploys its own instance, mints to a third wallet, and checks the in-circuit
+    refusals and a burn with change.
 
-<!-- PLACEHOLDER(Q11/T6): the end-to-end suite (US1 lock 10 → completed, US2 burn 4 → completed, restart and re-sync without duplicates, the negatives, the LINK_LOCAL run) is not written yet; describe it here, and record the program/contract suite results, once the Docker runs are possible. -->
+  The stack is shut down afterwards. Per-process logs and `e2e-report.json` (timings, balances,
+  transaction ids) go to `logs/e2e-<timestamp>/`. The local validator keeps only its most recent
+  blocks once its ledger cleanup starts (about 20-25 minutes after it starts), so the re-sync runs
+  early in the suite and the test stack's node trails the Solana tip by 4 slots instead of 32
+  (`BRIDGE_SOLANA_CONFIRMATION_DEPTH` in `start.test.ts`). This phase needs proof server
+  9.0.0-rc.8: Docker, or a running one at
+  `MIDNIGHT_CONTRACT_PROOF_SERVER_URL`. Without either it is skipped with a message, and
+  `contract.test.ts` skips too unless a devnet with both provers is already running.
+
 > [!NOTE]
-> PLACEHOLDER(Q11/T6): results of the chain-backed suites (program, contract) and of the
-> end-to-end bridge suite are pending; only the unit suite has run so far.
+> Last full run (2026-10-03, `LINK_LOCAL=1` in a linux/amd64 Docker container under emulation, with
+> the rc.8 prover as a native sibling container): unit 105/105, program 8/8,
+> end to end 14/14 (1739 s), contract 6/6 (244 s); the whole run
+> took 39 minutes.
 >
 > PLACEHOLDER(T8.2): `LINK_LOCAL=1 bun run templates/run-template-tests.ts solana-midnight-bridge`
 > from the monorepo root, once the template is registered there.
