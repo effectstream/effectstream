@@ -106,7 +106,10 @@ onchain-runtime, so ledger values cross the boundary unchanged.
 - [Bun](https://bun.sh).
 - **Docker.** Proof server 9.0.0-rc.8, the only one that proves the Ed25519 mint circuit, runs
   from the `midnightntwrk/proof-server:9.0.0-rc.8` image: there is no published binary for it
-  yet. It peaks at about 4 GiB of memory while proving a mint.
+  yet. It peaks at about 4 GiB of memory while proving a mint. Without Docker (for example inside
+  a container with no Docker socket), run an rc.8 prover yourself and set
+  `MIDNIGHT_CONTRACT_PROOF_SERVER_URL` to it: `bun run dev` then starts none, waits for that one,
+  and the relayer and the CLI prove on it.
 - The `compact` CLI on your `PATH`. The orchestrator's Midnight launcher checks for it, although
   this template compiles its contract with its own pinned compactc 0.35.0, which
   `packages/contracts-midnight/scripts/fetch-compactc.sh` downloads and verifies on first use
@@ -139,14 +142,19 @@ bun -e 'import { localDevSeed, shieldedAddressFromSeed } from "@solana-midnight-
 # mint is seen on Midnight
 bun run bridge:to-midnight --amount 10 --recipient mn_shield-addr_undeployed1…
 
+# The dev user's Midnight balance of the bridge colour, in base units (6 decimals: 10 tokens =
+# 10000000). It syncs the wallet first, which takes a minute or two.
+bun -e 'import * as Rx from "rxjs"; import { buildBridgeWallet, localDevSeed } from "@solana-midnight-bridge/contracts-midnight/wallets"; import { midnightUrls } from "@solana-midnight-bridge/contracts-midnight/network"; const color = require("./deployments/local.json").midnight.tokenColor; const w = await buildBridgeWallet(midnightUrls("local"), localDevSeed("user")); const s = await Rx.firstValueFrom(w.wallet.state()); console.log("bridge colour balance:", String(s.shielded.balances[color] ?? 0n)); await w.wallet.stop(); process.exit(0)'
+
 # Midnight → Solana: burn 4, released to the dev user's Solana address
 bun run bridge:to-solana --amount 4 --recipient "$(bun -e 'console.log(require("./deployments/local.json").solana.user)')"
 
 bun run bridge:status
 ```
 
-Each command prints the transaction on the source chain, then polls the API until the transfer
-is `completed` and prints the counterpart transaction.
+Each `bridge:to-*` command prints the transaction on the source chain, then polls the API until
+the transfer is `completed` and prints the counterpart transaction. The balance line prints
+`10000000` after the first transfer, and `6000000` after the burn.
 
 Measured round trip on the local stack (the end-to-end suite in Docker, linux/amd64 emulated on
 an arm64 Mac, so slower than a native run): `bridge:to-midnight --amount 10` reached `completed`
