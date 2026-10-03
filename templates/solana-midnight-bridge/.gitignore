@@ -1,0 +1,6 @@
+# Written by init-local.ts / the local Midnight deploy on every boot.
+/deployments/local.json
+# Atomic-write temp files (deployments.ts).
+/deployments/*.tmp
+# Orchestrator logs (bun run dev --log-dir=./logs).
+/logs/

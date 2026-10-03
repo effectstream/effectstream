@@ -90,6 +90,7 @@ const TEMPLATES: {
   { dir: "zk-cardano",                 slug: "zk-cardano",                 file: 1213, position: 5,  group: "multichain" },
   { dir: "night-bitcoin-v2",           slug: "intent-swap",                file: 1205, position: 6,  group: "multichain" },
   { dir: "multi-chain-token-transfer", slug: "multi-chain-swap",           file: 1204, position: 7,  group: "multichain" },
+  { dir: "solana-midnight-bridge",     slug: "solana-midnight-bridge",     file: 1221, position: 19, group: "multichain" }, // sidebar: appended last (positions 8-18 unchanged)
 
   { dir: "chess-v2",                   slug: "chess",                      file: 1203, position: 8,  group: "game" },
   { dir: "world-map-2d",               slug: "world-map-2d",               file: 1206, position: 9,  group: "game" },

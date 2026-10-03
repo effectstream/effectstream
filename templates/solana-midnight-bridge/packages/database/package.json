@@ -1,0 +1,20 @@
+{
+  "name": "@solana-midnight-bridge/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./mod.ts",
+  "scripts": {
+    "pgtyped:update": "bun run ./node_modules/@effectstream/db/scripts/pgtyped-update.ts"
+  },
+  "dependencies": {
+    "@effectstream/db": "0.200.6",
+    "@effectstream/runtime": "0.200.6",
+    "@pgtyped/runtime": "2.4.2",
+    "effection": "^3.5.0",
+    "pg": "^8.14.0"
+  },
+  "devDependencies": {
+    "@paima/pgtyped-cli": "^2.4.5"
+  }
+}

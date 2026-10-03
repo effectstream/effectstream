@@ -1,0 +1,30 @@
+{
+  "name": "@solana-midnight-bridge/contracts-solana",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./mod.ts",
+    "./program-id": "./program-id.ts",
+    "./instructions": "./instructions.ts",
+    "./chain": "./chain.ts",
+    "./keys": "./keys.ts",
+    "./deployments": "./deployments.ts",
+    "./dev-config": "./dev-config.ts",
+    "./init-local": "./scripts/init-local.ts"
+  },
+  "scripts": {
+    "build": "bun run scripts/build.ts",
+    "build:program": "bun run scripts/build-program.ts",
+    "chain:start": "bun run chain-start.ts",
+    "chain:wait": "bun ./node_modules/.bin/wait-on http-get://127.0.0.1:${SOLANA_RPC_PORT:-8899}/health",
+    "init:local": "bun run scripts/init-local.ts",
+    "deploy:devnet": "bun run scripts/deploy-devnet.ts"
+  },
+  "dependencies": {
+    "@effectstream/solana-node": "0.200.6",
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.95.0",
+    "wait-on": "8.0.3"
+  }
+}

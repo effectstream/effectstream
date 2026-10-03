@@ -1,0 +1,44 @@
+{
+  "name": "@solana-midnight-bridge/node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./mod.ts",
+    "./state-machine": "./state-machine.ts",
+    "./stf-logic": "./stf-logic.ts",
+    "./grammar": "./grammar.ts",
+    "./api": "./api.ts",
+    "./relayer": "./relayer/mod.ts",
+    "./config": "./config.ts"
+  },
+  "scripts": {
+    "start:dev": "bun run main.ts local",
+    "start:live": "bun run main.ts live"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.200.6",
+    "@effectstream/concise": "0.200.6",
+    "@effectstream/config": "0.200.6",
+    "@effectstream/coroutine": "0.200.6",
+    "@effectstream/db": "0.200.6",
+    "@effectstream/log": "0.200.6",
+    "@effectstream/midnight-contracts": "0.200.6",
+    "@effectstream/runtime": "0.200.6",
+    "@effectstream/sm": "0.200.6",
+    "@effectstream/utils": "0.200.6",
+    "@midnight-ntwrk/midnight-js-network-id": "5.0.0-beta.6",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0-rc.3",
+    "@midnightntwrk/onchain-runtime-v4": "4.0.0-rc.3",
+    "@sinclair/typebox": "0.34.41",
+    "@solana-midnight-bridge/contracts-midnight": "workspace:*",
+    "@solana-midnight-bridge/contracts-solana": "workspace:*",
+    "@solana-midnight-bridge/database": "workspace:*",
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.95.0",
+    "bs58": "^6.0.0",
+    "effection": "^3.5.0",
+    "fastify": "^5.4.0",
+    "pg": "^8.14.0"
+  }
+}
