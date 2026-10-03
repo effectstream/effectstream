@@ -75,6 +75,27 @@ export function parseTransferId(id: string): { direction: "s2m" | "m2s"; sourceI
 type ApiServer = Parameters<StartConfigApiRouter>[0];
 type DbPool = Parameters<StartConfigApiRouter>[1];
 
+/**
+ * `runPreparedQuery(query.run(...))`, made safe for the node's start.
+ *
+ * The runtime serves this API before it applies the template's migrations (they
+ * run with the first processed block), and `runPreparedQuery` gets a query that
+ * has ALREADY started, then waits for the PGLite mutex. A query that fails
+ * during that wait (`bridge_transfers` does not exist yet) had no handler, and
+ * the runtime's unhandledRejection handler exits the process: a client polling
+ * the API while the node started (the CLI, `bridge:status --watch`) killed the
+ * node (PR-2 T6, F-T6.2). Observing the promise first stops that;
+ * `runPreparedQuery` still rethrows the error to the route.
+ */
+async function runQuery<T>(query: Promise<T[]>, name: string): Promise<T[]> {
+  query.catch(() => {});
+  return runPreparedQuery(query, name);
+}
+
+/** Postgres 42P01 (undefined_table): the runtime has not applied the migrations yet. */
+const isNotMigrated = (e: unknown): boolean => (e as { code?: unknown } | null)?.code === "42P01";
+export const NOT_MIGRATED_ERROR = "the node is starting: its database tables are not created yet; retry";
+
 export const apiRouter: StartConfigApiRouter = async function (
   server: ApiServer,
   dbConn: DbPool,
@@ -91,10 +112,16 @@ export const apiRouter: StartConfigApiRouter = async function (
       }
       const requested = Number(request.query.limit ?? "100");
       const limit = Number.isFinite(requested) ? Math.min(Math.max(Math.trunc(requested), 1), 500) : 100;
-      const rows = await runPreparedQuery(
-        listTransfers.run({ direction: direction ?? null, state: status ?? null, limit }, dbConn),
-        "/transfers",
-      );
+      let rows: IListTransfersResult[];
+      try {
+        rows = await runQuery(
+          listTransfers.run({ direction: direction ?? null, state: status ?? null, limit }, dbConn),
+          "/transfers",
+        );
+      } catch (e) {
+        if (isNotMigrated(e)) return reply.code(503).send({ error: NOT_MIGRATED_ERROR });
+        throw e;
+      }
       return reply.send({ transfers: rows.map(toTransferView) });
     },
   );
@@ -104,10 +131,16 @@ export const apiRouter: StartConfigApiRouter = async function (
     if (!parsed) {
       return reply.code(400).send({ error: 'id must be "s2m:<lock nonce>" or "m2s:<withdrawal id>"' });
     }
-    const rows = await runPreparedQuery(
-      getTransfer.run({ direction: parsed.direction, source_id: parsed.sourceId }, dbConn),
-      "/transfers/:id",
-    );
+    let rows: unknown[];
+    try {
+      rows = await runQuery(
+        getTransfer.run({ direction: parsed.direction, source_id: parsed.sourceId }, dbConn),
+        "/transfers/:id",
+      );
+    } catch (e) {
+      if (isNotMigrated(e)) return reply.code(503).send({ error: NOT_MIGRATED_ERROR });
+      throw e;
+    }
     if (rows.length === 0) return reply.code(404).send({ error: "transfer not found", id: request.params.id });
     return reply.send({ transfer: toTransferView(rows[0] as IListTransfersResult) });
   });

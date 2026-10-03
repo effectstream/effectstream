@@ -8,14 +8,16 @@ import os from "node:os";
 import path from "node:path";
 import { Keypair } from "@solana/web3.js";
 import fastify from "fastify";
-import type { PGlite } from "@electric-sql/pglite";
+import { PGlite } from "@electric-sql/pglite";
+import { run } from "effection";
+import { acquireDBMutex, releaseDBMutex } from "@effectstream/db";
 import { toSyncProtocolWithNetwork } from "@effectstream/config";
 import {
   buildBridgeConfig,
   loadBridgeNodeSettings,
   type BridgeNodeSettings,
 } from "@solana-midnight-bridge/node/config";
-import { apiRouter, parseTransferId } from "@solana-midnight-bridge/node/api";
+import { apiRouter, NOT_MIGRATED_ERROR, parseTransferId } from "@solana-midnight-bridge/node/api";
 import { asConnection, freshDb } from "./helpers/pglite-db.ts";
 
 const mint = Keypair.generate().publicKey;
@@ -151,5 +153,40 @@ describe("API", () => {
     expect(parseTransferId("m2s:18446744073709551615")).toEqual({ direction: "m2s", sourceId: "18446744073709551615" });
     expect(parseTransferId("m2s:18446744073709551616")).toBeNull();
     expect(parseTransferId("s2m:01")).toBeNull();
+  });
+});
+
+// T6 F-T6.2: the runtime serves the API before it applies this template's
+// migrations, and `runPreparedQuery` starts the query before it waits for the
+// PGLite mutex. A request in that window used to fail while waiting, with no
+// handler on the rejection: the runtime's unhandledRejection handler then
+// exited the node (the first full-stack run died 23 s after start).
+describe("API before the template's migrations (F-T6.2)", () => {
+  test("GET /transfers while bridge_transfers does not exist and the DB mutex is busy: 503, no unhandled rejection", async () => {
+    const db = new PGlite(); // no migrations: bridge_transfers does not exist
+    const server = fastify();
+    await apiRouter(server as any, asConnection(db) as any);
+    await server.ready();
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      // Hold the runtime's DB mutex, as the sync does while it processes a block.
+      await run(() => acquireDBMutex("f-t6-2-holder"));
+      const pending = server.inject({ method: "GET", url: "/transfers" });
+      const pendingOne = server.inject({ method: "GET", url: "/transfers/s2m:0" });
+      await Bun.sleep(500); // both queries fail while their routes wait for the mutex
+      releaseDBMutex("f-t6-2-holder");
+      const [r, r1] = await Promise.all([pending, pendingOne]);
+      await Bun.sleep(50);
+      expect(unhandled.map((u) => String((u as Error)?.message ?? u))).toEqual([]);
+      expect(r.statusCode).toBe(503);
+      expect(r.json() as unknown).toEqual({ error: NOT_MIGRATED_ERROR });
+      expect(r1.statusCode).toBe(503);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+      await server.close();
+      await db.close();
+    }
   });
 });
