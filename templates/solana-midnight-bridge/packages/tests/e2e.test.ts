@@ -872,8 +872,14 @@ describe.skipIf(skipReason !== null)("solana-midnight-bridge end to end (local s
       };
       writeReport();
       expect(t.status).toBe("completed");
-      // A second attempt could only find the receipt (or be refused): never a second release.
-      if ((settled.relayer?.attempts ?? 0) > 1) expect(settled.relayer?.lastError ?? "").toMatch(/receipt exists|already settled on chain/);
+      // Exactly one release happened (receipt, vault and the fresh account, below). A
+      // second attempt is legitimate when the kill came before the first one sent
+      // anything (it then sends the only release); when the release had already
+      // landed, a second attempt must find the receipt and send nothing.
+      if ((settled.relayer?.attempts ?? 0) > 1) {
+        if (receiptAtKill !== null) expect(settled.relayer?.lastError ?? "").toMatch(/receipt exists|already settled on chain/);
+        else expect(Boolean(settled.relayer?.lastTx || settled.relayer?.lastError)).toBe(true);
+      }
       expect(await tokenBalance(conn, freshAta)).toBe(unit);
       expect(rc).toEqual({ version: 1, withdrawalId: wid, recipientOwner: fresh.toBase58(), amount: unit });
       // Exactly one release: the vault moved by exactly 1, the fresh account holds exactly 1.
