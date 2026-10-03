@@ -109,6 +109,8 @@ Per-adapter, you choose how `runBatcher` decides to submit:
 - `wait-receipt`: waits for the blockchain transaction receipt.
 - `wait-effectstream-processed`: waits until Effectstream has processed the resulting rollup block.
 
+When a submission is refused (a verdict on the input, not an environment failure), the input is charged a retry. Once it has used `maxRetries` (default 3) it is dropped, and a waiting `wait-receipt` / `wait-effectstream-processed` call rejects at once with the submission error. An environment failure (unreachable node, RPC or prover, timeouts, no spendable DUST) charges nothing: the input stays queued and the call keeps waiting for its receipt or its `timeoutMs`. An input that an adapter leaves out of an otherwise submitted batch (`maxBatchSize` > 1) is still reported only by the timeout.
+
 ### Midnight adapter provers
 
 `MidnightAdapterConfig.proofServer` is the wallet's prover (DUST fees, zswap balancing). Contract circuits prove there too unless `contractProofServer` is set, for example to `midnightNetworkConfig.contractProofServer` from `@effectstream/midnight-contracts/midnight-env` (`MIDNIGHT_CONTRACT_PROOF_SERVER_URL`). Use it when the contract needs another prover than DUST, such as a compactc 0.35.0 `ed25519Verify` circuit on proof server 9.0.0-rc.8 next to a `dust/9` DUST prover.
