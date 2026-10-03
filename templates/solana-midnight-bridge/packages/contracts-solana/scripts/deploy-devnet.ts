@@ -2,7 +2,7 @@
 // Live mode: deploys the bridge to Solana devnet and writes the `solana` section
 // of a deployment file (default deployments/devnet.json). Steps:
 //   1. `solana program deploy` of build/bridge.so under a FRESH program keypair
-//      from ~/.config/effectstream-00050/ (generated there, mode 600, if absent);
+//      from the live secrets dir (generated there, mode 600, if absent);
 //   2. create a 6-decimal test mint (or use --mint <existing SPL mint>) and
 //      Initialize immediately — Initialize is first-caller-wins, so the stored
 //      operator is checked right after;
@@ -10,7 +10,8 @@
 //   4. optionally mint test tokens to the live user (solana-user.json);
 //   5. write the deployment file. It holds addresses only, never a secret.
 //
-// Secrets are read ONLY from ~/.config/effectstream-00050/ (dir 700, files 600):
+// Secrets are read ONLY from the live secrets directory, ~/.config/solana-midnight-bridge/
+// by default (BRIDGE_SECRETS_DIR overrides it; dir 700, files 600):
 //   solana-operator.json        operator = payer = upgrade + mint authority (must be funded)
 //   solana-bridge-program.json  program keypair (fresh; generated if missing)
 //   solana-user.json            optional; receives --user-tokens test tokens

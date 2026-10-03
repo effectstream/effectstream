@@ -6,8 +6,10 @@
 //   local operator and dev user are generated on first use and gitignored.
 //   They are for the local validator only and are refused on any RPC that is
 //   not local.
-// - LIVE keys live only in `~/.config/effectstream-00050/` (dir 700, files 600)
-//   and are never committed or printed.
+// - LIVE keys live only in the live secrets directory, by default
+//   `~/.config/solana-midnight-bridge/` (`BRIDGE_SECRETS_DIR` overrides it;
+//   dir 700, files 600), never inside this template, and are never committed
+//   or printed.
 //
 // Nothing here ever logs secret key bytes.
 import fs from "node:fs";
@@ -27,9 +29,21 @@ export const LOCAL_KEYS = {
   user: path.join(LOCAL_KEY_DIR, "local-user.json"),
 } as const;
 
-/** Live secrets directory (never inside the repo). */
-export function liveSecretsDir(): string {
-  return path.join(os.homedir(), ".config", "effectstream-00050");
+/**
+ * Live secrets directory: `$BRIDGE_SECRETS_DIR` when set (a leading `~/` is
+ * expanded), else `~/.config/solana-midnight-bridge/`. It must never be inside
+ * this template: live keys never live in the repository.
+ */
+export function liveSecretsDir(env: Record<string, string | undefined> = process.env): string {
+  const raw = env.BRIDGE_SECRETS_DIR?.trim();
+  const home = os.homedir();
+  const dir = raw
+    ? path.resolve(raw === "~" ? home : raw.startsWith("~/") ? path.join(home, raw.slice(2)) : raw)
+    : path.join(home, ".config", "solana-midnight-bridge");
+  if (isInside(realOrResolved(dir), realOrResolved(TEMPLATE_ROOT))) {
+    throw new Error(`BRIDGE_SECRETS_DIR ${dir} is inside the template; live secrets must live outside the repository`);
+  }
+  return dir;
 }
 
 /** Live key files, by role. */
@@ -211,8 +225,8 @@ export function assertPrivatePermissions(p: string): void {
 }
 
 /**
- * Loads a live key from `~/.config/effectstream-00050/` after checking its
- * permissions and that it is not a local (committed or template) key.
+ * Loads a live key from the live secrets directory (`liveSecretsDir()`) after
+ * checking its permissions and that it is not a local (committed or template) key.
  */
 export function loadLiveKeypair(file: string, role: string): Keypair {
   const dir = liveSecretsDir();

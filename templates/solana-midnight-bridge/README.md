@@ -160,9 +160,10 @@ burn (119 s for the whole command, most of it the CLI syncing its Midnight walle
 with its relayer against contracts you have deployed once, recorded in
 `deployments/devnet-stagenet.json` (`BRIDGE_DEPLOYMENT` selects another file).
 
-1. **Keys.** Live keys are read only from `~/.config/effectstream-00050/` (directory mode 700,
-   files 600), never from the repository: `solana-operator.json` and `solana-user.json` (Solana
-   CLI keypair files), `midnight-operator.seed` and `midnight-user.seed` (32-byte hex seeds).
+1. **Keys.** Live keys are read only from `~/.config/solana-midnight-bridge/` (directory mode
+   700, files 600; `BRIDGE_SECRETS_DIR` points at another directory outside the repository),
+   never from the repository: `solana-operator.json` and `solana-user.json` (Solana CLI keypair
+   files), `midnight-operator.seed` and `midnight-user.seed` (32-byte hex seeds).
    Every script refuses the committed local program key and the public dev keys on a real
    network.
 2. **Funds.** The Solana operator pays the program deploy (about 1.6 SOL on devnet) and the
@@ -373,6 +374,7 @@ Local mode needs no configuration. These variables exist:
 | --- | --- | --- |
 | `BRIDGE_MODE` | `local` | Node and CLI (`local` / `live`) |
 | `BRIDGE_DEPLOYMENT` | `devnet-stagenet` | Live deployment file name or path |
+| `BRIDGE_SECRETS_DIR` | `~/.config/solana-midnight-bridge` | Live keys and seeds (dir 700, files 600; never inside the template) |
 | `SOLANA_DEVNET_RPC_URL` | `https://api.devnet.solana.com` | Live node, CLI and `deploy-devnet.ts` |
 | `SOLANA_RPC_URL` | `http://127.0.0.1:8899` | Local Solana RPC override |
 | `SOLANA_RPC_PORT`, `SOLANA_FAUCET_PORT` | `8899`, `9900` | Local validator |

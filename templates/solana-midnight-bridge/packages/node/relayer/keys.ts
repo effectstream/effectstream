@@ -3,8 +3,9 @@
 //          local-operator.json, gitignored) and the public dev Midnight seed
 //          0x…01; both refused unless the Solana RPC and the Midnight
 //          endpoints are local.
-//   live   ~/.config/effectstream-00050/solana-operator.json and
-//          midnight-operator.seed (dir 700, files 600). Never from the repo.
+//   live   solana-operator.json and midnight-operator.seed from the live
+//          secrets directory (~/.config/solana-midnight-bridge/, or
+//          $BRIDGE_SECRETS_DIR; dir 700, files 600). Never from the repo.
 // The Solana operator must be the one the deployment recorded on both chains
 // (the program's config and the contract's sealed operatorKey).
 import type { Keypair } from "@solana/web3.js";

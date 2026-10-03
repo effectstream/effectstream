@@ -9,8 +9,9 @@
 // They are public, so they are refused on anything but loopback endpoints
 // (FR-009).
 //
-// LIVE mode (stagenet) reads 32-byte hex seeds ONLY from
-// ~/.config/effectstream-00050/ (dir 700, files 600):
+// LIVE mode reads 32-byte hex seeds ONLY from the live secrets directory,
+// `~/.config/solana-midnight-bridge/` by default (`BRIDGE_SECRETS_DIR`
+// overrides it; dir 700, files 600; the same directory as the Solana keys):
 //   midnight-operator.seed, midnight-user.seed
 // or from an explicit `--seed-file` with the same permission rules.
 //
@@ -19,7 +20,6 @@
 // seed, and `deployMidnightContract` stops a wallet handed to it, so callers
 // rebuild after a deploy.
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { Buffer } from "node:buffer";
 import { HDWallet, Roles } from "@midnightntwrk/wallet-sdk-hd";
@@ -30,6 +30,7 @@ import {
   type WalletResult,
 } from "@effectstream/midnight-contracts";
 import { formatShieldedAddress } from "@effectstream/midnight-contracts/shielded-address";
+import { liveSecretsDir } from "@solana-midnight-bridge/contracts-solana/keys";
 import { isLoopbackUrl, type BridgeMidnightMode, type BridgeMidnightUrls } from "./network.ts";
 
 export type MidnightRole = "operator" | "user" | "user2";
@@ -50,8 +51,9 @@ export function localDevSeed(role: MidnightRole): string {
   return DEV_SEEDS[role];
 }
 
+/** The live secrets directory (shared with the Solana keys; `BRIDGE_SECRETS_DIR` overrides it). */
 export function liveMidnightSecretsDir(): string {
-  return path.join(os.homedir(), ".config", "effectstream-00050");
+  return liveSecretsDir();
 }
 
 export function liveSeedPath(role: Exclude<MidnightRole, "user2">): string {
@@ -82,7 +84,7 @@ export function readSeedFile(file: string): string {
 /**
  * The seed for `role` in `mode`:
  * - local: `seedFile` if given, else the public dev seed;
- * - stagenet: `seedFile` if given, else ~/.config/effectstream-00050/midnight-<role>.seed.
+ * - live (`stagenet` mode): `seedFile` if given, else <live secrets dir>/midnight-<role>.seed.
  * Dev seeds are refused unless every endpoint is loopback.
  */
 export function resolveSeed(

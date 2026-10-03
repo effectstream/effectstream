@@ -12,7 +12,7 @@
 //   - PGLite and the bridge node (sync + state machine + API + relayer),
 //     `packages/node/main.ts live`. Solana RPC from SOLANA_DEVNET_RPC_URL
 //     (default the public devnet RPC); operator keys only from
-//     ~/.config/effectstream-00050/ (never from the repo).
+//     ~/.config/solana-midnight-bridge/ or $BRIDGE_SECRETS_DIR (never from the repo).
 import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 import { DbNames, launchPglite } from "@effectstream/orchestrator/launch-pglite";

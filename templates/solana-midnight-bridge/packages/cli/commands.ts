@@ -9,7 +9,8 @@
 //   status       a table of transfers from the node's API
 //
 // Keys: local mode uses the local dev keys (refused off-loopback); live mode
-// reads ~/.config/effectstream-00050/ (or an explicit --keypair / --seed-file
+// reads the live secrets directory, ~/.config/solana-midnight-bridge/ unless
+// BRIDGE_SECRETS_DIR says otherwise (or an explicit --keypair / --seed-file
 // with 600 permissions). Nothing here prints key material.
 import fs from "node:fs";
 import { Connection, PublicKey, type Keypair } from "@solana/web3.js";

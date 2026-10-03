@@ -37,12 +37,17 @@ import {
   assertLocalRpc,
   checkLiveDeployKeys,
   extraLocalRpcHosts,
+  TEMPLATE_ROOT,
   isLocalRpcUrl,
   isLoopbackRpcUrl,
+  liveKeyPaths,
+  liveSecretsDir,
+  loadLiveKeypair,
   readKeypairFile,
   redactRpcUrl,
   writeKeypairFile,
 } from "@solana-midnight-bridge/contracts-solana/keys";
+import { liveSeedPath, readSeedFile } from "@solana-midnight-bridge/contracts-midnight/wallets";
 import { readDeployment, writeDeploymentSection } from "@solana-midnight-bridge/contracts-solana/deployments";
 
 const programId = new PublicKey(LOCAL_BRIDGE_PROGRAM_ID);
@@ -289,6 +294,52 @@ describe("FR-009: local keys stay local, live keys stay out of the repo", () => 
       fs.writeFileSync(path.join(dir, "bad.json"), JSON.stringify([1, 2, 3]));
       expect(() => readKeypairFile(path.join(dir, "bad.json"))).toThrow(/64-byte/);
     } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("live secrets dir: ~/.config/solana-midnight-bridge by default, BRIDGE_SECRETS_DIR overrides it (Q18)", () => {
+    expect(liveSecretsDir({})).toBe(path.join(os.homedir(), ".config", "solana-midnight-bridge"));
+    expect(liveSecretsDir({ BRIDGE_SECRETS_DIR: "  " })).toBe(path.join(os.homedir(), ".config", "solana-midnight-bridge"));
+    expect(liveSecretsDir({ BRIDGE_SECRETS_DIR: "~/bridge-keys" })).toBe(path.join(os.homedir(), "bridge-keys"));
+    // Never inside the template (the repository).
+    expect(() => liveSecretsDir({ BRIDGE_SECRETS_DIR: path.join(TEMPLATE_ROOT, "secrets") })).toThrow(/inside the template/);
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bridge-secrets-")); // mode 700
+    const saved = process.env.BRIDGE_SECRETS_DIR;
+    try {
+      process.env.BRIDGE_SECRETS_DIR = dir;
+      expect(liveSecretsDir()).toBe(dir);
+      const keys = liveKeyPaths();
+      expect(keys.dir).toBe(dir);
+      expect(keys.operator).toBe(path.join(dir, "solana-operator.json"));
+      expect(keys.program).toBe(path.join(dir, "solana-bridge-program.json"));
+      // The Midnight seeds live in the same directory.
+      expect(liveSeedPath("operator")).toBe(path.join(dir, "midnight-operator.seed"));
+      expect(liveSeedPath("user")).toBe(path.join(dir, "midnight-user.seed"));
+
+      const op = Keypair.generate();
+      writeKeypairFile(keys.operator, op);
+      expect(loadLiveKeypair(keys.operator, "operator").publicKey.equals(op.publicKey)).toBe(true);
+      fs.writeFileSync(liveSeedPath("user"), "ab".repeat(32) + "\n", { mode: 0o600 });
+      expect(readSeedFile(liveSeedPath("user"))).toBe("ab".repeat(32));
+      // A key outside the secrets dir is refused; 700/600 are still enforced.
+      const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "bridge-elsewhere-"));
+      try {
+        writeKeypairFile(path.join(elsewhere, "k.json"), Keypair.generate());
+        expect(() => loadLiveKeypair(path.join(elsewhere, "k.json"), "operator")).toThrow(/must live in/);
+      } finally {
+        fs.rmSync(elsewhere, { recursive: true, force: true });
+      }
+      fs.chmodSync(keys.operator, 0o644);
+      expect(() => loadLiveKeypair(keys.operator, "operator")).toThrow(/chmod 600/);
+      fs.chmodSync(keys.operator, 0o600);
+      fs.chmodSync(dir, 0o755);
+      expect(() => loadLiveKeypair(keys.operator, "operator")).toThrow(/chmod 700/);
+      expect(() => readSeedFile(liveSeedPath("user"))).toThrow(/chmod 700/);
+    } finally {
+      if (saved === undefined) delete process.env.BRIDGE_SECRETS_DIR;
+      else process.env.BRIDGE_SECRETS_DIR = saved;
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });

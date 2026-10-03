@@ -19,6 +19,6 @@ test-ledger/
 # program id stays deterministic: its secret is public, it is for the local
 # validator only, and deploy-devnet.ts refuses it. Every OTHER keypair —
 # including the generated local-operator.json / local-user.json — stays out.
-# Live keys never live in the repo (~/.config/effectstream-00050/).
+# Live keys never live in the repo (~/.config/solana-midnight-bridge/ or $BRIDGE_SECRETS_DIR).
 keypair/*.json
 !keypair/bridge-program.json

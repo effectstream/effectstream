@@ -134,7 +134,7 @@ export type DeployOptions = {
   out?: string;
   /** Deploy even when the recorded contract still exists on chain. */
   force?: boolean;
-  /** Wallet seed file (default: the dev seed locally, ~/.config/effectstream-00050/midnight-operator.seed live). */
+  /** Wallet seed file (default: the dev seed locally, <live secrets dir>/midnight-operator.seed live). */
   seedFile?: string;
 };
 
