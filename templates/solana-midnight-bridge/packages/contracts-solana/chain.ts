@@ -124,3 +124,34 @@ export async function airdropAtLeast(
     throw new Error(`airdrop to ${pubkey.toBase58()} stalled at ${have} lamports`);
   }
 }
+
+/**
+ * The result of `solana program deploy … --output json`. The Agave CLI (3.0.14)
+ * pretty-prints it over several lines:
+ *   {
+ *     "programId": "<base58>",
+ *     "signature": "<base58>"
+ *   }
+ * so the whole JSON object is parsed, not its last line (PR-2 T7, F-T7.3a).
+ * Text the CLI may print before it is skipped: the object starts at the last
+ * line that begins with "{".
+ */
+export function parseProgramDeployOutput(stdout: string): { programId?: string; signature?: string } {
+  const text = stdout.trim();
+  const lines = text.split("\n");
+  let start = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i]!.startsWith("{")) {
+      start = i;
+      break;
+    }
+  }
+  if (start < 0) throw new Error(`no JSON object in the solana CLI output: ${JSON.stringify(text.slice(0, 200))}`);
+  const parsed = JSON.parse(lines.slice(start).join("\n")) as unknown;
+  if (typeof parsed !== "object" || parsed === null) throw new Error("the solana CLI output is not a JSON object");
+  const o = parsed as Record<string, unknown>;
+  return {
+    ...(typeof o.programId === "string" ? { programId: o.programId } : {}),
+    ...(typeof o.signature === "string" ? { signature: o.signature } : {}),
+  };
+}

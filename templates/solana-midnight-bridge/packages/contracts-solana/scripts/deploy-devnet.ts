@@ -55,7 +55,7 @@ import {
   deriveBridgeAddresses,
   findConfigAddress,
 } from "../instructions.ts";
-import { fetchBridgeConfig, sendTx } from "../chain.ts";
+import { fetchBridgeConfig, parseProgramDeployOutput, sendTx } from "../chain.ts";
 import {
   PACKAGE_DIR,
   assertPrivatePermissions,
@@ -250,7 +250,7 @@ async function main() {
       const scrub = (s: string) => s.split(rpcUrl).join(redactRpcUrl(rpcUrl));
       throw new Error(`solana program deploy failed (exit ${res.status}):\n${scrub(res.stderr ?? "")}\n${scrub(res.stdout ?? "")}`);
     }
-    const out = JSON.parse(res.stdout.trim().split("\n").pop() ?? "{}") as { programId?: string; signature?: string };
+    const out = parseProgramDeployOutput(res.stdout ?? "");
     if (out.programId !== programId!.toBase58()) {
       throw new Error(`deploy reported program ${out.programId}, expected ${programId!.toBase58()}`);
     }

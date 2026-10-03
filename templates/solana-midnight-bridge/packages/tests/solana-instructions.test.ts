@@ -31,7 +31,7 @@ import {
   splitRecipientHex,
   u64le,
 } from "@solana-midnight-bridge/contracts-solana/instructions";
-import { customErrorOf, sendTx } from "@solana-midnight-bridge/contracts-solana/chain";
+import { customErrorOf, parseProgramDeployOutput, sendTx } from "@solana-midnight-bridge/contracts-solana/chain";
 import {
   LOCAL_KEYS,
   assertLocalRpc,
@@ -443,5 +443,30 @@ describe("local validator ledger size (Q22/Q23)", () => {
     // Set: no option is passed, so the engine's run() reads and validates the variable.
     expect(localLimitLedgerSize({ SOLANA_LIMIT_LEDGER_SIZE: "50000000" })).toBeUndefined();
     expect(localLimitLedgerSize({ SOLANA_LIMIT_LEDGER_SIZE: "nope" })).toBeUndefined();
+  });
+});
+
+describe("deploy-devnet: the solana CLI's deploy output (F-T7.3a)", () => {
+  // Byte for byte what Agave 3.0.14 `solana program deploy … --output json` printed on the
+  // T7 stand-in validator (throwaway program; evidence pr2/t7/t7.3-cli-deploy-output-fixture.log).
+  const AGAVE_3_0_14_STDOUT =
+    '{\n  "programId": "HPcsVaaWUaeB58euk8ekCroQBpK7vgeoPWzTUnEJM527",\n' +
+    '  "signature": "2AVRoKTkShRqySTmdEi4s1KpKSFYjfAftvx1mTSdTSY1GPZBFM9MCCBKqp7UU6swhXPMhgLhEscgeQHAHtpptXHj"\n}\n';
+  const expected = {
+    programId: "HPcsVaaWUaeB58euk8ekCroQBpK7vgeoPWzTUnEJM527",
+    signature: "2AVRoKTkShRqySTmdEi4s1KpKSFYjfAftvx1mTSdTSY1GPZBFM9MCCBKqp7UU6swhXPMhgLhEscgeQHAHtpptXHj",
+  };
+
+  test("the multi-line JSON the CLI prints is parsed whole (its last line alone is just '}')", () => {
+    expect(() => JSON.parse(AGAVE_3_0_14_STDOUT.trim().split("\n").pop()!)).toThrow(); // the old parsing
+    expect(parseProgramDeployOutput(AGAVE_3_0_14_STDOUT)).toEqual(expected);
+  });
+
+  test("single-line JSON, leading text, a missing signature, and garbage", () => {
+    expect(parseProgramDeployOutput(JSON.stringify(expected))).toEqual(expected);
+    expect(parseProgramDeployOutput("Waiting for confirmation...\n" + AGAVE_3_0_14_STDOUT)).toEqual(expected);
+    expect(parseProgramDeployOutput('{\n  "programId": "HPcsVaaWUaeB58euk8ekCroQBpK7vgeoPWzTUnEJM527"\n}')).toEqual({ programId: expected.programId });
+    expect(() => parseProgramDeployOutput("Error: something")).toThrow(/no JSON object/);
+    expect(() => parseProgramDeployOutput("{ not json")).toThrow();
   });
 });
