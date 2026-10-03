@@ -15,8 +15,8 @@ import { dirname, resolve } from "node:path";
 import { MidnightAdapter, type DefaultBatcherInput } from "@effectstream/batcher-sdk";
 import {
   buildWalletFacade,
-  registerNightForDust,
   syncAndWaitForFunds,
+  waitForDustFunds,
   type WalletResult,
 } from "@effectstream/midnight-contracts";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
@@ -152,7 +152,22 @@ export async function runThirdPartyShieldedMint(): Promise<ThirdPartyMintResult>
     // The minter pays DUST fees with the genesis wallet, as the other triggers do.
     minterWallet = await buildWalletFacade(networkUrls, midnightNetworkConfig.walletSeed, networkId);
     await syncAndWaitForFunds(minterWallet.wallet);
-    if (!(await registerNightForDust(minterWallet))) {
+    // The genesis wallet holds DUST from genesis. Wait for spendable DUST the
+    // way MidnightAdapter.ensureWalletFunds does. registerNightForDust is not a
+    // usable check here: by this phase trigger-token-mints has minted a custom
+    // unshielded token to this wallet, and registerNightForDust treats every
+    // unregistered unshielded UTXO as NIGHT, so its registration fails with
+    // "Token of a non-Night type received" and it returns false.
+    let dustReady = false;
+    try {
+      dustReady = (await waitForDustFunds(minterWallet.wallet, {
+        timeoutMs: 180_000,
+        waitNonZero: true,
+      })).ready;
+    } catch {
+      dustReady = false;
+    }
+    if (!dustReady) {
       throw new Error("minter wallet has no spendable DUST");
     }
 
