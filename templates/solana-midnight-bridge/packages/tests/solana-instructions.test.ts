@@ -49,6 +49,10 @@ import {
 } from "@solana-midnight-bridge/contracts-solana/keys";
 import { liveSeedPath, readSeedFile } from "@solana-midnight-bridge/contracts-midnight/wallets";
 import { readDeployment, writeDeploymentSection } from "@solana-midnight-bridge/contracts-solana/deployments";
+import {
+  DEFAULT_SOLANA_LIMIT_LEDGER_SIZE,
+  localLimitLedgerSize,
+} from "@solana-midnight-bridge/contracts-solana/dev-config";
 
 const programId = new PublicKey(LOCAL_BRIDGE_PROGRAM_ID);
 const mint = new PublicKey("H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w");
@@ -401,3 +405,14 @@ describe("sendTx returns a landed failure (F-T6.5)", () => {
   });
 });
 
+describe("local validator ledger size (Q22/Q23)", () => {
+  test("chain:start keeps 5,000,000 shreds unless SOLANA_LIMIT_LEDGER_SIZE is set", () => {
+    expect(DEFAULT_SOLANA_LIMIT_LEDGER_SIZE).toBe(5_000_000);
+    expect(localLimitLedgerSize({})).toBe(5_000_000);
+    expect(localLimitLedgerSize({ SOLANA_LIMIT_LEDGER_SIZE: "" })).toBe(5_000_000);
+    expect(localLimitLedgerSize({ SOLANA_LIMIT_LEDGER_SIZE: "  " })).toBe(5_000_000);
+    // Set: no option is passed, so the engine's run() reads and validates the variable.
+    expect(localLimitLedgerSize({ SOLANA_LIMIT_LEDGER_SIZE: "50000000" })).toBeUndefined();
+    expect(localLimitLedgerSize({ SOLANA_LIMIT_LEDGER_SIZE: "nope" })).toBeUndefined();
+  });
+});

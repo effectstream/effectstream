@@ -13,6 +13,8 @@ declare module "@effectstream/solana-node" {
     /** Defaults to $SOLANA_BIND_ADDRESS or 127.0.0.1 (Agave 3.0.14 panics on 0.0.0.0). */
     bindAddress?: string;
     bpfPrograms?: { address: string; soPath: string }[];
+    /** `--limit-ledger-size` (data shreds kept); falls back to $SOLANA_LIMIT_LEDGER_SIZE, else the validator default. */
+    limitLedgerSize?: number;
   };
 
   export type RunResult = {
@@ -21,6 +23,8 @@ declare module "@effectstream/solana-node" {
     ledgerDir: string;
     rpcPort: number;
     faucetPort: number;
+    /** The --limit-ledger-size value passed, or undefined (validator default). */
+    limitLedgerSize?: number;
     stop: () => void;
   };
 

@@ -365,6 +365,13 @@ The queries are in `packages/database/sql/queries.sql`.
 - **The local validator's RPC is reachable from your network.** `solana-test-validator` (Agave
   3.0.14) listens for JSON-RPC and faucet requests on every interface; `--bind-address` only
   covers gossip. Its coins are worthless, but do not run `bun run dev` on an untrusted network.
+- **The local validator keeps about the last 5-6 hours of slots, and up to ~12 GB of disk.**
+  `chain:start` passes `--limit-ledger-size 5000000` (data shreds). An idle validator writes about
+  100 shreds (~0.25 MB of ledger) per slot, so its ledger grows by ~2 GB an hour until the limit,
+  then older blocks are purged. A wiped database can re-sync only while the deployment's start
+  slot is still kept; restart the stack (the ledger is reset by default) after that. Set
+  `SOLANA_LIMIT_LEDGER_SIZE` for more history (more disk) or less disk. Agave's own default,
+  10,000 shreds, keeps only a few dozen slots and stalls the node's Solana sync.
 
 ## Configuration
 
@@ -379,6 +386,7 @@ Local mode needs no configuration. These variables exist:
 | `SOLANA_RPC_URL` | `http://127.0.0.1:8899` | Local Solana RPC override |
 | `SOLANA_RPC_PORT`, `SOLANA_FAUCET_PORT` | `8899`, `9900` | Local validator |
 | `SOLANA_RESET` | `true` | `false` keeps the local ledger across restarts |
+| `SOLANA_LIMIT_LEDGER_SIZE` | `5000000` | Local validator `--limit-ledger-size` (data shreds kept, about 100 per slot) |
 | `BRIDGE_LOCAL_RPC_HOSTS` | empty | Extra hosts treated as local (e.g. a Docker sibling validator) |
 | `SKIP_SOLANA_BUILD` | `1` | `0` forces a native rebuild of the program |
 | `MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS`, `MIDNIGHT_NODE_HTTP` | per mode | Midnight endpoints |
@@ -452,10 +460,9 @@ bun run test
     refusals and a burn with change.
 
   The stack is shut down afterwards. Per-process logs and `e2e-report.json` (timings, balances,
-  transaction ids) go to `logs/e2e-<timestamp>/`. The local validator keeps only its most recent
-  blocks once its ledger cleanup starts (about 20-25 minutes after it starts), so the re-sync runs
-  early in the suite and the test stack's node trails the Solana tip by 4 slots instead of 32
-  (`BRIDGE_SOLANA_CONFIRMATION_DEPTH` in `start.test.ts`). This phase needs proof server
+  transaction ids) go to `logs/e2e-<timestamp>/`. The local validator keeps 5-6 hours of slots
+  (`SOLANA_LIMIT_LEDGER_SIZE`), far more than the suite needs; the re-sync still runs early in
+  the suite, so it also holds with a small limit. This phase needs proof server
   9.0.0-rc.8: Docker, or a running one at
   `MIDNIGHT_CONTRACT_PROOF_SERVER_URL`. Without either it is skipped with a message, and
   `contract.test.ts` skips too unless a devnet with both provers is already running.

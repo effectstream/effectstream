@@ -18,8 +18,9 @@
 //   US4b  the node is stopped, PGLite is wiped (it is in-memory: restarting it
 //         empties it) and the node restarts from the deployment start heights:
 //         every transfer comes back `completed` and nothing is sent on chain.
-//         It runs early: the local validator purges its old blocks about 24
-//         minutes after it starts (questions file Q22).
+//         It runs early, so it also holds with a small SOLANA_LIMIT_LEDGER_SIZE:
+//         a validator that purges its old blocks cannot re-serve the start slot
+//         (questions file Q22; the template's default keeps ~5-6 h of slots, Q23).
 //   US4a  the relayer (the `sync` process) is killed with SIGKILL after the
 //         transfer is `submitted` and before it is `completed`, then restarted:
 //         (1) killed while the mint is still being proved, (2) killed after the
@@ -624,9 +625,11 @@ describe.skipIf(skipReason !== null)("solana-midnight-bridge end to end (local s
   });
 
   // ── US4 (b): wipe PGLite and re-sync ──────────────────────────────────────
-  // Runs BEFORE the kill/restart tests: the local validator purges its old
-  // blocks about 24 minutes after it starts (default --limit-ledger-size, Q22),
-  // after which the deployment's start slot can no longer be re-read.
+  // Runs BEFORE the kill/restart tests: a validator started with a small
+  // --limit-ledger-size purges its old blocks (Agave's default did so ~24 min
+  // after the start, Q22), after which the deployment's start slot can no
+  // longer be re-read. The template's default (5,000,000 shreds, Q23) keeps
+  // ~5-6 h of slots.
 
   test("US4 (b): node stopped, PGLite wiped, re-sync from the deployment start heights → every transfer completed, nothing sent", async () => {
     const firstAvailable = await conn.getFirstAvailableBlock();
