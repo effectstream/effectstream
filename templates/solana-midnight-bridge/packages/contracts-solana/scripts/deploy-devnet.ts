@@ -23,6 +23,11 @@
 //       [--max-len-multiplier <n>] [--upgrade]
 //   --check   run every key, cluster and balance check, then stop (no transaction).
 //
+// The cluster must be devnet (checked by its genesis hash), unless
+// SOLANA_EXPECTED_GENESIS_HASH names the genesis of another cluster to deploy
+// to (e.g. a separately started test validator standing in for devnet);
+// mainnet-beta is always refused.
+//
 // The RPC URL may carry an API key: it is only ever printed or written redacted.
 import fs from "node:fs";
 import path from "node:path";
@@ -54,8 +59,8 @@ import { fetchBridgeConfig, sendTx } from "../chain.ts";
 import {
   PACKAGE_DIR,
   assertPrivatePermissions,
+  checkDeployCluster,
   checkLiveDeployKeys,
-  isLoopbackRpcUrl,
   liveKeyPaths,
   loadLiveKeypair,
   redactRpcUrl,
@@ -70,11 +75,6 @@ import {
 const DEFAULT_RPC = "https://api.devnet.solana.com";
 const SO_PATH = path.join(PACKAGE_DIR, "build", "bridge.so");
 const BPF_UPGRADEABLE_LOADER = new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111");
-const GENESIS = {
-  devnet: "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
-  testnet: "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY",
-  mainnet: "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
-} as const;
 
 type Args = {
   check: boolean;
@@ -195,12 +195,7 @@ async function main() {
   // ── cluster ─────────────────────────────────────────────────────────────
   const conn = new Connection(rpcUrl, "confirmed");
   const genesis = await conn.getGenesisHash();
-  const cluster =
-    genesis === GENESIS.devnet ? "devnet" : genesis === GENESIS.testnet ? "testnet" : genesis === GENESIS.mainnet ? "mainnet-beta" : "unknown";
-  if (cluster === "mainnet-beta") throw new Error("refusing to deploy the POC bridge to mainnet-beta");
-  if (cluster !== "devnet" && !isLoopbackRpcUrl(rpcUrl)) {
-    throw new Error(`expected Solana devnet (genesis ${GENESIS.devnet}), got ${genesis}`);
-  }
+  const cluster = checkDeployCluster({ rpcUrl, genesis, expectedGenesis: process.env.SOLANA_EXPECTED_GENESIS_HASH });
   log(`cluster ${cluster} (genesis ${genesis}), solana-core ${(await conn.getVersion())["solana-core"]}`);
 
   // ── program binary and funding ──────────────────────────────────────────

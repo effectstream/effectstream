@@ -1,4 +1,9 @@
-// Live orchestrator: `bun run live` — Solana devnet + Midnight stagenet.
+// Live orchestrator: `bun run live` — Solana devnet + Midnight stagenet by
+// default. Live mode only ever reaches chains through endpoints: another
+// cluster/network (for example separately started local stand-ins) is selected
+// with SOLANA_DEVNET_RPC_URL (+ SOLANA_EXPECTED_GENESIS_HASH for the deploy),
+// MIDNIGHT_NETWORK_ID and the MIDNIGHT_INDEXER_HTTP/WS / MIDNIGHT_NODE_HTTP
+// endpoints, and BRIDGE_DEPLOYMENT.
 //
 // No local chains run in live mode. The contracts are deployed once by
 //   packages/contracts-solana/scripts/deploy-devnet.ts --out devnet-stagenet   (solana section)
@@ -85,7 +90,7 @@ export default {
 
     {
       name: LiveProcessNames.SYNC,
-      description: "Bridge node (live): sync devnet + stagenet, state machine, API, relayer",
+      description: "Bridge node (live): sync both chains, state machine, API, relayer",
       args: ["run", "packages/node/main.ts", "live"],
       waitToExit: false,
       type: "system-dependency",

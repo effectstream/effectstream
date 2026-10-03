@@ -188,6 +188,11 @@ bun run bridge:status --mode live
 deploy initializes the program right after deploying it, because `Initialize` is
 first-caller-wins, and checks the stored operator.
 
+Live mode reaches both chains only through endpoints, so it can target other networks:
+`SOLANA_DEVNET_RPC_URL` with `SOLANA_EXPECTED_GENESIS_HASH` for the Solana deploy, and
+`MIDNIGHT_NETWORK_ID` with `MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS` and `MIDNIGHT_NODE_HTTP`
+for Midnight (see Configuration).
+
 > [!NOTE]
 > PLACEHOLDER(T7 live run, not done yet): the live deployment and the first round trip on
 > Solana devnet + Midnight stagenet will be recorded here.
@@ -383,6 +388,8 @@ Local mode needs no configuration. These variables exist:
 | `BRIDGE_DEPLOYMENT` | `devnet-stagenet` | Live deployment file name or path |
 | `BRIDGE_SECRETS_DIR` | `~/.config/solana-midnight-bridge` | Live keys and seeds (dir 700, files 600; never inside the template) |
 | `SOLANA_DEVNET_RPC_URL` | `https://api.devnet.solana.com` | Live node, CLI and `deploy-devnet.ts` |
+| `SOLANA_EXPECTED_GENESIS_HASH` | unset (devnet required) | `deploy-devnet.ts` deploys to the cluster with this genesis instead of devnet (mainnet-beta is always refused) |
+| `MIDNIGHT_NETWORK_ID` | `stagenet` | Live Midnight network; another id needs the three Midnight endpoint variables below (mainnet is refused) |
 | `SOLANA_RPC_URL` | `http://127.0.0.1:8899` | Local Solana RPC override |
 | `SOLANA_RPC_PORT`, `SOLANA_FAUCET_PORT` | `8899`, `9900` | Local validator |
 | `SOLANA_RESET` | `true` | `false` keeps the local ledger across restarts |

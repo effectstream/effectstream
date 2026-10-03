@@ -276,3 +276,42 @@ export function checkLiveDeployKeys(args: {
     throw new Error("the operator key and the program key must differ");
   }
 }
+
+// ── Live cluster ─────────────────────────────────────────────────────────────
+
+/** Genesis hashes of the public Solana clusters. */
+export const SOLANA_GENESIS = {
+  devnet: "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  testnet: "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY",
+  "mainnet-beta": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+} as const;
+
+/**
+ * The cluster check `deploy-devnet.ts` runs before any transaction; returns the
+ * cluster label written to the deployment file:
+ * - mainnet-beta is always refused (this bridge is a proof of concept);
+ * - with `expectedGenesis` (SOLANA_EXPECTED_GENESIS_HASH) the cluster must have
+ *   exactly that genesis: this is how live mode targets a cluster other than
+ *   devnet, e.g. a separately started test validator standing in for devnet
+ *   (PR-2 T7). The label is the public cluster's name, else "custom";
+ * - otherwise devnet is required, except on a loopback RPC (the test seam,
+ *   labelled "unknown").
+ */
+export function checkDeployCluster(args: { rpcUrl: string; genesis: string; expectedGenesis?: string }): string {
+  const known = (Object.keys(SOLANA_GENESIS) as (keyof typeof SOLANA_GENESIS)[]).find((k) => SOLANA_GENESIS[k] === args.genesis);
+  if (known === "mainnet-beta") throw new Error("refusing to deploy the POC bridge to mainnet-beta");
+  const expected = args.expectedGenesis?.trim();
+  if (expected) {
+    if (args.genesis !== expected) {
+      throw new Error(`SOLANA_EXPECTED_GENESIS_HASH is ${expected}, but ${redactRpcUrl(args.rpcUrl)} has genesis ${args.genesis}`);
+    }
+    return known ?? "custom";
+  }
+  if (known !== "devnet" && !isLoopbackRpcUrl(args.rpcUrl)) {
+    throw new Error(
+      `expected Solana devnet (genesis ${SOLANA_GENESIS.devnet}), got ${args.genesis}; ` +
+        `set SOLANA_EXPECTED_GENESIS_HASH to deploy to another cluster`,
+    );
+  }
+  return known ?? "unknown";
+}

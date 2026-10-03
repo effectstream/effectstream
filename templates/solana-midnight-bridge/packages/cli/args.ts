@@ -4,6 +4,7 @@
 // recipients for another network are refused up front.
 import { PublicKey } from "@solana/web3.js";
 import { parseShieldedAddress, ShieldedAddressError } from "@effectstream/midnight-contracts/shielded-address";
+import { liveMidnightNetworkId } from "@solana-midnight-bridge/contracts-midnight/network";
 
 export class CliArgError extends Error {
   override name = "CliArgError";
@@ -13,9 +14,9 @@ export type CliMode = "local" | "live";
 
 const U64_MAX = 0xffff_ffff_ffff_ffffn;
 
-/** Midnight network id the CLI expects recipients for, per mode. */
+/** Midnight network id the CLI expects recipients for, per mode (live: MIDNIGHT_NETWORK_ID, default stagenet). */
 export function midnightNetworkFor(mode: CliMode): string {
-  return mode === "local" ? "undeployed" : "stagenet";
+  return mode === "local" ? "undeployed" : liveMidnightNetworkId();
 }
 
 /**

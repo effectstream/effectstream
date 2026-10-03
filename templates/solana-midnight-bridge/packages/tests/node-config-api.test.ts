@@ -73,6 +73,45 @@ describe("loadBridgeNodeSettings (live)", () => {
     process.env.BRIDGE_DEPLOYMENT = deploymentFile({ midnight: { networkId: "preprod" } });
     expect(() => loadBridgeNodeSettings("live")).toThrow(/is for Midnight network preprod/);
   });
+
+  test("live mode on another network (PR-2 T7 stand-ins): network id and endpoints from the environment", () => {
+    const keys = ["MIDNIGHT_NETWORK_ID", "MIDNIGHT_INDEXER_HTTP", "MIDNIGHT_INDEXER_WS", "MIDNIGHT_NODE_HTTP", "SOLANA_DEVNET_RPC_URL"] as const;
+    const env0 = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+    try {
+      for (const k of keys) delete process.env[k];
+      process.env.BRIDGE_DEPLOYMENT = deploymentFile({
+        solana: { cluster: "custom", rpcUrl: "http://solana-validator:8899" },
+        midnight: { networkId: "undeployed", indexer: "http://midnight-indexer:8088" },
+      });
+      // Without MIDNIGHT_NETWORK_ID the node targets stagenet and refuses the file.
+      expect(() => loadBridgeNodeSettings("live")).toThrow(/is for Midnight network undeployed, the node targets stagenet/);
+      // Another network never falls back to the stagenet endpoints.
+      process.env.MIDNIGHT_NETWORK_ID = "undeployed";
+      expect(() => loadBridgeNodeSettings("live")).toThrow(/MIDNIGHT_NETWORK_ID=undeployed needs MIDNIGHT_INDEXER_HTTP, MIDNIGHT_INDEXER_WS, MIDNIGHT_NODE_HTTP/);
+      process.env.MIDNIGHT_INDEXER_HTTP = "http://midnight-indexer:8088/api/v4/graphql";
+      process.env.MIDNIGHT_INDEXER_WS = "ws://midnight-indexer:8088/api/v4/graphql/ws";
+      process.env.MIDNIGHT_NODE_HTTP = "http://midnight-node:9944";
+      process.env.SOLANA_DEVNET_RPC_URL = "http://solana-validator:8899";
+      const s = loadBridgeNodeSettings("live");
+      expect(s.midnightUrls.id).toBe("undeployed");
+      expect(s.midnightUrls.indexer).toBe("http://midnight-indexer:8088/api/v4/graphql");
+      expect(s.midnightUrls.node).toBe("http://midnight-node:9944");
+      expect(s.solanaRpcUrl).toBe("http://solana-validator:8899");
+      // A custom cluster is labelled localnet for the sync config; devnet keeps its name.
+      expect(s.solanaNetworkId).toBe("localnet");
+      // Live sync settings are unchanged (devnet-tuned, product depth 32).
+      expect(s.solanaSync.confirmationDepth).toBe(32);
+      process.env.MIDNIGHT_NETWORK_ID = "mainnet";
+      expect(() => loadBridgeNodeSettings("live")).toThrow(/mainnet/);
+      process.env.MIDNIGHT_NETWORK_ID = "Stage Net";
+      expect(() => loadBridgeNodeSettings("live")).toThrow(/not a Midnight network id/);
+    } finally {
+      for (const k of keys) {
+        if (env0[k] === undefined) delete process.env[k];
+        else process.env[k] = env0[k];
+      }
+    }
+  });
 });
 
 describe("buildBridgeConfig", () => {

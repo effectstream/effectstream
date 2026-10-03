@@ -10,7 +10,8 @@
 //
 //   local  deployments/local.json, the local validator and devnet
 //   live   deployments/$BRIDGE_DEPLOYMENT (default devnet-stagenet.json),
-//          Solana devnet via SOLANA_DEVNET_RPC_URL, Midnight stagenet
+//          Solana via SOLANA_DEVNET_RPC_URL (default devnet), Midnight
+//          stagenet, or the network MIDNIGHT_NETWORK_ID names (network.ts)
 import { Connection, PublicKey } from "@solana/web3.js";
 import {
   ConfigBuilder,
@@ -50,7 +51,7 @@ export type BridgeNodeSettings = {
   solana: SolanaDeployment;
   midnight: MidnightDeployment;
   solanaRpcUrl: string;
-  solanaNetworkId: "localnet" | "devnet";
+  solanaNetworkId: "localnet" | "devnet" | "testnet";
   midnightUrls: BridgeMidnightUrls;
   solanaSync: { confirmationDepth: number; stepSize: number; pollingInterval: number; delayMs: number };
   midnightSync: { pollingInterval: number; delayMs: number };
@@ -89,7 +90,9 @@ export function loadBridgeNodeSettings(mode: BridgeNodeMode): BridgeNodeSettings
     solana,
     midnight,
     solanaRpcUrl,
-    solanaNetworkId: mode === "local" ? "localnet" : "devnet",
+    // Informational for the sync config: the deployment's cluster when it is a
+    // public one, else localnet (a custom cluster, e.g. a stand-in validator).
+    solanaNetworkId: mode === "local" ? "localnet" : solana.cluster === "devnet" || solana.cluster === "testnet" ? solana.cluster : "localnet",
     midnightUrls: urls,
     solanaSync: mode === "local"
       ? {

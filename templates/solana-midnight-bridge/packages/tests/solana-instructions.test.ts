@@ -37,7 +37,9 @@ import {
   assertLocalRpc,
   checkLiveDeployKeys,
   extraLocalRpcHosts,
+  SOLANA_GENESIS,
   TEMPLATE_ROOT,
+  checkDeployCluster,
   isLocalRpcUrl,
   isLoopbackRpcUrl,
   liveKeyPaths,
@@ -284,6 +286,33 @@ describe("FR-009: local keys stay local, live keys stay out of the repo", () => 
     } finally {
       fs.rmSync(outside, { recursive: true, force: true });
     }
+  });
+
+  test("deploy-devnet's cluster check: devnet by default, another cluster only by its expected genesis (T7)", () => {
+    const devnetRpc = "https://api.devnet.solana.com";
+    const standin = "http://solana-validator:8899";
+    const custom = "DLh4dXTqEgtpMMDFZe2nF1BPFafHxbqL5Xp7QaGWEo74";
+    expect(checkDeployCluster({ rpcUrl: devnetRpc, genesis: SOLANA_GENESIS.devnet })).toBe("devnet");
+    // Unknown cluster on a non-loopback RPC: refused unless its genesis is named.
+    expect(() => checkDeployCluster({ rpcUrl: standin, genesis: custom })).toThrow(/expected Solana devnet.*SOLANA_EXPECTED_GENESIS_HASH/);
+    expect(checkDeployCluster({ rpcUrl: standin, genesis: custom, expectedGenesis: custom })).toBe("custom");
+    expect(checkDeployCluster({ rpcUrl: standin, genesis: custom, expectedGenesis: "  " + custom + " " })).toBe("custom");
+    expect(() => checkDeployCluster({ rpcUrl: standin, genesis: SOLANA_GENESIS.devnet, expectedGenesis: custom })).toThrow(/SOLANA_EXPECTED_GENESIS_HASH is/);
+    expect(checkDeployCluster({ rpcUrl: devnetRpc, genesis: SOLANA_GENESIS.testnet, expectedGenesis: SOLANA_GENESIS.testnet })).toBe("testnet");
+    // Loopback test seam (unchanged).
+    expect(checkDeployCluster({ rpcUrl: "http://127.0.0.1:8899", genesis: custom })).toBe("unknown");
+    // mainnet-beta: always refused, even when named.
+    for (const expectedGenesis of [undefined, SOLANA_GENESIS["mainnet-beta"]]) {
+      expect(() => checkDeployCluster({ rpcUrl: "http://127.0.0.1:8899", genesis: SOLANA_GENESIS["mainnet-beta"], expectedGenesis })).toThrow(/mainnet-beta/);
+    }
+    // The committed program key stays refused on a non-loopback stand-in RPC.
+    expect(() =>
+      checkLiveDeployKeys({
+        rpcUrl: standin,
+        operator: { file: path.join(os.tmpdir(), "op.json"), publicKey: Keypair.generate().publicKey },
+        program: { file: LOCAL_KEYS.program, publicKey: programId },
+      })
+    ).toThrow(/committed local program key/);
   });
 
   test("keypair files are written 600 and never overwritten", () => {

@@ -12,6 +12,7 @@ import { formatShieldedAddress } from "@effectstream/midnight-contracts/shielded
 import {
   CliArgError,
   formatAmount,
+  midnightNetworkFor,
   parseAmount,
   parseMidnightRecipient,
   parseSolanaRecipient,
@@ -63,6 +64,22 @@ describe("recipients", () => {
     expect(() => parseMidnightRecipient(corrupted, "local")).toThrow(CliArgError);
     expect(() => parseMidnightRecipient("mn_addr_undeployed1qqqqqq", "local")).toThrow(CliArgError);
     expect(() => parseMidnightRecipient(undefined, "local")).toThrow(/required/);
+  });
+
+  test("live mode expects recipients for MIDNIGHT_NETWORK_ID (default stagenet; PR-2 T7 stand-ins)", () => {
+    const saved = process.env.MIDNIGHT_NETWORK_ID;
+    try {
+      delete process.env.MIDNIGHT_NETWORK_ID;
+      expect(midnightNetworkFor("live")).toBe("stagenet");
+      process.env.MIDNIGHT_NETWORK_ID = "undeployed";
+      expect(midnightNetworkFor("live")).toBe("undeployed");
+      expect(midnightNetworkFor("local")).toBe("undeployed");
+      expect(parseMidnightRecipient(LOCAL_ADDR, "live").length).toBe(64);
+      expect(() => parseMidnightRecipient(STAGENET_ADDR, "live")).toThrow(/not a shielded address for network "undeployed"/);
+    } finally {
+      if (saved === undefined) delete process.env.MIDNIGHT_NETWORK_ID;
+      else process.env.MIDNIGHT_NETWORK_ID = saved;
+    }
   });
 
   test("Solana recipients must be canonical base58 public keys", () => {

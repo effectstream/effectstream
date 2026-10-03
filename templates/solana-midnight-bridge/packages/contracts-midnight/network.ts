@@ -3,14 +3,18 @@
 //   local     the orchestrator's 2.x devnet (`undeployed`): node, indexer, the
 //             DUST prover (engine rc.5, :6300) and the contract prover
 //             (9.0.0-rc.8, :6301)
-//   stagenet  Midnight stagenet (shielded.tools endpoints), with both provers
-//             running locally (start.live.ts)
+//   stagenet  live mode: Midnight stagenet (shielded.tools endpoints) by
+//             default, with both provers running locally (start.live.ts).
+//             MIDNIGHT_NETWORK_ID selects another network (for example a
+//             separately started `undeployed` 2.x devnet standing in for
+//             stagenet, PR-2 T7); its endpoints must then be set explicitly.
 //
 // Two provers, never one (00050 G0/E2): `mintFromSolana` verifies an Ed25519
 // signature in a ZKIR-v3 circuit that only 9.0.0-rc.8 proves, while DUST spends
 // on stagenet need a `dust/9` prover (rc.5/rc.6; rc.8 is `dust/10`).
 //
 // Environment overrides (same names as @effectstream/midnight-contracts):
+//   MIDNIGHT_NETWORK_ID                 (live mode only; default stagenet)
 //   MIDNIGHT_INDEXER_HTTP, MIDNIGHT_INDEXER_WS, MIDNIGHT_NODE_HTTP,
 //   MIDNIGHT_PROOF_SERVER_URL           (DUST prover)
 //   MIDNIGHT_CONTRACT_PROOF_SERVER_URL  (contract prover; when set, the
@@ -64,11 +68,32 @@ export function parseMidnightMode(value: string | undefined): BridgeMidnightMode
   throw new Error(`unknown Midnight mode "${v}" (expected "local" or "stagenet")`);
 }
 
+/**
+ * The Midnight network id of live mode: MIDNIGHT_NETWORK_ID, default
+ * "stagenet". Refuses mainnet (this bridge is a proof of concept) and anything
+ * that is not a plain lowercase id (it becomes a bech32m address prefix).
+ */
+export function liveMidnightNetworkId(e: Record<string, string | undefined> = process.env): NetworkId.NetworkId {
+  const v = e.MIDNIGHT_NETWORK_ID?.trim();
+  if (!v) return "stagenet" as NetworkId.NetworkId;
+  if (!/^[a-z][a-z0-9-]*$/.test(v)) throw new Error(`MIDNIGHT_NETWORK_ID "${v}" is not a Midnight network id`);
+  if (v === "mainnet") throw new Error("refusing MIDNIGHT_NETWORK_ID=mainnet: this bridge is a proof of concept");
+  return v as NetworkId.NetworkId;
+}
+
 /** Endpoints for `mode`, with the environment overrides applied. */
 export function midnightUrls(mode: BridgeMidnightMode): BridgeMidnightUrls {
   const d = DEFAULTS[mode];
+  const id = mode === "stagenet" ? liveMidnightNetworkId() : d.id;
+  if (id !== d.id) {
+    // Another live network: never fall back to stagenet's endpoints.
+    const missing = ["MIDNIGHT_INDEXER_HTTP", "MIDNIGHT_INDEXER_WS", "MIDNIGHT_NODE_HTTP"].filter((k) => !env(k));
+    if (missing.length > 0) {
+      throw new Error(`MIDNIGHT_NETWORK_ID=${id} needs ${missing.join(", ")} (the stagenet endpoints are only the default for stagenet)`);
+    }
+  }
   return {
-    id: d.id,
+    id,
     indexer: env("MIDNIGHT_INDEXER_HTTP") ?? d.indexer,
     indexerWS: env("MIDNIGHT_INDEXER_WS") ?? d.indexerWS,
     node: env("MIDNIGHT_NODE_HTTP") ?? d.node,
