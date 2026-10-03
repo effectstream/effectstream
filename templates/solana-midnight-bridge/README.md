@@ -193,20 +193,50 @@ Live mode reaches both chains only through endpoints, so it can target other net
 `MIDNIGHT_NETWORK_ID` with `MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS` and `MIDNIGHT_NODE_HTTP`
 for Midnight (see Configuration).
 
+#### Trying live mode on chains you run yourself
+
+To try the live path without public funds, start the chains yourself, separately from the
+template: a Midnight 2.x devnet (`midnight-node` 2.0.0-rc.4 with `CFG_PRESET=dev` and
+`indexer-standalone` 4.4.0-rc.1, network id `undeployed`) and a `solana-test-validator` with no
+program preloaded (pass `--limit-ledger-size 5000000`, as `chain:start` does). Fund fresh live
+keys from the devnet's genesis wallet (send NIGHT, then register it for DUST) and from the
+validator's faucet, and point live mode at the chains:
+
+```sh
+export BRIDGE_DEPLOYMENT=standin
+export SOLANA_DEVNET_RPC_URL=http://<validator-host>:8899
+export SOLANA_EXPECTED_GENESIS_HASH=$(solana genesis-hash --url "$SOLANA_DEVNET_RPC_URL")
+export MIDNIGHT_NETWORK_ID=undeployed
+export MIDNIGHT_NODE_HTTP=http://<node-host>:9944
+export MIDNIGHT_INDEXER_HTTP=http://<indexer-host>:8088/api/v4/graphql
+export MIDNIGHT_INDEXER_WS=ws://<indexer-host>:8088/api/v4/graphql/ws
+bun run packages/contracts-solana/scripts/deploy-devnet.ts --out standin --user-tokens 10
+MIDNIGHT_STORAGE_PASSWORD=… bun run packages/contracts-midnight/deploy.ts --mode stagenet --out standin
+bun run live
+```
+
+Off loopback, the public dev seeds and the local Solana keys are refused there as on a public
+network, so the keys must be fresh ones.
+
 > [!NOTE]
-> PLACEHOLDER(T7 live run, not done yet): the live deployment and the first round trip on
-> Solana devnet + Midnight stagenet will be recorded here.
+> Last live run (2026-10-03): against chains started this way, in Docker, with fresh keys, a real
+> `solana program deploy` and the live Midnight deploy. Bridging 1 token to Midnight completed
+> 125 s after the lock and 0.5 back completed 35 s after the burn, each with one relayer
+> attempt, and every balance reconciled. The Midnight fees were 1.81 DUST for the deploy, 0.29
+> DUST for the mint and 0.41 DUST for the burn.
+>
+> The run on the public Solana devnet + Midnight stagenet has not been done yet:
 >
 > | Item | Value |
 > | --- | --- |
-> | Solana program id (devnet) | PLACEHOLDER(T7) |
-> | SPL mint (devnet) | PLACEHOLDER(T7) |
-> | Bridge contract (stagenet) | PLACEHOLDER(T7) |
-> | Token colour (stagenet) | PLACEHOLDER(T7) |
-> | Solana lock tx | PLACEHOLDER(T7) |
-> | Midnight mint tx | PLACEHOLDER(T7) |
-> | Midnight burn tx | PLACEHOLDER(T7) |
-> | Solana release tx | PLACEHOLDER(T7) |
+> | Solana program id (devnet) | PLACEHOLDER(devnet/stagenet run pending (follow-up)) |
+> | SPL mint (devnet) | PLACEHOLDER(devnet/stagenet run pending (follow-up)) |
+> | Bridge contract (stagenet) | PLACEHOLDER(devnet/stagenet run pending (follow-up)) |
+> | Token colour (stagenet) | PLACEHOLDER(devnet/stagenet run pending (follow-up)) |
+> | Solana lock tx | PLACEHOLDER(devnet/stagenet run pending (follow-up)) |
+> | Midnight mint tx | PLACEHOLDER(devnet/stagenet run pending (follow-up)) |
+> | Midnight burn tx | PLACEHOLDER(devnet/stagenet run pending (follow-up)) |
+> | Solana release tx | PLACEHOLDER(devnet/stagenet run pending (follow-up)) |
 
 ## Project structure
 
@@ -476,9 +506,9 @@ bun run test
 
 > [!NOTE]
 > Last full run (2026-10-03, `LINK_LOCAL=1` in a linux/amd64 Docker container under emulation, with
-> the rc.8 prover as a native sibling container): unit 105/105, program 8/8,
-> end to end 14/14 (1739 s), contract 6/6 (244 s); the whole run
-> took 39 minutes.
+> the rc.8 prover as a native sibling container): unit 107/107, program 8/8,
+> end to end 14/14 (1740 s), contract 6/6 (256 s); the whole run
+> took 43 minutes, including a cold contract compile.
 >
 > PLACEHOLDER(T8.2): `LINK_LOCAL=1 bun run templates/run-template-tests.ts solana-midnight-bridge`
 > from the monorepo root, once the template is registered there.
