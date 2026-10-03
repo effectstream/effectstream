@@ -4,7 +4,8 @@
 //
 //   Solana → Midnight  observed s2m transfer → mintFromSolana signed by the
 //                      operator's Solana key, through the embedded batcher's
-//                      `midnight` adapter (with the recipient's key mapping)
+//                      `midnight` adapter (with the recipient's key mapping),
+//                      unless the lock nonce is already in mintedLocks
 //   Midnight → Solana  observed m2s transfer → [ATA idempotent, Release]
 //                      through the `solanaOperator` adapter, unless the release
 //                      receipt PDA already exists
@@ -15,6 +16,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { call, run, sleep, spawn, type Operation } from "effection";
 import { acquireDBMutex, getConnection, releaseDBMutex } from "@effectstream/db";
 import { fetchReceipt } from "@solana-midnight-bridge/contracts-solana/chain";
+import { bridgeLedgerReader } from "@solana-midnight-bridge/contracts-midnight/client";
 import type { BridgeNodeSettings } from "../config.ts";
 import { createEmbeddedBatcher } from "./batcher.ts";
 import { buildMintInput, buildReleaseInput } from "./jobs.ts";
@@ -69,12 +71,14 @@ export function* startRelayer(settings: BridgeNodeSettings): Operation<void> {
     programId: settings.solana.programId,
     mint: settings.solana.mint,
   };
+  const readLedger = bridgeLedgerReader(settings.midnightUrls);
   const relayer = new BridgeRelayer({
     db: getConnection(),
     withDb: withDbMutex,
     submitMint: (job) => embedded.submit(buildMintInput(job, addrs, keys.solanaOperator.secretKey).input, MINT_TIMEOUT_MS),
     submitRelease: (job) => embedded.submit(buildReleaseInput(job, addrs, keys.solanaOperator).input, RELEASE_TIMEOUT_MS),
     releaseReceiptExists: async (id) => (await fetchReceipt(conn, programId, id)) !== null,
+    mintExists: async (nonce) => (await readLedger(settings.midnight.contractAddress))?.mintedLocks.member(nonce) ?? false,
   });
   console.log(`[relayer] polling every ${POLL_MS} ms`);
   while (true) {

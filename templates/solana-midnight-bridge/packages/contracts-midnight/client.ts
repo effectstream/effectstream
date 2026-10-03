@@ -10,6 +10,7 @@
 import { randomBytes } from "node:crypto";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { submitCallTx } from "@midnight-ntwrk/midnight-js-contracts";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { configureMidnightNodeProviders, type WalletResult } from "@effectstream/midnight-contracts";
 import { BridgeContract, CONTRACT_NAME, MANAGED_DIR, bridgeLedger } from "./contract.ts";
@@ -121,6 +122,18 @@ export async function mintFromSolana(
     additionalCoinEncPublicKeyMappings: new Map([args.mapping]),
   } as never);
   return outcome(r);
+}
+
+/**
+ * A reader of the bridge contract's ledger straight from the indexer, with no
+ * wallet (the relayer's `mintedLocks` pre-check). One provider per reader.
+ */
+export function bridgeLedgerReader(urls: Pick<BridgeMidnightUrls, "indexer" | "indexerWS">) {
+  const publicData = indexerPublicDataProvider(urls.indexer, urls.indexerWS);
+  return async (contractAddress: string) => {
+    const st = await publicData.queryContractState(contractAddress);
+    return st ? bridgeLedger(st.data as never) : null;
+  };
 }
 
 /** The contract's ledger as midnight-js reads it from the indexer, or null. */

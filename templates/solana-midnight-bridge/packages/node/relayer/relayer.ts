@@ -7,7 +7,8 @@
 //      relayer_jobs) and pick the due ones (policy.ts);
 //   2. Midnight → Solana: if the release receipt PDA already exists, the
 //      release happened (a previous attempt landed): record that and do not
-//      send anything — completion is left to sync;
+//      send anything — completion is left to sync. Solana → Midnight: the same
+//      with the lock nonce in the contract's mintedLocks;
 //   3. record the attempt (relayer_jobs: attempts + 1, submitted_at), then
 //      submit in the background and record the outcome (last_tx / last_error).
 //
@@ -42,6 +43,14 @@ export type RelayerDeps = {
   submitRelease: (job: RelayerCandidate) => Promise<SubmitResult>;
   /** True when the release receipt PDA for this withdrawal id exists on chain. */
   releaseReceiptExists: (withdrawalId: bigint) => Promise<boolean>;
+  /**
+   * True when the contract's `mintedLocks` already holds this lock nonce. The
+   * embedded batcher runs with its event system off, so a mint refused in the
+   * circuit is never reported back (no "error" state transition) and the
+   * attempt would wait for the receipt timeout; checking first keeps a
+   * re-attempt after a restart from blocking the mint lane (PR-2 T6, F-T6.12).
+   */
+  mintExists?: (lockNonce: bigint) => Promise<boolean>;
   now?: () => number;
   policies?: Record<Direction, BackoffPolicy>;
   log?: (msg: string) => void;
@@ -141,6 +150,11 @@ export class BridgeRelayer {
       if (job.direction === "m2s" && (await this.deps.releaseReceiptExists(job.sourceId))) {
         this.log(`${key}: release receipt already on chain; not sending, waiting for sync`);
         await this.record(job, { error: "release receipt exists on chain; waiting for sync" });
+        return;
+      }
+      if (job.direction === "s2m" && (await this.deps.mintExists?.(job.sourceId))) {
+        this.log(`${key}: lock already in mintedLocks on chain; not sending, waiting for sync`);
+        await this.record(job, { error: "already settled on chain: lock already in mintedLocks; waiting for sync" });
         return;
       }
       this.log(`${key}: submitting (attempt ${job.attempts + 1}, amount ${job.amount})`);

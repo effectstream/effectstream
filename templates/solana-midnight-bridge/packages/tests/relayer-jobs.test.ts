@@ -97,6 +97,7 @@ describe("relayer over a test database", () => {
   let releases: RelayerCandidate[];
   let gate: { release: () => void; promise: Promise<void> };
   let receiptExists: Set<bigint>;
+  let mintedOnChain: Set<bigint>;
   let mintBehaviour: (job: RelayerCandidate) => Promise<{ tx: string }>;
 
   const newGate = () => {
@@ -119,6 +120,7 @@ describe("relayer over a test database", () => {
         return { tx: `sig-${job.sourceId}` };
       },
       releaseReceiptExists: async (id) => receiptExists.has(id),
+      mintExists: async (nonce) => mintedOnChain.has(nonce),
       log: () => {},
     });
 
@@ -135,6 +137,7 @@ describe("relayer over a test database", () => {
     releases = [];
     gate = newGate();
     receiptExists = new Set();
+    mintedOnChain = new Set();
     mintBehaviour = async (job) => ({ tx: `mint-${job.sourceId}` });
     await db.exec(`
       INSERT INTO bridge_transfers (direction, source_id, amount, recipient, sender, status, src_ref, observed_block)
@@ -207,6 +210,25 @@ describe("relayer over a test database", () => {
     const j = (await jobs()).find((x: any) => x.direction === "m2s");
     expect(j).toMatchObject({ attempts: 1, last_tx: null });
     expect(j.last_error).toContain("release receipt exists on chain");
+  });
+
+  // T6 F-T6.12: after a relayer restart, the backoff can expire before sync has
+  // seen a mint that landed before the restart. The re-attempt is refused in the
+  // circuit, but with the embedded batcher's event system off that refusal never
+  // reaches the relayer (no "error" state transition), so the attempt hung until
+  // the 15-minute receipt timeout and blocked the mint lane. The relayer now
+  // checks mintedLocks first, as it checks the release receipt for releases.
+  test("a lock already in mintedLocks means no mint is sent", async () => {
+    mintedOnChain.add(0n);
+    gate.release(); // let the m2s job of the same tick finish
+    const r = relayer();
+    await r.tick();
+    await r.drain();
+    expect(mints).toEqual([]);
+    const j = (await jobs()).find((x: any) => x.direction === "s2m" && x.source_id === "0");
+    expect(j).toMatchObject({ attempts: 1, last_tx: null });
+    expect(j.last_error).toStartWith("already settled on chain:");
+    expect(j.last_error).toContain("mintedLocks");
   });
 
   test("an on-chain replay refusal is recorded as already settled; other errors as errors", async () => {
