@@ -49,6 +49,14 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       getCallbackKey: (input: T) => string;
       getRetryPolicy: () => { maxRetries: number; retryDelayMs: number };
       setTargetCooldown: (target: string, ms: number) => void;
+      /**
+       * Whether the batcher's event system is on. The post-receipt
+       * EffectStream wait only emits state-transition events, so it is
+       * skipped when this returns false: an embedded batcher with
+       * `enableEventSystem: false` then opens no event-bus subscription.
+       * Optional; when absent the wait always runs (historical behaviour).
+       */
+      isEventSystemEnabled?: () => boolean;
     },
   ) {}
 
@@ -257,18 +265,29 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     // Individual callers will decide if they want to continue waiting for EffectStream
     this.resolveInputCallbacks(selectedInputs, receipt);
 
-    // Optional: Still trigger EffectStream processing check for event emission
-    this.waitForEffectStreamProcessing(
-      receipt,
-      adapter,
-      target,
-      timeout,
-    ).catch((error) => {
-      console.error(
-        `⚠️ Error waiting for EffectStream processing for target ${target}:`,
-        error,
-      );
-    });
+    // Optional: wait for EffectStream to process the receipt's block, only to
+    // emit `batch:effectstream-processed` / `error` state transitions. Those
+    // are no-ops when the event system is off, so the wait (and its event-bus
+    // subscription) is skipped then. Callers that asked for
+    // "wait-effectstream-processed" wait on their own path in
+    // `Batcher.batchInput`, which this does not affect.
+    if (this.isEventSystemEnabled()) {
+      this.waitForEffectStreamProcessing(
+        receipt,
+        adapter,
+        target,
+        timeout,
+      ).catch((error) => {
+        console.error(
+          `⚠️ Error waiting for EffectStream processing for target ${target}:`,
+          error,
+        );
+      });
+    }
+  }
+
+  private isEventSystemEnabled(): boolean {
+    return this.batcher.isEventSystemEnabled?.() ?? true;
   }
 
   private async waitForEffectStreamProcessing(
