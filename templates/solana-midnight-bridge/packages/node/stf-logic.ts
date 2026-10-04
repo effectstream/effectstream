@@ -3,7 +3,8 @@
 // World.resolve, and the unit tests drive both over recorded P0 payloads.
 //
 // Mapping (sub-plan T3.3):
-//   Solana LOCK log            -> s2m observed     (lock nonce)
+//   Solana LOCK log            -> s2m observed     (lock nonce), recipient kind 'wallet'
+//   Solana LOCKC log           -> s2m observed     (lock nonce), recipient kind 'contract' (00058)
 //   Solana RELEASE log         -> m2s completed    (withdrawal id)
 //   Midnight snapshot
 //     every mintedLocks key    -> s2m completed    (lock nonce)
@@ -19,7 +20,12 @@ export type StfOp =
       kind: "lock-observed";
       nonce: bigint;
       amount: bigint;
-      /** 128 lowercase hex: Midnight coin public key || encryption public key. */
+      /** `wallet` (LOCK) or `contract` (LOCKC, plan 00058 I-2). */
+      recipientKind: "wallet" | "contract";
+      /**
+       * wallet: 128 lowercase hex, Midnight coin public key || encryption public key;
+       * contract: 64 lowercase hex, the Midnight contract address.
+       */
       recipientHex: string;
       depositor: string;
       slot: number;
@@ -43,8 +49,9 @@ export type SolanaLogInput = { slot: number; programId: string; logMessages: str
 
 /**
  * Bridge lines of one Solana transaction, in order. Inputs from another
- * program, or LOCKs of another mint (when `expectedMint` is given), are
- * ignored. INIT lines carry nothing to settle.
+ * program, or LOCK/LOCKCs of another mint (when `expectedMint` is given), are
+ * ignored. INIT lines carry nothing to settle. A LOCK and a LOCKC share the
+ * lock-nonce space, so both become `s2m:<nonce>`.
  */
 export function planSolanaLogs(
   input: SolanaLogInput,
@@ -59,7 +66,19 @@ export function planSolanaLogs(
         kind: "lock-observed",
         nonce: log.nonce,
         amount: log.amount,
+        recipientKind: "wallet",
         recipientHex: log.recipientHex,
+        depositor: log.depositor,
+        slot: input.slot,
+      });
+    } else if (log.kind === "LOCKC") {
+      if (opts.expectedMint && log.mint !== opts.expectedMint) continue;
+      ops.push({
+        kind: "lock-observed",
+        nonce: log.nonce,
+        amount: log.amount,
+        recipientKind: "contract",
+        recipientHex: log.contractHex,
         depositor: log.depositor,
         slot: input.slot,
       });
