@@ -14,6 +14,7 @@
  *                   cli-args.test.ts                CLI argument validation
  *                   cli-account.test.ts             bridge:to-midnight --account (00058 FR-011)
  *   2. program  — solana-program.test.ts: the bridge program on a throwaway local
+ *                 (+ solana-program-00050.test.ts: tag 3 on the 00050 build, own validator)
  *                 validator (random ports >= 10000), or on SOLANA_RPC_URL if set.
  *   3. e2e      — the full local stack (packages/tests/start.test.ts = start.dev.ts
  *                 with `sync` non-critical) is started, then:
@@ -99,7 +100,7 @@ console.log("\n=== prepare: compile the Midnight contract (skipped when up to da
 }
 
 await bunTest("unit", UNIT, 180_000);
-await bunTest("program", ["./solana-program.test.ts"], 180_000);
+await bunTest("program", ["./solana-program.test.ts", "./solana-program-00050.test.ts"], 180_000);
 
 const e2e = e2eDecision();
 if (!e2e.run) {
