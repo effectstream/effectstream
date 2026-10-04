@@ -362,6 +362,7 @@ async function main() {
     operator: operator.publicKey.toBase58(),
     ...(user ? { user } : {}),
     startSlot,
+    genesisHash: genesis,
     signatures,
     updatedAt: new Date().toISOString(),
   };
