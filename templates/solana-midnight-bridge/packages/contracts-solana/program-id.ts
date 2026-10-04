@@ -16,11 +16,14 @@ export const LOCAL_BRIDGE_PROGRAM_ID =
 export const IX_INITIALIZE = 0;
 export const IX_LOCK = 1;
 export const IX_RELEASE = 2;
+/** `LockToContract`: a lock whose Midnight recipient is a contract (plan 00058 Interfaces I-2). */
+export const IX_LOCK_TO_CONTRACT = 3;
 
 /** Instruction data lengths, tag byte included. */
 export const IX_INITIALIZE_LEN = 33;
 export const IX_LOCK_LEN = 73;
 export const IX_RELEASE_LEN = 17;
+export const IX_LOCK_TO_CONTRACT_LEN = 41;
 
 /** PDA seeds. */
 export const CONFIG_SEED = Buffer.from("config");
@@ -34,6 +37,9 @@ export const RECEIPT_LEN = 49;
 
 /** The Midnight recipient carried by Lock: coin public key ‖ encryption public key. */
 export const MIDNIGHT_RECIPIENT_LEN = 64;
+
+/** The Midnight contract address carried by LockToContract (its 32 raw bytes). */
+export const MIDNIGHT_CONTRACT_LEN = 32;
 
 /** Every bridge `msg!` line starts with this (after `Program log: `). */
 export const BRIDGE_LOG_PREFIX = "EFFECTSTREAM_BRIDGE";
@@ -52,4 +58,6 @@ export const BridgeError = {
   ZeroAmount: 7,
   MintMismatch: 8,
   NonceOverflow: 9,
+  /** LockToContract with an all-zero contract address. */
+  InvalidRecipient: 10,
 } as const;

@@ -5,6 +5,7 @@
  *                 0.35.0; skipped when contract-bridge/src/managed is up to date).
  *   1. unit     — no chain, no ports:
  *                   solana-instructions.test.ts     layouts, log parser, FR-009 guards
+ *                   lock-to-contract.test.ts        LockToContract / LOCKC (00058 I-2 vectors)
  *                   midnight-signing.test.ts        mint digest/signature, raw contract info (E8)
  *                   midnight-contract-logic.test.ts circuits run locally on runtime 0.20
  *                   state-machine.test.ts           STF over recorded P0 payloads (PGLite)
@@ -38,6 +39,7 @@ const contractsMidnight = path.resolve(here, "../contracts-midnight");
 
 const UNIT = [
   "./solana-instructions.test.ts",
+  "./lock-to-contract.test.ts",
   "./midnight-signing.test.ts",
   "./midnight-contract-logic.test.ts",
   "./state-machine.test.ts",
