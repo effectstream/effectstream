@@ -56,6 +56,22 @@ export function shieldedRecipient(coinPublicKey: Uint8Array): MintRecipient {
   };
 }
 
+/**
+ * A CONTRACT recipient (right = the 32-byte contract address): 00058's delivery
+ * into contracts. The router signs a mint for it only after a delivery adapter
+ * accepted the contract (plan 00058 Interfaces D-1).
+ */
+export function contractRecipient(contractAddress: Uint8Array | string): MintRecipient {
+  const bytes = typeof contractAddress === "string" ? hexToBytes(contractAddress, 32, "contract address") : contractAddress;
+  if (bytes.length !== 32) throw new Error("contract address must be 32 bytes");
+  if (bytes.every((b) => b === 0)) throw new Error("contract address must not be all-zero");
+  return {
+    is_left: false,
+    left: { bytes: new Uint8Array(32) },
+    right: { bytes: Uint8Array.from(bytes) },
+  };
+}
+
 const leBigInt = (b: Uint8Array): bigint => {
   let v = 0n;
   for (let i = b.length - 1; i >= 0; i--) v = (v << 8n) | BigInt(b[i]!);

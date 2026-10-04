@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadBridgeNodeSettings } from "@solana-midnight-bridge/node/config";
 import { buildDeploymentRecord, liveRecordReads } from "@solana-midnight-bridge/node/record";
+import { deliveryConfig, deliveryInfos } from "@solana-midnight-bridge/node/delivery";
 import type { RecordArgs } from "./args.ts";
 
 export function recordPath(deploymentFile: string, out?: string): string {
@@ -18,6 +19,8 @@ export async function record(args: RecordArgs): Promise<void> {
     api: args.api,
     ...(args.name !== undefined ? { name: args.name } : {}),
     ...(args.symbol !== undefined ? { symbol: args.symbol } : {}),
+    // The adapters this deployment's node is configured with (BRIDGE_DELIVERY_ADAPTERS), from the pin.
+    adapters: deliveryInfos(deliveryConfig()),
   });
   const file = recordPath(settings.deploymentFile, args.out);
   fs.mkdirSync(path.dirname(file), { recursive: true });

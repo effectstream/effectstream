@@ -292,6 +292,7 @@ export interface IListRelayerCandidatesResult {
   last_attempt_at: Date | null;
   last_error: string | null;
   last_tx: string | null;
+  observed_at: Date;
   recipient: string | null;
   recipient_kind: string | null;
   source_id: string;
@@ -304,12 +305,12 @@ export interface IListRelayerCandidatesQuery {
   result: IListRelayerCandidatesResult;
 }
 
-const listRelayerCandidatesIR: any = {"usedParamSet":{"limit":true},"params":[{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":389,"b":395}]}],"statement":"SELECT t.direction, t.source_id, t.amount, t.recipient, t.recipient_kind,\n       j.attempts, j.last_attempt_at, j.last_tx, j.last_error, j.submitted_at\nFROM bridge_transfers t\nLEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id\nWHERE t.status = 'observed' AND t.recipient IS NOT NULL AND j.undeliverable_code IS NULL\nORDER BY t.direction, t.source_id\nLIMIT :limit!"};
+const listRelayerCandidatesIR: any = {"usedParamSet":{"limit":true},"params":[{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":404,"b":410}]}],"statement":"SELECT t.direction, t.source_id, t.amount, t.recipient, t.recipient_kind, t.observed_at,\n       j.attempts, j.last_attempt_at, j.last_tx, j.last_error, j.submitted_at\nFROM bridge_transfers t\nLEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id\nWHERE t.status = 'observed' AND t.recipient IS NOT NULL AND j.undeliverable_code IS NULL\nORDER BY t.direction, t.source_id\nLIMIT :limit!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT t.direction, t.source_id, t.amount, t.recipient, t.recipient_kind,
+ * SELECT t.direction, t.source_id, t.amount, t.recipient, t.recipient_kind, t.observed_at,
  *        j.attempts, j.last_attempt_at, j.last_tx, j.last_error, j.submitted_at
  * FROM bridge_transfers t
  * LEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id

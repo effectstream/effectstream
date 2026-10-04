@@ -5,14 +5,17 @@
 //   0x…01  operator — deploys the contract and pays the relayer's mint fees
 //   0x…02  user     — the default bridge:to-midnight recipient and
 //                     bridge:to-solana sender
-//   0x…03  user2    — a second test user
+//   0x…03  user2    — a second test user; ALSO the default local `delivery`
+//                     wallet (00058 D-7: it pays for deliveries into contracts,
+//                     and only exists while a delivery adapter is configured;
+//                     the 00050 suite runs without one)
 // They are public, so they are refused on anything but loopback endpoints
 // (FR-009).
 //
 // LIVE mode reads 32-byte hex seeds ONLY from the live secrets directory,
 // `~/.config/solana-midnight-bridge/` by default (`BRIDGE_SECRETS_DIR`
 // overrides it; dir 700, files 600; the same directory as the Solana keys):
-//   midnight-operator.seed, midnight-user.seed
+//   midnight-operator.seed, midnight-user.seed, midnight-delivery.seed (00058)
 // or from an explicit `--seed-file` with the same permission rules.
 //
 // A seed is never logged, echoed or written anywhere by this module. Never use
@@ -33,12 +36,15 @@ import { formatShieldedAddress } from "@effectstream/midnight-contracts/shielded
 import { liveSecretsDir } from "@solana-midnight-bridge/contracts-solana/keys";
 import { isLoopbackUrl, type BridgeMidnightMode, type BridgeMidnightUrls } from "./network.ts";
 
-export type MidnightRole = "operator" | "user" | "user2";
+export type MidnightRole = "operator" | "user" | "user2" | "delivery";
 
 const DEV_SEEDS: Record<MidnightRole, string> = {
   operator: "0".repeat(63) + "1",
   user: "0".repeat(63) + "2",
   user2: "0".repeat(63) + "3",
+  // 00058 D-7: the delivery wallet (pays composed mint + deposit transactions). Locally it is
+  // user2's prefunded dev seed: do not use user2 in another process while the node delivers.
+  delivery: "0".repeat(63) + "3",
 };
 const DEV_SEED_SET = new Set(Object.values(DEV_SEEDS));
 

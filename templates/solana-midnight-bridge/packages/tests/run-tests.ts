@@ -12,6 +12,9 @@
  *                   node-config-api.test.ts         sync config + API (Fastify inject, PGLite)
  *                   relayer-jobs.test.ts            relayer selection, backoff, job building
  *                   node-contract-delivery.test.ts  00058 node: STF, DB, API v2, record, start-up checks
+ *                   delivery-router.test.ts         00058 delivery router: verdicts, signing boundary
+ *                   delivery-passport.test.ts       00058 Passport adapter: pin, recognition, seal, bundle, compose
+ *                   relayer-delivery.test.ts        00058 relayer contract branch (D-2), delivery wallet
  *                   cli-args.test.ts                CLI argument validation
  *                   cli-account.test.ts             bridge:to-midnight --account (00058 FR-011)
  *   2. program  — solana-program.test.ts: the bridge program on a throwaway local
@@ -49,6 +52,9 @@ const UNIT = [
   "./node-config-api.test.ts",
   "./relayer-jobs.test.ts",
   "./node-contract-delivery.test.ts",
+  "./delivery-router.test.ts",
+  "./delivery-passport.test.ts",
+  "./relayer-delivery.test.ts",
   "./cli-args.test.ts",
   "./cli-account.test.ts",
 ].filter((f) => fs.existsSync(path.join(here, f)));

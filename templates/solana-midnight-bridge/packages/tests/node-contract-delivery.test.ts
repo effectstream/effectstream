@@ -8,7 +8,7 @@
 //   - the deployment record: the I-3 (c) shape, and every mismatch refused;
 //   - the start-up checks: the Solana genesis, and the schema of an older database;
 //   - the runtime applies a migration at block 1 only (why the schema check exists);
-//   - until P4's delivery router, the relayer leaves contract recipients untouched.
+//   - without delivery adapters, the relayer reports a contract lock undeliverable(no-adapter).
 //
 // Run: bun test ./node-contract-delivery.test.ts
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -427,8 +427,8 @@ describe("start-up checks", () => {
   });
 });
 
-describe("relayer, until the delivery router (P4): contract recipients are left untouched", () => {
-  test("a contract candidate is never attempted, never gets a relayer row; wallet candidates proceed", async () => {
+describe("relayer without delivery adapters: a contract lock is undeliverable(no-adapter), never minted", () => {
+  test("the contract candidate gets no-adapter and no signature; the wallet candidate takes the 00050 path", async () => {
     const db = await freshDb();
     await db.exec(`INSERT INTO bridge_transfers (direction, source_id, amount, recipient, recipient_kind, sender, status, observed_block) VALUES
       ('s2m', 0, 1, '${A1}', 'contract', 'dep', 'observed', 1),
@@ -445,10 +445,12 @@ describe("relayer, until the delivery router (P4): contract recipients are left 
       mintExists: async () => false,
       log: () => {},
     });
-    expect((await r.candidates()).map((c) => String(c.sourceId))).toEqual(["1"]);
+    await r.tick();
+    await r.drain();
     await r.tick();
     await r.drain();
     expect(minted).toEqual(["1"]);
-    expect((await db.query<any>(`SELECT source_id::TEXT AS s FROM relayer_jobs`)).rows.map((x) => x.s)).toEqual(["1"]);
+    const rows = (await db.query<any>(`SELECT source_id::TEXT AS s, undeliverable_code AS c, submitted_at IS NOT NULL AS sub FROM relayer_jobs ORDER BY source_id`)).rows;
+    expect(rows).toEqual([{ s: "0", c: "no-adapter", sub: false }, { s: "1", c: null, sub: true }]);
   });
 });
