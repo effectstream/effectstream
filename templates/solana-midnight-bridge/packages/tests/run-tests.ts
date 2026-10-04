@@ -12,6 +12,7 @@
  *                   node-config-api.test.ts         sync config + API (Fastify inject, PGLite)
  *                   relayer-jobs.test.ts            relayer selection, backoff, job building
  *                   cli-args.test.ts                CLI argument validation
+ *                   cli-account.test.ts             bridge:to-midnight --account (00058 FR-011)
  *   2. program  — solana-program.test.ts: the bridge program on a throwaway local
  *                 validator (random ports >= 10000), or on SOLANA_RPC_URL if set.
  *   3. e2e      — the full local stack (packages/tests/start.test.ts = start.dev.ts
@@ -46,6 +47,7 @@ const UNIT = [
   "./node-config-api.test.ts",
   "./relayer-jobs.test.ts",
   "./cli-args.test.ts",
+  "./cli-account.test.ts",
 ].filter((f) => fs.existsSync(path.join(here, f)));
 
 const results: { name: string; ok: boolean; seconds: number; note?: string }[] = [];

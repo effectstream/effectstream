@@ -62,6 +62,21 @@ export function parseMidnightRecipient(address: string | undefined, mode: CliMod
   }
 }
 
+/**
+ * A Midnight CONTRACT address for `--account` (plan 00058 I-2): 64 hex characters
+ * (an optional `0x` prefix), not all-zero. Returned lowercase, with its 32 bytes.
+ */
+export function parseContractAccount(text: string | undefined): { hex: string; bytes: Uint8Array } {
+  if (!text) throw new CliArgError("--account is required (a Midnight contract address: 64 hex characters)");
+  const h = text.trim().replace(/^0x/i, "");
+  if (!/^[0-9a-fA-F]{64}$/.test(h)) {
+    throw new CliArgError(`--account must be a Midnight contract address (64 hex characters), got "${text}"`);
+  }
+  const lower = h.toLowerCase();
+  if (/^0+$/.test(lower)) throw new CliArgError("--account must not be the all-zero address");
+  return { hex: lower, bytes: Uint8Array.from(Buffer.from(lower, "hex")) };
+}
+
 /** A base58 Solana public key (the release recipient's wallet). */
 export function parseSolanaRecipient(text: string | undefined): PublicKey {
   if (!text) throw new CliArgError("--recipient is required (a base58 Solana public key)");
@@ -118,20 +133,46 @@ const COMMON_BOOL = ["no-wait"];
 export type ToMidnightArgs = {
   mode: CliMode;
   amountText: string;
+  /** `wallet` (--recipient, a Lock) or `contract` (--account, a LockToContract). */
+  recipientKind: "wallet" | "contract";
+  /** The --recipient address, or the --account contract address (64 lowercase hex). */
   recipientAddress: string;
+  /** The wallet's 64-byte payload (cpk ‖ epk); empty for a contract recipient. */
   midnightRecipient: Uint8Array;
+  /** The contract's 32 bytes, for `--account` only. */
+  contract?: Uint8Array;
   keypairPath?: string;
   api?: string;
   wait: boolean;
   timeoutSeconds: number;
 };
 
-/** bridge:to-midnight --amount <n> --recipient <mn_shield-addr_…> [--keypair <path>] */
+/**
+ * bridge:to-midnight --amount <n> --recipient <mn_shield-addr_…> [--keypair <path>]
+ * bridge:to-midnight --amount <n> --account <64 hex contract address> [--keypair <path>]
+ * (--recipient and --account are mutually exclusive).
+ */
 export function parseToMidnightArgs(argv: string[]): ToMidnightArgs & { amountText: string } {
-  const f = parseFlags(argv, { value: ["amount", "recipient", "keypair", ...COMMON_VALUE], bool: COMMON_BOOL });
+  const f = parseFlags(argv, { value: ["amount", "recipient", "account", "keypair", ...COMMON_VALUE], bool: COMMON_BOOL });
   const mode = parseMode(f.mode);
-  const recipientAddress = typeof f.recipient === "string" ? f.recipient : "";
-  const midnightRecipient = parseMidnightRecipient(recipientAddress || undefined, mode);
+  if (f.recipient !== undefined && f.account !== undefined) {
+    throw new CliArgError("--recipient and --account are mutually exclusive (a wallet or a contract recipient)");
+  }
+  let recipientKind: ToMidnightArgs["recipientKind"] = "wallet";
+  let recipientAddress = typeof f.recipient === "string" ? f.recipient : "";
+  let midnightRecipient = new Uint8Array(0);
+  let contract: Uint8Array | undefined;
+  if (f.account !== undefined) {
+    const c = parseContractAccount(typeof f.account === "string" ? f.account : undefined);
+    recipientKind = "contract";
+    recipientAddress = c.hex;
+    contract = c.bytes;
+  } else {
+    if (!recipientAddress) {
+      throw new CliArgError("--recipient is required (a mn_shield-addr_… address), or --account <64 hex> for a contract recipient");
+    }
+    midnightRecipient = parseMidnightRecipient(recipientAddress, mode);
+  }
   // The amount is re-parsed with the mint's decimals once the deployment is
   // read; check its shape (and that it is not zero) here already.
   const amountText = typeof f.amount === "string" ? f.amount : "";
@@ -139,8 +180,10 @@ export function parseToMidnightArgs(argv: string[]): ToMidnightArgs & { amountTe
   return {
     mode,
     amountText,
+    recipientKind,
     recipientAddress,
     midnightRecipient,
+    ...(contract ? { contract } : {}),
     keypairPath: typeof f.keypair === "string" ? f.keypair : undefined,
     api: typeof f.api === "string" ? f.api : undefined,
     wait: !f["no-wait"],
@@ -179,7 +222,7 @@ export function parseToSolanaArgs(argv: string[]): ToSolanaArgs {
 export type StatusArgs = {
   id?: string;
   direction?: "s2m" | "m2s";
-  status?: "observed" | "submitted" | "completed";
+  status?: "observed" | "submitted" | "completed" | "undeliverable";
   watch: boolean;
   api?: string;
   mode: CliMode;
@@ -197,8 +240,8 @@ export function parseStatusArgs(argv: string[]): StatusArgs {
     throw new CliArgError("--direction must be s2m or m2s");
   }
   const status = f.status;
-  if (status !== undefined && status !== "observed" && status !== "submitted" && status !== "completed") {
-    throw new CliArgError("--status must be observed, submitted or completed");
+  if (status !== undefined && status !== "observed" && status !== "submitted" && status !== "completed" && status !== "undeliverable") {
+    throw new CliArgError("--status must be observed, submitted, completed or undeliverable");
   }
   return {
     id,
