@@ -10,6 +10,7 @@ import {
   PublicKey,
   SystemProgram,
   TransactionInstruction,
+  type Connection,
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -23,7 +24,9 @@ import {
   CONFIG_SEED,
   IX_INITIALIZE,
   IX_LOCK,
+  IX_LOCK_TO_CONTRACT,
   IX_RELEASE,
+  MIDNIGHT_CONTRACT_LEN,
   MIDNIGHT_RECIPIENT_LEN,
   RECEIPT_LEN,
   RELEASE_SEED,
@@ -143,6 +146,46 @@ export function createLockInstruction(args: {
       u64le(args.amount),
       Buffer.from(args.midnightRecipient),
     ]),
+  });
+}
+
+/**
+ * 3 LockToContract { amount u64, contract [32] } (41 B): a lock whose Midnight
+ * recipient is a CONTRACT (plan 00058 Interfaces I-2). Accounts are `Lock`'s, in
+ * the same order: depositor (s) · source token account (w) · config (w) ·
+ * vault (w) · token program. It shares `Lock`'s nonce counter; the program logs
+ * `EFFECTSTREAM_BRIDGE|LOCKC|…`.
+ *
+ * `contract` is the Midnight contract address's 32 raw bytes. An all-zero
+ * address is refused here as on chain (`InvalidRecipient`). The program cannot
+ * check the contract on Midnight: ask the bridge node first
+ * (`GET /recipients/contract/:address`); a lock to a contract the node cannot
+ * deliver to stays in the vault (no refund path).
+ */
+export function createLockToContractInstruction(args: {
+  programId: PublicKey;
+  depositor: PublicKey;
+  source: PublicKey;
+  mint: PublicKey;
+  amount: bigint;
+  contract: Uint8Array;
+}): TransactionInstruction {
+  if (args.contract.length !== MIDNIGHT_CONTRACT_LEN) {
+    throw new RangeError(`contract must be ${MIDNIGHT_CONTRACT_LEN} bytes, got ${args.contract.length}`);
+  }
+  if (args.contract.every((b) => b === 0)) throw new RangeError("contract must not be all-zero");
+  const [config] = findConfigAddress(args.programId);
+  const [vault] = findVaultAddress(args.programId, args.mint);
+  return new TransactionInstruction({
+    programId: args.programId,
+    keys: [
+      { pubkey: args.depositor, isSigner: true, isWritable: false },
+      { pubkey: args.source, isSigner: false, isWritable: true },
+      { pubkey: config, isSigner: false, isWritable: true },
+      { pubkey: vault, isSigner: false, isWritable: true },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.concat([Buffer.from([IX_LOCK_TO_CONTRACT]), u64le(args.amount), Buffer.from(args.contract)]),
   });
 }
 
@@ -299,11 +342,21 @@ export type BridgeLog =
       /** 128 lowercase hex chars: coin public key ‖ encryption public key. */
       recipientHex: string;
     }
+  | {
+      kind: "LOCKC";
+      nonce: bigint;
+      depositor: string;
+      mint: string;
+      amount: bigint;
+      /** The Midnight contract address: 64 lowercase hex chars. */
+      contractHex: string;
+    }
   | { kind: "RELEASE"; withdrawalId: bigint; recipientOwner: string; amount: bigint };
 
 const U64_RE = /^(0|[1-9][0-9]{0,19})$/;
 const B58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const HEX128_RE = /^[0-9a-f]{128}$/;
+const HEX64_RE = /^[0-9a-f]{64}$/;
 const PROGRAM_LOG_PREFIX = "Program log: ";
 
 function parseU64(s: string | undefined): bigint | null {
@@ -316,6 +369,7 @@ function parseU64(s: string | undefined): bigint | null {
  * Parses one program log line, with or without the `Program log: ` prefix:
  * - `EFFECTSTREAM_BRIDGE|INIT|<operator>|<mint>|<vault>`
  * - `EFFECTSTREAM_BRIDGE|LOCK|<nonce>|<depositor>|<mint>|<amount>|<recipientHex128>`
+ * - `EFFECTSTREAM_BRIDGE|LOCKC|<nonce>|<depositor>|<mint>|<amount>|<contractHex64>`
  * - `EFFECTSTREAM_BRIDGE|RELEASE|<withdrawal_id>|<recipient_owner>|<amount>`
  *
  * Returns null for anything that is not a well-formed bridge line, including
@@ -344,6 +398,17 @@ export function parseBridgeLog(raw: string): BridgeLog | null {
         return null;
       }
       return { kind: "LOCK", nonce, depositor, mint, amount, recipientHex };
+    }
+    case "LOCKC": {
+      if (parts.length !== 7) return null;
+      const [, , nonceS, depositor, mint, amountS, contractHex] = parts as [
+        string, string, string, string, string, string, string,
+      ];
+      const nonce = parseU64(nonceS);
+      const amount = parseU64(amountS);
+      if (nonce === null || amount === null) return null;
+      if (!B58_RE.test(depositor) || !B58_RE.test(mint) || !HEX64_RE.test(contractHex)) return null;
+      return { kind: "LOCKC", nonce, depositor, mint, amount, contractHex };
     }
     case "RELEASE": {
       if (parts.length !== 5) return null;
@@ -384,4 +449,32 @@ export function splitRecipientHex(recipientHex: string): {
     coinPublicKey: new Uint8Array(bytes.subarray(0, 32)),
     encryptionPublicKey: new Uint8Array(bytes.subarray(32, 64)),
   };
+}
+
+/**
+ * The lock nonces of one transaction, in log order: one per `Lock` (`LOCK`) and
+ * per `LockToContract` (`LOCKC`) instruction. Each lock's transfer id is
+ * `s2m:<nonce>` (plan 00058 Interfaces I-2, "How a client reads its lock nonce").
+ */
+export function lockNoncesFromLogs(logMessages: readonly string[]): Array<{ kind: "LOCK" | "LOCKC"; nonce: bigint }> {
+  const out: Array<{ kind: "LOCK" | "LOCKC"; nonce: bigint }> = [];
+  for (const l of parseBridgeLogs(logMessages)) {
+    if (l.kind === "LOCK" || l.kind === "LOCKC") out.push({ kind: l.kind, nonce: l.nonce });
+  }
+  return out;
+}
+
+/**
+ * Reads a confirmed transaction's lock nonces from the chain:
+ * `getTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 })`
+ * and its `meta.logMessages`. Throws when the transaction is not found (yet) or failed.
+ */
+export async function fetchLockNonces(
+  conn: Connection,
+  signature: string,
+): Promise<Array<{ kind: "LOCK" | "LOCKC"; nonce: bigint }>> {
+  const tx = await conn.getTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
+  if (!tx) throw new Error(`transaction ${signature} not found at "confirmed"`);
+  if (tx.meta?.err) throw new Error(`transaction ${signature} failed: ${JSON.stringify(tx.meta.err)}`);
+  return lockNoncesFromLogs(tx.meta?.logMessages ?? []);
 }

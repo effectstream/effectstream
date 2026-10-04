@@ -20,14 +20,20 @@
 // Refusals are sent with skipPreflight, so each one lands ON CHAIN as a failed
 // transaction and the test asserts the program's custom error code.
 //
+// 00058 adds `LockToContract` (tag 3, plan Interfaces I-2): (a) a lock to a
+// contract and its LOCKC line, (b) one nonce counter shared with Lock, (c) a zero
+// amount, (d) an all-zero contract, (e) 40/42-byte data, (f) an unsigned
+// depositor, (g) a source of another mint; (h) tag 3 against the 00050
+// program is solana-program-00050.test.ts.
+//
 // Run: bun test ./solana-program.test.ts   (needs build/bridge.so; Docker for CI)
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
-import { createMintToInstruction, getAccount } from "@solana/spl-token";
+import { Connection, Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { createMint, createMintToInstruction, getAccount } from "@solana/spl-token";
 import {
   BridgeError,
   LOCAL_BRIDGE_PROGRAM_ID,
@@ -37,11 +43,14 @@ import {
   createAtaIdempotentPrelude,
   createInitializeInstruction,
   createLockInstruction,
+  createLockToContractInstruction,
   createReleaseWithAtaInstructions,
   findReceiptAddress,
   findVaultAddress,
+  lockNoncesFromLogs,
   parseBridgeLogs,
 } from "@solana-midnight-bridge/contracts-solana/instructions";
+import { IX_LOCK_TO_CONTRACT } from "@solana-midnight-bridge/contracts-solana/program-id";
 import {
   airdropAtLeast,
   customErrorOf,
@@ -261,3 +270,104 @@ describe("bridge program on a local validator", () => {
     expect(await fetchReceipt(conn, programId, id)).toBeNull();
   }, TX_TIMEOUT);
 });
+
+// ── 00058: LockToContract (tag 3) ────────────────────────────────────────────
+const CONTRACT = Buffer.alloc(32, 0xa1);
+/** A raw tag-3 instruction with Lock's accounts (for the data the builder refuses up front). */
+function rawLockToContract(data: Buffer, signer = true, src?: PublicKey): TransactionInstruction {
+  const ix = createLockToContractInstruction({ programId, depositor: depositor.publicKey, source: src ?? depositorAta, mint, amount: 1n, contract: CONTRACT });
+  return new TransactionInstruction({
+    programId,
+    keys: ix.keys.map((k, i) => (i === 0 ? { ...k, isSigner: signer } : k)),
+    data,
+  });
+}
+const tag3 = (amount: bigint, contract: Buffer) => {
+  const a = Buffer.alloc(8);
+  a.writeBigUInt64LE(amount);
+  return Buffer.concat([Buffer.from([IX_LOCK_TO_CONTRACT]), a, contract]);
+};
+
+describe("LockToContract on a local validator (00058 I-2)", () => {
+  test("(a) a lock to a contract moves the amount into the vault and logs LOCKC", async () => {
+    const nonce = (await fetchBridgeConfig(conn, programId))!.lockNonce;
+    const vaultBefore = await balance(vault);
+    const depositorBefore = await balance(depositorAta);
+    const sent = await sendTx(
+      conn,
+      [createLockToContractInstruction({ programId, depositor: depositor.publicKey, source: depositorAta, mint, amount: 500n, contract: CONTRACT })],
+      [depositor],
+    );
+    expect(sent.err).toBeNull();
+    const line = `EFFECTSTREAM_BRIDGE|LOCKC|${nonce}|${depositor.publicKey.toBase58()}|${mint.toBase58()}|500|${CONTRACT.toString("hex")}`;
+    expect(sent.logs).toContain(`Program log: ${line}`);
+    expect(parseBridgeLogs(sent.logs)).toEqual([
+      { kind: "LOCKC", nonce, depositor: depositor.publicKey.toBase58(), mint: mint.toBase58(), amount: 500n, contractHex: CONTRACT.toString("hex") },
+    ]);
+    expect(await balance(vault)).toBe(vaultBefore + 500n);
+    expect(await balance(depositorAta)).toBe(depositorBefore - 500n);
+    expect((await fetchBridgeConfig(conn, programId))!.lockNonce).toBe(nonce + 1n);
+  }, TX_TIMEOUT);
+
+  test("(b) Lock, LockToContract, Lock in one transaction take consecutive nonces from one counter", async () => {
+    const nonce = (await fetchBridgeConfig(conn, programId))!.lockNonce;
+    const lock = () => createLockInstruction({ programId, depositor: depositor.publicKey, source: depositorAta, mint, amount: 1n, midnightRecipient: randomBytes(64) });
+    const sent = await sendTx(
+      conn,
+      [lock(), createLockToContractInstruction({ programId, depositor: depositor.publicKey, source: depositorAta, mint, amount: 2n, contract: CONTRACT }), lock()],
+      [depositor],
+    );
+    expect(sent.err).toBeNull();
+    expect(lockNoncesFromLogs(sent.logs)).toEqual([
+      { kind: "LOCK", nonce },
+      { kind: "LOCKC", nonce: nonce + 1n },
+      { kind: "LOCK", nonce: nonce + 2n },
+    ]);
+    expect((await fetchBridgeConfig(conn, programId))!.lockNonce).toBe(nonce + 3n);
+  }, TX_TIMEOUT);
+
+  const refused: Array<[string, () => TransactionInstruction, number]> = [
+    ["(c) a zero amount is refused (ZeroAmount)", () => rawLockToContract(tag3(0n, CONTRACT)), BridgeError.ZeroAmount],
+    ["(d) an all-zero contract is refused (InvalidRecipient)", () => rawLockToContract(tag3(5n, Buffer.alloc(32))), BridgeError.InvalidRecipient],
+    ["(e) 40-byte data is refused (InvalidInstruction)", () => rawLockToContract(tag3(5n, CONTRACT).subarray(0, 40)), BridgeError.InvalidInstruction],
+    ["(e) 42-byte data is refused (InvalidInstruction)", () => rawLockToContract(Buffer.concat([tag3(5n, CONTRACT), Buffer.from([0xa1])])), BridgeError.InvalidInstruction],
+  ];
+  for (const [name, build, code] of refused) {
+    test(`${name} on chain, nothing moved`, async () => {
+      const nonce = (await fetchBridgeConfig(conn, programId))!.lockNonce;
+      const vaultBefore = await balance(vault);
+      const sent = await sendTx(conn, [build()], [depositor], { skipPreflight: true });
+      expect(customErrorOf(sent.err)).toEqual({ index: 0, code });
+      expect(await balance(vault)).toBe(vaultBefore);
+      expect((await fetchBridgeConfig(conn, programId))!.lockNonce).toBe(nonce);
+    }, TX_TIMEOUT);
+  }
+
+  test("(f) a depositor that does not sign is refused (MissingRequiredSignature)", async () => {
+    const vaultBefore = await balance(vault);
+    const sent = await sendTx(conn, [rawLockToContract(tag3(5n, CONTRACT), false)], [attacker], { skipPreflight: true });
+    expect(sent.err).toEqual({ InstructionError: [0, "MissingRequiredSignature"] });
+    expect(await balance(vault)).toBe(vaultBefore);
+  }, TX_TIMEOUT);
+
+  test("(g) a source of another mint is refused by the Token program", async () => {
+    const other = await createMint(conn, operator, operator.publicKey, null, 6);
+    const prelude = createAtaIdempotentPrelude({ payer: operator.publicKey, owner: depositor.publicKey, mint: other });
+    await sendTx(conn, [prelude.instruction, createMintToInstruction(other, prelude.ata, operator.publicKey, 10n)], [operator]);
+    const nonce = (await fetchBridgeConfig(conn, programId))!.lockNonce;
+    const vaultBefore = await balance(vault);
+    const sent = await sendTx(
+      conn,
+      [createLockToContractInstruction({ programId, depositor: depositor.publicKey, source: prelude.ata, mint, amount: 5n, contract: CONTRACT })],
+      [depositor],
+      { skipPreflight: true },
+    );
+    expect(sent.err).not.toBeNull();
+    expect(await balance(vault)).toBe(vaultBefore);
+    expect(await balance(prelude.ata)).toBe(10n);
+    expect((await fetchBridgeConfig(conn, programId))!.lockNonce).toBe(nonce);
+  }, TX_TIMEOUT);
+});
+
+// (h), tag 3 against the 00050 program, is in solana-program-00050.test.ts: it needs its own
+// validator, and two validators in one (emulated) container do not come up.

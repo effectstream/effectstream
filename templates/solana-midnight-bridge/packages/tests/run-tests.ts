@@ -5,13 +5,16 @@
  *                 0.35.0; skipped when contract-bridge/src/managed is up to date).
  *   1. unit     — no chain, no ports:
  *                   solana-instructions.test.ts     layouts, log parser, FR-009 guards
+ *                   lock-to-contract.test.ts        LockToContract / LOCKC (00058 I-2 vectors)
  *                   midnight-signing.test.ts        mint digest/signature, raw contract info (E8)
  *                   midnight-contract-logic.test.ts circuits run locally on runtime 0.20
  *                   state-machine.test.ts           STF over recorded P0 payloads (PGLite)
  *                   node-config-api.test.ts         sync config + API (Fastify inject, PGLite)
  *                   relayer-jobs.test.ts            relayer selection, backoff, job building
  *                   cli-args.test.ts                CLI argument validation
+ *                   cli-account.test.ts             bridge:to-midnight --account (00058 FR-011)
  *   2. program  — solana-program.test.ts: the bridge program on a throwaway local
+ *                 (+ solana-program-00050.test.ts: tag 3 on the 00050 build, own validator)
  *                 validator (random ports >= 10000), or on SOLANA_RPC_URL if set.
  *   3. e2e      — the full local stack (packages/tests/start.test.ts = start.dev.ts
  *                 with `sync` non-critical) is started, then:
@@ -38,12 +41,14 @@ const contractsMidnight = path.resolve(here, "../contracts-midnight");
 
 const UNIT = [
   "./solana-instructions.test.ts",
+  "./lock-to-contract.test.ts",
   "./midnight-signing.test.ts",
   "./midnight-contract-logic.test.ts",
   "./state-machine.test.ts",
   "./node-config-api.test.ts",
   "./relayer-jobs.test.ts",
   "./cli-args.test.ts",
+  "./cli-account.test.ts",
 ].filter((f) => fs.existsSync(path.join(here, f)));
 
 const results: { name: string; ok: boolean; seconds: number; note?: string }[] = [];
@@ -95,7 +100,7 @@ console.log("\n=== prepare: compile the Midnight contract (skipped when up to da
 }
 
 await bunTest("unit", UNIT, 180_000);
-await bunTest("program", ["./solana-program.test.ts"], 180_000);
+await bunTest("program", ["./solana-program.test.ts", "./solana-program-00050.test.ts"], 180_000);
 
 const e2e = e2eDecision();
 if (!e2e.run) {

@@ -187,6 +187,7 @@ export async function initLocal(opts: InitLocalOptions = {}): Promise<InitLocalR
     operator: operator.publicKey.toBase58(),
     user: user.publicKey.toBase58(),
     startSlot,
+    genesisHash: await conn.getGenesisHash(),
     signatures,
     updatedAt: new Date().toISOString(),
   };

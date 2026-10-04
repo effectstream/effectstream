@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // Bridge CLI. From the template root:
 //   bun run bridge:to-midnight --amount 10 --recipient mn_shield-addr_undeployed1…
+//   bun run bridge:to-midnight --amount 10 --account <64-hex Midnight contract address>
 //   bun run bridge:to-solana   --amount 4  --recipient <base58 Solana pubkey>
 //   bun run bridge:status      [--id s2m:0] [--watch]
 // Common options: --mode local|live (default local, or BRIDGE_MODE), --api <url>
@@ -13,8 +14,9 @@ import { CliArgError, parseStatusArgs, parseToMidnightArgs, parseToSolanaArgs } 
 
 const USAGE = `usage:
   bridge:to-midnight --amount <tokens> --recipient <mn_shield-addr_…> [--keypair <path>]
+  bridge:to-midnight --amount <tokens> --account <64-hex contract address> [--keypair <path>]
   bridge:to-solana   --amount <tokens> --recipient <base58 pubkey> [--seed-file <path>]
-  bridge:status      [--id <s2m:n|m2s:n>] [--direction s2m|m2s] [--status observed|submitted|completed] [--watch]
+  bridge:status      [--id <s2m:n|m2s:n>] [--direction s2m|m2s] [--status observed|submitted|completed|undeliverable] [--watch]
 common: [--mode local|live] [--api <url>] [--timeout <seconds>] [--no-wait]`;
 
 async function main(argv: string[]): Promise<number> {
