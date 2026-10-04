@@ -386,11 +386,16 @@ const body = {
 
 | Route | Purpose |
 | --- | --- |
-| `GET /transfers?direction=s2m\|m2s&status=observed\|submitted\|completed&limit=1..500` | Transfers with their relayer attempts |
+| `GET /transfers?direction=s2m\|m2s&status=observed\|submitted\|completed\|undeliverable&recipientKind=wallet\|contract\|solana&limit=1..500` | Transfers with their relayer attempts |
 | `GET /transfers/:id` | One transfer, `id` = `s2m:<lock nonce>` or `m2s:<withdrawal id>` |
+| `GET /recipients/contract/:address` | Whether this node can deliver into a Midnight contract (read-only; 503 when the relayer is off) |
+| `GET /deployment` | This deployment's public record, once the node has checked it against both chains (503 before) |
 
-`status` is derived: `completed` once sync has seen the counterpart, `submitted` once the
-relayer has made an attempt, `observed` otherwise.
+`status` is derived, in this order: `completed` once sync has seen the counterpart,
+`undeliverable` when a lock to a contract was refused before any signature (with `reason.code`),
+`submitted` once the relayer has made an attempt, `observed` otherwise. Each transfer also carries
+`recipientKind` (`wallet`, `contract` or `solana`) and, for a contract delivery, `delivery`
+(`adapter`, `account`, the minted `coin` and the Midnight `tx`).
 
 ### Database
 
@@ -398,6 +403,20 @@ relayer has made an attempt, `observed` otherwise.
 machine; primary key `(direction, source_id)`; status only ever moves `observed` → `completed`)
 and `relayer_jobs` (owned by the relayer; attempts, last attempt, last transaction, last error).
 The queries are in `packages/database/sql/queries.sql`.
+`001-contract-delivery.sql` adds `bridge_transfers.recipient_kind` and, on `relayer_jobs`, the
+`undeliverable_*` columns and `delivery`.
+
+The runtime applies a migration only while it processes block 1, so `001` reaches a fresh database
+only. A node started on a database synced by an older node refuses to start with "wipe the database
+and re-sync": the node re-syncs every transfer from the deployment's start heights.
+
+**Re-evaluating an undeliverable transfer** (for example after the delivery pin changed): delete its
+relayer row, and the relayer classifies it again on its next poll. Nothing was signed for it, so
+nothing can be replayed:
+
+```sql
+DELETE FROM relayer_jobs WHERE direction = 's2m' AND source_id = <lock nonce>;
+```
 
 ### Known limits
 

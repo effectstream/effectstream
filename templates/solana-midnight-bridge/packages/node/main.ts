@@ -10,6 +10,7 @@
 await import("@midnight-ntwrk/onchain-runtime");
 
 import { init, start } from "@effectstream/runtime";
+import { getConnection } from "@effectstream/db";
 import { main, spawn, suspend } from "effection";
 import { toSyncProtocolWithNetwork, withEffectstreamStaticConfig } from "@effectstream/config";
 import { migrationTable } from "@solana-midnight-bridge/database";
@@ -17,18 +18,47 @@ import { Buffer } from "node:buffer";
 import { PublicKey } from "@solana/web3.js";
 import {
   buildBridgeConfig,
+  checkSolanaGenesis,
   describeSettings,
   loadBridgeNodeSettings,
   parseNodeMode,
   resolveNtpStartTime,
 } from "./config.ts";
 import { createBridgeStateMachine } from "./state-machine.ts";
-import { apiRouter } from "./api.ts";
+import { createApiRouter } from "./api.ts";
+import { assertContractDeliverySchema, SCHEMA_WIPE_MESSAGE } from "./schema-check.ts";
+import { buildDeploymentRecord, liveRecordReads, verifyRecordInBackground } from "./record.ts";
 import { grammar } from "./grammar.ts";
 import { startRelayer } from "./relayer/mod.ts";
 
 const mode = parseNodeMode(process.argv[2] ?? process.env.BRIDGE_MODE);
 const settings = loadBridgeNodeSettings(mode);
+
+// 00058 start-up checks: the Solana RPC is the deployment's cluster (FR-010), and the database
+// is not an older node's (D-6: a new migration never runs on a database synced past block 1).
+const refuse = (what: string, e: unknown): never => {
+  console.error(`[bridge-node] ${what}: ${e instanceof Error ? e.message : String(e)}`);
+  process.exit(1);
+};
+await checkSolanaGenesis(settings).catch((e) => refuse("Solana genesis check", e));
+try {
+  const v = await assertContractDeliverySchema((text, values) => getConnection().query(text, values as any[]));
+  if (!v.fresh) console.log("[bridge-node] database schema has the contract-delivery columns");
+} catch (e) {
+  if (e instanceof Error && e.message.startsWith(SCHEMA_WIPE_MESSAGE)) refuse("database schema", e);
+  // The database is not reachable yet: the runtime connects (and fails) on its own.
+  console.warn(`[bridge-node] could not check the database schema yet: ${e instanceof Error ? e.message : String(e)}`);
+}
+// GET /deployment: the record, once verified against both chains (I-3 (c)).
+const publicApi = process.env.BRIDGE_PUBLIC_API ?? `http://127.0.0.1:${process.env.EFFECTSTREAM_API_PORT ?? "9999"}`;
+const record = verifyRecordInBackground({
+  build: () => buildDeploymentRecord(settings, liveRecordReads(settings.solanaRpcUrl, settings.midnightUrls), {
+    api: publicApi,
+    ...(process.env.BRIDGE_RECORD_NAME ? { name: process.env.BRIDGE_RECORD_NAME } : {}),
+    ...(process.env.BRIDGE_RECORD_SYMBOL ? { symbol: process.env.BRIDGE_RECORD_SYMBOL } : {}),
+  }),
+});
+const apiRouter = createApiRouter({ deploymentRecord: record.current });
 const ntpStartTime = await resolveNtpStartTime(settings);
 const config = buildBridgeConfig(settings, ntpStartTime);
 const { gameStateTransitions } = createBridgeStateMachine({
