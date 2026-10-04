@@ -16,6 +16,7 @@
     "@midnight-ntwrk/midnight-js-contracts": "5.0.0-beta.6",
     "@solana-midnight-bridge/contracts-midnight": "workspace:*",
     "@solana-midnight-bridge/contracts-solana": "workspace:*",
+    "@solana-midnight-bridge/node": "workspace:*",
     "@solana/spl-token": "^0.4.9",
     "@solana/web3.js": "^1.95.0",
     "rxjs": "^7.8.2"

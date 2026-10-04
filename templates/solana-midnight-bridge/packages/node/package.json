@@ -10,7 +10,9 @@
     "./grammar": "./grammar.ts",
     "./api": "./api.ts",
     "./relayer": "./relayer/mod.ts",
-    "./config": "./config.ts"
+    "./config": "./config.ts",
+    "./record": "./record.ts",
+    "./schema-check": "./schema-check.ts"
   },
   "scripts": {
     "start:dev": "bun run main.ts local",

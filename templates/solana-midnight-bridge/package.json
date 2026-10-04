@@ -15,6 +15,7 @@
     "bridge:to-midnight": "bun run packages/cli/main.ts to-midnight",
     "bridge:to-solana": "bun run packages/cli/main.ts to-solana",
     "bridge:status": "bun run packages/cli/main.ts status",
+    "bridge:record": "bun run packages/cli/main.ts record",
     "node:live": "bun run packages/node/main.ts live",
     "compile:midnight": "bun run --filter @solana-midnight-bridge/contracts-midnight compile",
     "deploy:stagenet": "bun run --filter @solana-midnight-bridge/contracts-midnight deploy:stagenet"

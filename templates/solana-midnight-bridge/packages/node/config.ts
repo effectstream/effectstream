@@ -262,6 +262,28 @@ export function buildBridgeConfig(s: BridgeNodeSettings, ntpStartTime: number) {
     .build();
 }
 
+/**
+ * 00058 FR-010: the Solana RPC must be the cluster the deployment was made on. A deployment file
+ * written before 00058 has no `genesisHash`: that is accepted with a warning.
+ */
+export async function checkSolanaGenesis(
+  s: Pick<BridgeNodeSettings, "solana" | "solanaRpcUrl" | "deploymentFile">,
+  getGenesisHash: () => Promise<string> = () => new Connection(s.solanaRpcUrl, "confirmed").getGenesisHash(),
+  warn: (m: string) => void = (m) => console.warn(m),
+): Promise<{ checked: boolean; genesis: string }> {
+  const genesis = await getGenesisHash();
+  if (!s.solana.genesisHash) {
+    warn(`[bridge-node] ${s.deploymentFile} records no solana.genesisHash (an older file); the Solana RPC's genesis ${genesis} is not checked`);
+    return { checked: false, genesis };
+  }
+  if (genesis !== s.solana.genesisHash) {
+    throw new Error(
+      `the Solana RPC ${redactRpcUrl(s.solanaRpcUrl)} has genesis ${genesis}, but ${s.deploymentFile} was deployed on genesis ${s.solana.genesisHash}; refusing to start`,
+    );
+  }
+  return { checked: true, genesis };
+}
+
 /** One line for the logs: what this node watches (no secrets; RPC host only). */
 export function describeSettings(s: BridgeNodeSettings): string {
   return [

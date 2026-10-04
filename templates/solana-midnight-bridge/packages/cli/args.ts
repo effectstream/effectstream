@@ -252,3 +252,42 @@ export function parseStatusArgs(argv: string[]): StatusArgs {
     mode: parseMode(f.mode),
   };
 }
+
+export type RecordArgs = {
+  mode: CliMode;
+  api: string;
+  name?: string;
+  symbol?: string;
+  out?: string;
+};
+
+/**
+ * bridge:record [--mode local|live] --api <origin> [--name <s>] [--symbol <s>] [--out <path>]
+ * (plan 00058 I-3 (c)). The values are checked again, with the chains, by the record builder.
+ */
+export function parseRecordArgs(argv: string[]): RecordArgs {
+  const f = parseFlags(argv, { value: ["mode", "api", "name", "symbol", "out"], bool: [] });
+  if (typeof f.api !== "string" || f.api === "") {
+    throw new CliArgError("--api is required: the bridge node API's public origin (e.g. https://bridge-x.example.org)");
+  }
+  let api: URL;
+  try {
+    api = new URL(f.api);
+  } catch {
+    throw new CliArgError(`--api must be an http(s) origin, got "${f.api}"`);
+  }
+  if (api.protocol !== "http:" && api.protocol !== "https:") throw new CliArgError(`--api must be an http(s) origin, got "${f.api}"`);
+  if (typeof f.symbol === "string" && !/^[\x21-\x7e]{1,8}$/.test(f.symbol)) {
+    throw new CliArgError(`--symbol must be 1–8 printable ASCII characters with no space, got "${f.symbol}"`);
+  }
+  if (typeof f.name === "string" && (!/^[\x20-\x7e]{1,64}$/.test(f.name) || f.name.trim() !== f.name)) {
+    throw new CliArgError(`--name must be 1–64 printable ASCII characters, no leading or trailing space`);
+  }
+  return {
+    mode: parseMode(f.mode),
+    api: f.api,
+    ...(typeof f.name === "string" ? { name: f.name } : {}),
+    ...(typeof f.symbol === "string" ? { symbol: f.symbol } : {}),
+    ...(typeof f.out === "string" ? { out: f.out } : {}),
+  };
+}

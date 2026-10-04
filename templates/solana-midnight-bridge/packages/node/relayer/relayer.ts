@@ -101,9 +101,23 @@ export class BridgeRelayer {
     await Promise.allSettled([...this.inFlight.values()]);
   }
 
+  private readonly skippedContracts = new Set<string>();
+
   async candidates(limit = 500): Promise<RelayerCandidate[]> {
     const rows = await this.withDb(() => listRelayerCandidates.run({ limit }, this.deps.db as any));
-    return rows.map(toCandidate);
+    // 00058: a lock to a CONTRACT recipient (LockToContract) needs the delivery router, which this
+    // relayer does not have yet: it is left alone, untouched (no relayer_jobs row, nothing signed),
+    // never sent down the wallet mint path.
+    const wallet = rows.filter((r) => {
+      if (r.recipient_kind !== "contract") return true;
+      const key = jobKey(r.direction as Direction, BigInt(r.source_id));
+      if (!this.skippedContracts.has(key)) {
+        this.skippedContracts.add(key);
+        this.log(`${key}: contract recipient ${r.recipient}; no delivery router in this relayer, left untouched`);
+      }
+      return false;
+    });
+    return wallet.map(toCandidate);
   }
 
   /** One polling round. Returns the job keys it started. */

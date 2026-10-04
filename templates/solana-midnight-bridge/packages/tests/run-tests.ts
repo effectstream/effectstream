@@ -11,6 +11,7 @@
  *                   state-machine.test.ts           STF over recorded P0 payloads (PGLite)
  *                   node-config-api.test.ts         sync config + API (Fastify inject, PGLite)
  *                   relayer-jobs.test.ts            relayer selection, backoff, job building
+ *                   node-contract-delivery.test.ts  00058 node: STF, DB, API v2, record, start-up checks
  *                   cli-args.test.ts                CLI argument validation
  *                   cli-account.test.ts             bridge:to-midnight --account (00058 FR-011)
  *   2. program  — solana-program.test.ts: the bridge program on a throwaway local
@@ -47,6 +48,7 @@ const UNIT = [
   "./state-machine.test.ts",
   "./node-config-api.test.ts",
   "./relayer-jobs.test.ts",
+  "./node-contract-delivery.test.ts",
   "./cli-args.test.ts",
   "./cli-account.test.ts",
 ].filter((f) => fs.existsSync(path.join(here, f)));
