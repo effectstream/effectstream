@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repo": "acedward/solana-night-market",
+    "commit": "10b29b1170f014951f03a1d9613b9b3da4328489",
+    "file": "packages/core/src/passport/pinned-account-keys.ts",
+    "sha256": "ca17f0654b435129e84a3fa02f17cd146b6bdcf1151a173836d9e8345c005da7"
+  },
+  "keySet": "21493588f30536e0f409dcf79deea54878f0c2cf6fee601a2359e54a776d5c5e",
+  "passportCommit": "599327b918b55afc95d6c98a89bcd15f4e8b0d53",
+  "accountSourceSha256": "03bbd3d8ad978d6c49a573ad84d27325be95115b81a1b2d4ab829f2ecb50e6fe",
+  "circuits": {
+    "activate_initial_device_with_ed25519": "883151b8b20534627a7938624f2f8f681ab659673cc43d22ddbfd0e4848c8110",
+    "append_inbox_with_ed25519": "cf025f6a1f8e597b7b40d93ea6f3b7a9c8c55141d7e42e8e1854ab166d73376f",
+    "deposit_shielded": "6761a2e9cb905a115e7705b63b7df57b3c14dfa39fa48411ff6f512b8ff916b3",
+    "deposit_unshielded": "3deb950234a50b1515d496d687bd173118cf2e7461ab02d63270dbbd5ac5a973",
+    "open_swap_shielded_with_ed25519": "8ba4a638edd1e8b8bfb9c53b98740c61e8a3cf7c6eca461b22490f8a7b695b7e",
+    "rotate_enc_key_with_ed25519": "ecfe247a69dbd96e2fdadfb2d9fd569add3a3bd26a0f2341e35293dfb7006bbe",
+    "withdraw_shielded_to_contract_with_ed25519": "42deca485cee46f0ba4134a067057878bd016362adcd952e574445460242ca0e",
+    "withdraw_shielded_with_ed25519": "0af6b9754da02f4b9dd919e5127de96b7d8a44ff318f23b3f4ed6429ad21ed91",
+    "withdraw_unshielded_with_ed25519": "2ee9cef2664825260653525f689ed4b79ffa3b5b4a2b1443338a41e65785503b"
+  }
+}
