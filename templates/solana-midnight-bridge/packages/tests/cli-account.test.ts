@@ -112,6 +112,54 @@ describe("the CLI asks the node before it locks", () => {
     return { code, err, out };
   };
 
+  test("500 tokens of a 6-decimal mint get past the amount check (00058 Q7): the node is asked", async () => {
+    verdict = "undeliverable";
+    asked.length = 0;
+    const r = await run(["--amount", "500", "--account", ACCOUNT]);
+    expect(r.code).toBe(1);
+    expect(r.err).not.toMatch(/u64/);
+    expect(r.err).toMatch(/refusing to lock/);
+    expect(asked).toEqual([`/recipients/contract/${ACCOUNT}`]);
+  });
+
+  test("an amount above u64 at the mint's decimals is refused before the node is even asked", async () => {
+    asked.length = 0;
+    const r = await run(["--amount", "18446744073710", "--account", ACCOUNT]);
+    expect(r.code).toBe(2); // an argument error, found once the mint's decimals are known
+    expect(r.err).toMatch(/does not fit in a u64 of base units/);
+    expect(asked).toEqual([]);
+  });
+
+  test("bridge:to-solana: 500 tokens get past the amount check; above u64 at 6 decimals is refused (00058 Q7)", async () => {
+    const both = path.join(tmp, "standin-both.json");
+    const d = JSON.parse(fs.readFileSync(deployment, "utf8"));
+    d.midnight = { networkId: "undeployed", contractAddress: hex(32), tokenColor: hex(32) };
+    fs.writeFileSync(both, JSON.stringify(d));
+    const toSolana = async (amount: string) => {
+      const p = Bun.spawn(["bun", MAIN, "to-solana", "--mode", "live", "--amount", amount, "--recipient", Keypair.generate().publicKey.toBase58()], {
+        stdout: "pipe",
+        stderr: "pipe",
+        env: {
+          ...process.env,
+          BRIDGE_DEPLOYMENT: both,
+          MIDNIGHT_NETWORK_ID: "undeployed",
+          MIDNIGHT_INDEXER_HTTP: "http://127.0.0.1:9/api/v4/graphql", MIDNIGHT_INDEXER_WS: "ws://127.0.0.1:9/api/v4/graphql/ws",
+          MIDNIGHT_NODE_HTTP: "http://127.0.0.1:9",
+          BRIDGE_SECRETS_DIR: path.join(tmp, "no-secrets"),
+        },
+      });
+      const [code, err] = await Promise.all([p.exited, new Response(p.stderr).text()]);
+      return { code, err };
+    };
+    const ok = await toSolana("500");
+    expect(ok.code).toBe(1);
+    expect(ok.err).not.toMatch(/u64/);
+    expect(ok.err).toMatch(/seed file not found/); // the next step: the live user seed
+    const big = await toSolana("18446744073710");
+    expect(big.code).toBe(2); // an argument error, found once the mint's decimals are known
+    expect(big.err).toMatch(/does not fit in a u64 of base units/);
+  });
+
   test("undeliverable → exit 1 with the node's reason, before any Solana call", async () => {
     verdict = "undeliverable";
     asked.length = 0;

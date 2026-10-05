@@ -14,6 +14,21 @@ export type CliMode = "local" | "live";
 
 const U64_MAX = 0xffff_ffff_ffff_ffffn;
 
+/**
+ * The early check of `--amount`, made before the deployment file (and so the mint's decimals) is
+ * read: its SYNTAX only — present, a positive decimal number, not zero. The u64 range and the
+ * number of fractional digits are checked once, by `parseAmount` with the mint's real decimals,
+ * right after the deployment file is read and still before any chain call. (Until 00058 this check
+ * ran `parseAmount` with 18 decimals, which refused every amount above 18.44 tokens whatever the
+ * mint's decimals.)
+ */
+export function checkAmountSyntax(text: string | undefined): void {
+  if (text === undefined || text === "") throw new CliArgError("--amount is required");
+  const m = /^(\d+)(?:\.(\d+))?$/.exec(text.trim());
+  if (!m) throw new CliArgError(`--amount must be a positive decimal number, got "${text}"`);
+  if (/^0+$/.test(m[1]!) && /^0*$/.test(m[2] ?? "")) throw new CliArgError("--amount must be greater than zero");
+}
+
 /** Midnight network id the CLI expects recipients for, per mode (live: MIDNIGHT_NETWORK_ID, default stagenet). */
 export function midnightNetworkFor(mode: CliMode): string {
   return mode === "local" ? "undeployed" : liveMidnightNetworkId();
@@ -173,10 +188,10 @@ export function parseToMidnightArgs(argv: string[]): ToMidnightArgs & { amountTe
     }
     midnightRecipient = parseMidnightRecipient(recipientAddress, mode);
   }
-  // The amount is re-parsed with the mint's decimals once the deployment is
-  // read; check its shape (and that it is not zero) here already.
+  // The amount is parsed with the mint's decimals (and its u64 range checked) once the deployment
+  // is read; check its syntax (and that it is not zero) here already.
   const amountText = typeof f.amount === "string" ? f.amount : "";
-  parseAmount(amountText || undefined, 18);
+  checkAmountSyntax(amountText || undefined);
   return {
     mode,
     amountText,
@@ -207,7 +222,7 @@ export function parseToSolanaArgs(argv: string[]): ToSolanaArgs {
   const mode = parseMode(f.mode);
   const recipient = parseSolanaRecipient(typeof f.recipient === "string" ? f.recipient : undefined);
   const amountText = typeof f.amount === "string" ? f.amount : "";
-  parseAmount(amountText || undefined, 18);
+  checkAmountSyntax(amountText || undefined);
   return {
     mode,
     amountText,

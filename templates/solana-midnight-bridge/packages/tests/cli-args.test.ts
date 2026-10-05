@@ -11,6 +11,7 @@ import { Keypair } from "@solana/web3.js";
 import { formatShieldedAddress } from "@effectstream/midnight-contracts/shielded-address";
 import {
   CliArgError,
+  checkAmountSyntax,
   formatAmount,
   midnightNetworkFor,
   parseAmount,
@@ -47,6 +48,32 @@ describe("amounts", () => {
     ] as const) {
       expect(() => parseAmount(v || undefined, 6)).toThrow(msg);
     }
+  });
+});
+
+describe("amounts above 18.44 tokens (00058 Q7: the early check is syntax only)", () => {
+  test("500 tokens pass both commands' early check; 6 decimals give 500000000 base units", () => {
+    expect(parseToMidnightArgs(["--amount", "500", "--recipient", LOCAL_ADDR]).amountText).toBe("500");
+    expect(parseToSolanaArgs(["--amount", "500", "--recipient", SOL]).amountText).toBe("500");
+    expect(parseAmount("500", 6)).toBe(500_000_000n);
+    // What the 00050 early check did (18 decimals): 500 overflows u64 there.
+    expect(() => parseAmount("500", 18)).toThrow(/u64/);
+  });
+
+  test("the u64 range is still enforced, once, at the mint's real decimals", () => {
+    expect(parseAmount("18446744073709.551615", 6)).toBe(0xffff_ffff_ffff_ffffn);
+    expect(() => parseAmount("18446744073709.551616", 6)).toThrow(/u64/);
+    expect(() => parseAmount("18446744073710", 6)).toThrow(/u64/);
+  });
+
+  test("the early check refuses what no mint can take: missing, malformed, zero", () => {
+    for (const [v, msg] of [
+      ["", /required/], ["abc", /positive decimal/], ["-1", /positive decimal/], ["1e3", /positive decimal/],
+      ["0", /greater than zero/], ["0.000", /greater than zero/], ["00.0", /greater than zero/],
+    ] as const) {
+      expect(() => checkAmountSyntax(v || undefined)).toThrow(msg);
+    }
+    for (const v of ["500", "0.000001", "18446744073710", "1.1234567"]) expect(() => checkAmountSyntax(v)).not.toThrow();
   });
 });
 
