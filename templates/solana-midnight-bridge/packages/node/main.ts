@@ -30,6 +30,7 @@ import { assertContractDeliverySchema, SCHEMA_WIPE_MESSAGE } from "./schema-chec
 import { buildDeploymentRecord, liveRecordReads, verifyRecordInBackground } from "./record.ts";
 import { grammar } from "./grammar.ts";
 import { startRelayer } from "./relayer/mod.ts";
+import { createDelivery, deliveryConfig, deliveryInfos } from "./relayer/delivery.ts";
 
 const mode = parseNodeMode(process.argv[2] ?? process.env.BRIDGE_MODE);
 const settings = loadBridgeNodeSettings(mode);
@@ -49,6 +50,18 @@ try {
   // The database is not reachable yet: the runtime connects (and fails) on its own.
   console.warn(`[bridge-node] could not check the database schema yet: ${e instanceof Error ? e.message : String(e)}`);
 }
+// 00058: delivery into contracts (D-1). The adapters are checked here (the Passport bundle against
+// its pin, FR-006): a failure refuses to start. With the relayer off there is no router, and
+// GET /recipients answers 503.
+const relayerOn = process.env.BRIDGE_RELAYER !== "0";
+const deliveryCfg = (() => {
+  try {
+    return deliveryConfig();
+  } catch (e) {
+    return refuse("delivery configuration", e);
+  }
+})();
+const delivery = relayerOn ? await createDelivery(settings, deliveryCfg).catch((e) => refuse("contract delivery", e)) : null;
 // GET /deployment: the record, once verified against both chains (I-3 (c)).
 const publicApi = process.env.BRIDGE_PUBLIC_API ?? `http://127.0.0.1:${process.env.EFFECTSTREAM_API_PORT ?? "9999"}`;
 const record = verifyRecordInBackground({
@@ -56,9 +69,10 @@ const record = verifyRecordInBackground({
     api: publicApi,
     ...(process.env.BRIDGE_RECORD_NAME ? { name: process.env.BRIDGE_RECORD_NAME } : {}),
     ...(process.env.BRIDGE_RECORD_SYMBOL ? { symbol: process.env.BRIDGE_RECORD_SYMBOL } : {}),
+    adapters: delivery?.infos ?? deliveryInfos(deliveryCfg),
   }),
 });
-const apiRouter = createApiRouter({ deploymentRecord: record.current });
+const apiRouter = createApiRouter({ deploymentRecord: record.current, recognise: () => delivery?.recognise ?? null });
 const ntpStartTime = await resolveNtpStartTime(settings);
 const config = buildBridgeConfig(settings, ntpStartTime);
 const { gameStateTransitions } = createBridgeStateMachine({
@@ -73,7 +87,7 @@ main(function* () {
 
   // The relayer polls bridge_transfers; spawn it before start(), which never
   // returns control (templates/preorder pattern).
-  yield* spawn(() => startRelayer(settings));
+  yield* spawn(() => startRelayer(settings, delivery));
 
   yield* withEffectstreamStaticConfig(config, function* () {
     yield* start({

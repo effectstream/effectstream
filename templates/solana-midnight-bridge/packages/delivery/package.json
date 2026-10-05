@@ -1,0 +1,11 @@
+{
+  "name": "@solana-midnight-bridge/delivery",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./mod.ts",
+    "./types": "./types.ts",
+    "./router": "./router.ts"
+  }
+}

@@ -70,7 +70,7 @@ ORDER BY v.observed_block DESC, v.direction, v.source_id DESC
 LIMIT :limit!;
 
 /* @name listRelayerCandidates */
-SELECT t.direction, t.source_id, t.amount, t.recipient, t.recipient_kind,
+SELECT t.direction, t.source_id, t.amount, t.recipient, t.recipient_kind, t.observed_at,
        j.attempts, j.last_attempt_at, j.last_tx, j.last_error, j.submitted_at
 FROM bridge_transfers t
 LEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id
