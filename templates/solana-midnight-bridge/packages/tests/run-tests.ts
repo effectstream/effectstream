@@ -7,6 +7,7 @@
  *                   solana-instructions.test.ts     layouts, log parser, FR-009 guards
  *                   lock-to-contract.test.ts        LockToContract / LOCKC (00058 I-2 vectors)
  *                   midnight-signing.test.ts        mint digest/signature, raw contract info (E8)
+ *                   midnight-seeds.test.ts          seed files: 32/64-byte hex, mnemonics, WALLET= lines (00057 Q13)
  *                   midnight-contract-logic.test.ts circuits run locally on runtime 0.20
  *                   state-machine.test.ts           STF over recorded P0 payloads (PGLite)
  *                   node-config-api.test.ts         sync config + API (Fastify inject, PGLite)
@@ -47,6 +48,7 @@ const UNIT = [
   "./solana-instructions.test.ts",
   "./lock-to-contract.test.ts",
   "./midnight-signing.test.ts",
+  "./midnight-seeds.test.ts",
   "./midnight-contract-logic.test.ts",
   "./state-machine.test.ts",
   "./node-config-api.test.ts",

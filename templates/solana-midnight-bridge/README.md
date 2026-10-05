@@ -181,7 +181,12 @@ with its relayer against contracts you have deployed once, recorded in
 1. **Keys.** Live keys are read only from `~/.config/solana-midnight-bridge/` (directory mode
    700, files 600; `BRIDGE_SECRETS_DIR` points at another directory outside the repository),
    never from the repository: `solana-operator.json` and `solana-user.json` (Solana CLI keypair
-   files), `midnight-operator.seed` and `midnight-user.seed` (32-byte hex seeds).
+   files), `midnight-operator.seed` and `midnight-user.seed` (and `midnight-delivery.seed` when
+   the node delivers into contracts). A Midnight seed file holds a hex seed of 32 to 64 bytes
+   (`0x` optional: the dev seeds are 32-byte; Lace and the shared test wallets use 64-byte BIP-39
+   seeds, which derive the same addresses here as in those wallets), a BIP-39 mnemonic of 12 to 24
+   words (its seed with an empty passphrase), or either of them on a `WALLET=`, `SEED=` or
+   `MNEMONIC=` line.
    Every script refuses the committed local program key and the public dev keys on a real
    network.
 2. **Funds.** The Solana operator pays the program deploy (about 1.6 SOL on devnet) and the
@@ -614,7 +619,7 @@ bun run test
 
 `packages/tests/run-tests.ts` compiles the contract if needed, then runs:
 
-- **unit**, no chain and no ports (236 tests): instruction layouts, the log parser, the key
+- **unit**, no chain and no ports (245 tests): instruction layouts, the log parser, the key
   guards, the live secrets directory, the live deploy's cluster check and its parsing of the
   `solana program deploy` output, the local ledger-size default, and `sendTx`'s handling of
   landed failures (`solana-instructions.test.ts`); the mint
@@ -633,7 +638,8 @@ bun run test
   recognition (all seven codes, over recorded account states), sealing and the one-transaction
   composition (`delivery-passport.test.ts`; two of its tests need a verified Night Market key
   volume and skip without one); the relayer's contract branch (`relayer-delivery.test.ts`); and
-  `bridge:to-midnight --account` (`cli-account.test.ts`).
+  `bridge:to-midnight --account` (`cli-account.test.ts`). Seed files in every accepted form, with
+  a known-answer address check against Night Market's derivation (`midnight-seeds.test.ts`).
 - **program** (17 tests): `solana-program.test.ts` on a throwaway validator on random ports: a lock
   logs and fills the vault; a non-operator release, a second release of the same id and zero
   amounts are refused; `LockToContract` locks and logs `LOCKC`, and its refusals hold.

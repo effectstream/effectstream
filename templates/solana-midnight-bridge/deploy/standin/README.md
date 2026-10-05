@@ -55,6 +55,10 @@ its own midnight-js private-state store (a volume mounted over `midnight-level-d
 | `midnight-user.seed` | optional: a wallet recipient |
 | `storage-password` | optional: the midnight-js private-state password |
 
+A Midnight `.seed` file holds a hex seed of 32 to 64 bytes (`0x` optional; a 64-byte BIP-39 seed
+from Lace or a shared test wallet derives the same addresses as that wallet), a BIP-39 mnemonic of 12
+to 24 words, or either of them on a `WALLET=`, `SEED=` or `MNEMONIC=` line.
+
 The keys must be fresh: off loopback, every script refuses the public dev seeds and the
 committed local Solana keys. Fund the Midnight seeds with NIGHT and register it for DUST before
 the node starts, and the Solana operator from a faucet.
