@@ -614,7 +614,7 @@ bun run test
 
 `packages/tests/run-tests.ts` compiles the contract if needed, then runs:
 
-- **unit**, no chain and no ports (112 tests): instruction layouts, the log parser, the key
+- **unit**, no chain and no ports (236 tests): instruction layouts, the log parser, the key
   guards, the live secrets directory, the live deploy's cluster check and its parsing of the
   `solana program deploy` output, the local ledger-size default, and `sendTx`'s handling of
   landed failures (`solana-instructions.test.ts`); the mint
@@ -625,10 +625,20 @@ bun run test
   and reordered (`state-machine.test.ts`); the sync configuration and the API, including a request
   that arrives before the node has created its tables (`node-config-api.test.ts`); relayer
   selection, backoff, the on-chain pre-checks and both counterpart inputs (`relayer-jobs.test.ts`);
-  and CLI argument validation before any chain call (`cli-args.test.ts`).
-- **program**: `solana-program.test.ts` on a throwaway validator on random ports: a lock logs
-  and fills the vault; a non-operator release, a second release of the same id and zero amounts
-  are refused.
+  and CLI argument validation before any chain call (`cli-args.test.ts`). Delivery into contracts
+  adds: the `LockToContract` vectors and the unchanged 00050 `Lock` golden vector
+  (`lock-to-contract.test.ts`); the node's contract rows, API v2, `/recipients`, the deployment
+  record and the start-up checks (`node-contract-delivery.test.ts`); the router's verdicts and its
+  signing boundary, with a second adapter (`delivery-router.test.ts`); the Passport pin, bundle,
+  recognition (all seven codes, over recorded account states), sealing and the one-transaction
+  composition (`delivery-passport.test.ts`; two of its tests need a verified Night Market key
+  volume and skip without one); the relayer's contract branch (`relayer-delivery.test.ts`); and
+  `bridge:to-midnight --account` (`cli-account.test.ts`).
+- **program** (17 tests): `solana-program.test.ts` on a throwaway validator on random ports: a lock
+  logs and fills the vault; a non-operator release, a second release of the same id and zero
+  amounts are refused; `LockToContract` locks and logs `LOCKC`, and its refusals hold.
+  `solana-program-00050.test.ts` runs tag 3 against the previous program build: refused, nothing
+  locked (it fails closed).
 - **e2e**: the whole bridge on the local stack. `run-tests.ts` starts
   `packages/tests/start.test.ts` (the `bun run dev` stack, with the node non-critical so a test
   can kill it), then runs:
@@ -663,10 +673,18 @@ bun run test
   `contract.test.ts` skips too unless a devnet with both provers is already running.
 
 > [!NOTE]
-> Last full run (2026-10-03, `LINK_LOCAL=1` in a linux/amd64 Docker container under emulation, with
-> the rc.8 prover as a native sibling container): unit 112/112, program 8/8,
-> end to end 14/14 (1762 s), contract 6/6 (251 s); the whole run
-> took 43 minutes, including a cold contract compile.
+> Last full run (2026-10-05, `LINK_LOCAL=1` in a linux/amd64 Docker container under emulation, with
+> the rc.8 prover as a native sibling container): unit 234 pass + 2 skipped (the two key-volume
+> tests), program 17/17, end to end 14/14 (1215 s), contract 6/6 (242 s); the whole run took
+> 38 minutes, including a cold contract compile. With no delivery adapter configured, the end-to-end
+> suite shows the wallet path unchanged.
+>
+> Delivery into contracts was run end to end on local stand-ins (Night Market's localnet with its
+> relay, a `solana-test-validator`, two deployments from `deploy/standin/compose.bridge.yml`), twice:
+> 500 tokens reached a Passport account in one transaction, `completed` 99–104 s after the lock;
+> refusals, a wallet lock alongside, restarts (node process killed mid-proof, whole container
+> killed, database wiped) and two deployments side by side all held, with exactly one delivery per
+> lock. Peak memory of that whole stack: 10.9 GiB.
 >
 > The template is not in the `ENABLED` list of `templates/run-template-tests.ts` yet, because CI
 > installs `@effectstream/*` from npm and this template needs the unreleased engine changes in
