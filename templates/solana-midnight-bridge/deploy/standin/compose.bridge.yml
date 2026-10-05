@@ -23,7 +23,15 @@
 #   MIDNIGHT_PROOF_SERVER_URL, MIDNIGHT_CONTRACT_PROOF_SERVER_URL
 # Optional: BRIDGE_PUBLIC_API, BRIDGE_RECORD_NAME, BRIDGE_RECORD_SYMBOL, BRIDGE_DELIVERY_ADAPTERS
 #   (default passport), PASSPORT_BUNDLE_DIR, BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS, BRIDGE_TEMPLATE_DIR,
-#   BRIDGE_NODE_IMAGE, BRIDGE_MEM_LIMIT.
+#   BRIDGE_NODE_IMAGE, BRIDGE_MEM_LIMIT, BRIDGE_ORCHESTRATOR_CONFIG (default start.live.ts),
+#   BRIDGE_ORCHESTRATOR_API (1 = the orchestrator's process API on the container's port 4747, not
+#   published but reachable on the stack network; off by default, for tests only).
+#
+# A restart re-syncs: the node's database (PGlite, /data/pglite) does not survive a restart of the
+# container (Effectstream engine issue 00063: the PGlite gateway loses its data when it is stopped).
+# After any restart the node re-syncs from the deployment's start heights; that is safe (the
+# contract's mintedLocks and the Solana receipts refuse duplicates), but it takes longer as the
+# chains grow.
 #
 # Secrets never pass through this file: the wallet-storage password is read from
 # /secrets/storage-password when that file exists.
@@ -39,8 +47,9 @@ services:
         if [ -f /secrets/storage-password ]; then export MIDNIGHT_STORAGE_PASSWORD="$$(cat /secrets/storage-password)"; fi
         LOG_DIR="/data/logs/$$(date -u +%Y%m%dT%H%M%SZ)"
         mkdir -p "$$LOG_DIR" /data/pglite
+        API_FLAG=--no-api; if [ "$${BRIDGE_ORCHESTRATOR_API:-0}" = 1 ]; then API_FLAG=; fi
         echo "[bridge-node] $${BRIDGE_HOST} deployment=$${BRIDGE_DEPLOYMENT} logs=$$LOG_DIR"
-        exec bun node_modules/@effectstream/orchestrator/src/cli.ts start start.live.ts --no-api --log-dir="$$LOG_DIR"
+        exec bun node_modules/@effectstream/orchestrator/src/cli.ts start "$${BRIDGE_ORCHESTRATOR_CONFIG:-start.live.ts}" $$API_FLAG --log-dir="$$LOG_DIR"
     environment:
       BRIDGE_MODE: live
       BRIDGE_HOST: ${BRIDGE_HOST:?}
@@ -60,8 +69,11 @@ services:
       MIDNIGHT_INDEXER_WS: ${MIDNIGHT_INDEXER_WS:?}
       MIDNIGHT_PROOF_SERVER_URL: ${MIDNIGHT_PROOF_SERVER_URL:?}
       MIDNIGHT_CONTRACT_PROOF_SERVER_URL: ${MIDNIGHT_CONTRACT_PROOF_SERVER_URL:?}
-      # The node's database survives a restart (a re-sync needs a wipe of /data/pglite).
+      # The node's database. It does NOT survive a restart of the container (engine issue 00063):
+      # every restart re-syncs from the deployment's start heights.
       PGLITE_DATA_DIR: /data/pglite
+      BRIDGE_ORCHESTRATOR_API: ${BRIDGE_ORCHESTRATOR_API:-0}
+      BRIDGE_ORCHESTRATOR_CONFIG: ${BRIDGE_ORCHESTRATOR_CONFIG:-start.live.ts}
       NODE_ENV: production
     volumes:
       - template:/work

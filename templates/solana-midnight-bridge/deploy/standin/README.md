@@ -28,8 +28,19 @@ default) holds nothing but Bun. The repository comes from a Docker volume that a
    Night Market key volume into the gitignored `packages/delivery-passport/bundle/account`;
 5. the deployment file `deployments/<BRIDGE_DEPLOYMENT>.json`, written by the two deploys below.
 
-Two nodes can share one volume: each keeps its own database (`/data`, a volume of its project)
-and its own midnight-js private-state store (a volume mounted over `midnight-level-db-deploy`).
+Two nodes can share one volume: each has its own database (`/data`, a volume of its project) and
+its own midnight-js private-state store (a volume mounted over `midnight-level-db-deploy`).
+
+> [!IMPORTANT]
+> **A restart re-syncs.** The node's database does **not** survive a restart of the container,
+> even though it lives in `/data/pglite` (Effectstream engine issue 00063: the PGlite gateway loses
+> its data when it is stopped, by SIGTERM or SIGKILL). After any restart (a crash,
+> `docker compose restart`, `stop` and `start`) the node re-syncs every transfer from the
+> deployment's start heights. That is safe: the contract's `mintedLocks` and the Solana release
+> receipts refuse a second mint or release, so nothing is delivered twice (in the stand-in runs, a
+> container killed mid-delivery delivered exactly once). But the re-sync takes longer as the chains
+> grow, and a contract lock that was `undeliverable(not-a-contract)` is `observed` again for one
+> grace window before it is classified again.
 
 **A secrets directory per deployment** on the host (`BRIDGE_SECRETS_HOST_DIR`, mode 700, files
 600), mounted read-only at `/secrets`:
@@ -68,6 +79,8 @@ the node starts, and the Solana operator from a faucet.
 | `PASSPORT_BUNDLE_DIR` | no | default: the delivery-passport package's `bundle/account` |
 | `BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS` | no | default 600000 |
 | `BRIDGE_NODE_IMAGE`, `BRIDGE_MEM_LIMIT`, `BRIDGE_TEMPLATE_DIR` | no | `oven/bun:1.3.11`, `4g`, see above |
+| `BRIDGE_ORCHESTRATOR_CONFIG` | no | the orchestrator config, default `start.live.ts` (a test can pass one where the node process is not critical, as `packages/tests/start.test.ts` does) |
+| `BRIDGE_ORCHESTRATOR_API` | no | `1` starts the orchestrator's process API on the container's port 4747 (not published, but reachable on the stack network): for tests that stop or kill the node process alone. Off by default |
 
 ## Deploying a bridge for a node
 
@@ -99,5 +112,6 @@ then sees the operator's program and only creates the mint and initializes it.
 - The CLI, from any container with the volume: `bun run bridge:to-midnight --mode live --api
   http://bridge-x:9999 --amount 500 --account <Passport account>`.
 - Logs: `/data/logs/<start time>/sync.log` (one directory per container start).
-- Re-sync from the start heights: stop the container, delete `/data/pglite`, start it again.
+- Re-sync from the start heights: restart the container (see the note above: every restart
+  re-syncs today; deleting `/data/pglite` first makes it explicit).
 - Teardown: `docker compose -p bridge-x -f deploy/standin/compose.bridge.yml down -v`.
