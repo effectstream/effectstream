@@ -20,7 +20,7 @@ EffectStream reads Solana through its JSON-RPC, polling slots and attributing pr
 
 ### Sync Protocol
 
-The protocol type is `SOLANA_RPC_PARALLEL`. It polls `getSlot`, then walks the range slot by slot with `getBlock`. **Skipped slots are normal on Solana** (no block was produced) and are passed over without error.
+The protocol type is `SOLANA_RPC_PARALLEL`. It polls `getSlot`, then reads every slot of the range with `getBlock`, several at a time, and applies the blocks strictly in slot order. **Skipped slots are normal on Solana** (no block was produced) and are passed over without error.
 
 ```ts
 .buildSyncProtocols(builder =>
@@ -34,10 +34,19 @@ The protocol type is `SOLANA_RPC_PARALLEL`. It polls `getSlot`, then walks the r
       delayMs: 2400,
       confirmationDepth: 32,   // ~12.8s at 400ms slots
       // stepSize: 10,         // optional - slots per fetch batch (default: 10)
+      // getBlockConcurrency: 8,            // optional - getBlock calls in flight (default 8)
+      // getBlockMinIntervalMs: 0,          // optional - minimum spacing between getBlock calls
+      // rateLimitRetries: 10,              // optional - waits on HTTP 429 per slot
+      // rateLimitBackoffMs: 500,           // optional - first 429 wait, doubled up to rateLimitMaxBackoffMs (15000)
+      // maxSupportedTransactionVersion: 1, // optional - see below
     })
   )
 )
 ```
+
+**Reading speed and rate limits.** One `getBlock` takes about half a second even on a private RPC, and devnet produces about 2.5 slots a second, so blocks are fetched `getBlockConcurrency` at a time (8 by default) and still applied strictly in slot order: a slot that fails stops the scan there, and the next poll resumes at it. On HTTP 429 the fetcher waits (`Retry-After`, else a doubling backoff) without counting the wait as a failure, and halves its concurrency for the next batch; clean batches grow it back. `getBlockMinIntervalMs` paces the calls for a rate-limited RPC (the public devnet RPC allows about 6 `getBlock` per 10 s, too few for a node to keep up; use a private RPC).
+
+**Transaction versions.** Devnet blocks hold version-1 transactions since solana-core 4.x. A block requested below its highest transaction version fails as a whole (-32015), so `getBlock` asks for `maxSupportedTransactionVersion: 1` (the `json` encoding of a v1 transaction has the same `accountKeys`, `instructions` and `logMessages` as a v0 one). A -32015 that names a higher version raises it once; an RPC that rejects the value falls back to 0. A transaction the reader cannot parse is skipped and counted, never fatal to its block.
 
 `confirmationDepth` is measured in **slots**, subtracted from the current slot to pick the frontier the fetcher will read up to. The default of 32 (~12.8 s) is a common mainnet trade-off between latency and reorg risk; on a local validator anything works.
 
