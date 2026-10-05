@@ -256,6 +256,21 @@ network, so the keys must be fresh ones.
 > | Midnight burn tx | PLACEHOLDER(devnet/stagenet run pending (follow-up)) |
 > | Solana release tx | PLACEHOLDER(devnet/stagenet run pending (follow-up)) |
 
+### Upgrading from the first version of this template (breaking)
+
+Delivery into contracts changed two things that an existing deployment must act on:
+
+- **The Solana program gained instruction tag 3 (`LockToContract`).** A program deployed from an
+  older `build/bridge.so` refuses it (`InvalidInstruction`; it fails closed, nothing is locked).
+  Deploy the current `build/bridge.so` to accept contract recipients. `Lock` (tag 1, 73 bytes) and
+  its `LOCK` log line are unchanged, so wallet transfers keep working on an old program.
+- **The node's database gained columns** (`001-contract-delivery.sql`). A database synced by an
+  older node must be wiped and re-synced from the deployment's start heights: the node refuses to
+  start against the old schema and says so.
+
+The CLI also no longer refuses amounts above 18.44 tokens (its early check used 18 decimals); the
+range is now checked with the mint's own decimals.
+
 ## Project structure
 
 ```
@@ -265,9 +280,16 @@ packages/
   contracts-midnight/    bridge.compact, pinned compactc 0.35.0 toolchain, runtime-0.20 pin,
                          deploy (local + stagenet), mint signing, wallets, the 7 launchMidnight scripts
   database/              000-init.sql (bridge_transfers, relayer_jobs) and pgtyped queries
-  node/                  Sync config, grammar, state machine, API, entry point
-    relayer/             In-process relayer: job selection and backoff, embedded batcher, operator keys
-  cli/                   bridge:to-midnight, bridge:to-solana, bridge:status
+  node/                  Sync config, grammar, state machine, API, deployment record, entry point
+    relayer/             In-process relayer: job selection and backoff, embedded batcher, operator keys,
+                         delivery into contracts
+  delivery/              Delivery adapters: the interface, the router (the only signer for a contract
+                         recipient), the undeliverable codes
+  delivery-passport/     The Passport adapter: pin, bundle import and check, recognition, inbox sealing,
+                         the one-transaction composition
+  cli/                   bridge:to-midnight (--recipient or --account), bridge:to-solana, bridge:status,
+                         bridge:record
+deploy/standin/          compose.bridge.yml: a bridge node in live mode as a container
   tests/                 Unit, program, contract and end-to-end suites (start.test.ts = the dev stack)
 ```
 
@@ -418,6 +440,83 @@ nothing can be replayed:
 DELETE FROM relayer_jobs WHERE direction = 's2m' AND source_id = <lock nonce>;
 ```
 
+### Delivery into contracts (Passport accounts)
+
+A lock can name a Midnight **contract** instead of a wallet. The Solana program has a second lock
+instruction, `LockToContract` (tag 3, 41 bytes: `amount u64` and the contract's 32-byte address),
+which logs `EFFECTSTREAM_BRIDGE|LOCKC|<nonce>|<depositor>|<mint>|<amount>|<contractHex64>` and
+shares the lock-nonce counter with `Lock`. The node then delivers the mint **into** that contract,
+in one Midnight transaction with two calls:
+
+1. `bridge.mintFromSolana(lockNonce, right(contract), amount, mintNonce, sig)`, which mints the coin
+   to the contract;
+2. the contract's own receiving call, which claims the coin in the same transaction. For a
+   [Passport](https://github.com/midnightntwrk/passport) account that is
+   `account.deposit_shielded(coin, entry)`, with the 192-byte inbox entry sealed to the account's
+   on-chain `enc_key`, so only the account owner can read which coin arrived.
+
+```sh
+# Ask the node first, then lock 500 tokens for a Passport account (refused unless deliverable)
+bun run bridge:to-midnight --amount 500 --account <64-hex Passport account address>
+```
+
+**Who decides what is deliverable.** Delivery goes through adapters (`packages/delivery`:
+`recognise(address)` and `deliver(...)`). The node's delivery router asks every configured
+adapter, and only the router signs a mint for a contract recipient: after an adapter has said
+`deliverable`, and the adapter receives the signed arguments, never the operator key. The one
+adapter today is Passport's (`packages/delivery-passport`). It accepts an account only if:
+
+- its circuits and their verifier keys are exactly the pinned key set
+  (`pin/passport-account.pin.json`: 9 circuits, key set `21493588…`, Passport `599327b`);
+- its maintenance authority is retired;
+- its `enc_key` is a usable X25519 public key;
+- its network salt is this network's, and its round and inbox counters are below 2^48.
+
+Anything else is `undeliverable`, with a code, and **nothing is signed for it**:
+
+| Code | Meaning |
+| --- | --- |
+| `no-adapter` | the node has no delivery adapter configured (`BRIDGE_DELIVERY_ADAPTERS` empty) |
+| `not-a-contract` | no contract state at the address on this network, after the grace window (`BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS`) |
+| `not-a-passport-account` | a contract, but not an account of the pinned key set (another bridge, another key set) |
+| `authority-live` | the account's maintenance authority is not retired |
+| `bad-enc-key` | `enc_key` is not a usable X25519 key |
+| `wrong-network` | the account was made for another network |
+| `counters` | a counter is at or above 2^48 |
+
+`undeliverable` is final for the relayer. The SPL tokens stay in the vault: there is no refund
+path. That is why `bridge:to-midnight --account` asks the node
+(`GET /recipients/contract/:address`) and sends nothing unless the answer is `deliverable`. To
+classify a transfer again (for example after a re-pin), delete its `relayer_jobs` row (see
+Database).
+
+**The bundle.** Proving `deposit_shielded` needs the account's compiled module, its ZKIR and its
+proving keys. The node does not build them: import them once from a VERIFIED Night Market key
+volume of the pinned key set:
+
+```sh
+bun run delivery:import-bundle <key volume>/account   # → packages/delivery-passport/bundle/account (gitignored)
+```
+
+The node checks the bundle against the pin at every start and refuses to start on a mismatch.
+
+**Configuration.** `BRIDGE_DELIVERY_ADAPTERS=passport` turns delivery on. The delivery wallet pays
+for the composed transactions: `<secrets>/midnight-delivery.seed` in live mode (fund it with NIGHT
+and register it for DUST, like the operator's), the dev seed `0x…03` locally. With no adapter
+configured, every contract lock is `undeliverable(no-adapter)` and wallet locks are unchanged.
+
+**A deployment's public record.** `bun run bridge:record --api <public origin> --name X --symbol X`
+writes `deployments/<deployment>.record.json` (schema
+`effectstream.solana-midnight-bridge.deployment/1`: SPL mint and decimals, program, contract,
+colour, operator key, Midnight network, Solana genesis hash, API, start heights, delivery adapters)
+after checking every field against both chains; the node serves the same object at
+`GET /deployment`. A token registry is generated from it.
+
+**Two tokens, two deployments.** One deployment bridges one SPL mint (the contract seals it, and
+the colour is `tokenType(domainSep(mint), contract)`). To bridge two tokens, deploy twice and run
+two nodes; `deploy/standin/compose.bridge.yml` runs a node as a container, once per deployment
+(see `deploy/standin/README.md`; a container restart re-syncs, see Known limits).
+
 ### Known limits
 
 - **Trust model.** One operator key controls both sides: it can release the vault and authorize
@@ -427,9 +526,24 @@ DELETE FROM relayer_jobs WHERE direction = 's2m' AND source_id = <lock nonce>;
 - **`withdrawals` only grows.** Every burn adds an entry to the contract's map forever.
 - **Burned coins are gone by construction.** The contract receives them with no witness and
   keeps no spend key.
-- **No cross-contract calls under runtime 0.20 yet.** `mintFromSolana` returns the coin so that
-  a future Solana-controlled Midnight account could receive it in the same transaction, but no
-  such account exists here.
+- **Delivery into contracts is one transaction with two root calls,** not a cross-contract call:
+  `mintFromSolana` returns the coin, and the receiving contract's own call claims it in the same
+  transaction (see Delivery into contracts).
+- **A lock to a contract the node cannot deliver to has no refund.** The tokens stay in the vault.
+  `bridge:to-midnight --account` asks the node first, but a raw `LockToContract` cannot be
+  checked by the program.
+- **The Passport bundle comes from a key job.** The node proves `deposit_shielded` with keys a
+  Night Market or Passport key job produced and verified; it never builds them. One key set at a
+  time: an account of another key set is `not-a-passport-account` until the pin and the bundle
+  are updated.
+- **One deployment per SPL mint.** Two tokens need two deployments and two nodes.
+- **A node restart re-syncs from the start heights.** The node's PGlite database does not survive a
+  restart of the node's orchestrator, even with `PGLITE_DATA_DIR` set (Effectstream engine issue
+  00063: the PGlite gateway loses its data when it is stopped). Every transfer is rebuilt from the
+  chains. That is safe: the contract's `mintedLocks` and the release receipts refuse duplicates, so
+  nothing is minted, delivered or released twice. But it takes longer as the chains grow, and the
+  Solana validator must still hold the deployment's start slot (see below). Only a restart of the
+  node process inside a running orchestrator keeps the database.
 - **Devnet RPC rate limits.** Live sync uses smaller steps and slower polling (see
   Configuration); a keyed RPC is recommended.
 - **Proof server 9.0.0-rc.8 runs from Docker** until a binary is published, and it needs about
@@ -471,6 +585,11 @@ Local mode needs no configuration. These variables exist:
 | `MIDNIGHT_STORAGE_PASSWORD` | set by `start.dev.ts` locally | Midnight wallet storage; required for the stagenet deploy |
 | `BRIDGE_RELAYER` | on | `0` disables the relayer |
 | `BRIDGE_RELAYER_POLL_MS` | `5000` | Relayer polling interval |
+| `BRIDGE_DELIVERY_ADAPTERS` | empty | Delivery into contracts: `passport`; empty makes every contract lock `undeliverable(no-adapter)` |
+| `PASSPORT_BUNDLE_DIR` | `packages/delivery-passport/bundle/account` | The imported Passport bundle (`bun run delivery:import-bundle`) |
+| `BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS` | `600000` | How long a contract that does not exist yet is retried before it is `undeliverable(not-a-contract)` |
+| `BRIDGE_PUBLIC_API` | `http://127.0.0.1:$EFFECTSTREAM_API_PORT` | The `api` field of `GET /deployment` |
+| `BRIDGE_RECORD_NAME`, `BRIDGE_RECORD_SYMBOL` | unset | `name` and `symbol` in `GET /deployment` |
 | `BRIDGE_RELAYER_MINT_TIMEOUT_MS`, `BRIDGE_RELAYER_RELEASE_TIMEOUT_MS` | `900000`, `240000` | Per-submission wait |
 | `BRIDGE_SOLANA_CONFIRMATION_DEPTH`, `BRIDGE_SOLANA_STEP_SIZE`, `BRIDGE_SOLANA_POLLING_MS`, `BRIDGE_SOLANA_DELAY_MS` | `32`, `10`/`5`, `2000`/`4000`, `2400`/`6000` (local/live) | Solana sync |
 | `BRIDGE_MIDNIGHT_POLLING_MS`, `BRIDGE_MIDNIGHT_DELAY_MS` | `1000`, `6000`/`18000` | Midnight sync |
