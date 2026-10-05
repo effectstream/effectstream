@@ -203,17 +203,19 @@ describe("API (I-3)", () => {
   let recognised: string[];
   let record: any;
   let clock: number;
-  const [vContract, vUndeliverable, vWallet] = fx.i3.transferViews;
+  const [vContract, vUndeliverable, vWallet, vKindOpen] = fx.i3.transferViews;
 
   beforeEach(async () => {
     db = await freshDb();
-    // The three frozen example views (fixtures/00058-interfaces.json i3.transferViews), as rows.
+    // The four frozen example views (fixtures/00058-interfaces.json i3.transferViews), as rows. The
+    // fourth (Q6 A) is an s2m row completed from mintedLocks before its lock was observed: no kind yet.
     const d = vContract.delivery;
     await db.exec(`
       INSERT INTO bridge_transfers (direction, source_id, amount, recipient, recipient_kind, sender, status, src_ref, dst_ref, observed_block, completed_block) VALUES
         ('s2m', 4, 500000000, '${vContract.recipient}', 'contract', '${vContract.sender}', 'completed', '${vContract.srcRef}', '${vContract.dstRef}', 120, 131),
         ('s2m', 5, 1000000, '${vUndeliverable.recipient}', 'contract', '${vUndeliverable.sender}', 'observed', '${vUndeliverable.srcRef}', NULL, 140, NULL),
         ('s2m', 3, 10000000, '${vWallet.recipient}', 'wallet', '${vWallet.sender}', 'completed', '${vWallet.srcRef}', '${vWallet.dstRef}', 118, 125),
+        ('s2m', 6, 7000000, NULL, NULL, NULL, 'completed', NULL, '${vKindOpen.dstRef}', 150, 150),
         ('m2s', 0, 4, 'Owner1111', NULL, NULL, 'observed', 'midnight-block:12', NULL, 12, NULL);
       INSERT INTO relayer_jobs (direction, source_id, submitted_at, attempts, last_attempt_at, last_tx, delivery) VALUES
         ('s2m', 4, '2026-10-04T12:00:05.000Z', 1, '2026-10-04T12:00:05.000Z', '${vContract.relayer.lastTx}', '${JSON.stringify(d)}'),
@@ -238,7 +240,8 @@ describe("API (I-3)", () => {
   };
 
   test("GET /transfers/:id reproduces the frozen example views exactly", async () => {
-    for (const v of [vContract, vUndeliverable, vWallet]) {
+    expect(vKindOpen.recipientKind).toBeNull();
+    for (const v of [vContract, vUndeliverable, vWallet, vKindOpen]) {
       const { code, body } = await get(`/transfers/${v.id}`);
       expect(code).toBe(200);
       expect(body.transfer).toEqual(v);

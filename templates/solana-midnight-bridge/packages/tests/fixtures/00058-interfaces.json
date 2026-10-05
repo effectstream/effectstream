@@ -284,7 +284,27 @@
           "lastTx": "006c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c",
           "lastError": null
         }
+      },
+      {
+        "id": "s2m:6",
+        "direction": "s2m",
+        "sourceId": "6",
+        "amount": "7000000",
+        "recipientKind": null,
+        "recipient": null,
+        "sender": null,
+        "status": "completed",
+        "reason": null,
+        "delivery": null,
+        "srcRef": null,
+        "dstRef": "midnight-block:150",
+        "observedBlock": 150,
+        "completedBlock": 150,
+        "relayer": null
       }
+    ],
+    "notes": [
+      "Q6 A (00057 orchestrator, 2026-10-05): TransferView.recipientKind widens to \"wallet\" | \"contract\" | \"solana\" | null. It is null only while an s2m row's Solana lock is not yet observed (the Midnight sync ran ahead during a re-sync); recipient and sender are then null too. Consumers treat null as 'lock not seen yet' and keep polling. Example: transferViews[3] (s2m:6)."
     ],
     "recipients": [
       {
