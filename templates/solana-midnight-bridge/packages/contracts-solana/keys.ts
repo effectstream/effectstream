@@ -163,6 +163,36 @@ export function assertLocalRpc(
 }
 
 /** `protocol//host[:port]` only: keyed RPC URLs carry API keys in the path or query. */
+/** Live mode's default Solana RPC: the public devnet endpoint (rate-limited; fine for a try, not for a node). */
+export const DEFAULT_DEVNET_RPC_URL = "https://api.devnet.solana.com";
+
+/**
+ * Live mode's Solana RPC URL, in this order:
+ * 1. the first line of the file `SOLANA_DEVNET_RPC_URL_FILE` (mode 600, like the keys): for a
+ *    provider URL that carries an API key, so the key never sits in an environment variable, a
+ *    compose file or a log;
+ * 2. `SOLANA_DEVNET_RPC_URL`;
+ * 3. {@link DEFAULT_DEVNET_RPC_URL}.
+ * The value is never printed by this template: logs use {@link redactRpcUrl} (the origin only).
+ */
+export function liveSolanaRpcUrl(env: Record<string, string | undefined> = process.env): string {
+  const file = env.SOLANA_DEVNET_RPC_URL_FILE?.trim();
+  if (file) {
+    if (!fs.existsSync(file)) throw new Error(`SOLANA_DEVNET_RPC_URL_FILE: ${file} does not exist`);
+    assertPrivatePermissions(file);
+    const url = (fs.readFileSync(file, "utf8").split(/\r?\n/).find((l) => l.trim() !== "") ?? "").trim();
+    let u: URL;
+    try {
+      u = new URL(url);
+    } catch {
+      throw new Error(`SOLANA_DEVNET_RPC_URL_FILE: ${file} does not hold an http(s) URL`);
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error(`SOLANA_DEVNET_RPC_URL_FILE: ${file} does not hold an http(s) URL`);
+    return url;
+  }
+  return env.SOLANA_DEVNET_RPC_URL?.trim() || DEFAULT_DEVNET_RPC_URL;
+}
+
 export function redactRpcUrl(rpcUrl: string): string {
   try {
     const u = new URL(rpcUrl);

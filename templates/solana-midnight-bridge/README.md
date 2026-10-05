@@ -549,8 +549,11 @@ two nodes; `deploy/standin/compose.bridge.yml` runs a node as a container, once 
   nothing is minted, delivered or released twice. But it takes longer as the chains grow, and the
   Solana validator must still hold the deployment's start slot (see below). Only a restart of the
   node process inside a running orchestrator keeps the database.
-- **Devnet RPC rate limits.** Live sync uses smaller steps and slower polling (see
-  Configuration); a keyed RPC is recommended.
+- **Devnet RPC rate limits.** The node reads one `getBlock` per slot. The public devnet RPC
+  allows about 6 per 10 s, far below devnet's ~2.5 slots/s, so a node on it falls behind: use a
+  private RPC (put its URL in `SOLANA_DEVNET_RPC_URL_FILE`). The reader backs off on HTTP 429 and
+  can be paced (`BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS`). A sync that reads only the bridge
+  program's own transactions (by signature) would need far fewer requests; it is not built yet.
 - **Proof server 9.0.0-rc.8 runs from Docker** until a binary is published, and it needs about
   4 GiB of memory for a mint proof.
 - **The local validator's RPC is reachable from your network.** `solana-test-validator` (Agave
@@ -574,6 +577,7 @@ Local mode needs no configuration. These variables exist:
 | `BRIDGE_DEPLOYMENT` | `devnet-stagenet` | Live deployment file name or path |
 | `BRIDGE_SECRETS_DIR` | `~/.config/solana-midnight-bridge` | Live keys and seeds (dir 700, files 600; never inside the template) |
 | `SOLANA_DEVNET_RPC_URL` | `https://api.devnet.solana.com` | Live node, CLI and `deploy-devnet.ts` |
+| `SOLANA_DEVNET_RPC_URL_FILE` | unset | A file (mode 600) holding the live Solana RPC URL; wins over `SOLANA_DEVNET_RPC_URL`. For a provider URL with an API key: it never sits in an env var or a log (logs show the origin only) |
 | `SOLANA_EXPECTED_GENESIS_HASH` | unset (devnet required) | `deploy-devnet.ts` deploys to the cluster with this genesis instead of devnet (mainnet-beta is always refused) |
 | `MIDNIGHT_NETWORK_ID` | `stagenet` | Live Midnight network; another id needs the three Midnight endpoint variables below (mainnet is refused) |
 | `SOLANA_RPC_URL` | `http://127.0.0.1:8899` | Local Solana RPC override |
@@ -596,7 +600,11 @@ Local mode needs no configuration. These variables exist:
 | `BRIDGE_PUBLIC_API` | `http://127.0.0.1:$EFFECTSTREAM_API_PORT` | The `api` field of `GET /deployment` |
 | `BRIDGE_RECORD_NAME`, `BRIDGE_RECORD_SYMBOL` | unset | `name` and `symbol` in `GET /deployment` |
 | `BRIDGE_RELAYER_MINT_TIMEOUT_MS`, `BRIDGE_RELAYER_RELEASE_TIMEOUT_MS` | `900000`, `240000` | Per-submission wait |
-| `BRIDGE_SOLANA_CONFIRMATION_DEPTH`, `BRIDGE_SOLANA_STEP_SIZE`, `BRIDGE_SOLANA_POLLING_MS`, `BRIDGE_SOLANA_DELAY_MS` | `32`, `10`/`5`, `2000`/`4000`, `2400`/`6000` (local/live) | Solana sync |
+| `BRIDGE_SOLANA_CONFIRMATION_DEPTH`, `BRIDGE_SOLANA_STEP_SIZE`, `BRIDGE_SOLANA_POLLING_MS`, `BRIDGE_SOLANA_DELAY_MS` | `32`, `10`/`24`, `2000`/`4000`, `2400`/`6000` (local/live) | Solana sync |
+| `BRIDGE_SOLANA_GETBLOCK_CONCURRENCY` | `8` | Most `getBlock` calls in flight (one call takes ~0.5 s even on a private RPC, devnet makes ~2.5 slots/s); halved after a rate-limited batch, grown back after clean ones. Blocks are still applied strictly in slot order |
+| `BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS` | `0` | Minimum spacing between `getBlock` calls, e.g. `1700` for the public devnet RPC (6 calls / 10 s) |
+| `BRIDGE_SOLANA_RATE_LIMIT_RETRIES`, `BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS`, `BRIDGE_SOLANA_RATE_LIMIT_MAX_BACKOFF_MS` | `10`, `500`, `15000` | On HTTP 429: wait (`Retry-After`, else a doubling backoff) and ask again, so a rate limit slows the node instead of stopping it |
+| `BRIDGE_SOLANA_MAX_TX_VERSION` | `1` | `maxSupportedTransactionVersion` of `getBlock` (devnet blocks hold version-1 transactions; a block's -32015 hint raises it, an RPC that rejects it falls back to 0) |
 | `BRIDGE_MIDNIGHT_POLLING_MS`, `BRIDGE_MIDNIGHT_DELAY_MS` | `1000`, `6000`/`18000` | Midnight sync |
 | `BRIDGE_API_URL` | `http://localhost:9999` | CLI |
 | `EFFECTSTREAM_API_PORT` | `9999` | Node API port (and the CLI's default URL) |

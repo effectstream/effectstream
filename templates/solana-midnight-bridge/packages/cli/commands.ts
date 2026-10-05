@@ -27,6 +27,7 @@ import {
   isLocalOnlyKey,
   isLoopbackRpcUrl,
   liveKeyPaths,
+  liveSolanaRpcUrl,
   loadLiveKeypair,
   loadLocalUser,
   readKeypairFile,
@@ -78,7 +79,7 @@ function loadDeployment(mode: CliMode, need: "solana" | "both"): { solana: Solan
 }
 
 function solanaRpcUrl(mode: CliMode): string {
-  return mode === "local" ? DEV_SOLANA_RPC_URL : (process.env.SOLANA_DEVNET_RPC_URL ?? "https://api.devnet.solana.com");
+  return mode === "local" ? DEV_SOLANA_RPC_URL : liveSolanaRpcUrl();
 }
 
 function loadDepositor(mode: CliMode, rpcUrl: string, keypairPath?: string): Keypair {

@@ -58,6 +58,19 @@ export const ConfigSyncProtocolSchemaSolanaParallel =
         ...waitingPeriodFromDepth(finalityDepth, blockTimeMs, {
           absolute: blockTimeMs,
         }),
+        // getBlock reading (the fetcher's defaults apply when unset):
+        /** Highest transaction version a block is requested with (default 1). */
+        maxSupportedTransactionVersion: Type.Number(),
+        /** Minimum spacing between getBlock calls, in ms (default 0: no pacing). */
+        getBlockMinIntervalMs: Type.Number(),
+        /** Most getBlock calls in flight at once (default 8; halved after a rate-limited batch). */
+        getBlockConcurrency: Type.Number(),
+        /** Waits on HTTP 429 per slot before the slot counts as failed (default 10). */
+        rateLimitRetries: Type.Number(),
+        /** First wait on HTTP 429, doubled each time (default 500 ms). */
+        rateLimitBackoffMs: Type.Number(),
+        /** Longest wait on HTTP 429 (default 15000 ms); a Retry-After header wins if longer. */
+        rateLimitMaxBackoffMs: Type.Number(),
       }),
     })
 
