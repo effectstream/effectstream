@@ -35,6 +35,7 @@ export function* applyOp(op: StfOp, blockHeight: number): SyncStateUpdateStream<
         source_id: op.nonce.toString(),
         amount: op.amount.toString(),
         recipient: op.recipientHex,
+        recipient_kind: op.recipientKind,
         sender: op.depositor,
         src_ref: `solana-slot:${op.slot}`,
         block_height: blockHeight,

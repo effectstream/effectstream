@@ -12,11 +12,13 @@
 //      onchain-runtime are the monorepo's own copies, i.e. the single-copy step
 //      actually ran, while the alias still is the template's 0.20 copy.
 // Exits 1 on any violation. link.sh runs it last; it also works after a plain
-// `bun install`.
+// `bun install`. `--from <dir>` checks from another package (00058: delivery-passport,
+// where the Passport bundle's compiled account module imports the same alias).
 import fs from "node:fs";
 import path from "node:path";
 
-const PKG_DIR = path.resolve(import.meta.dirname!, "..");
+const fromIdx = process.argv.indexOf("--from");
+const PKG_DIR = fromIdx >= 0 ? path.resolve(process.argv[fromIdx + 1] ?? ".") : path.resolve(import.meta.dirname!, "..");
 const ALIAS = "@midnight-ntwrk/compact-runtime-0.20";
 const ALIAS_VERSION_RE = /^0\.20\./;
 const linkedIdx = process.argv.indexOf("--linked");
@@ -44,7 +46,10 @@ const rel = (p: string) => path.relative(PKG_DIR, p) || ".";
 const failures: string[] = [];
 
 const alias = findPackage(ALIAS, PKG_DIR);
-const plain = findPackage("@midnight-ntwrk/compact-runtime", PKG_DIR);
+// With --from, the engine's runtime is still the one contracts-midnight resolves (a package such as
+// delivery-passport need not depend on it); the checks then prove that the other package's alias is
+// 0.20.x, distinct from it, and shares its single onchain-runtime-v4.
+const plain = findPackage("@midnight-ntwrk/compact-runtime", fromIdx >= 0 ? path.resolve(import.meta.dirname!, "..") : PKG_DIR);
 console.log(`[check-runtime-alias] ${ALIAS} -> ${alias.name}@${alias.version} (${rel(alias.real)})`);
 console.log(`[check-runtime-alias] @midnight-ntwrk/compact-runtime -> ${plain.name}@${plain.version} (${rel(plain.real)})`);
 

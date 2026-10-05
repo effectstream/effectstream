@@ -23,11 +23,13 @@ import type {
 import {
   resolveAccountKeys,
   SolanaClient,
+  type SolanaBlock,
+  SolanaRateLimitError,
   type SolanaTokenBalance,
 } from "./SolanaClient.ts";
 import { requestTimeoutOf } from "../common/http.ts";
 import { extractProgramLogs } from "./program-logs.ts";
-import { call, sleep, type Operation } from "effection";
+import { all, call, sleep, type Operation } from "effection";
 import { bound } from "@effectstream/utils";
 
 /**
@@ -38,6 +40,29 @@ import { bound } from "@effectstream/utils";
 const BLOCK_FETCH_ATTEMPTS = 3;
 /** Linear backoff between those attempts (250ms, then 500ms). */
 const BLOCK_FETCH_RETRY_DELAY_MS = 250;
+
+/**
+ * Rate limiting (HTTP 429). A rate-limited request does not count as one of the
+ * {@link BLOCK_FETCH_ATTEMPTS}: the fetcher waits — the provider's
+ * `Retry-After`, or an exponential backoff from `rateLimitBackoffMs` doubling
+ * up to `rateLimitMaxBackoffMs` — and asks again, up to `rateLimitRetries`
+ * times per slot. After that the slot fails like any other error (bounded, see
+ * `getBlockWithRetry`), and the fetch loop retries the range on its next poll.
+ * A provider's limit therefore slows the node down instead of stopping it.
+ */
+const DEFAULT_RATE_LIMIT_RETRIES = 10;
+/**
+ * `getBlock` calls in flight at once. One call takes ~0.5 s even on a private
+ * devnet RPC, so one at a time reads ~2 blocks/s, slower than devnet's ~2.5
+ * slots/s: a sequential reader falls further behind forever. Eight in flight
+ * read ~17 blocks/s (AA 00057 measurements). The level adapts: it halves after
+ * a batch that was rate-limited, and grows back by one after
+ * {@link CONCURRENCY_RECOVERY_BATCHES} clean batches, up to the configured cap.
+ */
+const DEFAULT_GETBLOCK_CONCURRENCY = 8;
+const CONCURRENCY_RECOVERY_BATCHES = 10;
+const DEFAULT_RATE_LIMIT_BACKOFF_MS = 500;
+const DEFAULT_RATE_LIMIT_MAX_BACKOFF_MS = 15_000;
 
 export class SolanaFetcher extends BaseDataFetcher<
   Input,
@@ -68,14 +93,46 @@ export class SolanaFetcher extends BaseDataFetcher<
     console.warn(message);
   }
 
+  /** Pacing and rate-limit settings (sync protocol config; see the defaults above). */
+  readonly getBlockMinIntervalMs: number;
+  readonly getBlockConcurrency: number;
+  readonly rateLimitRetries: number;
+  readonly rateLimitBackoffMs: number;
+  readonly rateLimitMaxBackoffMs: number;
+  /** When the next `getBlock` may start (pacing; shared by concurrent requests). */
+  private nextGetBlockAt = 0;
+  /** The current (adaptive) number of `getBlock` calls in flight; never above `getBlockConcurrency`. */
+  currentConcurrency: number;
+  private cleanBatches = 0;
+  /** Rate-limit waits so far (observability, tests). */
+  rateLimitedWaits = 0;
+  /** Transactions this reader could not parse and skipped (observability, tests). */
+  unparsableTransactions = 0;
+
   constructor(
     readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
+    const sp = config.syncProtocol as typeof config.syncProtocol & {
+      maxSupportedTransactionVersion?: number;
+      getBlockMinIntervalMs?: number;
+      getBlockConcurrency?: number;
+      rateLimitRetries?: number;
+      rateLimitBackoffMs?: number;
+      rateLimitMaxBackoffMs?: number;
+    };
     this.client = new SolanaClient(
       config.network.rpcUrl,
       requestTimeoutOf(config.syncProtocol),
+      { maxSupportedTransactionVersion: sp.maxSupportedTransactionVersion },
     );
+    const nonNeg = (v: number | undefined, d: number) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : d);
+    this.getBlockMinIntervalMs = nonNeg(sp.getBlockMinIntervalMs, 0);
+    this.getBlockConcurrency = Math.max(1, Math.floor(nonNeg(sp.getBlockConcurrency, DEFAULT_GETBLOCK_CONCURRENCY)));
+    this.currentConcurrency = this.getBlockConcurrency;
+    this.rateLimitRetries = Math.floor(nonNeg(sp.rateLimitRetries, DEFAULT_RATE_LIMIT_RETRIES));
+    this.rateLimitBackoffMs = nonNeg(sp.rateLimitBackoffMs, DEFAULT_RATE_LIMIT_BACKOFF_MS);
+    this.rateLimitMaxBackoffMs = Math.max(this.rateLimitBackoffMs, nonNeg(sp.rateLimitMaxBackoffMs, DEFAULT_RATE_LIMIT_MAX_BACKOFF_MS));
   }
 
   @bound
@@ -98,17 +155,38 @@ export class SolanaFetcher extends BaseDataFetcher<
     let scannedThrough: number | undefined;
     let fetchFailure: { slot: number; error: unknown } | undefined;
 
-    for (let slot = Number(data.from); slot <= Number(data.to); slot++) {
-      let block;
-      try {
-        block = yield* this.getBlockWithRetry(slot);
-      } catch (error) {
-        // Keep the blocks already gathered rather than discarding the chunk:
-        // everything below `slot` is resolved, so we report progress up to
-        // there and the next poll resumes exactly at the failed slot.
-        fetchFailure = { slot, error };
-        break;
+    // Blocks are fetched up to `currentConcurrency` slots at a time (adaptive,
+    // capped by `getBlockConcurrency`) and APPLIED strictly in slot order: a
+    // batch is processed only once every request in it has settled, and a
+    // failed slot ends the scan there (no gap, no reordering).
+    const to = Number(data.to);
+    let batch: { slot: number; ok: true; block: SolanaBlock | null }[] | null = null;
+    let batchStart = Number(data.from);
+    for (let slot = Number(data.from); slot <= to; slot++) {
+      if (batch == null || slot >= batchStart + batch.length) {
+        // A failure inside the previous batch ends the scan at the failed slot.
+        if (fetchFailure != null) break;
+        batchStart = slot;
+        const slots = Array.from({ length: Math.min(this.currentConcurrency, to - slot + 1) }, (_, i) => slot + i);
+        const waitsBefore = this.rateLimitedWaits;
+        const results = yield* all(slots.map((s) => this.tryGetBlock(s)));
+        this.adaptConcurrency(this.rateLimitedWaits > waitsBefore);
+        const firstFailed = results.findIndex((r) => !r.ok);
+        if (firstFailed !== -1) {
+          const failed = results[firstFailed] as { slot: number; ok: false; error: unknown };
+          batch = results.slice(0, firstFailed) as { slot: number; ok: true; block: SolanaBlock | null }[];
+          // Keep the blocks already gathered rather than discarding the chunk:
+          // everything below the failed slot is resolved, so we report progress
+          // up to there and the next poll resumes exactly at the failed slot.
+          fetchFailure = { slot: failed.slot, error: failed.error };
+          if (batch.length === 0) break;
+        } else {
+          batch = results as { slot: number; ok: true; block: SolanaBlock | null }[];
+        }
       }
+      const entry = batch[slot - batchStart];
+      if (!entry) break; // past a failure inside this batch
+      const block = entry.block;
       scannedThrough = slot;
 
       // Skipped slots (no block produced) are skipped gracefully
@@ -242,10 +320,28 @@ export class SolanaFetcher extends BaseDataFetcher<
   @bound
   *getBlockWithRetry(slot: number) {
     let lastError: unknown;
-    for (let attempt = 1; attempt <= BLOCK_FETCH_ATTEMPTS; attempt++) {
+    let attempt = 0;
+    let rateLimited = 0;
+    while (attempt < BLOCK_FETCH_ATTEMPTS) {
+      yield* this.paceGetBlock();
       try {
         return yield* call(() => this.client.getBlock(slot));
       } catch (error) {
+        if (error instanceof SolanaRateLimitError && rateLimited < this.rateLimitRetries) {
+          rateLimited++;
+          this.rateLimitedWaits++;
+          const backoff = Math.min(this.rateLimitMaxBackoffMs, this.rateLimitBackoffMs * 2 ** (rateLimited - 1));
+          const wait = Math.max(backoff, error.retryAfterMs ?? 0);
+          if (rateLimited === 1 || rateLimited === this.rateLimitRetries) {
+            console.warn(
+              `[Solana] getBlock(${slot}) rate-limited by the RPC (${rateLimited}/${this.rateLimitRetries}); waiting ${wait} ms. ` +
+                `Slow the requests with getBlockMinIntervalMs, or use a faster RPC.`,
+            );
+          }
+          yield* sleep(wait);
+          continue;
+        }
+        attempt++;
         lastError = error;
         if (attempt < BLOCK_FETCH_ATTEMPTS) {
           yield* sleep(BLOCK_FETCH_RETRY_DELAY_MS * attempt);
@@ -253,6 +349,44 @@ export class SolanaFetcher extends BaseDataFetcher<
       }
     }
     throw lastError;
+  }
+
+  /** Halve the concurrency after a rate-limited batch; grow it back by one after clean ones. */
+  adaptConcurrency(rateLimited: boolean): void {
+    if (rateLimited) {
+      const next = Math.max(1, Math.floor(this.currentConcurrency / 2));
+      if (next !== this.currentConcurrency) {
+        console.warn(`[Solana] rate-limited: getBlock concurrency ${this.currentConcurrency} → ${next}.`);
+      }
+      this.currentConcurrency = next;
+      this.cleanBatches = 0;
+      return;
+    }
+    if (this.currentConcurrency >= this.getBlockConcurrency) return;
+    if (++this.cleanBatches >= CONCURRENCY_RECOVERY_BATCHES) {
+      this.currentConcurrency++;
+      this.cleanBatches = 0;
+    }
+  }
+
+  /** `getBlockWithRetry` that reports its outcome instead of throwing (for concurrent batches). */
+  @bound
+  *tryGetBlock(slot: number): Operation<{ slot: number; ok: true; block: SolanaBlock | null } | { slot: number; ok: false; error: unknown }> {
+    try {
+      return { slot, ok: true as const, block: yield* this.getBlockWithRetry(slot) };
+    } catch (error) {
+      return { slot, ok: false as const, error };
+    }
+  }
+
+  /** Spaces `getBlock` calls at least `getBlockMinIntervalMs` apart, across concurrent requests. */
+  @bound
+  *paceGetBlock(): Operation<void> {
+    if (this.getBlockMinIntervalMs <= 0) return;
+    const now = Date.now();
+    const at = Math.max(now, this.nextGetBlockAt);
+    this.nextGetBlockAt = at + this.getBlockMinIntervalMs;
+    if (at > now) yield* sleep(at - now);
   }
 
   @bound
@@ -290,163 +424,181 @@ export class SolanaFetcher extends BaseDataFetcher<
       txIndex < block.transactions.length;
       txIndex++
     ) {
-      const tx = block.transactions[txIndex];
-      // A reverted transaction has no on-chain effect: its logs describe work
-      // that was rolled back and its postBalances are the pre-state. Emitting
-      // primitives for it would drive state transitions off events that never
-      // happened. `meta == null` means the RPC couldn't decode the tx — equally
-      // unusable, so skip both.
-      if (!tx.meta || tx.meta.err) continue;
-      // Balances are indexed over static keys PLUS lookup-table addresses, so a
-      // watched address pulled in via an ALT is only findable in the resolved
-      // list. Legacy transactions resolve to the static keys unchanged.
-      const accountKeys = resolveAccountKeys(
-        tx.transaction.message.accountKeys,
-        tx.meta.loadedAddresses,
-      );
-      const logs = tx.meta.logMessages ?? [];
-      const postBalances = tx.meta.postBalances ?? [];
-      const txHash = tx.transaction.signatures[0] ?? "";
+      // One transaction this reader cannot parse (an unexpected shape, e.g. a
+      // transaction version newer than the parser knows) is skipped and
+      // counted; it never fails the block, so it can never stall the slot.
+      // Transactions are judged by their own logs/keys, so the watched
+      // program's transactions are read as before.
+      try {
+        // Collected per transaction, so a transaction that fails half-way adds nothing.
+        const txPrimitives: PrimitiveType[] = [];
+        const tx = block.transactions[txIndex];
+        // A reverted transaction has no on-chain effect: its logs describe work
+        // that was rolled back and its postBalances are the pre-state. Emitting
+        // primitives for it would drive state transitions off events that never
+        // happened. `meta == null` means the RPC couldn't decode the tx — equally
+        // unusable, so skip both.
+        if (!tx.meta || tx.meta.err) continue;
+        // Balances are indexed over static keys PLUS lookup-table addresses, so a
+        // watched address pulled in via an ALT is only findable in the resolved
+        // list. Legacy transactions resolve to the static keys unchanged.
+        const accountKeys = resolveAccountKeys(
+          tx.transaction?.message?.accountKeys ?? [],
+          tx.meta.loadedAddresses,
+        );
+        const logs = tx.meta.logMessages ?? [];
+        const postBalances = tx.meta.postBalances ?? [];
+        const txHash = tx.transaction?.signatures?.[0] ?? "";
 
-      for (const entry of primitiveEntries) {
-        const prim = entry.primitive;
+        for (const entry of primitiveEntries) {
+          const prim = entry.primitive;
 
-        // Dispatch on `prim.type`, NOT on which optional fields happen to be set.
-        // `SolanaPrimitive` is a flat bag of optionals, so field-truthy dispatch
-        // fails two ways once a third primitive exists: a TokenAccount entry
-        // matches no field branch and silently emits nothing, and any field it
-        // shares with an earlier branch (`address` being the natural name for a
-        // token account) routes it into that branch instead. Neither is a type
-        // error. `type` is always populated at runtime because
-        // `Primitive.getConfig()` sets it and runtime/src/main.ts replaces the
-        // config entry with its output.
-        switch (prim.type) {
-          // ── SOLANA:AccountBalance — watch an address's lamport balance ──
-          case SOLANA_PRIMITIVE_ACCOUNT_BALANCE: {
-            if (!prim.address) continue;
-            const idx = accountKeys.indexOf(prim.address);
-            if (idx === -1) continue;
-            allPrimitives.push({
-              syncProtocol: {
-                name: entry.syncProtocol,
-                blockNumber: slot,
-                transactionHash: txHash,
-                contractAddress: prim.address,
-                logIndex: txIndex,
-              },
-              primitive: prim.name,
-              output: {
-                payloadType: "solana:balance",
-                payload: {
-                  address: prim.address,
-                  lamports: postBalances[idx] ?? 0,
-                  slot,
-                },
-              },
-            });
-            continue;
-          }
-
-          // ── SOLANA:ProgramLog — logs the watched programId actually emitted ──
-          case SOLANA_PRIMITIVE_PROGRAM_LOG: {
-            if (!prim.programId) continue;
-            // Source of truth is the log stream's invoke/success framing, NOT
-            // accountKeys: naming a program as an account doesn't invoke it, and
-            // a program reached through a lookup table isn't in accountKeys at
-            // all. See program-logs.ts.
-            const programLogs = extractProgramLogs(logs, prim.programId);
-            if (programLogs == null) continue;
-            // Filter by eventType if specified — against this program's own lines
-            // only, so another program can't trigger it by echoing the string.
-            if (prim.eventType) {
-              const hasMatchingLog = programLogs.some((log) =>
-                log.includes(prim.eventType!)
-              );
-              if (!hasMatchingLog) continue;
-            }
-            allPrimitives.push({
-              syncProtocol: {
-                name: entry.syncProtocol,
-                blockNumber: slot,
-                transactionHash: txHash,
-                contractAddress: prim.programId,
-                logIndex: txIndex,
-              },
-              primitive: prim.name,
-              output: {
-                payloadType: "solana:transaction",
-                payload: {
-                  programId: prim.programId,
-                  slot,
-                  logMessages: programLogs,
-                },
-              },
-            });
-            continue;
-          }
-
-          // ── SOLANA:TokenAccount — SPL balance of a watched token account ──
-          case SOLANA_PRIMITIVE_TOKEN_ACCOUNT: {
-            // An entry with no filter would match every token balance on chain.
-            // The primitive constructor rejects that, so reaching here means a
-            // hand-built config bypassed it.
-            if (!prim.mint && !prim.owner && !prim.tokenAccount) {
-              this.warnOnce(
-                `[Solana] primitive "${prim.name}" is ${SOLANA_PRIMITIVE_TOKEN_ACCOUNT} with no ` +
-                  `mint, owner or tokenAccount — it would match every token balance, so it is skipped.`,
-              );
-              continue;
-            }
-            for (const bal of tx.meta.postTokenBalances ?? []) {
-              if (prim.mint && bal.mint !== prim.mint) continue;
-              if (prim.owner && bal.owner !== prim.owner) continue;
-              if (prim.tokenProgramId && bal.programId !== prim.tokenProgramId) {
-                continue;
-              }
-              // `accountIndex` indexes the RESOLVED list, same as postBalances, so
-              // a token account pulled in via a lookup table is only findable here
-              // (security fix B3 applied to token balances).
-              const tokenAccount = accountKeys[bal.accountIndex];
-              if (tokenAccount == null) continue;
-              if (prim.tokenAccount && tokenAccount !== prim.tokenAccount) {
-                continue;
-              }
-              allPrimitives.push({
+          // Dispatch on `prim.type`, NOT on which optional fields happen to be set.
+          // `SolanaPrimitive` is a flat bag of optionals, so field-truthy dispatch
+          // fails two ways once a third primitive exists: a TokenAccount entry
+          // matches no field branch and silently emits nothing, and any field it
+          // shares with an earlier branch (`address` being the natural name for a
+          // token account) routes it into that branch instead. Neither is a type
+          // error. `type` is always populated at runtime because
+          // `Primitive.getConfig()` sets it and runtime/src/main.ts replaces the
+          // config entry with its output.
+          switch (prim.type) {
+            // ── SOLANA:AccountBalance — watch an address's lamport balance ──
+            case SOLANA_PRIMITIVE_ACCOUNT_BALANCE: {
+              if (!prim.address) continue;
+              const idx = accountKeys.indexOf(prim.address);
+              if (idx === -1) continue;
+              txPrimitives.push({
                 syncProtocol: {
                   name: entry.syncProtocol,
                   blockNumber: slot,
                   transactionHash: txHash,
-                  contractAddress: bal.mint,
+                  contractAddress: prim.address,
                   logIndex: txIndex,
                 },
                 primitive: prim.name,
                 output: {
-                  payloadType: "solana:token-balance",
+                  payloadType: "solana:balance",
                   payload: {
-                    tokenAccount,
-                    mint: bal.mint,
-                    owner: bal.owner ?? "",
-                    amount: bal.uiTokenAmount.amount,
-                    decimals: bal.uiTokenAmount.decimals,
+                    address: prim.address,
+                    lamports: postBalances[idx] ?? 0,
                     slot,
                   },
                 },
               });
+              continue;
             }
-            continue;
-          }
 
-          default:
-            // A Solana sync protocol carrying a primitive type this fetcher does
-            // not implement produced nothing and said nothing before. Warn once
-            // per type rather than per transaction, which would be thousands of
-            // identical lines during catch-up.
-            this.warnOnce(
-              `[Solana] primitive "${prim.name}" has unsupported type "${prim.type}" — ignored. ` +
-                `Supported: ${SOLANA_PRIMITIVE_ACCOUNT_BALANCE}, ${SOLANA_PRIMITIVE_PROGRAM_LOG}, ` +
-                `${SOLANA_PRIMITIVE_TOKEN_ACCOUNT}.`,
-            );
-            continue;
+            // ── SOLANA:ProgramLog — logs the watched programId actually emitted ──
+            case SOLANA_PRIMITIVE_PROGRAM_LOG: {
+              if (!prim.programId) continue;
+              // Source of truth is the log stream's invoke/success framing, NOT
+              // accountKeys: naming a program as an account doesn't invoke it, and
+              // a program reached through a lookup table isn't in accountKeys at
+              // all. See program-logs.ts.
+              const programLogs = extractProgramLogs(logs, prim.programId);
+              if (programLogs == null) continue;
+              // Filter by eventType if specified — against this program's own lines
+              // only, so another program can't trigger it by echoing the string.
+              if (prim.eventType) {
+                const hasMatchingLog = programLogs.some((log) =>
+                  log.includes(prim.eventType!)
+                );
+                if (!hasMatchingLog) continue;
+              }
+              txPrimitives.push({
+                syncProtocol: {
+                  name: entry.syncProtocol,
+                  blockNumber: slot,
+                  transactionHash: txHash,
+                  contractAddress: prim.programId,
+                  logIndex: txIndex,
+                },
+                primitive: prim.name,
+                output: {
+                  payloadType: "solana:transaction",
+                  payload: {
+                    programId: prim.programId,
+                    slot,
+                    logMessages: programLogs,
+                  },
+                },
+              });
+              continue;
+            }
+
+            // ── SOLANA:TokenAccount — SPL balance of a watched token account ──
+            case SOLANA_PRIMITIVE_TOKEN_ACCOUNT: {
+              // An entry with no filter would match every token balance on chain.
+              // The primitive constructor rejects that, so reaching here means a
+              // hand-built config bypassed it.
+              if (!prim.mint && !prim.owner && !prim.tokenAccount) {
+                this.warnOnce(
+                  `[Solana] primitive "${prim.name}" is ${SOLANA_PRIMITIVE_TOKEN_ACCOUNT} with no ` +
+                    `mint, owner or tokenAccount — it would match every token balance, so it is skipped.`,
+                );
+                continue;
+              }
+              for (const bal of tx.meta.postTokenBalances ?? []) {
+                if (prim.mint && bal.mint !== prim.mint) continue;
+                if (prim.owner && bal.owner !== prim.owner) continue;
+                if (prim.tokenProgramId && bal.programId !== prim.tokenProgramId) {
+                  continue;
+                }
+                // `accountIndex` indexes the RESOLVED list, same as postBalances, so
+                // a token account pulled in via a lookup table is only findable here
+                // (security fix B3 applied to token balances).
+                const tokenAccount = accountKeys[bal.accountIndex];
+                if (tokenAccount == null) continue;
+                if (prim.tokenAccount && tokenAccount !== prim.tokenAccount) {
+                  continue;
+                }
+                txPrimitives.push({
+                  syncProtocol: {
+                    name: entry.syncProtocol,
+                    blockNumber: slot,
+                    transactionHash: txHash,
+                    contractAddress: bal.mint,
+                    logIndex: txIndex,
+                  },
+                  primitive: prim.name,
+                  output: {
+                    payloadType: "solana:token-balance",
+                    payload: {
+                      tokenAccount,
+                      mint: bal.mint,
+                      owner: bal.owner ?? "",
+                      amount: bal.uiTokenAmount.amount,
+                      decimals: bal.uiTokenAmount.decimals,
+                      slot,
+                    },
+                  },
+                });
+              }
+              continue;
+            }
+
+            default:
+              // A Solana sync protocol carrying a primitive type this fetcher does
+              // not implement produced nothing and said nothing before. Warn once
+              // per type rather than per transaction, which would be thousands of
+              // identical lines during catch-up.
+              this.warnOnce(
+                `[Solana] primitive "${prim.name}" has unsupported type "${prim.type}" — ignored. ` +
+                  `Supported: ${SOLANA_PRIMITIVE_ACCOUNT_BALANCE}, ${SOLANA_PRIMITIVE_PROGRAM_LOG}, ` +
+                  `${SOLANA_PRIMITIVE_TOKEN_ACCOUNT}.`,
+              );
+              continue;
+          }
+        }
+        allPrimitives.push(...txPrimitives);
+      } catch (error) {
+        this.unparsableTransactions++;
+        if (this.unparsableTransactions === 1) {
+          console.warn(
+            `[Solana] skipped a transaction the reader cannot parse (first at slot ${slot}, tx ${txIndex}: ` +
+              `${error instanceof Error ? error.message : String(error)}); such transactions are skipped and counted.`,
+          );
         }
       }
     }

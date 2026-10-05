@@ -27,6 +27,13 @@ export type SolanaDeployment = {
   user?: string;
   /** Sync start: a confirmed slot at or before the Initialize transaction. */
   startSlot: number;
+  /**
+   * The cluster's genesis hash (base58, `getGenesisHash`), written by
+   * init-local.ts and deploy-devnet.ts since 00058. The node refuses to start
+   * against an RPC with another genesis; a file without it (older) is accepted
+   * with a warning.
+   */
+  genesisHash?: string;
   signatures: Record<string, string>;
   updatedAt: string;
 };

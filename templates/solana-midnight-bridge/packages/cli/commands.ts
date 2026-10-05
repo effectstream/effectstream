@@ -27,12 +27,18 @@ import {
   isLocalOnlyKey,
   isLoopbackRpcUrl,
   liveKeyPaths,
+  liveSolanaRpcUrl,
   loadLiveKeypair,
   loadLocalUser,
   readKeypairFile,
   redactRpcUrl,
 } from "@solana-midnight-bridge/contracts-solana/keys";
-import { createLockInstruction, parseBridgeLogs } from "@solana-midnight-bridge/contracts-solana/instructions";
+import {
+  createLockInstruction,
+  createLockToContractInstruction,
+  lockNoncesFromLogs,
+  parseBridgeLogs,
+} from "@solana-midnight-bridge/contracts-solana/instructions";
 import { sendTx } from "@solana-midnight-bridge/contracts-solana/chain";
 import type { MidnightDeployment } from "@solana-midnight-bridge/contracts-midnight/deploy";
 import { midnightUrls } from "@solana-midnight-bridge/contracts-midnight/network";
@@ -48,7 +54,15 @@ import {
   type ToMidnightArgs,
   type ToSolanaArgs,
 } from "./args.ts";
-import { defaultApiUrl, getTransfer, listTransfers, waitForCompleted, type TransferView } from "./api-client.ts";
+import {
+  defaultApiUrl,
+  getRecipientVerdict,
+  getTransfer,
+  listTransfers,
+  waitForCompleted,
+  waitForSettled,
+  type TransferView,
+} from "./api-client.ts";
 
 const out = (...a: unknown[]) => console.log(...a);
 
@@ -65,7 +79,7 @@ function loadDeployment(mode: CliMode, need: "solana" | "both"): { solana: Solan
 }
 
 function solanaRpcUrl(mode: CliMode): string {
-  return mode === "local" ? DEV_SOLANA_RPC_URL : (process.env.SOLANA_DEVNET_RPC_URL ?? "https://api.devnet.solana.com");
+  return mode === "local" ? DEV_SOLANA_RPC_URL : liveSolanaRpcUrl();
 }
 
 function loadDepositor(mode: CliMode, rpcUrl: string, keypairPath?: string): Keypair {
@@ -90,6 +104,7 @@ function describe(t: TransferView | null, decimals?: number, apiError?: string):
   if (!t) return "not yet observed by sync";
   const amt = decimals === undefined ? t.amount : `${formatAmount(BigInt(t.amount), decimals)} (${t.amount} base units)`;
   const r = t.relayer;
+  if (t.status === "undeliverable" && t.reason) return `undeliverable (${t.reason.code}): ${t.reason.message}; amount ${amt}`;
   return `${t.status}; amount ${amt}` +
     (r ? `; relayer attempts ${r.attempts}${r.lastTx ? `, last tx ${r.lastTx}` : ""}${r.lastError ? `, last error: ${r.lastError}` : ""}` : "");
 }
@@ -97,6 +112,7 @@ function describe(t: TransferView | null, decimals?: number, apiError?: string):
 // ── bridge:to-midnight ──────────────────────────────────────────────────────
 
 export async function toMidnight(args: ToMidnightArgs): Promise<void> {
+  if (args.recipientKind === "contract") return toMidnightContract(args);
   const { solana } = loadDeployment(args.mode, "solana");
   const raw = parseAmount(args.amountText, solana.mintDecimals);
   const rpcUrl = solanaRpcUrl(args.mode);
@@ -129,6 +145,59 @@ export async function toMidnight(args: ToMidnightArgs): Promise<void> {
     onChange: (x, error) => out(`  ${id}: ${describe(x, solana.mintDecimals, error)}`),
   });
   out(`Completed.     Solana lock ${sent.signature}; Midnight mint ${t.relayer?.lastTx ?? "(see relayer)"} (sync ${t.dstRef})`);
+}
+
+/**
+ * `bridge:to-midnight --account <contract>` (plan 00058 FR-011): asks the node
+ * whether it can deliver to the contract (`GET /recipients/contract/:address`)
+ * and refuses before any Solana transaction unless the verdict is
+ * `deliverable`. A lock the node cannot deliver stays in the vault: there is
+ * no refund path. Then it sends `LockToContract`, reads the lock nonce from the
+ * transaction's `LOCKC` line, and waits for `completed` or `undeliverable`.
+ */
+async function toMidnightContract(args: ToMidnightArgs): Promise<void> {
+  const { solana } = loadDeployment(args.mode, "solana");
+  const raw = parseAmount(args.amountText, solana.mintDecimals);
+  if (!args.contract) throw new CliArgError("--account is required for a contract recipient");
+  const api = args.api ?? defaultApiUrl();
+  const v = await getRecipientVerdict(api, args.recipientAddress);
+  if (v.verdict !== "deliverable") {
+    const why = v.verdict === "retry"
+      ? `the node cannot read the contract yet (${v.message ?? "retry later"})`
+      : `${v.code ?? "undeliverable"}: ${v.message ?? "the node will not deliver to it"}`;
+    throw new Error(`refusing to lock: the bridge node cannot deliver to ${args.recipientAddress} (${why}); nothing was sent`);
+  }
+  out(`The node delivers to ${args.recipientAddress} through ${v.adapter}`);
+  const rpcUrl = solanaRpcUrl(args.mode);
+  const user = loadDepositor(args.mode, rpcUrl, args.keypairPath);
+  const conn = new Connection(rpcUrl, "confirmed");
+  const programId = new PublicKey(solana.programId);
+  const mint = new PublicKey(solana.mint);
+  const source = getAssociatedTokenAddressSync(mint, user.publicKey);
+
+  const bal = await conn.getTokenAccountBalance(source, "confirmed").catch(() => null);
+  const have = bal ? BigInt(bal.value.amount) : 0n;
+  if (have < raw) {
+    throw new Error(`${user.publicKey.toBase58()} holds ${formatAmount(have, solana.mintDecimals)} of mint ${solana.mint}; cannot lock ${args.amountText}`);
+  }
+  out(`Locking ${args.amountText} (${raw} base units) from ${user.publicKey.toBase58()} for contract ${args.recipientAddress}`);
+  const ix = createLockToContractInstruction({ programId, depositor: user.publicKey, source, mint, amount: raw, contract: args.contract });
+  const sent = await sendTx(conn, [ix], [user]);
+  if (sent.err) throw new Error(`the lock transaction ${sent.signature} failed: ${JSON.stringify(sent.err)}`);
+  const lock = lockNoncesFromLogs(sent.logs).find((l) => l.kind === "LOCKC");
+  if (!lock) throw new Error(`no LOCKC log in ${sent.signature}`);
+  const id = `s2m:${lock.nonce}`;
+  out(`Solana lock:   ${sent.signature} (slot ${sent.slot}), lock nonce ${lock.nonce}, transfer ${id}`);
+  if (!args.wait) return;
+  out(`Waiting for the delivery on Midnight (API ${api})...`);
+  const t = await waitForSettled(api, id, {
+    timeoutMs: args.timeoutSeconds * 1000,
+    onChange: (x, error) => out(`  ${id}: ${describe(x, solana.mintDecimals, error)}`),
+  });
+  if (t.status === "undeliverable") {
+    throw new Error(`transfer ${id} is undeliverable (${t.reason?.code}): ${t.reason?.message}; the SPL stays in the vault`);
+  }
+  out(`Completed.     Solana lock ${sent.signature}; Midnight delivery ${t.delivery?.tx ?? t.relayer?.lastTx ?? "(see relayer)"} into ${args.recipientAddress} (sync ${t.dstRef})`);
 }
 
 // ── bridge:to-solana ────────────────────────────────────────────────────────

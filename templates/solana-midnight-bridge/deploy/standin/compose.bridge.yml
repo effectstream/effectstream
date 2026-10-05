@@ -1,0 +1,121 @@
+# One bridge node in LIVE mode, as a container next to chains you run yourself (stand-ins) or reach
+# remotely. Parameterised by environment only, so one stack can include it once per deployment:
+#
+#   docker compose -p bridge-x --env-file x.env -f deploy/standin/compose.bridge.yml up -d
+#   docker compose -p bridge-y --env-file y.env -f deploy/standin/compose.bridge.yml up -d
+#
+# The container runs `start.live.ts` through the orchestrator (PGLite + the node: sync, state machine,
+# API, relayer, delivery into Passport accounts). It starts no prover and no chain: the DUST prover
+# (MIDNIGHT_PROOF_SERVER_URL) and the contract prover 9.0.0-rc.8 (MIDNIGHT_CONTRACT_PROOF_SERVER_URL)
+# are external. See deploy/standin/README.md for the prepared template volume, the secrets directory
+# and every variable.
+#
+# Required:
+#   BRIDGE_HOST               the node's host name on the stack network (also the default public API host)
+#   BRIDGE_DEPLOYMENT         the deployment file name in deployments/ (e.g. standin-x)
+#   BRIDGE_SECRETS_HOST_DIR   host directory with this deployment's live secrets (dir 700, files 600),
+#                             mounted read-only at /secrets
+#   BRIDGE_TEMPLATE_VOLUME    Docker volume holding the prepared repository (README: "Prepare the volume")
+#   BRIDGE_STACK_NETWORK      the existing Docker network the chains and provers are on
+#   BRIDGE_API_PORT           host port for the node API (bound to 127.0.0.1)
+#   SOLANA_DEVNET_RPC_URL     the Solana RPC (a stand-in validator on the host: http://host.docker.internal:<port>),
+#                             or SOLANA_DEVNET_RPC_URL_FILE: a file in the secrets directory holding it
+#                             (e.g. /secrets/solana-rpc-url, mode 600) for a provider URL with an API key
+#   MIDNIGHT_NETWORK_ID, MIDNIGHT_NODE_HTTP, MIDNIGHT_INDEXER_HTTP, MIDNIGHT_INDEXER_WS,
+#   MIDNIGHT_PROOF_SERVER_URL, MIDNIGHT_CONTRACT_PROOF_SERVER_URL
+# Optional: BRIDGE_PUBLIC_API, BRIDGE_RECORD_NAME, BRIDGE_RECORD_SYMBOL, BRIDGE_DELIVERY_ADAPTERS
+#   (default passport), PASSPORT_BUNDLE_DIR, BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS, BRIDGE_TEMPLATE_DIR,
+#   BRIDGE_SOLANA_GETBLOCK_CONCURRENCY / _MIN_INTERVAL_MS, BRIDGE_SOLANA_STEP_SIZE, BRIDGE_SOLANA_RATE_LIMIT_*,
+#   BRIDGE_SOLANA_MAX_TX_VERSION (the Solana block reading; README "Configuration"),
+#   BRIDGE_NODE_IMAGE, BRIDGE_MEM_LIMIT, BRIDGE_ORCHESTRATOR_CONFIG (default start.live.ts),
+#   BRIDGE_ORCHESTRATOR_API (1 = the orchestrator's process API on the container's port 4747, not
+#   published but reachable on the stack network; off by default, for tests only).
+#
+# A restart re-syncs: the node's database (PGlite, /data/pglite) does not survive a restart of the
+# container (Effectstream engine issue 00063: the PGlite gateway loses its data when it is stopped).
+# After any restart the node re-syncs from the deployment's start heights; that is safe (the
+# contract's mintedLocks and the Solana receipts refuse duplicates), but it takes longer as the
+# chains grow.
+#
+# Secrets never pass through this file: the wallet-storage password is read from
+# /secrets/storage-password when that file exists.
+services:
+  bridge-node:
+    image: ${BRIDGE_NODE_IMAGE:-oven/bun:1.3.11}
+    pull_policy: never
+    working_dir: ${BRIDGE_TEMPLATE_DIR:-/work/repo/templates/solana-midnight-bridge}
+    entrypoint: ['/bin/bash', '-c']
+    command:
+      - |
+        set -euo pipefail
+        if [ -f /secrets/storage-password ]; then export MIDNIGHT_STORAGE_PASSWORD="$$(cat /secrets/storage-password)"; fi
+        LOG_DIR="/data/logs/$$(date -u +%Y%m%dT%H%M%SZ)"
+        mkdir -p "$$LOG_DIR" /data/pglite
+        API_FLAG=--no-api; if [ "$${BRIDGE_ORCHESTRATOR_API:-0}" = 1 ]; then API_FLAG=; fi
+        echo "[bridge-node] $${BRIDGE_HOST} deployment=$${BRIDGE_DEPLOYMENT} logs=$$LOG_DIR"
+        exec bun node_modules/@effectstream/orchestrator/src/cli.ts start "$${BRIDGE_ORCHESTRATOR_CONFIG:-start.live.ts}" $$API_FLAG --log-dir="$$LOG_DIR"
+    environment:
+      BRIDGE_MODE: live
+      BRIDGE_HOST: ${BRIDGE_HOST:?}
+      BRIDGE_DEPLOYMENT: ${BRIDGE_DEPLOYMENT:?}
+      BRIDGE_SECRETS_DIR: /secrets
+      EFFECTSTREAM_API_PORT: '9999'
+      BRIDGE_PUBLIC_API: ${BRIDGE_PUBLIC_API:-http://${BRIDGE_HOST}:9999}
+      BRIDGE_RECORD_NAME: ${BRIDGE_RECORD_NAME:-}
+      BRIDGE_RECORD_SYMBOL: ${BRIDGE_RECORD_SYMBOL:-}
+      BRIDGE_DELIVERY_ADAPTERS: ${BRIDGE_DELIVERY_ADAPTERS-passport}
+      PASSPORT_BUNDLE_DIR: ${PASSPORT_BUNDLE_DIR:-}
+      BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS: ${BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS:-}
+      # One of the two. The file is read inside the container, so a URL carrying an API key never
+      # appears in this file, in `docker inspect` or in a log (logs show the origin only).
+      SOLANA_DEVNET_RPC_URL: ${SOLANA_DEVNET_RPC_URL:-}
+      SOLANA_DEVNET_RPC_URL_FILE: ${SOLANA_DEVNET_RPC_URL_FILE:-}
+      BRIDGE_SOLANA_STEP_SIZE: ${BRIDGE_SOLANA_STEP_SIZE:-}
+      BRIDGE_SOLANA_GETBLOCK_CONCURRENCY: ${BRIDGE_SOLANA_GETBLOCK_CONCURRENCY:-}
+      BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS: ${BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS:-}
+      BRIDGE_SOLANA_RATE_LIMIT_RETRIES: ${BRIDGE_SOLANA_RATE_LIMIT_RETRIES:-}
+      BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS: ${BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS:-}
+      BRIDGE_SOLANA_MAX_TX_VERSION: ${BRIDGE_SOLANA_MAX_TX_VERSION:-}
+      MIDNIGHT_NETWORK_ID: ${MIDNIGHT_NETWORK_ID:?}
+      MIDNIGHT_NODE_HTTP: ${MIDNIGHT_NODE_HTTP:?}
+      MIDNIGHT_INDEXER_HTTP: ${MIDNIGHT_INDEXER_HTTP:?}
+      MIDNIGHT_INDEXER_WS: ${MIDNIGHT_INDEXER_WS:?}
+      MIDNIGHT_PROOF_SERVER_URL: ${MIDNIGHT_PROOF_SERVER_URL:?}
+      MIDNIGHT_CONTRACT_PROOF_SERVER_URL: ${MIDNIGHT_CONTRACT_PROOF_SERVER_URL:?}
+      # The node's database. It does NOT survive a restart of the container (engine issue 00063):
+      # every restart re-syncs from the deployment's start heights.
+      PGLITE_DATA_DIR: /data/pglite
+      BRIDGE_ORCHESTRATOR_API: ${BRIDGE_ORCHESTRATOR_API:-0}
+      BRIDGE_ORCHESTRATOR_CONFIG: ${BRIDGE_ORCHESTRATOR_CONFIG:-start.live.ts}
+      NODE_ENV: production
+    volumes:
+      - template:/work
+      - data:/data
+      # Each node keeps its own private-state store (midnight-js LevelDB, created in the working
+      # directory), so two nodes can share one template volume.
+      - level:${BRIDGE_TEMPLATE_DIR:-/work/repo/templates/solana-midnight-bridge}/midnight-level-db-deploy
+      - ${BRIDGE_SECRETS_HOST_DIR:?}:/secrets:ro
+    ports: ['127.0.0.1:${BRIDGE_API_PORT:?}:9999']
+    extra_hosts: ['host.docker.internal:host-gateway']
+    mem_limit: ${BRIDGE_MEM_LIMIT:-4g}
+    healthcheck:
+      test: ['CMD', 'bun', '-e', "const r = await fetch('http://127.0.0.1:9999/transfers?limit=1'); process.exit(r.ok ? 0 : 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
+      start_period: 60s
+    networks:
+      stack:
+        aliases: ['${BRIDGE_HOST:?}']
+
+networks:
+  stack:
+    external: true
+    name: ${BRIDGE_STACK_NETWORK:?}
+
+volumes:
+  template:
+    external: true
+    name: ${BRIDGE_TEMPLATE_VOLUME:?}
+  data: {}
+  level: {}

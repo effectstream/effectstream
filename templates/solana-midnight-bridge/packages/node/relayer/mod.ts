@@ -6,6 +6,8 @@
 //                      operator's Solana key, through the embedded batcher's
 //                      `midnight` adapter (with the recipient's key mapping),
 //                      unless the lock nonce is already in mintedLocks
+//   … to a CONTRACT      (00058) through the delivery router (./delivery.ts):
+//                      one transaction = the mint + the contract's receiving call
 //   Midnight → Solana  observed m2s transfer → [ATA idempotent, Release]
 //                      through the `solanaOperator` adapter, unless the release
 //                      receipt PDA already exists
@@ -22,11 +24,13 @@ import { createEmbeddedBatcher } from "./batcher.ts";
 import { buildMintInput, buildReleaseInput } from "./jobs.ts";
 import { loadRelayerKeys } from "./keys.ts";
 import { BridgeRelayer } from "./relayer.ts";
+import type { NodeDelivery } from "./delivery.ts";
 
 export * from "./policy.ts";
 export * from "./jobs.ts";
 export { BridgeRelayer, toCandidate, type RelayerDeps, type Queryable } from "./relayer.ts";
 export { MIDNIGHT_BATCH_MAX_BYTES } from "./batcher.ts";
+export * from "./delivery.ts";
 
 const POLL_MS = Number(process.env.BRIDGE_RELAYER_POLL_MS ?? 5_000);
 const MINT_TIMEOUT_MS = Number(process.env.BRIDGE_RELAYER_MINT_TIMEOUT_MS ?? 900_000);
@@ -42,7 +46,7 @@ async function withDbMutex<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-export function* startRelayer(settings: BridgeNodeSettings): Operation<void> {
+export function* startRelayer(settings: BridgeNodeSettings, delivery: NodeDelivery | null = null): Operation<void> {
   if (process.env.BRIDGE_RELAYER === "0") {
     console.log("[relayer] disabled (BRIDGE_RELAYER=0)");
     return;
@@ -79,6 +83,7 @@ export function* startRelayer(settings: BridgeNodeSettings): Operation<void> {
     submitRelease: (job) => embedded.submit(buildReleaseInput(job, addrs, keys.solanaOperator).input, RELEASE_TIMEOUT_MS),
     releaseReceiptExists: async (id) => (await fetchReceipt(conn, programId, id)) !== null,
     mintExists: async (nonce) => (await readLedger(settings.midnight.contractAddress))?.mintedLocks.member(nonce) ?? false,
+    ...(delivery ? { delivery: delivery.router } : {}),
   });
   console.log(`[relayer] polling every ${POLL_MS} ms`);
   while (true) {

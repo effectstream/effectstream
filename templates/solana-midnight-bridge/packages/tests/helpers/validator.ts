@@ -56,8 +56,12 @@ export async function waitForRpcHealth(rpcUrl: string, timeoutMs: number): Promi
 
 export type TestValidator = { rpcUrl: string; stop: () => void };
 
-export async function startTestValidator(timeoutMs = 300_000): Promise<TestValidator> {
-  if (!fs.existsSync(PROGRAM_SO)) throw new Error(`missing ${PROGRAM_SO}`);
+/**
+ * `soPath` preloads another build of the program at the local program id (00058: the 00050 `.so`,
+ * to prove that a program without `LockToContract` refuses tag 3).
+ */
+export async function startTestValidator(timeoutMs = 300_000, soPath: string = PROGRAM_SO): Promise<TestValidator> {
+  if (!fs.existsSync(soPath)) throw new Error(`missing ${soPath}`);
   // RPC uses rpcPort and rpcPort + 1 (websocket).
   const rpcPort = await freePortRange(2);
   const faucetPort = await freePortRange(1);
@@ -68,7 +72,7 @@ export async function startTestValidator(timeoutMs = 300_000): Promise<TestValid
     reset: true,
     dataDir,
     verbose: process.env.SOLANA_VERBOSE === "1",
-    bpfPrograms: [{ address: LOCAL_BRIDGE_PROGRAM_ID, soPath: PROGRAM_SO }],
+    bpfPrograms: [{ address: LOCAL_BRIDGE_PROGRAM_ID, soPath }],
   });
   const rpcUrl = `http://127.0.0.1:${rpcPort}`;
   let stopped = false;

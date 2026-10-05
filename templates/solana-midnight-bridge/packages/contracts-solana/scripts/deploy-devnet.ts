@@ -18,7 +18,7 @@
 // The committed local program key and every local dev key are refused (FR-009).
 //
 // Usage:
-//   SOLANA_DEVNET_RPC_URL=<url> bun run scripts/deploy-devnet.ts [--check]
+//   SOLANA_DEVNET_RPC_URL=<url> (or SOLANA_DEVNET_RPC_URL_FILE=<file holding it>) bun run scripts/deploy-devnet.ts [--check]
 //       [--out <name|path.json>] [--mint <pubkey>] [--user-tokens <n>]
 //       [--max-len-multiplier <n>] [--upgrade]
 //   --check   run every key, cluster and balance check, then stop (no transaction).
@@ -62,6 +62,7 @@ import {
   checkDeployCluster,
   checkLiveDeployKeys,
   liveKeyPaths,
+  liveSolanaRpcUrl,
   loadLiveKeypair,
   redactRpcUrl,
   writeKeypairFile,
@@ -72,7 +73,6 @@ import {
   type SolanaDeployment,
 } from "../deployments.ts";
 
-const DEFAULT_RPC = "https://api.devnet.solana.com";
 const SO_PATH = path.join(PACKAGE_DIR, "build", "bridge.so");
 const BPF_UPGRADEABLE_LOADER = new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111");
 
@@ -166,7 +166,7 @@ async function initializeSlot(conn: Connection, programId: PublicKey): Promise<n
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const rpcUrl = process.env.SOLANA_DEVNET_RPC_URL ?? DEFAULT_RPC;
+  const rpcUrl = liveSolanaRpcUrl();
   log(`rpc ${redactRpcUrl(rpcUrl)}${args.check ? " (--check: no transaction will be sent)" : ""}`);
 
   // ── keys (never printed) ────────────────────────────────────────────────
@@ -362,6 +362,7 @@ async function main() {
     operator: operator.publicKey.toBase58(),
     ...(user ? { user } : {}),
     startSlot,
+    genesisHash: genesis,
     signatures,
     updatedAt: new Date().toISOString(),
   };

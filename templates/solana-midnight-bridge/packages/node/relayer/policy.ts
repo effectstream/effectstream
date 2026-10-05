@@ -21,6 +21,10 @@ export type RelayerCandidate = {
   sourceId: bigint;
   amount: bigint;
   recipient: string;
+  /** 00058: s2m `wallet` (a Lock) or `contract` (a LockToContract); absent/null means wallet. */
+  recipientKind?: "wallet" | "contract" | null;
+  /** 00058: when the transfer was first observed (ms), for the not-a-contract grace window. */
+  firstSeenAt?: number | null;
   attempts: number;
   lastAttemptAt: Date | null;
   lastTx: string | null;

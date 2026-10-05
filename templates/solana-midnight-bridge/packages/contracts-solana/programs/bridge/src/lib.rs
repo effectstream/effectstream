@@ -13,15 +13,25 @@
 //! - `0 Initialize { operator: [u8;32] }`                          (33 bytes)
 //! - `1 Lock { amount: u64, midnight_recipient: [u8;64] }`         (73 bytes)
 //! - `2 Release { withdrawal_id: u64, amount: u64 }`               (17 bytes)
+//! - `3 LockToContract { amount: u64, contract: [u8;32] }`         (41 bytes)
+//!
+//! `LockToContract` names a Midnight CONTRACT as the recipient (its 32-byte
+//! address, not all-zero). Its accounts, checks, transfer and lock-nonce counter
+//! are `Lock`'s (one shared counter, so `s2m:<nonce>` stays unique across both);
+//! only the recipient and the log line differ. The program cannot see Midnight:
+//! the bridge node decides whether it can deliver to that contract. A program
+//! built before tag 3 refuses it (`InvalidInstruction`), so nothing is locked.
 //!
 //! Log lines (consumed by the Effectstream `SOLANA:ProgramLog` primitive; `msg!`
 //! prefixes them with `Program log: ` on the wire):
 //! - `EFFECTSTREAM_BRIDGE|INIT|<operator>|<mint>|<vault>`
 //! - `EFFECTSTREAM_BRIDGE|LOCK|<nonce>|<depositor>|<mint>|<amount>|<recipientHex128>`
+//! - `EFFECTSTREAM_BRIDGE|LOCKC|<nonce>|<depositor>|<mint>|<amount>|<contractHex64>`
 //! - `EFFECTSTREAM_BRIDGE|RELEASE|<withdrawal_id>|<recipient_owner>|<amount>`
 //!
 //! Pubkeys are base58, integers decimal (raw token units), the Midnight
-//! recipient is 128 lowercase hex chars (coin public key ‖ encryption public key).
+//! recipient is 128 lowercase hex chars (coin public key ‖ encryption public key),
+//! a contract recipient 64 lowercase hex chars.
 //!
 //! No Anchor: plain `solana-program` 1.18.26 + `spl-token` 4.0.3, so it builds with
 //! the vendored `cargo-build-sbf` (Agave 3.0.14, platform-tools v1.52).
@@ -54,6 +64,7 @@ pub const RELEASE_SEED: &[u8] = b"release";
 pub const IX_INITIALIZE: u8 = 0;
 pub const IX_LOCK: u8 = 1;
 pub const IX_RELEASE: u8 = 2;
+pub const IX_LOCK_TO_CONTRACT: u8 = 3;
 
 pub const LOG_PREFIX: &str = "EFFECTSTREAM_BRIDGE";
 
@@ -81,6 +92,8 @@ pub enum BridgeError {
     ZeroAmount = 7,
     MintMismatch = 8,
     NonceOverflow = 9,
+    /// `LockToContract` with an all-zero contract address.
+    InvalidRecipient = 10,
 }
 
 impl From<BridgeError> for ProgramError {
@@ -178,6 +191,14 @@ pub fn process_instruction<'a>(
             let withdrawal_id = u64::from_le_bytes(rest[0..8].try_into().unwrap());
             let amount = u64::from_le_bytes(rest[8..16].try_into().unwrap());
             release(program_id, accounts, withdrawal_id, amount)
+        }
+        IX_LOCK_TO_CONTRACT => {
+            if rest.len() != 8 + 32 {
+                return Err(BridgeError::InvalidInstruction.into());
+            }
+            let amount = u64::from_le_bytes(rest[0..8].try_into().unwrap());
+            let contract: [u8; 32] = rest[8..40].try_into().unwrap();
+            lock_to_contract(program_id, accounts, amount, &contract)
         }
         _ => Err(BridgeError::InvalidInstruction.into()),
     }
@@ -282,6 +303,57 @@ fn lock<'a>(
     amount: u64,
     midnight_recipient: &[u8; 64],
 ) -> ProgramResult {
+    let locked = lock_into_vault(program_id, accounts, amount, true)?;
+    msg!(
+        "{}|LOCK|{}|{}|{}|{}|{}",
+        LOG_PREFIX,
+        locked.nonce,
+        locked.depositor,
+        locked.mint,
+        amount,
+        hex_lower(midnight_recipient)
+    );
+    Ok(())
+}
+
+/// `LockToContract`: `Lock`'s accounts, checks, transfer and nonce, for a
+/// Midnight contract recipient. Accounts as `lock`.
+fn lock_to_contract<'a>(
+    program_id: &Pubkey,
+    accounts: &'a [AccountInfo<'a>],
+    amount: u64,
+    contract: &[u8; 32],
+) -> ProgramResult {
+    let locked = lock_into_vault(program_id, accounts, amount, contract.iter().any(|b| *b != 0))?;
+    msg!(
+        "{}|LOCKC|{}|{}|{}|{}|{}",
+        LOG_PREFIX,
+        locked.nonce,
+        locked.depositor,
+        locked.mint,
+        amount,
+        hex_lower(contract)
+    );
+    Ok(())
+}
+
+/// What a lock leaves for its log line.
+struct Locked {
+    nonce: u64,
+    depositor: Pubkey,
+    mint: Pubkey,
+}
+
+/// The body both locks share, in this order: the depositor signs, the Token
+/// program, the config, the vault, `amount > 0`, then the recipient
+/// (`recipient_ok`, else `InvalidRecipient`), then the transfer into the vault
+/// and the shared lock-nonce increment.
+fn lock_into_vault<'a>(
+    program_id: &Pubkey,
+    accounts: &'a [AccountInfo<'a>],
+    amount: u64,
+    recipient_ok: bool,
+) -> Result<Locked, ProgramError> {
     let it = &mut accounts.iter();
     let depositor = next_account_info(it)?;
     let source = next_account_info(it)?;
@@ -297,6 +369,9 @@ fn lock<'a>(
     check_vault(program_id, &config, vault_info)?;
     if amount == 0 {
         return Err(BridgeError::ZeroAmount.into());
+    }
+    if !recipient_ok {
+        return Err(BridgeError::InvalidRecipient.into());
     }
 
     // The Token program rejects a source of another mint (vault mint = config.mint).
@@ -322,17 +397,11 @@ fn lock<'a>(
         .checked_add(1)
         .ok_or(BridgeError::NonceOverflow)?;
     config.pack(&mut config_info.data.borrow_mut())?;
-
-    msg!(
-        "{}|LOCK|{}|{}|{}|{}|{}",
-        LOG_PREFIX,
+    Ok(Locked {
         nonce,
-        depositor.key,
-        config.mint,
-        amount,
-        hex_lower(midnight_recipient)
-    );
-    Ok(())
+        depositor: *depositor.key,
+        mint: config.mint,
+    })
 }
 
 /// Accounts: 0 operator (signer) · 1 payer (signer, writable; may equal the operator) ·

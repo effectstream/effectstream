@@ -10,7 +10,10 @@
     "./grammar": "./grammar.ts",
     "./api": "./api.ts",
     "./relayer": "./relayer/mod.ts",
-    "./config": "./config.ts"
+    "./config": "./config.ts",
+    "./record": "./record.ts",
+    "./schema-check": "./schema-check.ts",
+    "./delivery": "./relayer/delivery.ts"
   },
   "scripts": {
     "start:dev": "bun run main.ts local",
@@ -27,6 +30,7 @@
     "@effectstream/runtime": "0.200.6",
     "@effectstream/sm": "0.200.6",
     "@effectstream/utils": "0.200.6",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-network-id": "5.0.0-beta.6",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0-rc.3",
     "@midnightntwrk/onchain-runtime-v4": "4.0.0-rc.3",
@@ -34,6 +38,8 @@
     "@solana-midnight-bridge/contracts-midnight": "workspace:*",
     "@solana-midnight-bridge/contracts-solana": "workspace:*",
     "@solana-midnight-bridge/database": "workspace:*",
+    "@solana-midnight-bridge/delivery": "workspace:*",
+    "@solana-midnight-bridge/delivery-passport": "workspace:*",
     "@solana/spl-token": "^0.4.9",
     "@solana/web3.js": "^1.95.0",
     "bs58": "^6.0.0",

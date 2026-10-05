@@ -10,7 +10,7 @@
 //
 //   local  deployments/local.json, the local validator and devnet
 //   live   deployments/$BRIDGE_DEPLOYMENT (default devnet-stagenet.json),
-//          Solana via SOLANA_DEVNET_RPC_URL (default devnet), Midnight
+//          Solana via SOLANA_DEVNET_RPC_URL_FILE / SOLANA_DEVNET_RPC_URL (default devnet), Midnight
 //          stagenet, or the network MIDNIGHT_NETWORK_ID names (network.ts)
 import { Connection, PublicKey } from "@solana/web3.js";
 import {
@@ -27,7 +27,7 @@ import {
   type SolanaDeployment,
 } from "@solana-midnight-bridge/contracts-solana/deployments";
 import { DEV_SOLANA_RPC_URL, LOCAL_DEPLOYMENT } from "@solana-midnight-bridge/contracts-solana/dev-config";
-import { redactRpcUrl } from "@solana-midnight-bridge/contracts-solana/keys";
+import { liveSolanaRpcUrl, redactRpcUrl } from "@solana-midnight-bridge/contracts-solana/keys";
 import { BridgeContractState, bridgeLedger } from "@solana-midnight-bridge/contracts-midnight/contract";
 import { midnightUrls, type BridgeMidnightUrls } from "@solana-midnight-bridge/contracts-midnight/network";
 import type { MidnightDeployment } from "@solana-midnight-bridge/contracts-midnight/deploy";
@@ -53,7 +53,19 @@ export type BridgeNodeSettings = {
   solanaRpcUrl: string;
   solanaNetworkId: "localnet" | "devnet" | "testnet";
   midnightUrls: BridgeMidnightUrls;
-  solanaSync: { confirmationDepth: number; stepSize: number; pollingInterval: number; delayMs: number };
+  solanaSync: {
+    confirmationDepth: number;
+    stepSize: number;
+    pollingInterval: number;
+    delayMs: number;
+    /** The engine's getBlock reading (00057 Q16): concurrency cap, pacing, 429 backoff, tx version. */
+    getBlockConcurrency: number;
+    getBlockMinIntervalMs: number;
+    rateLimitRetries: number;
+    rateLimitBackoffMs: number;
+    rateLimitMaxBackoffMs: number;
+    maxSupportedTransactionVersion: number;
+  };
   midnightSync: { pollingInterval: number; delayMs: number };
 };
 
@@ -64,6 +76,18 @@ const envInt = (k: string, d: number): number => {
   if (!Number.isInteger(n) || n < 0) throw new Error(`${k} must be a non-negative integer`);
   return n;
 };
+
+/** The engine's getBlock settings for the Solana sync (00057 Q16), from the environment. */
+function getBlockReading() {
+  return {
+    getBlockConcurrency: Math.max(1, envInt("BRIDGE_SOLANA_GETBLOCK_CONCURRENCY", 8)),
+    getBlockMinIntervalMs: envInt("BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS", 0),
+    rateLimitRetries: envInt("BRIDGE_SOLANA_RATE_LIMIT_RETRIES", 10),
+    rateLimitBackoffMs: envInt("BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS", 500),
+    rateLimitMaxBackoffMs: envInt("BRIDGE_SOLANA_RATE_LIMIT_MAX_BACKOFF_MS", 15_000),
+    maxSupportedTransactionVersion: envInt("BRIDGE_SOLANA_MAX_TX_VERSION", 1),
+  };
+}
 
 /** Reads the deployment file and the endpoints for `mode`. */
 export function loadBridgeNodeSettings(mode: BridgeNodeMode): BridgeNodeSettings {
@@ -81,9 +105,7 @@ export function loadBridgeNodeSettings(mode: BridgeNodeMode): BridgeNodeSettings
   if (Buffer.from(new PublicKey(solana.mint).toBytes()).toString("hex") !== midnight.sourceMint) {
     throw new Error(`deployment ${file}: the Midnight contract seals another SPL mint than solana.mint`);
   }
-  const solanaRpcUrl = mode === "local"
-    ? DEV_SOLANA_RPC_URL
-    : (process.env.SOLANA_DEVNET_RPC_URL ?? "https://api.devnet.solana.com");
+  const solanaRpcUrl = mode === "local" ? DEV_SOLANA_RPC_URL : liveSolanaRpcUrl();
   return {
     mode,
     deploymentFile: file,
@@ -100,14 +122,20 @@ export function loadBridgeNodeSettings(mode: BridgeNodeMode): BridgeNodeSettings
           stepSize: envInt("BRIDGE_SOLANA_STEP_SIZE", 10),
           pollingInterval: envInt("BRIDGE_SOLANA_POLLING_MS", 2000),
           delayMs: envInt("BRIDGE_SOLANA_DELAY_MS", 2400),
+          ...getBlockReading(),
         }
       : {
-          // Devnet: ~400 ms slots, so 32 slots ≈ 13 s; smaller steps and slower
-          // polling keep the public RPC under its rate limits (one getBlock per slot).
+          // Devnet: ~400 ms slots (~2.5 slots/s), so 32 slots ≈ 13 s. One getBlock
+          // per slot takes ~0.5 s even on a private RPC, so the engine reads a
+          // step's slots concurrently (8 in flight by default, halved on HTTP 429);
+          // a step of 24 slots is three such batches. On a rate-limited public RPC,
+          // lower BRIDGE_SOLANA_GETBLOCK_CONCURRENCY or set
+          // BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS (e.g. 1700 for 6 calls / 10 s).
           confirmationDepth: envInt("BRIDGE_SOLANA_CONFIRMATION_DEPTH", 32),
-          stepSize: envInt("BRIDGE_SOLANA_STEP_SIZE", 5),
+          stepSize: envInt("BRIDGE_SOLANA_STEP_SIZE", 24),
           pollingInterval: envInt("BRIDGE_SOLANA_POLLING_MS", 4000),
           delayMs: envInt("BRIDGE_SOLANA_DELAY_MS", 6000),
+          ...getBlockReading(),
         },
     midnightSync: {
       pollingInterval: envInt("BRIDGE_MIDNIGHT_POLLING_MS", 1000),
@@ -220,6 +248,12 @@ export function buildBridgeConfig(s: BridgeNodeSettings, ntpStartTime: number) {
             delayMs: s.solanaSync.delayMs,
             confirmationDepth: s.solanaSync.confirmationDepth,
             stepSize: s.solanaSync.stepSize,
+            getBlockConcurrency: s.solanaSync.getBlockConcurrency,
+            getBlockMinIntervalMs: s.solanaSync.getBlockMinIntervalMs,
+            rateLimitRetries: s.solanaSync.rateLimitRetries,
+            rateLimitBackoffMs: s.solanaSync.rateLimitBackoffMs,
+            rateLimitMaxBackoffMs: s.solanaSync.rateLimitMaxBackoffMs,
+            maxSupportedTransactionVersion: s.solanaSync.maxSupportedTransactionVersion,
           }),
         )
         .addParallel(
@@ -260,6 +294,28 @@ export function buildBridgeConfig(s: BridgeNodeSettings, ntpStartTime: number) {
         ),
     )
     .build();
+}
+
+/**
+ * 00058 FR-010: the Solana RPC must be the cluster the deployment was made on. A deployment file
+ * written before 00058 has no `genesisHash`: that is accepted with a warning.
+ */
+export async function checkSolanaGenesis(
+  s: Pick<BridgeNodeSettings, "solana" | "solanaRpcUrl" | "deploymentFile">,
+  getGenesisHash: () => Promise<string> = () => new Connection(s.solanaRpcUrl, "confirmed").getGenesisHash(),
+  warn: (m: string) => void = (m) => console.warn(m),
+): Promise<{ checked: boolean; genesis: string }> {
+  const genesis = await getGenesisHash();
+  if (!s.solana.genesisHash) {
+    warn(`[bridge-node] ${s.deploymentFile} records no solana.genesisHash (an older file); the Solana RPC's genesis ${genesis} is not checked`);
+    return { checked: false, genesis };
+  }
+  if (genesis !== s.solana.genesisHash) {
+    throw new Error(
+      `the Solana RPC ${redactRpcUrl(s.solanaRpcUrl)} has genesis ${genesis}, but ${s.deploymentFile} was deployed on genesis ${s.solana.genesisHash}; refusing to start`,
+    );
+  }
+  return { checked: true, genesis };
 }
 
 /** One line for the logs: what this node watches (no secrets; RPC host only). */

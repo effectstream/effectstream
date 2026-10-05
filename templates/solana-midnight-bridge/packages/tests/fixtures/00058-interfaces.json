@@ -1,0 +1,361 @@
+{
+  "schema": "effectstream.solana-midnight-bridge.00058-interfaces/1",
+  "frozen": "2026-10-04",
+  "source": "AA plans/00058-bridge-contract-delivery.md, section Interfaces (I-2, I-3)",
+  "i2": {
+    "tag": 3,
+    "dataLength": 41,
+    "accounts": [
+      {
+        "index": 0,
+        "name": "depositor",
+        "signer": true,
+        "writable": false
+      },
+      {
+        "index": 1,
+        "name": "depositor token account (source)",
+        "signer": false,
+        "writable": true
+      },
+      {
+        "index": 2,
+        "name": "config PDA [\"config\"]",
+        "signer": false,
+        "writable": true
+      },
+      {
+        "index": 3,
+        "name": "vault PDA [\"vault\", mint]",
+        "signer": false,
+        "writable": true
+      },
+      {
+        "index": 4,
+        "name": "Token program",
+        "signer": false,
+        "writable": false
+      }
+    ],
+    "errors": {
+      "InvalidInstruction": 1,
+      "ZeroAmount": 7,
+      "InvalidRecipient": 10
+    },
+    "logRegex": "^(Program log: )?EFFECTSTREAM_BRIDGE\\|LOCKC\\|(0|[1-9][0-9]{0,19})\\|([1-9A-HJ-NP-Za-km-z]{32,44})\\|([1-9A-HJ-NP-Za-km-z]{32,44})\\|(0|[1-9][0-9]{0,19})\\|([0-9a-f]{64})$",
+    "instructions": [
+      {
+        "name": "valid: 500 X (6 decimals) to a1*32",
+        "data": "030065cd1d00000000a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": true,
+        "amount": "500000000",
+        "contractHex": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+      },
+      {
+        "name": "refused: all-zero contract",
+        "data": "030065cd1d000000000000000000000000000000000000000000000000000000000000000000000000",
+        "valid": false,
+        "error": "InvalidRecipient",
+        "customError": 10
+      },
+      {
+        "name": "refused: amount 0",
+        "data": "030000000000000000a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": false,
+        "error": "ZeroAmount",
+        "customError": 7
+      },
+      {
+        "name": "refused: 40 bytes (contract 31 bytes)",
+        "data": "030065cd1d00000000a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": false,
+        "error": "InvalidInstruction",
+        "customError": 1
+      },
+      {
+        "name": "refused: 42 bytes (contract 33 bytes)",
+        "data": "030065cd1d00000000a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": false,
+        "error": "InvalidInstruction",
+        "customError": 1
+      }
+    ],
+    "logLines": [
+      {
+        "name": "valid, with prefix",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|0|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|500000000|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": true,
+        "parsed": {
+          "kind": "LOCKC",
+          "nonce": "0",
+          "depositor": "2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6",
+          "mint": "H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w",
+          "amount": "500000000",
+          "contractHex": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+        }
+      },
+      {
+        "name": "valid, without prefix",
+        "line": "EFFECTSTREAM_BRIDGE|LOCKC|7|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|1|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": true,
+        "parsed": {
+          "kind": "LOCKC",
+          "nonce": "7",
+          "depositor": "2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6",
+          "mint": "H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w",
+          "amount": "1",
+          "contractHex": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+        }
+      },
+      {
+        "name": "valid, u64 max nonce and amount",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|18446744073709551615|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|18446744073709551615|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": true,
+        "parsed": {
+          "kind": "LOCKC",
+          "nonce": "18446744073709551615",
+          "depositor": "2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6",
+          "mint": "H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w",
+          "amount": "18446744073709551615",
+          "contractHex": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+        }
+      },
+      {
+        "name": "refused: 63 hex",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|0|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|1|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+        "valid": false
+      },
+      {
+        "name": "refused: 65 hex",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|0|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|1|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+        "valid": false
+      },
+      {
+        "name": "refused: upper-case hex",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|0|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|1|A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1",
+        "valid": false
+      },
+      {
+        "name": "refused: 6 fields",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|0|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|1",
+        "valid": false
+      },
+      {
+        "name": "refused: 8 fields",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|0|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|1|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1|extra",
+        "valid": false
+      },
+      {
+        "name": "refused: nonce > u64",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|18446744073709551616|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|1|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": false
+      },
+      {
+        "name": "refused: amount > u64",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|0|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|18446744073709551616|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": false
+      },
+      {
+        "name": "refused: leading zero nonce",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|01|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|1|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": false
+      },
+      {
+        "name": "refused: non-base58 depositor",
+        "line": "Program log: EFFECTSTREAM_BRIDGE|LOCKC|0|0OIlSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|1|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "valid": false
+      }
+    ],
+    "mixedTransaction": {
+      "logMessages": [
+        "Program 2bqN4ePY9kHSyHkSxhc8WTdRDfpk9BGThCAqGoh6cagf invoke [1]",
+        "Program log: EFFECTSTREAM_BRIDGE|LOCK|3|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|10000000|c8f7aaf31ded7e4fdc0e3822de68abf8847ae57c627b0d2358ca578759667fe95e06441e8b0d0ef969d0544cd7af9b5ef68bc55c5212c64490ddc0ba5b8fc4fb",
+        "Program log: EFFECTSTREAM_BRIDGE|LOCKC|4|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|500000000|a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "Program log: unrelated line",
+        "Program log: EFFECTSTREAM_BRIDGE|LOCK|5|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|1|c8f7aaf31ded7e4fdc0e3822de68abf8847ae57c627b0d2358ca578759667fe95e06441e8b0d0ef969d0544cd7af9b5ef68bc55c5212c64490ddc0ba5b8fc4fb"
+      ],
+      "lockNonces": [
+        {
+          "kind": "LOCK",
+          "nonce": "3"
+        },
+        {
+          "kind": "LOCKC",
+          "nonce": "4"
+        },
+        {
+          "kind": "LOCK",
+          "nonce": "5"
+        }
+      ],
+      "transferIds": [
+        "s2m:3",
+        "s2m:4",
+        "s2m:5"
+      ]
+    },
+    "walletLockGolden": {
+      "note": "00050 Lock golden vector, unchanged (FR-004): tag 1, 73 bytes, LOCK line",
+      "data": "018096980000000000c8f7aaf31ded7e4fdc0e3822de68abf8847ae57c627b0d2358ca578759667fe95e06441e8b0d0ef969d0544cd7af9b5ef68bc55c5212c64490ddc0ba5b8fc4fb",
+      "dataLength": 73,
+      "logLine": "Program log: EFFECTSTREAM_BRIDGE|LOCK|0|2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6|H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w|10000000|c8f7aaf31ded7e4fdc0e3822de68abf8847ae57c627b0d2358ca578759667fe95e06441e8b0d0ef969d0544cd7af9b5ef68bc55c5212c64490ddc0ba5b8fc4fb"
+    }
+  },
+  "i3": {
+    "transferViews": [
+      {
+        "id": "s2m:4",
+        "direction": "s2m",
+        "sourceId": "4",
+        "amount": "500000000",
+        "recipientKind": "contract",
+        "recipient": "4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f",
+        "sender": "2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6",
+        "status": "completed",
+        "reason": null,
+        "delivery": {
+          "adapter": "passport-ed25519@21493588",
+          "account": "4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f",
+          "coin": {
+            "nonce": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+            "colour": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+            "value": "500000000"
+          },
+          "tx": "007d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d"
+        },
+        "srcRef": "5555555555555555555555555555555555555555555555555555555555555555555555555555555555555555",
+        "dstRef": "007d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d",
+        "observedBlock": 120,
+        "completedBlock": 131,
+        "relayer": {
+          "attempts": 1,
+          "submittedAt": "2026-10-04T12:00:05.000Z",
+          "lastAttemptAt": "2026-10-04T12:00:05.000Z",
+          "lastTx": "007d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d",
+          "lastError": null
+        }
+      },
+      {
+        "id": "s2m:5",
+        "direction": "s2m",
+        "sourceId": "5",
+        "amount": "1000000",
+        "recipientKind": "contract",
+        "recipient": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+        "sender": "2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6",
+        "status": "undeliverable",
+        "reason": {
+          "code": "not-a-passport-account",
+          "message": "the contract is not a Passport account of key set 21493588 (missing: deposit_shielded, …; extra: lockForSolana, mintFromSolana)",
+          "at": "2026-10-04T12:01:00.000Z"
+        },
+        "delivery": null,
+        "srcRef": "6666666666666666666666666666666666666666666666666666666666666666666666666666666666666666",
+        "dstRef": null,
+        "observedBlock": 140,
+        "completedBlock": null,
+        "relayer": {
+          "attempts": 0,
+          "submittedAt": null,
+          "lastAttemptAt": null,
+          "lastTx": null,
+          "lastError": null
+        }
+      },
+      {
+        "id": "s2m:3",
+        "direction": "s2m",
+        "sourceId": "3",
+        "amount": "10000000",
+        "recipientKind": "wallet",
+        "recipient": "c8f7aaf31ded7e4fdc0e3822de68abf8847ae57c627b0d2358ca578759667fe95e06441e8b0d0ef969d0544cd7af9b5ef68bc55c5212c64490ddc0ba5b8fc4fb",
+        "sender": "2iwbSktGBUzAPK6KPMjUtsHkuZNAJTY1Rve9ZaF21qu6",
+        "status": "completed",
+        "reason": null,
+        "delivery": null,
+        "srcRef": "4444444444444444444444444444444444444444444444444444444444444444444444444444444444444444",
+        "dstRef": "006c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c",
+        "observedBlock": 118,
+        "completedBlock": 125,
+        "relayer": {
+          "attempts": 1,
+          "submittedAt": "2026-10-04T11:59:00.000Z",
+          "lastAttemptAt": "2026-10-04T11:59:00.000Z",
+          "lastTx": "006c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c",
+          "lastError": null
+        }
+      },
+      {
+        "id": "s2m:6",
+        "direction": "s2m",
+        "sourceId": "6",
+        "amount": "7000000",
+        "recipientKind": null,
+        "recipient": null,
+        "sender": null,
+        "status": "completed",
+        "reason": null,
+        "delivery": null,
+        "srcRef": null,
+        "dstRef": "midnight-block:150",
+        "observedBlock": 150,
+        "completedBlock": 150,
+        "relayer": null
+      }
+    ],
+    "notes": [
+      "Q6 A (00057 orchestrator, 2026-10-05): TransferView.recipientKind widens to \"wallet\" | \"contract\" | \"solana\" | null. It is null only while an s2m row's Solana lock is not yet observed (the Midnight sync ran ahead during a re-sync); recipient and sender are then null too. Consumers treat null as 'lock not seen yet' and keep polling. Example: transferViews[3] (s2m:6)."
+    ],
+    "recipients": [
+      {
+        "address": "4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f",
+        "verdict": "deliverable",
+        "adapter": "passport-ed25519@21493588",
+        "code": null,
+        "message": null,
+        "checkedAt": "2026-10-04T12:00:00.000Z"
+      },
+      {
+        "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+        "verdict": "undeliverable",
+        "adapter": null,
+        "code": "not-a-passport-account",
+        "message": "the contract is not a Passport account of key set 21493588",
+        "checkedAt": "2026-10-04T12:00:00.000Z"
+      },
+      {
+        "address": "7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e",
+        "verdict": "retry",
+        "adapter": null,
+        "code": null,
+        "message": "no contract state at this address yet (not indexed, or not a contract)",
+        "checkedAt": "2026-10-04T12:00:00.000Z"
+      }
+    ],
+    "deploymentRecord": {
+      "schema": "effectstream.solana-midnight-bridge.deployment/1",
+      "splMint": "H5Eivza5kYbPLExwivZpgh3Ea3MF38pCsdKQcjSXi39w",
+      "splMintDecimals": 6,
+      "name": "X",
+      "symbol": "X",
+      "bridgeProgram": "2bqN4ePY9kHSyHkSxhc8WTdRDfpk9BGThCAqGoh6cagf",
+      "bridgeContract": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+      "colour": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+      "operatorKey": "2k1MXvXa79KMcYkbQUzkpnJHYHRPv6m8wg2CEa3KEWnY",
+      "midnightNetwork": "undeployed",
+      "solanaGenesisHash": "75hbt6uvDqjPZ9WgFtMhBnTeyHw7cinoHiz4FD2vEz2d",
+      "api": "http://127.0.0.1:18080",
+      "startSlot": 0,
+      "startBlockHeight": 1,
+      "delivery": {
+        "adapters": [
+          {
+            "id": "passport-ed25519",
+            "keySet": "21493588f30536e0f409dcf79deea54878f0c2cf6fee601a2359e54a776d5c5e",
+            "passportCommit": "599327b918b55afc95d6c98a89bcd15f4e8b0d53"
+          }
+        ]
+      }
+    }
+  }
+}

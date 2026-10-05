@@ -3,6 +3,8 @@ import { PreparedQuery } from '@pgtyped/runtime';
 
 export type DateOrString = Date | string;
 
+export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+
 export type NumberOrString = number | string;
 
 /** 'UpsertLockObserved' parameters type */
@@ -10,6 +12,7 @@ export interface IUpsertLockObservedParams {
   amount: NumberOrString;
   block_height: number;
   recipient: string;
+  recipient_kind: string;
   sender: string;
   source_id: NumberOrString;
   src_ref: string;
@@ -24,15 +27,16 @@ export interface IUpsertLockObservedQuery {
   result: IUpsertLockObservedResult;
 }
 
-const upsertLockObservedIR: any = {"usedParamSet":{"source_id":true,"amount":true,"recipient":true,"sender":true,"src_ref":true,"block_height":true},"params":[{"name":"source_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":127,"b":137}]},{"name":"amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":140,"b":147}]},{"name":"recipient","required":true,"transform":{"type":"scalar"},"locs":[{"a":150,"b":160}]},{"name":"sender","required":true,"transform":{"type":"scalar"},"locs":[{"a":163,"b":170}]},{"name":"src_ref","required":true,"transform":{"type":"scalar"},"locs":[{"a":185,"b":193}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":196,"b":209}]}],"statement":"INSERT INTO bridge_transfers (direction, source_id, amount, recipient, sender, status, src_ref, observed_block)\nVALUES ('s2m', :source_id!, :amount!, :recipient!, :sender!, 'observed', :src_ref!, :block_height!)\nON CONFLICT (direction, source_id) DO UPDATE\n  SET recipient = COALESCE(bridge_transfers.recipient, EXCLUDED.recipient),\n      sender = COALESCE(bridge_transfers.sender, EXCLUDED.sender),\n      src_ref = COALESCE(bridge_transfers.src_ref, EXCLUDED.src_ref)"};
+const upsertLockObservedIR: any = {"usedParamSet":{"source_id":true,"amount":true,"recipient":true,"recipient_kind":true,"sender":true,"src_ref":true,"block_height":true},"params":[{"name":"source_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":143,"b":153}]},{"name":"amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":156,"b":163}]},{"name":"recipient","required":true,"transform":{"type":"scalar"},"locs":[{"a":166,"b":176}]},{"name":"recipient_kind","required":true,"transform":{"type":"scalar"},"locs":[{"a":179,"b":194}]},{"name":"sender","required":true,"transform":{"type":"scalar"},"locs":[{"a":197,"b":204}]},{"name":"src_ref","required":true,"transform":{"type":"scalar"},"locs":[{"a":219,"b":227}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":230,"b":243}]}],"statement":"INSERT INTO bridge_transfers (direction, source_id, amount, recipient, recipient_kind, sender, status, src_ref, observed_block)\nVALUES ('s2m', :source_id!, :amount!, :recipient!, :recipient_kind!, :sender!, 'observed', :src_ref!, :block_height!)\nON CONFLICT (direction, source_id) DO UPDATE\n  SET recipient = COALESCE(bridge_transfers.recipient, EXCLUDED.recipient),\n      recipient_kind = COALESCE(bridge_transfers.recipient_kind, EXCLUDED.recipient_kind),\n      sender = COALESCE(bridge_transfers.sender, EXCLUDED.sender),\n      src_ref = COALESCE(bridge_transfers.src_ref, EXCLUDED.src_ref)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO bridge_transfers (direction, source_id, amount, recipient, sender, status, src_ref, observed_block)
- * VALUES ('s2m', :source_id!, :amount!, :recipient!, :sender!, 'observed', :src_ref!, :block_height!)
+ * INSERT INTO bridge_transfers (direction, source_id, amount, recipient, recipient_kind, sender, status, src_ref, observed_block)
+ * VALUES ('s2m', :source_id!, :amount!, :recipient!, :recipient_kind!, :sender!, 'observed', :src_ref!, :block_height!)
  * ON CONFLICT (direction, source_id) DO UPDATE
  *   SET recipient = COALESCE(bridge_transfers.recipient, EXCLUDED.recipient),
+ *       recipient_kind = COALESCE(bridge_transfers.recipient_kind, EXCLUDED.recipient_kind),
  *       sender = COALESCE(bridge_transfers.sender, EXCLUDED.sender),
  *       src_ref = COALESCE(bridge_transfers.src_ref, EXCLUDED.src_ref)
  * ```
@@ -157,6 +161,7 @@ export interface IGetTransferResult {
   attempts: number;
   completed_at: Date | null;
   completed_block: number | null;
+  delivery: Json | null;
   direction: string;
   dst_ref: string | null;
   last_attempt_at: Date | null;
@@ -165,12 +170,16 @@ export interface IGetTransferResult {
   observed_at: Date;
   observed_block: number;
   recipient: string | null;
+  recipient_kind: string | null;
   sender: string | null;
   source_id: string;
   src_ref: string | null;
   state: string | null;
   status: string;
   submitted_at: Date | null;
+  undeliverable_at: Date | null;
+  undeliverable_code: string | null;
+  undeliverable_reason: string | null;
 }
 
 /** 'GetTransfer' query type */
@@ -179,7 +188,7 @@ export interface IGetTransferQuery {
   result: IGetTransferResult;
 }
 
-const getTransferIR: any = {"usedParamSet":{"direction":true,"source_id":true},"params":[{"name":"direction","required":true,"transform":{"type":"scalar"},"locs":[{"a":539,"b":549}]},{"name":"source_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":569,"b":579}]}],"statement":"SELECT t.direction, t.source_id, t.amount, t.recipient, t.sender, t.status, t.src_ref, t.dst_ref,\n       t.observed_block, t.completed_block, t.observed_at, t.completed_at,\n       CASE WHEN t.status = 'completed' THEN 'completed'\n            WHEN j.submitted_at IS NOT NULL THEN 'submitted'\n            ELSE 'observed' END AS state,\n       j.attempts, j.submitted_at, j.last_attempt_at, j.last_error, j.last_tx\nFROM bridge_transfers t\nLEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id\nWHERE t.direction = :direction! AND t.source_id = :source_id!"};
+const getTransferIR: any = {"usedParamSet":{"direction":true,"source_id":true},"params":[{"name":"direction","required":true,"transform":{"type":"scalar"},"locs":[{"a":791,"b":801}]},{"name":"source_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":821,"b":831}]}],"statement":"SELECT t.direction, t.source_id, t.amount, t.recipient, t.sender, t.status, t.src_ref, t.dst_ref,\n       t.observed_block, t.completed_block, t.observed_at, t.completed_at,\n       CASE WHEN t.status = 'completed' THEN 'completed'\n            WHEN j.undeliverable_code IS NOT NULL THEN 'undeliverable'\n            WHEN j.submitted_at IS NOT NULL THEN 'submitted'\n            ELSE 'observed' END AS state,\n       CASE WHEN t.direction = 'm2s' THEN 'solana' ELSE t.recipient_kind END AS recipient_kind,\n       j.attempts, j.submitted_at, j.last_attempt_at, j.last_error, j.last_tx,\n       j.undeliverable_code, j.undeliverable_reason, j.undeliverable_at, j.delivery\nFROM bridge_transfers t\nLEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id\nWHERE t.direction = :direction! AND t.source_id = :source_id!"};
 
 /**
  * Query generated from SQL:
@@ -187,9 +196,12 @@ const getTransferIR: any = {"usedParamSet":{"direction":true,"source_id":true},"
  * SELECT t.direction, t.source_id, t.amount, t.recipient, t.sender, t.status, t.src_ref, t.dst_ref,
  *        t.observed_block, t.completed_block, t.observed_at, t.completed_at,
  *        CASE WHEN t.status = 'completed' THEN 'completed'
+ *             WHEN j.undeliverable_code IS NOT NULL THEN 'undeliverable'
  *             WHEN j.submitted_at IS NOT NULL THEN 'submitted'
  *             ELSE 'observed' END AS state,
- *        j.attempts, j.submitted_at, j.last_attempt_at, j.last_error, j.last_tx
+ *        CASE WHEN t.direction = 'm2s' THEN 'solana' ELSE t.recipient_kind END AS recipient_kind,
+ *        j.attempts, j.submitted_at, j.last_attempt_at, j.last_error, j.last_tx,
+ *        j.undeliverable_code, j.undeliverable_reason, j.undeliverable_at, j.delivery
  * FROM bridge_transfers t
  * LEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id
  * WHERE t.direction = :direction! AND t.source_id = :source_id!
@@ -202,6 +214,7 @@ export const getTransfer = new PreparedQuery<IGetTransferParams,IGetTransferResu
 export interface IListTransfersParams {
   direction?: string | null | void;
   limit: NumberOrString;
+  recipient_kind?: string | null | void;
   state?: string | null | void;
 }
 
@@ -211,6 +224,7 @@ export interface IListTransfersResult {
   attempts: number;
   completed_at: Date | null;
   completed_block: number | null;
+  delivery: Json | null;
   direction: string;
   dst_ref: string | null;
   last_attempt_at: Date | null;
@@ -219,12 +233,16 @@ export interface IListTransfersResult {
   observed_at: Date;
   observed_block: number;
   recipient: string | null;
+  recipient_kind: string | null;
   sender: string | null;
   source_id: string;
   src_ref: string | null;
   state: string | null;
   status: string;
   submitted_at: Date | null;
+  undeliverable_at: Date | null;
+  undeliverable_code: string | null;
+  undeliverable_reason: string | null;
 }
 
 /** 'ListTransfers' query type */
@@ -233,7 +251,7 @@ export interface IListTransfersQuery {
   result: IListTransfersResult;
 }
 
-const listTransfersIR: any = {"usedParamSet":{"direction":true,"state":true,"limit":true},"params":[{"name":"direction","required":false,"transform":{"type":"scalar"},"locs":[{"a":567,"b":576},{"a":612,"b":621}]},{"name":"state","required":false,"transform":{"type":"scalar"},"locs":[{"a":636,"b":641},{"a":673,"b":678}]},{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":749,"b":755}]}],"statement":"SELECT * FROM (\n  SELECT t.direction, t.source_id, t.amount, t.recipient, t.sender, t.status, t.src_ref, t.dst_ref,\n         t.observed_block, t.completed_block, t.observed_at, t.completed_at,\n         CASE WHEN t.status = 'completed' THEN 'completed'\n              WHEN j.submitted_at IS NOT NULL THEN 'submitted'\n              ELSE 'observed' END AS state,\n         j.attempts, j.submitted_at, j.last_attempt_at, j.last_error, j.last_tx\n  FROM bridge_transfers t\n  LEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id\n) v\nWHERE (CAST(:direction AS TEXT) IS NULL OR v.direction = :direction)\n  AND (CAST(:state AS TEXT) IS NULL OR v.state = :state)\nORDER BY v.observed_block DESC, v.direction, v.source_id DESC\nLIMIT :limit!"};
+const listTransfersIR: any = {"usedParamSet":{"direction":true,"state":true,"recipient_kind":true,"limit":true},"params":[{"name":"direction","required":false,"transform":{"type":"scalar"},"locs":[{"a":825,"b":834},{"a":870,"b":879}]},{"name":"state","required":false,"transform":{"type":"scalar"},"locs":[{"a":894,"b":899},{"a":931,"b":936}]},{"name":"recipient_kind","required":false,"transform":{"type":"scalar"},"locs":[{"a":951,"b":965},{"a":1006,"b":1020}]},{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":1091,"b":1097}]}],"statement":"SELECT * FROM (\n  SELECT t.direction, t.source_id, t.amount, t.recipient, t.sender, t.status, t.src_ref, t.dst_ref,\n         t.observed_block, t.completed_block, t.observed_at, t.completed_at,\n         CASE WHEN t.status = 'completed' THEN 'completed'\n              WHEN j.undeliverable_code IS NOT NULL THEN 'undeliverable'\n              WHEN j.submitted_at IS NOT NULL THEN 'submitted'\n              ELSE 'observed' END AS state,\n         CASE WHEN t.direction = 'm2s' THEN 'solana' ELSE t.recipient_kind END AS recipient_kind,\n         j.attempts, j.submitted_at, j.last_attempt_at, j.last_error, j.last_tx,\n         j.undeliverable_code, j.undeliverable_reason, j.undeliverable_at, j.delivery\n  FROM bridge_transfers t\n  LEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id\n) v\nWHERE (CAST(:direction AS TEXT) IS NULL OR v.direction = :direction)\n  AND (CAST(:state AS TEXT) IS NULL OR v.state = :state)\n  AND (CAST(:recipient_kind AS TEXT) IS NULL OR v.recipient_kind = :recipient_kind)\nORDER BY v.observed_block DESC, v.direction, v.source_id DESC\nLIMIT :limit!"};
 
 /**
  * Query generated from SQL:
@@ -242,14 +260,18 @@ const listTransfersIR: any = {"usedParamSet":{"direction":true,"state":true,"lim
  *   SELECT t.direction, t.source_id, t.amount, t.recipient, t.sender, t.status, t.src_ref, t.dst_ref,
  *          t.observed_block, t.completed_block, t.observed_at, t.completed_at,
  *          CASE WHEN t.status = 'completed' THEN 'completed'
+ *               WHEN j.undeliverable_code IS NOT NULL THEN 'undeliverable'
  *               WHEN j.submitted_at IS NOT NULL THEN 'submitted'
  *               ELSE 'observed' END AS state,
- *          j.attempts, j.submitted_at, j.last_attempt_at, j.last_error, j.last_tx
+ *          CASE WHEN t.direction = 'm2s' THEN 'solana' ELSE t.recipient_kind END AS recipient_kind,
+ *          j.attempts, j.submitted_at, j.last_attempt_at, j.last_error, j.last_tx,
+ *          j.undeliverable_code, j.undeliverable_reason, j.undeliverable_at, j.delivery
  *   FROM bridge_transfers t
  *   LEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id
  * ) v
  * WHERE (CAST(:direction AS TEXT) IS NULL OR v.direction = :direction)
  *   AND (CAST(:state AS TEXT) IS NULL OR v.state = :state)
+ *   AND (CAST(:recipient_kind AS TEXT) IS NULL OR v.recipient_kind = :recipient_kind)
  * ORDER BY v.observed_block DESC, v.direction, v.source_id DESC
  * LIMIT :limit!
  * ```
@@ -270,8 +292,11 @@ export interface IListRelayerCandidatesResult {
   last_attempt_at: Date | null;
   last_error: string | null;
   last_tx: string | null;
+  observed_at: Date;
   recipient: string | null;
+  recipient_kind: string | null;
   source_id: string;
+  submitted_at: Date | null;
 }
 
 /** 'ListRelayerCandidates' query type */
@@ -280,16 +305,16 @@ export interface IListRelayerCandidatesQuery {
   result: IListRelayerCandidatesResult;
 }
 
-const listRelayerCandidatesIR: any = {"usedParamSet":{"limit":true},"params":[{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":322,"b":328}]}],"statement":"SELECT t.direction, t.source_id, t.amount, t.recipient,\n       j.attempts, j.last_attempt_at, j.last_tx, j.last_error\nFROM bridge_transfers t\nLEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id\nWHERE t.status = 'observed' AND t.recipient IS NOT NULL\nORDER BY t.direction, t.source_id\nLIMIT :limit!"};
+const listRelayerCandidatesIR: any = {"usedParamSet":{"limit":true},"params":[{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":404,"b":410}]}],"statement":"SELECT t.direction, t.source_id, t.amount, t.recipient, t.recipient_kind, t.observed_at,\n       j.attempts, j.last_attempt_at, j.last_tx, j.last_error, j.submitted_at\nFROM bridge_transfers t\nLEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id\nWHERE t.status = 'observed' AND t.recipient IS NOT NULL AND j.undeliverable_code IS NULL\nORDER BY t.direction, t.source_id\nLIMIT :limit!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT t.direction, t.source_id, t.amount, t.recipient,
- *        j.attempts, j.last_attempt_at, j.last_tx, j.last_error
+ * SELECT t.direction, t.source_id, t.amount, t.recipient, t.recipient_kind, t.observed_at,
+ *        j.attempts, j.last_attempt_at, j.last_tx, j.last_error, j.submitted_at
  * FROM bridge_transfers t
  * LEFT JOIN relayer_jobs j ON j.direction = t.direction AND j.source_id = t.source_id
- * WHERE t.status = 'observed' AND t.recipient IS NOT NULL
+ * WHERE t.status = 'observed' AND t.recipient IS NOT NULL AND j.undeliverable_code IS NULL
  * ORDER BY t.direction, t.source_id
  * LIMIT :limit!
  * ```
@@ -358,5 +383,107 @@ const recordRelayerResultIR: any = {"usedParamSet":{"last_tx":true,"last_error":
  * ```
  */
 export const recordRelayerResult = new PreparedQuery<IRecordRelayerResultParams,IRecordRelayerResultResult>(recordRelayerResultIR);
+
+
+/** 'RecordUndeliverable' parameters type */
+export interface IRecordUndeliverableParams {
+  code: string;
+  direction: string;
+  now: DateOrString;
+  reason: string;
+  source_id: NumberOrString;
+}
+
+/** 'RecordUndeliverable' return type */
+export type IRecordUndeliverableResult = void;
+
+/** 'RecordUndeliverable' query type */
+export interface IRecordUndeliverableQuery {
+  params: IRecordUndeliverableParams;
+  result: IRecordUndeliverableResult;
+}
+
+const recordUndeliverableIR: any = {"usedParamSet":{"direction":true,"source_id":true,"code":true,"reason":true,"now":true},"params":[{"name":"direction","required":true,"transform":{"type":"scalar"},"locs":[{"a":320,"b":330}]},{"name":"source_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":333,"b":343}]},{"name":"code","required":true,"transform":{"type":"scalar"},"locs":[{"a":349,"b":354}]},{"name":"reason","required":true,"transform":{"type":"scalar"},"locs":[{"a":357,"b":364}]},{"name":"now","required":true,"transform":{"type":"scalar"},"locs":[{"a":367,"b":371}]}],"statement":"-- 00058: a contract recipient the delivery router refused, BEFORE any operator signature.\n-- It never sets submitted_at, and never marks a submitted job (a signed mint is never undeliverable).\nINSERT INTO relayer_jobs (direction, source_id, attempts, undeliverable_code, undeliverable_reason, undeliverable_at)\nVALUES (:direction!, :source_id!, 0, :code!, :reason!, :now!)\nON CONFLICT (direction, source_id) DO UPDATE\n  SET undeliverable_code = EXCLUDED.undeliverable_code,\n      undeliverable_reason = EXCLUDED.undeliverable_reason,\n      undeliverable_at = EXCLUDED.undeliverable_at\n  WHERE relayer_jobs.submitted_at IS NULL"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * -- 00058: a contract recipient the delivery router refused, BEFORE any operator signature.
+ * -- It never sets submitted_at, and never marks a submitted job (a signed mint is never undeliverable).
+ * INSERT INTO relayer_jobs (direction, source_id, attempts, undeliverable_code, undeliverable_reason, undeliverable_at)
+ * VALUES (:direction!, :source_id!, 0, :code!, :reason!, :now!)
+ * ON CONFLICT (direction, source_id) DO UPDATE
+ *   SET undeliverable_code = EXCLUDED.undeliverable_code,
+ *       undeliverable_reason = EXCLUDED.undeliverable_reason,
+ *       undeliverable_at = EXCLUDED.undeliverable_at
+ *   WHERE relayer_jobs.submitted_at IS NULL
+ * ```
+ */
+export const recordUndeliverable = new PreparedQuery<IRecordUndeliverableParams,IRecordUndeliverableResult>(recordUndeliverableIR);
+
+
+/** 'RecordRelayerCheck' parameters type */
+export interface IRecordRelayerCheckParams {
+  direction: string;
+  last_error?: string | null | void;
+  now: DateOrString;
+  source_id: NumberOrString;
+}
+
+/** 'RecordRelayerCheck' return type */
+export type IRecordRelayerCheckResult = void;
+
+/** 'RecordRelayerCheck' query type */
+export interface IRecordRelayerCheckQuery {
+  params: IRecordRelayerCheckParams;
+  result: IRecordRelayerCheckResult;
+}
+
+const recordRelayerCheckIR: any = {"usedParamSet":{"direction":true,"source_id":true,"now":true,"last_error":true},"params":[{"name":"direction","required":true,"transform":{"type":"scalar"},"locs":[{"a":251,"b":261}]},{"name":"source_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":264,"b":274}]},{"name":"now","required":true,"transform":{"type":"scalar"},"locs":[{"a":280,"b":284}]},{"name":"last_error","required":false,"transform":{"type":"scalar"},"locs":[{"a":287,"b":297}]}],"statement":"-- 00058: a recognition to retry (indexer down, contract not indexed yet): one more attempt\n-- with its error, for the backoff. It never sets submitted_at.\nINSERT INTO relayer_jobs (direction, source_id, attempts, last_attempt_at, last_error)\nVALUES (:direction!, :source_id!, 1, :now!, :last_error)\nON CONFLICT (direction, source_id) DO UPDATE\n  SET attempts = relayer_jobs.attempts + 1,\n      last_attempt_at = EXCLUDED.last_attempt_at,\n      last_error = EXCLUDED.last_error"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * -- 00058: a recognition to retry (indexer down, contract not indexed yet): one more attempt
+ * -- with its error, for the backoff. It never sets submitted_at.
+ * INSERT INTO relayer_jobs (direction, source_id, attempts, last_attempt_at, last_error)
+ * VALUES (:direction!, :source_id!, 1, :now!, :last_error)
+ * ON CONFLICT (direction, source_id) DO UPDATE
+ *   SET attempts = relayer_jobs.attempts + 1,
+ *       last_attempt_at = EXCLUDED.last_attempt_at,
+ *       last_error = EXCLUDED.last_error
+ * ```
+ */
+export const recordRelayerCheck = new PreparedQuery<IRecordRelayerCheckParams,IRecordRelayerCheckResult>(recordRelayerCheckIR);
+
+
+/** 'RecordDelivery' parameters type */
+export interface IRecordDeliveryParams {
+  delivery: Json;
+  direction: string;
+  source_id: NumberOrString;
+}
+
+/** 'RecordDelivery' return type */
+export type IRecordDeliveryResult = void;
+
+/** 'RecordDelivery' query type */
+export interface IRecordDeliveryQuery {
+  params: IRecordDeliveryParams;
+  result: IRecordDeliveryResult;
+}
+
+const recordDeliveryIR: any = {"usedParamSet":{"delivery":true,"direction":true,"source_id":true},"params":[{"name":"delivery","required":true,"transform":{"type":"scalar"},"locs":[{"a":112,"b":121}]},{"name":"direction","required":true,"transform":{"type":"scalar"},"locs":[{"a":141,"b":151}]},{"name":"source_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":169,"b":179}]}],"statement":"-- 00058: the last submitted delivery attempt: {adapter, account, coin, tx}.\nUPDATE relayer_jobs\nSET delivery = :delivery!\nWHERE direction = :direction! AND source_id = :source_id!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * -- 00058: the last submitted delivery attempt: {adapter, account, coin, tx}.
+ * UPDATE relayer_jobs
+ * SET delivery = :delivery!
+ * WHERE direction = :direction! AND source_id = :source_id!
+ * ```
+ */
+export const recordDelivery = new PreparedQuery<IRecordDeliveryParams,IRecordDeliveryResult>(recordDeliveryIR);
 
 

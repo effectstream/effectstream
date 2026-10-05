@@ -88,6 +88,8 @@ link_pkg "solana-midnight-bridge" "node"               "$SCRIPT_DIR/packages/nod
 link_pkg "solana-midnight-bridge" "database"           "$SCRIPT_DIR/packages/database"
 link_pkg "solana-midnight-bridge" "cli"                "$SCRIPT_DIR/packages/cli"
 link_pkg "solana-midnight-bridge" "tests"              "$SCRIPT_DIR/packages/tests"
+link_pkg "solana-midnight-bridge" "delivery"           "$SCRIPT_DIR/packages/delivery"
+link_pkg "solana-midnight-bridge" "delivery-passport"  "$SCRIPT_DIR/packages/delivery-passport"
 
 echo ""
 echo "Linking @effectstream packages from monorepo..."
@@ -299,6 +301,9 @@ rm -rf "$P/chains/midnight-contracts/node_modules/@midnight-ntwrk"
 echo ""
 echo "Checking the contract runtime alias survived (compact-runtime-0.20 vs the engine's)..."
 bun run "$SCRIPT_DIR/packages/contracts-midnight/scripts/check-runtime-alias.ts" --linked "$MONOREPO_ROOT"
+# 00058: the Passport bundle's compiled account module lives in packages/delivery-passport/bundle/
+# and imports the same alias, which must resolve there too (finding F-G1).
+bun run "$SCRIPT_DIR/packages/contracts-midnight/scripts/check-runtime-alias.ts" --linked "$MONOREPO_ROOT" --from "$SCRIPT_DIR/packages/delivery-passport"
 
 echo ""
 echo "Done. You can now run: bun run dev"

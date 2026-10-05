@@ -2,5 +2,7 @@
 /deployments/local.json
 # Atomic-write temp files (deployments.ts).
 /deployments/*.tmp
+# Deployment records (bun run bridge:record; public, regenerated from the chains).
+/deployments/*.record.json
 # Orchestrator logs (bun run dev --log-dir=./logs).
 /logs/

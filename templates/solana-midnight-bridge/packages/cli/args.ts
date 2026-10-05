@@ -14,6 +14,21 @@ export type CliMode = "local" | "live";
 
 const U64_MAX = 0xffff_ffff_ffff_ffffn;
 
+/**
+ * The early check of `--amount`, made before the deployment file (and so the mint's decimals) is
+ * read: its SYNTAX only — present, a positive decimal number, not zero. The u64 range and the
+ * number of fractional digits are checked once, by `parseAmount` with the mint's real decimals,
+ * right after the deployment file is read and still before any chain call. (Until 00058 this check
+ * ran `parseAmount` with 18 decimals, which refused every amount above 18.44 tokens whatever the
+ * mint's decimals.)
+ */
+export function checkAmountSyntax(text: string | undefined): void {
+  if (text === undefined || text === "") throw new CliArgError("--amount is required");
+  const m = /^(\d+)(?:\.(\d+))?$/.exec(text.trim());
+  if (!m) throw new CliArgError(`--amount must be a positive decimal number, got "${text}"`);
+  if (/^0+$/.test(m[1]!) && /^0*$/.test(m[2] ?? "")) throw new CliArgError("--amount must be greater than zero");
+}
+
 /** Midnight network id the CLI expects recipients for, per mode (live: MIDNIGHT_NETWORK_ID, default stagenet). */
 export function midnightNetworkFor(mode: CliMode): string {
   return mode === "local" ? "undeployed" : liveMidnightNetworkId();
@@ -60,6 +75,21 @@ export function parseMidnightRecipient(address: string | undefined, mode: CliMod
     }
     throw e;
   }
+}
+
+/**
+ * A Midnight CONTRACT address for `--account` (plan 00058 I-2): 64 hex characters
+ * (an optional `0x` prefix), not all-zero. Returned lowercase, with its 32 bytes.
+ */
+export function parseContractAccount(text: string | undefined): { hex: string; bytes: Uint8Array } {
+  if (!text) throw new CliArgError("--account is required (a Midnight contract address: 64 hex characters)");
+  const h = text.trim().replace(/^0x/i, "");
+  if (!/^[0-9a-fA-F]{64}$/.test(h)) {
+    throw new CliArgError(`--account must be a Midnight contract address (64 hex characters), got "${text}"`);
+  }
+  const lower = h.toLowerCase();
+  if (/^0+$/.test(lower)) throw new CliArgError("--account must not be the all-zero address");
+  return { hex: lower, bytes: Uint8Array.from(Buffer.from(lower, "hex")) };
 }
 
 /** A base58 Solana public key (the release recipient's wallet). */
@@ -118,29 +148,57 @@ const COMMON_BOOL = ["no-wait"];
 export type ToMidnightArgs = {
   mode: CliMode;
   amountText: string;
+  /** `wallet` (--recipient, a Lock) or `contract` (--account, a LockToContract). */
+  recipientKind: "wallet" | "contract";
+  /** The --recipient address, or the --account contract address (64 lowercase hex). */
   recipientAddress: string;
+  /** The wallet's 64-byte payload (cpk ‖ epk); empty for a contract recipient. */
   midnightRecipient: Uint8Array;
+  /** The contract's 32 bytes, for `--account` only. */
+  contract?: Uint8Array;
   keypairPath?: string;
   api?: string;
   wait: boolean;
   timeoutSeconds: number;
 };
 
-/** bridge:to-midnight --amount <n> --recipient <mn_shield-addr_…> [--keypair <path>] */
+/**
+ * bridge:to-midnight --amount <n> --recipient <mn_shield-addr_…> [--keypair <path>]
+ * bridge:to-midnight --amount <n> --account <64 hex contract address> [--keypair <path>]
+ * (--recipient and --account are mutually exclusive).
+ */
 export function parseToMidnightArgs(argv: string[]): ToMidnightArgs & { amountText: string } {
-  const f = parseFlags(argv, { value: ["amount", "recipient", "keypair", ...COMMON_VALUE], bool: COMMON_BOOL });
+  const f = parseFlags(argv, { value: ["amount", "recipient", "account", "keypair", ...COMMON_VALUE], bool: COMMON_BOOL });
   const mode = parseMode(f.mode);
-  const recipientAddress = typeof f.recipient === "string" ? f.recipient : "";
-  const midnightRecipient = parseMidnightRecipient(recipientAddress || undefined, mode);
-  // The amount is re-parsed with the mint's decimals once the deployment is
-  // read; check its shape (and that it is not zero) here already.
+  if (f.recipient !== undefined && f.account !== undefined) {
+    throw new CliArgError("--recipient and --account are mutually exclusive (a wallet or a contract recipient)");
+  }
+  let recipientKind: ToMidnightArgs["recipientKind"] = "wallet";
+  let recipientAddress = typeof f.recipient === "string" ? f.recipient : "";
+  let midnightRecipient = new Uint8Array(0);
+  let contract: Uint8Array | undefined;
+  if (f.account !== undefined) {
+    const c = parseContractAccount(typeof f.account === "string" ? f.account : undefined);
+    recipientKind = "contract";
+    recipientAddress = c.hex;
+    contract = c.bytes;
+  } else {
+    if (!recipientAddress) {
+      throw new CliArgError("--recipient is required (a mn_shield-addr_… address), or --account <64 hex> for a contract recipient");
+    }
+    midnightRecipient = parseMidnightRecipient(recipientAddress, mode);
+  }
+  // The amount is parsed with the mint's decimals (and its u64 range checked) once the deployment
+  // is read; check its syntax (and that it is not zero) here already.
   const amountText = typeof f.amount === "string" ? f.amount : "";
-  parseAmount(amountText || undefined, 18);
+  checkAmountSyntax(amountText || undefined);
   return {
     mode,
     amountText,
+    recipientKind,
     recipientAddress,
     midnightRecipient,
+    ...(contract ? { contract } : {}),
     keypairPath: typeof f.keypair === "string" ? f.keypair : undefined,
     api: typeof f.api === "string" ? f.api : undefined,
     wait: !f["no-wait"],
@@ -164,7 +222,7 @@ export function parseToSolanaArgs(argv: string[]): ToSolanaArgs {
   const mode = parseMode(f.mode);
   const recipient = parseSolanaRecipient(typeof f.recipient === "string" ? f.recipient : undefined);
   const amountText = typeof f.amount === "string" ? f.amount : "";
-  parseAmount(amountText || undefined, 18);
+  checkAmountSyntax(amountText || undefined);
   return {
     mode,
     amountText,
@@ -179,7 +237,7 @@ export function parseToSolanaArgs(argv: string[]): ToSolanaArgs {
 export type StatusArgs = {
   id?: string;
   direction?: "s2m" | "m2s";
-  status?: "observed" | "submitted" | "completed";
+  status?: "observed" | "submitted" | "completed" | "undeliverable";
   watch: boolean;
   api?: string;
   mode: CliMode;
@@ -197,8 +255,8 @@ export function parseStatusArgs(argv: string[]): StatusArgs {
     throw new CliArgError("--direction must be s2m or m2s");
   }
   const status = f.status;
-  if (status !== undefined && status !== "observed" && status !== "submitted" && status !== "completed") {
-    throw new CliArgError("--status must be observed, submitted or completed");
+  if (status !== undefined && status !== "observed" && status !== "submitted" && status !== "completed" && status !== "undeliverable") {
+    throw new CliArgError("--status must be observed, submitted, completed or undeliverable");
   }
   return {
     id,
@@ -207,5 +265,44 @@ export function parseStatusArgs(argv: string[]): StatusArgs {
     watch: f.watch === true,
     api: typeof f.api === "string" ? f.api : undefined,
     mode: parseMode(f.mode),
+  };
+}
+
+export type RecordArgs = {
+  mode: CliMode;
+  api: string;
+  name?: string;
+  symbol?: string;
+  out?: string;
+};
+
+/**
+ * bridge:record [--mode local|live] --api <origin> [--name <s>] [--symbol <s>] [--out <path>]
+ * (plan 00058 I-3 (c)). The values are checked again, with the chains, by the record builder.
+ */
+export function parseRecordArgs(argv: string[]): RecordArgs {
+  const f = parseFlags(argv, { value: ["mode", "api", "name", "symbol", "out"], bool: [] });
+  if (typeof f.api !== "string" || f.api === "") {
+    throw new CliArgError("--api is required: the bridge node API's public origin (e.g. https://bridge-x.example.org)");
+  }
+  let api: URL;
+  try {
+    api = new URL(f.api);
+  } catch {
+    throw new CliArgError(`--api must be an http(s) origin, got "${f.api}"`);
+  }
+  if (api.protocol !== "http:" && api.protocol !== "https:") throw new CliArgError(`--api must be an http(s) origin, got "${f.api}"`);
+  if (typeof f.symbol === "string" && !/^[\x21-\x7e]{1,8}$/.test(f.symbol)) {
+    throw new CliArgError(`--symbol must be 1–8 printable ASCII characters with no space, got "${f.symbol}"`);
+  }
+  if (typeof f.name === "string" && (!/^[\x20-\x7e]{1,64}$/.test(f.name) || f.name.trim() !== f.name)) {
+    throw new CliArgError(`--name must be 1–64 printable ASCII characters, no leading or trailing space`);
+  }
+  return {
+    mode: parseMode(f.mode),
+    api: f.api,
+    ...(typeof f.name === "string" ? { name: f.name } : {}),
+    ...(typeof f.symbol === "string" ? { symbol: f.symbol } : {}),
+    ...(typeof f.out === "string" ? { out: f.out } : {}),
   };
 }
