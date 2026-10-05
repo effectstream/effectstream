@@ -18,11 +18,15 @@
 #   BRIDGE_TEMPLATE_VOLUME    Docker volume holding the prepared repository (README: "Prepare the volume")
 #   BRIDGE_STACK_NETWORK      the existing Docker network the chains and provers are on
 #   BRIDGE_API_PORT           host port for the node API (bound to 127.0.0.1)
-#   SOLANA_DEVNET_RPC_URL     the Solana RPC (a stand-in validator on the host: http://host.docker.internal:<port>)
+#   SOLANA_DEVNET_RPC_URL     the Solana RPC (a stand-in validator on the host: http://host.docker.internal:<port>),
+#                             or SOLANA_DEVNET_RPC_URL_FILE: a file in the secrets directory holding it
+#                             (e.g. /secrets/solana-rpc-url, mode 600) for a provider URL with an API key
 #   MIDNIGHT_NETWORK_ID, MIDNIGHT_NODE_HTTP, MIDNIGHT_INDEXER_HTTP, MIDNIGHT_INDEXER_WS,
 #   MIDNIGHT_PROOF_SERVER_URL, MIDNIGHT_CONTRACT_PROOF_SERVER_URL
 # Optional: BRIDGE_PUBLIC_API, BRIDGE_RECORD_NAME, BRIDGE_RECORD_SYMBOL, BRIDGE_DELIVERY_ADAPTERS
 #   (default passport), PASSPORT_BUNDLE_DIR, BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS, BRIDGE_TEMPLATE_DIR,
+#   BRIDGE_SOLANA_GETBLOCK_CONCURRENCY / _MIN_INTERVAL_MS, BRIDGE_SOLANA_STEP_SIZE, BRIDGE_SOLANA_RATE_LIMIT_*,
+#   BRIDGE_SOLANA_MAX_TX_VERSION (the Solana block reading; README "Configuration"),
 #   BRIDGE_NODE_IMAGE, BRIDGE_MEM_LIMIT, BRIDGE_ORCHESTRATOR_CONFIG (default start.live.ts),
 #   BRIDGE_ORCHESTRATOR_API (1 = the orchestrator's process API on the container's port 4747, not
 #   published but reachable on the stack network; off by default, for tests only).
@@ -62,7 +66,16 @@ services:
       BRIDGE_DELIVERY_ADAPTERS: ${BRIDGE_DELIVERY_ADAPTERS-passport}
       PASSPORT_BUNDLE_DIR: ${PASSPORT_BUNDLE_DIR:-}
       BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS: ${BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS:-}
-      SOLANA_DEVNET_RPC_URL: ${SOLANA_DEVNET_RPC_URL:?}
+      # One of the two. The file is read inside the container, so a URL carrying an API key never
+      # appears in this file, in `docker inspect` or in a log (logs show the origin only).
+      SOLANA_DEVNET_RPC_URL: ${SOLANA_DEVNET_RPC_URL:-}
+      SOLANA_DEVNET_RPC_URL_FILE: ${SOLANA_DEVNET_RPC_URL_FILE:-}
+      BRIDGE_SOLANA_STEP_SIZE: ${BRIDGE_SOLANA_STEP_SIZE:-}
+      BRIDGE_SOLANA_GETBLOCK_CONCURRENCY: ${BRIDGE_SOLANA_GETBLOCK_CONCURRENCY:-}
+      BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS: ${BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS:-}
+      BRIDGE_SOLANA_RATE_LIMIT_RETRIES: ${BRIDGE_SOLANA_RATE_LIMIT_RETRIES:-}
+      BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS: ${BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS:-}
+      BRIDGE_SOLANA_MAX_TX_VERSION: ${BRIDGE_SOLANA_MAX_TX_VERSION:-}
       MIDNIGHT_NETWORK_ID: ${MIDNIGHT_NETWORK_ID:?}
       MIDNIGHT_NODE_HTTP: ${MIDNIGHT_NODE_HTTP:?}
       MIDNIGHT_INDEXER_HTTP: ${MIDNIGHT_INDEXER_HTTP:?}

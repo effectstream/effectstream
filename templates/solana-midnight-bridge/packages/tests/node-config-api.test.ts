@@ -12,6 +12,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { run } from "effection";
 import { acquireDBMutex, releaseDBMutex } from "@effectstream/db";
 import { toSyncProtocolWithNetwork } from "@effectstream/config";
+import { DEFAULT_DEVNET_RPC_URL, liveSolanaRpcUrl, redactRpcUrl } from "@solana-midnight-bridge/contracts-solana/keys";
 import {
   buildBridgeConfig,
   loadBridgeNodeSettings,
@@ -132,6 +133,59 @@ describe("buildBridgeConfig", () => {
     // The Generic primitive decodes through ledgerFromTxStateHex (P0 S2).
     const prim = (config as any).primitives?.parallelMidnight ?? (config as any).primitives;
     expect(JSON.stringify(prim, (_k, v) => (typeof v === "function" ? "[fn]" : v))).toContain("ledgerFromTxStateHex");
+  });
+
+  test("live Solana sync: 24-slot steps and the engine's getBlock reading (00057 Q16), overridable from the environment", () => {
+    process.env.BRIDGE_DEPLOYMENT = deploymentFile();
+    const keys = ["BRIDGE_SOLANA_GETBLOCK_CONCURRENCY", "BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS", "BRIDGE_SOLANA_MAX_TX_VERSION"] as const;
+    try {
+      const d = loadBridgeNodeSettings("live");
+      expect(d.solanaSync).toMatchObject({
+        stepSize: 24, getBlockConcurrency: 8, getBlockMinIntervalMs: 0, rateLimitRetries: 10,
+        rateLimitBackoffMs: 500, rateLimitMaxBackoffMs: 15_000, maxSupportedTransactionVersion: 1,
+      });
+      const text = JSON.stringify(buildBridgeConfig(d, Date.now() - 60_000), (_k, v) => (typeof v === "function" ? "[fn]" : typeof v === "bigint" ? v.toString() : v));
+      for (const kv of ['"getBlockConcurrency":8', '"maxSupportedTransactionVersion":1', '"rateLimitRetries":10', '"stepSize":24']) expect(text).toContain(kv);
+      process.env.BRIDGE_SOLANA_GETBLOCK_CONCURRENCY = "2";
+      process.env.BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS = "1700";
+      process.env.BRIDGE_SOLANA_MAX_TX_VERSION = "0";
+      expect(loadBridgeNodeSettings("live").solanaSync).toMatchObject({ getBlockConcurrency: 2, getBlockMinIntervalMs: 1700, maxSupportedTransactionVersion: 0 });
+    } finally {
+      delete process.env.BRIDGE_DEPLOYMENT;
+      for (const k of keys) delete process.env[k];
+    }
+  });
+});
+
+describe("liveSolanaRpcUrl: the live Solana RPC URL from a file, an env var or the default", () => {
+  test("a 600 file wins over the env var; the file must be private and hold an http(s) URL; errors never echo it", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rpc-url-test-"));
+    try {
+      const secretUrl = "https://devnet.example-rpc.test/?api-key=SECRET-KEY-123";
+      const f = path.join(dir, "rpc-url");
+      fs.writeFileSync(f, `${secretUrl}\n`, { mode: 0o600 });
+      fs.chmodSync(f, 0o600);
+      expect(liveSolanaRpcUrl({ SOLANA_DEVNET_RPC_URL_FILE: f, SOLANA_DEVNET_RPC_URL: "http://other:8899" })).toBe(secretUrl);
+      expect(redactRpcUrl(secretUrl)).toBe("https://devnet.example-rpc.test");
+      fs.chmodSync(f, 0o644);
+      expect(() => liveSolanaRpcUrl({ SOLANA_DEVNET_RPC_URL_FILE: f })).toThrow(/group\/other/);
+      const bad = path.join(dir, "bad");
+      fs.writeFileSync(bad, "not a url SECRET-KEY-123", { mode: 0o600 });
+      fs.chmodSync(bad, 0o600);
+      let msg = "";
+      try {
+        liveSolanaRpcUrl({ SOLANA_DEVNET_RPC_URL_FILE: bad });
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/does not hold an http\(s\) URL/);
+      expect(msg).not.toContain("SECRET-KEY-123");
+      expect(() => liveSolanaRpcUrl({ SOLANA_DEVNET_RPC_URL_FILE: path.join(dir, "missing") })).toThrow(/does not exist/);
+      expect(liveSolanaRpcUrl({ SOLANA_DEVNET_RPC_URL: " http://solana-validator:8899 " })).toBe("http://solana-validator:8899");
+      expect(liveSolanaRpcUrl({})).toBe(DEFAULT_DEVNET_RPC_URL);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

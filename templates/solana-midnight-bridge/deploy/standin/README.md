@@ -73,7 +73,8 @@ the node starts, and the Solana operator from a faucet.
 | `BRIDGE_TEMPLATE_VOLUME` | yes | the prepared volume |
 | `BRIDGE_STACK_NETWORK` | yes | the existing Docker network of the chains and provers |
 | `BRIDGE_API_PORT` | yes | host port for the API, bound to 127.0.0.1 |
-| `SOLANA_DEVNET_RPC_URL` | yes | the Solana RPC; a validator on the host is `http://host.docker.internal:<port>` |
+| `SOLANA_DEVNET_RPC_URL` | one of the two | the Solana RPC; a validator on the host is `http://host.docker.internal:<port>` |
+| `SOLANA_DEVNET_RPC_URL_FILE` | one of the two | a file holding the RPC URL, e.g. `/secrets/solana-rpc-url` (mode 600) in the secrets directory: for a provider URL with an API key, which then never appears in an env file, `docker inspect` or a log |
 | `MIDNIGHT_NETWORK_ID`, `MIDNIGHT_NODE_HTTP`, `MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS` | yes | the Midnight network |
 | `MIDNIGHT_PROOF_SERVER_URL` | yes | the DUST prover (9.0.0-rc.6 for dust/9) |
 | `MIDNIGHT_CONTRACT_PROOF_SERVER_URL` | yes | the contract prover (9.0.0-rc.8) |
@@ -83,6 +84,7 @@ the node starts, and the Solana operator from a faucet.
 | `PASSPORT_BUNDLE_DIR` | no | default: the delivery-passport package's `bundle/account` |
 | `BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS` | no | default 600000 |
 | `BRIDGE_NODE_IMAGE`, `BRIDGE_MEM_LIMIT`, `BRIDGE_TEMPLATE_DIR` | no | `oven/bun:1.3.11`, `4g`, see above |
+| `BRIDGE_SOLANA_GETBLOCK_CONCURRENCY`, `BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS`, `BRIDGE_SOLANA_STEP_SIZE`, `BRIDGE_SOLANA_RATE_LIMIT_RETRIES`, `BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS`, `BRIDGE_SOLANA_MAX_TX_VERSION` | no | how the node reads Solana blocks (template README, Configuration): 8 `getBlock` calls in flight, 24-slot steps, version-1 transactions |
 | `BRIDGE_ORCHESTRATOR_CONFIG` | no | the orchestrator config, default `start.live.ts` (a test can pass one where the node process is not critical, as `packages/tests/start.test.ts` does) |
 | `BRIDGE_ORCHESTRATOR_API` | no | `1` starts the orchestrator's process API on the container's port 4747 (not published, but reachable on the stack network): for tests that stop or kill the node process alone. Off by default |
 
