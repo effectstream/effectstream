@@ -1,6 +1,9 @@
 // Sync configuration for both modes (sub-plan T3.1):
 //   NTP main
-//   + SOLANA_RPC_PARALLEL  → SOLANA:ProgramLog on the bridge program
+//   + SOLANA_RPC_PARALLEL  → SOLANA:ProgramLog on the bridge program, read in
+//                            program mode (only the program's transactions,
+//                            the live default) or block mode (every slot, the
+//                            local default): BRIDGE_SOLANA_SYNC_MODE (AA 00064)
 //   + MIDNIGHT_PARALLEL    → Midnight:Generic on the bridge contract, decoded
 //                            with midnightLedgerFromTxStateHex(ledger, the
 //                            contract's OWN 0.20 ContractState) (P0 S2)
@@ -45,6 +48,49 @@ export function parseNodeMode(v: string | undefined): BridgeNodeMode {
   throw new Error(`unknown node mode "${m}" (expected local or live)`);
 }
 
+/**
+ * How the node reads Solana (AA 00064; the engine's `SOLANA_RPC_PARALLEL` `mode`):
+ * - `program`: only the bridge program's own transactions. One poll every
+ *   `BRIDGE_SOLANA_POLL_MS` (default 6 s) is `getSlot(finalized)` +
+ *   `getBlockTime` + `getSignaturesForAddress(program)`, then one
+ *   `getTransaction` per new transaction: ~43k RPC calls a day for an idle
+ *   node. The default in live mode.
+ * - `block`: every slot with `getBlock` (~450k calls a day on devnet). The
+ *   default in local mode, so the dev flow does not change.
+ */
+export type BridgeSolanaSyncMode = "program" | "block";
+
+/** Program mode's poll interval: 6 s by default, never under 1 s (S2). */
+export const DEFAULT_SOLANA_POLL_MS = 6000;
+export const MIN_SOLANA_POLL_MS = 1000;
+
+/** The settings only block mode reads; program mode ignores them and warns once when one is set (S3). */
+export const BLOCK_MODE_ONLY_SETTINGS = [
+  "BRIDGE_SOLANA_POLLING_MS",
+  "BRIDGE_SOLANA_STEP_SIZE",
+  "BRIDGE_SOLANA_CONFIRMATION_DEPTH",
+  "BRIDGE_SOLANA_GETBLOCK_CONCURRENCY",
+  "BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS",
+] as const;
+
+/** `BRIDGE_SOLANA_SYNC_MODE`: `program` or `block`; unset → `program` live, `block` local (S1). */
+export function parseSolanaSyncMode(v: string | undefined, nodeMode: BridgeNodeMode): BridgeSolanaSyncMode {
+  if (v === undefined || v.trim() === "") return nodeMode === "live" ? "program" : "block";
+  const m = v.trim();
+  if (m === "program" || m === "block") return m;
+  throw new Error(`BRIDGE_SOLANA_SYNC_MODE must be "program" or "block" (got "${m}")`);
+}
+
+/** `BRIDGE_SOLANA_POLL_MS`: an integer ≥ 1000, default 6000 (S2). */
+export function parseSolanaPollMs(v: string | undefined): number {
+  if (v === undefined || v.trim() === "") return DEFAULT_SOLANA_POLL_MS;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < MIN_SOLANA_POLL_MS) {
+    throw new Error(`BRIDGE_SOLANA_POLL_MS must be an integer of at least ${MIN_SOLANA_POLL_MS} (ms)`);
+  }
+  return n;
+}
+
 export type BridgeNodeSettings = {
   mode: BridgeNodeMode;
   deploymentFile: string;
@@ -54,9 +100,16 @@ export type BridgeNodeSettings = {
   solanaNetworkId: "localnet" | "devnet" | "testnet";
   midnightUrls: BridgeMidnightUrls;
   solanaSync: {
+    /** `program` or `block` (BRIDGE_SOLANA_SYNC_MODE). */
+    syncMode: BridgeSolanaSyncMode;
+    /** Program mode: the engine's `pollingInterval` (BRIDGE_SOLANA_POLL_MS). */
+    programPollMs: number;
+    // Block mode only (program mode ignores them):
     confirmationDepth: number;
     stepSize: number;
+    /** Block mode's `pollingInterval` (BRIDGE_SOLANA_POLLING_MS). */
     pollingInterval: number;
+    // Both modes:
     delayMs: number;
     /** The engine's getBlock reading (00057 Q16): concurrency cap, pacing, 429 backoff, tx version. */
     getBlockConcurrency: number;
@@ -89,8 +142,30 @@ function getBlockReading() {
   };
 }
 
-/** Reads the deployment file and the endpoints for `mode`. */
-export function loadBridgeNodeSettings(mode: BridgeNodeMode): BridgeNodeSettings {
+/** The sync mode and poll interval from the environment; warns once about block-only settings in program mode (S1–S3). */
+function solanaSyncMode(mode: BridgeNodeMode, warn: (m: string) => void) {
+  const syncMode = parseSolanaSyncMode(process.env.BRIDGE_SOLANA_SYNC_MODE, mode);
+  const programPollMs = parseSolanaPollMs(process.env.BRIDGE_SOLANA_POLL_MS);
+  if (syncMode === "program") {
+    const set = BLOCK_MODE_ONLY_SETTINGS.filter((k) => (process.env[k] ?? "").trim() !== "");
+    if (set.length > 0) {
+      warn(
+        `[bridge-node] BRIDGE_SOLANA_SYNC_MODE=program ignores ${set.join(", ")} (block mode only); ` +
+          `program mode polls every BRIDGE_SOLANA_POLL_MS (${programPollMs} ms).`,
+      );
+    }
+  }
+  return { syncMode, programPollMs };
+}
+
+/**
+ * Reads the deployment file and the endpoints for `mode`. `warn` receives at
+ * most one line: block-only Solana settings that program mode ignores (S3).
+ */
+export function loadBridgeNodeSettings(
+  mode: BridgeNodeMode,
+  warn: (m: string) => void = (m) => console.warn(m),
+): BridgeNodeSettings {
   const name = mode === "local" ? LOCAL_DEPLOYMENT : (process.env.BRIDGE_DEPLOYMENT ?? "devnet-stagenet");
   const file = deploymentPath(name);
   const d = readDeployment(name);
@@ -106,6 +181,7 @@ export function loadBridgeNodeSettings(mode: BridgeNodeMode): BridgeNodeSettings
     throw new Error(`deployment ${file}: the Midnight contract seals another SPL mint than solana.mint`);
   }
   const solanaRpcUrl = mode === "local" ? DEV_SOLANA_RPC_URL : liveSolanaRpcUrl();
+  const sync = solanaSyncMode(mode, warn);
   return {
     mode,
     deploymentFile: file,
@@ -118,6 +194,7 @@ export function loadBridgeNodeSettings(mode: BridgeNodeMode): BridgeNodeSettings
     midnightUrls: urls,
     solanaSync: mode === "local"
       ? {
+          ...sync,
           confirmationDepth: envInt("BRIDGE_SOLANA_CONFIRMATION_DEPTH", 32),
           stepSize: envInt("BRIDGE_SOLANA_STEP_SIZE", 10),
           pollingInterval: envInt("BRIDGE_SOLANA_POLLING_MS", 2000),
@@ -125,12 +202,14 @@ export function loadBridgeNodeSettings(mode: BridgeNodeMode): BridgeNodeSettings
           ...getBlockReading(),
         }
       : {
-          // Devnet: ~400 ms slots (~2.5 slots/s), so 32 slots ≈ 13 s. One getBlock
-          // per slot takes ~0.5 s even on a private RPC, so the engine reads a
-          // step's slots concurrently (8 in flight by default, halved on HTTP 429);
-          // a step of 24 slots is three such batches. On a rate-limited public RPC,
-          // lower BRIDGE_SOLANA_GETBLOCK_CONCURRENCY or set
-          // BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS (e.g. 1700 for 6 calls / 10 s).
+          ...sync,
+          // Block mode on devnet: ~4.19 slots/s (AA 00064 R2), so 32 slots ≈ 8 s.
+          // One getBlock per slot takes ~0.5 s even on a private RPC, so the
+          // engine reads a step's slots concurrently (8 in flight by default,
+          // halved on HTTP 429); a step of 24 slots is three such batches. On a
+          // rate-limited public RPC, lower BRIDGE_SOLANA_GETBLOCK_CONCURRENCY or
+          // set BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS (e.g. 1700 for 6 calls /
+          // 10 s). Program mode (the live default) reads none of these.
           confirmationDepth: envInt("BRIDGE_SOLANA_CONFIRMATION_DEPTH", 32),
           stepSize: envInt("BRIDGE_SOLANA_STEP_SIZE", 24),
           pollingInterval: envInt("BRIDGE_SOLANA_POLLING_MS", 4000),
@@ -244,7 +323,10 @@ export function buildBridgeConfig(s: BridgeNodeSettings, ntpStartTime: number) {
             name: SOLANA_SYNC_PROTOCOL,
             type: ConfigSyncProtocolType.SOLANA_RPC_PARALLEL,
             startBlockHeight: s.solana.startSlot,
-            pollingInterval: s.solanaSync.pollingInterval,
+            // AA 00064: the engine's mode; its pollingInterval is program mode's
+            // poll (6 s) or block mode's fetch-loop interval.
+            mode: s.solanaSync.syncMode,
+            pollingInterval: s.solanaSync.syncMode === "program" ? s.solanaSync.programPollMs : s.solanaSync.pollingInterval,
             delayMs: s.solanaSync.delayMs,
             confirmationDepth: s.solanaSync.confirmationDepth,
             stepSize: s.solanaSync.stepSize,
@@ -318,12 +400,21 @@ export async function checkSolanaGenesis(
   return { checked: true, genesis };
 }
 
+/** The Solana sync in one phrase: the mode and its interval (S6). */
+export function describeSolanaSync(s: Pick<BridgeNodeSettings, "solanaSync">): string {
+  const y = s.solanaSync;
+  return y.syncMode === "program"
+    ? `solanaSync=program poll=${y.programPollMs}ms`
+    : `solanaSync=block polling=${y.pollingInterval}ms step=${y.stepSize} depth=${y.confirmationDepth}`;
+}
+
 /** One line for the logs: what this node watches (no secrets; RPC host only). */
 export function describeSettings(s: BridgeNodeSettings): string {
   return [
     `mode=${s.mode}`,
     `deployment=${s.deploymentFile}`,
     `solana=${redactRpcUrl(s.solanaRpcUrl)} program=${s.solana.programId} startSlot=${s.solana.startSlot}`,
+    describeSolanaSync(s),
     `midnight=${s.midnightUrls.id} contract=${s.midnight.contractAddress} startBlock=${s.midnight.startBlockHeight}`,
   ].join(" ");
 }

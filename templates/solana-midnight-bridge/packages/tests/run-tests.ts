@@ -11,6 +11,7 @@
  *                   midnight-contract-logic.test.ts circuits run locally on runtime 0.20
  *                   state-machine.test.ts           STF over recorded P0 payloads (PGLite)
  *                   node-config-api.test.ts         sync config + API (Fastify inject, PGLite)
+ *                   node-sync-mode.test.ts          Solana sync mode + poll settings; the sync starts in both modes (AA 00064)
  *                   relayer-jobs.test.ts            relayer selection, backoff, job building
  *                   node-contract-delivery.test.ts  00058 node: STF, DB, API v2, record, start-up checks
  *                   delivery-router.test.ts         00058 delivery router: verdicts, signing boundary
@@ -52,6 +53,7 @@ const UNIT = [
   "./midnight-contract-logic.test.ts",
   "./state-machine.test.ts",
   "./node-config-api.test.ts",
+  "./node-sync-mode.test.ts",
   "./relayer-jobs.test.ts",
   "./node-contract-delivery.test.ts",
   "./delivery-router.test.ts",
