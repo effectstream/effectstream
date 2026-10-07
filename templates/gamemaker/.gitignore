@@ -1,0 +1,10 @@
+node_modules/
+.env
+packages/contracts-evm/ignition/deployments/
+packages/contracts-evm/mod.ts
+packages/contracts-evm/build/
+packages/contracts-evm/remappings.txt
+packages/frontend/dist/
+bun.lock
+gamemaker-client/gm_cli_build/
+gamemaker-client/gm_cli_cache/

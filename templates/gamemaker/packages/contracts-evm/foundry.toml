@@ -1,0 +1,12 @@
+[profile.default]
+src = 'src/contracts'
+test = 'test/src'
+out = 'build/artifacts/forge'
+libs = ['test/lib']
+cache_path = 'build/cache/forge'
+allow_paths = ["../../../../node_modules"]
+evm_version = 'berlin'
+
+[invariant]
+fail_on_revert = true
+depth = 15
