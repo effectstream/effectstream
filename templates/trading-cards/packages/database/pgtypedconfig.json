@@ -1,0 +1,24 @@
+{
+  "transforms": [
+    {
+      "mode": "sql",
+      "include": "sql/*.sql",
+      "emitTemplate": "{{dir}}/{{name}}.queries.ts"
+    }
+  ],
+  "srcDir": "./src/",
+  "failOnError": false,
+  "camelCaseColumnNames": false,
+  "db": {
+    "dbName": "postgres",
+    "user": "postgres",
+    "password": "postgres",
+    "host": "localhost",
+    "port": 5432,
+    "ssl": false
+  },
+  "typesOverrides": {
+    "lobby_status": "../common.ts#LobbyStatus",
+    "concise_result": "../common.ts#ConciseResult"
+  }
+}

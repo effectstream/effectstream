@@ -1,0 +1,29 @@
+{
+  "name": "@trading-cards/node",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": "./main.dev.ts",
+  "scripts": {
+    "check": "echo 'check'"
+  },
+  "dependencies": {
+    "@effectstream/concise": "0.100.18",
+    "@effectstream/config": "0.100.18",
+    "@effectstream/log": "0.100.18",
+    "@effectstream/crypto": "0.100.18",
+    "@effectstream/orchestrator": "0.100.18",
+    "@effectstream/runtime": "0.100.18",
+    "@effectstream/utils": "0.100.18",
+    "@effectstream/sm": "0.100.18",
+    "@effectstream/coroutine": "0.100.18",
+    "@effectstream/db": "0.100.18",
+    "@effectstream/explorer": "*",
+    "fastify": "^5.4.0",
+    "pg": "^8.14.0",
+    "@sinclair/typebox": "^0.34.30",
+    "effection": "^3.5.0",
+    "viem": "2.37.3",
+    "@trading-cards/database": "workspace:*",
+    "@trading-cards/contracts-evm": "workspace:*"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules
+
+# Auto generated file
+mod.ts
+
+# build
+/build
+
+# deployments
+/ignition/deployments
+
+remappings.txt
