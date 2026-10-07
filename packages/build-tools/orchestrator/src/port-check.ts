@@ -32,10 +32,17 @@ export function pidsByPort(port: number): number[] {
   // `-sTCP:LISTEN` restricts to the process LISTENING on the port. Without it,
   // `lsof -ti tcp:<port>` also returns CLIENTS with an open connection to the
   // port (e.g. a test harness holding a keepalive fetch to the sync API), which
-  // callers like freePort() would then wrongly SIGTERM.
-  const result = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`, "-sTCP:LISTEN"], {
-    stderr: "pipe",
-  });
+  // callers would otherwise report clients as though they owned the port.
+  let result: ReturnType<typeof Bun.spawnSync>;
+  try {
+    result = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`, "-sTCP:LISTEN"], {
+      stderr: "pipe",
+    });
+  } catch {
+    // Minimal containers and Windows may not provide lsof. Port occupancy is
+    // still authoritative; diagnostics explicitly report an unavailable PID.
+    return [];
+  }
   if (result.exitCode !== 0) return [];
   return result.stdout
     .toString()
@@ -45,44 +52,34 @@ export function pidsByPort(port: number): number[] {
     .filter((n) => !isNaN(n));
 }
 
-/**
- * Kills any process occupying `port` via SIGTERM, then waits for the port to free.
- * Uses `lsof` (macOS / Linux).
- */
-export async function freePort(port: number): Promise<void> {
-  if (!(await isPortInUse(port))) return;
+export type PortListener = {
+  port: number;
+  pids: number[];
+};
 
-  // `-sTCP:LISTEN` so we only kill the listener, never a client connected to
-  // the port (see pidsByPort). During shutdown a template's test process often
-  // holds an open connection to the sync API / chain ports; without this filter
-  // freePort would SIGTERM the test process (and its `bun run test` wrapper),
-  // failing an otherwise-green run with exit 143.
-  const result = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`, "-sTCP:LISTEN"], {
-    stderr: "pipe",
-  });
+/** Inspects configured ports without ever signaling their listeners. */
+export async function inspectPorts(ports: number[]): Promise<PortListener[]> {
+  const listeners: PortListener[] = [];
+  for (const port of [...new Set(ports)]) {
+    if (await isPortInUse(port)) listeners.push({ port, pids: pidsByPort(port) });
+  }
+  return listeners;
+}
 
-  if (result.exitCode === 0) {
-    const pids = result.stdout
-      .toString()
-      .trim()
-      .split("\n")
-      .filter(Boolean);
+export function describePortListener(listener: PortListener): string {
+  const owners = listener.pids.length === 0
+    ? "listener PID unavailable"
+    : `PID ${listener.pids.join(", ")}`;
+  return `port ${listener.port} (${owners})`;
+}
 
-    for (const pid of pids) {
-      Bun.spawnSync(["kill", "-TERM", pid.trim()]);
-    }
-
-    // Wait up to 5 seconds for the port to free
-    let tries = 20;
-    while (tries-- > 0) {
-      if (!(await isPortInUse(port))) return;
-      await Bun.sleep(250);
-    }
-
-    // Fall back to SIGKILL
-    for (const pid of pids) {
-      Bun.spawnSync(["kill", "-KILL", pid.trim()]);
-    }
+export class PortConflictError extends Error {
+  constructor(readonly listeners: PortListener[]) {
+    super(
+      `Refusing to start: ${listeners.map(describePortListener).join("; ")} already occupied. ` +
+      "Stop the owning service explicitly or choose another port; the orchestrator will not signal an unowned listener.",
+    );
+    this.name = "PortConflictError";
   }
 }
 
