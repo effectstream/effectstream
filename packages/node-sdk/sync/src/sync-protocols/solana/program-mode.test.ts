@@ -55,12 +55,16 @@ function makeSync(opts: {
 
 type Sync = ReturnType<typeof makeSync>;
 
-/** One fetch-loop pass (stateToInput → readData → updateState), as `startSync` runs it. */
+/**
+ * One fetch-loop pass (stateToInput → readData → updateState), exactly as
+ * `startSync` runs it: `readData(input, state)` with NO third argument (the
+ * engine's loop never passes `lastPage`; P4.4 found program mode relying on it).
+ */
 async function pass(sync: Sync): Promise<"slept" | "polled"> {
   return await run(function* () {
     const input = yield* sync.state.stateToInput();
     if (input == null) return "slept" as const;
-    const data = yield* sync.fetcher.readData(input, sync.state, sync.state.lastPage);
+    const data = yield* sync.fetcher.readData(input, sync.state, undefined);
     yield* sync.state.updateState(input, data);
     return "polled" as const;
   });
@@ -625,6 +629,34 @@ describe("pacing (C2): one poll per interval, always", () => {
     expect(chain.count("getSignaturesForAddress")).toBe(polls);
     expect(chain.count("getBlock")).toBe(0);
     expect(sync.fetcher.client.counters.total).toBe(3 * polls);
+  });
+
+  test("through the real fetch loop (startSync), each transaction is fetched and emitted once, however many polls run", async () => {
+    // P4.4 regression: the loop calls readData(input, state) without `lastPage`,
+    // so a poll that read its cursor from that argument re-discovered and
+    // re-emitted every transaction since the start slot on every poll.
+    chain.finalized = 100;
+    chain.tipStepPerGetSlot = 25;
+    chain.invoke(X, "a", 60, 0, "x");
+    chain.invoke(X, "b", 70, 2, "x");
+    chain.invoke(X, "c", 70, 5, "x");
+    const INTERVAL = 30;
+    const sync = makeSync({ pollingInterval: INTERVAL });
+    await run(function* () {
+      yield* startSync(sync.state as never);
+      yield* sleep(INTERVAL * 4 + INTERVAL / 2);
+      chain.invoke(X, "d", chain.finalized - 10, 1, "x"); // a new one, below the moving tip
+      yield* sleep(INTERVAL * 4 + INTERVAL / 2);
+    });
+    const polls = chain.count("getSlot");
+    expect(polls).toBeGreaterThanOrEqual(6);
+    expect(chain.calls("getTransaction").map((r) => r.params[0])).toEqual(["a", "b", "c", "d"]);
+    expect(sigsOf(drain(sync))).toEqual(["a", "b", "c", "d"]);
+    expect(sync.fetcher.programPoller!.transactionsEmitted).toBe(4);
+    expect(sync.fetcher.programPoller!.lateSignatures).toBe(0);
+    expect((sync.state.lastPage as SolanaLastPage).cursor!.signatures).toEqual(["d"]);
+    // Idle polls after the first: getSlot + getBlockTime + one listing, nothing else.
+    expect(sync.fetcher.client.counters.total).toBe(3 * polls + 4);
   });
 
   test("a poll that found transactions still sleeps the full interval before the next", async () => {

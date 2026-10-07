@@ -164,7 +164,8 @@ async function pass(sync: ReturnType<typeof makeSync>): Promise<boolean> {
   return await run(function* () {
     const input = yield* sync.state.stateToInput();
     if (input == null) return false;
-    const data = yield* sync.fetcher.readData(input, sync.state, sync.state.lastPage);
+    // As the engine's loop calls it: no `lastPage` argument (P4.4).
+    const data = yield* sync.fetcher.readData(input, sync.state, undefined);
     yield* sync.state.updateState(input, data);
     return true;
   });

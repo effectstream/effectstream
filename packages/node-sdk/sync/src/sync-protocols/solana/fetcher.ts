@@ -187,7 +187,11 @@ export class SolanaFetcher extends BaseDataFetcher<
   ): Operation<DataFetched<Output, Page, RootPage>> {
     if (this.programPoller != null) {
       // Program mode (AA 00064): one whole poll; it throws on any failure (C7).
-      const result = yield* this.programPoller.poll(lastPage as SolanaLastPage | undefined);
+      // Its cursor comes from the input (the state's page when the poll was
+      // decided): the engine's fetch loop passes no `lastPage` argument, which
+      // remains a fallback for callers that build the input themselves.
+      const page = (data.lastPage ?? lastPage) as SolanaLastPage | undefined;
+      const result = yield* this.programPoller.poll(page);
       this.pollCompleted = true;
       return result;
     }

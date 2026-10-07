@@ -36,8 +36,14 @@ export type PrimitiveType = FlattenSyncProtocolIOFor<
  * first slot not yet covered and `to` equals it, because the tip is only known
  * once `readData` has asked for it (AA 00064 C2: every RPC call of a poll runs
  * in `readData`).
+ *
+ * Program mode also carries the state's page (`lastPage`: the cursor, the
+ * previous tip and root). The engine's fetch loop calls `readData(input,
+ * state)` without its `lastPage` argument, so the poll must get its cursor
+ * from the input; reading the argument made every poll start again from the
+ * empty cursor (AA 00064 P4.4).
  */
-export type Input = PageSyncRange<Page> & { programPoll?: true };
+export type Input = PageSyncRange<Page> & { programPoll?: true; lastPage?: SolanaLastPage };
 
 /** How the protocol reads Solana (AA 00064 C1). The engine's default is `block`. */
 export type SolanaSyncMode = "block" | "program";

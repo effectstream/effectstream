@@ -179,7 +179,8 @@ async function onePass(state: any) {
   await run(function* () {
     const input = yield* state.stateToInput();
     expect(input).toBeTruthy();
-    const data = yield* state.fetcher.readData(input, state, state.lastPage);
+    // As the engine's fetch loop calls it: no lastPage argument (AA 00064 P4.4).
+    const data = yield* state.fetcher.readData(input, state, undefined);
     yield* state.updateState(input, data);
   });
 }

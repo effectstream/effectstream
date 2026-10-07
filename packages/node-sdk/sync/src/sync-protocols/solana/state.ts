@@ -135,7 +135,9 @@ export class SolanaSyncState extends SyncState<
     if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
     if (justPolled) return undefined;
     const from = ((this.lastPage?.own ?? (this.config.syncProtocol.startBlockHeight - 1)) + 1) as Page;
-    return { from, to: from, isPresync: false, programPoll: true };
+    // The page travels with the input: the fetch loop calls readData(input, state)
+    // without its lastPage argument (P4.4).
+    return { from, to: from, isPresync: false, programPoll: true, lastPage: this.lastPage as SolanaLastPage | undefined };
   }
 
   @bound
