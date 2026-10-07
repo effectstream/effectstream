@@ -3,8 +3,9 @@ import { bound } from "@effectstream/utils";
 import type { PoolClient } from "pg";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
-import type { Input, Output, Page } from "./types.ts";
+import type { Input, Output, Page, SolanaLastPage, SolanaSyncMode } from "./types.ts";
 import { toMsTimestamp } from "./types.ts";
+import { assertResumeMarkerMatchesMode } from "./program-mode.ts";
 import { blockNumberRelation } from "../common/utils.ts";
 import type { SolanaFetcher } from "./fetcher.ts";
 import type {
@@ -12,10 +13,9 @@ import type {
   SyncProtocolWithNetwork,
 } from "@effectstream/config";
 import { getPage } from "@effectstream/db";
-import { SolanaClient } from "./SolanaClient.ts";
+import type { SolanaClient } from "./SolanaClient.ts";
 import { applyDelay } from "../common/utils.ts";
 import { bufferAtCap } from "../common/page-helpers.ts";
-import { requestTimeoutOf } from "../common/http.ts";
 
 export class SolanaSyncState extends SyncState<
   Input,
@@ -42,6 +42,22 @@ export class SolanaSyncState extends SyncState<
       blockNumberRelation,
       dbConn,
     );
+    // Each mode refuses the other mode's resume marker (AA 00064 C5, FR-007).
+    assertResumeMarkerMatchesMode(fetcher.mode, config.syncProtocol.name, lastPage as SolanaLastPage | undefined);
+    if (fetcher.programPoller != null) {
+      const p = fetcher.programPoller;
+      const cursor = (lastPage as SolanaLastPage | undefined)?.cursor;
+      console.log(
+        `[Solana] ${config.syncProtocol.name}: program mode, watching ${p.settings.programs.join(", ")} ` +
+          `every ${config.syncProtocol.pollingInterval} ms from slot ${p.settings.startBlockHeight}; ` +
+          (cursor ? `resuming after slot ${cursor.slot} (${cursor.signatures.length} signature(s) there).` : "no saved cursor."),
+      );
+    }
+  }
+
+  /** `block` (every slot via `getBlock`) or `program` (only the watched programs' transactions). */
+  get mode(): SolanaSyncMode {
+    return this.fetcher.mode;
   }
 
   @bound
@@ -72,6 +88,7 @@ export class SolanaSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
+    if (this.fetcher.programPoller != null) return this.programPollDue();
     // Pause fetching while the merge drains our buffer (CLAUDE.md finding #1).
     // Every other protocol gates on this first; skipping it lets the Deque grow
     // toward the whole backlog during catch-up.
@@ -102,6 +119,25 @@ export class SolanaSyncState extends SyncState<
     };
   }
 
+  /**
+   * Program mode (AA 00064 C2): no RPC call here, all of a poll's calls run in
+   * `readData`. Returns `undefined` (so the fetch loop sleeps the full
+   * `pollingInterval`) after every completed poll and while the buffer is at
+   * its cap; otherwise a poll is due. One poll per interval, always: never the
+   * back-to-back loop block mode runs at the tip (R4).
+   *
+   * The cap is block mode's (`maxBufferedPages`, else derived from
+   * `stepSize`); it counts outputs, which in program mode are slots holding a
+   * watched transaction.
+   */
+  private programPollDue(): Input | undefined {
+    const justPolled = this.fetcher.takePollCompleted();
+    if (bufferAtCap(this, this.config.syncProtocol)) return undefined;
+    if (justPolled) return undefined;
+    const from = ((this.lastPage?.own ?? (this.config.syncProtocol.startBlockHeight - 1)) + 1) as Page;
+    return { from, to: from, isPresync: false, programPoll: true };
+  }
+
   @bound
   override mergeDatum(ourOutput: Output, rootOutput: RootOutput): void {
     const primitives = ourOutput.primitives.map((p) => ({
@@ -125,10 +161,46 @@ export class SolanaSyncState extends SyncState<
    */
   @bound
   override outputToLastPage(data: Output): LastPage<Page, RootPage> {
-    return {
+    const page: SolanaLastPage = {
       own: data.slot as Page,
       ownBlockNumber: data.slot as Page,
       root: this.toRootPage(data),
+    };
+    // Program mode: the cursor rides in the marker the runtime persists with
+    // the block, so a restart resumes exactly after the last committed
+    // transaction (AA 00064 C5, FR-004).
+    if (data.cursor != null) page.cursor = data.cursor;
+    return page;
+  }
+
+  /**
+   * `/health` (AA 00064 C9, spec FR-006): the mode and the RPC requests per
+   * method since start, in both modes; program mode adds its interval,
+   * progress, cursor and poll counts.
+   */
+  override healthDetails(): Record<string, unknown> {
+    const rpc = this.fetcher.client.counters.snapshot();
+    const details: Record<string, unknown> = {
+      mode: this.mode,
+      rpcCalls: rpc.calls,
+      rpcCallsTotal: rpc.total,
+      rpcRateLimited: rpc.rateLimited,
+      rpcFailed: rpc.failed,
+    };
+    const p = this.fetcher.programPoller;
+    if (p == null) return details;
+    return {
+      ...details,
+      pollIntervalMs: this.pollingIntervalMs || this.config.syncProtocol.pollingInterval,
+      programs: p.settings.programs,
+      polls: p.polls,
+      idlePolls: p.idlePolls,
+      failedPolls: p.failedPolls,
+      transactions: p.transactionsEmitted,
+      lateSignatures: p.lateSignatures,
+      indexFallbacks: p.indexFallbacks,
+      progress: p.progress,
+      cursor: p.cursor ?? (this.lastPage as SolanaLastPage | undefined)?.cursor ?? null,
     };
   }
 
@@ -153,14 +225,13 @@ export class SolanaSyncState extends SyncState<
     const page = result
       ? result.page as unknown as LastPage<Page, RootPage>
       : undefined;
+    // The fetcher's client, so block mode's getSlot and getBlock share one set
+    // of call counters (C9).
     return new SolanaSyncState(
       page,
       config,
       fetcher,
-      new SolanaClient(
-        config.network.rpcUrl,
-        requestTimeoutOf(config.syncProtocol),
-      ),
+      fetcher.client,
       dbConn,
     );
   }

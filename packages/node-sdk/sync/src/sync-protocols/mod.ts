@@ -22,6 +22,14 @@ export * from "./utxorpc/state.ts";
 export * from "./celestia/fetcher.ts";
 export * from "./celestia/state.ts";
 
+export { SolanaFetcher } from "./solana/fetcher.ts";
+export { SolanaSyncState } from "./solana/state.ts";
+export type {
+  ProgramCursor as SolanaProgramCursor,
+  SolanaLastPage,
+  SolanaSyncMode,
+} from "./solana/types.ts";
+
 export * from "./test/fetcher.ts";
 export * from "./test/state.ts";
 export * from "./test/control.ts";

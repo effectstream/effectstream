@@ -58,14 +58,29 @@ export const ConfigSyncProtocolSchemaSolanaParallel =
         ...waitingPeriodFromDepth(finalityDepth, blockTimeMs, {
           absolute: blockTimeMs,
         }),
+        /**
+         * How the protocol reads Solana (AA 00064):
+         * - `block` (default): `getSlot` then `getBlock` for every slot, up to
+         *   `latest − confirmationDepth`, `stepSize` slots per pass;
+         * - `program`: only the transactions of the programs its
+         *   `SOLANA:ProgramLog` primitives watch. Each poll, every
+         *   `pollingInterval`, is `getSlot(finalized)` + `getBlockTime` +
+         *   `getSignaturesForAddress` per program, then `getTransaction` per new
+         *   transaction. It takes no other primitive type, and ignores
+         *   `stepSize`, `confirmationDepth`, `getBlockConcurrency` and
+         *   `getBlockMinIntervalMs`. Each mode refuses the other's database.
+         */
+        mode: Type.Union([Type.Literal("block"), Type.Literal("program")], {
+          default: "block",
+        }),
         // getBlock reading (the fetcher's defaults apply when unset):
-        /** Highest transaction version a block is requested with (default 1). */
+        /** Highest transaction version a block (or, in program mode, a transaction) is requested with (default 1). */
         maxSupportedTransactionVersion: Type.Number(),
         /** Minimum spacing between getBlock calls, in ms (default 0: no pacing). */
         getBlockMinIntervalMs: Type.Number(),
         /** Most getBlock calls in flight at once (default 8; halved after a rate-limited batch). */
         getBlockConcurrency: Type.Number(),
-        /** Waits on HTTP 429 per slot before the slot counts as failed (default 10). */
+        /** Waits on HTTP 429 per slot (program mode: per call) before it counts as failed (default 10). */
         rateLimitRetries: Type.Number(),
         /** First wait on HTTP 429, doubled each time (default 500 ms). */
         rateLimitBackoffMs: Type.Number(),

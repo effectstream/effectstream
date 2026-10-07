@@ -29,6 +29,8 @@ import {
 } from "./SolanaClient.ts";
 import { requestTimeoutOf } from "../common/http.ts";
 import { extractProgramLogs } from "./program-logs.ts";
+import { SolanaProgramPoller, syncModeOf, watchedProgramsOf } from "./program-mode.ts";
+import type { SolanaLastPage, SolanaSyncMode } from "./types.ts";
 import { all, call, sleep, type Operation } from "effection";
 import { bound } from "@effectstream/utils";
 
@@ -109,11 +111,24 @@ export class SolanaFetcher extends BaseDataFetcher<
   /** Transactions this reader could not parse and skipped (observability, tests). */
   unparsableTransactions = 0;
 
+  /** `block` (the engine's default: every slot via `getBlock`) or `program` (AA 00064). */
+  readonly mode: SolanaSyncMode;
+  /** Program mode's reader (C1–C10); undefined in block mode. */
+  readonly programPoller: SolanaProgramPoller | undefined;
+  /**
+   * Program mode: set when a poll succeeded, taken by the next `stateToInput`,
+   * which then returns `undefined` so the fetch loop sleeps the full
+   * `pollingInterval` after EVERY poll (C2). A failed poll needs no flag: the
+   * loop sleeps after an error on its own.
+   */
+  private pollCompleted = false;
+
   constructor(
     readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
     const sp = config.syncProtocol as typeof config.syncProtocol & {
+      mode?: SolanaSyncMode;
       maxSupportedTransactionVersion?: number;
       getBlockMinIntervalMs?: number;
       getBlockConcurrency?: number;
@@ -121,10 +136,15 @@ export class SolanaFetcher extends BaseDataFetcher<
       rateLimitBackoffMs?: number;
       rateLimitMaxBackoffMs?: number;
     };
+    this.mode = syncModeOf(sp);
     this.client = new SolanaClient(
       config.network.rpcUrl,
       requestTimeoutOf(config.syncProtocol),
-      { maxSupportedTransactionVersion: sp.maxSupportedTransactionVersion },
+      {
+        maxSupportedTransactionVersion: sp.maxSupportedTransactionVersion,
+        // Program mode reads no clock (C8): a Retry-After HTTP date is ignored.
+        retryAfterDates: this.mode === "block",
+      },
     );
     const nonNeg = (v: number | undefined, d: number) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : d);
     this.getBlockMinIntervalMs = nonNeg(sp.getBlockMinIntervalMs, 0);
@@ -133,6 +153,30 @@ export class SolanaFetcher extends BaseDataFetcher<
     this.rateLimitRetries = Math.floor(nonNeg(sp.rateLimitRetries, DEFAULT_RATE_LIMIT_RETRIES));
     this.rateLimitBackoffMs = nonNeg(sp.rateLimitBackoffMs, DEFAULT_RATE_LIMIT_BACKOFF_MS);
     this.rateLimitMaxBackoffMs = Math.max(this.rateLimitBackoffMs, nonNeg(sp.rateLimitMaxBackoffMs, DEFAULT_RATE_LIMIT_MAX_BACKOFF_MS));
+    this.programPoller = this.mode === "program"
+      ? new SolanaProgramPoller(
+        this.client,
+        {
+          protocolName: config.syncProtocol.name,
+          // Refuses to start without a ProgramLog primitive, or with any other kind (C1).
+          programs: watchedProgramsOf(config.syncProtocol.name, config.primitives ?? []),
+          startBlockHeight: Number(config.syncProtocol.startBlockHeight ?? 0),
+          delayMs: Number(config.syncProtocol.delayMs ?? 0),
+          rateLimitRetries: this.rateLimitRetries,
+          rateLimitBackoffMs: this.rateLimitBackoffMs,
+          rateLimitMaxBackoffMs: this.rateLimitMaxBackoffMs,
+        },
+        (slot, block, logIndexes) =>
+          this.readPrimitives(slot, block as Parameters<SolanaFetcher["readPrimitives"]>[1], this.config.primitives, logIndexes),
+      )
+      : undefined;
+  }
+
+  /** Program mode: whether a poll completed since the last call (and clear it). See {@link pollCompleted}. */
+  takePollCompleted(): boolean {
+    const done = this.pollCompleted;
+    this.pollCompleted = false;
+    return done;
   }
 
   @bound
@@ -141,6 +185,12 @@ export class SolanaFetcher extends BaseDataFetcher<
     rootConversion: RootConversion<Output, RootOutput, RootPage>,
     lastPage: LastPage<Page, RootPage> | undefined,
   ): Operation<DataFetched<Output, Page, RootPage>> {
+    if (this.programPoller != null) {
+      // Program mode (AA 00064): one whole poll; it throws on any failure (C7).
+      const result = yield* this.programPoller.poll(lastPage as SolanaLastPage | undefined);
+      this.pollCompleted = true;
+      return result;
+    }
     const outputs: OutputAndCleanup<Output>[] = [];
 
     console.log(
@@ -414,6 +464,12 @@ export class SolanaFetcher extends BaseDataFetcher<
       PrimitiveEntry,
       { syncProtocol: ConfigSyncProtocolType.SOLANA_RPC_PARALLEL }
     >[],
+    /**
+     * Each transaction's index in its block, when `block.transactions` is not
+     * the whole block (program mode passes only the watched programs'
+     * transactions, AA 00064 C4). Defaults to the position in the array.
+     */
+    logIndexes?: readonly number[],
   ): Operation<PrimitiveType[]> {
     if (primitiveEntries.length === 0) return [];
 
@@ -433,6 +489,7 @@ export class SolanaFetcher extends BaseDataFetcher<
         // Collected per transaction, so a transaction that fails half-way adds nothing.
         const txPrimitives: PrimitiveType[] = [];
         const tx = block.transactions[txIndex];
+        const logIndex = logIndexes?.[txIndex] ?? txIndex;
         // A reverted transaction has no on-chain effect: its logs describe work
         // that was rolled back and its postBalances are the pre-state. Emitting
         // primitives for it would drive state transitions off events that never
@@ -474,7 +531,7 @@ export class SolanaFetcher extends BaseDataFetcher<
                   blockNumber: slot,
                   transactionHash: txHash,
                   contractAddress: prim.address,
-                  logIndex: txIndex,
+                  logIndex,
                 },
                 primitive: prim.name,
                 output: {
@@ -512,7 +569,7 @@ export class SolanaFetcher extends BaseDataFetcher<
                   blockNumber: slot,
                   transactionHash: txHash,
                   contractAddress: prim.programId,
-                  logIndex: txIndex,
+                  logIndex,
                 },
                 primitive: prim.name,
                 output: {
@@ -559,7 +616,7 @@ export class SolanaFetcher extends BaseDataFetcher<
                     blockNumber: slot,
                     transactionHash: txHash,
                     contractAddress: bal.mint,
-                    logIndex: txIndex,
+                    logIndex,
                   },
                   primitive: prim.name,
                   output: {
@@ -596,7 +653,7 @@ export class SolanaFetcher extends BaseDataFetcher<
         this.unparsableTransactions++;
         if (this.unparsableTransactions === 1) {
           console.warn(
-            `[Solana] skipped a transaction the reader cannot parse (first at slot ${slot}, tx ${txIndex}: ` +
+            `[Solana] skipped a transaction the reader cannot parse (first at slot ${slot}, tx ${logIndexes?.[txIndex] ?? txIndex}: ` +
               `${error instanceof Error ? error.message : String(error)}); such transactions are skipped and counted.`,
           );
         }
