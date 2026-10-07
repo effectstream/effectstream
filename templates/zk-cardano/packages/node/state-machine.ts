@@ -6,7 +6,7 @@ import {
   upsertProposal,
   upsertVoteTally,
 } from "@zk-cardano/database";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 
 const stm = new Stm<typeof grammar, {}>(grammar);
@@ -108,7 +108,7 @@ stm.addStateTransition(
   },
 );
 
-export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+export const appStateTransitions: StartConfigAppStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {

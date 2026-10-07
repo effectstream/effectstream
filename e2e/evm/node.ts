@@ -1,7 +1,7 @@
 import {
   init,
   start,
-  type StartConfigGameStateTransitions,
+  type StartConfigAppStateTransitions,
 } from "@effectstream/runtime";
 import { ENV } from "@effectstream/utils/node-env";
 import { main, suspend } from "effection";
@@ -259,7 +259,7 @@ stm.addStateTransition("throw_error", function* (_data) {
   throw new Error("This is a test error");
 });
 
-const gameStateTransitions: StartConfigGameStateTransitions = function* (
+const appStateTransitions: StartConfigAppStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {
@@ -277,7 +277,7 @@ main(function* () {
       appName: "e2e-evm",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       grammar,
       userDefinedPrimitives,

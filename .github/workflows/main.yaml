@@ -80,8 +80,9 @@ jobs:
         run: docker run --rm --name e2e_${{ github.run_number }} testing_image:${{ github.sha }}
 
   # Per-template tests — runs the changed ENABLED templates serially in one job.
-  # Uses the SAME image as e2e; only the command differs. Tests resolve
-  # @effectstream/* from published npm (no LINK_LOCAL).
+  # Uses the SAME image as e2e; only the command differs. Template-only changes
+  # test published npm, while combined core + template changes overlay local runtime
+  # source so atomic API changes are exercised without replacing unrelated deps.
   template-tests:
     needs: changes
     if: ${{ needs.changes.outputs.templates != '' && (github.event_name == 'push' || !github.event.pull_request.draft) }}
@@ -98,7 +99,8 @@ jobs:
         run: |
           # Plain bash, NOT a login shell: `bash -l` sources /etc/profile which
           # resets root's PATH and drops /root/.local/bin, losing `compact`.
-          docker run --rm --name templates_${{ github.run_number }} testing_image:${{ github.sha }} \
+          docker run --rm --name templates_${{ github.run_number }} \
+            -e LINK_RUNTIME_ONLY=${{ needs.changes.outputs.core }} testing_image:${{ github.sha }} \
             bash -c "bun run templates/run-template-tests.ts ${{ needs.changes.outputs.templates }} --skip-disabled"
 
   # Browser build (+ tests) of @effectstream/frontend-sdk. This is the ONLY

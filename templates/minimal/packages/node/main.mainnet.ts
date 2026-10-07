@@ -6,7 +6,7 @@ import {
 } from "@effectstream/config";
 import { config } from "./config.mainnet.ts";
 import { grammar } from "./grammar.ts";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { migrationTable } from "@minimal/database";
 
@@ -17,7 +17,7 @@ main(function* () {
       appName: "minimal",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,

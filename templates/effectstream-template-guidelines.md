@@ -473,7 +473,7 @@ All game logic lives here -- there is no separate `game-logic` package or `tick.
 ```ts
 import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import { insertRoom, getRoomByName } from "@my-template/database";
 import { grammar } from "./grammar.ts";
@@ -501,7 +501,7 @@ stm.addStateTransition("nftTransfer", function* (data) {
   });
 });
 
-export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+export const appStateTransitions: StartConfigAppStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {
@@ -633,7 +633,7 @@ import {
 } from "@effectstream/config";
 import { config } from "./config.dev.ts";
 import { grammar } from "./grammar.ts";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { migrationTable } from "@my-template/database";
 
@@ -644,7 +644,7 @@ main(function* () {
       appName: "my-template",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,
@@ -661,7 +661,7 @@ main(function* () {
 | `appName` | Yes | Application identifier |
 | `appVersion` | Yes | Semantic version (`"1.0.0"`) |
 | `syncInfo` | Yes | From `toSyncProtocolWithNetwork(config)` |
-| `gameStateTransitions` | Yes | The STM router function |
+| `appStateTransitions` | Yes | The STM router function |
 | `migrations` | Yes | SQL migration table |
 | `grammar` | Yes | Grammar definition |
 | `apiRouter` | No | Fastify route registration |
@@ -2290,13 +2290,13 @@ The new orchestrator uses `export default` config pattern, not a programmatic `s
 import { init, start } from "@paimaexample/runtime";
 import { config } from "@my-template/data-types/localhostConfig";
 import { grammar } from "@my-template/data-types/grammar";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 
 // NEW: packages/node/main.dev.ts
 import { init, start } from "@effectstream/runtime";
 import { config } from "./config.dev.ts";
 import { grammar } from "./grammar.ts";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 ```
 
 Everything is now local imports within `packages/node/` — no cross-package imports for grammar/config.

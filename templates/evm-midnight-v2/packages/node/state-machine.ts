@@ -6,7 +6,7 @@ import {
   insertEvmMidnight,
   insertEvmMidnightProperty,
 } from "@evm-midnight/database";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import { contractAddressesEvmMain } from "@evm-midnight/contracts-evm";
 
@@ -101,7 +101,7 @@ stm.addStateTransition(
   },
 );
 
-export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+export const appStateTransitions: StartConfigAppStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {

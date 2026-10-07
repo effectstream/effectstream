@@ -7,7 +7,7 @@ import {
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
 import { migrationTable } from "@preorder/database";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "./grammar.ts";
 import { BuyItemsPrimitive, ReferrerRewardPrimitive } from "./primitives.ts";
@@ -24,7 +24,7 @@ main(function* () {
       appName: "preorder",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,

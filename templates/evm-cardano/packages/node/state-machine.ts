@@ -1,6 +1,6 @@
 import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import { insertEvent, updateChainStats } from "@evm-cardano/database";
 import { grammar } from "./grammar.ts";
@@ -88,7 +88,7 @@ stm.addStateTransition("cardano-transfer", function* (data) {
   }
 });
 
-export const gameStateTransitions: StartConfigGameStateTransitions =
+export const appStateTransitions: StartConfigAppStateTransitions =
   function* (
     blockHeight: number,
     input: BaseStfInput,

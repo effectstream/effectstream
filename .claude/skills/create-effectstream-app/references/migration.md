@@ -175,7 +175,7 @@ const stm = new Stm<typeof grammar, {}>(grammar);
 import { init, start } from "@effectstream/runtime";
 import { config } from "./config.dev.ts";
 import { grammar } from "./grammar.ts";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 ```
 
 All local imports within `packages/node/` — no cross-package grammar/config imports.

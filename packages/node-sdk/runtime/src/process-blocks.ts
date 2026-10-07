@@ -152,7 +152,7 @@ export function* processFinalizedBlock(
   dbConn: Pool,
   previousBlockHash: EffectstreamBlockHash | null,
 ): Operation<ProcessFinalizedBlockResult> {
-  const { gameStateTransitions, migrations } = config;
+  const { appStateTransitions, migrations } = config;
   const blockHash: EffectstreamBlockHash = generateEffectstreamBlockHash(
     value,
     previousBlockHash,
@@ -216,7 +216,7 @@ export function* processFinalizedBlock(
     const scheduledData = [...scheduledData1, ...scheduledData2];
     let index_in_block = 0;
 
-    if (gameStateTransitions && scheduledData.length > 0) {
+    if (appStateTransitions && scheduledData.length > 0) {
       randomGenerator.skip();
       for (const data of scheduledData) {
         let success = true;
@@ -248,11 +248,11 @@ export function* processFinalizedBlock(
             //      current accountId?
             accountId: undefined, // data.accountId,
           };
-          const gameSTFGenerator = gameStateTransitions(
+          const appSTFGenerator = appStateTransitions(
             value.blockNumber,
             input,
           );
-          yield* executeGeneratorStepByStep(gameSTFGenerator, dbConn);
+          yield* executeGeneratorStepByStep(appSTFGenerator, dbConn);
           // STF succeeded: promote buffered events to the block buffer.
           // Failure path falls through the catch below and `inputEvents`
           // simply goes out of scope.

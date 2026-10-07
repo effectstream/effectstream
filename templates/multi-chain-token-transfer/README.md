@@ -634,7 +634,7 @@ yield* withEffectstreamStaticConfig(localhostConfig, function* () {
     appName: "multi-chain-token-transfer",
     appVersion: "0.3.21",
     syncInfo: toSyncProtocolWithNetwork(localhostConfig),
-    gameStateTransitions,
+    appStateTransitions,
     migrations: migrationTable,
     apiRouter,
     grammar,

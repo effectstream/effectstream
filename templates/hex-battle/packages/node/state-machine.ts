@@ -1,6 +1,6 @@
 import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import { createScheduledData } from "@effectstream/db";
 import {
@@ -344,7 +344,7 @@ stm.addStateTransition("zombieScheduledData", function* (data) {
 /**
  * Route inputs through the hex-battle state machine.
  */
-export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+export const appStateTransitions: StartConfigAppStateTransitions = function* (
   _blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {

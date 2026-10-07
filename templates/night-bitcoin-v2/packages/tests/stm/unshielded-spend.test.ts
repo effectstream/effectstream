@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { PreparedQuery } from "@pgtyped/runtime";
 import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 import { assert, assertSQL } from "../helpers.ts";
-import { gameStateTransitions } from "../../node/state-machine.ts";
+import { appStateTransitions } from "../../node/state-machine.ts";
 
 /**
  * Phase B: unit test for the `midnight-unshielded-spend` state-machine
@@ -16,14 +16,14 @@ import { gameStateTransitions } from "../../node/state-machine.ts";
  * amount, and fire `checkAndTransferFunds(transfer-received)` which marks
  * the intent resolved.
  *
- * We drive the real `gameStateTransitions` generator with a fabricated
+ * We drive the real `appStateTransitions` generator with a fabricated
  * BaseStfInput so the test exercises the actual handler code path; the
  * runtime that normally pumps the generator (process-blocks.ts) is replaced
  * by `runStateMachine` below — it resolves each `World.resolve(query, params)`
  * yield against the same pg Client the rest of Phase B uses.
  */
 
-// Drive a generator returned by `gameStateTransitions` to completion.
+// Drive a generator returned by `appStateTransitions` to completion.
 // Mirrors the executor in `@effectstream/runtime`'s process-blocks.ts:
 //   - World.resolve yields a `[queryIR, params]` tuple
 //   - World.promise yields `{ type: "promise", promise }`
@@ -39,7 +39,7 @@ async function runStateMachine(
     randomGenerator: {} as any,
     emit: () => {},
   };
-  const gen = gameStateTransitions(blockHeight, input) as Generator<any, void, any>;
+  const gen = appStateTransitions(blockHeight, input) as Generator<any, void, any>;
   let step = gen.next();
   while (!step.done) {
     const value = step.value;

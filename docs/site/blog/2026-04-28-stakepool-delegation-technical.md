@@ -202,11 +202,11 @@ stm.addStateTransition("cardano-pool-delegation", function* (data) {
 
 `World.resolve()` executes a [pgtyped](https://pgtyped.dev/) prepared query inside the EffectStream coroutine context. The queries run in the same transaction as the block processing, so if anything fails, the entire block rolls back cleanly.
 
-The `gameStateTransitions` export wires this into the EffectStream runtime:
+The `appStateTransitions` export wires this into the EffectStream runtime:
 
 ```typescript
 // packages/node/state-machine.ts
-export const gameStateTransitions: StartConfigGameStateTransitions =
+export const appStateTransitions: StartConfigAppStateTransitions =
   function* (
     blockHeight: number,
     input: BaseStfInput,
@@ -311,7 +311,7 @@ main(function* () {
       appName: "cardano-delegation",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,
