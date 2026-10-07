@@ -11,6 +11,29 @@ the EffectStream orchestrator and templates.
 - Consumed by `@effectstream/sync`'s `MidnightFetcher`.
 - Templates: `evm-midnight-v2`, `night-bitcoin`, `zswap-da`, `zk-cardano`.
 
+## Cached-chain compatibility
+
+This node is the Ledger-9 member of the bundled tuple declared by
+`@effectstream/npm-midnight-indexer/compatibility.json`. Node-1/Ledger-8 chain
+state is not reusable by node `2.0.0-rc.4`. In the pinned reproduction, that
+state made the node exit nonzero with a missing
+`ext_ledger_8_bridge_construct_distribute_treasury_system_tx_version_1` host
+import. Do not label other startup failures incompatible without that exact
+evidence.
+
+The current Effectstream launcher supplies the installed indexer package's
+single compatibility declaration to this wrapper. The wrapper tees the native
+node output, waits for the child, and propagates its nonzero/signal result. It
+emits the incompatible-cache diagnosis only when it observes the declaration's
+exact verified signal; otherwise the result remains a known node child failure
+with an instruction to inspect the node log.
+
+The Effectstream orchestrator passes an explicit project-local `BASE_PATH`:
+`packages/contracts-midnight/node_modules/.cache/effectstream/midnight-node`.
+If a reset is necessary, stop the stack, archive or remove only that directory,
+then restart. The orchestrator and indexer never reset it automatically, and
+indexer `--clean` does not affect it.
+
 ## Install
 
 ```bash
