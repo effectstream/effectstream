@@ -112,6 +112,53 @@ wallet.result.walletAddress; // addr_test1...
 const signature = await signMessage(wallet.result, "hello effectstream");
 ```
 
+`MidnightLocal` has two high-level modes. With no endpoints it is a
+signing-only wallet: it derives the unshielded identity and performs no network
+I/O.
+
+```typescript
+const signingOnly = await walletLogin({
+  mode: WalletMode.MidnightLocal,
+  seed: "<64-character development seed>",
+  networkId: "undeployed",
+});
+```
+
+Supplying all four `networkUrls` builds the already-supported full Midnight
+facade (shielded, unshielded, and DUST wallets) and exposes both the facade and
+its complete wallet result through the returned provider. Use `syncMode: "all"`
+for contract transactions; `"dust-only"` stops the auxiliary shielded and
+unshielded sync workers after startup and is intended for fee-wallet flows.
+
+```typescript
+import type { MidnightLocalApi } from "@effectstream/wallets/midnight-local";
+
+const connected = await walletLogin({
+  mode: WalletMode.MidnightLocal,
+  seed: "<64-character undeployed development seed>",
+  networkId: "undeployed",
+  networkUrls: {
+    indexer: "http://127.0.0.1:8088/api/v3/graphql",
+    indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
+    node: "http://127.0.0.1:9944",
+    proofServer: "http://127.0.0.1:6300",
+  },
+  syncMode: "all",
+});
+if (!connected.success) throw new Error(connected.errorMessage);
+
+const localApi = connected.result.provider.getConnection()
+  .api as unknown as MidnightLocalApi;
+if (localApi.walletFacade == null || localApi.walletResult == null) {
+  throw new Error("MidnightLocal full facade was not initialized");
+}
+```
+
+The full-facade example is an undeployed/local development path. It does not
+claim compatibility for any injected wallet. A public Preview, Preprod, or
+Mainnet application must use a supported external signer/profile and must not
+reuse an undeployed genesis seed.
+
 These modes need no browser extension (no `window.ethereum`, no CIP-30) -
 the key material is created client-side and never touches a server. Pair a
 local key with the account-linking delegation (`&linkAddress`) so a real

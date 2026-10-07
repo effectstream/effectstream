@@ -30,18 +30,8 @@ import {
 import * as Rx from "rxjs";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
+import { MIDNIGHT_NETWORK_ID } from "./config.ts";
 import {
-  setNetworkId,
-} from "@midnight-ntwrk/midnight-js-network-id";
-import {
-  BASE_URL_MIDNIGHT_INDEXER_API,
-  BASE_URL_MIDNIGHT_INDEXER_WS,
-  BASE_URL_PROOF_SERVER,
-  MIDNIGHT_NETWORK_ID,
-  getMidnightNodeUrl,
-} from "./config.ts";
-import {
-  LedgerParameters,
   ZswapSecretKeys,
   DustSecretKey,
   shieldedToken,
@@ -49,24 +39,10 @@ import {
   type EncPublicKey,
   type FinalizedTransaction,
 } from "@midnightntwrk/ledger-v9";
-
-// Modular SDK imports
-import { HDWallet, Roles } from "@midnightntwrk/wallet-sdk-hd";
-import { type DefaultConfiguration, WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
-import { ShieldedWallet } from "@midnightntwrk/wallet-sdk-shielded";
-import { DustWallet } from "@midnightntwrk/wallet-sdk-dust-wallet";
-import {
-  UnshieldedWallet,
-  createKeystore,
-  PublicKey,
-  type UnshieldedKeystore,
-} from "@midnightntwrk/wallet-sdk-unshielded-wallet";
-import {
-  InMemoryTransactionHistoryStorage,
-  NetworkId,
-  TransactionHistoryStorage,
-} from "@midnightntwrk/wallet-sdk-abstractions";
-import { Buffer } from "buffer";
+import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
+import type { UnshieldedKeystore } from "@midnightntwrk/wallet-sdk-unshielded-wallet";
+import type { WalletResult } from "@effectstream/midnight-contracts/types";
+import { connectMidnightLocalWallet } from "./midnight-wallet.ts";
 
 // ============================================================================
 // Constants
@@ -74,12 +50,6 @@ import { Buffer } from "buffer";
 
 /** Transaction TTL duration in milliseconds (1 hour) */
 const TTL_DURATION_MS = 60 * 60 * 1000;
-
-/** Additional fee overhead for dust transactions (in smallest unit) */
-const DUST_FEE_OVERHEAD = 300_000_000_000_000n;
-
-/** Fee blocks margin for dust wallet */
-const DUST_FEE_BLOCKS_MARGIN = 5;
 
 // Throttle on the wallet state observable, applied before the isSynced filter.
 // Keep short in-browser — large values delay connect even on already-synced chains.
@@ -110,131 +80,14 @@ type DeployedCounterContract =
   | FoundContract<CounterContract>;
 
 interface Config {
-  readonly logDir: string;
   readonly indexer: string;
   readonly indexerWS: string;
   readonly node: string;
   readonly proofServer: string;
 }
 
-class StandaloneConfig implements Config {
-  logDir = `standalone-${new Date().toISOString()}.log`;
-  indexer = BASE_URL_MIDNIGHT_INDEXER_API;
-  indexerWS = BASE_URL_MIDNIGHT_INDEXER_WS;
-  node: string;
-  proofServer = BASE_URL_PROOF_SERVER;
-  constructor(nodeUrl: string) {
-    this.node = nodeUrl;
-    setNetworkId(MIDNIGHT_NETWORK_ID as any);
-  }
-}
-
-/**
- * This seed gives access to tokens minted in the genesis block of a local development node - only
- * used in standalone networks to build a wallet with initial funds.
- */
-const GENESIS_MINT_WALLET_SEED =
-  "0000000000000000000000000000000000000000000000000000000000000001";
-
-// ============================================================================
-// Wallet Logic (Adapted from get-wallet-info.ts)
-// ============================================================================
-
-export interface NetworkUrls {
-  indexer: string;
-  indexerWS: string;
-  node: string;
-  proofServer: string;
-}
-
-export interface WalletResult {
-  wallet: WalletFacade;
-  zswapSecretKeys: ZswapSecretKeys;
-  walletZswapSecretKeys: ZswapSecretKeys;
-  dustSecretKey: DustSecretKey;
-  walletDustSecretKey: DustSecretKey;
-  dustAddress: string;
-  unshieldedAddress: string;
-  unshieldedKeystore: UnshieldedKeystore;
-}
-
 function createTtl(): Date {
   return new Date(Date.now() + TTL_DURATION_MS);
-}
-
-export function createWalletConfiguration(
-  networkUrls: Required<NetworkUrls>,
-  networkId: NetworkId.NetworkId,
-): DefaultConfiguration {
-  return {
-    indexerClientConnection: {
-      indexerHttpUrl: networkUrls.indexer,
-      indexerWsUrl: networkUrls.indexerWS,
-    },
-    provingServerUrl: new URL(networkUrls.proofServer),
-    relayURL: new URL(networkUrls.node.replace("http", "ws")),
-    networkId: networkId,
-    costParameters: {
-      feeBlocksMargin: DUST_FEE_BLOCKS_MARGIN,
-    },
-    txHistoryStorage: new InMemoryTransactionHistoryStorage(
-      TransactionHistoryStorage.TransactionHistoryCommonSchema,
-    ),
-  };
-}
-
-export async function buildWalletFacade(
-  networkUrls: Required<NetworkUrls>,
-  seed: string,
-  networkId: NetworkId.NetworkId,
-): Promise<WalletResult> {
-  const seedBuffer = Buffer.from(seed, "hex");
-  const hdResult = HDWallet.fromSeed(seedBuffer);
-  if (hdResult.type !== "seedOk") {
-    throw new Error(`Failed to create HD wallet: ${hdResult.type}`);
-  }
-  const derivation = hdResult.hdWallet
-    .selectAccount(0)
-    .selectRoles([Roles.Zswap, Roles.NightExternal, Roles.Dust])
-    .deriveKeysAt(0);
-  if (derivation.type !== "keysDerived") {
-    throw new Error(`Key derivation failed: ${derivation.type}`);
-  }
-  hdResult.hdWallet.clear();
-
-  const shieldedSeed = Buffer.from(derivation.keys[Roles.Zswap]);
-  const dustSeed = Buffer.from(derivation.keys[Roles.Dust]);
-  const unshieldedSeed = Buffer.from(derivation.keys[Roles.NightExternal]);
-
-  const zswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
-  const dustSecretKey = DustSecretKey.fromSeed(dustSeed);
-  const unshieldedKeystore = createKeystore(unshieldedSeed, networkId);
-  const unshieldedAddress = unshieldedKeystore.getBech32Address().asString();
-
-  const config = createWalletConfiguration(networkUrls, networkId);
-  const dustParameters = LedgerParameters.initialParameters().dust;
-
-  const wallet = await WalletFacade.init({
-    configuration: config,
-    shielded: (cfg) => ShieldedWallet(cfg).startWithSecretKeys(zswapSecretKeys),
-    unshielded: (cfg) =>
-      UnshieldedWallet(cfg).startWithPublicKey(PublicKey.fromKeyStore(unshieldedKeystore)),
-    dust: (cfg) =>
-      DustWallet(cfg).startWithSecretKey(dustSecretKey, dustParameters),
-  });
-
-  await wallet.start(zswapSecretKeys, dustSecretKey);
-
-  return {
-    wallet,
-    zswapSecretKeys,
-    walletZswapSecretKeys: zswapSecretKeys,
-    dustSecretKey,
-    walletDustSecretKey: dustSecretKey,
-    dustAddress: "",
-    unshieldedAddress,
-    unshieldedKeystore,
-  };
 }
 
 export async function waitForDustFunds(
@@ -686,7 +539,6 @@ const getContractAddress = async (): Promise<string> => {
 
 // Separate functions for Web App use
 // Global variables updated to hold new types
-let globalWallet: WalletFacade | null = null;
 let globalProviders: CounterProviders | null = null;
 let globalCounterContract: DeployedCounterContract | null = null;
 
@@ -694,62 +546,12 @@ const connectMidnightWallet = async (): Promise<{
   wallet: WalletFacade;
   providers: CounterProviders;
 }> => {
-  // Reuse cached wallet — first build is slow (WASM init + chain scan).
-  if (globalWallet && globalProviders) {
-    console.log("♻️  Reusing already-built Midnight wallet");
-    return { wallet: globalWallet, providers: globalProviders };
-  }
-
-  console.log("🔗 Building Midnight wallet with genesis seed...");
-
-  const midnightNodeUrl = await getMidnightNodeUrl();
-  const config = new StandaloneConfig(midnightNodeUrl);
-  
-  // New Modular Wallet Construction
-  const networkUrls = {
-      indexer: config.indexer,
-      indexerWS: config.indexerWS,
-      node: config.node,
-      proofServer: config.proofServer
-  };
-  
-  // Use MIDNIGHT_NETWORK_ID from config/env
-  const networkId = MIDNIGHT_NETWORK_ID as NetworkId.NetworkId;
-  
-  console.log(`Using network ID: ${networkId}`);
-  
-  const walletResult = await buildWalletFacade(networkUrls, GENESIS_MINT_WALLET_SEED, networkId);
-  console.log("✅ Wallet built successfully");
-
-  // Sync and wait for funds
-  const { shieldedBalance, unshieldedBalance, dustBalance } = await syncAndWaitForFunds(walletResult);
-  console.log(`✅ Wallet synced. Shielded: ${shieldedBalance}, Dust: ${dustBalance}, Unshielded: ${unshieldedBalance}`);
-
-  const providers = await configureProviders(walletResult, config);
-  console.log("✅ Providers configured successfully");
-
-  // We attach the `state` observable mapping for UI compatibility
-  const walletFacade = walletResult.wallet;
-  
-  // Helper to map state for UI
-  const originalState = walletFacade.state;
-  // @ts-ignore - Monkey patching for compatibility
-  walletFacade.state = () => originalState.call(walletFacade).pipe(
-    Rx.map((s: any) => {
-      // Map shielded address to top level address property for UI
-      const address = s.shielded?.address?.coinPublicKeyString?.() || "";
-      return {
-        ...s,
-        address
-      };
-    })
-  );
-
-  // Store globally for later use
-  globalWallet = walletFacade as any;
-  globalProviders = providers;
-
-  return { wallet: walletFacade as any, providers };
+  const connected = await connectMidnightLocalWallet({
+    sync: syncAndWaitForFunds,
+    configure: configureProviders,
+  });
+  globalProviders = connected.providers;
+  return connected;
 };
 
 const connectToContract = async (

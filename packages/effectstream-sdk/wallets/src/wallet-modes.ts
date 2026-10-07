@@ -22,7 +22,7 @@ import {
 import { AddressType } from "@effectstream/utils/types";
 import { formatError } from "./helpers/format-error.ts";
 import type { MidnightApi } from "./midnight/midnight.ts";
-import type {} from "./midnight/local.ts";
+import type { MidnightLocalConnectArgs } from "./midnight/local.ts";
 import type { SolanaApi } from "./solana/solana.ts";
 import type { Chain } from "viem/chains";
 import { Wallet } from "ethers";
@@ -78,12 +78,7 @@ export type LoginInfoMap = {
   [WalletMode.Midnight]: BaseLoginInfo<MidnightApi> & {
     networkId?: string;
   };
-  [WalletMode.MidnightLocal]: {
-    /** 64-char hex seed. Generated when omitted. */
-    seed?: string;
-    /** Midnight network id ("undeployed" | "testnet" | …) — sets the bech32 prefix. */
-    networkId: string;
-  };
+  [WalletMode.MidnightLocal]: MidnightLocalConnectArgs;
   [WalletMode.Solana]: BaseLoginInfo<SolanaApi>;
 };
 

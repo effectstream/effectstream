@@ -2,21 +2,50 @@ const BASE_URL_API = import.meta.env.VITE_API_URL || "http://127.0.0.1:9999";
 const BASE_URL_BATCHER = import.meta.env.VITE_BATCHER_URL || "http://localhost:3334";
 const BASE_URL_DOCS = "http://127.0.0.1:10600";
 
-// These can be overridden by env vars if needed
-export const BASE_URL_MIDNIGHT_INDEXER = import.meta.env.VITE_MIDNIGHT_INDEXER_HTTP || `http://127.0.0.1:8088`;
-export const BASE_WS_MIDNIGHT_INDEXER = import.meta.env.VITE_MIDNIGHT_INDEXER_WS || `ws://127.0.0.1:8088`;
-export const BASE_URL_MIDNIGHT_NODE = import.meta.env.VITE_MIDNIGHT_NODE_HTTP || `http://127.0.0.1:9944`;
-export const BASE_URL_PROOF_SERVER = import.meta.env.VITE_MIDNIGHT_PROOF_SERVER_URL || `http://127.0.0.1:6300`;
 export const MIDNIGHT_NETWORK_ID = import.meta.env.VITE_MIDNIGHT_NETWORK_ID || "undeployed";
 
-export const getMidnightNodeUrl = async (): Promise<string> => {
-  return BASE_URL_MIDNIGHT_NODE;
+export type MidnightFrontendNetworkUrls = {
+  indexer: string;
+  indexerWS: string;
+  node: string;
+  proofServer: string;
 };
 
-export const BASE_URL_MIDNIGHT_INDEXER_API =
-  `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
-export const BASE_URL_MIDNIGHT_INDEXER_WS =
-  `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
+export function resolveMidnightLocalNetworkUrls(): MidnightFrontendNetworkUrls {
+  // Resolve these lazily. `connectMidnightLocalWallet` calls this only after
+  // rejecting every public network ID, so public selections never read or
+  // construct endpoints for the deterministic local wallet.
+  const indexer = import.meta.env.VITE_MIDNIGHT_INDEXER_HTTP ||
+    "http://127.0.0.1:8088";
+  const indexerWS = import.meta.env.VITE_MIDNIGHT_INDEXER_WS ||
+    "ws://127.0.0.1:8088";
+
+  return {
+    indexer: `${indexer}/api/v3/graphql`,
+    indexerWS: `${indexerWS}/api/v3/graphql/ws`,
+    node: import.meta.env.VITE_MIDNIGHT_NODE_HTTP || "http://127.0.0.1:9944",
+    proofServer: import.meta.env.VITE_MIDNIGHT_PROOF_SERVER_URL ||
+      "http://127.0.0.1:6300",
+  };
+}
+
+const UNDEPLOYED_GENESIS_MINT_WALLET_SEED =
+  "0000000000000000000000000000000000000000000000000000000000000001";
+
+export function assertMidnightLocalUndeployed(
+  networkId: string,
+): asserts networkId is "undeployed" {
+  if (networkId !== "undeployed") {
+    throw new Error(
+      `MidnightLocal supports only the undeployed local network. Selected "${networkId}" requires a supported external signer/profile; no public-network signer is configured.`,
+    );
+  }
+}
+
+export function resolveUndeployedGenesisSeed(networkId: string): string {
+  assertMidnightLocalUndeployed(networkId);
+  return UNDEPLOYED_GENESIS_MINT_WALLET_SEED;
+}
 
 export const CONFIG_ENDPOINT = `${BASE_URL_API}/config`;
 export const PRIMITIVES_ENDPOINT = `${BASE_URL_API}/primitives`;
