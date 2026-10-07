@@ -24,6 +24,7 @@ import type { AllSyncProtocols } from "@effectstream/sync";
 import { poolErrors } from "@effectstream/db";
 import { appliedBlockStatus } from "./apply-status.ts";
 import { finalizedStreamStatus } from "./stream-status.ts";
+import { Type } from "@sinclair/typebox";
 
 /**
  * Node-level rollup. `ok` and `degraded` answer 200; `starting`, `stalled` and
@@ -64,6 +65,11 @@ export type ProtocolHealth = {
   buffered: number;
   bufferCap: number;
   paused: boolean;
+  /**
+   * Protocol-specific fields (`SyncState.healthDetails`), when the protocol has
+   * any: e.g. the Solana sync's mode and RPC calls per method since start.
+   */
+  details?: Record<string, unknown>;
 };
 
 export type HealthReport = {
@@ -154,6 +160,7 @@ function protocolHealth(
     status = "ok";
   }
 
+  const details = protocol.healthDetails();
   return {
     name: protocol.name,
     status,
@@ -168,6 +175,7 @@ function protocolHealth(
     buffered: protocol.bufferedData.size(),
     bufferCap: protocol.bufferCap,
     paused: protocol.pausedNow,
+    ...(details != null ? { details } : {}),
   };
 }
 
@@ -233,3 +241,44 @@ export function buildHealthReport(
 export function healthHttpStatus(status: HealthStatus): 200 | 503 {
   return status === "ok" || status === "degraded" ? 200 : 503;
 }
+
+const HealthDbSchema = Type.Object({
+  consecutive: Type.Number(),
+  firstFailureAt: Type.Number(),
+  sustainedDurationMs: Type.Number(),
+  sustained: Type.Boolean(),
+});
+const HealthProtocolSchema = Type.Object({
+  name: Type.String(),
+  status: Type.String(),
+  ownBlockNumber: Type.Union([Type.Number(), Type.Null()]),
+  sinceLastPollMs: Type.Union([Type.Number(), Type.Null()]),
+  sinceLastSuccessfulFetchMs: Type.Union([Type.Number(), Type.Null()]),
+  consecutiveErrors: Type.Number(),
+  producerRestarts: Type.Number(),
+  producerErrors: Type.Number(),
+  sinceLastProducerErrorMs: Type.Union([Type.Number(), Type.Null()]),
+  blockingMerge: Type.Boolean(),
+  buffered: Type.Number(),
+  bufferCap: Type.Number(),
+  paused: Type.Boolean(),
+  // Free-form per protocol (see ProtocolHealth.details); the response
+  // serializer drops any property the schema does not name.
+  details: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+});
+/** The `/health` response schema (200 and 503). */
+export const HealthResponseSchema = Type.Object({
+  status: Type.String(),
+  db: HealthDbSchema,
+  apply: Type.Object({
+    blockHeight: Type.Union([Type.Number(), Type.Null()]),
+    sinceLastAppliedMs: Type.Number(),
+    lagMs: Type.Union([Type.Number(), Type.Null()]),
+  }),
+  finalizedStream: Type.Object({
+    produced: Type.Number(),
+    consumed: Type.Number(),
+    inFlight: Type.Number(),
+  }),
+  protocols: Type.Array(HealthProtocolSchema),
+});

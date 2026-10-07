@@ -182,6 +182,14 @@ export abstract class SyncState<
    */
   abstract mergeDatum(ourOutput: Output, rootOutput: RootOutput): void;
 
+  /**
+   * Protocol-specific fields for `/health` (`protocols[].details`), e.g. the
+   * Solana sync's mode and RPC calls per method. None by default.
+   */
+  healthDetails(): Record<string, unknown> | undefined {
+    return undefined;
+  }
+
   recordBackpressure(atCap: boolean, cap: number): void {
     this.bufferCap = cap;
     const now = Date.now();
