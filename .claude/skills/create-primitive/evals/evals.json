@@ -1,0 +1,19 @@
+{
+  "skill_name": "create-primitive",
+  "evals": [
+    {
+      "id": 0,
+      "name": "midnight-commitment-create",
+      "prompt": "I want the node to be able to track zswap coin commitments as they're created on Midnight (the shielded analog of what we already do for nullifier spends) so app code can maintain a created-commitments set. Add a primitive for this through the SDK and give it e2e coverage like the other midnight primitives have.",
+      "expected_output": "New Midnight:CommitmentCreate-style primitive: builtin.ts constant + union, grammar + class files under sm/primitives/src/, mod.ts registration, MidnightClient fetch option + query field, fetcher dispatch + deterministic emission with txHash, e2e/midnight wiring (config/grammar/node/SQL) + run-tests assertions incl. primitive_accounting, plus an on-chain trigger plan.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "evm-native-transfer",
+      "prompt": "add a primitive that tracks native ETH transfers (value > 0 plain sends, not contract calls) on our EVM sync so the state machine can react to deposits. wire it up properly in the sdk and make sure there's test coverage",
+      "expected_output": "New EVM:NativeTransfer-style primitive following the same checklist against the EVM sync protocol: builtin constant + union, grammar + class, mod.ts registration, EVM client/fetcher wiring with deterministic per-block emission including tx hash, consumer wiring + e2e coverage in the EVM suite.",
+      "files": []
+    }
+  ]
+}
