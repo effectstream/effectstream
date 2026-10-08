@@ -84,7 +84,8 @@ the node starts, and the Solana operator from a faucet.
 | `PASSPORT_BUNDLE_DIR` | no | default: the delivery-passport package's `bundle/account` |
 | `BRIDGE_DELIVERY_NOT_FOUND_GRACE_MS` | no | default 600000 |
 | `BRIDGE_NODE_IMAGE`, `BRIDGE_MEM_LIMIT`, `BRIDGE_TEMPLATE_DIR` | no | `oven/bun:1.3.11`, `4g`, see above |
-| `BRIDGE_SOLANA_GETBLOCK_CONCURRENCY`, `BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS`, `BRIDGE_SOLANA_STEP_SIZE`, `BRIDGE_SOLANA_RATE_LIMIT_RETRIES`, `BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS`, `BRIDGE_SOLANA_MAX_TX_VERSION` | no | how the node reads Solana blocks (template README, Configuration): 8 `getBlock` calls in flight, 24-slot steps, version-1 transactions |
+| `BRIDGE_SOLANA_SYNC_MODE`, `BRIDGE_SOLANA_POLL_MS` | no | how the node reads Solana (template README, How the node reads Solana): `program` (the live default: only the bridge program's transactions, one poll per 6 s) or `block` (every slot). A database synced in one mode does not start in the other |
+| `BRIDGE_SOLANA_GETBLOCK_CONCURRENCY`, `BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS`, `BRIDGE_SOLANA_STEP_SIZE`, `BRIDGE_SOLANA_RATE_LIMIT_RETRIES`, `BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS`, `BRIDGE_SOLANA_MAX_TX_VERSION` | no | how the node reads Solana blocks in block mode (template README, Configuration): 8 `getBlock` calls in flight, 24-slot steps, version-1 transactions; the rate-limit and version settings apply to both modes |
 | `BRIDGE_ORCHESTRATOR_CONFIG` | no | the orchestrator config, default `start.live.ts` (a test can pass one where the node process is not critical, as `packages/tests/start.test.ts` does) |
 | `BRIDGE_ORCHESTRATOR_API` | no | `1` starts the orchestrator's process API on the container's port 4747 (not published, but reachable on the stack network): for tests that stop or kill the node process alone. Off by default |
 

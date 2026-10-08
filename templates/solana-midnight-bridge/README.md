@@ -67,7 +67,7 @@ onchain-runtime, so ledger values cross the boundary unchanged.
 | `@effectstream/sm` state machine | `packages/node/state-machine.ts`, `packages/node/stf-logic.ts` | Idempotent transfer rows, completion decided from chain data |
 | Grammar (`builtinGrammars.solanaProgramLog`, `builtinGrammars.midnightGeneric`) | `packages/node/grammar.ts` | One input per watched contract |
 | NTP main sync protocol (`ConfigSyncProtocolType.NTP_MAIN`) | `packages/node/config.ts` | One ordered timeline for two chains |
-| Solana sync via `PrimitiveTypeSolanaProgramLog` (`SOLANA_RPC_PARALLEL`) | `packages/node/config.ts` | The program's `LOCK` and `RELEASE` log lines |
+| Solana sync via `PrimitiveTypeSolanaProgramLog` (`SOLANA_RPC_PARALLEL`, `mode: "program"` live) | `packages/node/config.ts` | The program's `LOCK` and `RELEASE` log lines, read by signature (only the program's transactions) |
 | Midnight contract state via `PrimitiveTypeMidnightGeneric` + `midnightLedgerFromTxStateHex` | `packages/node/config.ts` | The contract's `mintedLocks` and `withdrawals` maps |
 | Custom API routes (`StartConfigApiRouter`) | `packages/node/api.ts` | `GET /transfers`, `GET /transfers/:id` |
 | Embedded batcher (`createNewBatcher`, `enableHttpServer: false`) | `packages/node/relayer/batcher.ts` | The relayer's submissions, never exposed over HTTP |
@@ -276,6 +276,18 @@ Delivery into contracts changed two things that an existing deployment must act 
 The CLI also no longer refuses amounts above 18.44 tokens (its early check used 18 decimals); the
 range is now checked with the mint's own decimals.
 
+**The program-scoped Solana sync (AA 00064) is breaking too:**
+
+- **A live node reads only the bridge program now** (`BRIDGE_SOLANA_SYNC_MODE=program`, the live
+  default; see How the node reads Solana). Local mode keeps block mode.
+- **Each mode refuses the other mode's database.** A node synced in block mode does not start in
+  program mode (and the reverse): its saved resume point has no cursor. There is no migration.
+  Stop the node once every transfer has completed, move the deployment's start slot to just after
+  the last completed transfer, and start on a new database.
+- **The Effectstream block hashes differ** between the modes (program mode records the first
+  signature of each slot it reads instead of the block hash). Both are deterministic; the bridge
+  uses no randomness.
+
 ## Project structure
 
 ```
@@ -322,7 +334,8 @@ the node, relayer, CLI and tests need. It never holds a secret.
    PDA and logs `EFFECTSTREAM_BRIDGE|LOCK|<nonce>|<depositor>|<mint>|<amount>|<recipientHex128>`.
    The recipient is the whole shielded address, coin public key plus encryption public key,
    because a shielded mint to someone else needs both.
-2. The node sees the log (after 32 confirmations) and upserts `s2m:<nonce>` as `observed`.
+2. The node sees the log (live: at the first poll after its slot is finalized, at most 6 s later;
+   local: after 32 confirmations) and upserts `s2m:<nonce>` as `observed`.
 3. The relayer signs `"SMBRDG1:" ‖ mintDigest(contract, networkTag, nonce, recipient, amount)`
    with the operator's Solana key and queues `mintFromSolana` on its embedded batcher, with the
    recipient's key pair in `coinEncPublicKeyMappings`. The digest comes from the contract's own
@@ -349,6 +362,76 @@ the node, relayer, CLI and tests need. It never holds a secret.
 
 Supply is conserved: once every transfer has completed, the vault holds exactly what has been
 minted on Midnight minus what has been burned there.
+
+### How the node reads Solana
+
+The node's Solana sync has two modes (`BRIDGE_SOLANA_SYNC_MODE`, the engine's
+`SOLANA_RPC_PARALLEL` `mode`):
+
+- **`program`, the live default: only the bridge program's own transactions.** Every
+  `BRIDGE_SOLANA_POLL_MS` (6 s) one poll asks:
+  1. `getSlot` at `finalized` for the tip (a root: it never rolls back);
+  2. `getBlockTime` of that slot, for the chain's time (stepping back over a skipped slot);
+  3. `getSignaturesForAddress` of the program at `finalized`, 10 entries first, then pages of
+     1,000 back to the last transaction it already has (never `until`: an RPC answers an unknown
+     `until` with an empty list and no error);
+  4. `getTransaction` for each new transaction, oldest first. Failed transactions are skipped.
+
+  An idle node therefore makes 3 calls per poll, about **43,200 a day** (Helius bills 1 credit
+  per call), plus 1 per lock or release. The parser sees the same transactions block mode would,
+  with the same records, in the same order (slot, then position in the block).
+- **`block`, the local default: every slot.** `getSlot` at `confirmed` minus
+  `BRIDGE_SOLANA_CONFIRMATION_DEPTH` (32), then `getBlock` for every slot, 8 at a time. Devnet
+  makes about 4.19 slots a second, so a node at the tip makes about **450,000 calls a day**.
+
+What program mode guarantees:
+
+- **Only finalized data**, and nothing past the tip it read: signatures the RPC already indexed
+  above that tip wait for the next poll.
+- **Exactly once across restarts.** The resume point is a cursor (the newest slot read and its
+  signatures). It is saved with each Effectstream block, in the same database transaction, so a
+  restart continues after the last committed transaction. The relayer's guards (`mintedLocks`,
+  the release receipts) remain a backstop.
+- **All or nothing per poll.** A call that still fails after its retries (HTTP 429 waits
+  `Retry-After` or a doubling backoff, up to `BRIDGE_SOLANA_RATE_LIMIT_RETRIES`; other errors 3
+  attempts) fails the whole poll: nothing changes, and the next poll starts again from the cursor.
+- **Deterministic.** Every time it reports is a chain `blockTime` (each transaction's own, and the
+  tip's for progress); it never reads the wall clock. A lock lands in the same Effectstream block
+  as in block mode.
+- **One poll per interval, always,** with or without new transactions. Block mode, by contrast,
+  never rests at the tip.
+
+What it costs in time (measured in AA 00064 on the local stack, a program-mode node next to a
+block-mode one over the same validator and deployment):
+
+- **A lock is seen at the first poll after its slot is finalized:** +2.7 s and +4.5 s after the
+  block-mode node, at most about one poll (6 s). A bridge-out's release completed +0.1 s and
+  +0.4 s after it. On devnet, `finalized` runs within a few slots of the newest slot, about 32 slots
+  (~8 s) ahead of block mode's `confirmed` minus 32, which offsets most of the poll.
+- **Midnight-side observations can wait up to one poll longer.** The node merges both chains on
+  one timeline, and in program mode the Solana side's progress moves once per poll, so the
+  Effectstream blocks waiting on it are finalized in one burst per poll instead of one by one. On
+  the emulated test stack a burn reached `completed` in 34.8 s (block mode on that harness:
+  25.3 s).
+- **A slow first mint can outlast the relayer's first retry** (120 s after the submission, the
+  `s2m` backoff in `packages/node/relayer/policy.ts`). On the emulated test stack the first mint
+  of a fresh stack took about 130 s to be seen on Midnight. The retry's pre-check found the lock
+  already in `mintedLocks` and sent nothing (`attempts` 2, `already settled on chain`), so the
+  transfer still completed exactly once.
+
+**An RPC without `transactionIndex`.** Program mode orders the transactions of one slot by
+`transactionIndex`. The devnet RPC and Helius (solana-core 4.4) return it; Agave's
+`solana-test-validator` (3.0.14, the local stack) does not. Without it the node orders them by the
+RPC's list order (Agave lists them by index), warns once per start, and counts `indexFallbacks` on
+`/health`. The primitives' `logIndex` may then differ from block mode's; the bridge never reads it.
+
+`GET /health` shows, under `protocols[]` for `parallelSolana`, `details`: the mode, the RPC calls
+per method since start (`rpcCalls`), and in program mode the interval, polls (`polls`,
+`idlePolls`, `failedPolls`), the transactions emitted, `lateSignatures` (entries that turned up at
+or below a tip an earlier poll had already read; expected 0), `indexFallbacks`, the progress (tip
+slot and its `blockTime`) and the cursor. The node's start-up line shows the mode and the interval
+(`solanaSync=program poll=6000ms`), and program mode logs one line per poll that found
+transactions plus a summary every 100 polls.
 
 ### Contracts
 
@@ -549,11 +632,22 @@ two nodes; `deploy/standin/compose.bridge.yml` runs a node as a container, once 
   nothing is minted, delivered or released twice. But it takes longer as the chains grow, and the
   Solana validator must still hold the deployment's start slot (see below). Only a restart of the
   node process inside a running orchestrator keeps the database.
-- **Devnet RPC rate limits.** The node reads one `getBlock` per slot. The public devnet RPC
-  allows about 6 per 10 s, far below devnet's ~2.5 slots/s, so a node on it falls behind: use a
-  private RPC (put its URL in `SOLANA_DEVNET_RPC_URL_FILE`). The reader backs off on HTTP 429 and
-  can be paced (`BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS`). A sync that reads only the bridge
-  program's own transactions (by signature) would need far fewer requests; it is not built yet.
+- **Devnet RPC rate limits (block mode).** In block mode the node reads one `getBlock` per slot.
+  The public devnet RPC allows about 6 per 10 s, far below devnet's ~4.19 slots/s, so a node on it
+  falls behind: use a private RPC (put its URL in `SOLANA_DEVNET_RPC_URL_FILE`). The reader backs
+  off on HTTP 429 and can be paced (`BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS`). Program mode, the
+  live default, needs only about 3 calls per 6 s (see How the node reads Solana).
+- **Program mode reads only `SOLANA:ProgramLog` primitives.** The engine refuses to start it with
+  any other Solana primitive: `getSignaturesForAddress` cannot find every balance change.
+- **A node exits at its 65,536th Effectstream block since start, in either mode** (about 18 h at
+  the tip; AA issue 00066 in the maintainers' workspace; not caused by program mode). The engine's
+  embedded MQTT broker forwards one QoS 2 message per block to an in-process client, its packet id
+  wraps to 0, the broker drops that client, and the client's `close()` throws an unhandled
+  rejection that ends the process; any broker-side close of that client does the same. Program
+  mode only reaches it sooner when it catches up a long backlog (days of history in minutes). Run
+  the node under a supervisor that restarts it (systemd `Restart=on-failure` does), on Postgres:
+  it resumes from its cursor. Under the dev orchestrator with PGlite the restart also loses the
+  database (above).
 - **Proof server 9.0.0-rc.8 runs from Docker** until a binary is published, and it needs about
   4 GiB of memory for a mint proof.
 - **The local validator's RPC is reachable from your network.** `solana-test-validator` (Agave
@@ -600,11 +694,14 @@ Local mode needs no configuration. These variables exist:
 | `BRIDGE_PUBLIC_API` | `http://127.0.0.1:$EFFECTSTREAM_API_PORT` | The `api` field of `GET /deployment` |
 | `BRIDGE_RECORD_NAME`, `BRIDGE_RECORD_SYMBOL` | unset | `name` and `symbol` in `GET /deployment` |
 | `BRIDGE_RELAYER_MINT_TIMEOUT_MS`, `BRIDGE_RELAYER_RELEASE_TIMEOUT_MS` | `900000`, `240000` | Per-submission wait |
-| `BRIDGE_SOLANA_CONFIRMATION_DEPTH`, `BRIDGE_SOLANA_STEP_SIZE`, `BRIDGE_SOLANA_POLLING_MS`, `BRIDGE_SOLANA_DELAY_MS` | `32`, `10`/`24`, `2000`/`4000`, `2400`/`6000` (local/live) | Solana sync |
-| `BRIDGE_SOLANA_GETBLOCK_CONCURRENCY` | `8` | Most `getBlock` calls in flight (one call takes ~0.5 s even on a private RPC, devnet makes ~2.5 slots/s); halved after a rate-limited batch, grown back after clean ones. Blocks are still applied strictly in slot order |
-| `BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS` | `0` | Minimum spacing between `getBlock` calls, e.g. `1700` for the public devnet RPC (6 calls / 10 s) |
-| `BRIDGE_SOLANA_RATE_LIMIT_RETRIES`, `BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS`, `BRIDGE_SOLANA_RATE_LIMIT_MAX_BACKOFF_MS` | `10`, `500`, `15000` | On HTTP 429: wait (`Retry-After`, else a doubling backoff) and ask again, so a rate limit slows the node instead of stopping it |
-| `BRIDGE_SOLANA_MAX_TX_VERSION` | `1` | `maxSupportedTransactionVersion` of `getBlock` (devnet blocks hold version-1 transactions; a block's -32015 hint raises it, an RPC that rejects it falls back to 0) |
+| `BRIDGE_SOLANA_SYNC_MODE` | `block`/`program` (local/live) | How the node reads Solana: `program` (only the bridge program's transactions) or `block` (every slot); see How the node reads Solana. Anything else refuses to start |
+| `BRIDGE_SOLANA_POLL_MS` | `6000` | Program mode: one poll per this many ms, always. An integer of at least `1000`, or the node refuses to start |
+| `BRIDGE_SOLANA_DELAY_MS` | `2400`/`6000` (local/live) | Both modes: added to every Solana time in the merge with Midnight (keep it the same when switching modes) |
+| `BRIDGE_SOLANA_CONFIRMATION_DEPTH`, `BRIDGE_SOLANA_STEP_SIZE`, `BRIDGE_SOLANA_POLLING_MS` | `32`, `10`/`24`, `2000`/`4000` (local/live) | Block mode only (program mode warns once and ignores them) |
+| `BRIDGE_SOLANA_GETBLOCK_CONCURRENCY` | `8` | Block mode only. Most `getBlock` calls in flight (one call takes ~0.5 s even on a private RPC, devnet makes ~4.19 slots/s); halved after a rate-limited batch, grown back after clean ones. Blocks are still applied strictly in slot order |
+| `BRIDGE_SOLANA_GETBLOCK_MIN_INTERVAL_MS` | `0` | Block mode only. Minimum spacing between `getBlock` calls, e.g. `1700` for the public devnet RPC (6 calls / 10 s) |
+| `BRIDGE_SOLANA_RATE_LIMIT_RETRIES`, `BRIDGE_SOLANA_RATE_LIMIT_BACKOFF_MS`, `BRIDGE_SOLANA_RATE_LIMIT_MAX_BACKOFF_MS` | `10`, `500`, `15000` | Both modes. On HTTP 429: wait (`Retry-After`, else a doubling backoff) and ask again, so a rate limit slows the node instead of stopping it (program mode honours only a `Retry-After` in seconds, never a date: it reads no clock) |
+| `BRIDGE_SOLANA_MAX_TX_VERSION` | `1` | Both modes. `maxSupportedTransactionVersion` of `getBlock` and `getTransaction` (devnet holds version-1 transactions; a -32015 hint raises it, an RPC that rejects it falls back to 0) |
 | `BRIDGE_MIDNIGHT_POLLING_MS`, `BRIDGE_MIDNIGHT_DELAY_MS` | `1000`, `6000`/`18000` | Midnight sync |
 | `BRIDGE_API_URL` | `http://localhost:9999` | CLI |
 | `EFFECTSTREAM_API_PORT` | `9999` | Node API port (and the CLI's default URL) |
@@ -699,6 +796,13 @@ bun run test
 > refusals, a wallet lock alongside, restarts (node process killed mid-proof, whole container
 > killed, database wiped) and two deployments side by side all held, with exactly one delivery per
 > lock. Peak memory of that whole stack: 10.9 GiB.
+>
+> The end-to-end suite runs in local mode, so in block mode. Run in program mode
+> (`BRIDGE_SOLANA_SYNC_MODE=program`, 2026-10-07, AA 00064, the same emulated harness), it passed
+> 13 of 14: US2, the seven negatives, the restarts (the database wiped, the relayer killed three
+> ways) and the on-chain totals passed. US1's `relayer.attempts == 1` failed: the first mint
+> outlasted the relayer's 120 s retry, whose pre-check then found it on chain and sent nothing
+> (see How the node reads Solana).
 >
 > The template is not in the `ENABLED` list of `templates/run-template-tests.ts` yet, because CI
 > installs `@effectstream/*` from npm and this template needs the unreleased engine changes in

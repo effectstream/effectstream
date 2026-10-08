@@ -20,7 +20,10 @@ EffectStream reads Solana through its JSON-RPC, polling slots and attributing pr
 
 ### Sync Protocol
 
-The protocol type is `SOLANA_RPC_PARALLEL`. It polls `getSlot`, then reads every slot of the range with `getBlock`, several at a time, and applies the blocks strictly in slot order. **Skipped slots are normal on Solana** (no block was produced) and are passed over without error.
+The protocol type is `SOLANA_RPC_PARALLEL`. It reads Solana in one of two modes (`mode`):
+
+- **`block`** (the default): it polls `getSlot`, then reads every slot of the range with `getBlock`, several at a time, and applies the blocks strictly in slot order. **Skipped slots are normal on Solana** (no block was produced) and are passed over without error.
+- **`program`**: it reads only the transactions of the programs its `SOLANA:ProgramLog` primitives watch, by signature. See [Program mode](#program-mode) below.
 
 ```ts
 .buildSyncProtocols(builder =>
@@ -33,6 +36,7 @@ The protocol type is `SOLANA_RPC_PARALLEL`. It polls `getSlot`, then reads every
       pollingInterval: 2000,
       delayMs: 2400,
       confirmationDepth: 32,   // ~12.8s at 400ms slots
+      // mode: "block",        // optional - "block" (default) or "program"
       // stepSize: 10,         // optional - slots per fetch batch (default: 10)
       // getBlockConcurrency: 8,            // optional - getBlock calls in flight (default 8)
       // getBlockMinIntervalMs: 0,          // optional - minimum spacing between getBlock calls
@@ -44,13 +48,54 @@ The protocol type is `SOLANA_RPC_PARALLEL`. It polls `getSlot`, then reads every
 )
 ```
 
-**Reading speed and rate limits.** One `getBlock` takes about half a second even on a private RPC, and devnet produces about 2.5 slots a second, so blocks are fetched `getBlockConcurrency` at a time (8 by default) and still applied strictly in slot order: a slot that fails stops the scan there, and the next poll resumes at it. On HTTP 429 the fetcher waits (`Retry-After`, else a doubling backoff) without counting the wait as a failure, and halves its concurrency for the next batch; clean batches grow it back. `getBlockMinIntervalMs` paces the calls for a rate-limited RPC (the public devnet RPC allows about 6 `getBlock` per 10 s, too few for a node to keep up; use a private RPC).
+**Reading speed and rate limits.** One `getBlock` takes about half a second even on a private RPC, and devnet produces about 4 slots a second, so blocks are fetched `getBlockConcurrency` at a time (8 by default) and still applied strictly in slot order: a slot that fails stops the scan there, and the next poll resumes at it. On HTTP 429 the fetcher waits (`Retry-After`, else a doubling backoff) without counting the wait as a failure, and halves its concurrency for the next batch; clean batches grow it back. `getBlockMinIntervalMs` paces the calls for a rate-limited RPC (the public devnet RPC allows about 6 `getBlock` per 10 s, too few for a node to keep up; use a private RPC).
 
 **Transaction versions.** Devnet blocks hold version-1 transactions since solana-core 4.x. A block requested below its highest transaction version fails as a whole (-32015), so `getBlock` asks for `maxSupportedTransactionVersion: 1` (the `json` encoding of a v1 transaction has the same `accountKeys`, `instructions` and `logMessages` as a v0 one). A -32015 that names a higher version raises it once; an RPC that rejects the value falls back to 0. A transaction the reader cannot parse is skipped and counted, never fatal to its block.
 
 `confirmationDepth` is measured in **slots**, subtracted from the current slot to pick the frontier the fetcher will read up to. The default of 32 (~12.8 s) is a common mainnet trade-off between latency and reorg risk; on a local validator anything works.
 
 Block ordering uses `blockTime`, which Solana guarantees is monotonically non-decreasing. Its resolution is one second while slots are ~400 ms, so consecutive slots routinely share a timestamp — the merge disambiguates those by slot order, not by the timestamp.
+
+### Program mode
+
+Block mode makes one `getBlock` per slot whether anything happened or not: about 360,000 a day on devnet, plus a `getSlot` per pass, because at the tip the fetch loop never rests. An app that only watches its own programs can read just their transactions instead:
+
+```ts
+() => ({
+  name: "parallelSolanaRPC",
+  type: ConfigSyncProtocolType.SOLANA_RPC_PARALLEL,
+  mode: "program",
+  startBlockHeight: 0,
+  pollingInterval: 6000,   // one poll every 6 s, always
+  delayMs: 2400,
+})
+```
+
+Each poll, every `pollingInterval`, with or without new transactions:
+
+1. `getSlot` at `finalized`: the tip `F`, a root that never rolls back.
+2. `getBlockTime(F)`: the chain's time at the tip, stepping back over a skipped slot (at most 64 slots).
+3. Per watched program, `getSignaturesForAddress` at `finalized` with `minContextSlot: F`: a first page of 10, then pages of 1,000 with `before`, back to the last transaction already read. It never uses `until`: an RPC answers an unknown `until` with an empty list and no error, which would hide every new transaction.
+4. It keeps the entries at or below `F` (those above wait for the next poll), not yet read, and not failed, and fetches each with `getTransaction` (the same `maxSupportedTransactionVersion` handling as `getBlock`), oldest first.
+
+An idle poll is therefore 3 calls for one program: about 43,000 a day at 6 s. Each new transaction adds one `getTransaction`.
+
+The outputs feed the same parser, so the primitives are the records block mode gives, in the same order (slot, then index in the block), and each one's merge key is its own `blockTime` (plus `delayMs`). The progress mark after a poll is the tip's `blockTime`, so the merge with the other chains advances at the chain's pace. A transaction therefore lands in the same Effectstream block in both modes. The mode reads **no wall clock**: every time it uses comes from the chain, and it waits only with timers (a `Retry-After` HTTP date is ignored; the seconds form is honoured).
+
+The resume point is a **cursor**, the newest slot read and the signatures read in it. It rides in the resume marker the runtime saves with each block, in the same database transaction, so a restart continues after the last committed transaction with no gap and no duplicate. A poll succeeds or fails as a whole: a call that still fails after its retries (429 backoff as above; other errors 3 attempts) changes nothing, and the next poll starts again from the cursor.
+
+Limits and differences:
+
+- **Only `SOLANA:ProgramLog` primitives.** A token transfer need not list its mint, so `getSignaturesForAddress` cannot find every `AccountBalance` or `TokenAccount` change; program mode refuses to start with them.
+- `stepSize`, `confirmationDepth`, `getBlockConcurrency` and `getBlockMinIntervalMs` do not apply (`stepSize` still sizes the buffer cap when `maxBufferedPages` is unset).
+- **Each mode refuses the other mode's database** (a program-mode resume marker carries a cursor, a block-mode one does not). There is no migration; switch modes on a new database.
+- The Effectstream block hash differs from block mode's: program mode records each slot's first signature in `blockInfo`, since it has no block hash. It is still deterministic.
+- `logIndex` is the transaction's index in its block, from `transactionIndex`. The devnet RPC and Helius (solana-core 4.4) return it in both `getSignaturesForAddress` and `getTransaction`; **Agave's `solana-test-validator` (3.0.14) does not**. Without it, transactions of one slot are ordered by the RPC's list order (Agave lists them by index), the node warns once per start, `/health` counts `indexFallbacks`, and `logIndex` may then differ from block mode's.
+- **Latency.** A transaction is seen at the first poll after its slot is finalized. Block mode reads up to `confirmed` minus `confirmationDepth` instead. On a single-node local validator those two tips are about level, so program mode sees a transaction up to one `pollingInterval` later: measured with a 6 s interval, +2.7 s and +4.5 s. On devnet `finalized` was measured within a few slots of `processed`, about 32 slots (~8 s) ahead of `confirmed` − 32, which offsets most of the poll (not measured end to end).
+- **Inputs from the other chains can wait up to one interval longer.** The Solana side's progress moves once per poll, so the merge finalizes the Effectstream blocks waiting on it in one burst per poll instead of one by one. In the bridge template on an emulated test stack, a Midnight burn reached `completed` in 34.8 s instead of 25.3 s.
+- **A node exits at its 65,536th Effectstream block since start, in either mode** (a known engine issue: the embedded MQTT broker's packet id wraps to 0, and the in-process client's close throws; any broker-side close of that client ends the process the same way). Program mode does not cause it, but catching up a long backlog is fast, so a node re-syncing days of history can reach it within minutes. Run nodes under a supervisor that restarts them, on a database that survives the restart (Postgres): the node resumes from its cursor.
+
+`/health` reports, under each Solana protocol's `details`, the mode and the RPC calls per method since start (both modes), and in program mode the interval, polls (`polls`, `idlePolls`, `failedPolls`), the transactions emitted, `lateSignatures` (entries that turned up at or below a tip an earlier poll had already read; expected 0), `indexFallbacks`, the progress (tip slot and `blockTime`) and the cursor.
 
 ### Primitives
 

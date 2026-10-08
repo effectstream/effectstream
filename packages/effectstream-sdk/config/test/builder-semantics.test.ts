@@ -711,3 +711,47 @@ test("fully explicit legacy chain preserves namespace, deployments, and values",
   });
   expect(built.primitives.legacy.primitive.name).toBe("legacy");
 });
+
+test("Solana's sync mode defaults to block; program is kept (AA 00064)", () => {
+  // `any` builders: this checks the materialized values, not the builder's typing.
+  const build = (mode?: "block" | "program") =>
+    new ConfigBuilder()
+      .buildNetworks((builder: any) =>
+        builder
+          .addNetwork({ type: ConfigNetworkType.NTP })
+          .addNetwork({
+            name: "solana",
+            type: ConfigNetworkType.SOLANA,
+            rpcUrl: "http://127.0.0.1:8899",
+            networkId: "localnet",
+          })
+      )
+      .buildSyncProtocols((builder: any) =>
+        builder
+          .addMain(
+            (networks: any) => networks.ntp,
+            () => ({
+              name: "ntp",
+              type: ConfigSyncProtocolType.NTP_MAIN,
+              startBlockHeight: 1,
+            }),
+          )
+          .addParallel(
+            (networks: any) => networks.solana,
+            () => ({
+              name: "solana",
+              type: ConfigSyncProtocolType.SOLANA_RPC_PARALLEL,
+              startBlockHeight: 7,
+              pollingInterval: 6_000,
+              ...(mode ? { mode } : {}),
+            }),
+          )
+      );
+
+  const solanaOf = (mode?: "block" | "program") =>
+    ((build(mode) as any).data.syncProtocols?.parallel as any).solana.syncProtocol;
+  expect(solanaOf().mode).toBe("block");
+  expect(solanaOf("block").mode).toBe("block");
+  expect(solanaOf("program").mode).toBe("program");
+  expect(solanaOf("program").pollingInterval).toBe(6_000);
+});
