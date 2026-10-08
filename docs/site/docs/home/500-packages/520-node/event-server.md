@@ -81,6 +81,18 @@ owned by that broker instance, not unrelated application or process handles.
 the same asynchronous work and log any rejection, but callers that need a
 deterministic lifecycle boundary should await `start()` and `shutdown()`.
 
+### Known issue: a node exits after 65,536 forwarded QoS 2 messages
+
+The runtime publishes `RollupBlock` on every block at QoS 2, and an in-process
+client subscribes to it, so the broker forwards one QoS 2 message per block.
+opifex's server-side packet id wraps from 65,535 to 0 (its client wraps to 1),
+id 0 cannot be encoded for QoS 1/2, the broker drops the connection, and the
+in-process client's `close()` throws an unhandled rejection that ends the
+process. A node therefore exits at its 65,536th block since start (about 18 h
+at one block a second), and any broker-side close of that client ends it the
+same way. Until it is fixed, run nodes under a supervisor that restarts them,
+on a database that survives the restart (Postgres).
+
 ## Key exports
 
 - `EventBroker` - broker class. Constructor takes

@@ -401,9 +401,35 @@ What program mode guarantees:
 - **One poll per interval, always,** with or without new transactions. Block mode, by contrast,
   never rests at the tip.
 
+What it costs in time (measured in AA 00064 on the local stack, a program-mode node next to a
+block-mode one over the same validator and deployment):
+
+- **A lock is seen at the first poll after its slot is finalized:** +2.7 s and +4.5 s after the
+  block-mode node, at most about one poll (6 s). A bridge-out's release completed +0.1 s and
+  +0.4 s after it. On devnet, `finalized` runs within a few slots of the newest slot, about 32 slots
+  (~8 s) ahead of block mode's `confirmed` minus 32, which offsets most of the poll.
+- **Midnight-side observations can wait up to one poll longer.** The node merges both chains on
+  one timeline, and in program mode the Solana side's progress moves once per poll, so the
+  Effectstream blocks waiting on it are finalized in one burst per poll instead of one by one. On
+  the emulated test stack a burn reached `completed` in 34.8 s (block mode on that harness:
+  25.3 s).
+- **A slow first mint can outlast the relayer's first retry** (120 s after the submission, the
+  `s2m` backoff in `packages/node/relayer/policy.ts`). On the emulated test stack the first mint
+  of a fresh stack took about 130 s to be seen on Midnight. The retry's pre-check found the lock
+  already in `mintedLocks` and sent nothing (`attempts` 2, `already settled on chain`), so the
+  transfer still completed exactly once.
+
+**An RPC without `transactionIndex`.** Program mode orders the transactions of one slot by
+`transactionIndex`. The devnet RPC and Helius (solana-core 4.4) return it; Agave's
+`solana-test-validator` (3.0.14, the local stack) does not. Without it the node orders them by the
+RPC's list order (Agave lists them by index), warns once per start, and counts `indexFallbacks` on
+`/health`. The primitives' `logIndex` may then differ from block mode's; the bridge never reads it.
+
 `GET /health` shows, under `protocols[]` for `parallelSolana`, `details`: the mode, the RPC calls
-per method since start (`rpcCalls`), and in program mode the interval, polls, progress (tip slot
-and its `blockTime`) and cursor. The node's start-up line shows the mode and the interval
+per method since start (`rpcCalls`), and in program mode the interval, polls (`polls`,
+`idlePolls`, `failedPolls`), the transactions emitted, `lateSignatures` (entries that turned up at
+or below a tip an earlier poll had already read; expected 0), `indexFallbacks`, the progress (tip
+slot and its `blockTime`) and the cursor. The node's start-up line shows the mode and the interval
 (`solanaSync=program poll=6000ms`), and program mode logs one line per poll that found
 transactions plus a summary every 100 polls.
 
@@ -613,6 +639,15 @@ two nodes; `deploy/standin/compose.bridge.yml` runs a node as a container, once 
   live default, needs only about 3 calls per 6 s (see How the node reads Solana).
 - **Program mode reads only `SOLANA:ProgramLog` primitives.** The engine refuses to start it with
   any other Solana primitive: `getSignaturesForAddress` cannot find every balance change.
+- **A node exits at its 65,536th Effectstream block since start, in either mode** (about 18 h at
+  the tip; AA issue 00066 in the maintainers' workspace; not caused by program mode). The engine's
+  embedded MQTT broker forwards one QoS 2 message per block to an in-process client, its packet id
+  wraps to 0, the broker drops that client, and the client's `close()` throws an unhandled
+  rejection that ends the process; any broker-side close of that client does the same. Program
+  mode only reaches it sooner when it catches up a long backlog (days of history in minutes). Run
+  the node under a supervisor that restarts it (systemd `Restart=on-failure` does), on Postgres:
+  it resumes from its cursor. Under the dev orchestrator with PGlite the restart also loses the
+  database (above).
 - **Proof server 9.0.0-rc.8 runs from Docker** until a binary is published, and it needs about
   4 GiB of memory for a mint proof.
 - **The local validator's RPC is reachable from your network.** `solana-test-validator` (Agave
@@ -761,6 +796,13 @@ bun run test
 > refusals, a wallet lock alongside, restarts (node process killed mid-proof, whole container
 > killed, database wiped) and two deployments side by side all held, with exactly one delivery per
 > lock. Peak memory of that whole stack: 10.9 GiB.
+>
+> The end-to-end suite runs in local mode, so in block mode. Run in program mode
+> (`BRIDGE_SOLANA_SYNC_MODE=program`, 2026-10-07, AA 00064, the same emulated harness), it passed
+> 13 of 14: US2, the seven negatives, the restarts (the database wiped, the relayer killed three
+> ways) and the on-chain totals passed. US1's `relayer.attempts == 1` failed: the first mint
+> outlasted the relayer's 120 s retry, whose pre-check then found it on chain and sent nothing
+> (see How the node reads Solana).
 >
 > The template is not in the `ENABLED` list of `templates/run-template-tests.ts` yet, because CI
 > installs `@effectstream/*` from npm and this template needs the unreleased engine changes in
