@@ -54,7 +54,6 @@ import {
   type WalletResult,
 } from "@effectstream/midnight-contracts";
 import * as Rx from "rxjs";
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import type { NetworkId as WalletNetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { AdapterLogger } from "./adapter-logger.ts";
@@ -248,8 +247,6 @@ export class MidnightBalancingAdapter
       this.log.log(
         `Initializing Midnight Balancing Adapter (${this.walletSeeds.length} wallet(s))...`,
       );
-      setNetworkId(this.walletNetworkId as any);
-
       this.publicDataProvider = indexerPublicDataProvider(
         this.config.indexer,
         this.config.indexerWS,

@@ -20,7 +20,6 @@
 
 import { readFileSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import * as path from "node:path";
-import { getNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { ContractExecutable } from "@midnight-ntwrk/compact-js";
 import {
   asContractAddress,
@@ -170,7 +169,7 @@ export async function deployMidnightContractPhased(
     contractAddress = contractDeploy.address;
 
     const unprovenTx = Transaction.fromParts(
-      getNetworkId(),
+      providers.config.networkId,
       undefined,
       undefined,
       Intent.new(createTtl()).addDeploy(contractDeploy),

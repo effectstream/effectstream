@@ -11,7 +11,6 @@
 import dotenv from "dotenv";
 import { parseArgs } from "node:util";
 import { nativeToken } from "@midnightntwrk/ledger-v9";
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import * as Rx from "rxjs";
 import type { NetworkUrls } from "./types.ts";
@@ -96,7 +95,6 @@ async function main() {
   log.info(`Indexer: ${indexer}`);
   log.info(`Indexer WS: ${indexerWS}`);
   log.info(`Node: ${node}`);
-  setNetworkId(networkId);
 
   try {
     log.info("Building wallet...");

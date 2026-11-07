@@ -3,7 +3,6 @@
 // Single WASM instance for ContractState / ContractMaintenanceAuthority.
 import "@midnightntwrk/onchain-runtime-v4";
 
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import { statSync, readdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
@@ -140,8 +139,6 @@ export async function deployMidnightContract(
     `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${resolvedNetworkId}`,
   );
 
-  setNetworkId(resolvedNetworkId);
-
   let walletResult: WalletResult | null = opts?.walletResult ?? null;
   let providers: Awaited<ReturnType<typeof configureMidnightNodeProviders>> | null = null;
 
@@ -211,6 +208,7 @@ export async function deployMidnightContract(
       deployPrivateStateStoreName,
       zkConfigPath,
       unshieldedKeystore,
+      resolvedNetworkId,
     );
     log.info("Providers configured.");
 

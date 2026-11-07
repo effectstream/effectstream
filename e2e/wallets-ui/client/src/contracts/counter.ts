@@ -24,12 +24,12 @@ import {
   type FinalizedTxData,
   type MidnightProvider,
   type MidnightProviders,
+  type NetworkId,
   UnboundTransaction,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
-import { NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import { type TransactionId } from "@midnight-ntwrk/ledger-v8";

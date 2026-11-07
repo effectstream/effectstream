@@ -19,7 +19,6 @@ import {
 } from "@midnightntwrk/ledger-v9";
 
 const log = console;
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import * as Rx from "rxjs";
 import { HDWallet, Roles } from "@midnightntwrk/wallet-sdk-hd";
@@ -988,7 +987,6 @@ export async function buildWalletFacade(
   dustSerializedState?: string | null,
   options?: { stopAuxWalletsImmediately?: boolean },
 ): Promise<WalletResult> {
-  setNetworkId(networkId);
   const shieldedSeed = deriveSeedForRole(seed, Roles.Zswap);
   const dustSeed = deriveSeedForRole(seed, Roles.Dust);
   const unshieldedSeed = deriveSeedForRole(seed, Roles.NightExternal);

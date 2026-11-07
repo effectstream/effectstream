@@ -1,4 +1,3 @@
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import * as Rx from "rxjs";
 import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 import {
@@ -400,7 +399,6 @@ export const faucet = async (
     try {
       const networkUrls = resolveNetworkUrls();
       const networkId = resolveNetworkId();
-      setNetworkId(networkId);
       console.log(
         `🔗 Building wallet with genesis seed for standalone mode... (attempt ${attempt})`,
       );
@@ -505,8 +503,6 @@ export async function triggerNullifiers(
   networkId: NetworkId.NetworkId,
 ): Promise<void> {
   console.log("\n--- Triggering nullifiers via shielded transfer ---\n");
-
-  setNetworkId(networkId);
 
   const GENESIS_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
   const walletResult = await buildWalletFacade(networkUrls, GENESIS_SEED, networkId);
@@ -678,8 +674,6 @@ export async function triggerZswap(
 ): Promise<ZswapResult> {
   console.log("\n--- Triggering zswap (initSwap + balance + submit) ---\n");
 
-  setNetworkId(networkId);
-
   const GENESIS_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
   const walletResult = await buildWalletFacade(networkUrls, GENESIS_SEED, networkId);
   console.log("Genesis wallet built, waiting for funds...");
@@ -695,8 +689,6 @@ export async function triggerUnshieldedCreates(
   networkId: NetworkId.NetworkId,
 ): Promise<void> {
   console.log("\n--- Triggering unshielded UTXO creates via unshielded self-transfer ---\n");
-
-  setNetworkId(networkId);
 
   const GENESIS_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
   const walletResult = await buildWalletFacade(networkUrls, GENESIS_SEED, networkId);
@@ -770,8 +762,6 @@ export async function triggerUnshieldedSwap(
   networkId: NetworkId.NetworkId,
 ): Promise<UnshieldedSwapResult> {
   console.log("\n--- Triggering unshielded swap (initSwap + balanceFinalizedTransaction) ---\n");
-
-  setNetworkId(networkId);
 
   const GENESIS_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
   const walletResult = await buildWalletFacade(networkUrls, GENESIS_SEED, networkId);

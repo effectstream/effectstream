@@ -46,7 +46,6 @@ import {
   nodeZkConfigRegistry,
 } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
   getInitialDustState,
   type NetworkUrls,
@@ -279,10 +278,6 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private async initialize(): Promise<void> {
     try {
       this.log.log(`Initializing Midnight Adapter (${this.walletSeeds.length} wallet(s))...`);
-      // Use lowercase network ID to match the wallet SDK expectations
-      // This is consistent with the working e2e tests and manual scripts
-      setNetworkId(this.walletNetworkId as any);
-
       this.publicDataProvider = indexerPublicDataProvider(
         this.config.indexer,
         this.config.indexerWS,
