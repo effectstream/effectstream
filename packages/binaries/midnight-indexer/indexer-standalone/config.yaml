@@ -10,8 +10,6 @@ application:
   active_wallets_query_delay: "500ms"
   active_wallets_ttl: "30m"
   transaction_batch_size: 50
-  # 1 by default
-  # concurrency_limit:
 
 spo:
   interval: 5000
@@ -22,29 +20,21 @@ spo:
 
 infra:
   run_migrations: true
-
   storage:
-    cnn_url: "data/indexer.sqlite"
-
+    cnn_url: "./data/indexer.sqlite"
   ledger_db:
-    cache_size: "1kiB"
-    cnn_url: "data/ledger-db.sqlite"
-
+    cache_max_nodes: 100000
+    cnn_url: "./data/ledger-db.sqlite"
   node:
     url: "ws://localhost:9944"
-    reconnect_max_delay: "10s" # 10ms, 100ms, 1s, 10s
-    reconnect_max_attempts: 30 # Roughly 5m
-    subscription_recovery_timeout: "30s" # Re-subscribe if no block received within this time
-
+    reconnect_max_delay: "10s"
+    reconnect_max_attempts: 30
+    subscription_recovery_timeout: "30s"
   spo_node:
     url: "ws://localhost:9944"
     reconnect_max_delay: "10s"
     reconnect_max_attempts: 30
-    # blockfrost_id is required (must be a non-empty string). SPO/Cardano
-    # features are not exercised in local undeployed dev, so a placeholder is
-    # shipped here; override with APP__INFRA__SPO_NODE__BLOCKFROST_ID if needed.
     blockfrost_id: "dummy-not-using-spo"
-
   api:
     address: "0.0.0.0"
     port: 8088
@@ -52,20 +42,13 @@ infra:
     max_complexity: 200
     max_depth: 15
     subscription:
-      blocks:
-        batch_size: 20
-      contract_actions:
-        batch_size: 20
-      contract_events:
-        batch_size: 20
-      dust_generations:
-        batch_size: 20
-      dust_ledger_events:
-        batch_size: 20
-      dust_nullifier_transactions:
-        batch_size: 20
-      shielded_nullifier_transactions:
-        batch_size: 20
+      blocks: { batch_size: 20 }
+      contract_actions: { batch_size: 20 }
+      contract_events: { batch_size: 20 }
+      dust_generations: { batch_size: 20 }
+      dust_ledger_events: { batch_size: 20 }
+      dust_nullifier_transactions: { batch_size: 20 }
+      shielded_nullifier_transactions: { batch_size: 20 }
       shielded_transactions:
         batch_size: 20
         progress_update_interval: "30s"
@@ -73,14 +56,17 @@ infra:
       unshielded_transactions:
         batch_size: 20
         progress_update_interval: "30s"
-      zswap_ledger_events:
-        batch_size: 20
+      zswap_ledger_events: { batch_size: 20 }
       progress_cache:
         max_capacity: 10000
         time_to_live: "5s"
     quota:
       max_concurrent_per_connection: 20
       max_session_subscriptions_per_minute: 10
+    contract_state_cache:
+      max_capacity: "512MiB"
+      time_to_idle: "10m"
+      max_concurrent_loads: 6
 
 telemetry:
   tracing:
