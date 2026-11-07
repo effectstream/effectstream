@@ -158,11 +158,11 @@ writes the same totals into every proposal's `vote_tallies` row.
 **Prerequisites**
 
 - [Bun](https://bun.sh)
-- The [Compact compiler](https://github.com/midnightntwrk/compact), version `0.31.0` —
-  `packages/contracts-midnight/contract-ballot/package.json` invokes
-  `compact compile +0.31.0`, and `launchMidnight` refuses to start if `compact` is not on
+- The [Compact compiler](https://github.com/midnightntwrk/compact), version `0.36.0`
+  (language 0.28.0) — `packages/contracts-midnight/contract-ballot/package.json` invokes
+  `compact compile +0.36.0`, and `launchMidnight` refuses to start if `compact` is not on
   PATH. Verify with `compact --version`, and install the toolchain version with
-  `compact update 0.31.0`.
+  `compact update 0.36.0`.
 
 No Foundry and no EVM toolchain — this template has no Solidity. YACI DevKit and Dolos are
 ordinary npm dependencies of `packages/contracts-cardano/`.
@@ -185,7 +185,7 @@ only needed if you change the Compact source and want to recompile on its own.
 | Batcher | http://localhost:3334 |
 | Orchestrator API | http://localhost:4747 |
 | Midnight node RPC | http://127.0.0.1:9944 |
-| Midnight indexer (GraphQL) | http://127.0.0.1:8088/api/v3/graphql |
+| Midnight indexer (GraphQL) | http://127.0.0.1:8088/api/v4/graphql |
 | Midnight proof server | http://127.0.0.1:6300 |
 | YACI DevKit admin API | http://localhost:10000 |
 | Dolos MiniBF (Blockfrost-compatible) | http://localhost:3000 |

@@ -84,7 +84,14 @@ link_pkg "effectstream" "wallets"                  "$P/effectstream-sdk/wallets"
 # Ledger v9 split the scope: ledger-v9 and onchain-runtime-v4 publish under
 # @midnightntwrk (no hyphen), while compact-* stayed on @midnight-ntwrk. Entries
 # are therefore fully scoped rather than bare names.
-MIDNIGHT_WASM_PKGS="@midnight-ntwrk/compact-runtime @midnight-ntwrk/compact-js @midnightntwrk/onchain-runtime-v4 @midnightntwrk/ledger-v9"
+#
+# midnight-js 5 carries the same single-copy requirement for its own classes:
+# transaction handles (`LedgerTransaction`) built by one copy of
+# midnight-js-types are refused by another ("not-a-handle"). A template script
+# that pairs this template's midnight-js-contracts with providers from the
+# linked @effectstream/midnight-contracts therefore needs the midnight-js
+# packages collapsed onto the monorepo's copies as well.
+MIDNIGHT_WASM_PKGS="@midnight-ntwrk/compact-runtime @midnight-ntwrk/compact-js @midnightntwrk/onchain-runtime-v4 @midnightntwrk/ledger-v9 @midnight-ntwrk/platform-js @midnight-ntwrk/midnight-js-types @midnight-ntwrk/midnight-js-protocol @midnight-ntwrk/midnight-js-contracts @midnight-ntwrk/midnight-js-utils @midnight-ntwrk/midnight-js-indexer-public-data-provider @midnight-ntwrk/midnight-js-http-client-proof-provider @midnight-ntwrk/midnight-js-level-private-state-provider @midnight-ntwrk/midnight-js-node-zk-config-provider @midnight-ntwrk/midnight-js-fetch-zk-config-provider"
 
 link_midnight_wasm_from_monorepo() {
   local dest_nm="$1"

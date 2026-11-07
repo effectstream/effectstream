@@ -12,7 +12,6 @@ import {
   findDeployedContract,
 } from "@midnight-ntwrk/midnight-js-contracts";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 import {
@@ -83,8 +82,9 @@ const contractConfig = {
 };
 
 const standaloneConfig = {
-  indexer: "http://127.0.0.1:8088/api/v3/graphql",
-  indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
+  id: NetworkId.NetworkId.Undeployed,
+  indexer: "http://127.0.0.1:8088/api/v4/graphql",
+  indexerWS: "ws://127.0.0.1:8088/api/v4/graphql/ws",
   node: "http://127.0.0.1:9944",
   proofServer: "http://127.0.0.1:6300",
 };
@@ -132,8 +132,6 @@ export async function mintM20ToFillers(
     log.info("No filler addresses to mint to — skipping M20 pre-mint.");
     return;
   }
-
-  setNetworkId(NetworkId.NetworkId.Undeployed);
 
   log.info("Step 1/5 — resolving deployed M20 contract address");
   const contractAddress = await getContractAddress();
@@ -262,11 +260,12 @@ export async function mintM20ToFillers(
       contractConfig.privateStateStoreName,
       contractConfig.zkConfigPath,
       walletResult.unshieldedKeystore,
+      NetworkId.NetworkId.Undeployed,
     )) as any;
 
     const deployed = await findDeployedContract(providers, {
       contractAddress,
-      compiledContract: compiledContract as any,
+      compiledContract,
       privateStateId: "simpleTokenPrivateState",
       initialPrivateState: {},
     });

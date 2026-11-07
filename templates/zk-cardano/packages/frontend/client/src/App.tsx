@@ -108,7 +108,7 @@ function App() {
       setWalletAddress(address);
       addLog("Midnight wallet synced", {
         unshielded_address: address,
-        indexer: "http://127.0.0.1:8088/api/v3/graphql",
+        indexer: "http://127.0.0.1:8088/api/v4/graphql",
         proof_server: "http://127.0.0.1:6300",
       });
 

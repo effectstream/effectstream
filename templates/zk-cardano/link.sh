@@ -14,6 +14,7 @@ echo "  Monorepo: $MONOREPO_ROOT"
 echo ""
 
 cd "$SCRIPT_DIR"
+rm -rf "$SCRIPT_DIR/node_modules/@effectstream"
 bun install 2>/dev/null || bun install --no-save 2>/dev/null || true
 
 NM="$SCRIPT_DIR/node_modules"
@@ -81,97 +82,121 @@ link_pkg "effectstream" "wallets"                  "$P/effectstream-sdk/wallets"
 link_pkg "effectstream" "crypto"                   "$P/effectstream-sdk/crypto"
 link_pkg "effectstream" "chain-types"              "$P/effectstream-sdk/chain-types"
 
-# Fix @midnight-ntwrk WASM resolution for linked midnight-contracts
-echo ""
-echo "Fixing @midnight-ntwrk WASM resolution..."
-LINKED_MC="$P/chains/midnight-contracts/node_modules/@midnight-ntwrk"
-if [ -d "$LINKED_MC" ]; then
-  for pkg_path in "$LINKED_MC"/*/; do
-    pkg=$(basename "$pkg_path")
-    src=$(find "$NM/.bun" -maxdepth 1 -type d -name "@midnight-ntwrk+${pkg}@*" | sort -V | tail -1)
-    if [ -n "$src" ] && [ -d "$src/node_modules/@midnight-ntwrk/$pkg" ]; then
-      rm -rf "$LINKED_MC/$pkg"
-      ln -sf "$src/node_modules/@midnight-ntwrk/$pkg" "$LINKED_MC/$pkg"
-      echo "  RELINK @midnight-ntwrk/$pkg"
-    fi
-  done
-fi
-
-# Fix WASM module duplication for @midnight-ntwrk/onchain-runtime
-# The monorepo's .bun/ cache has its own onchain-runtime WASM instantiation.
-# Packages like compact-js and midnight-js-contracts resolve onchain-runtime
-# through the monorepo's hoisted .bun/node_modules/ — creating objects with the
-# MONOREPO's WASM classes. The template's code then checks instanceof against the
-# TEMPLATE's WASM classes. Two instantiations → instanceof fails
-# ("expected instance of ContractMaintenanceAuthority" / "ChargedState").
-# Fix: redirect ALL onchain-runtime references to the template's single copy.
+# Single Midnight WASM tree from monorepo root (see ../../package.json overrides).
+# Ledger v9 split the scope: ledger-v9 and onchain-runtime-v4 publish under
+# @midnightntwrk (no hyphen), while compact-* stayed on @midnight-ntwrk. Entries
+# are therefore fully scoped rather than bare names.
 #
-# Ledger v9 moved this package to @midnightntwrk/onchain-runtime-v4 (note the
-# scope loses its hyphen). The package.json alias key `@midnight-ntwrk/onchain-runtime`
-# is unchanged, so both spellings are redirected below. The template copy is
-# located by glob rather than a hardcoded version so an rc bump doesn't silently
-# disable this block.
-echo ""
-echo "Fixing WASM module duplication (onchain-runtime)..."
-TEMPLATE_ORT=""
-for candidate in "$NM"/.bun/@midnightntwrk+onchain-runtime-v4@*/node_modules/@midnightntwrk/onchain-runtime-v4; do
-  [ -d "$candidate" ] || continue
-  TEMPLATE_ORT="$candidate"
-  break
-done
-if [ -n "$TEMPLATE_ORT" ]; then
-  # 1. Redirect the monorepo root's hoisted onchain-runtime-v4 (used by compact-js,
-  #    midnight-js-contracts, midnight-js-types, etc.)
-  MONOREPO_HOISTED="$MONOREPO_ROOT/node_modules/.bun/node_modules/@midnightntwrk/onchain-runtime-v4"
-  if [ -L "$MONOREPO_HOISTED" ]; then
-    rm -f "$MONOREPO_HOISTED"
-    ln -sf "$TEMPLATE_ORT" "$MONOREPO_HOISTED"
-    echo "  RELINK monorepo .bun hoisted onchain-runtime-v4 → template"
-  fi
+# midnight-js 5 carries the same single-copy requirement for its own classes:
+# transaction handles (`LedgerTransaction`) built by one copy of
+# midnight-js-types are refused by another ("not-a-handle"). A template script
+# that pairs this template's midnight-js-contracts with providers from the
+# linked @effectstream/midnight-contracts therefore needs the midnight-js
+# packages collapsed onto the monorepo's copies as well.
+MIDNIGHT_WASM_PKGS="@midnight-ntwrk/compact-runtime @midnight-ntwrk/compact-js @midnightntwrk/onchain-runtime-v4 @midnightntwrk/ledger-v9 @midnight-ntwrk/platform-js @midnight-ntwrk/midnight-js-types @midnight-ntwrk/midnight-js-protocol @midnight-ntwrk/midnight-js-contracts @midnight-ntwrk/midnight-js-utils @midnight-ntwrk/midnight-js-indexer-public-data-provider @midnight-ntwrk/midnight-js-http-client-proof-provider @midnight-ntwrk/midnight-js-level-private-state-provider @midnight-ntwrk/midnight-js-node-zk-config-provider @midnight-ntwrk/midnight-js-fetch-zk-config-provider"
 
-  # 2. Redirect per-package copies in monorepo sync/sm
-  for monorepo_pkg in "$P/node-sdk/sync" "$P/node-sdk/sm"; do
-    ORT_LINK="$monorepo_pkg/node_modules/@midnight-ntwrk/onchain-runtime"
-    if [ -L "$ORT_LINK" ]; then
-      rm -f "$ORT_LINK"
-      ln -sf "$TEMPLATE_ORT" "$ORT_LINK"
-      echo "  RELINK $(basename "$monorepo_pkg")/@midnight-ntwrk/onchain-runtime → template"
-    fi
-    ORT4_LINK="$monorepo_pkg/node_modules/@midnightntwrk/onchain-runtime-v4"
-    if [ -L "$ORT4_LINK" ]; then
-      rm -f "$ORT4_LINK"
-      ln -sf "$TEMPLATE_ORT" "$ORT4_LINK"
-      echo "  RELINK $(basename "$monorepo_pkg")/@midnightntwrk/onchain-runtime-v4 → template"
-    fi
+link_midnight_wasm_from_monorepo() {
+  local dest_nm="$1"
+  local spec scope pkg bun_pkg pkg_path
+  mkdir -p "$dest_nm/@midnight-ntwrk" "$dest_nm/@midnightntwrk"
+  for spec in $MIDNIGHT_WASM_PKGS; do
+    scope="${spec%%/*}"
+    pkg="${spec#*/}"
+    for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/${scope}+${pkg}"@*; do
+      pkg_path="$bun_pkg/node_modules/${scope}/${pkg}"
+      [ -e "$pkg_path" ] || continue
+      rm -rf "$dest_nm/${scope}/${pkg}"
+      ln -sf "$pkg_path" "$dest_nm/${scope}/${pkg}"
+    done
   done
-fi
+  # package.json aliases `@midnight-ntwrk/onchain-runtime` to
+  # npm:@midnightntwrk/onchain-runtime-v4, so the alias must resolve to the v4 tree.
+  for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnightntwrk+onchain-runtime-v4"@*; do
+    pkg_path="$bun_pkg/node_modules/@midnightntwrk/onchain-runtime-v4"
+    [ -e "$pkg_path" ] || continue
+    rm -rf "$dest_nm/@midnight-ntwrk/onchain-runtime"
+    ln -sf "$pkg_path" "$dest_nm/@midnight-ntwrk/onchain-runtime"
+    break
+  done
+}
 
-# Ledger v9 needs the same single-instance treatment as onchain-runtime, and did
-# not need it under v8. `LedgerParameters`, `ZswapSecretKeys` and friends are WASM
-# classes; if the monorepo packages load their own physical ledger-v9 while this
-# template loads its own, every cross-boundary check fails with
-# "expected instance of LedgerParameters" and deploy never completes. The v9
-# wallet-sdk stack passes these objects across the boundary constantly, which is
-# why the problem only appears now.
+# Point the template's own .bun copies AT the monorepo's, instead of deleting them.
 #
-# Only symlinks are rewritten — the monorepo's physical copy is left alone so a
-# second template linking in the same container is unaffected.
-TEMPLATE_LEDGER=""
-for candidate in "$NM"/.bun/@midnightntwrk+ledger-v9@*/node_modules/@midnightntwrk/ledger-v9; do
-  [ -d "$candidate" ] || continue
-  TEMPLATE_LEDGER="$candidate"
-  break
-done
-if [ -n "$TEMPLATE_LEDGER" ]; then
-  echo ""
-  echo "Deduplicating ledger-v9 (monorepo references → template copy)..."
-  while IFS= read -r ledger_link; do
-    [ -L "$ledger_link" ] || continue
-    rm -f "$ledger_link"
-    ln -sfn "$TEMPLATE_LEDGER" "$ledger_link"
-    echo "  RELINK ${ledger_link#"$MONOREPO_ROOT/"} → template"
-  done < <(find "$MONOREPO_ROOT/node_modules" -path '*/node_modules/@midnightntwrk/ledger-v9' 2>/dev/null)
-fi
+# Bun's isolated linker gives every dependent its own relative symlink
+# `.bun/<dependent>@<ver>/node_modules/<scope>/<pkg>` pointing into
+# `.bun/<scope>+<pkg>@<ver>/`. Deleting that directory -- what this step used to
+# do -- leaves every one of those dangling. Under Ledger v9 that is ~15 links for
+# ledger-v9 alone, because each wallet-sdk-* package depends on it, and the first
+# import dies with `ENOENT reading ".../@midnightntwrk/ledger-v9"`. Under v8 far
+# fewer packages nested a ledger copy, so deleting happened to be survivable.
+#
+# Replacing the physical package directory with a symlink to the monorepo copy
+# keeps every one of those references resolvable AND still leaves exactly one
+# physical copy, which is what the WASM `instanceof` checks require.
+redirect_template_wasm_to_monorepo() {
+  local bun_dir="$NM/.bun"
+  [ -d "$bun_dir" ] || return 0
+  local spec scope pkg mono entry inner candidate
+  for spec in $MIDNIGHT_WASM_PKGS "@midnight-ntwrk/onchain-runtime"; do
+    scope="${spec%%/*}"
+    pkg="${spec#*/}"
+    # The npm alias `@midnight-ntwrk/onchain-runtime` resolves to the v4 package.
+    if [ "$pkg" = "onchain-runtime" ]; then
+      mono=""
+      for candidate in "$MONOREPO_ROOT"/node_modules/.bun/@midnightntwrk+onchain-runtime-v4@*/node_modules/@midnightntwrk/onchain-runtime-v4; do
+        [ -d "$candidate" ] || continue
+        mono="$candidate"; break
+      done
+    else
+      mono=""
+      for candidate in "$MONOREPO_ROOT"/node_modules/.bun/"${scope}+${pkg}"@*/node_modules/"${scope}"/"${pkg}"; do
+        [ -d "$candidate" ] || continue
+        mono="$candidate"; break
+      done
+    fi
+    [ -n "$mono" ] || continue
+    for entry in "$bun_dir"/"${scope}+${pkg}"@*; do
+      inner="$entry/node_modules/${scope}/${pkg}"
+      [ -e "$inner" ] || continue
+      [ -L "$inner" ] && continue
+      rm -rf "$inner"
+      ln -sfn "$mono" "$inner"
+      echo "  REDIRECT .bun/$(basename "$entry") ${scope}/${pkg} -> monorepo"
+    done
+  done
+}
+
+echo ""
+echo "Verifying + hoisting transitive deps for linked @effectstream packages..."
+# Linked monorepo packages may have deps that the npm-published @effectstream/*
+# versions in this template's package.json don't pull in. `--install` hoists
+# those into the template root with `bun install --no-save`.
+bun run "$MONOREPO_ROOT/packages/build-tools/verify-linked-deps.ts" \
+  --template "$SCRIPT_DIR" \
+  --link-sh "$SCRIPT_DIR/link.sh" \
+  --install
+
+echo ""
+link_all_midnight_wasm_trees() {
+  local midnight_dir
+  while IFS= read -r midnight_dir; do
+    link_midnight_wasm_from_monorepo "$(dirname "$midnight_dir")"
+  done < <(
+    find "$SCRIPT_DIR" "$P/chains/midnight-contracts" \
+      -path '*/node_modules/@midnight-ntwrk' -type d 2>/dev/null
+  )
+}
+
+echo "Linking @midnight-ntwrk WASM packages to monorepo root..."
+link_all_midnight_wasm_trees
+redirect_template_wasm_to_monorepo
+echo "Re-linking WASM after redirecting template .bun copies..."
+link_all_midnight_wasm_trees
+
+echo "Refreshing monorepo + @effectstream/midnight-contracts deps (fix stale symlinks)..."
+(cd "$MONOREPO_ROOT" && bun install)
+rm -rf "$P/chains/midnight-contracts/node_modules/@midnight-ntwrk"
+(cd "$P/chains/midnight-contracts" && bun install)
 
 echo ""
 echo "Done. You can now run: bun run dev"

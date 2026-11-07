@@ -16,8 +16,8 @@ export async function midnightPropertyTest(db: Client) {
   const erc721ContractAddress = await getEvmContractAddress();
 
   const networkUrls = {
-    indexer: "http://127.0.0.1:8088/api/v3/graphql",
-    indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
+    indexer: "http://127.0.0.1:8088/api/v4/graphql",
+    indexerWS: "ws://127.0.0.1:8088/api/v4/graphql/ws",
     node: "http://127.0.0.1:9944",
     proofServer: "http://127.0.0.1:6300",
   };
@@ -50,9 +50,12 @@ export async function midnightPropertyTest(db: Client) {
       const { MidnightLocalConnector } = await import(
         "@effectstream/wallets/midnight-local"
       );
-      const { syncAndWaitForFunds } = await import(
-        "@effectstream/midnight-contracts"
-      );
+      const { syncAndWaitForFunds, adoptInWallet, finalizedFromWallet } =
+        await import("@effectstream/midnight-contracts");
+      const {
+        createMidnightProviderFromHandlers,
+        createWalletProviderFromHandlers,
+      } = await import("@midnight-ntwrk/midnight-js-types");
       const { CompiledContract } = await import("@midnight-ntwrk/compact-js");
       const { findDeployedContract } = await import(
         "@midnight-ntwrk/midnight-js-contracts"
@@ -69,12 +72,6 @@ export async function midnightPropertyTest(db: Client) {
       const { levelPrivateStateProvider } = await import(
         "@midnight-ntwrk/midnight-js-level-private-state-provider"
       );
-      const { setNetworkId } = await import(
-        "@midnight-ntwrk/midnight-js-network-id"
-      );
-
-      setNetworkId(MIDNIGHT_NETWORK_ID as any);
-
       console.log("  Building wallet via MidnightLocalConnector...");
       const provider = await MidnightLocalConnector.instance().connectFromSeed({
         seed: GENESIS_SEED,
@@ -103,28 +100,34 @@ export async function midnightPropertyTest(db: Client) {
         `  Wallet synced: shielded=${shieldedBalance}, dust=${dustBalance}`,
       );
 
-      const walletAndMidnightProvider = {
-        getCoinPublicKey: () => walletResult.zswapSecretKeys.coinPublicKey,
-        getEncryptionPublicKey: () =>
-          walletResult.zswapSecretKeys.encryptionPublicKey,
-        async balanceTx(tx: any, ttl?: Date) {
-          const recipe = await walletResult.wallet.balanceUnboundTransaction(
-            tx,
-            {
-              shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-              dustSecretKey: walletResult.walletDustSecretKey,
-            },
+      // The manual balance / sign / finalize loop: midnight-js hands the
+      // provider a ledger-v9 transaction, the wallet SDK works on sealed
+      // `WalletTransaction` handles, and @effectstream/midnight-contracts
+      // converts between the two at the chain's active protocol version.
+      const wallet = walletResult.wallet;
+      const walletProvider = createWalletProviderFromHandlers({
+        v8: undefined,
+        v9: async (tx, ttl) => {
+          const recipe = await wallet.balanceUnboundTransaction(
+            await adoptInWallet(wallet, "Unbound", tx),
             { ttl: ttl ?? new Date(Date.now() + 3600_000) },
           );
-          const signed = await walletResult.wallet.signRecipe(
+          const signed = await wallet.signRecipe(
             recipe,
             (payload: Uint8Array) =>
               walletResult.unshieldedKeystore.signDataAsync(payload),
           );
-          return walletResult.wallet.finalizeRecipe(signed);
+          return finalizedFromWallet(wallet, await wallet.finalizeRecipe(signed));
         },
-        submitTx: (tx: any) => walletResult.wallet.submitTransaction(tx),
-      };
+        getCoinPublicKey: () => walletResult.zswapSecretKeys.coinPublicKey,
+        getEncryptionPublicKey: () =>
+          walletResult.zswapSecretKeys.encryptionPublicKey,
+      });
+      const midnightProvider = createMidnightProviderFromHandlers({
+        v8: undefined,
+        v9: async (tx) =>
+          wallet.submitTransaction(await adoptInWallet(wallet, "Finalized", tx)),
+      });
 
       const privateStateProvider = levelPrivateStateProvider({
         privateStoragePasswordProvider: async () => "EffectstreamStorage1!",
@@ -141,7 +144,7 @@ export async function midnightPropertyTest(db: Client) {
         "../../../packages/contracts-midnight/contract-round-value/src/managed",
       );
       console.log(`  ZK config dir: ${managedDir}`);
-      const zkConfigProvider = new NodeZkConfigProvider(managedDir);
+      const zkConfigProvider = new NodeZkConfigProvider<"increment">(managedDir);
       const proofProvider = httpClientProofProvider(
         networkUrls.proofServer,
         zkConfigProvider,
@@ -152,8 +155,9 @@ export async function midnightPropertyTest(db: Client) {
         publicDataProvider,
         zkConfigProvider,
         proofProvider,
-        walletProvider: walletAndMidnightProvider,
-        midnightProvider: walletAndMidnightProvider,
+        walletProvider,
+        midnightProvider,
+        config: { networkId: MIDNIGHT_NETWORK_ID, ttlSeconds: 3600 },
       };
 
       const { Counter, witnesses } = await import(
@@ -172,7 +176,7 @@ export async function midnightPropertyTest(db: Client) {
       );
       const counterContract = await findDeployedContract(providers, {
         contractAddress,
-        compiledContract: compiledContract as any,
+        compiledContract,
         privateStateId: "counterPrivateState",
         initialPrivateState: {},
       });

@@ -1,5 +1,5 @@
 // ── External SDK: ledger / runtime ────────────────────────────────────────
-import { CompiledContract } from "@midnight-ntwrk/compact-js";
+import { CompiledContract, type Contract } from "@midnight-ntwrk/compact-js";
 import { type ContractAddress } from "@midnight-ntwrk/compact-runtime";
 
 // ── External SDK: Midnight JS ─────────────────────────────────────────────
@@ -12,27 +12,20 @@ import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-conf
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
-import { type NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
-  type Contract,
-  type FinalizedTxData,
-  type ImpureCircuitId,
+  createMidnightProviderFromHandlers,
+  createWalletProviderFromHandlers,
+  type Ledger9FinalizedTxData,
   type MidnightProvider,
   type MidnightProviders,
-  type UnboundTransaction,
+  type NetworkId,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 
 // ── External SDK: wallet / address ────────────────────────────────────────
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
-import type {
-  CoinPublicKey,
-  EncPublicKey,
-  FinalizedTransaction,
-  TransactionId,
-  UnprovenTransaction,
-} from "@midnightntwrk/ledger-v9";
+import { ContractState } from "@midnightntwrk/ledger-v9";
 import {
   MidnightBech32m,
   ShieldedAddress,
@@ -53,8 +46,8 @@ const BASE_WS_MIDNIGHT_INDEXER =
   import.meta.env.VITE_MIDNIGHT_INDEXER_WS || "ws://127.0.0.1:8088";
 const BASE_URL_PROOF_SERVER =
   import.meta.env.VITE_MIDNIGHT_PROOF_SERVER_URL || "http://127.0.0.1:6300";
-const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
-const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
+const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v4/graphql`;
+const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v4/graphql/ws`;
 const BATCHER_URL =
   import.meta.env.VITE_BATCHER_URL || "http://127.0.0.1:3334";
 
@@ -107,7 +100,7 @@ export type Erc7683ChainContract = Contract<
 
 type Erc7683Contract = erc7683.Contract;
 
-type Erc7683Circuits = ImpureCircuitId<Erc7683Contract>;
+type Erc7683Circuits = Contract.ProvableCircuitId<Erc7683Contract>;
 
 export type Erc7683Providers = MidnightProviders<
   Erc7683Circuits,
@@ -133,7 +126,11 @@ const getErc7683LedgerState = async (
       contractAddress,
     );
     const state =
-      contractState != null ? erc7683.ledger(contractState.data) : null;
+      contractState != null
+        ? erc7683.ledger(
+          contractState.contractState.deserialize({ v9: ContractState }).data,
+        )
+        : null;
     console.log(`📊 Ledger state:`, state);
     return state;
   } catch (error) {
@@ -158,7 +155,7 @@ const joinContract = async (
 
   const erc7683Contract = await findDeployedContract(providers, {
     contractAddress,
-    compiledContract: compiledContract as any,
+    compiledContract,
     privateStateId: "erc7683PrivateState",
     initialPrivateState: {},
   });
@@ -189,7 +186,7 @@ const createIntent = async (
     destinationSettler?: string;
     originData?: Object;
   } = {},
-): Promise<FinalizedTxData & typeof config> => {
+): Promise<Ledger9FinalizedTxData & typeof config> => {
   console.log("Creating intent...");
   const shieldedAddress = ShieldedAddress.codec.decode(
     MIDNIGHT_NETWORK_ID as any,
@@ -205,24 +202,33 @@ const createIntent = async (
   };
 
   console.log("erc7683Contract.callTx.initialize", config);
-  const finalizedTxData = await (erc7683Contract.callTx as any).initialize(
-    toEncodedString(config.user || "", 256),
-    toEncodedString(config.orderId || "", 32),
-    config.originChainId || 0n,
-    config.openDeadline || 0n,
-    config.fillDeadline || 0n,
-    toEncodedString(config.maxSpent_token || "", 32),
-    config.maxSpent_amount || 0n,
-    toEncodedString(config.maxSpent_recipient || "", 256),
-    config.maxSpent_chainId || 0n,
-    toEncodedString(config.minReceived_token || "", 32),
-    config.minReceived_amount || 0n,
-    toEncodedString(config.minReceived_recipient || "", 256),
-    config.minReceived_chainId || 0n,
-    config.destinationChainId || 0n,
-    toEncodedString(config.destinationSettler || "", 32),
-    toEncodedString(JSON.stringify(config.originData || {}), 256),
-  );
+  lastCapturedTx = null;
+  let finalizedTxData;
+  try {
+    finalizedTxData = await (erc7683Contract.callTx as any).initialize(
+      toEncodedString(config.user || "", 256),
+      toEncodedString(config.orderId || "", 32),
+      config.originChainId || 0n,
+      config.openDeadline || 0n,
+      config.fillDeadline || 0n,
+      toEncodedString(config.maxSpent_token || "", 32),
+      config.maxSpent_amount || 0n,
+      toEncodedString(config.maxSpent_recipient || "", 256),
+      config.maxSpent_chainId || 0n,
+      toEncodedString(config.minReceived_token || "", 32),
+      config.minReceived_amount || 0n,
+      toEncodedString(config.minReceived_recipient || "", 256),
+      config.minReceived_chainId || 0n,
+      config.destinationChainId || 0n,
+      toEncodedString(config.destinationSettler || "", 32),
+      toEncodedString(JSON.stringify(config.originData || {}), 256),
+    );
+  } catch (error) {
+    // midnight-js 5 wraps the provider's DelegatedBalancingSentError in
+    // ProviderFailedError; the captured transaction marks the hand-off.
+    if (lastCapturedTx !== null) throw new DelegatedBalancingSentError();
+    throw error;
+  }
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
@@ -305,37 +311,39 @@ const connectToContract = async (
   };
 };
 
+/**
+ * Wallet and midnight providers for the delegated-balancing flow (ledger-v9
+ * only): the unbound transaction midnight-js hands to `balanceTx` is captured
+ * for the balancing batcher instead of being balanced by the user's wallet.
+ * midnight-js 5 wraps whatever a provider throws in `ProviderFailedError`, so
+ * callers recognise the hand-off by the captured transaction (see
+ * `getLastCapturedTx`), not by the class of the error thrown here.
+ */
 const createWalletAndMidnightProvider = (
-  connectedAPI: ConnectedAPI,
-  coinPublicKey: CoinPublicKey,
-  encryptionPublicKey: EncPublicKey,
-): WalletProvider & MidnightProvider => {
-  return {
-    getCoinPublicKey(): CoinPublicKey {
-      return coinPublicKey;
-    },
-    getEncryptionPublicKey(): EncPublicKey {
-      return encryptionPublicKey;
-    },
-    async balanceTx(
-      tx: UnboundTransaction,
-      _ttl?: Date,
-    ): Promise<FinalizedTransaction> {
-      console.log(" intents.ts: balanceTx called (delegated)", { tx, _ttl });
-
-      const hexTx = toHex((tx as unknown as UnprovenTransaction).serialize());
-      console.log(" intents.ts: Capturing UNPROVEN transaction for delegation", {
+  coinPublicKey: string,
+  encryptionPublicKey: string,
+): { walletProvider: WalletProvider; midnightProvider: MidnightProvider } => {
+  const walletProvider = createWalletProviderFromHandlers({
+    v8: undefined,
+    v9: async (tx) => {
+      const hexTx = toHex(tx.serialize());
+      console.log(" intents.ts: Capturing UNBOUND transaction for delegation", {
         hexTxLength: hexTx.length,
       });
       lastCapturedTx = hexTx;
-
       throw new DelegatedBalancingSentError();
     },
-    async submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
-      console.log(" intents.ts: submitTx called (delegated)", { tx });
+    getCoinPublicKey: () => coinPublicKey,
+    getEncryptionPublicKey: () => encryptionPublicKey,
+  });
+  const midnightProvider = createMidnightProviderFromHandlers({
+    v8: undefined,
+    v9: async () => {
+      console.log(" intents.ts: submitTx called (delegated)");
       throw new DelegatedBalancingSentError();
     },
-  };
+  });
+  return { walletProvider, midnightProvider };
 };
 
 const initializeProviders = async (
@@ -344,17 +352,20 @@ const initializeProviders = async (
 ): Promise<Erc7683Providers> => {
   const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = shieldedAddresses;
 
-  const walletAndMidnightProvider = createWalletAndMidnightProvider(
-    connectedAPI,
-    shieldedCoinPublicKey as any,
-    shieldedEncryptionPublicKey as any,
+  const { walletProvider, midnightProvider } = createWalletAndMidnightProvider(
+    shieldedCoinPublicKey,
+    shieldedEncryptionPublicKey,
   );
 
-  const zkConfigPath = window.location.origin;
+  // This contract's keys/, zkir/ and compiler/ are served under /erc7683/
+  // (see vite.config.ts).
+  const zkConfigPath = `${window.location.origin}/erc7683`;
 
   // httpClientProofProvider needs the zkConfigProvider as its 2nd argument so
   // it can fetch prover key + zkir to build the /check and /prove payloads.
-  const zkConfigProvider = new FetchZkConfigProvider(zkConfigPath, fetch.bind(window));
+  const zkConfigProvider = new FetchZkConfigProvider<Erc7683Circuits>(zkConfigPath, {
+    fetchFunc: fetch.bind(window),
+  });
 
   return {
     privateStateProvider: levelPrivateStateProvider({
@@ -368,11 +379,14 @@ const initializeProviders = async (
         BASE_URL_MIDNIGHT_INDEXER_API,
         BASE_URL_MIDNIGHT_INDEXER_WS,
       ),
-      BASE_URL_MIDNIGHT_INDEXER_API,
       "intents.ts",
     ),
-    walletProvider: walletAndMidnightProvider,
-    midnightProvider: walletAndMidnightProvider,
+    walletProvider,
+    midnightProvider,
+    config: {
+      networkId: MIDNIGHT_NETWORK_ID,
+      ttlSeconds: 60 * 60,
+    },
   };
 };
 

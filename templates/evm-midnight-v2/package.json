@@ -15,7 +15,7 @@
     "@effectstream/midnight-contracts": "0.200.1",
     "@effectstream/evm-contracts": "0.200.1",
     "@effectstream/orchestrator": "0.200.1",
-    "@midnightntwrk/wallet-sdk-address-format": "4.0.0-beta.2",
+    "@midnightntwrk/wallet-sdk-address-format": "4.0.0",
     "wait-on": "8.0.3"
   },
   "effectstream": {
@@ -26,6 +26,8 @@
   },
   "overrides": {
     "@effect/platform": "0.96.1",
-    "@midnightntwrk/ledger-v9": "1.0.0-rc.3"
+    "@midnightntwrk/ledger-v9": "1.0.0",
+    "@midnightntwrk/onchain-runtime-v4": "4.0.0",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0"
   }
 }
