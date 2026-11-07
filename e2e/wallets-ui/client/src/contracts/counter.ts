@@ -12,32 +12,27 @@ import {
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
-import {
-  CoinPublicKey,
-  EncPublicKey,
-  FinalizedTransaction,
-  Transaction as LedgerV6Transaction,
-} from "@midnight-ntwrk/ledger-v8";
+import { ContractState, Transaction } from "@midnightntwrk/ledger-v9";
 
 import { Contract } from '@midnight-ntwrk/compact-js';
 import {
-  type FinalizedTxData,
+  createMidnightProviderFromHandlers,
+  createWalletProviderFromHandlers,
+  type Ledger9FinalizedTxData,
   type MidnightProvider,
   type MidnightProviders,
   type NetworkId,
-  UnboundTransaction,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
-import { type TransactionId } from "@midnight-ntwrk/ledger-v8";
 const BASE_URL_MIDNIGHT_INDEXER = `http://127.0.0.1:8088`;
 const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
 const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
-const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
-const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
+const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v4/graphql`;
+const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v4/graphql/ws`;
 
 export class DelegatedBalancingSentError extends Error {
   constructor() {
@@ -120,7 +115,9 @@ export const getCounterLedgerState = async (
     // Parse state directly from raw data
     try {
       // Extract raw data from the state
-      const rawData = contractState.data.state;
+      const rawData = contractState.contractState
+        .deserialize({ v9: ContractState })
+        .data.state;
       console.log("Raw state data:", rawData);
       console.log("Raw state as string:", rawData.toString());
 
@@ -207,9 +204,21 @@ export const queryTransactionStatus = async (txId: string): Promise<boolean> => 
 
 export const increment = async (
   counterContract: DeployedCounterContract,
-): Promise<FinalizedTxData> => {
+): Promise<Ledger9FinalizedTxData> => {
   console.log("Incrementing counter...");
-  const finalizedTxData = await counterContract.callTx.increment();
+  lastCapturedTx = null;
+  let finalizedTxData;
+  try {
+    finalizedTxData = await counterContract.callTx.increment();
+  } catch (error) {
+    // midnight-js wraps a provider's failure in ProviderFailedError, so the
+    // delegated hand-off is recognised by the captured transaction rather
+    // than by the class of the error the provider threw.
+    if (useDelegatedBalancing && lastCapturedTx !== null) {
+      throw new DelegatedBalancingSentError();
+    }
+    throw error;
+  }
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
@@ -311,89 +320,57 @@ export const connectToContract = async (
   };
 };
 
-const createWalletAndMidnightProvider = (
+/**
+ * Wallet and midnight providers backed by the DApp Connector (ledger-v9 only),
+ * following midnight-js 5's `dappConnectorWalletProviders`. In delegated mode
+ * the unbound transaction is captured for the batcher instead of balanced.
+ */
+const createWalletAndMidnightProviders = (
   connectedAPI: ConnectedAPI,
-  coinPublicKey: CoinPublicKey,
-  encryptionPublicKey: EncPublicKey
-): WalletProvider & MidnightProvider => {
-  return {
-    getCoinPublicKey(): CoinPublicKey {
-      return coinPublicKey;
-    },
-    getEncryptionPublicKey(): EncPublicKey {
-      return encryptionPublicKey;
-    },
-    async balanceTx(
-      tx: UnboundTransaction,
-      ttl?: Date
-    ): Promise<FinalizedTransaction> {
+  coinPublicKey: string,
+  encryptionPublicKey: string
+): { walletProvider: WalletProvider; midnightProvider: MidnightProvider } => {
+  const walletProvider = createWalletProviderFromHandlers({
+    v8: undefined,
+    v9: async (tx) => {
       console.log(" counter.ts: balanceTx called", { useDelegatedBalancing });
-      
+      const serializedTx = toHex(tx.serialize());
+
       if (useDelegatedBalancing) {
-        try {
-          const hexTx = toHex(tx.serialize());
-          console.log(" counter.ts: Capturing UNPROVEN transaction for delegation", { hexTxLength: hexTx.length });
-          lastCapturedTx = hexTx;
-          
-          // TODO: TRANSACTION_TO_PROVE is removed in ledger7.
-          return {
-            type: 'TransactionToProve' as const, // TRANSACTION_TO_PROVE,
-            transaction: tx,
-          };
-        } catch (error) {
-          console.error(" counter.ts: balanceTx serialization failed", error);
-          throw error;
-        }
+        console.log(" counter.ts: Capturing UNBOUND transaction for delegation", { hexTxLength: serializedTx.length });
+        lastCapturedTx = serializedTx;
+        throw new DelegatedBalancingSentError();
       }
 
-      const TTL_DURATION_MS = 60 * 60 * 1000;
-      const createTtl = () => new Date(Date.now() + TTL_DURATION_MS);
-
-      // Direct mode: use DApp Connector to balance and prove
-      console.log(" counter.ts: Balancing transaction via Lace...");
-      // For some reason the dapp-connector-api types might be slightly off or we need to pass hex
-      
-      // Ledger7 style
-        // const bound = tx.bind();      
-        // const finalizedTransactionRecipe = await connectedAPI.balanceFinalizedTransaction(
-        //   bound, {
-        //     shieldedSecretKeys: connectedAPI.zswapSecretKeys, 
-        //     dustSecretKey: connectedAPI.dustSecretKey,
-        //   }, { 
-        //     ttl: ttl ?? createTtl(),
-        //   }
-        // );
-        // const x = await connectedAPI.signRecipe(finalizedTransactionRecipe, (payload: any) => connectedAPI.unshieldedKeystore.signData(payload));
-        // return connectedAPI.finalizeRecipe(x);
-      const serializedTx = toHex(tx.serialize());
-      // const balancedTx2: { tx: string } = await connectedAPI.balanceSealedTransaction(serializedTx);
-      const balancedTx1: { tx: string } = await connectedAPI.balanceUnsealedTransaction(serializedTx);
-
-      // connectedAPI.balanceUnsealedTransaction
-      // LedgerV6Transaction.
-
-      const balancedTx: FinalizedTransaction = LedgerV6Transaction.deserialize(
-        'signature',
-        'proof',
-        'binding',
-        fromHex(balancedTx1.tx)
-      );
-      
-       
-      return balancedTx;
+      // Direct mode: the wallet balances, proves and binds the transaction.
+      console.log(" counter.ts: Balancing transaction via the wallet...");
+      const balanced = await connectedAPI.balanceUnsealedTransaction(serializedTx);
+      return fromHex(balanced.tx);
     },
-    async submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
+    getCoinPublicKey: () => coinPublicKey,
+    getEncryptionPublicKey: () => encryptionPublicKey,
+  });
+
+  const midnightProvider = createMidnightProviderFromHandlers({
+    v8: undefined,
+    v9: async (tx) => {
       console.log(" counter.ts: submitTx called", { useDelegatedBalancing });
       if (useDelegatedBalancing) {
         throw new DelegatedBalancingSentError();
       }
-      
-      // Direct submission via Lace
-      console.log(" counter.ts: Submitting balanced transaction via Lace...");
-      const txId = await connectedAPI.submitTransaction(toHex(tx.serialize()));
+      // The connector's submit returns nothing, so the transaction id the
+      // framework watches for is read off the transaction itself.
+      const [txId] = tx.deserialize({ v9: Transaction }).identifiers();
+      if (txId === undefined) {
+        throw new Error("Refusing to submit a transaction without an identifier");
+      }
+      console.log(" counter.ts: Submitting balanced transaction via the wallet...");
+      await connectedAPI.submitTransaction(toHex(tx.serialize()));
       return txId;
     },
-  };
+  });
+
+  return { walletProvider, midnightProvider };
 };
 
 const initializeProviders = async (
@@ -402,10 +379,10 @@ const initializeProviders = async (
 ): Promise<CounterProviders> => {
   const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = addresses;
 
-  const walletAndMidnightProvider = createWalletAndMidnightProvider(
+  const { walletProvider, midnightProvider } = createWalletAndMidnightProviders(
     connectedAPI,
-    shieldedCoinPublicKey as any,
-    shieldedEncryptionPublicKey as any
+    shieldedCoinPublicKey,
+    shieldedEncryptionPublicKey
   );
   
   const zkConfigPath = window.location.origin;
@@ -432,7 +409,11 @@ const initializeProviders = async (
         BASE_URL_MIDNIGHT_INDEXER_API,
         BASE_URL_MIDNIGHT_INDEXER_WS,
     ),
-    walletProvider: walletAndMidnightProvider,
-    midnightProvider: walletAndMidnightProvider,
+    walletProvider,
+    midnightProvider,
+    config: {
+      networkId: MIDNIGHT_NETWORK_ID,
+      ttlSeconds: 60 * 60,
+    },
   };
 };

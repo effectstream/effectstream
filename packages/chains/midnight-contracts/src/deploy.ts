@@ -22,6 +22,7 @@ const log = console;
 import { findContractDirectoryForDeploy } from "./read-contract.ts";
 import { mnemonicToSeed } from "./mnemonicToSeed.ts";
 import type { NetworkUrls, DeployConfig, WalletResult } from "./types.ts";
+export type { DeployConfig } from "./types.ts";
 import { buildWalletAndWaitForFunds, extractInitialOwnerFromWallet } from "./build-wallet.ts";
 import { configureMidnightNodeProviders } from "./providers.ts";
 import { deployMidnightContractPhased } from "./deploy-phased.ts";

@@ -1,6 +1,7 @@
 import * as Rx from "rxjs";
 import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 import {
+  type FinalizedTransaction,
   nativeToken,
   shieldedToken,
 } from "@midnightntwrk/ledger-v9";
@@ -12,6 +13,7 @@ import {
   syncAndWaitForFunds as syncAndWaitForFundsV9,
   waitForDustFunds as waitForDustFundsV9,
   type DustFundsReadiness,
+  unwrapInWallet,
   type WalletResult as WalletResultV9,
 } from "@effectstream/midnight-contracts";
 import { getEnv, exit } from "@effectstream/utils/runtime";
@@ -351,10 +353,6 @@ const transfer = async (
           receiverAddress: parsedReceiverAddress,
         }],
       }],
-      {
-        shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-        dustSecretKey: walletResult.walletDustSecretKey,
-      },
       { ttl },
     );
     console.log("✓ Transfer transaction created");
@@ -527,10 +525,6 @@ export async function triggerNullifiers(
         receiverAddress: shieldedAddr,
       }],
     }],
-    {
-      shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-      dustSecretKey: walletResult.walletDustSecretKey,
-    },
     { ttl: new Date(Date.now() + TTL_DURATION_MS) },
   );
   console.log("Shielded transfer recipe created");
@@ -603,10 +597,6 @@ async function performZswap(
         receiverAddress: shieldedAddr2,
       }],
     }],
-    {
-      shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-      dustSecretKey: walletResult.walletDustSecretKey,
-    },
     { ttl: new Date(Date.now() + TTL_DURATION_MS) },
   );
   console.log("Swap offer created via initSwap");
@@ -614,10 +604,6 @@ async function performZswap(
 
   const balancedRecipe = await walletResult.wallet.balanceUnprovenTransaction(
     offerRecipe.transaction,
-    {
-      shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-      dustSecretKey: walletResult.walletDustSecretKey,
-    },
     { ttl: new Date(Date.now() + TTL_DURATION_MS) },
   );
   console.log("Swap balanced");
@@ -637,11 +623,15 @@ async function performZswap(
   // Read the exact nullifiers/commitments off the finalized tx: the ledger
   // emits one ZswapInput event per input (its nullifier) and one ZswapOutput
   // event per output (its commitment) when the tx is applied.
+  const finalizedSwapLedgerTx = await unwrapInWallet<FinalizedTransaction>(
+    walletResult.wallet,
+    finalizedSwapTx,
+  );
   const expectedNullifiers: string[] = [];
   const expectedCommitments: string[] = [];
   const offers = [
-    finalizedSwapTx.guaranteedOffer,
-    ...(finalizedSwapTx.fallibleOffer?.values() ?? []),
+    finalizedSwapLedgerTx.guaranteedOffer,
+    ...(finalizedSwapLedgerTx.fallibleOffer?.values() ?? []),
   ];
   for (const offer of offers) {
     if (!offer) continue;
@@ -793,10 +783,6 @@ export async function triggerUnshieldedSwap(
     const receiverAddress = MidnightBech32m.parse(walletResult.unshieldedAddress)
       .decode(UnshieldedAddress, walletResult.networkId);
     const ttl = () => new Date(Date.now() + TTL_DURATION_MS);
-    const secretKeys = {
-      shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-      dustSecretKey: walletResult.walletDustSecretKey,
-    };
     const signSegment = (payload: Uint8Array) =>
       walletResult.unshieldedKeystore.signDataAsync(payload);
 
@@ -809,7 +795,6 @@ export async function triggerUnshieldedSwap(
         type: "unshielded",
         outputs: [{ type: tokenId, amount: 1n, receiverAddress }],
       }],
-      secretKeys,
       { ttl: ttl() },
     );
     const signedOffer = await walletResult.wallet.signRecipe(offerRecipe, signSegment);
@@ -820,7 +805,6 @@ export async function triggerUnshieldedSwap(
     // offer intent's hash), merged into one transaction.
     const balancedRecipe = await walletResult.wallet.balanceFinalizedTransaction(
       finalizedOffer,
-      secretKeys,
       { ttl: ttl() },
     );
     const signedBalanced = await walletResult.wallet.signRecipe(balancedRecipe, signSegment);
@@ -832,7 +816,11 @@ export async function triggerUnshieldedSwap(
     const expectedCreateValues: string[] = [];
     const expectedCreateTokenTypes: string[] = [];
     const candidateIntentHashes = new Set<string>();
-    for (const [segmentId, intent] of finalTx.intents ?? new Map()) {
+    const finalLedgerTx = await unwrapInWallet<FinalizedTransaction>(
+      walletResult.wallet,
+      finalTx,
+    );
+    for (const [segmentId, intent] of finalLedgerTx.intents ?? new Map()) {
       candidateIntentHashes.add(normalizeUnshieldedHex(intent.intentHash(segmentId)));
       candidateIntentHashes.add(normalizeUnshieldedHex(intent.intentHash(0)));
       for (
