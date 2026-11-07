@@ -1011,7 +1011,13 @@ export async function buildWalletFacade(
       buildDustWallet(walletConfig, dustSeed, dustSerializedState),
   });
 
-  await wallet.start(zswapSecretKeys, dustSecretKey);
+  // wallet-sdk 2 starts every wallet from seeds: each ledger version derives
+  // its own keys from them, so the same identity holds across the v9 boundary.
+  await wallet.start({
+    shielded: shieldedSeed,
+    unshielded: unshieldedSeed,
+    dust: dustSeed,
+  });
 
   const stopAuxNow =
     syncMode === 'dust-only' && (options?.stopAuxWalletsImmediately ?? true);

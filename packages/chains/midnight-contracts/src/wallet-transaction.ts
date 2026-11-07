@@ -21,11 +21,13 @@ import * as Rx from "rxjs";
 type VersionedWallet = Pick<WalletFacade, "state">;
 
 /** The stages a transaction is handed to the wallet at. */
-export type WalletStage = "Unbound" | "Finalized";
+export type WalletStage = "Unproven" | "Unbound" | "Finalized";
 
 type Serializable = { readonly serialize: () => Uint8Array };
 
 const walletDecoders: Readonly<Record<WalletStage, (bytes: Uint8Array) => Serializable>> = {
+  Unproven: (bytes) =>
+    WalletLedger9.Transaction.deserialize("signature", "pre-proof", "pre-binding", bytes),
   Unbound: (bytes) =>
     WalletLedger9.Transaction.deserialize("signature", "proof", "pre-binding", bytes),
   Finalized: (bytes) =>
