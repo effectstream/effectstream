@@ -13,8 +13,8 @@
 // the ciphertext. For those we return undefined and the caller falls back
 // to a neutral label.
 
-import { Transaction as LedgerV8Transaction } from '@midnight-ntwrk/ledger-v8';
-import { setNetworkId, type NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { Transaction as LedgerV9Transaction } from '@midnightntwrk/ledger-v9';
+import type { NetworkId } from '@midnight-ntwrk/midnight-js-types';
 import {
   MidnightBech32m,
   UnshieldedAddress,
@@ -35,12 +35,11 @@ function normalizeHex(s: string): string {
   return (s.startsWith('0x') ? s.slice(2) : s).toLowerCase();
 }
 
-export function parseOfferSender(offerBech32m: string, networkId: NetworkId): OfferSenderInfo | undefined {
-  setNetworkId(networkId);
+export function parseOfferSender(offerBech32m: string, _networkId: NetworkId): OfferSenderInfo | undefined {
   let tx: any;
   try {
     const bytes = OfferFiles.decode(offerBech32m);
-    tx = LedgerV8Transaction.deserialize('signature', 'proof', 'binding', bytes);
+    tx = LedgerV9Transaction.deserialize('signature', 'proof', 'binding', bytes);
   } catch {
     return undefined;
   }

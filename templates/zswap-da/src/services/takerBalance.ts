@@ -7,7 +7,7 @@
 // raw integer strings keyed by token color — so the check is a direct BigInt
 // comparison, no decimal scaling.
 
-import type { NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import type { NetworkId } from '@midnight-ntwrk/midnight-js-types';
 import type { KnownToken } from '../types';
 import { parseTakerLegs, type ParsedLeg } from './offerParse';
 import { DEFAULT_DECIMALS, formatBaseUnits } from '../state/amount';

@@ -7,9 +7,9 @@
 // `mergeMakerOffers` are exercised against actual ledger behaviour, including
 // the segment-collision rule that bounds what a ladder can contain.
 import { describe, expect, test } from 'bun:test';
-import * as ledger from '@midnight-ntwrk/ledger-v8';
+import * as ledger from '@midnightntwrk/ledger-v9';
 import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
-import type { NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import type { NetworkId } from '@midnight-ntwrk/midnight-js-types';
 import {
   batchPaysUnshielded,
   chooseLaceBalancing,
@@ -26,6 +26,10 @@ const ttl = () => new Date(Date.now() + 3600_000);
 const TOKEN = 'cc'.repeat(32);
 const OWNER = 'dd'.repeat(32);
 const HASH = 'ee'.repeat(32);
+// ledger-v9 tags verifying keys with their signature kind: `UtxoSpend.owner` is
+// a `SignatureVerifyingKey` ({ tag, value }); `UtxoOutput.owner` is still a
+// plain `UserAddress`.
+const SPEND_OWNER = { tag: 'schnorr' as const, value: OWNER };
 
 const segments = (tx: any): number[] => (tx?.intents ? Array.from(tx.intents.keys()) : []);
 const encode = (tx: any): string => OfferFiles.encode(tx.serialize());
@@ -67,7 +71,7 @@ const unshieldedTx = (direction: 'pays' | 'gets', randomize = false) => {
   const offer =
     direction === 'gets'
       ? L.UnshieldedOffer.new(
-          [{ value: 7n, owner: OWNER, type: TOKEN, intentHash: HASH, outputNo: 0 }],
+          [{ value: 7n, owner: SPEND_OWNER, type: TOKEN, intentHash: HASH, outputNo: 0 }],
           [],
           [],
         )
