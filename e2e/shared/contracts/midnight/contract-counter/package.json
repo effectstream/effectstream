@@ -19,8 +19,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@midnight-ntwrk/compact-runtime": "0.18.0-rc.1",
-    "@midnight-ntwrk/compact-js": "2.5.5-rc.7"
+    "@midnight-ntwrk/compact-runtime": "0.21.0",
+    "@midnight-ntwrk/compact-js": "3.0.0"
   },
   "devDependencies": {
     "vitest": "^3.2.4"
