@@ -24,7 +24,7 @@
     "@lucid-evolution/lucid": "^0.4.29",
     "@lucid-evolution/provider": "^0.1.90",
     "@lucid-evolution/utils": "^0.1.66",
-    "@midnightntwrk/ledger-v9": "1.0.1",
+    "@midnightntwrk/ledger-v9": "1.0.0",
     "@midnightntwrk/wallet-sdk-hd": "4.0.0",
     "@midnightntwrk/wallet-sdk-unshielded-wallet": "4.0.0"
   },
@@ -56,7 +56,7 @@
     "@lucid-evolution/lucid": "^0.4.30",
     "@lucid-evolution/provider": "^0.1.91",
     "@lucid-evolution/utils": "^0.1.66",
-    "@midnightntwrk/ledger-v9": "1.0.1",
+    "@midnightntwrk/ledger-v9": "1.0.0",
     "@midnightntwrk/wallet-sdk-hd": "4.0.0",
     "@midnightntwrk/wallet-sdk-unshielded-wallet": "4.0.0"
   },

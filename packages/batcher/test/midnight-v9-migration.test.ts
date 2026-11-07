@@ -96,7 +96,7 @@ describe("Midnight ledger-v9 migration", () => {
 
     expect(new Set(v9Entries).size).toBe(1);
     expect(v9Entries[0]).toContain(
-      "@midnightntwrk+ledger-v9@1.0.1/node_modules/@midnightntwrk/ledger-v9",
+      "@midnightntwrk+ledger-v9@1.0.0/node_modules/@midnightntwrk/ledger-v9",
     );
     for (const root of consumerRoots) {
       expect(() => Bun.resolveSync("@midnight-ntwrk/ledger-v8", root)).toThrow();
@@ -107,7 +107,7 @@ describe("Midnight ledger-v9 migration", () => {
       resolve(workspaceRoot, "packages/effectstream-sdk/config"),
     );
     expect(runtimeEntry).toContain(
-      "@midnightntwrk+onchain-runtime-v4@4.0.1",
+      "@midnightntwrk+onchain-runtime-v4@4.0.0",
     );
 
     const ledgerRoot = dirname(v9Entries[0]);
@@ -118,6 +118,35 @@ describe("Midnight ledger-v9 migration", () => {
 
     const loaded = await Promise.all(v9Entries.map((entry) => import(entry)));
     expect(new Set(loaded).size).toBe(1);
+  });
+
+  test("midnight-js, compact and the wallet SDK resolve the same ledger-v9 and on-chain runtime as the batcher", () => {
+    // Ledger objects cross these libraries at run time (midnight-js decodes
+    // LedgerParameters and hands them to compact-js's transcript partitioning;
+    // compact-runtime builds the ContractState midnight-js submits). A second
+    // installed copy of either WASM package makes those calls fail with
+    // "expected instance of …", so every library must resolve the one copy.
+    const workspaceRoot = resolve(import.meta.dir, "../../..");
+    const batcherRoot = resolve(workspaceRoot, "packages/batcher");
+    const packageDir = (name: string, from: string) =>
+      dirname(Bun.resolveSync(`${name}/package.json`, from));
+    const ledger = Bun.resolveSync("@midnightntwrk/ledger-v9", batcherRoot);
+    const runtime = Bun.resolveSync("@midnightntwrk/onchain-runtime-v4", batcherRoot);
+
+    const midnightJsProtocol = packageDir(
+      "@midnight-ntwrk/midnight-js-protocol",
+      packageDir("@midnight-ntwrk/midnight-js-contracts", batcherRoot),
+    );
+    const compactJs = packageDir("@midnight-ntwrk/compact-js", batcherRoot);
+    const compactRuntime = packageDir("@midnight-ntwrk/compact-runtime", batcherRoot);
+    const walletFacade = packageDir("@midnightntwrk/wallet-sdk-facade", batcherRoot);
+
+    for (const dependent of [midnightJsProtocol, compactJs, walletFacade]) {
+      expect(Bun.resolveSync("@midnightntwrk/ledger-v9", dependent)).toBe(ledger);
+    }
+    for (const dependent of [midnightJsProtocol, compactJs, compactRuntime]) {
+      expect(Bun.resolveSync("@midnightntwrk/onchain-runtime-v4", dependent)).toBe(runtime);
+    }
   });
 
   test("deserializes a real ledger-v9 unproven third-party transaction", () => {

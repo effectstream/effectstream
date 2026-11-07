@@ -15,6 +15,8 @@
   },
   "overrides": {
     "@effect/platform": "0.96.1",
+    "@midnightntwrk/ledger-v9": "1.0.0",
+    "@midnightntwrk/onchain-runtime-v4": "4.0.0",
     "arch": "3.0.0"
   },
   "devDependencies": {

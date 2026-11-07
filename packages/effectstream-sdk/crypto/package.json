@@ -13,7 +13,7 @@
   },
   "exports": "./src/mod.ts",
   "peerDependencies": {
-    "@midnightntwrk/ledger-v9": "1.0.1",
+    "@midnightntwrk/ledger-v9": "1.0.0",
     "@midnightntwrk/wallet-sdk-address-format": "4.0.0"
   },
   "peerDependenciesMeta": {
@@ -25,7 +25,7 @@
     }
   },
   "devDependencies": {
-    "@midnightntwrk/ledger-v9": "1.0.1",
+    "@midnightntwrk/ledger-v9": "1.0.0",
     "@midnightntwrk/wallet-sdk-address-format": "4.0.0"
   },
   "dependencies": {
