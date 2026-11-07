@@ -13,7 +13,7 @@
     "@effectstream/orchestrator": "0.200.1",
     "@electric-sql/pglite": "^0.3.14",
     "@fastify/http-proxy": "^11.4.4",
-    "@midnightntwrk/wallet-sdk-address-format": "3.1.2",
+    "@midnightntwrk/wallet-sdk-address-format": "4.0.0",
     "buffer": "^6.0.3",
     "libsodium-sumo": "0.7.16",
     "libsodium-wrappers-sumo": "0.7.16",
