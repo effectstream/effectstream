@@ -73,6 +73,29 @@ export async function adoptInWallet<S extends WalletStage>(
 }
 
 /**
+ * Reads the transaction a wallet SDK handle carries, refusing a handle sealed
+ * for another epoch than the one the chain is in. The result is an object of
+ * the wallet SDK's ledger-v9 copy.
+ */
+export async function unwrapInWallet<T extends Serializable = WalletLedger9.Transaction<
+  WalletLedger9.Signaturish,
+  WalletLedger9.Proofish,
+  WalletLedger9.Bindingish
+>>(
+  wallet: VersionedWallet,
+  handle: WalletTransaction,
+): Promise<T> {
+  const unwrapped = WalletTransaction.unwrapWithin<T>(
+    handle,
+    await activeEpoch(wallet),
+  );
+  if (unwrapped._tag === "Left") {
+    throw unwrapped.left;
+  }
+  return unwrapped.right;
+}
+
+/**
  * Reads the bytes of a finalized wallet SDK handle, refusing a handle sealed
  * for another epoch than the one the chain is in.
  */
@@ -80,12 +103,5 @@ export async function finalizedFromWallet(
   wallet: VersionedWallet,
   handle: WalletTransaction<"Finalized">,
 ): Promise<Uint8Array> {
-  const unwrapped = WalletTransaction.unwrapWithin<Serializable>(
-    handle,
-    await activeEpoch(wallet),
-  );
-  if (unwrapped._tag === "Left") {
-    throw unwrapped.left;
-  }
-  return unwrapped.right.serialize();
+  return (await unwrapInWallet(wallet, handle)).serialize();
 }

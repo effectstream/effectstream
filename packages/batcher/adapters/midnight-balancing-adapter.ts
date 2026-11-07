@@ -29,19 +29,21 @@ import type {
 import type { DefaultBatcherInput } from "../core/types.ts";
 import {
   type FinalizedTransaction,
+  type PreBinding,
+  type Proof,
+  type SignatureEnabled,
   Transaction as LedgerTransaction,
   type UnprovenTransaction,
 } from "@midnightntwrk/ledger-v9";
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
-import type {
-  PublicDataProvider,
-  UnboundTransaction,
-} from "@midnight-ntwrk/midnight-js-types";
+import type { PublicDataProvider } from "@midnight-ntwrk/midnight-js-types";
 import type {
   BalancingRecipe,
   ShieldedTokenTransfer,
 } from "@midnightntwrk/wallet-sdk-facade";
+import type { WalletTransaction } from "@midnightntwrk/wallet-sdk-abstractions";
 import {
+  adoptInWallet,
   getInitialDustState,
   getInitialShieldedState,
   type NetworkUrls,
@@ -51,6 +53,7 @@ import {
   suspendAuxWalletSyncForFees,
   waitForDustFunds,
   waitForDustFundsWithRetry,
+  unwrapInWallet,
   type WalletResult,
 } from "@effectstream/midnight-contracts";
 import * as Rx from "rxjs";
@@ -125,6 +128,8 @@ function inputContentHash(input: string): string {
 }
 
 type DelegatedTxStage = "unproven" | "unbound" | "finalized";
+/** A proven transaction whose binding is still open (ledger-v9). */
+type UnboundTransaction = LedgerTransaction<SignatureEnabled, Proof, PreBinding>;
 type DelegatedTx =
   | UnprovenTransaction
   | UnboundTransaction
@@ -957,10 +962,6 @@ export class MidnightBalancingAdapter
     // waitForDustAvailability reads the dust sub-wallet state directly.
     await this.waitForDustAvailability(walletIndex);
 
-    const keys = {
-      shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-      dustSecretKey: walletResult.walletDustSecretKey,
-    };
     // Restrict balancing to dust ONLY. The batcher's purpose is to pay fees;
     // it must NOT balance the user's shielded/unshielded portion.
     //
@@ -981,11 +982,14 @@ export class MidnightBalancingAdapter
     if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
       try {
         const paddedTx = await this.applyShieldedPadding(
-          entry.tx as UnprovenTransaction,
+          await adoptInWallet(walletResult.wallet, "Unproven", entry.tx),
           true,
           walletIndex,
         );
-        entry = { tx: paddedTx, txStage: "unproven" };
+        entry = {
+          tx: await unwrapInWallet<UnprovenTransaction>(walletResult.wallet, paddedTx),
+          txStage: "unproven",
+        };
       } catch (e) {
         this.log.warn(
           "Shielded padding unavailable, submitting without padding. " +
@@ -998,8 +1002,7 @@ export class MidnightBalancingAdapter
     switch (entry.txStage) {
       case "unbound":
         recipe = await walletResult.wallet.balanceUnboundTransaction(
-          entry.tx as UnboundTransaction,
-          keys,
+          await adoptInWallet(walletResult.wallet, "Unbound", entry.tx),
           opts,
         );
         if (
@@ -1018,8 +1021,7 @@ export class MidnightBalancingAdapter
         break;
       case "finalized":
         recipe = await walletResult.wallet.balanceFinalizedTransaction(
-          entry.tx as FinalizedTransaction,
-          keys,
+          await adoptInWallet(walletResult.wallet, "Finalized", entry.tx),
           opts,
         );
         if (
@@ -1038,8 +1040,7 @@ export class MidnightBalancingAdapter
         break;
       case "unproven":
         recipe = await walletResult.wallet.balanceUnprovenTransaction(
-          entry.tx as UnprovenTransaction,
-          keys,
+          await adoptInWallet(walletResult.wallet, "Unproven", entry.tx),
           opts,
         );
         break;
@@ -1049,15 +1050,14 @@ export class MidnightBalancingAdapter
   }
 
   private async applyShieldedPadding(
-    balancingTx: UnprovenTransaction,
+    balancingTx: WalletTransaction<"Unproven">,
     payFees: boolean,
     walletIndex: number,
-  ): Promise<UnprovenTransaction> {
+  ): Promise<WalletTransaction<"Unproven">> {
     const walletResult = this.walletResults[walletIndex];
     if (!walletResult) throw new Error("Wallet not initialized");
 
     this.log.log("[balancing] Adding shielded padding...");
-    const keys = walletResult.walletZswapSecretKeys;
 
     // deno-lint-ignore no-explicit-any
     const initialState = await getInitialShieldedState(
@@ -1073,17 +1073,17 @@ export class MidnightBalancingAdapter
     const outputs: ShieldedTokenTransfer[] = [
       { type: "shielded", outputs: [{ type, receiverAddress, amount: 1n }] },
     ];
-    const conf = {
-      shieldedSecretKeys: keys,
-      dustSecretKey: walletResult.walletDustSecretKey,
-    };
     const opt = { ttl: createTtl(), payFees };
     const paddingRecipe = await walletResult.wallet.transferTransaction(
       outputs,
-      conf,
       opt,
     );
-    return balancingTx.merge(paddingRecipe.transaction);
+    // Both handles carry wallet-SDK ledger-v9 transactions of the chain's
+    // current epoch; merge the transactions and seal the result again.
+    const wallet = walletResult.wallet;
+    const merged = (await unwrapInWallet<UnprovenTransaction>(wallet, balancingTx))
+      .merge(await unwrapInWallet<UnprovenTransaction>(wallet, paddingRecipe.transaction));
+    return adoptInWallet(wallet, "Unproven", merged);
   }
 
   // -----------------------------------------------------------------------
@@ -1169,12 +1169,16 @@ export class MidnightBalancingAdapter
       this.log.log(`[${tag}] Validated`);
 
       // --- Phase 3: Submit ---
-      const txHash = finalized.transactionHash().toString();
+      const finalizedTx = await unwrapInWallet<FinalizedTransaction>(
+        walletResult.wallet,
+        finalized,
+      );
+      const txHash = finalizedTx.transactionHash().toString();
 
       // Diagnostic: dump what the merged tx is going to put on chain.
       try {
         // deno-lint-ignore no-explicit-any
-        const ftx = finalized as any;
+        const ftx = finalizedTx as any;
         const ids = typeof ftx.identifiers === "function" ? ftx.identifiers() : undefined;
         const segImbalances: Record<string, unknown> = {};
         for (const seg of [0, 1]) {

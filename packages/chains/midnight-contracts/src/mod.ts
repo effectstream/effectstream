@@ -39,4 +39,11 @@ export {
 } from "./build-wallet.ts";
 export { readMidnightContract } from "./read-contract.ts";
 export { configureMidnightNodeProviders } from "./providers.ts";
+export {
+    activeProtocolVersion,
+    adoptInWallet,
+    finalizedFromWallet,
+    unwrapInWallet,
+} from "./wallet-transaction.ts";
+export type { WalletStage } from "./wallet-transaction.ts";
 export { midnightNetworkConfig } from "./midnight-env.ts";
