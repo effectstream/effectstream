@@ -32,7 +32,7 @@ import {
  * provide. A contract call's effects record mints as `domain_sep → amount`
  * maps (shielded and unshielded); the token type is
  * `rawTokenType(domain_sep, contract_address)`. The fetcher deserializes each
- * regular transaction with ledger-v8, walks the contract calls, and emits one
+ * regular transaction with ledger-v9, walks the contract calls, and emits one
  * event per `(tx, call, domainSep, kind)`.
  *
  * The primitive OWNS its registry table: `dynamicTables` declares
