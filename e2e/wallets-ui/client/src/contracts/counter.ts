@@ -304,7 +304,7 @@ export const connectToContract = async (
 
   const counterContract: FoundContract<CounterContract> = await findDeployedContract(providers, {
     contractAddress: address,
-    compiledContract: MyCompiledContract as any,
+    compiledContract: MyCompiledContract,
     privateStateId: "counterPrivateState",
     initialPrivateState: {},
   });

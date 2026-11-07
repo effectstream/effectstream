@@ -64,12 +64,12 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compa
 ENV PATH="/root/.local/bin:$PATH"
 RUN which compact
 
-# The stable-only manager index does not list this prerelease. Install the
-# checksum-pinned release into the manager's native target layout so the exact
-# `+version` selector used by the repository fixtures resolves fail-closed.
-ARG COMPACTC_VERSION=0.33.0-rc.2
+# Install the checksum-pinned release into the manager's native target layout
+# so the exact `+version` selector used by the repository fixtures resolves
+# fail-closed, without trusting the manager's download.
+ARG COMPACTC_VERSION=0.36.0
 ARG COMPACTC_TARGET=x86_64-unknown-linux-musl
-ARG COMPACTC_SHA256=3055ab92bbc8d5bb0d6282b661b83761d2a0de2ee37e21cf7107e25aaf2a9aad
+ARG COMPACTC_SHA256=7017b6121ebb9d53a562984bca616d143ef84fc7ee18b4da6c3a0a6615cb5e97
 RUN COMPACTC_ARCHIVE="compactc_v${COMPACTC_VERSION}_${COMPACTC_TARGET}.zip" && \
     COMPACTC_URL="https://github.com/LFDT-Minokawa/compact/releases/download/compactc-v${COMPACTC_VERSION}/${COMPACTC_ARCHIVE}" && \
     COMPACTC_DIR="/root/.compact/versions/${COMPACTC_VERSION}/${COMPACTC_TARGET}" && \
@@ -77,10 +77,10 @@ RUN COMPACTC_ARCHIVE="compactc_v${COMPACTC_VERSION}_${COMPACTC_TARGET}.zip" && \
     echo "${COMPACTC_SHA256}  /tmp/${COMPACTC_ARCHIVE}" | sha256sum -c - && \
     mkdir -p "$COMPACTC_DIR" && \
     unzip -q "/tmp/${COMPACTC_ARCHIVE}" -d "$COMPACTC_DIR" && \
-    for executable in compactc compactc.bin fixup-compact format-compact zkir zkir-v3; do \
+    for executable in compactc compactc.bin fixup-compact format-compact zkir-v3; do \
       test -x "$COMPACTC_DIR/$executable"; \
     done && \
-    test "$(compact compile +${COMPACTC_VERSION} --version)" = "0.33.0" && \
+    test "$(compact compile +${COMPACTC_VERSION} --version | cut -d' ' -f1)" = "${COMPACTC_VERSION}" && \
     rm -f "/tmp/${COMPACTC_ARCHIVE}"
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -120,7 +120,7 @@ ENV PATH="/root/.local/bin:$PATH"
 # which resets PATH and drops /root/.local/bin — same reason bun is symlinked
 # into /usr/local/bin above. Validate under `bash -lc` to keep it that way.
 RUN ln -s /root/.local/bin/compact /usr/local/bin/compact && \
-    bash -lc 'compact --version && test "$(compact compile +0.33.0-rc.2 --version)" = "0.33.0"'
+    bash -lc 'compact --version && test "$(compact compile +0.36.0 --version | cut -d" " -f1)" = "0.36.0"'
 
 # The checksum-pinned Linux proof-server release has this exact Nix build-host
 # interpreter in its ELF header. Preserve the published executable bytes while
