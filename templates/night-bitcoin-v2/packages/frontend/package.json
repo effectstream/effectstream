@@ -29,7 +29,6 @@
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-level-private-state-provider": "5.0.0-beta.6",
-    "@midnight-ntwrk/midnight-js-network-id": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-node-zk-config-provider": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-types": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-utils": "5.0.0-beta.6",

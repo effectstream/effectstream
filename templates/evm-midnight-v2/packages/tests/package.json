@@ -16,7 +16,6 @@
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-level-private-state-provider": "5.0.0-beta.6",
-    "@midnight-ntwrk/midnight-js-network-id": "5.0.0-beta.6",
     "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
     "@midnight-ntwrk/midnight-js-node-zk-config-provider": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-types": "5.0.0-beta.6",

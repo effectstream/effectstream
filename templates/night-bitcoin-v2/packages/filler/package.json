@@ -17,7 +17,6 @@
     "@midnight-ntwrk/compact-runtime": "0.18.0-rc.1",
     "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
     "@midnight-ntwrk/midnight-js-contracts": "5.0.0-beta.6",
-    "@midnight-ntwrk/midnight-js-network-id": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-types": "5.0.0-beta.6",
     "@midnight-ntwrk/midnight-js-utils": "5.0.0-beta.6",
     "@midnightntwrk/onchain-runtime-v4": "4.0.0-rc.3",
