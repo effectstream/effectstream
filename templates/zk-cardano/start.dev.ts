@@ -15,7 +15,7 @@ export default {
     ...launchCardano("@zk-cardano/contracts-cardano", { cwd: path.join(root, "packages/contracts-cardano") }),
     {
       name: "midnight-contract-compile",
-      description: "Compile Compact contract (compact compile +0.33.0-rc.2)",
+      description: "Compile Compact contract (compact compile +0.36.0)",
       cwd: path.join(root, "packages/contracts-midnight/contract-ballot"),
       args: ["run", "compact"],
       waitToExit: true,

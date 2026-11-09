@@ -5,9 +5,9 @@
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import {
-  Transaction as LedgerV8Transaction,
-} from '@midnight-ntwrk/ledger-v8';
-import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+  Transaction as LedgerV9Transaction,
+} from '@midnightntwrk/ledger-v9';
+import type { NetworkId } from '@midnight-ntwrk/midnight-js-types';
 import { parseCoinPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
 import { submitToBatcher, type MidnightRuntimeConfig } from './api';
 import {
@@ -122,7 +122,7 @@ async function balanceShieldedViaMirrorMerge(
   );
   console.log('[browserOffers] complete (mirror+merge): taker tx hex bytes', takerTxHex.length / 2);
 
-  const takerTx = LedgerV8Transaction.deserialize(
+  const takerTx = LedgerV9Transaction.deserialize(
     'signature',
     'proof',
     'binding',
@@ -215,7 +215,7 @@ async function balanceMixedViaSealedBalance(
   );
   let txHash = '';
   try {
-    const balancedTx = LedgerV8Transaction.deserialize(
+    const balancedTx = LedgerV9Transaction.deserialize(
       'signature',
       'proof',
       'binding',
@@ -277,7 +277,6 @@ export async function proveAndSubmitOffers(
     offers: offerBech32ms.length,
     offerLens: offerBech32ms.map((b) => b.length),
   });
-  setNetworkId(config.networkId as NetworkId);
 
   console.log('[browserOffers] complete: decoding offer bytes');
   dlog('proveAndSubmitOffers: → decode + merge maker txs (sync)');

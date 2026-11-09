@@ -1,5 +1,5 @@
 // ── External SDK: ledger / runtime ────────────────────────────────────────
-import { CompiledContract } from "@midnight-ntwrk/compact-js";
+import { CompiledContract, type Contract } from "@midnight-ntwrk/compact-js";
 import { type ContractAddress } from "@midnight-ntwrk/compact-runtime";
 
 // ── External SDK: Midnight JS ─────────────────────────────────────────────
@@ -12,26 +12,19 @@ import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-conf
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
-import { type NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
-  type Contract,
-  type ImpureCircuitId,
+  createMidnightProviderFromHandlers,
+  createWalletProviderFromHandlers,
   type MidnightProvider,
   type MidnightProviders,
-  type UnboundTransaction,
+  type NetworkId,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 
 // ── External SDK: wallet ──────────────────────────────────────────────────
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
-import type {
-  CoinPublicKey,
-  EncPublicKey,
-  FinalizedTransaction,
-  TransactionId,
-  UnprovenTransaction,
-} from "@midnightntwrk/ledger-v9";
+import { ContractState } from "@midnightntwrk/ledger-v9";
 // ── Misc third-party ──────────────────────────────────────────────────────
 import semver from "semver";
 
@@ -56,8 +49,8 @@ const BASE_WS_MIDNIGHT_INDEXER =
   import.meta.env.VITE_MIDNIGHT_INDEXER_WS || "ws://127.0.0.1:8088";
 const BASE_URL_PROOF_SERVER =
   import.meta.env.VITE_MIDNIGHT_PROOF_SERVER_URL || "http://127.0.0.1:6300";
-const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
-const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
+const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v4/graphql`;
+const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v4/graphql/ws`;
 
 export class DelegatedBalancingSentError extends Error {
   constructor() {
@@ -94,7 +87,7 @@ export type MultiChainContract = Contract<
 >;
 
 // Inlined common types for standalone script
-type SimpleTokenCircuits = ImpureCircuitId<SimpleToken.Contract>;
+type SimpleTokenCircuits = Contract.ProvableCircuitId<SimpleToken.Contract>;
 
 export type SimpleTokenProviders = MidnightProviders<
   SimpleTokenCircuits,
@@ -124,7 +117,11 @@ const getSimpleTokenLedgerState = async (
       contractAddress,
     );
     const state =
-      contractState != null ? SimpleToken.ledger(contractState.data) : null;
+      contractState != null
+        ? SimpleToken.ledger(
+          contractState.contractState.deserialize({ v9: ContractState }).data,
+        )
+        : null;
     console.log(`📊 Ledger state:`, state);
     return state;
   } catch (error) {
@@ -149,7 +146,7 @@ const joinContract = async (
 
   const simpleTokenContract = await findDeployedContract(providers, {
     contractAddress,
-    compiledContract: compiledContract as any,
+    compiledContract,
     privateStateId: "simpleTokenPrivateState",
     initialPrivateState: {},
   });
@@ -193,11 +190,20 @@ const mintUnshielded = async (
   // Compact runtime requires Bytes<N> as Uint8Array (not a plain JS number[]),
   // and UserAddress.bytes likewise. Array.from() would coerce to plain array
   // and trip a "type error" inside the circuit.
-  const finalizedTxData = await (simpleTokenContract.callTx as any).mint_unshielded(
-    M20_DOMAIN_SEP,
-    amount,
-    { bytes: recipientBytes },
-  );
+  lastCapturedTx = null;
+  let finalizedTxData;
+  try {
+    finalizedTxData = await (simpleTokenContract.callTx as any).mint_unshielded(
+      M20_DOMAIN_SEP,
+      amount,
+      { bytes: recipientBytes },
+    );
+  } catch (error) {
+    // midnight-js 5 wraps the provider's DelegatedBalancingSentError in
+    // ProviderFailedError; the captured transaction marks the hand-off.
+    if (lastCapturedTx !== null) throw new DelegatedBalancingSentError();
+    throw error;
+  }
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
@@ -284,37 +290,39 @@ const connectToWallet = async (networkId: string): Promise<ConnectedAPI> => {
   return await apiWithPassword.connect(networkId);
 };
 
+/**
+ * Wallet and midnight providers for the delegated-balancing flow (ledger-v9
+ * only): the unbound transaction midnight-js hands to `balanceTx` is captured
+ * for the balancing batcher instead of being balanced by the user's wallet.
+ * midnight-js 5 wraps whatever a provider throws in `ProviderFailedError`, so
+ * callers recognise the hand-off by the captured transaction (see
+ * `getLastCapturedTx`), not by the class of the error thrown here.
+ */
 const createWalletAndMidnightProvider = (
-  connectedAPI: ConnectedAPI,
-  coinPublicKey: CoinPublicKey,
-  encryptionPublicKey: EncPublicKey,
-): WalletProvider & MidnightProvider => {
-  return {
-    getCoinPublicKey(): CoinPublicKey {
-      return coinPublicKey;
-    },
-    getEncryptionPublicKey(): EncPublicKey {
-      return encryptionPublicKey;
-    },
-    async balanceTx(
-      tx: UnboundTransaction,
-      _ttl?: Date,
-    ): Promise<FinalizedTransaction> {
-      console.log(" erc20.ts: balanceTx called (delegated)", { tx, _ttl });
-
-      const hexTx = toHex((tx as unknown as UnprovenTransaction).serialize());
-      console.log(" erc20.ts: Capturing UNPROVEN transaction for delegation", {
+  coinPublicKey: string,
+  encryptionPublicKey: string,
+): { walletProvider: WalletProvider; midnightProvider: MidnightProvider } => {
+  const walletProvider = createWalletProviderFromHandlers({
+    v8: undefined,
+    v9: async (tx) => {
+      const hexTx = toHex(tx.serialize());
+      console.log(" erc20.ts: Capturing UNBOUND transaction for delegation", {
         hexTxLength: hexTx.length,
       });
       lastCapturedTx = hexTx;
-
       throw new DelegatedBalancingSentError();
     },
-    async submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
-      console.log(" erc20.ts: submitTx called (delegated)", { tx });
+    getCoinPublicKey: () => coinPublicKey,
+    getEncryptionPublicKey: () => encryptionPublicKey,
+  });
+  const midnightProvider = createMidnightProviderFromHandlers({
+    v8: undefined,
+    v9: async () => {
+      console.log(" erc20.ts: submitTx called (delegated)");
       throw new DelegatedBalancingSentError();
     },
-  };
+  });
+  return { walletProvider, midnightProvider };
 };
 
 const initializeProviders = async (
@@ -323,19 +331,22 @@ const initializeProviders = async (
 ): Promise<SimpleTokenProviders> => {
   const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = shieldedAddresses;
 
-  const walletAndMidnightProvider = createWalletAndMidnightProvider(
-    connectedAPI,
-    shieldedCoinPublicKey as any,
-    shieldedEncryptionPublicKey as any,
+  const { walletProvider, midnightProvider } = createWalletAndMidnightProvider(
+    shieldedCoinPublicKey,
+    shieldedEncryptionPublicKey,
   );
 
-  const zkConfigPath = window.location.origin;
+  // This contract's keys/, zkir/ and compiler/ are served under /unshielded-erc20/
+  // (see vite.config.ts).
+  const zkConfigPath = `${window.location.origin}/unshielded-erc20`;
 
   // httpClientProofProvider needs the zkConfigProvider as its 2nd argument so
   // it can fetch prover key + zkir to build the /check and /prove payloads.
   // Without it, getKeyMaterial silently returns undefined and the proof server
   // rejects /check with a 400 (no IR in the payload).
-  const zkConfigProvider = new FetchZkConfigProvider(zkConfigPath, fetch.bind(window));
+  const zkConfigProvider = new FetchZkConfigProvider<SimpleTokenCircuits>(zkConfigPath, {
+    fetchFunc: fetch.bind(window),
+  });
 
   return {
     privateStateProvider: levelPrivateStateProvider({
@@ -349,11 +360,14 @@ const initializeProviders = async (
         BASE_URL_MIDNIGHT_INDEXER_API,
         BASE_URL_MIDNIGHT_INDEXER_WS,
       ),
-      BASE_URL_MIDNIGHT_INDEXER_API,
       "erc20.ts",
     ),
-    walletProvider: walletAndMidnightProvider,
-    midnightProvider: walletAndMidnightProvider,
+    walletProvider,
+    midnightProvider,
+    config: {
+      networkId: MIDNIGHT_NETWORK_ID,
+      ttlSeconds: 60 * 60,
+    },
   };
 };
 

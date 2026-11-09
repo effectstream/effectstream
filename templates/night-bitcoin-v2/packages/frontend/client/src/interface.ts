@@ -249,10 +249,10 @@ export async function createIntent(
   }
 }
 
-// midnight-js's `scoped(...)` wrapper catches errors thrown inside `balanceTx`
-// and re-throws them as a generic "Unexpected error submitting scoped
-// transaction" Error with the original attached as `.cause`. Walk the cause
-// chain so we still recognize our delegation sentinel.
+// The contract modules re-throw DelegatedBalancingSentError themselves once a
+// transaction was captured (midnight-js 5 wraps — and sanitizes — whatever a
+// provider throws, so the original never reaches this code). The cause walk
+// stays for errors that wrap the sentinel again on the way here.
 const isDelegatedBalancingError = (error: unknown): boolean => {
   let cur: unknown = error;
   while (cur instanceof Error) {

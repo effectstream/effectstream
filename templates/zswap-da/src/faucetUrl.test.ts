@@ -12,7 +12,7 @@ describe('external faucet URL', () => {
     );
   });
 
-  test.each(['preview', 'preprod', 'stagenet', 'undeployed'])(
+  test.each(['mainnet', 'preview', 'preprod', 'undeployed'])(
     'preserves an explicit %s network',
     (network) => {
       expect(buildFaucetUrl(undefined, network)).toBe(
@@ -22,8 +22,8 @@ describe('external faucet URL', () => {
   );
 
   test('accepts the display network name used by the navigation state', () => {
-    expect(buildFaucetUrl(undefined, 'Stagenet')).toBe(
-      `${DEFAULT_FAUCET_URL}?network=stagenet`,
+    expect(buildFaucetUrl(undefined, 'Preview')).toBe(
+      `${DEFAULT_FAUCET_URL}?network=preview`,
     );
   });
 

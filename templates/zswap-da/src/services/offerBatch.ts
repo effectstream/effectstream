@@ -35,8 +35,8 @@
 // same dispatch a single offer did, and that is something a unit test can check
 // without a wallet in the room.
 
-import { Transaction as LedgerV8Transaction } from '@midnight-ntwrk/ledger-v8';
-import { setNetworkId, type NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { Transaction as LedgerV9Transaction } from '@midnightntwrk/ledger-v9';
+import type { NetworkId } from '@midnight-ntwrk/midnight-js-types';
 import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 import { parseTakerLegs } from './offerParse';
 
@@ -46,7 +46,7 @@ import { parseTakerLegs } from './offerParse';
  */
 export interface DecodedMakerOffer {
   blob: string;
-  /** ledger-v8 `Transaction<'signature','proof','binding'>`. */
+  /** ledger-v9 `Transaction<'signature','proof','binding'>`. */
   tx: any;
   /**
    * The blob's own decoded bytes, kept so a single-offer take can hand a wallet
@@ -67,15 +67,14 @@ const reason = (e: unknown): string => {
  *
  * @throws If the batch is empty, or if any blob fails to decode.
  */
-export function decodeMakerOffers(blobs: string[], networkId: NetworkId): DecodedMakerOffer[] {
+export function decodeMakerOffers(blobs: string[], _networkId: NetworkId): DecodedMakerOffer[] {
   if (blobs.length === 0) throw new Error('No offers to settle.');
-  setNetworkId(networkId);
   return blobs.map((blob, i) => {
     try {
       const raw = OfferFiles.decode(blob);
       return {
         blob,
-        tx: LedgerV8Transaction.deserialize('signature', 'proof', 'binding', raw),
+        tx: LedgerV9Transaction.deserialize('signature', 'proof', 'binding', raw),
         raw,
       };
     } catch (cause) {
@@ -143,7 +142,7 @@ export function mergeMakerOffers(decoded: DecodedMakerOffer[]): any {
  * (Lace) needs.
  */
 export interface MergedMakerBatch {
-  /** ledger-v8 transaction — the merged maker half. */
+  /** ledger-v9 transaction — the merged maker half. */
   tx: any;
   /**
    * `tx` as bytes. For a single offer these are the blob's OWN decoded bytes,

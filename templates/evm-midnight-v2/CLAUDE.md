@@ -11,7 +11,7 @@ bun install                          # Install deps
 bun run dev                          # Full stack: PGLite + Hardhat + Midnight + sync + batcher + frontend
 bun run start:mainnet                # Mainnet: Arbitrum One + Midnight mainnet (requires env vars)
 bun run test                         # E2E tests (packages/tests/run-tests.ts)
-bun run build:midnight               # Compile Compact contract (+0.31.0)
+bun run build:midnight               # Compile Compact contract (+0.36.0)
 bun run build:evm                    # Compile Solidity + generate TS bindings
 ```
 
@@ -50,25 +50,27 @@ Bun monorepo with flat `packages/*` layout. All `@effectstream/*` deps are from 
 All Midnight dependencies must be pinned to exact versions from the compatibility matrix:
 https://github.com/midnightntwrk/midnight-sdk/blob/main/COMPATIBILITY.md
 
-Never use `^` or `~` ranges. Current stable set (midnight-node 1.0.0 era, as of 2026-07-29):
-- Compact compiler `+0.31.0`, compact-runtime `0.16.0`, compact-js `2.5.1` (do NOT bump compact-js to 2.5.3+ — it targets ledger-v9)
-- midnight-js-* `4.1.1`, ledger-v8 `8.1.0`, onchain-runtime-v3 `3.0.0`
-- Wallet SDK moved scope to `@midnightntwrk/*` (no hyphen): wallet-sdk-facade `4.1.0`, wallet-sdk-hd `3.0.3`, wallet-sdk-dust-wallet `4.2.0`, wallet-sdk-shielded `3.0.2`, wallet-sdk-unshielded-wallet `3.1.0`, wallet-sdk-address-format `3.1.2`, wallet-sdk-abstractions `2.1.0`
+Never use `^` or `~` ranges. Current stable set (ledger-9 / midnight-node 2.1 era — mainnet and preview, as of 2026-11-07):
+- Compact compiler `+0.36.0` (language 0.28.0), compact-runtime `0.21.0`, compact-js `3.0.0`, platform-js `3.0.0`
+- midnight-js-* `5.0.0`, `@midnightntwrk/ledger-v9` `1.0.0`, `@midnightntwrk/onchain-runtime-v4` `4.0.0` (the `@midnight-ntwrk/onchain-runtime` alias points at it), dapp-connector-api `4.1.0`
+- Wallet SDK 2.0.0 (`@midnightntwrk/*`, no hyphen): wallet-sdk-facade `5.0.0`, wallet-sdk-hd `4.0.0`, wallet-sdk-dust-wallet `5.0.0`, wallet-sdk-shielded `4.0.0`, wallet-sdk-unshielded-wallet `4.0.0`, wallet-sdk-address-format `4.0.0`, wallet-sdk-abstractions `3.0.0`
 
-The old `@midnight-ntwrk/ledger`, `ledger-v6`, `onchain-runtime-v1`, `zswap`, and `wallet`/`wallet-api` packages are deprecated/removed — zswap types are re-exported from `ledger-v8`.
+Exactly ONE copy of `@midnightntwrk/ledger-v9` and of `@midnightntwrk/onchain-runtime-v4` may be installed (two copies fail every contract call with `expected instance of LedgerParameters`). midnight-js 5.0.0 pins 1.0.0 / 4.0.0 exactly while the wallet SDK and compact-js accept `^1.0.0` / `^4.0.0`, so the root `package.json` `overrides` pin both (plus the `@midnight-ntwrk/onchain-runtime` alias). `@midnight-ntwrk/midnight-js-network-id` no longer exists: the network id travels in `providers.config.networkId`.
 
-## Midnight wallet SDK (v3/v4 API)
+## Midnight wallet SDK (2.0.0) and midnight-js 5
 
-`WalletFacade.init()` (not `new WalletFacade()`):
+`WalletFacade.init()` (not `new WalletFacade()`), started from the per-role HD seeds:
 ```ts
 const wallet = await WalletFacade.init({
   configuration,
-  shielded: (cfg) => ShieldedWallet(cfg).startWithSecretKeys(keys),
-  unshielded: (cfg) => UnshieldedWallet(cfg).startWithPublicKey(pubKey),
-  dust: (cfg) => DustWallet(cfg).startWithSecretKey(dustKey, dustParams),
+  shielded: (cfg) => ShieldedWallet(cfg).startWithSeed(shieldedSeed),
+  unshielded: (cfg) => UnshieldedWallet(cfg).startWithPublicKey(PublicKey.fromKeyStore(keystore)),
+  dust: (cfg) => DustWallet(cfg).startWithSeed(dustSeed, dustParams),
 });
-await wallet.start(shieldedKeys, dustKey);
+await wallet.start({ shielded: shieldedSeed, unshielded: unshieldedSeed, dust: dustSeed });
 ```
+
+midnight-js 5 providers are era-tagged: build them with `createWalletProviderFromHandlers({ v8: undefined, v9: ... })` / `createMidnightProviderFromHandlers(...)`, and hand transactions to the wallet as sealed `WalletTransaction` handles (`WalletTransaction.adopt(stage, tx, activeProtocolVersion)`; see `adoptInWallet` / `finalizedFromWallet` in `@effectstream/midnight-contracts`, or the browser copy in `packages/frontend/client/src/increment.ts`). `MidnightProviders` also needs `config: { networkId, ttlSeconds }`. A browser `FetchZkConfigProvider` verifies keys against compactc's `compiler/contract-manifest.json`, so serve `compiler/` next to `keys/` and `zkir/`.
 
 `findDeployedContract` requires `compiledContract` (not `contract`):
 ```ts

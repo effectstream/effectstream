@@ -31,7 +31,10 @@
 // Shielded legs carry no signatures (ZK proofs + Pedersen binding), so the
 // sign step is skipped when no unshielded leg is involved.
 
-import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import type { NetworkId } from '@midnight-ntwrk/midnight-js-types';
+import { Transaction as LedgerV9Transaction } from '@midnightntwrk/ledger-v9';
+import { ProtocolVersion, WalletTransaction } from '@midnightntwrk/wallet-sdk-abstractions';
+import { DefaultForkSchedule } from '@midnightntwrk/wallet-sdk-facade';
 import { MidnightBech32m, UnshieldedAddress } from '@midnightntwrk/wallet-sdk-address-format';
 import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 import type { OfferLeg } from './makerOffer';
@@ -48,22 +51,49 @@ interface LocalApiShape {
   unshieldedAddress?: string;
   walletResult?: {
     wallet: any;
-    zswapSecretKeys: any;
-    dustSecretKey: any;
     unshieldedKeystore: any;
   };
 }
 
 function facadeParts(localApi: LocalApiShape) {
   const r = localApi.walletResult;
-  if (!r?.wallet || !r?.zswapSecretKeys || !r?.dustSecretKey || !r?.unshieldedKeystore) {
+  if (!r?.wallet || !r?.unshieldedKeystore) {
     throw new Error('JS wallet is not fully initialised — offers need the full wallet facade.');
   }
-  return {
-    facade: r.wallet,
-    secretKeys: { shieldedSecretKeys: r.zswapSecretKeys, dustSecretKey: r.dustSecretKey },
-    keystore: r.unshieldedKeystore,
-  };
+  // wallet-sdk 2 balances and proves with the key material the facade was
+  // started from; no secret keys are passed per call.
+  return { facade: r.wallet, keystore: r.unshieldedKeystore };
+}
+
+// wallet-sdk 2 takes and returns sealed `WalletTransaction` handles, bound to
+// the protocol version the wallet is acting at; the offer bytes on the wire are
+// plain ledger-v9 transactions. These helpers convert between the two.
+
+async function activeProtocolVersion(facade: any): Promise<ProtocolVersion.ProtocolVersion> {
+  const state: any = await new Promise((resolve, reject) => {
+    const sub = facade.state().subscribe({
+      next: (value: unknown) => {
+        queueMicrotask(() => sub.unsubscribe());
+        resolve(value);
+      },
+      error: reject,
+    });
+  });
+  return state.activeProtocolVersion;
+}
+
+/** Seals a finalized ledger-v9 transaction for the facade. */
+async function adoptFinalized(facade: any, tx: { serialize(): Uint8Array }) {
+  const decoded = LedgerV9Transaction.deserialize('signature', 'proof', 'binding', tx.serialize());
+  return WalletTransaction.adopt('Finalized', decoded, await activeProtocolVersion(facade));
+}
+
+/** Reads the bytes of a finalized facade handle sealed for the current epoch. */
+async function finalizedBytes(facade: any, handle: WalletTransaction<'Finalized'>): Promise<Uint8Array> {
+  const epoch = ProtocolVersion.epochOf(await activeProtocolVersion(facade), DefaultForkSchedule.v9);
+  const unwrapped = WalletTransaction.unwrapWithin<{ serialize(): Uint8Array }>(handle, epoch);
+  if (unwrapped._tag === 'Left') throw unwrapped.left;
+  return unwrapped.right.serialize();
 }
 
 const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
@@ -78,7 +108,7 @@ export async function buildMakerOfferBlobLocal(
   gives: OfferLeg[],
   wants: OfferLeg[],
 ): Promise<string> {
-  const { facade, secretKeys, keystore } = facadeParts(localApi);
+  const { facade, keystore } = facadeParts(localApi);
 
   // gives → desired inputs: what the maker's wallet must supply, per layer.
   const inputs: { shielded?: Record<string, bigint>; unshielded?: Record<string, bigint> } = {};
@@ -137,9 +167,8 @@ export async function buildMakerOfferBlobLocal(
     outputKinds: outputs.map((o) => o.type),
   });
 
-  setNetworkId(networkId as NetworkId);
   let recipe = await timed('localOffer.build: facade.initSwap', () =>
-    facade.initSwap(inputs, outputs, secretKeys, {
+    facade.initSwap(inputs, outputs, {
       ttl: new Date(Date.now() + OFFER_TTL_MS),
       // The offer stays imbalanced and carries no Dust — taker balances,
       // batcher pays fees.
@@ -149,17 +178,17 @@ export async function buildMakerOfferBlobLocal(
 
   if (gives.some((g) => g.kind === 'unshielded')) {
     recipe = await timed('localOffer.build: facade.signRecipe (unshielded gives)', () =>
-      facade.signRecipe(recipe, (payload: Uint8Array) => keystore.signData(payload)),
+      facade.signRecipe(recipe, (payload: Uint8Array) => keystore.signDataAsync(payload)),
     );
   }
 
   // finalizeRecipe proves the unproven swap tx via the facade's prover client
   // (the proof server buildWalletFacade was configured with).
-  const finalized: any = await timed('localOffer.build: facade.finalizeRecipe (prove)', () =>
+  const finalized = await timed('localOffer.build: facade.finalizeRecipe (prove)', () =>
     facade.finalizeRecipe(recipe),
   );
 
-  return OfferFiles.encode(finalized.serialize());
+  return OfferFiles.encode(await finalizedBytes(facade, finalized as WalletTransaction<'Finalized'>));
 }
 
 /**
@@ -182,9 +211,8 @@ export async function settleOffersLocal(
   config: MidnightRuntimeConfig,
   offerBech32ms: string[],
 ): Promise<{ txHash: string }> {
-  const { facade, secretKeys, keystore } = facadeParts(localApi);
+  const { facade, keystore } = facadeParts(localApi);
   const networkId = config.networkId as NetworkId;
-  setNetworkId(networkId);
 
   const decoded = decodeMakerOffers(offerBech32ms, networkId);
   const makerTx = mergeMakerOffers(decoded);
@@ -197,8 +225,9 @@ export async function settleOffersLocal(
   // batch puts an unshielded input in the settlement, so it must be signed.
   const paysUnshielded = batchPaysUnshielded(offerBech32ms, networkId);
 
+  const makerHandle = await adoptFinalized(facade, makerTx);
   let recipe = await timed('localOffer.settle: facade.balanceFinalizedTransaction', () =>
-    facade.balanceFinalizedTransaction(makerTx, secretKeys, {
+    facade.balanceFinalizedTransaction(makerHandle, {
       ttl: new Date(Date.now() + OFFER_TTL_MS),
       // Value legs only — the batcher contributes the Dust at submission.
       tokenKindsToBalance: ['shielded', 'unshielded'],
@@ -207,17 +236,17 @@ export async function settleOffersLocal(
 
   if (paysUnshielded) {
     recipe = await timed('localOffer.settle: facade.signRecipe (unshielded pays)', () =>
-      facade.signRecipe(recipe, (payload: Uint8Array) => keystore.signData(payload)),
+      facade.signRecipe(recipe, (payload: Uint8Array) => keystore.signDataAsync(payload)),
     );
   }
 
   // Proves the taker's balancing tx and merges it with the (already merged)
   // maker txs — merge keeps each party's signatures on their own segments.
-  const settlement: any = await timed('localOffer.settle: facade.finalizeRecipe (prove+merge)', () =>
+  const settlement = await timed('localOffer.settle: facade.finalizeRecipe (prove+merge)', () =>
     facade.finalizeRecipe(recipe),
   );
 
-  const serializedHex = toHex(settlement.serialize());
+  const serializedHex = toHex(await finalizedBytes(facade, settlement as WalletTransaction<'Finalized'>));
   const address = localApi.unshieldedAddress ?? keystore.getBech32Address().asString();
   dlog('localOffer.settle: → submitToBatcher (one submission for the whole batch)', {
     offers: decoded.length,

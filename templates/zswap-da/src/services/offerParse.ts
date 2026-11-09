@@ -4,19 +4,18 @@
 // imbalance of +N for token T means the maker spent N (the taker RECEIVES N);
 // −N means the maker output N (the taker PAYS N). Dust is the batcher's concern.
 
-import { Transaction as LedgerV8Transaction } from '@midnight-ntwrk/ledger-v8';
-import { setNetworkId, type NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { Transaction as LedgerV9Transaction } from '@midnightntwrk/ledger-v9';
+import type { NetworkId } from '@midnight-ntwrk/midnight-js-types';
 import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 
 export interface ParsedLeg { color: string; kind: 'shielded' | 'unshielded'; amount: bigint }
 export interface ParsedOffer { pays: ParsedLeg[]; gets: ParsedLeg[] }
 
-export function parseTakerLegs(blob: string, networkId: NetworkId): ParsedOffer | null {
+export function parseTakerLegs(blob: string, _networkId: NetworkId): ParsedOffer | null {
   let tx: any;
   try {
-    setNetworkId(networkId);
     const bytes = OfferFiles.decode(blob);
-    tx = LedgerV8Transaction.deserialize('signature', 'proof', 'binding', bytes);
+    tx = LedgerV9Transaction.deserialize('signature', 'proof', 'binding', bytes);
   } catch {
     return null;
   }

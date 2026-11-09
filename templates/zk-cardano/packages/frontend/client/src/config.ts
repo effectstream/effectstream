@@ -12,8 +12,8 @@ export const getMidnightNodeUrl = async (): Promise<string> => {
 };
 
 export const BASE_URL_MIDNIGHT_INDEXER_API =
-  `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
+  `${BASE_URL_MIDNIGHT_INDEXER}/api/v4/graphql`;
 export const BASE_URL_MIDNIGHT_INDEXER_WS =
-  `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
+  `${BASE_WS_MIDNIGHT_INDEXER}/api/v4/graphql/ws`;
 
 export const BLOCK_HEIGHTS_ENDPOINT = `${BASE_URL_API}/block-heights`;

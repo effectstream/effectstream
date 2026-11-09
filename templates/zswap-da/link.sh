@@ -94,7 +94,11 @@ link_pkg "effectstream" "midnight-contracts" "$P/chains/midnight-contracts"
 # Linking a monorepo package makes this materially worse: the linked package
 # resolves its deps from the MONOREPO's store while the template resolves its
 # own, guaranteeing two copies unless we collapse them here.
-MIDNIGHT_WASM_PKGS="compact-runtime compact-js onchain-runtime-v3 onchain-runtime-v2 ledger-v8"
+#
+# midnight-js 5 adds a third family with the same rule: transaction handles
+# built by one copy of midnight-js-types are refused by another
+# ("not-a-handle"), so the midnight-js packages are collapsed too.
+MIDNIGHT_WASM_PKGS="compact-runtime compact-js platform-js midnight-js-types midnight-js-protocol midnight-js-contracts midnight-js-utils midnight-js-indexer-public-data-provider midnight-js-http-client-proof-provider midnight-js-level-private-state-provider midnight-js-node-zk-config-provider midnight-js-fetch-zk-config-provider"
 
 # Collapse the whole @midnightntwrk (unhyphenated) wallet-sdk family onto the
 # monorepo's copies. Enumerated from the store rather than hardcoded, so a new
@@ -127,8 +131,10 @@ link_midnight_wasm_from_monorepo() {
       ln -sf "$pkg_path" "$dest_nm/@midnight-ntwrk/$pkg"
     done
   done
-  for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnight-ntwrk+onchain-runtime-v3"@*; do
-    pkg_path="$bun_pkg/node_modules/@midnight-ntwrk/onchain-runtime-v3"
+  # The `@midnight-ntwrk/onchain-runtime` alias resolves to onchain-runtime-v4,
+  # which publishes under the unhyphenated scope.
+  for bun_pkg in "$MONOREPO_ROOT/node_modules/.bun/@midnightntwrk+onchain-runtime-v4"@*; do
+    pkg_path="$bun_pkg/node_modules/@midnightntwrk/onchain-runtime-v4"
     [ -e "$pkg_path" ] || continue
     rm -rf "$dest_nm/@midnight-ntwrk/onchain-runtime"
     ln -sf "$pkg_path" "$dest_nm/@midnight-ntwrk/onchain-runtime"
@@ -142,10 +148,7 @@ drop_template_wasm_bun_copies() {
   for prefix in \
     "@midnight-ntwrk+compact-runtime@" \
     "@midnight-ntwrk+compact-js@" \
-    "@midnight-ntwrk+onchain-runtime-v3@" \
-    "@midnight-ntwrk+onchain-runtime-v2@" \
-    "@midnight-ntwrk+onchain-runtime@" \
-    "@midnight-ntwrk+ledger-v8@"; do
+    "@midnight-ntwrk+onchain-runtime@"; do
     for entry in "$bun_dir"/${prefix}*; do
       [ -e "$entry" ] || continue
       rm -rf "$entry"
@@ -209,7 +212,9 @@ dupe_check() {
 }
 rc=0
 dupe_check "@midnightntwrk" "wallet-sdk-address-format" || rc=1
-dupe_check "@midnight-ntwrk" "ledger-v8" || rc=1
+dupe_check "@midnightntwrk" "ledger-v9" || rc=1
+dupe_check "@midnightntwrk" "onchain-runtime-v4" || rc=1
+dupe_check "@midnight-ntwrk" "midnight-js-types" || rc=1
 [ "$rc" -eq 0 ] || { echo "Single-instance check failed."; exit 1; }
 
 echo ""
