@@ -149,7 +149,7 @@ describe("post-publish visibility polling", () => {
   });
 
   test("retries two absent reads and succeeds only on one coherent round", async () => {
-    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const item = manifest(resolveReleasePolicy("v0.300.3"));
     const timing = fakeTiming();
     const reads = new Map<string, number>();
     await pollPostconditions(item, {
@@ -193,7 +193,7 @@ describe("post-publish visibility polling", () => {
   });
 
   test("does not accumulate per-package success across incoherent rounds", async () => {
-    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const item = manifest(resolveReleasePolicy("v0.300.3"));
     const timing = fakeTiming();
     let round = 0;
     await expect(pollPostconditions(item, {
@@ -218,7 +218,7 @@ describe("post-publish visibility polling", () => {
   });
 
   test("uses one deadline and names every package still pending", async () => {
-    const item = manifest(resolveReleasePolicy("v0.200.3-rc.1"));
+    const item = manifest(resolveReleasePolicy("v0.300.3-rc.1"));
     const timing = fakeTiming();
     const pending = new Set([packageNames[2], packageNames[17]]);
     let error: unknown;
@@ -244,7 +244,7 @@ describe("post-publish visibility polling", () => {
   });
 
   test("fails immediately on a visible non-null integrity conflict", async () => {
-    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const item = manifest(resolveReleasePolicy("v0.300.3"));
     const timing = fakeTiming();
     await expect(pollPostconditions(item, {
       timeoutMs: 100,
@@ -260,10 +260,10 @@ describe("post-publish visibility polling", () => {
   });
 
   test.each([
-    ["v0.200.3", "0.200.1"],
-    ["v0.200.3", undefined],
+    ["v0.300.3", "0.200.1"],
+    ["v0.300.3", undefined],
     ["v0.104.2", "0.200.1"],
-    ["v0.200.3-rc.1", "0.200.1"],
+    ["v0.300.3-rc.1", "0.200.1"],
   ])("fails immediately on a readable hidden-target channel conflict for %s", async (tag, latest) => {
     const item = manifest(resolveReleasePolicy(tag));
     const timing = fakeTiming();
@@ -280,10 +280,10 @@ describe("post-publish visibility polling", () => {
   });
 
   test.each([
-    ["v0.200.3", "0.200.2", undefined],
-    ["v0.200.3", "0.200.3", undefined],
+    ["v0.300.3", "0.200.2", undefined],
+    ["v0.300.3", "0.300.3", undefined],
     ["v0.104.2", "0.200.2", "0.104.1"],
-    ["v0.200.3-rc.1", "0.200.2", "0.200.2-rc.9"],
+    ["v0.300.3-rc.1", "0.200.2", "0.200.2-rc.9"],
   ])("keeps permitted readable hidden-target state pending for %s", async (tag, latest, priorRequiredTag) => {
     const item = manifest(resolveReleasePolicy(tag));
     const timing = fakeTiming();
@@ -311,7 +311,7 @@ describe("post-publish visibility polling", () => {
   });
 
   test("treats a true 404 as pending without trusting its channel fields", async () => {
-    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const item = manifest(resolveReleasePolicy("v0.300.3"));
     const timing = fakeTiming();
     let targetReads = 0;
     await pollPostconditions(item, {
@@ -331,7 +331,7 @@ describe("post-publish visibility polling", () => {
   });
 
   test("propagates a conflict and aborts a never-settling peer immediately", async () => {
-    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const item = manifest(resolveReleasePolicy("v0.300.3"));
     const timing = fakeTiming();
     let peerAborted = false;
     await expect(pollPostconditions(item, {
@@ -356,7 +356,7 @@ describe("post-publish visibility polling", () => {
   });
 
   test("aborts a never-settling read at the shared deadline and reports it pending", async () => {
-    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const item = manifest(resolveReleasePolicy("v0.300.3"));
     const timing = fakeTiming();
     let peerAborted = false;
     let error: unknown;
@@ -424,8 +424,8 @@ describe("strict SemVer", () => {
 describe("closed release policy", () => {
   test.each([
     ["v0.104.2", false, "midnight-1", "midnight-1", "maintenance-stable"],
-    ["v0.200.3", false, "v-next", "latest", "node2-stable"],
-    ["v0.200.3-rc.1", true, "v-next", "next", "node2-prerelease"],
+    ["v0.300.3", false, "v-next", "latest", "node2-stable"],
+    ["v0.300.3-rc.1", true, "v-next", "next", "node2-prerelease"],
   ])("maps %s", (tag, prerelease, branch, distTag, kind) => {
     expect(resolveReleasePolicy(tag, branch, distTag, prerelease)).toMatchObject({
       branch,
@@ -438,10 +438,10 @@ describe("closed release policy", () => {
   test.each([
     ["v0.104.2", "v-next", "midnight-1", false],
     ["v0.104.2", "midnight-1", "latest", false],
-    ["v0.200.3", "midnight-1", "latest", false],
-    ["v0.200.3", "v-next", "next", false],
-    ["v0.200.3-rc.1", "v-next", "latest", true],
-    ["v0.200.3-rc.1", "midnight-1", "next", true],
+    ["v0.300.3", "midnight-1", "latest", false],
+    ["v0.300.3", "v-next", "next", false],
+    ["v0.300.3-rc.1", "v-next", "latest", true],
+    ["v0.300.3-rc.1", "midnight-1", "next", true],
   ])("rejects mismatched tuple %s/%s/%s", (tag, branch, distTag, prerelease) => {
     expect(() => resolveReleasePolicy(tag, branch, distTag, prerelease)).toThrow();
   });
@@ -452,25 +452,30 @@ describe("closed release policy", () => {
     "v0.104.2+build.1",
     "v0.105.0",
     "v0.199.999",
-    "v0.200.3+build.1",
+    "v0.300.3+build.1",
     "v0.201.0",
+    "v0.301.0",
     "v1.0.0",
     "0.104.2",
   ])("rejects unsupported form %s", (tag) => {
     expect(() => resolveReleasePolicy(tag)).toThrow();
   });
 
+  test.each(["v0.200.7", "v0.200.7-rc.1"])("rejects retired 0.200.x form %s", (tag) => {
+    expect(() => resolveReleasePolicy(tag)).toThrow(/retired/);
+  });
+
   test("requires the only allowed explicit dist-tag", () => {
     expect(resolveDistTag("0.104.2", "midnight-1")).toBe("midnight-1");
-    expect(resolveDistTag("0.200.3", "latest")).toBe("latest");
-    expect(resolveDistTag("0.200.3-rc.1", "next")).toBe("next");
+    expect(resolveDistTag("0.300.3", "latest")).toBe("latest");
+    expect(resolveDistTag("0.300.3-rc.1", "next")).toBe("next");
     expect(() => resolveDistTag("0.104.2")).toThrow(/required/);
     expect(() => resolveDistTag("0.104.2", "latest")).toThrow();
   });
 });
 
 describe("all-package ordinary preflight", () => {
-  test.each(["v0.104.2", "v0.200.3", "v0.200.3-rc.1"])(
+  test.each(["v0.104.2", "v0.300.3", "v0.300.3-rc.1"])(
     "accepts absent targets and one stable Node-2 latest snapshot for %s",
     (tag) => {
       const policy = resolveReleasePolicy(tag);
@@ -490,8 +495,13 @@ describe("all-package ordinary preflight", () => {
     expect(() => preflightOrdinary(resolveReleasePolicy("v0.104.2"), registryStates)).toThrow();
   });
 
+  test("accepts a uniform post-transition 0.300.x latest snapshot", () => {
+    const snapshot = preflightOrdinary(resolveReleasePolicy("v0.300.4"), states("0.300.3"));
+    expect(new Set(Object.values(snapshot))).toEqual(new Set(["0.300.3"]));
+  });
+
   test("stable Node-2 target must be above the uniform current latest", () => {
-    expect(() => preflightOrdinary(resolveReleasePolicy("v0.200.2"), states())).toThrow(/greater/);
+    expect(() => preflightOrdinary(resolveReleasePolicy("v0.300.3"), states("0.300.3"))).toThrow(/greater/);
   });
 });
 
@@ -534,7 +544,7 @@ describe("persisted exact-tarball completion", () => {
 
 describe("release-kind postconditions", () => {
   test("maintenance and Node-2 prerelease preserve latest exactly", () => {
-    for (const tag of ["v0.104.2", "v0.200.3-rc.1"]) {
+    for (const tag of ["v0.104.2", "v0.300.3-rc.1"]) {
       const item = manifest(resolveReleasePolicy(tag));
       expect(() =>
         verifyLatestPostcondition(
@@ -555,27 +565,27 @@ describe("release-kind postconditions", () => {
   });
 
   test("stable Node-2 requires every latest at the target", () => {
-    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const item = manifest(resolveReleasePolicy("v0.300.3"));
     expect(() =>
       verifyLatestPostcondition(
         item,
-        states("0.200.3", `sha512-unused`, { name: "latest", version: "0.200.3" }),
+        states("0.300.3", `sha512-unused`, { name: "latest", version: "0.300.3" }),
       ),
     ).not.toThrow();
     expect(() =>
       verifyLatestPostcondition(
         item,
-        states((index) => (index === 1 ? "0.200.2" : "0.200.3"), `sha512-unused`),
+        states((index) => (index === 1 ? "0.200.2" : "0.300.3"), `sha512-unused`),
       ),
     ).toThrow(/expected/);
   });
 
   test("stable Node-2 recovery accepts only persisted-prestate or target during a tag loop", () => {
-    const item = manifest(resolveReleasePolicy("v0.200.3"));
+    const item = manifest(resolveReleasePolicy("v0.300.3"));
     expect(() =>
       assertRecoveryLatestPrecondition(
         item,
-        states((index) => (index % 2 ? "0.200.2" : "0.200.3")),
+        states((index) => (index % 2 ? "0.200.2" : "0.300.3")),
       ),
     ).not.toThrow();
     expect(() =>
@@ -587,7 +597,7 @@ describe("release-kind postconditions", () => {
   });
 
   test("maintenance and prerelease recovery reject any latest snapshot drift", () => {
-    for (const tag of ["v0.104.2", "v0.200.3-rc.1"]) {
+    for (const tag of ["v0.104.2", "v0.300.3-rc.1"]) {
       const item = manifest(resolveReleasePolicy(tag));
       expect(() => assertRecoveryLatestPrecondition(item, states())).not.toThrow();
       expect(() =>

@@ -27,9 +27,10 @@ printf 'midnight node 2\n' > "$seed/package.txt"
 git -C "$seed" add package.txt
 git -C "$seed" commit --quiet -m 'node2 candidate'
 node2="$(git -C "$seed" rev-parse HEAD)"
-git -C "$seed" tag v0.200.3 "$node2"
-git -C "$seed" tag -a v0.200.4 -m node2-annotated "$node2"
-git -C "$seed" tag v0.200.5-rc.1 "$node2"
+git -C "$seed" tag v0.300.3 "$node2"
+git -C "$seed" tag -a v0.300.4 -m node2-annotated "$node2"
+git -C "$seed" tag v0.300.5-rc.1 "$node2"
+git -C "$seed" tag v0.200.9 "$node2"
 git -C "$seed" remote add origin "$origin"
 git -C "$seed" push --quiet origin midnight-1 v-next --tags
 git --git-dir="$origin" symbolic-ref HEAD refs/heads/v-next
@@ -75,31 +76,32 @@ expect_fail() {
 
 expect_pass maintenance-light v0.104.2 "$maintenance" "$maintenance" false midnight-1 midnight-1
 expect_pass maintenance-annotated v0.104.3 "$maintenance" "$maintenance" false midnight-1 midnight-1
-expect_pass node2-light v0.200.3 "$node2" "$node2" false v-next latest
-expect_pass node2-annotated v0.200.4 "$node2" "$node2" false v-next latest
-expect_pass node2-prerelease v0.200.5-rc.1 "$node2" "$node2" true v-next next
+expect_pass node2-light v0.300.3 "$node2" "$node2" false v-next latest
+expect_pass node2-annotated v0.300.4 "$node2" "$node2" false v-next latest
+expect_pass node2-prerelease v0.300.5-rc.1 "$node2" "$node2" true v-next next
 
 expect_fail swapped-maintenance v0.104.2 "$node2" "$node2" false
-expect_fail swapped-node2 v0.200.3 "$maintenance" "$maintenance" false
-expect_fail metadata-stable v0.200.3 "$node2" "$node2" true
-expect_fail metadata-prerelease v0.200.5-rc.1 "$node2" "$node2" false
+expect_fail swapped-node2 v0.300.3 "$maintenance" "$maintenance" false
+expect_fail metadata-stable v0.300.3 "$node2" "$node2" true
+expect_fail metadata-prerelease v0.300.5-rc.1 "$node2" "$node2" false
 expect_fail maintenance-prerelease v0.104.3-rc.1 "$maintenance" "$maintenance" true
-expect_fail build-metadata v0.200.3+build.1 "$node2" "$node2" false
+expect_fail build-metadata v0.300.3+build.1 "$node2" "$node2" false
 expect_fail unsupported-low v0.103.999 "$node2" "$node2" false
-expect_fail unsupported-high v0.201.0 "$node2" "$node2" false
-expect_fail leading-zero v0.0200.3 "$node2" "$node2" false
-expect_fail prerelease-leading-zero v0.200.3-rc.01 "$node2" "$node2" true
-expect_fail malformed-tag release-0.200.3 "$node2" "$node2" false
-expect_fail short-target v0.200.3 "${node2:0:12}" "$node2" false
-expect_fail uppercase-target v0.200.3 "$(tr '[:lower:]' '[:upper:]' <<< "$node2")" "$node2" false
-expect_fail head-mismatch v0.200.3 "$node2" "$maintenance" false
+expect_fail unsupported-high v0.301.0 "$node2" "$node2" false
+expect_fail retired-node2 v0.200.9 "$node2" "$node2" false
+expect_fail leading-zero v0.0300.3 "$node2" "$node2" false
+expect_fail prerelease-leading-zero v0.300.3-rc.01 "$node2" "$node2" true
+expect_fail malformed-tag release-0.300.3 "$node2" "$node2" false
+expect_fail short-target v0.300.3 "${node2:0:12}" "$node2" false
+expect_fail uppercase-target v0.300.3 "$(tr '[:lower:]' '[:upper:]' <<< "$node2")" "$node2" false
+expect_fail head-mismatch v0.300.3 "$node2" "$maintenance" false
 
 # Missing mapped branch and fresh branch advance both fail with empty outputs.
 git --git-dir="$origin" update-ref -d refs/heads/midnight-1
 expect_fail missing-branch v0.104.2 "$maintenance" "$maintenance" false
 git --git-dir="$origin" update-ref refs/heads/midnight-1 "$maintenance"
 git --git-dir="$origin" update-ref refs/heads/v-next "$maintenance"
-expect_fail stale-branch-head v0.200.3 "$node2" "$node2" false
+expect_fail stale-branch-head v0.300.3 "$node2" "$node2" false
 git --git-dir="$origin" update-ref refs/heads/v-next "$node2"
 
 race_branch() {
@@ -126,8 +128,8 @@ race_branch() {
   fi
 }
 
-race_branch v-next v0.200.3 "$node2" false node2-race
+race_branch v-next v0.300.3 "$node2" false node2-race
 git --git-dir="$origin" update-ref refs/heads/midnight-1 "$maintenance"
 race_branch midnight-1 v0.104.2 "$maintenance" false maintenance-race
 
-printf 'release source guard matrix passed: 5 positives, 16 fail-closed negatives, 2 non-fast-forward races\n'
+printf 'release source guard matrix passed: 5 positives, 17 fail-closed negatives, 2 non-fast-forward races\n'
