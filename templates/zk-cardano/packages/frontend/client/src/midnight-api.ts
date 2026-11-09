@@ -6,10 +6,7 @@ import {
   type BallotPrivateState,
   createWitnesses,
 } from "@zk-cardano/midnight-contract";
-import { CompiledContract } from "@midnight-ntwrk/compact-js";
-import {
-  type TransactionId,
-} from "@midnightntwrk/ledger-v9";
+import { CompiledContract, type Contract } from "@midnight-ntwrk/compact-js";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -20,18 +17,15 @@ import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-p
 import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
 
 import {
-  type ImpureCircuitId,
+  createMidnightProviderFromHandlers,
+  createWalletProviderFromHandlers,
   type MidnightProvider,
   type MidnightProviders,
-  type UnboundTransaction,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import * as Rx from "rxjs";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
-import {
-  setNetworkId,
-} from "@midnight-ntwrk/midnight-js-network-id";
 import {
   BASE_URL_MIDNIGHT_INDEXER_API,
   BASE_URL_MIDNIGHT_INDEXER_WS,
@@ -41,16 +35,20 @@ import {
 } from "./config.ts";
 import {
   LedgerParameters,
+  Transaction,
   ZswapSecretKeys,
   DustSecretKey,
   shieldedToken,
   type CoinPublicKey,
   type EncPublicKey,
-  type FinalizedTransaction,
 } from "@midnightntwrk/ledger-v9";
 
-import { HDWallet, Roles } from "@midnightntwrk/wallet-sdk-hd";
-import { type DefaultConfiguration, WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
+import { HDWallet, Roles, type Role } from "@midnightntwrk/wallet-sdk-hd";
+import {
+  type DefaultConfiguration,
+  DefaultForkSchedule,
+  WalletFacade,
+} from "@midnightntwrk/wallet-sdk-facade";
 import { ShieldedWallet } from "@midnightntwrk/wallet-sdk-shielded";
 import { DustWallet } from "@midnightntwrk/wallet-sdk-dust-wallet";
 import {
@@ -62,7 +60,9 @@ import {
 import {
   InMemoryTransactionHistoryStorage,
   NetworkId,
+  ProtocolVersion,
   TransactionHistoryStorage,
+  WalletTransaction,
 } from "@midnightntwrk/wallet-sdk-abstractions";
 import { Buffer } from "buffer";
 
@@ -71,7 +71,7 @@ const DUST_FEE_BLOCKS_MARGIN = 5;
 const WALLET_SYNC_THROTTLE_MS = 10_000;
 const WALLET_SYNC_TIMEOUT_MS = 300_000;
 
-type BallotCircuits = ImpureCircuitId<Ballot.Contract<BallotPrivateState>>;
+type BallotCircuits = Contract.ProvableCircuitId<Ballot.Contract<BallotPrivateState>>;
 const BallotPrivateStateId = "ballotPrivateState";
 
 type BallotProviders = MidnightProviders<
@@ -97,7 +97,6 @@ class StandaloneConfig implements Config {
   proofServer = BASE_URL_PROOF_SERVER;
   constructor(nodeUrl: string) {
     this.node = nodeUrl;
-    setNetworkId(MIDNIGHT_NETWORK_ID as any);
   }
 }
 
@@ -141,9 +140,26 @@ function createWalletConfiguration(
       feeBlocksMargin: DUST_FEE_BLOCKS_MARGIN,
     },
     txHistoryStorage: new InMemoryTransactionHistoryStorage(
-      TransactionHistoryStorage.TransactionHistoryCommonSchema,
+      TransactionHistoryStorage.TransactionHistoryEntryCommonSchema,
     ),
   };
+}
+
+/** Derives the account-0 / index-0 key seed for one HD role. */
+function deriveSeedForRole(seed: string, role: Role): Uint8Array {
+  const hdResult = HDWallet.fromSeed(Buffer.from(seed, "hex"));
+  if (hdResult.type !== "seedOk") {
+    throw new Error(`Failed to create HD wallet: ${hdResult.type}`);
+  }
+  const derivation = hdResult.hdWallet
+    .selectAccount(0)
+    .selectRole(role)
+    .deriveKeyAt(0);
+  hdResult.hdWallet.clear();
+  if (derivation.type !== "keyDerived") {
+    throw new Error(`Key derivation failed for role ${role}: ${derivation.type}`);
+  }
+  return Buffer.from(derivation.key);
 }
 
 async function buildWalletFacade(
@@ -151,27 +167,16 @@ async function buildWalletFacade(
   seed: string,
   networkId: NetworkId.NetworkId,
 ): Promise<WalletResult> {
-  const seedBuffer = Buffer.from(seed, "hex");
-  const hdResult = HDWallet.fromSeed(seedBuffer);
-  if (hdResult.type !== "seedOk") {
-    throw new Error(`Failed to create HD wallet: ${hdResult.type}`);
-  }
-  const derivation = hdResult.hdWallet
-    .selectAccount(0)
-    .selectRoles([Roles.Zswap, Roles.NightExternal, Roles.Dust])
-    .deriveKeysAt(0);
-  if (derivation.type !== "keysDerived") {
-    throw new Error(`Key derivation failed: ${derivation.type}`);
-  }
-  hdResult.hdWallet.clear();
-
-  const shieldedSeed = Buffer.from(derivation.keys[Roles.Zswap]);
-  const dustSeed = Buffer.from(derivation.keys[Roles.Dust]);
-  const unshieldedSeed = Buffer.from(derivation.keys[Roles.NightExternal]);
+  const shieldedSeed = deriveSeedForRole(seed, Roles.Zswap);
+  const dustSeed = deriveSeedForRole(seed, Roles.Dust);
+  const unshieldedSeed = deriveSeedForRole(seed, Roles.NightExternal);
 
   const zswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
   const dustSecretKey = DustSecretKey.fromSeed(dustSeed);
-  const unshieldedKeystore = createKeystore(unshieldedSeed, networkId);
+  const unshieldedKeystore = createKeystore(
+    { kind: "schnorr", secret: unshieldedSeed },
+    networkId,
+  );
   const unshieldedAddress = unshieldedKeystore.getBech32Address().asString();
 
   const config = createWalletConfiguration(networkUrls, networkId);
@@ -179,14 +184,18 @@ async function buildWalletFacade(
 
   const wallet = await WalletFacade.init({
     configuration: config,
-    shielded: (cfg) => ShieldedWallet(cfg).startWithSecretKeys(zswapSecretKeys),
+    shielded: (cfg) => ShieldedWallet(cfg).startWithSeed(shieldedSeed),
     unshielded: (cfg) =>
       UnshieldedWallet(cfg).startWithPublicKey(PublicKey.fromKeyStore(unshieldedKeystore)),
-    dust: (cfg) =>
-      DustWallet(cfg).startWithSecretKey(dustSecretKey, dustParameters),
+    dust: (cfg) => DustWallet(cfg).startWithSeed(dustSeed, dustParameters),
   });
 
-  await wallet.start(zswapSecretKeys, dustSecretKey);
+  // wallet-sdk 2 starts every sub-wallet from its role seed.
+  await wallet.start({
+    shielded: shieldedSeed,
+    unshielded: unshieldedSeed,
+    dust: dustSeed,
+  });
 
   return {
     wallet,
@@ -234,34 +243,70 @@ async function syncAndWaitForFunds(
   return { shieldedBalance, dustBalance };
 }
 
+// midnight-js 5 hands providers ledger-v9 transactions; wallet-sdk 2 takes and
+// returns sealed `WalletTransaction` handles. The two helpers below convert
+// between them at the protocol version the wallet is acting at. Both sides use
+// the single `@midnightntwrk/ledger-v9` copy the package.json overrides pin.
+
+async function walletProtocolVersion(
+  wallet: WalletFacade,
+): Promise<ProtocolVersion.ProtocolVersion> {
+  return (await Rx.firstValueFrom(wallet.state())).activeProtocolVersion;
+}
+
+/** Seals a ledger-v9 transaction as a wallet-sdk handle at the active protocol version. */
+async function adoptInWallet<S extends "Unbound" | "Finalized">(
+  wallet: WalletFacade,
+  stage: S,
+  tx: { serialize(): Uint8Array },
+): Promise<WalletTransaction<S>> {
+  const bytes = tx.serialize();
+  const decoded = stage === "Unbound"
+    ? Transaction.deserialize("signature", "proof", "pre-binding", bytes)
+    : Transaction.deserialize("signature", "proof", "binding", bytes);
+  return WalletTransaction.adopt(stage, decoded, await walletProtocolVersion(wallet));
+}
+
+/** Reads the bytes of a finalized wallet-sdk handle sealed for the current epoch. */
+async function finalizedFromWallet(
+  wallet: WalletFacade,
+  handle: WalletTransaction<"Finalized">,
+): Promise<Uint8Array> {
+  const epoch = ProtocolVersion.epochOf(
+    await walletProtocolVersion(wallet),
+    DefaultForkSchedule.v9,
+  );
+  const unwrapped = WalletTransaction.unwrapWithin<Transaction<any, any, any>>(handle, epoch);
+  if (unwrapped._tag === "Left") throw unwrapped.left;
+  return unwrapped.right.serialize();
+}
+
 function createWalletAndMidnightProvider(
   walletResult: WalletResult,
-): WalletProvider & MidnightProvider {
-  return {
-    getCoinPublicKey(): CoinPublicKey {
-      return walletResult.zswapSecretKeys.coinPublicKey;
-    },
-    getEncryptionPublicKey(): EncPublicKey {
-      return walletResult.zswapSecretKeys.encryptionPublicKey;
-    },
-    async balanceTx(
-      tx: UnboundTransaction,
-      ttl?: Date,
-    ): Promise<FinalizedTransaction> {
-      const recipe = await walletResult.wallet.balanceUnboundTransaction(
-        tx,
-        { shieldedSecretKeys: walletResult.walletZswapSecretKeys, dustSecretKey: walletResult.walletDustSecretKey },
+): { walletProvider: WalletProvider; midnightProvider: MidnightProvider } {
+  const wallet = walletResult.wallet;
+  const walletProvider = createWalletProviderFromHandlers({
+    v8: undefined,
+    v9: async (tx, ttl) => {
+      const recipe = await wallet.balanceUnboundTransaction(
+        await adoptInWallet(wallet, "Unbound", tx),
         { ttl: ttl ?? createTtl() },
       );
-      const signed = await walletResult.wallet.signRecipe(recipe, (payload) =>
+      const signed = await wallet.signRecipe(recipe, (payload) =>
         walletResult.unshieldedKeystore.signDataAsync(payload),
       );
-      return walletResult.wallet.finalizeRecipe(signed);
+      return finalizedFromWallet(wallet, await wallet.finalizeRecipe(signed));
     },
-    submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
-      return walletResult.wallet.submitTransaction(tx);
-    },
-  };
+    getCoinPublicKey: (): CoinPublicKey => walletResult.zswapSecretKeys.coinPublicKey,
+    getEncryptionPublicKey: (): EncPublicKey =>
+      walletResult.zswapSecretKeys.encryptionPublicKey,
+  });
+  const midnightProvider = createMidnightProviderFromHandlers({
+    v8: undefined,
+    v9: async (tx) =>
+      wallet.submitTransaction(await adoptInWallet(wallet, "Finalized", tx)),
+  });
+  return { walletProvider, midnightProvider };
 }
 
 const DEPLOYER_SECRET_KEY = new Uint8Array(32);
@@ -281,7 +326,7 @@ const joinContract = async (
 
   const ballotContract = await findDeployedContract(providers, {
     contractAddress,
-    compiledContract: compiledContract as any,
+    compiledContract,
     privateStateId: "ballotPrivateState",
     initialPrivateState: { secretKey: voterKey },
   });
@@ -293,7 +338,7 @@ const configureProviders = async (
   walletResult: WalletResult,
   config: Config,
 ): Promise<BallotProviders> => {
-  const walletAndMidnightProvider = createWalletAndMidnightProvider(walletResult);
+  const { walletProvider, midnightProvider } = createWalletAndMidnightProvider(walletResult);
 
   const privateStateProvider = levelPrivateStateProvider({
     privateStoragePasswordProvider: async () => "EffectstreamStorage1!",
@@ -306,10 +351,10 @@ const configureProviders = async (
   );
 
   const zkConfigPath = window.location.origin;
-  const zkConfigProvider = new FetchZkConfigProvider(
-    zkConfigPath,
-    fetch.bind(window),
-  );
+  // Serves keys/, zkir/ and the compiler/ integrity manifest (see vite.config.ts).
+  const zkConfigProvider = new FetchZkConfigProvider<BallotCircuits>(zkConfigPath, {
+    fetchFunc: fetch.bind(window),
+  });
   const proofProvider = httpClientProofProvider(config.proofServer, zkConfigProvider);
 
   return {
@@ -317,8 +362,12 @@ const configureProviders = async (
     publicDataProvider,
     zkConfigProvider,
     proofProvider,
-    walletProvider: walletAndMidnightProvider,
-    midnightProvider: walletAndMidnightProvider,
+    walletProvider,
+    midnightProvider,
+    config: {
+      networkId: MIDNIGHT_NETWORK_ID,
+      ttlSeconds: TTL_DURATION_MS / 1000,
+    },
   };
 };
 

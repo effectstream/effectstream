@@ -30,8 +30,8 @@ async function createWallet(seed: string): Promise<WalletState> {
     }
 
     const networkUrls = {
-      indexer: "http://localhost:8088/api/v3/graphql",
-      indexerWS: "ws://localhost:8088/api/v3/graphql/ws",
+      indexer: "http://localhost:8088/api/v4/graphql",
+      indexerWS: "ws://localhost:8088/api/v4/graphql/ws",
       node: "http://localhost:9944",
       proofServer: "http://localhost:6300",
     };

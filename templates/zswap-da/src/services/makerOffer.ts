@@ -5,7 +5,7 @@
 // batcher pays fees, so the maker commits no Dust.
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
-import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+
 import { OfferFiles } from '@effectstream/mip-zswap-offer/mip5';
 
 export interface OfferLeg {
@@ -44,7 +44,7 @@ function pickMakerIntentId(): number {
 
 export async function buildMakerOfferBlob(
   connectedApi: ConnectedAPI,
-  networkId: string,
+  _networkId: string,
   gives: OfferLeg[],
   wants: OfferLeg[],
 ): Promise<string> {
@@ -70,7 +70,6 @@ export async function buildMakerOfferBlob(
   } as any);
 
   const bytes = decodeConnectorTx(tx);
-  setNetworkId(networkId as NetworkId);
   // gives/wants are recovered from tx.imbalances() at index time.
   return OfferFiles.encode(bytes);
 }

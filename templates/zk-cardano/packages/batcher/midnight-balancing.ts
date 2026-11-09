@@ -33,6 +33,7 @@ export function createMidnightBalancingAdapter(env: MidnightBalancingEnv) {
       node: midnightNetworkConfig.node,
       proofServer: midnightNetworkConfig.proofServer,
       zkConfigPath: contractData.zkConfigPath,
+      contractName: "contract-ballot",
       privateStateStoreName: "ballot-private-state",
       privateStateId: "ballotPrivateState",
       contractJoinTimeoutSeconds: 300,

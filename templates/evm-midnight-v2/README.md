@@ -48,10 +48,10 @@ Prerequisites beyond [Bun](https://bun.sh):
   ```sh
   curl -L https://foundry.paradigm.xyz | bash && foundryup
   ```
-- **[Compact](https://github.com/midnightntwrk/compact)** — the Midnight circuit compiler, pinned to `0.31.0`. Also checked on PATH before the Midnight processes launch.
+- **[Compact](https://github.com/midnightntwrk/compact)** — the Midnight circuit compiler, pinned to `0.36.0` (language 0.28.0). Also checked on PATH before the Midnight processes launch.
   ```sh
   curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
-  compact update 0.31.0
+  compact update 0.36.0
   ```
 
 Then:
@@ -83,14 +83,14 @@ bun run dev
 | Hardhat EVM (main) | http://localhost:8545 |
 | Hardhat EVM (parallel) | http://localhost:8546 |
 | Midnight node RPC | http://localhost:9944 |
-| Midnight indexer (GraphQL) | http://localhost:8088/api/v3/graphql |
+| Midnight indexer (GraphQL) | http://localhost:8088/api/v4/graphql |
 | Midnight proof server | http://localhost:6300 |
 | PGLite (Postgres) | `postgres://postgres:postgres@localhost:5432/postgres` |
 
 Individual build steps are also available on their own:
 
 ```sh
-bun run build:midnight   # compact compile +0.31.0 src/counter.compact src/managed
+bun run build:midnight   # compact compile +0.36.0 src/counter.compact src/managed
 bun run build:evm        # Forge + Hardhat compile, deploy, generate TS bindings
 bun run build:pgtypes    # regenerate pgtyped query types from sql/*.sql
 ```
@@ -447,7 +447,7 @@ The frontend reads its endpoints from `VITE_*` variables in `.env.dev` / `.env.m
 
 | Variable | Description |
 | --- | --- |
-| `VITE_MIDNIGHT_INDEXER_HTTP`, `VITE_MIDNIGHT_INDEXER_WS` | Complete indexer endpoint URLs, path included (`…/api/v0` and `…/api/v0/ws` on Blockfrost, `…/api/v3/graphql` and `…/api/v3/graphql/ws` on the local stack). No path is appended, and they carry no token |
+| `VITE_MIDNIGHT_INDEXER_HTTP`, `VITE_MIDNIGHT_INDEXER_WS` | Complete indexer endpoint URLs, path included (`…/api/v0` and `…/api/v0/ws` on Blockfrost, `…/api/v4/graphql` and `…/api/v4/graphql/ws` on the local stack). No path is appended, and they carry no token |
 | `VITE_MIDNIGHT_NODE_HTTP` | Node URL, also without a token |
 | `VITE_MIDNIGHT_BLOCKFROST_PROJECT_ID` | Blockfrost project ID. When it is set and not blank, the frontend appends `?project_id=<id>` to the indexer, indexer WS and node URLs (`&project_id=<id>` if a URL already has a query). Leave it unset for endpoints that need no token, such as the local stack in `.env.dev` |
 

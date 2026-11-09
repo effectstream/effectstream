@@ -13,7 +13,10 @@ export default defineConfig({
   envDir: "..",
 
   resolve: {
-    dedupe: ["effect", "@effect/platform", "@effect/schema"],
+    // `@effect/schema` is not deduped: it is only reached through
+    // @lucid-evolution (via @effectstream/wallets), which brings its own copy;
+    // forcing it to resolve from this package's root fails the build.
+    dedupe: ["effect", "@effect/platform"],
     alias: {
       "npm:@polkadot/extension-dapp@^0.61.7": "@polkadot/extension-dapp",
       "npm:@foxglove/crc@^1.0.1": "@foxglove/crc",
@@ -98,6 +101,22 @@ export default defineConfig({
             ),
           ),
           dest: "zkir",
+        },
+        // midnight-js 5 verifies every fetched key/ZKIR against compactc's
+        // integrity manifest (compiler/contract-manifest.json), fail-closed.
+        {
+          src: normalizePath(
+            path.resolve(
+              "..",
+              "contracts-midnight",
+              "contract-ballot",
+              "src",
+              "managed",
+              "compiler",
+              "*",
+            ),
+          ),
+          dest: "compiler",
         },
         {
           src: normalizePath(

@@ -29,6 +29,7 @@ export function createMidnightBalancingAdapter(env: MidnightBalancingEnv) {
       node: midnightNetworkConfig.node,
       proofServer: midnightNetworkConfig.proofServer,
       zkConfigPath: contractData.zkConfigPath,
+      contractName: "contract-round-value",
       privateStateStoreName: "counter-private-state",
       privateStateId: "counterPrivateState",
       contractJoinTimeoutSeconds: 300,

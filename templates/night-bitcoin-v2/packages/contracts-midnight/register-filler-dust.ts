@@ -11,7 +11,6 @@
 // build and submit a DustRegistration tx.
 
 import * as Rx from "rxjs";
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import {
   buildWalletFacade,
@@ -73,8 +72,9 @@ function resolvePostSubmitSettleMs(): number {
 }
 
 const standaloneConfig = {
-  indexer: "http://127.0.0.1:8088/api/v3/graphql",
-  indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
+  id: NetworkId.NetworkId.Undeployed,
+  indexer: "http://127.0.0.1:8088/api/v4/graphql",
+  indexerWS: "ws://127.0.0.1:8088/api/v4/graphql/ws",
   node: "http://127.0.0.1:9944",
   proofServer: "http://127.0.0.1:6300",
 };
@@ -207,7 +207,6 @@ export async function registerFillerDust(fillerSeeds: string[]): Promise<void> {
     log.info("No filler seeds — skipping dust registration");
     return;
   }
-  setNetworkId(NetworkId.NetworkId.Undeployed);
   log.info(
     `Registering NIGHT→dust for ${fillerSeeds.length} filler wallet(s)`,
   );

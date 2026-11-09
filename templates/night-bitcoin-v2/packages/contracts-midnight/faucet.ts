@@ -1,5 +1,4 @@
 const log = { info: console.log, warn: console.warn, error: console.error };
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import * as Rx from "rxjs";
 import { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 import {
@@ -58,8 +57,8 @@ interface Config {
 }
 
 const DEFAULT_NETWORK_URLS: Required<Config> = {
-  indexer: "http://127.0.0.1:8088/api/v3/graphql",
-  indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
+  indexer: "http://127.0.0.1:8088/api/v4/graphql",
+  indexerWS: "ws://127.0.0.1:8088/api/v4/graphql/ws",
   node: "http://127.0.0.1:9944",
   proofServer: "http://127.0.0.1:6300",
 };
@@ -81,7 +80,7 @@ export async function buildWalletFacade(
   seed: string,
   networkId: NetworkId.NetworkId
 ): Promise<WalletResult> {
-  return sdkBuildWalletFacade(networkUrls, seed, networkId);
+  return sdkBuildWalletFacade({ ...networkUrls, id: networkId }, seed, networkId);
 }
 
 export interface ShieldedWalletState {
@@ -324,19 +323,23 @@ export async function waitForDustFunds(
       dustPollIntervalMs?: number;
     },
 ): Promise<bigint> {
+  // The SDK reports DUST readiness, not a number: the aggregate balance only
+  // counts once the wallet exposes spendable coins (`ready`).
+  const spendable = ({ ready, balance }: { ready: boolean; balance: bigint }) =>
+    ready ? balance : 0n;
   if (optionsOrTimeout === undefined) {
-    return sdkWaitForDustFunds(wallet, {
+    return spendable(await sdkWaitForDustFunds(wallet, {
       timeoutMs: resolveWalletSyncTimeoutMs(),
-    });
+    }));
   }
   if (typeof optionsOrTimeout === "number") {
-    return sdkWaitForDustFunds(wallet, optionsOrTimeout);
+    return spendable(await sdkWaitForDustFunds(wallet, optionsOrTimeout));
   }
   const { timeoutMs, ...rest } = optionsOrTimeout;
-  return sdkWaitForDustFunds(wallet, {
+  return spendable(await sdkWaitForDustFunds(wallet, {
     ...rest,
     timeoutMs: timeoutMs ?? resolveWalletSyncTimeoutMs(),
-  });
+  }));
 }
 
 /**
@@ -414,10 +417,6 @@ const transfer = async (
           ],
         },
       ],
-      {
-        shieldedSecretKeys: walletResult.walletZswapSecretKeys,
-        dustSecretKey: walletResult.walletDustSecretKey,
-      },
       { ttl, payFees: true }
     );
     console.log("✓ Transfer transaction recipe created");
@@ -459,7 +458,6 @@ export const faucet = async (
     try {
       const networkUrls = resolveNetworkUrls();
       const networkId = resolveNetworkId();
-      setNetworkId(networkId);
       console.log(
         `🔗 Building wallet with genesis seed for standalone mode... (attempt ${attempt})`
       );

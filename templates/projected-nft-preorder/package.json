@@ -7,9 +7,9 @@
     "build:pgtypes": "bun run --filter @projected-nft-preorder/database pgtyped:update"
   },
   "dependencies": {
-    "@effectstream/orchestrator": "0.200.1",
+    "@effectstream/orchestrator": "0.300.1",
     "@electric-sql/pglite": "^0.3.14",
-    "@midnightntwrk/wallet-sdk-address-format": "3.1.2",
+    "@midnightntwrk/wallet-sdk-address-format": "4.0.0",
     "@playwright/test": "^1.62.1",
     "wait-on": "8.0.3"
   },
@@ -17,7 +17,10 @@
     "default": "start.dev.ts"
   },
   "overrides": {
-    "libsodium-wrappers-sumo": "0.7.15"
+    "libsodium-wrappers-sumo": "0.7.15",
+    "@midnightntwrk/ledger-v9": "1.0.0",
+    "@midnightntwrk/onchain-runtime-v4": "4.0.0",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0"
   },
   "devDependencies": {
     "@types/bun": "^1.3.13"

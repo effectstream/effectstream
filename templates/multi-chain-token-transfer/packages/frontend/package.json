@@ -20,7 +20,6 @@
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "2.1.0",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "2.1.0",
     "@midnight-ntwrk/midnight-js-level-private-state-provider": "2.1.0",
-    "@midnight-ntwrk/midnight-js-network-id": "2.1.0",
     "@midnight-ntwrk/midnight-js-node-zk-config-provider": "2.1.0",
     "@midnight-ntwrk/midnight-js-types": "2.1.0",
     "@midnight-ntwrk/midnight-js-utils": "2.1.0",

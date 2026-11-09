@@ -27,10 +27,11 @@ const onchainRuntimeV3 = resolveOnchainRuntimeV3();
 // Vite's SPA fallback serves index.html for any unmatched path, which makes
 // requests for missing ZK artifacts return HTML instead of a 404. The proof
 // server then receives HTML, can't parse it, and returns 400 "bad input".
-// Force a real 404 on /keys/* and /zkir/* when the file isn't present.
+// Force a real 404 on the per-contract ZK artifact trees when the file isn't
+// present.
 function zkArtifactFourOhFour(): Plugin {
   const publicDir = path.resolve(import.meta.dirname!, "client/dist");
-  const guarded = ["/keys/", "/zkir/"];
+  const guarded = ["/erc7683/", "/unshielded-erc20/"];
 
   const middleware = (req: any, res: any, next: () => void) => {
     const url: string = req.url?.split("?")[0] ?? "";
@@ -58,7 +59,10 @@ export default defineConfig({
   envDir: "..",
 
   resolve: {
-    dedupe: ["effect", "@effect/platform", "@effect/schema"],
+    // `@effect/schema` is not deduped: it is only reached through
+    // @lucid-evolution (via @effectstream/wallets), which brings its own copy;
+    // forcing it to resolve from this package's root fails the build.
+    dedupe: ["effect", "@effect/platform"],
     // Array form: first-match-wins. User aliases here run before any aliases
     // injected by `vite-plugin-node-stdlib-browser`'s `config()` hook (which
     // would otherwise rewrite `crypto` → bare `crypto-browserify`, dropping
@@ -138,6 +142,9 @@ export default defineConfig({
     zkArtifactFourOhFour(),
     viteStaticCopy({
       targets: [
+        // Each contract's artifacts live under their own base: midnight-js 5
+        // verifies keys/ZKIR against that contract's compiler/ manifest, so
+        // two contracts cannot share one keys/ + compiler/ tree.
         {
           src: normalizePath(
             path.resolve(
@@ -150,7 +157,7 @@ export default defineConfig({
               "*",
             ),
           ),
-          dest: "keys",
+          dest: "erc7683/keys",
         },
         {
           src: normalizePath(
@@ -164,7 +171,21 @@ export default defineConfig({
               "*",
             ),
           ),
-          dest: "zkir",
+          dest: "erc7683/zkir",
+        },
+        {
+          src: normalizePath(
+            path.resolve(
+              "..",
+              "contracts-midnight",
+              "erc7683",
+              "src",
+              "managed",
+              "compiler",
+              "*",
+            ),
+          ),
+          dest: "erc7683/compiler",
         },
         {
           // Runtime artifact written by the contract deploy step. May be
@@ -193,7 +214,7 @@ export default defineConfig({
               "*",
             ),
           ),
-          dest: "keys",
+          dest: "unshielded-erc20/keys",
         },
         {
           src: normalizePath(
@@ -207,7 +228,21 @@ export default defineConfig({
               "*",
             ),
           ),
-          dest: "zkir",
+          dest: "unshielded-erc20/zkir",
+        },
+        {
+          src: normalizePath(
+            path.resolve(
+              "..",
+              "contracts-midnight",
+              "unshielded-erc20",
+              "src",
+              "managed",
+              "compiler",
+              "*",
+            ),
+          ),
+          dest: "unshielded-erc20/compiler",
         },
         {
           // Same as erc7683.undeployed.json above — runtime artifact.
