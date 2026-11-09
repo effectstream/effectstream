@@ -14,7 +14,7 @@ import { nativeToken } from "@midnightntwrk/ledger-v9";
 import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import * as Rx from "rxjs";
 import type { NetworkUrls } from "./types.ts";
-import { midnightNetworkConfig } from "./midnight-env.ts";
+import { midnightNetworkConfig, redactBlockfrostProjectId } from "./midnight-env.ts";
 import { getEnv, args as getArgs, exit, isNotFoundError } from "@effectstream/utils/runtime";
 import {
   buildWalletFacade,
@@ -92,9 +92,9 @@ async function main() {
   };
 
   log.info(`Using network ID: ${networkId}`);
-  log.info(`Indexer: ${indexer}`);
-  log.info(`Indexer WS: ${indexerWS}`);
-  log.info(`Node: ${node}`);
+  log.info(`Indexer: ${redactBlockfrostProjectId(indexer)}`);
+  log.info(`Indexer WS: ${redactBlockfrostProjectId(indexerWS)}`);
+  log.info(`Node: ${redactBlockfrostProjectId(node)}`);
 
   try {
     log.info("Building wallet...");
@@ -133,7 +133,7 @@ async function main() {
           unshieldedBalance = synced.unshieldedBalance;
           dustBalance = synced.dustBalance;
         } catch (e) {
-          log.warn(`Sync timed out or failed: ${e instanceof Error ? e.message : String(e)}`);
+          log.warn(`Sync timed out or failed: ${redactBlockfrostProjectId(e instanceof Error ? e.message : String(e))}`);
         }
       } else {
         try {
@@ -188,7 +188,7 @@ async function main() {
 
     await walletResult.wallet.stop();
   } catch (error) {
-    log.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    log.error(`Error: ${redactBlockfrostProjectId(error instanceof Error ? error.message : String(error))}`);
     exit(1);
   }
 }

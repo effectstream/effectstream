@@ -26,7 +26,7 @@ export type { DeployConfig } from "./types.ts";
 import { buildWalletAndWaitForFunds, extractInitialOwnerFromWallet } from "./build-wallet.ts";
 import { configureMidnightNodeProviders } from "./providers.ts";
 import { deployMidnightContractPhased } from "./deploy-phased.ts";
-import { midnightNetworkConfig } from "./midnight-env.ts";
+import { midnightNetworkConfig, redactBlockfrostProjectId } from "./midnight-env.ts";
 
 function checkEnvVariables(): void {
   if (!getEnv("MIDNIGHT_STORAGE_PASSWORD")) {
@@ -88,7 +88,8 @@ function findCompilerSubdirectory(managedDir: string): string {
  * and zkConfigPath automatically using readMidnightContract.
  *
  * @param config - Deployment configuration
- * @param networkUrls - Optional network endpoint URLs (defaults to local undeployed endpoints)
+ * @param networkUrls - Optional network endpoint URLs; each unset field falls back to
+ *   `midnightNetworkConfig` (the endpoints selected by `MIDNIGHT_NETWORK_ID`)
  * @returns The deployed contract address
  */
 export async function deployMidnightContract(
@@ -140,7 +141,9 @@ export async function deployMidnightContract(
   };
 
   log.info(
-    `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${resolvedNetworkId}`,
+    redactBlockfrostProjectId(
+      `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${resolvedNetworkId}`,
+    ),
   );
 
   let walletResult: WalletResult | null = opts?.walletResult ?? null;
@@ -299,8 +302,9 @@ export async function deployMidnightContract(
     return contractAddress;
   } catch (e) {
     if (e instanceof Error) {
-      log.error(`Deployment failed: ${e.message}`);
-      log.error(e.stack);
+      // Wallet and provider errors may quote endpoint URLs with their token.
+      log.error(`Deployment failed: ${redactBlockfrostProjectId(e.message)}`);
+      log.error(e.stack && redactBlockfrostProjectId(e.stack));
     } else {
       log.error("An unknown error occurred during deployment.");
     }

@@ -55,10 +55,10 @@ Prerequisites beyond [Bun](https://bun.sh):
   ```sh
   curl -L https://foundry.paradigm.xyz | bash && foundryup
   ```
-- **[Compact](https://github.com/midnightntwrk/compact)** — the Midnight circuit compiler, pinned to `0.31.0`. Also checked on PATH before the Midnight processes launch.
+- **[Compact](https://github.com/midnightntwrk/compact)** — the Midnight circuit compiler, pinned to `0.36.0` (language 0.28.0). Also checked on PATH before the Midnight processes launch.
   ```sh
   curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
-  compact update 0.31.0
+  compact update 0.36.0
   ```
 
 Then:
@@ -90,14 +90,14 @@ bun run dev
 | Hardhat EVM (main) | http://localhost:8545 |
 | Hardhat EVM (parallel) | http://localhost:8546 |
 | Midnight node RPC | http://localhost:9944 |
-| Midnight indexer (GraphQL) | http://localhost:8088/api/v3/graphql |
+| Midnight indexer (GraphQL) | http://localhost:8088/api/v4/graphql |
 | Midnight proof server | http://localhost:6300 |
 | PGLite (Postgres) | `postgres://postgres:postgres@localhost:5432/postgres` |
 
 Individual build steps are also available on their own:
 
 ```sh
-bun run build:midnight   # compact compile +0.31.0 src/counter.compact src/managed
+bun run build:midnight   # compact compile +0.36.0 src/counter.compact src/managed
 bun run build:evm        # Forge + Hardhat compile, deploy, generate TS bindings
 bun run build:pgtypes    # regenerate pgtyped query types from sql/*.sql
 ```
@@ -432,12 +432,33 @@ Most values are set by `start.dev.ts` and need no attention.
 | `MIDNIGHT_START_BLOCK` | Yes | Midnight block height to start syncing from |
 | `NTP_START_TIME` | No | NTP epoch in ms; otherwise recovered from the database, then `Date.now()` |
 | `EVM_PRIVATE_KEY` | Yes | Signs the batcher's Arbitrum transactions |
+| `MIDNIGHT_NETWORK_ID` | Yes | Must be `mainnet` |
+| `MIDNIGHT_BLOCKFROST_PROJECT_ID` | Yes, unless all three Midnight URL overrides are set | Blockfrost mainnet project ID (starts with `nightmainnet`); see below |
 
 ### Pointing at another Midnight network
 
-Midnight endpoints come from `@effectstream/midnight-contracts/midnight-env`, which is driven entirely by environment variables. Setting `MIDNIGHT_NETWORK_ID` to anything other than `undeployed` (`testnet`, `preview`, `mainnet`, …) switches the defaults to `https://indexer.<id>.midnight.network` and `https://rpc.<id>.midnight.network`; the proof server stays local unless overridden. Individual URLs can be overridden with `MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS`, `MIDNIGHT_NODE_HTTP` and `MIDNIGHT_PROOF_SERVER_URL`, and the wallet with `MIDNIGHT_WALLET_SEED` or `MIDNIGHT_WALLET_MNEMONIC` (the local genesis seed is only used on `undeployed`).
+Midnight endpoints come from `@effectstream/midnight-contracts/midnight-env`, which is driven entirely by environment variables. `MIDNIGHT_NETWORK_ID` selects the defaults:
 
-The frontend reads its endpoints from `VITE_*` variables in `.env.dev` / `.env.mainnet`:
+| `MIDNIGHT_NETWORK_ID` | Indexer (GraphQL / WS) | Node |
+| --- | --- | --- |
+| `undeployed` (default) | `http://127.0.0.1:8088/api/v4/graphql` / `ws://127.0.0.1:8088/api/v4/graphql/ws` | `http://127.0.0.1:9944` |
+| `preview`, `preprod`, `mainnet` | `https://midnight-<id>.blockfrost.io/api/v0?project_id=<token>` / `wss://midnight-<id>.blockfrost.io/api/v0/ws?project_id=<token>` | `https://rpc.midnight-<id>.blockfrost.io?project_id=<token>` |
+
+The hosted networks are served by Blockfrost: `<token>` is `MIDNIGHT_BLOCKFROST_PROJECT_ID`, a project ID from a free [blockfrost.io](https://blockfrost.io) account. Create one project per network (preprod IDs start with `nightpreprod`, mainnet IDs with `nightmainnet`); a token for the wrong network is rejected with 403 "Network token mismatch". Selecting `preview`, `preprod` or `mainnet` without a token makes `midnight-env` throw at import time whenever one of the three URLs would fall back to a Blockfrost default. The proof server is always local (`http://127.0.0.1:6300`) unless `MIDNIGHT_PROOF_SERVER_URL` overrides it.
+
+`MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS` and `MIDNIGHT_NODE_HTTP` override the defaults verbatim and bypass the token: with all three set, no Blockfrost project ID is needed (for example a self-hosted indexer and node). Any other network ID has no default and needs all three overrides. The wallet comes from `MIDNIGHT_WALLET_SEED` or `MIDNIGHT_WALLET_MNEMONIC` (the local genesis seed is only used on `undeployed`).
+
+The Blockfrost URLs embed a secret: treat them like credentials and keep them out of shared logs. Effectstream prints `project_id=<redacted>` in the endpoint and error lines it writes itself, but other libraries (for example the wallet SDK's node connection) can print the full URL. Wallet sync state saved against one indexer is not portable to another: after switching indexers (for example from Midnight's retired hosted indexer to Blockfrost), let the wallets resync from scratch.
+
+The frontend reads its endpoints from `VITE_*` variables in `.env.dev` / `.env.mainnet`, in two parts:
+
+| Variable | Description |
+| --- | --- |
+| `VITE_MIDNIGHT_INDEXER_HTTP`, `VITE_MIDNIGHT_INDEXER_WS` | Complete indexer endpoint URLs, path included and without a query string (`…/api/v0` and `…/api/v0/ws` on Blockfrost, `…/api/v4/graphql` and `…/api/v4/graphql/ws` on the local stack). No path is appended, and they carry no token |
+| `VITE_MIDNIGHT_NODE_HTTP` | Node URL, also without a token or query string |
+| `VITE_MIDNIGHT_BLOCKFROST_PROJECT_ID` | Blockfrost project ID. When it is set and not blank, the frontend appends `?project_id=<id>` to the indexer, indexer WS and node URLs. Leave it unset for endpoints that need no token, such as the local stack in `.env.dev` |
+
+`.env.mainnet` ships the token-free Blockfrost mainnet URLs and `VITE_MIDNIGHT_BLOCKFROST_PROJECT_ID=<token>`; replace `<token>` with your mainnet project ID before building. Every `VITE_*` value, the project ID included, is compiled into the public frontend bundle and cannot be hidden from anyone who loads the page: use a Blockfrost project dedicated to the frontend, separate from the one the node and batcher use, and expect its ID to be visible.
 
 ```sh
 bun run --filter @evm-midnight/frontend build:dev       # uses .env.dev

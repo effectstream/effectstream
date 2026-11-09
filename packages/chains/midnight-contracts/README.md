@@ -4,7 +4,7 @@ Utilities for reading and deploying Midnight contracts from inside an Effectstre
 
 - Reads contract files by name, searching from the current working directory upward.
 - Supports per-network files (`contract-counter.undeployed.json`, `contract-counter.testnet.json`) without hardcoded paths.
-- Deploys against the local Midnight stack by default; pass `NetworkUrls` to point at another environment.
+- Deploys against the local Midnight stack by default; set `MIDNIGHT_NETWORK_ID` (see [Network endpoints](#network-endpoints)) or pass `NetworkUrls` to point at another environment.
 - Persists the deployed address to a JSON file so subsequent reads pick it up automatically.
 
 ## Install
@@ -15,7 +15,7 @@ bun add @effectstream/midnight-contracts
 npm install @effectstream/midnight-contracts
 ```
 
-Requires a reachable Midnight node, proof server, and indexer. The defaults match what `@effectstream/orchestrator`'s Midnight step boots locally.
+Requires a reachable Midnight node, proof server, and indexer. The `undeployed` defaults match what `@effectstream/orchestrator`'s Midnight step boots locally; `preview`, `preprod` and `mainnet` default to Blockfrost and need a Blockfrost project token (see [Network endpoints](#network-endpoints)).
 
 ## Standalone usage
 
@@ -107,6 +107,43 @@ Phased mode writes progress to a resume-state file (`deployment-state.json` by d
 
 The circuit list is enumerated automatically from the contract's compiled `keys/` directory, so no per-contract configuration is required.
 
+## Network endpoints
+
+`@effectstream/midnight-contracts/midnight-env` resolves `midnightNetworkConfig` once, when it is first imported, from environment variables. `deployMidnightContract` uses it for every `NetworkUrls` field you leave unset. `MIDNIGHT_NETWORK_ID` selects the network (default `undeployed`):
+
+| `MIDNIGHT_NETWORK_ID` | `indexer` | `indexerWS` | `node` |
+|---|---|---|---|
+| `undeployed` (default) | `http://127.0.0.1:8088/api/v4/graphql` | `ws://127.0.0.1:8088/api/v4/graphql/ws` | `http://127.0.0.1:9944` |
+| `preview`, `preprod`, `mainnet` | `https://midnight-<id>.blockfrost.io/api/v0?project_id=<token>` | `wss://midnight-<id>.blockfrost.io/api/v0/ws?project_id=<token>` | `https://rpc.midnight-<id>.blockfrost.io?project_id=<token>` |
+
+The proof server defaults to `http://127.0.0.1:6300` on every network. The Blockfrost indexer serves the same GraphQL API at `/api/v0` (WebSocket `/api/v0/ws`) rather than `/api/v4/graphql`.
+
+| Variable | Effect |
+|---|---|
+| `MIDNIGHT_NETWORK_ID` | Network to target: `undeployed`, `preview`, `preprod`, `mainnet`, or any other ID together with all three URL overrides. |
+| `MIDNIGHT_BLOCKFROST_PROJECT_ID` | Blockfrost project token for the selected network, appended as `?project_id=<token>` to all three hosted URLs. Create one free project per network at [blockfrost.io](https://blockfrost.io); preprod tokens start with `nightpreprod`, mainnet tokens with `nightmainnet`. A token issued for another network is sent unchanged and Blockfrost rejects it (HTTP 403 "Network token mismatch"). Never used on `undeployed`. |
+| `MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS`, `MIDNIGHT_NODE_HTTP` | Each replaces one URL verbatim; no token is added to it. With all three set, no Blockfrost token is needed on any network ID. |
+| `MIDNIGHT_PROOF_SERVER_URL` (or `MIDNIGHT_PROOF_SERVER`) | Proof server URL. |
+| `MIDNIGHT_WALLET_SEED` or `MIDNIGHT_WALLET_MNEMONIC` | Deploy wallet. Without either, `undeployed` uses the local genesis seed and other networks have no seed. |
+
+Importing `midnight-env` (and therefore every entry point that imports it, including the package root, `deploy` and `wallet-info`) throws, naming the variables that fix it, when:
+
+- `preview`, `preprod` or `mainnet` is selected, `MIDNIGHT_BLOCKFROST_PROJECT_ID` is unset, and at least one of the three URLs is left to its Blockfrost default;
+- any other network ID is selected without all three URL overrides — there is no default to guess for it.
+
+The overrides also keep other hosts usable, for example a self-hosted indexer and node:
+
+```bash
+MIDNIGHT_NETWORK_ID=preview
+MIDNIGHT_INDEXER_HTTP=https://indexer.example.com/api/v4/graphql
+MIDNIGHT_INDEXER_WS=wss://indexer.example.com/api/v4/graphql/ws
+MIDNIGHT_NODE_HTTP=https://rpc.example.com
+```
+
+Blockfrost URLs embed the project token, so treat the resolved endpoints as secrets. The configuration errors above never quote a URL or the token, and the endpoint and failure lines printed by `deployMidnightContract` and the wallet-info CLI (`src/get-wallet-info-cli.ts`) show `project_id=<redacted>`. Pass anything you print yourself through `redactBlockfrostProjectId(text)`, which turns every `project_id=<token>` into `project_id=<redacted>`. Logs written by third-party clients (for example the wallet SDK's node connection) can still contain the full URL.
+
+Wallet sync state saved against one indexer (for example with `saveDustState`) is not portable to another, so switching a wallet to Blockfrost means syncing it again from scratch.
+
 ## Inside Effectstream
 
 `@effectstream/midnight-contracts` is the seam between Midnight contract artifacts on disk and the code that reads or deploys them. Templates that target Midnight call `readMidnightContract` from their node startup to resolve the on-chain address; the orchestrator's deploy step calls `deployMidnightContract` to put one there in the first place. On the sync side, `@effectstream/sync`'s `MidnightFetcher` consumes the node behind both calls.
@@ -134,7 +171,7 @@ Wallet and dust helpers, exported from the package root:
 Other subpaths:
 
 - `@effectstream/midnight-contracts/wallet-info` - wallet inspection plus the dust-state persistence helpers above, and `resolveWalletSyncTimeoutMs()`.
-- `@effectstream/midnight-contracts/midnight-env` - `midnightNetworkConfig` (the resolved `{ id, indexer, indexerWS, node, proofServer }` endpoints, env-overridable), `MidnightNetworkConfig`, and `isExternalProofServerConfigured`.
+- `@effectstream/midnight-contracts/midnight-env` - `midnightNetworkConfig` (the resolved `{ id, indexer, indexerWS, node, proofServer, walletSeed }`, see [Network endpoints](#network-endpoints)), `MidnightNetworkConfig`, `defaultMidnightNetworkConfig(networkId, blockfrostProjectId?)` (the defaults for one network ID; the token defaults to `MIDNIGHT_BLOCKFROST_PROJECT_ID`), `redactBlockfrostProjectId(text)`, and `isExternalProofServerConfigured`.
 - `@effectstream/midnight-contracts/ledger-from-tx-state` - `midnightLedgerFromTxStateHex(...)` and the `MidnightLedgerFn` / `MidnightContractStateDeserializer` types, for decoding contract ledger state from a serialized transaction state.
 - `@effectstream/midnight-contracts/types` - shared types.
 

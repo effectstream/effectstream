@@ -24,6 +24,8 @@ test("README: concise re-export keeps generateStmInput in shape", async () => {
   expect(typeof concise.parseStmInput).toBe("function");
 });
 
+// Default endpoints depend on the environment; single-file-endpoints.test.ts
+// covers them per network. This shape check pins its indexer explicitly.
 test("single-file facade declares a typed Midnight source and embedded database", async () => {
   const node = await import("../src/mod.ts");
   expect(node.pglite()).toEqual({
@@ -36,13 +38,14 @@ test("single-file facade declares a typed Midnight source and embedded database"
     address: "a".repeat(64),
     startBlockHeight: "latest",
     ledger: { round: "uint128" },
+    indexer: "https://indexer.example/api/v4/graphql",
   })).toEqual({
     kind: "midnight-contract",
     network: "preview",
     address: "a".repeat(64),
     startBlockHeight: "latest",
     ledger: { round: "uint128" },
-    indexer: "https://indexer.preview.midnight.network/api/v4/graphql",
+    indexer: "https://indexer.example/api/v4/graphql",
   });
 });
 

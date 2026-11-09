@@ -23,7 +23,12 @@ import { PrimitiveTypeMidnightGeneric } from "@effectstream/sm/builtin";
 import { builtinGrammars } from "@effectstream/sm/grammar";
 import { call, ensure, run } from "effection";
 
-export type MidnightNetwork = "preview" | "preprod";
+const MIDNIGHT_NETWORKS = ["preview", "preprod", "mainnet"] as const;
+
+export type MidnightNetwork = (typeof MIDNIGHT_NETWORKS)[number];
+
+/** Blockfrost project token used by the default indexer of every hosted network. */
+const BLOCKFROST_PROJECT_ID_ENV = "MIDNIGHT_BLOCKFROST_PROJECT_ID";
 
 export type PgliteOptions = {
   /** `memory://` starts a fresh watch each time; a path resumes after restart. */
@@ -64,7 +69,12 @@ export type MidnightContractOptions<Schema extends LedgerSchema> = {
   address: string;
   startBlockHeight: "latest" | number;
   ledger: Schema;
-  /** Override the hosted v4 endpoint, mainly for compatible private indexers. */
+  /**
+   * Indexer GraphQL endpoint, used verbatim. Without it the source uses the
+   * network's Blockfrost indexer, which requires the project token in
+   * `MIDNIGHT_BLOCKFROST_PROJECT_ID`. A Blockfrost URL embeds that token, so
+   * treat it as a secret.
+   */
   indexer?: string;
 };
 
@@ -292,15 +302,29 @@ async function fetchLatestHeight(
   indexer: string,
   network: MidnightNetwork,
 ): Promise<number> {
-  const response = await fetch(indexer, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ query: "query { block { height } }" }),
-    signal: AbortSignal.timeout(15_000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(indexer, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "query { block { height } }" }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (error) {
+    // Bun attaches the full request URL, project token included, as `path`.
+    const failure = error as { path?: unknown };
+    if (typeof failure?.path === "string") failure.path = redactProjectId(failure.path);
+    throw error;
+  }
   if (!response.ok) {
+    // Blockfrost names the reason (missing token, network mismatch) in the body.
+    const detail = redactProjectId(await response.text().catch(() => ""))
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 300);
     throw new Error(
-      `Unable to read the Midnight ${network} tip: ${response.status} ${response.statusText}.`,
+      `Unable to read the Midnight ${network} tip: ${response.status} ${response.statusText}` +
+        (detail ? `: ${detail}` : "."),
     );
   }
   const body = await response.json() as {
@@ -402,8 +426,31 @@ function makeSyncInfo(
   })] as unknown as SyncProtocolWithNetwork[];
 }
 
+/**
+ * Default indexer of a hosted network. Blockfrost authenticates with a
+ * per-network project token in the query string, because the Midnight indexer
+ * clients take plain URLs and browser WebSockets cannot send headers.
+ */
 function midnightIndexer(network: MidnightNetwork): string {
-  return `https://indexer.${network}.midnight.network/api/v4/graphql`;
+  if (!(MIDNIGHT_NETWORKS as readonly string[]).includes(network)) {
+    throw new Error(
+      `Midnight network "${network}" has no default indexer; pass the \`indexer\` option.`,
+    );
+  }
+  const projectId = process.env[BLOCKFROST_PROJECT_ID_ENV]?.trim();
+  if (!projectId) {
+    throw new Error(
+      `The default Midnight ${network} indexer is hosted by Blockfrost and needs a project token: ` +
+        `set ${BLOCKFROST_PROJECT_ID_ENV} to a blockfrost.io project ID for ${network}, ` +
+        "or pass the `indexer` option to use another indexer.",
+    );
+  }
+  return `https://midnight-${network}.blockfrost.io/api/v0?project_id=${projectId}`;
+}
+
+/** Hide Blockfrost project tokens before a URL or message reaches a log or error. */
+function redactProjectId(text: string): string {
+  return text.replace(/([?&]project_id=)[^&#\s"']*/gi, "$1<redacted>");
 }
 
 function protocolNameFor(sourceName: string): string {
