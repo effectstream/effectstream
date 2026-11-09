@@ -194,8 +194,8 @@ describe("wallet-v2 migration", () => {
 });
 
 describe("network defaults", () => {
-  test("public config type accepts the complete pre-faucet object shape", () => {
-    const preFaucetConfig: MidnightNetworkConfig = {
+  test("public config type accepts the complete object shape", () => {
+    const config: MidnightNetworkConfig = {
       id: "undeployed",
       indexer: "http://127.0.0.1:8088/api/v4/graphql",
       indexerWS: "ws://127.0.0.1:8088/api/v4/graphql/ws",
@@ -204,19 +204,14 @@ describe("network defaults", () => {
       walletSeed: "legacy-wallet-seed",
     };
 
-    expect(Object.hasOwn(preFaucetConfig, "faucetUrl")).toBe(false);
-  });
-
-  test("stagenet uses the complete explicit Shielded Tools profile", () => {
-    expect(defaultMidnightNetworkConfig("stagenet")).toEqual({
-      indexer: "https://indexer.stagenet.shielded.tools/api/v4/graphql",
-      indexerWS: "wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws",
-      node: "wss://rpc.stagenet.shielded.tools",
-      proofServer: "http://127.0.0.1:6300",
-      faucetUrl: "https://faucet.stagenet.shielded.tools/api/drips",
-      networkId: "stagenet",
-      genesisWalletSeed: "",
-    });
+    expect(Object.keys(config).sort()).toEqual([
+      "id",
+      "indexer",
+      "indexerWS",
+      "node",
+      "proofServer",
+      "walletSeed",
+    ]);
   });
 
   test("undeployed retains the complete loopback v4 profile", () => {
@@ -230,8 +225,8 @@ describe("network defaults", () => {
     });
   });
 
-  for (const networkId of ["preview", "preprod"] as const) {
-    test(`preserves node-1.x network ID ${networkId} without remapping`, () => {
+  for (const networkId of ["mainnet", "preview", "preprod"] as const) {
+    test(`hosted network ID ${networkId} follows the Midnight endpoint convention`, () => {
       expect(defaultMidnightNetworkConfig(networkId)).toEqual({
         indexer: `https://indexer.${networkId}.midnight.network/api/v4/graphql`,
         indexerWS: `wss://indexer.${networkId}.midnight.network/api/v4/graphql/ws`,
@@ -254,7 +249,7 @@ describe("network defaults", () => {
     });
   });
 
-  test("selected stagenet defaults expose inert faucet metadata without fetch", async () => {
+  test("selected mainnet defaults resolve without any network call", async () => {
     const moduleUrl = new URL("../src/midnight-env.ts", import.meta.url).href;
     const probe = Bun.spawn([
       process.execPath,
@@ -271,7 +266,7 @@ describe("network defaults", () => {
     ], {
       env: {
         ...process.env,
-        MIDNIGHT_NETWORK_ID: "stagenet",
+        MIDNIGHT_NETWORK_ID: "mainnet",
         MIDNIGHT_INDEXER_HTTP: "",
         MIDNIGHT_INDEXER_WS: "",
         MIDNIGHT_NODE_HTTP: "",
@@ -294,19 +289,18 @@ describe("network defaults", () => {
     expect(exitCode).toBe(0);
     expect(JSON.parse(stdout)).toEqual({
       midnightNetworkConfig: {
-        id: "stagenet",
-        indexer: "https://indexer.stagenet.shielded.tools/api/v4/graphql",
-        indexerWS: "wss://indexer.stagenet.shielded.tools/api/v4/graphql/ws",
-        node: "wss://rpc.stagenet.shielded.tools",
+        id: "mainnet",
+        indexer: "https://indexer.mainnet.midnight.network/api/v4/graphql",
+        indexerWS: "wss://indexer.mainnet.midnight.network/api/v4/graphql/ws",
+        node: "https://rpc.mainnet.midnight.network",
         proofServer: "http://127.0.0.1:6300",
-        faucetUrl: "https://faucet.stagenet.shielded.tools/api/drips",
         walletSeed: "",
       },
       networkCalls: 0,
     });
   });
 
-  test("selected stagenet environment overrides win while faucet stays inert", async () => {
+  test("selected network environment overrides win without any network call", async () => {
     const moduleUrl = new URL("../src/midnight-env.ts", import.meta.url).href;
     const probe = Bun.spawn([
       process.execPath,
@@ -323,7 +317,7 @@ describe("network defaults", () => {
     ], {
       env: {
         ...process.env,
-        MIDNIGHT_NETWORK_ID: "stagenet",
+        MIDNIGHT_NETWORK_ID: "mainnet",
         MIDNIGHT_INDEXER_HTTP: "https://override.example/indexer",
         MIDNIGHT_INDEXER_WS: "wss://override.example/indexer/ws",
         MIDNIGHT_NODE_HTTP: "wss://override.example/node",
@@ -353,7 +347,7 @@ describe("network defaults", () => {
       proofServer: midnightNetworkConfig.proofServer,
       walletSeed: midnightNetworkConfig.walletSeed,
     }).toEqual({
-      id: "stagenet",
+      id: "mainnet",
       indexer: "https://override.example/indexer",
       indexerWS: "wss://override.example/indexer/ws",
       node: "wss://override.example/node",

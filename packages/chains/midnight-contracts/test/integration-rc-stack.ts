@@ -82,10 +82,6 @@ try {
         amount: fundingAmount,
       }],
     }],
-    {
-      shieldedSecretKeys: source.zswapSecretKeys,
-      dustSecretKey: source.dustSecretKey,
-    },
     { ttl: new Date(Date.now() + 30 * 60 * 1_000) },
   );
   if (fundingRecipe.type !== "UNPROVEN_TRANSACTION") {

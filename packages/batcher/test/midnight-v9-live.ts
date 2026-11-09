@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 
-import { nativeToken } from "@midnightntwrk/ledger-v9";
+import { nativeToken, Transaction } from "@midnightntwrk/ledger-v9";
 import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import type { WalletFacade } from "@midnightntwrk/wallet-sdk-facade";
 import {
@@ -144,10 +144,6 @@ try {
       }],
     }],
     {
-      shieldedSecretKeys: user.zswapSecretKeys,
-      dustSecretKey: user.dustSecretKey,
-    },
-    {
       ttl: new Date(Date.now() + 30 * 60 * 1_000),
       payFees: false,
     },
@@ -284,10 +280,6 @@ async function transferAndSubmit(
       type: "unshielded",
       outputs: [{ type: nativeToken().raw, receiverAddress, amount }],
     }],
-    {
-      shieldedSecretKeys: source.zswapSecretKeys,
-      dustSecretKey: source.dustSecretKey,
-    },
     { ttl: new Date(Date.now() + 30 * 60 * 1_000), payFees },
   );
   if (recipe.type !== "UNPROVEN_TRANSACTION") {
@@ -392,7 +384,31 @@ function installSignatureDiagnostics(wallet: WalletFacade): void {
   };
 }
 
-function unshieldedSignatureEvidence(transaction: any): unknown[] {
+/**
+ * The ledger-v9 transaction behind a value the wallet SDK hands around: a
+ * `WalletTransaction` handle is decoded from its bytes at the markers of its
+ * stage; a ledger transaction is returned as is.
+ */
+function ledgerTransactionOf(value: any): any {
+  if (value?.intents) return value;
+  if (typeof value?.serialize !== "function" || typeof value?.stage !== "string") {
+    return undefined;
+  }
+  const bytes = value.serialize();
+  switch (value.stage) {
+    case "Unproven":
+      return Transaction.deserialize("signature", "pre-proof", "pre-binding", bytes);
+    case "Unbound":
+      return Transaction.deserialize("signature", "proof", "pre-binding", bytes);
+    case "Finalized":
+      return Transaction.deserialize("signature", "proof", "binding", bytes);
+    default:
+      return undefined;
+  }
+}
+
+function unshieldedSignatureEvidence(value: unknown): unknown[] {
+  const transaction = ledgerTransactionOf(value);
   if (!transaction?.intents) return [];
   return transaction.intents.entries().toArray().map(
     ([segment, intent]: [number, any]) => ({

@@ -3,15 +3,17 @@
 // Single WASM instance for ContractState / ContractMaintenanceAuthority.
 import "@midnightntwrk/onchain-runtime-v4";
 
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import { statSync, readdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { getEnv, cwd } from "@effectstream/utils/runtime";
-import { deployContract } from "@midnight-ntwrk/midnight-js-contracts";
+import {
+  deployContract,
+  type Ledger9ContractProviders,
+  type Ledger9DeployContractOptionsWithPrivateState,
+} from "@midnight-ntwrk/midnight-js-contracts";
 import type { PrivateStateId } from "@midnight-ntwrk/midnight-js-types";
-import { CompiledContract, type Witnesses, type Contract } from "@midnight-ntwrk/compact-js";
-import type { SigningKey } from "@midnightntwrk/ledger-v9";
+import { CompiledContract, type Contract } from "@midnight-ntwrk/compact-js";
 import type { NetworkId } from "@midnightntwrk/wallet-sdk-abstractions";
 import * as path from "node:path";
 
@@ -20,6 +22,7 @@ const log = console;
 import { findContractDirectoryForDeploy } from "./read-contract.ts";
 import { mnemonicToSeed } from "./mnemonicToSeed.ts";
 import type { NetworkUrls, DeployConfig, WalletResult } from "./types.ts";
+export type { DeployConfig } from "./types.ts";
 import { buildWalletAndWaitForFunds, extractInitialOwnerFromWallet } from "./build-wallet.ts";
 import { configureMidnightNodeProviders } from "./providers.ts";
 import { deployMidnightContractPhased } from "./deploy-phased.ts";
@@ -140,8 +143,6 @@ export async function deployMidnightContract(
     `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${resolvedNetworkId}`,
   );
 
-  setNetworkId(resolvedNetworkId);
-
   let walletResult: WalletResult | null = opts?.walletResult ?? null;
   let providers: Awaited<ReturnType<typeof configureMidnightNodeProviders>> | null = null;
 
@@ -211,6 +212,7 @@ export async function deployMidnightContract(
       deployPrivateStateStoreName,
       zkConfigPath,
       unshieldedKeystore,
+      resolvedNetworkId,
     );
     log.info("Providers configured.");
 
@@ -228,7 +230,7 @@ export async function deployMidnightContract(
     };
 
     // First, create the compiled contract
-    const MyCompiledContract = CompiledContract.make(
+    const MyCompiledContract = CompiledContract.make<Contract.Any>(
       resolvedConfig.contractName,
       resolvedConfig.contractClass,
     ).pipe(
@@ -252,28 +254,23 @@ export async function deployMidnightContract(
       );
       log.info("Contract deployed (phased).");
     } else {
-      const deployOptions: {
-        compiledContract: CompiledContract.CompiledContract<
-          Contract<undefined, Witnesses<undefined>>,
-          undefined,
-          never
-        >;
-        privateStateId: PrivateStateId;
-        initialPrivateState: Contract.PrivateState<any>;
-        signingKey?: SigningKey;
-        args: Contract.InitializeParameters<any>;
-      } = {
-        compiledContract: MyCompiledContract as any,
+      // The contract class is only known at run time, so the options are
+      // typed against `Contract.Any`. `privateStateId` and
+      // `initialPrivateState` are always given together (both defaulted
+      // above), which is the pairing the with-private-state overload requires.
+      const deployOptions = {
+        compiledContract: MyCompiledContract,
         privateStateId: resolvedConfig.privateStateId as PrivateStateId,
-        initialPrivateState:
-          resolvedConfig.initialPrivateState as Contract.PrivateState<any>,
+        initialPrivateState: resolvedConfig.initialPrivateState,
         args: (deployArgs && deployArgs.length > 0
           ? deployArgs
-          : []) as Contract.InitializeParameters<any>,
-        signingKey: undefined,
-      };
+          : []) as Contract.InitializeParameters<Contract.Any>,
+      } satisfies Ledger9DeployContractOptionsWithPrivateState<Contract.Any>;
 
-      const deployedContract = await deployContract(providers, deployOptions);
+      const deployedContract = await deployContract(
+        providers as Ledger9ContractProviders<Contract.Any>,
+        deployOptions,
+      );
       log.info("Contract deployed.");
       contractAddress = deployedContract.deployTxData.public.contractAddress;
     }

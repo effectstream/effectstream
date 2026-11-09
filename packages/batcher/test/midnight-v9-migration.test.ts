@@ -3,6 +3,7 @@ import { Buffer } from "node:buffer";
 import { dirname, resolve } from "node:path";
 import * as Rx from "rxjs";
 import {
+  CostModel,
   Transaction,
   ZswapOffer,
   ZswapOutput,
@@ -10,6 +11,11 @@ import {
   sampleCoinPublicKey,
   sampleEncryptionPublicKey,
 } from "@midnightntwrk/ledger-v9";
+import { LedgerTransaction } from "@midnight-ntwrk/midnight-js-types";
+import {
+  ProtocolVersion,
+  WalletTransaction,
+} from "@midnightntwrk/wallet-sdk-abstractions";
 
 import { MidnightAdapter } from "../adapters/midnight-adapter.ts";
 import { MidnightBalancingAdapter } from "../adapters/midnight-balancing-adapter.ts";
@@ -33,6 +39,34 @@ function makeUnprovenV9Transaction(value = 7n) {
     sampleEncryptionPublicKey(),
   );
   return Transaction.fromParts("undeployed", ZswapOffer.fromOutput(output));
+}
+
+/** The protocol version a 2.x node reports: inside the ledger-v9 epoch. */
+const ACTIVE_PROTOCOL_VERSION = ProtocolVersion.ProtocolVersion(2_001_000n);
+
+/**
+ * A prover answering with an empty, well-formed proof. The transactions it
+ * yields decode as proven ledger-v9 transactions, which is all the adapter
+ * seams under test read; nothing here is ever verified by a node.
+ */
+const emptyProofProvider = {
+  check: async () => [],
+  prove: async () => {
+    const header = new TextEncoder().encode("midnight:proof-versioned:");
+    const proof = new Uint8Array(header.length + 2);
+    proof.set(header);
+    proof[header.length] = 1;
+    return proof;
+  },
+  lookupKey: async () => undefined,
+};
+
+async function makeProvenV9Transactions(value = 7n) {
+  const unbound = await makeUnprovenV9Transaction(value).prove(
+    emptyProofProvider,
+    CostModel.initialCostModel(),
+  );
+  return { unbound, finalized: unbound.bind() };
 }
 
 function makeInput(transactionHex: string): DefaultBatcherInput {
@@ -62,7 +96,7 @@ describe("Midnight ledger-v9 migration", () => {
 
     expect(new Set(v9Entries).size).toBe(1);
     expect(v9Entries[0]).toContain(
-      "@midnightntwrk+ledger-v9@1.0.0-rc.3/node_modules/@midnightntwrk/ledger-v9",
+      "@midnightntwrk+ledger-v9@1.0.0/node_modules/@midnightntwrk/ledger-v9",
     );
     for (const root of consumerRoots) {
       expect(() => Bun.resolveSync("@midnight-ntwrk/ledger-v8", root)).toThrow();
@@ -73,7 +107,7 @@ describe("Midnight ledger-v9 migration", () => {
       resolve(workspaceRoot, "packages/effectstream-sdk/config"),
     );
     expect(runtimeEntry).toContain(
-      "@midnightntwrk+onchain-runtime-v4@4.0.0-rc.3",
+      "@midnightntwrk+onchain-runtime-v4@4.0.0",
     );
 
     const ledgerRoot = dirname(v9Entries[0]);
@@ -84,6 +118,35 @@ describe("Midnight ledger-v9 migration", () => {
 
     const loaded = await Promise.all(v9Entries.map((entry) => import(entry)));
     expect(new Set(loaded).size).toBe(1);
+  });
+
+  test("midnight-js, compact and the wallet SDK resolve the same ledger-v9 and on-chain runtime as the batcher", () => {
+    // Ledger objects cross these libraries at run time (midnight-js decodes
+    // LedgerParameters and hands them to compact-js's transcript partitioning;
+    // compact-runtime builds the ContractState midnight-js submits). A second
+    // installed copy of either WASM package makes those calls fail with
+    // "expected instance of …", so every library must resolve the one copy.
+    const workspaceRoot = resolve(import.meta.dir, "../../..");
+    const batcherRoot = resolve(workspaceRoot, "packages/batcher");
+    const packageDir = (name: string, from: string) =>
+      dirname(Bun.resolveSync(`${name}/package.json`, from));
+    const ledger = Bun.resolveSync("@midnightntwrk/ledger-v9", batcherRoot);
+    const runtime = Bun.resolveSync("@midnightntwrk/onchain-runtime-v4", batcherRoot);
+
+    const midnightJsProtocol = packageDir(
+      "@midnight-ntwrk/midnight-js-protocol",
+      packageDir("@midnight-ntwrk/midnight-js-contracts", batcherRoot),
+    );
+    const compactJs = packageDir("@midnight-ntwrk/compact-js", batcherRoot);
+    const compactRuntime = packageDir("@midnight-ntwrk/compact-runtime", batcherRoot);
+    const walletFacade = packageDir("@midnightntwrk/wallet-sdk-facade", batcherRoot);
+
+    for (const dependent of [midnightJsProtocol, compactJs, walletFacade]) {
+      expect(Bun.resolveSync("@midnightntwrk/ledger-v9", dependent)).toBe(ledger);
+    }
+    for (const dependent of [midnightJsProtocol, compactJs, compactRuntime]) {
+      expect(Bun.resolveSync("@midnightntwrk/onchain-runtime-v4", dependent)).toBe(runtime);
+    }
   });
 
   test("deserializes a real ledger-v9 unproven third-party transaction", () => {
@@ -100,20 +163,16 @@ describe("Midnight ledger-v9 migration", () => {
   });
 
   test("balances delegated transactions for DUST only", async () => {
-    const calls: Array<{ method: string; options?: unknown }> = [];
+    const calls: Array<{ method: string; tx: unknown; options?: unknown }> = [];
     const recipe = { type: "UNPROVEN_TRANSACTION" };
+    const original = makeUnprovenV9Transaction();
     const adapter = Object.create(MidnightBalancingAdapter.prototype) as any;
     adapter.config = {};
     adapter.walletResults = [{
-      walletZswapSecretKeys: { kind: "zswap" },
-      walletDustSecretKey: { kind: "dust" },
       wallet: {
-        balanceUnprovenTransaction: async (
-          _tx: unknown,
-          _keys: unknown,
-          options: unknown,
-        ) => {
-          calls.push({ method: "balanceUnprovenTransaction", options });
+        state: () => Rx.of({ activeProtocolVersion: ACTIVE_PROTOCOL_VERSION }),
+        balanceUnprovenTransaction: async (tx: unknown, options: unknown) => {
+          calls.push({ method: "balanceUnprovenTransaction", tx, options });
           return recipe;
         },
       },
@@ -121,7 +180,7 @@ describe("Midnight ledger-v9 migration", () => {
     adapter.waitForDustAvailability = async () => {};
 
     const result = await adapter.balanceEntry(
-      { tx: makeUnprovenV9Transaction(), txStage: "unproven" },
+      { tx: original, txStage: "unproven" },
       0,
     );
 
@@ -130,22 +189,41 @@ describe("Midnight ledger-v9 migration", () => {
     expect(calls[0].options).toMatchObject({
       tokenKindsToBalance: ["dust"],
     });
+    // The wallet receives a sealed handle at the chain's protocol version,
+    // carrying exactly the third party's transaction.
+    const handle = calls[0].tx as WalletTransaction;
+    expect(WalletTransaction.is(handle)).toBe(true);
+    expect(handle.stage).toBe("Unproven");
+    expect(handle.protocolVersion).toBe(ACTIVE_PROTOCOL_VERSION);
+    expect(Buffer.from(handle.serialize())).toEqual(
+      Buffer.from(original.serialize()),
+    );
   });
 
   test("the contract adapter uses the v9 unbound recipe and async signing", async () => {
     const calls: string[] = [];
-    const tx = { kind: "v9-unbound" };
+    const { unbound, finalized } = await makeProvenV9Transactions();
     const recipe = { type: "UNBOUND_TRANSACTION" };
     const signed = { type: "SIGNED_UNBOUND_TRANSACTION" };
-    const finalized = { kind: "v9-finalized" };
+    const finalizedHandle = WalletTransaction.adopt(
+      "Finalized",
+      finalized,
+      ACTIVE_PROTOCOL_VERSION,
+    );
+    let submitted: unknown;
     const wallet = {
-      state: () => Rx.of({ dust: { balance: () => 5n } }),
-      balanceUnboundTransaction: async (
-        received: unknown,
-        _keys: unknown,
-        options: unknown,
-      ) => {
-        expect(received).toBe(tx);
+      state: () =>
+        Rx.of({
+          activeProtocolVersion: ACTIVE_PROTOCOL_VERSION,
+          dust: { balance: () => 5n },
+        }),
+      balanceUnboundTransaction: async (received: unknown, options: unknown) => {
+        const handle = received as WalletTransaction;
+        expect(WalletTransaction.is(handle)).toBe(true);
+        expect(handle.stage).toBe("Unbound");
+        expect(Buffer.from(handle.serialize())).toEqual(
+          Buffer.from(unbound.serialize()),
+        );
         expect(options).toMatchObject({ tokenKindsToBalance: ["dust"] });
         calls.push("balance-unbound");
         return recipe;
@@ -162,37 +240,56 @@ describe("Midnight ledger-v9 migration", () => {
       finalizeRecipe: async (received: unknown) => {
         expect(received).toBe(signed);
         calls.push("finalize-recipe");
-        return finalized;
+        return finalizedHandle;
       },
-      submitTransaction: async () => "tx-id",
+      submitTransaction: async (received: unknown) => {
+        submitted = received;
+        return "tx-id";
+      },
     };
     const adapter = Object.create(MidnightAdapter.prototype) as any;
     adapter.log = silentLog;
-    const provider = adapter.createWalletAndMidnightProvider({
-      wallet,
-      zswapSecretKeys: {
-        coinPublicKey: new Uint8Array(32),
-        encryptionPublicKey: new Uint8Array(32),
-      },
-      walletZswapSecretKeys: {},
-      dustSecretKey: {},
-      walletDustSecretKey: {},
-      unshieldedKeystore: {
-        signDataAsync: async (payload: Uint8Array) => {
-          expect(payload).toEqual(new Uint8Array([1, 2, 3]));
-          calls.push("sign-async");
-          return new Uint8Array([9]);
+    const { walletProvider, midnightProvider } = adapter
+      .createWalletAndMidnightProvider({
+        wallet,
+        zswapSecretKeys: {
+          coinPublicKey: new Uint8Array(32),
+          encryptionPublicKey: new Uint8Array(32),
         },
-      },
-    });
+        unshieldedKeystore: {
+          signDataAsync: async (payload: Uint8Array) => {
+            expect(payload).toEqual(new Uint8Array([1, 2, 3]));
+            calls.push("sign-async");
+            return new Uint8Array([9]);
+          },
+        },
+      });
 
-    expect(await provider.balanceTx(tx)).toBe(finalized);
+    expect(walletProvider.supportedEras).toEqual(["v9"]);
+    expect(midnightProvider.supportedEras).toEqual(["v9"]);
+
+    const balanced = await walletProvider.balanceTx(
+      LedgerTransaction.seal("v9", "Unbound", unbound),
+    );
+    expect(balanced.era).toBe("v9");
+    expect(balanced.stage).toBe("Finalized");
+    expect(Buffer.from(balanced.serialize())).toEqual(
+      Buffer.from(finalized.serialize()),
+    );
     expect(calls).toEqual([
       "balance-unbound",
       "sign-async",
       "sign-recipe",
       "finalize-recipe",
     ]);
+
+    expect(await midnightProvider.submitTx(balanced)).toBe("tx-id");
+    const submittedHandle = submitted as WalletTransaction;
+    expect(WalletTransaction.is(submittedHandle)).toBe(true);
+    expect(submittedHandle.stage).toBe("Finalized");
+    expect(Buffer.from(submittedHandle.serialize())).toEqual(
+      Buffer.from(finalized.serialize()),
+    );
   });
 
   test("regular adapter accepts an available DUST coin with aggregate balance zero", async () => {
@@ -319,10 +416,32 @@ interface PipelineHarness {
   events: string[];
   maxActiveByWallet: number[];
   maxGlobalActive: () => number;
+  /** The ledger transaction hash of the finalized transaction for an entry id. */
+  hashOf: (id: string) => string;
 }
 
-function makePipelineHarness(walletCount: number, slotsPerWallet: number): PipelineHarness {
+async function makePipelineHarness(
+  walletCount: number,
+  slotsPerWallet: number,
+  ids: string[],
+): Promise<PipelineHarness> {
   const adapter = Object.create(MidnightBalancingAdapter.prototype) as any;
+  // One real finalized ledger-v9 transaction per entry id, sealed the way the
+  // facade returns it from finalizeRecipe.
+  const finalizedById = new Map<string, WalletTransaction<"Finalized">>();
+  const idByHandle = new Map<unknown, string>();
+  const hashById = new Map<string, string>();
+  for (const [i, id] of ids.entries()) {
+    const { finalized } = await makeProvenV9Transactions(BigInt(i + 1));
+    const handle = WalletTransaction.adopt(
+      "Finalized",
+      finalized,
+      ACTIVE_PROTOCOL_VERSION,
+    );
+    finalizedById.set(id, handle);
+    idByHandle.set(handle, id);
+    hashById.set(id, finalized.transactionHash().toString());
+  }
   const events: string[] = [];
   const activeByWallet = new Array(walletCount).fill(0);
   const maxActiveByWallet = new Array(walletCount).fill(0);
@@ -358,21 +477,17 @@ function makePipelineHarness(walletCount: number, slotsPerWallet: number): Pipel
       signDataAsync: async () => new Uint8Array([walletIdx]),
     },
     wallet: {
+      state: () => Rx.of({ activeProtocolVersion: ACTIVE_PROTOCOL_VERSION }),
       signRecipe: async () => {
         throw new Error("fee wallet must not re-sign a third-party input");
       },
       finalizeRecipe: async (recipe: { id: string }) => {
         events.push(`${recipe.id}:prove`);
         await delay(5);
-        return {
-          ...recipe,
-          transactionHash: () => `hash-${recipe.id}`,
-          identifiers: () => [recipe.id],
-          imbalances: () => new Map(),
-        };
+        return finalizedById.get(recipe.id)!;
       },
       validateTransaction: async (
-        finalized: { id: string },
+        finalizedHandle: unknown,
         options: {
           flags: Record<string, boolean>;
           blockData?: { height: number };
@@ -386,15 +501,16 @@ function makePipelineHarness(walletCount: number, slotsPerWallet: number): Pipel
           },
           blockData: { height: 1 },
         });
-        events.push(`${finalized.id}:validate`);
+        events.push(`${idByHandle.get(finalizedHandle)}:validate`);
       },
-      submitTransaction: async (finalized: { id: string }) => {
-        events.push(`${finalized.id}:submit:start`);
+      submitTransaction: async (finalizedHandle: unknown) => {
+        const id = idByHandle.get(finalizedHandle);
+        events.push(`${id}:submit:start`);
         await delay(10);
-        events.push(`${finalized.id}:submit:end`);
+        events.push(`${id}:submit:end`);
         activeByWallet[walletIdx]--;
         globalActive--;
-        return `hash-${finalized.id}`;
+        return `hash-${id}`;
       },
       revert: async () => {},
       revertTransaction: async () => {},
@@ -406,6 +522,7 @@ function makePipelineHarness(walletCount: number, slotsPerWallet: number): Pipel
     events,
     maxActiveByWallet,
     maxGlobalActive: () => globalMax,
+    hashOf: (id: string) => hashById.get(id)!,
   };
 }
 
@@ -417,7 +534,7 @@ const trace = (label: string) => ({
 
 describe("per-wallet ledger-v9 serialization", () => {
   test("serializes balance through submit for two slots on one wallet", async () => {
-    const harness = makePipelineHarness(1, 2);
+    const harness = await makePipelineHarness(1, 2, ["a", "b"]);
 
     const results = await Promise.all([
       harness.adapter.processWorkerTx(
@@ -434,7 +551,7 @@ describe("per-wallet ledger-v9 serialization", () => {
       ),
     ]);
 
-    expect(results).toEqual(["hash-a", "hash-b"]);
+    expect(results).toEqual([harness.hashOf("a"), harness.hashOf("b")]);
     expect(harness.maxActiveByWallet).toEqual([1]);
     expect(harness.events.indexOf("a:submit:end")).toBeLessThan(
       harness.events.indexOf("b:balance:start"),
@@ -450,7 +567,7 @@ describe("per-wallet ledger-v9 serialization", () => {
   });
 
   test("retains concurrency across different wallets", async () => {
-    const harness = makePipelineHarness(2, 1);
+    const harness = await makePipelineHarness(2, 1, ["wallet-a", "wallet-b"]);
 
     await Promise.all([
       harness.adapter.processWorkerTx(

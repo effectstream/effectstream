@@ -119,7 +119,7 @@ infra:
   storage:
     cnn_url: "${cnnUrl}"
   ledger_db:
-    cache_size: "1kiB"
+    cache_max_nodes: 100000
     cnn_url: "${env.APP__INFRA__LEDGER_DB__CNN_URL || "./data/ledger-db.sqlite"}"
   node:
     url: "${nodeUrl}"
@@ -159,6 +159,10 @@ infra:
     quota:
       max_concurrent_per_connection: 20
       max_session_subscriptions_per_minute: 10
+    contract_state_cache:
+      max_capacity: "512MiB"
+      time_to_idle: "10m"
+      max_concurrent_loads: 6
 
 telemetry:
   tracing:

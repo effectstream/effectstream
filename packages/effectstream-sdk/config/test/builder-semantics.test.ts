@@ -87,7 +87,7 @@ test("minimum Midnight input defaults only its name and adds no endpoints", () =
   const chain = new ConfigBuilder().buildNetworks((builder) =>
     builder.addNetwork({
       type: ConfigNetworkType.MIDNIGHT,
-      networkId: "stagenet",
+      networkId: "mainnet",
     })
   );
   const midnight = chain.data.allNetworks?.networks.midnight;
@@ -95,7 +95,7 @@ test("minimum Midnight input defaults only its name and adds no endpoints", () =
   expect(midnight).toEqual({
     type: ConfigNetworkType.MIDNIGHT,
     name: "midnight",
-    networkId: "stagenet",
+    networkId: "mainnet",
   });
   for (const endpoint of ["indexer", "node", "faucet", "proofServer"]) {
     expect(endpoint in midnight!).toBe(false);
@@ -120,7 +120,7 @@ test("duplicate unnamed Midnight networks name the effective key and remedy", ()
       networks
         .addNetwork({
           type: ConfigNetworkType.MIDNIGHT,
-          networkId: "stagenet",
+          networkId: "mainnet",
         })
         .addNetwork({
           type: ConfigNetworkType.MIDNIGHT,
@@ -137,7 +137,7 @@ test("NTP and Midnight polling defaults materialize from their concrete schemas"
         .addNetwork({ type: ConfigNetworkType.NTP })
         .addNetwork({
           type: ConfigNetworkType.MIDNIGHT,
-          networkId: "stagenet",
+          networkId: "mainnet",
         })
     )
     .buildSyncProtocols((builder) =>
@@ -176,7 +176,7 @@ test("explicit NTP and Midnight polling intervals win unchanged", () => {
         .addNetwork({ type: ConfigNetworkType.NTP })
         .addNetwork({
           type: ConfigNetworkType.MIDNIGHT,
-          networkId: "stagenet",
+          networkId: "mainnet",
         })
     )
     .buildSyncProtocols((builder) =>
@@ -249,7 +249,7 @@ for (const branch of ["defaulted", "defined"] as const) {
           .addNetwork({ type: ConfigNetworkType.NTP })
           .addNetwork({
             type: ConfigNetworkType.MIDNIGHT,
-            networkId: "stagenet",
+            networkId: "mainnet",
           })
       )
       .buildSyncProtocols((builder) =>

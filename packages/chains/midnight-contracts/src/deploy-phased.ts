@@ -20,16 +20,22 @@
 
 import { readFileSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import * as path from "node:path";
-import { getNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { ContractExecutable } from "@midnight-ntwrk/compact-js";
+import {
+  CompiledContract,
+  ContractExecutable,
+  type Contract,
+} from "@midnight-ntwrk/compact-js";
 import {
   asContractAddress,
   exitResultOrError,
-  makeContractExecutableRuntime,
+  makeLedger9ContractExecutableRuntime,
   SucceedEntirely,
   type MidnightProviders,
 } from "@midnight-ntwrk/midnight-js-types";
-import { submitInsertVerifierKeyTx } from "@midnight-ntwrk/midnight-js-contracts";
+import {
+  submitInsertVerifierKeyTx,
+  type Ledger9ContractProviders,
+} from "@midnight-ntwrk/midnight-js-contracts";
 import {
   ContractDeploy,
   ContractState,
@@ -40,6 +46,7 @@ import {
 
 import { CONSTANTS } from "./constants.ts";
 import type { DeployConfig, WalletResult } from "./types.ts";
+import { adoptInWallet } from "./wallet-transaction.ts";
 
 const log = console;
 
@@ -110,7 +117,7 @@ function saveState(stateFilePath: string, state: PhasedDeploymentState): void {
 export async function deployMidnightContractPhased(
   providers: MidnightProviders,
   // deno-lint-ignore no-explicit-any
-  compiledContract: any,
+  compiledContract: CompiledContract.CompiledContract<Contract.Any, any>,
   config: DeployConfig,
   // deno-lint-ignore no-explicit-any
   deployArgs: any[] | undefined,
@@ -137,7 +144,7 @@ export async function deployMidnightContractPhased(
     const coinPublicKey = providers.walletProvider.getCoinPublicKey().toString();
 
     const contractExec = ContractExecutable.make(compiledContract);
-    const contractRuntime = makeContractExecutableRuntime(
+    const contractRuntime = makeLedger9ContractExecutableRuntime(
       providers.zkConfigProvider,
       { coinPublicKey, signingKey },
     );
@@ -170,7 +177,7 @@ export async function deployMidnightContractPhased(
     contractAddress = contractDeploy.address;
 
     const unprovenTx = Transaction.fromParts(
-      getNetworkId(),
+      providers.config.networkId,
       undefined,
       undefined,
       Intent.new(createTtl()).addDeploy(contractDeploy),
@@ -178,11 +185,7 @@ export async function deployMidnightContractPhased(
     log.info(`Deploying empty contract at address: ${contractAddress}`);
 
     const recipe = await walletResult.wallet.balanceUnprovenTransaction(
-      unprovenTx as any,
-      {
-        shieldedSecretKeys: walletResult.walletZswapSecretKeys as any,
-        dustSecretKey: walletResult.walletDustSecretKey as any,
-      },
+      await adoptInWallet(walletResult.wallet, "Unproven", unprovenTx),
       { ttl: createTtl() },
     );
     const signedRecipe = await walletResult.wallet.signRecipe(
@@ -205,12 +208,10 @@ export async function deployMidnightContractPhased(
     state.contractAddress = contractAddress;
     saveState(stateFilePath, state);
 
-    (providers.privateStateProvider as any).setContractAddress?.(contractAddress);
     if (config.privateStateId) {
-      await providers.privateStateProvider.set(
-        config.privateStateId as any,
-        privateState,
-      );
+      await providers.privateStateProvider
+        .forContract(contractAddress)
+        .set(config.privateStateId, privateState);
     }
     await providers.privateStateProvider.setSigningKey(
       contractAddress,
@@ -239,15 +240,15 @@ export async function deployMidnightContractPhased(
     for (let attempt = 1; ; attempt++) {
       try {
         const result = await submitInsertVerifierKeyTx(
-          providers,
+          providers as Ledger9ContractProviders,
           compiledContract,
           asContractAddress(contractAddress),
-          circuitId as any,
+          circuitId,
           verifierKey,
         );
-        if (result.status !== SucceedEntirely) {
+        if (result.public.status !== SucceedEntirely) {
           throw new Error(
-            `Insert verifier key for ${circuitId} returned status ${result.status}`,
+            `Insert verifier key for ${circuitId} returned status ${result.public.status}`,
           );
         }
         break;

@@ -10,7 +10,6 @@
 import { dirname, resolve } from "node:path";
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { MidnightBech32m } from "@midnightntwrk/wallet-sdk-address-format";
 import { configureMidnightNodeProviders } from "@effectstream/midnight-contracts";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
@@ -86,8 +85,6 @@ export async function triggerTokenMints(
   },
   networkId: string,
 ): Promise<MintedTokens> {
-  setNetworkId(networkId as any);
-
   const { contractAddress } = readMidnightContract("contract-counter", {
     networkId,
   });
@@ -121,6 +118,7 @@ export async function triggerTokenMints(
       contractConfig.privateStateStoreName,
       contractConfig.zkConfigPath,
       walletResult.unshieldedKeystore,
+      networkId,
     )) as any;
 
     const deployed = await findDeployedContract(providers, {

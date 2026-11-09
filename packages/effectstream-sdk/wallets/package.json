@@ -24,27 +24,41 @@
     "@lucid-evolution/lucid": "^0.4.29",
     "@lucid-evolution/provider": "^0.1.90",
     "@lucid-evolution/utils": "^0.1.66",
-    "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
-    "@midnightntwrk/wallet-sdk-hd": "3.1.0-beta.1",
-    "@midnightntwrk/wallet-sdk-unshielded-wallet": "4.0.0-beta.2"
+    "@midnightntwrk/ledger-v9": "1.0.0",
+    "@midnightntwrk/wallet-sdk-hd": "4.0.0",
+    "@midnightntwrk/wallet-sdk-unshielded-wallet": "4.0.0"
   },
   "peerDependenciesMeta": {
-    "@effectstream/midnight-contracts": { "optional": true },
-    "@lucid-evolution/lucid": { "optional": true },
-    "@lucid-evolution/provider": { "optional": true },
-    "@lucid-evolution/utils": { "optional": true },
-    "@midnightntwrk/ledger-v9": { "optional": true },
-    "@midnightntwrk/wallet-sdk-hd": { "optional": true },
-    "@midnightntwrk/wallet-sdk-unshielded-wallet": { "optional": true }
+    "@effectstream/midnight-contracts": {
+      "optional": true
+    },
+    "@lucid-evolution/lucid": {
+      "optional": true
+    },
+    "@lucid-evolution/provider": {
+      "optional": true
+    },
+    "@lucid-evolution/utils": {
+      "optional": true
+    },
+    "@midnightntwrk/ledger-v9": {
+      "optional": true
+    },
+    "@midnightntwrk/wallet-sdk-hd": {
+      "optional": true
+    },
+    "@midnightntwrk/wallet-sdk-unshielded-wallet": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@effectstream/midnight-contracts": "workspace:*",
     "@lucid-evolution/lucid": "^0.4.30",
     "@lucid-evolution/provider": "^0.1.91",
     "@lucid-evolution/utils": "^0.1.66",
-    "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
-    "@midnightntwrk/wallet-sdk-hd": "3.1.0-beta.1",
-    "@midnightntwrk/wallet-sdk-unshielded-wallet": "4.0.0-beta.2"
+    "@midnightntwrk/ledger-v9": "1.0.0",
+    "@midnightntwrk/wallet-sdk-hd": "4.0.0",
+    "@midnightntwrk/wallet-sdk-unshielded-wallet": "4.0.0"
   },
   "dependencies": {
     "@effectstream/concise": "workspace:*",
@@ -53,7 +67,7 @@
     "@effectstream/utils": "workspace:*",
     "@aurowallet/mina-provider": "^1.0.12",
     "@metamask/providers": "^22.1.0",
-    "@midnight-ntwrk/dapp-connector-api": "4.0.1",
+    "@midnight-ntwrk/dapp-connector-api": "4.1.0",
     "@perawallet/connect": "^1.4.2",
     "@noble/curves": "^1.8.0",
     "@solana/web3.js": "^1.95.0",

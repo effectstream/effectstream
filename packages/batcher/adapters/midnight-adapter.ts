@@ -18,19 +18,16 @@ import { parseCircuitArgs } from "./midnight-arg-parser.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
 import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "../batch-data-builder/midnight-builder-logic.ts";
 import { hexStringToUint8Array } from "@effectstream/utils";
-import type {
-  UnboundTransaction,
-  // BalancedProvingRecipe,
-  MidnightProvider,
-  WalletProvider,
+import {
+  createMidnightProviderFromHandlers,
+  createWalletProviderFromHandlers,
+  type MidnightProvider,
+  type MidnightProviders,
+  type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import type {
-  CoinPublicKey,
   DustSecretKey,
-  EncPublicKey,
-  FinalizedTransaction,
   ShieldedCoinInfo,
-  TransactionId,
   UnprovenTransaction,
   ZswapSecretKeys,
 } from "@midnightntwrk/ledger-v9";
@@ -46,8 +43,9 @@ import {
   nodeZkConfigRegistry,
 } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
+  adoptInWallet,
+  finalizedFromWallet,
   getInitialDustState,
   type NetworkUrls,
   registerNightForDust,
@@ -102,6 +100,12 @@ function formatDust(specks: bigint): string {
   return fracStr ? `${sign}${whole}.${fracStr}` : `${sign}${whole}`;
 }
 
+/** The wallet-backed transaction providers of one batcher wallet. */
+interface WalletAndMidnightProviders {
+  walletProvider: WalletProvider;
+  midnightProvider: MidnightProvider;
+}
+
 /**
  * Midnight blockchain adapter implementing BlockchainAdapter interface
  * Enables batcher to submit transactions by invoking Compact contract circuits
@@ -124,7 +128,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   // Per-wallet state (arrays indexed by wallet index)
   private readonly walletSeeds: string[];
   private walletResults: (WalletResult | null)[];
-  private walletProviders: ((WalletProvider & MidnightProvider) | null)[];
+  private walletProviders: (WalletAndMidnightProviders | null)[];
   private deployedContracts: (any | null)[];
   private publicDataProvider: any | null = null;
   private hasFundsPerWallet: boolean[];
@@ -279,10 +283,6 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private async initialize(): Promise<void> {
     try {
       this.log.log(`Initializing Midnight Adapter (${this.walletSeeds.length} wallet(s))...`);
-      // Use lowercase network ID to match the wallet SDK expectations
-      // This is consistent with the working e2e tests and manual scripts
-      setNetworkId(this.walletNetworkId as any);
-
       this.publicDataProvider = indexerPublicDataProvider(
         this.config.indexer,
         this.config.indexerWS,
@@ -420,7 +420,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       try {
         this.log.log(`Wallet ${label}: configuring providers for contract join...`);
 
-        const walletAndMidnightProvider = this.walletProviders[walletIndex]!;
+        const { walletProvider, midnightProvider } = this.walletProviders[walletIndex]!;
 
         const zkConfigProvider = new NodeZkConfigProvider(
           this.config.zkConfigPath,
@@ -432,7 +432,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         const zkConfigRegistry = await nodeZkConfigRegistry(
           path.dirname(this.config.zkConfigPath),
         );
-        const providers = {
+        const providers: MidnightProviders = {
           privateStateProvider: levelPrivateStateProvider({
             privateStateStoreName: this.config.privateStateStoreName,
             privateStoragePasswordProvider: async () => "YourPasswordMy1!",
@@ -444,8 +444,12 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
             this.config.proofServer,
             zkConfigRegistry,
           ),
-          walletProvider: walletAndMidnightProvider,
-          midnightProvider: walletAndMidnightProvider,
+          walletProvider,
+          midnightProvider,
+          config: {
+            networkId: this.walletNetworkId,
+            ttlSeconds: TTL_DURATION_MS / 1000,
+          },
         };
 
         this.log.log(`Wallet ${label}: joining contract at address: ${this.contractAddress}`);
@@ -519,19 +523,13 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   }
 
   /**
-   * Create wallet and midnight provider wrapper
+   * Create the wallet and midnight providers of one batcher wallet (ledger-v9
+   * only; v8 handles are refused by the providers).
    */
   private createWalletAndMidnightProvider(
     walletResult: WalletResult,
-  ): WalletProvider & MidnightProvider {
-    const {
-      wallet,
-      zswapSecretKeys,
-      walletZswapSecretKeys,
-      dustSecretKey,
-      walletDustSecretKey,
-      unshieldedKeystore,
-    } = walletResult;
+  ): WalletAndMidnightProviders {
+    const { wallet, zswapSecretKeys, unshieldedKeystore } = walletResult;
     const log = this.log;
 
     const getDustBalanceFromWallet = async (): Promise<bigint> => {
@@ -545,42 +543,39 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       }
     };
 
-    return {
-      getCoinPublicKey(): CoinPublicKey {
-        return zswapSecretKeys.coinPublicKey;
-      },
-      getEncryptionPublicKey(): EncPublicKey {
-        return zswapSecretKeys.encryptionPublicKey;
-      },
-
-      async balanceTx(
-        tx: UnboundTransaction,
-        ttl?: Date,
-      ): Promise<FinalizedTransaction> {
+    const walletProvider = createWalletProviderFromHandlers({
+      v8: undefined,
+      v9: async (tx, ttl) => {
         const dustBefore = await getDustBalanceFromWallet();
         const unboundTransactionRecipe = await wallet.balanceUnboundTransaction(
-          tx, {
-            shieldedSecretKeys: zswapSecretKeys,
-            dustSecretKey: dustSecretKey,
-          }, {
+          await adoptInWallet(wallet, "Unbound", tx),
+          {
             ttl: ttl ?? createTtl(),
             tokenKindsToBalance: ["dust"],
-          }
+          },
         );
         const signedRecipe = await wallet.signRecipe(
           unboundTransactionRecipe,
           (payload) => unshieldedKeystore.signDataAsync(payload),
         );
-        const result = await wallet.finalizeRecipe(signedRecipe);
+        const result = await finalizedFromWallet(
+          wallet,
+          await wallet.finalizeRecipe(signedRecipe),
+        );
         const dustAfter = await getDustBalanceFromWallet();
         const dustCost = dustBefore - dustAfter;
         log.log(`[balanceTx] dust cost: ${formatDust(dustCost)} DUST (${formatDust(dustAfter)} DUST remaining)`);
         return result;
       },
-      submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
-        return wallet.submitTransaction(tx);
-      },
-    };
+      getCoinPublicKey: () => zswapSecretKeys.coinPublicKey,
+      getEncryptionPublicKey: () => zswapSecretKeys.encryptionPublicKey,
+    });
+    const midnightProvider = createMidnightProviderFromHandlers({
+      v8: undefined,
+      v9: async (tx) =>
+        wallet.submitTransaction(await adoptInWallet(wallet, "Finalized", tx)),
+    });
+    return { walletProvider, midnightProvider };
   }
 
   /**

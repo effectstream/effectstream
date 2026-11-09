@@ -47,7 +47,7 @@ const minimal = new ConfigBuilder()
       .addNetwork({ type: ConfigNetworkType.NTP })
       .addNetwork({
         type: ConfigNetworkType.MIDNIGHT,
-        networkId: "stagenet",
+        networkId: "mainnet",
       })
   )
   .buildSyncProtocols((builder) =>
@@ -282,7 +282,7 @@ const maybeMidnightProtocol = new ConfigBuilder()
       .addNetwork({ type: ConfigNetworkType.NTP })
       .addNetwork({
         type: ConfigNetworkType.MIDNIGHT,
-        networkId: "stagenet",
+        networkId: "mainnet",
       })
   )
   .buildSyncProtocols((builder) =>
@@ -453,7 +453,7 @@ new ConfigBuilder()
       .addNetwork({ type: ConfigNetworkType.NTP })
       .addNetwork({
         type: ConfigNetworkType.MIDNIGHT,
-        networkId: "stagenet",
+        networkId: "mainnet",
       })
   )
   .buildSyncProtocols((builder) =>
