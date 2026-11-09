@@ -443,7 +443,15 @@ The hosted networks are served by Blockfrost: `<token>` is `MIDNIGHT_BLOCKFROST_
 
 The Blockfrost URLs embed a secret: treat them like credentials and keep them out of shared logs. Effectstream prints `project_id=<redacted>` in the endpoint and error lines it writes itself, but other libraries (for example the wallet SDK's node connection) can print the full URL. Wallet sync state saved against one indexer is not portable to another: after switching indexers (for example from Midnight's retired hosted indexer to Blockfrost), let the wallets resync from scratch.
 
-The frontend reads its endpoints from `VITE_*` variables in `.env.dev` / `.env.mainnet`. `VITE_MIDNIGHT_INDEXER_HTTP` and `VITE_MIDNIGHT_INDEXER_WS` are complete GraphQL endpoint URLs, used verbatim. `.env.mainnet` ships the Blockfrost mainnet URLs with a `<token>` placeholder; replace it with your project ID before building, and keep in mind that `VITE_*` values are compiled into the public bundle.
+The frontend reads its endpoints from `VITE_*` variables in `.env.dev` / `.env.mainnet`, in two parts:
+
+| Variable | Description |
+| --- | --- |
+| `VITE_MIDNIGHT_INDEXER_HTTP`, `VITE_MIDNIGHT_INDEXER_WS` | Complete indexer endpoint URLs, path included (`…/api/v0` and `…/api/v0/ws` on Blockfrost, `…/api/v3/graphql` and `…/api/v3/graphql/ws` on the local stack). No path is appended, and they carry no token |
+| `VITE_MIDNIGHT_NODE_HTTP` | Node URL, also without a token |
+| `VITE_MIDNIGHT_BLOCKFROST_PROJECT_ID` | Blockfrost project ID. When it is set and not blank, the frontend appends `?project_id=<id>` to the indexer, indexer WS and node URLs (`&project_id=<id>` if a URL already has a query). Leave it unset for endpoints that need no token, such as the local stack in `.env.dev` |
+
+`.env.mainnet` ships the token-free Blockfrost mainnet URLs and `VITE_MIDNIGHT_BLOCKFROST_PROJECT_ID=<token>`; replace `<token>` with your mainnet project ID before building. Every `VITE_*` value, the project ID included, is compiled into the public frontend bundle and cannot be hidden from anyone who loads the page: use a Blockfrost project dedicated to the frontend, separate from the one the node and batcher use, and expect its ID to be visible.
 
 ```sh
 bun run --filter @evm-midnight/frontend build:dev       # uses .env.dev
