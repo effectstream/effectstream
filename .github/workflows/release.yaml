@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          printf '%s  %s\n' 'f1c6f21dd0bfe03ee5fbf469c099e8bbc203e2adce61d819e3f5f1f1e33d8e20' '.github/verify-release-source.sh' \
+          printf '%s  %s\n' '16738b3b050648de5ff482203d7b911d5a841d12f135eb2d2d87990dd8820ac8' '.github/verify-release-source.sh' \
             | sha256sum --check --strict
 
       - name: Verify immutable release source identity

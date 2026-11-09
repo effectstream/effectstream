@@ -49,7 +49,7 @@ function registry(manifest: ReleaseManifest, partial: boolean): RegistryPackageS
 }
 
 describe("all release kinds and recovery states", () => {
-  test.each(["v0.104.2", "v0.200.3", "v0.200.3-rc.1"])(
+  test.each(["v0.104.2", "v0.300.3", "v0.300.3-rc.1"])(
     "%s uses exact persisted occupancy in all four states",
     (tag) => {
       const manifest = fixture(tag);
@@ -66,7 +66,7 @@ describe("all release kinds and recovery states", () => {
     },
   );
 
-  test.each(["v0.104.2", "v0.200.3", "v0.200.3-rc.1"])(
+  test.each(["v0.104.2", "v0.300.3", "v0.300.3-rc.1"])(
     "%s validates tag/advanced ancestry and unchanged versions",
     (tag) => {
       const manifest = fixture(tag);

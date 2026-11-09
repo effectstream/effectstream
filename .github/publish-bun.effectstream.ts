@@ -161,12 +161,14 @@ export function resolveReleasePolicy(
   let policy: ReleasePolicy;
   if (parsed.minor === 104n && parsed.prerelease.length === 0) {
     policy = { version: parsed.normalized, releaseTag, branch: "midnight-1", distTag: "midnight-1", prerelease: false, kind: "maintenance-stable" };
-  } else if (parsed.minor === 200n && parsed.prerelease.length === 0) {
+  } else if (parsed.minor === 300n && parsed.prerelease.length === 0) {
     policy = { version: parsed.normalized, releaseTag, branch: "v-next", distTag: "latest", prerelease: false, kind: "node2-stable" };
-  } else if (parsed.minor === 200n && parsed.prerelease.length > 0) {
+  } else if (parsed.minor === 300n && parsed.prerelease.length > 0) {
     policy = { version: parsed.normalized, releaseTag, branch: "v-next", distTag: "next", prerelease: true, kind: "node2-prerelease" };
   } else if (parsed.minor === 104n) {
     throw new Error("Maintenance prereleases are not supported");
+  } else if (parsed.minor === 200n) {
+    throw new Error("Release family 0.200.x is retired; the v-next line releases as 0.300.x");
   } else {
     throw new Error(`Unsupported release family ${parsed.normalized}`);
   }
@@ -295,11 +297,11 @@ function assertUniformNode2Latest(states: RegistryPackageState[]): Record<string
     const latest = state.distTags.latest;
     if (!latest) throw new Error(`Registry package ${state.name} has no latest tag`);
     const parsed = parseSemver(latest);
-    if (parsed.major !== 0n || parsed.minor !== 200n || parsed.prerelease.length || parsed.build.length) throw new Error(`Registry package ${state.name} has invalid latest=${latest}`);
+    if (parsed.major !== 0n || (parsed.minor !== 200n && parsed.minor !== 300n) || parsed.prerelease.length || parsed.build.length) throw new Error(`Registry package ${state.name} has invalid latest=${latest}`);
     values.add(latest);
     snapshot[state.name] = latest;
   }
-  if (values.size !== 1) throw new Error("Registry latest tags are not one uniform 0.200.x value");
+  if (values.size !== 1) throw new Error("Registry latest tags are not one uniform 0.200.x or 0.300.x value");
   return snapshot;
 }
 export function preflightOrdinary(policy: ReleasePolicy, states: RegistryPackageState[]): Record<string, string> {

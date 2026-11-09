@@ -43,18 +43,20 @@ if [[ "$minor" == "104" && -z "$prerelease" ]]; then
   mapped_dist_tag="midnight-1"
   mapped_kind="maintenance-stable"
   expected_prerelease="false"
-elif [[ "$minor" == "200" && -z "$prerelease" ]]; then
+elif [[ "$minor" == "300" && -z "$prerelease" ]]; then
   mapped_branch="v-next"
   mapped_dist_tag="latest"
   mapped_kind="node2-stable"
   expected_prerelease="false"
-elif [[ "$minor" == "200" && -n "$prerelease" ]]; then
+elif [[ "$minor" == "300" && -n "$prerelease" ]]; then
   mapped_branch="v-next"
   mapped_dist_tag="next"
   mapped_kind="node2-prerelease"
   expected_prerelease="true"
 elif [[ "$minor" == "104" ]]; then
   fail "maintenance prereleases are not supported"
+elif [[ "$minor" == "200" ]]; then
+  fail "release family 0.200.x is retired; the v-next line releases as 0.300.x"
 else
   fail "unsupported release family 0.$minor.x"
 fi
