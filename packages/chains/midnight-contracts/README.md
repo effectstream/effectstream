@@ -131,13 +131,13 @@ Importing `midnight-env` (and therefore every entry point that imports it, inclu
 - `preview`, `preprod` or `mainnet` is selected, `MIDNIGHT_BLOCKFROST_PROJECT_ID` is unset, and at least one of the three URLs is left to its Blockfrost default;
 - any other network ID is selected without all three URL overrides — there is no default to guess for it.
 
-The overrides also keep other hosts usable, for example a self-hosted indexer or the Midnight-hosted preview endpoints:
+The overrides also keep other hosts usable, for example a self-hosted indexer and node:
 
 ```bash
 MIDNIGHT_NETWORK_ID=preview
-MIDNIGHT_INDEXER_HTTP=https://indexer.preview.midnight.network/api/v4/graphql
-MIDNIGHT_INDEXER_WS=wss://indexer.preview.midnight.network/api/v4/graphql/ws
-MIDNIGHT_NODE_HTTP=https://rpc.preview.midnight.network
+MIDNIGHT_INDEXER_HTTP=https://indexer.example.com/api/v4/graphql
+MIDNIGHT_INDEXER_WS=wss://indexer.example.com/api/v4/graphql/ws
+MIDNIGHT_NODE_HTTP=https://rpc.example.com
 ```
 
 Blockfrost URLs embed the project token, so treat the resolved endpoints as secrets. The configuration errors above never quote a URL or the token, and the endpoint and failure lines printed by `deployMidnightContract` and the wallet-info CLI (`src/get-wallet-info-cli.ts`) show `project_id=<redacted>`. Pass anything you print yourself through `redactBlockfrostProjectId(text)`, which turns every `project_id=<token>` into `project_id=<redacted>`. Logs written by third-party clients (for example the wallet SDK's node connection) can still contain the full URL.

@@ -396,11 +396,10 @@ describe("selected network endpoints", () => {
     MIDNIGHT_INDEXER_WS: "wss://indexer.example/api/v4/graphql/ws",
     MIDNIGHT_NODE_HTTP: "https://node.example",
   };
-  // Midnight still serves preview itself; these URLs stay usable as overrides.
-  const MIDNIGHT_HOSTED_PREVIEW = {
-    MIDNIGHT_INDEXER_HTTP: "https://indexer.preview.midnight.network/api/v4/graphql",
-    MIDNIGHT_INDEXER_WS: "wss://indexer.preview.midnight.network/api/v4/graphql/ws",
-    MIDNIGHT_NODE_HTTP: "https://rpc.preview.midnight.network",
+  const OTHER_SELF_HOSTED = {
+    MIDNIGHT_INDEXER_HTTP: "https://indexer2.example/api/v4/graphql",
+    MIDNIGHT_INDEXER_WS: "wss://indexer2.example/api/v4/graphql/ws",
+    MIDNIGHT_NODE_HTTP: "https://node2.example",
   };
   const blockfrost = (networkId: string, token: string) => ({
     indexer: `https://midnight-${networkId}.blockfrost.io/api/v0?project_id=${token}`,
@@ -468,7 +467,7 @@ describe("selected network endpoints", () => {
     });
 
     test(`${networkId} without a token resolves when all three URLs are overridden`, async () => {
-      const urls = networkId === "preview" ? MIDNIGHT_HOSTED_PREVIEW : SELF_HOSTED;
+      const urls = networkId === "preview" ? OTHER_SELF_HOSTED : SELF_HOSTED;
       const probe = await resolveSelectedConfig({ MIDNIGHT_NETWORK_ID: networkId, ...urls });
       expect(probe.error).toBeUndefined();
       expect(probe.config).toEqual({

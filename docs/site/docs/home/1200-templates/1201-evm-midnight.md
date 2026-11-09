@@ -446,7 +446,7 @@ Midnight endpoints come from `@effectstream/midnight-contracts/midnight-env`, wh
 
 The hosted networks are served by Blockfrost: `<token>` is `MIDNIGHT_BLOCKFROST_PROJECT_ID`, a project ID from a free [blockfrost.io](https://blockfrost.io) account. Create one project per network (preprod IDs start with `nightpreprod`, mainnet IDs with `nightmainnet`); a token for the wrong network is rejected with 403 "Network token mismatch". Selecting `preview`, `preprod` or `mainnet` without a token makes `midnight-env` throw at import time whenever one of the three URLs would fall back to a Blockfrost default. The proof server is always local (`http://127.0.0.1:6300`) unless `MIDNIGHT_PROOF_SERVER_URL` overrides it.
 
-`MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS` and `MIDNIGHT_NODE_HTTP` override the defaults verbatim and bypass the token: with all three set, no Blockfrost project ID is needed (for example a self-hosted indexer, or Midnight's own preview endpoints `https://indexer.preview.midnight.network/api/v4/graphql`, `wss://indexer.preview.midnight.network/api/v4/graphql/ws` and `https://rpc.preview.midnight.network`, which still answer without a token). Any other network ID has no default and needs all three overrides. The wallet comes from `MIDNIGHT_WALLET_SEED` or `MIDNIGHT_WALLET_MNEMONIC` (the local genesis seed is only used on `undeployed`).
+`MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS` and `MIDNIGHT_NODE_HTTP` override the defaults verbatim and bypass the token: with all three set, no Blockfrost project ID is needed (for example a self-hosted indexer and node). Any other network ID has no default and needs all three overrides. The wallet comes from `MIDNIGHT_WALLET_SEED` or `MIDNIGHT_WALLET_MNEMONIC` (the local genesis seed is only used on `undeployed`).
 
 The Blockfrost URLs embed a secret: treat them like credentials and keep them out of shared logs. Effectstream prints `project_id=<redacted>` in the endpoint and error lines it writes itself, but other libraries (for example the wallet SDK's node connection) can print the full URL. Wallet sync state saved against one indexer is not portable to another: after switching indexers (for example from Midnight's retired hosted indexer to Blockfrost), let the wallets resync from scratch.
 
@@ -454,9 +454,9 @@ The frontend reads its endpoints from `VITE_*` variables in `.env.dev` / `.env.m
 
 | Variable | Description |
 | --- | --- |
-| `VITE_MIDNIGHT_INDEXER_HTTP`, `VITE_MIDNIGHT_INDEXER_WS` | Complete indexer endpoint URLs, path included (`…/api/v0` and `…/api/v0/ws` on Blockfrost, `…/api/v4/graphql` and `…/api/v4/graphql/ws` on the local stack). No path is appended, and they carry no token |
-| `VITE_MIDNIGHT_NODE_HTTP` | Node URL, also without a token |
-| `VITE_MIDNIGHT_BLOCKFROST_PROJECT_ID` | Blockfrost project ID. When it is set and not blank, the frontend appends `?project_id=<id>` to the indexer, indexer WS and node URLs (`&project_id=<id>` if a URL already has a query). Leave it unset for endpoints that need no token, such as the local stack in `.env.dev` |
+| `VITE_MIDNIGHT_INDEXER_HTTP`, `VITE_MIDNIGHT_INDEXER_WS` | Complete indexer endpoint URLs, path included and without a query string (`…/api/v0` and `…/api/v0/ws` on Blockfrost, `…/api/v4/graphql` and `…/api/v4/graphql/ws` on the local stack). No path is appended, and they carry no token |
+| `VITE_MIDNIGHT_NODE_HTTP` | Node URL, also without a token or query string |
+| `VITE_MIDNIGHT_BLOCKFROST_PROJECT_ID` | Blockfrost project ID. When it is set and not blank, the frontend appends `?project_id=<id>` to the indexer, indexer WS and node URLs. Leave it unset for endpoints that need no token, such as the local stack in `.env.dev` |
 
 `.env.mainnet` ships the token-free Blockfrost mainnet URLs and `VITE_MIDNIGHT_BLOCKFROST_PROJECT_ID=<token>`; replace `<token>` with your mainnet project ID before building. Every `VITE_*` value, the project ID included, is compiled into the public frontend bundle and cannot be hidden from anyone who loads the page: use a Blockfrost project dedicated to the frontend, separate from the one the node and batcher use, and expect its ID to be visible.
 

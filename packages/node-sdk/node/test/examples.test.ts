@@ -38,14 +38,14 @@ test("single-file facade declares a typed Midnight source and embedded database"
     address: "a".repeat(64),
     startBlockHeight: "latest",
     ledger: { round: "uint128" },
-    indexer: "https://indexer.preview.midnight.network/api/v4/graphql",
+    indexer: "https://indexer.example/api/v4/graphql",
   })).toEqual({
     kind: "midnight-contract",
     network: "preview",
     address: "a".repeat(64),
     startBlockHeight: "latest",
     ledger: { round: "uint128" },
-    indexer: "https://indexer.preview.midnight.network/api/v4/graphql",
+    indexer: "https://indexer.example/api/v4/graphql",
   });
 });
 

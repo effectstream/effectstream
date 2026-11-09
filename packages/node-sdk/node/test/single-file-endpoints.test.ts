@@ -6,9 +6,7 @@ const TOKEN = "abc";
 const NETWORKS = ["preview", "preprod", "mainnet"] as const;
 const ADDRESS = "a".repeat(64);
 const SELF_HOSTED_INDEXER = "https://indexer.example/api/v4/graphql";
-// Midnight still serves preview itself; the URL stays usable as an override.
-const MIDNIGHT_HOSTED_PREVIEW_INDEXER =
-  "https://indexer.preview.midnight.network/api/v4/graphql";
+const OTHER_SELF_HOSTED_INDEXER = "https://indexer2.example/api/v4/graphql";
 // Every Midnight endpoint variable; each probe starts with all of them unset.
 const MIDNIGHT_ENVS = [
   "MIDNIGHT_NETWORK_ID",
@@ -113,9 +111,9 @@ describe("single-file Midnight source endpoints", () => {
     expect(networkCalls).toBe(0);
   }, 30_000);
 
-  test("an explicit indexer needs no token, including Midnight's own preview indexer", async () => {
+  test("an explicit indexer needs no token on any network", async () => {
     const cases: SourceCase[] = [
-      { network: "preview", indexer: MIDNIGHT_HOSTED_PREVIEW_INDEXER },
+      { network: "preview", indexer: OTHER_SELF_HOSTED_INDEXER },
       { network: "preprod", indexer: SELF_HOSTED_INDEXER },
       { network: "mainnet", indexer: SELF_HOSTED_INDEXER },
     ];
