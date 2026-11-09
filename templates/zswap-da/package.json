@@ -10,9 +10,9 @@
     "serve": "vite preview --port 10600 --host"
   },
   "dependencies": {
-    "@effectstream/midnight-contracts": "0.200.1",
+    "@effectstream/midnight-contracts": "0.300.0",
     "@effectstream/mip-zswap-offer": "0.4.0-v9.0",
-    "@effectstream/wallets": "0.200.1",
+    "@effectstream/wallets": "0.300.0",
     "@midnight-ntwrk/dapp-connector-api": "4.1.0",
     "@midnight-ntwrk/midnight-js-types": "5.0.0",
     "@midnight-ntwrk/midnight-js-utils": "5.0.0",

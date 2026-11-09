@@ -9,8 +9,8 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
-    "@effectstream/evm-contracts": "0.200.1",
-    "@effectstream/orchestrator": "0.200.1",
+    "@effectstream/evm-contracts": "0.300.0",
+    "@effectstream/orchestrator": "0.300.0",
     "@midnightntwrk/wallet-sdk-address-format": "4.0.0",
     "wait-on": "8.0.3"
   },
@@ -19,5 +19,10 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.13"
+  },
+  "overrides": {
+    "@midnightntwrk/ledger-v9": "1.0.0",
+    "@midnightntwrk/onchain-runtime-v4": "4.0.0",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0"
   }
 }
