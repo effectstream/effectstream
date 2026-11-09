@@ -10,10 +10,14 @@ import { CHECKSUMS } from './checksums.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const version = '28.1';
-// bitcoin.org stopped serving /bin/ (every release asset 404s there now); the
-// binaries live on bitcoincore.org, which is the canonical host upstream links.
-// The artifacts are byte-identical, so CHECKSUMS below is unchanged.
-const base = `https://bitcoincore.org/bin/bitcoin-core-${version}`;
+// Byte-identical mirror of the official bitcoincore.org/bin/bitcoin-core-28.1
+// archives, verified against the upstream SHA256SUMS manifest before upload,
+// so CHECKSUMS below is unchanged. Downloading from bitcoincore.org directly
+// is unreliable from shared CI egress IPs (the host intermittently throttles
+// or stalls the stream), and the downloader sets no request timeout, so a
+// stalled download hangs until something external kills the process. GitHub
+// release downloads do not exhibit this.
+const base = 'https://github.com/effectstream/binaries/releases/download/0.3.120';
 const dest = path.join(__dirname, 'vendor');
 
 const bin = new BinWrapper()
