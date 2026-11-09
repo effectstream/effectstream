@@ -58,18 +58,38 @@ export interface DeployConfig {
 }
 
 /**
- * Network endpoint URLs for connecting to Midnight infrastructure
+ * Network endpoint URLs for connecting to Midnight infrastructure.
+ *
+ * Where a field is optional (e.g. `deployMidnightContract`), an unset field
+ * falls back to `midnightNetworkConfig` from `./midnight-env`, which follows
+ * `MIDNIGHT_NETWORK_ID`: loopback services on `undeployed`; Blockfrost-hosted
+ * endpoints with `?project_id=<MIDNIGHT_BLOCKFROST_PROJECT_ID>` on `preview`,
+ * `preprod` and `mainnet`. A URL carrying `project_id` embeds a secret: log
+ * it through `redactBlockfrostProjectId`.
  */
 export interface NetworkUrls {
   /** Optional network ID override */
   id?: NetworkId.NetworkId;
-  /** GraphQL indexer HTTP endpoint (default: http://127.0.0.1:8088/api/v4/graphql)*/
+  /**
+   * GraphQL indexer HTTP endpoint. Default: `http://127.0.0.1:8088/api/v4/graphql`
+   * on undeployed, `https://midnight-<id>.blockfrost.io/api/v0?project_id=<token>`
+   * on preview/preprod/mainnet.
+   */
   indexer?: string;
-  /** GraphQL indexer WebSocket endpoint (default: ws://127.0.0.1:8088/api/v4/graphql/ws)*/
+  /**
+   * GraphQL indexer WebSocket endpoint. Default:
+   * `ws://127.0.0.1:8088/api/v4/graphql/ws` on undeployed,
+   * `wss://midnight-<id>.blockfrost.io/api/v0/ws?project_id=<token>` on
+   * preview/preprod/mainnet.
+   */
   indexerWS?: string;
-  /** Midnight node RPC endpoint (default: http://127.0.0.1:9944)*/
+  /**
+   * Midnight node RPC endpoint. Default: `http://127.0.0.1:9944` on undeployed,
+   * `https://rpc.midnight-<id>.blockfrost.io?project_id=<token>` on
+   * preview/preprod/mainnet.
+   */
   node?: string;
-  /** Proof server HTTP endpoint (default: http://127.0.0.1:6300)*/
+  /** Proof server HTTP endpoint (default on every network: http://127.0.0.1:6300) */
   proofServer?: string;
 }
 
