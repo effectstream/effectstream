@@ -76,6 +76,14 @@ export interface BlockFetchOptions {
   tokenMints?: boolean;
 }
 
+/**
+ * Hide Blockfrost project tokens (`project_id` query parameters) before an
+ * indexer URL reaches a log line or an error.
+ */
+function redactIndexerUrl(text: string): string {
+  return text.replace(/([?&]project_id=)[^&#\s"']*/gi, "$1<redacted>");
+}
+
 export class MidnightClient {
   private readonly queryURL: string;
   private readonly networkId?: string;
@@ -87,7 +95,7 @@ export class MidnightClient {
     this.networkId = networkId;
     this.requestTimeoutMs = requestTimeoutMs;
     console.log(
-      `[MidnightClient] Using indexer ${queryURL} (network: ${
+      `[MidnightClient] Using indexer ${redactIndexerUrl(queryURL)} (network: ${
         networkId ?? "unknown"
       })`,
     );
@@ -98,19 +106,29 @@ export class MidnightClient {
     const combinedSignal = signal
       ? AbortSignal.any([signal, timeoutSignal])
       : timeoutSignal;
-    const response = await fetch(this.queryURL, {
-      method: "POST",
-      body: JSON.stringify({ query }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-      signal: combinedSignal,
-    });
+    let response: Response;
+    try {
+      response = await fetch(this.queryURL, {
+        method: "POST",
+        body: JSON.stringify({ query }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        signal: combinedSignal,
+      });
+    } catch (error) {
+      // Bun attaches the full request URL, project token included, as `path`.
+      const failure = error as { path?: unknown };
+      if (typeof failure?.path === "string") {
+        failure.path = redactIndexerUrl(failure.path);
+      }
+      throw error;
+    }
 
     if (!response.ok) {
-      console.error(`Failed to fetch ${this.queryURL}`);
+      console.error(`Failed to fetch ${redactIndexerUrl(this.queryURL)}`);
       console.error("Query:", JSON.stringify(query));
-      console.error("Response:", await response.text());
+      console.error("Response:", redactIndexerUrl(await response.text()));
       throw new GraphQLError(
         `Server returned ${response.status} ${response.statusText}`,
       );
