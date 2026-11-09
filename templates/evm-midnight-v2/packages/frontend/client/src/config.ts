@@ -2,9 +2,12 @@ const BASE_URL_API = import.meta.env.VITE_API_URL || "http://127.0.0.1:9999";
 const BASE_URL_BATCHER = import.meta.env.VITE_BATCHER_URL || "http://localhost:3334";
 const BASE_URL_DOCS = "http://127.0.0.1:10600";
 
-// These can be overridden by env vars if needed
-export const BASE_URL_MIDNIGHT_INDEXER = import.meta.env.VITE_MIDNIGHT_INDEXER_HTTP || `http://127.0.0.1:8088`;
-export const BASE_WS_MIDNIGHT_INDEXER = import.meta.env.VITE_MIDNIGHT_INDEXER_WS || `ws://127.0.0.1:8088`;
+// Midnight endpoints, overridable through the VITE_MIDNIGHT_* env vars. The
+// indexer values are complete GraphQL endpoint URLs used verbatim: hosted
+// indexers differ from the local one in path (Blockfrost serves /api/v0) and
+// carry the access token as a ?project_id= query parameter.
+export const BASE_URL_MIDNIGHT_INDEXER_API = import.meta.env.VITE_MIDNIGHT_INDEXER_HTTP || `http://127.0.0.1:8088/api/v3/graphql`;
+export const BASE_URL_MIDNIGHT_INDEXER_WS = import.meta.env.VITE_MIDNIGHT_INDEXER_WS || `ws://127.0.0.1:8088/api/v3/graphql/ws`;
 export const BASE_URL_MIDNIGHT_NODE = import.meta.env.VITE_MIDNIGHT_NODE_HTTP || `http://127.0.0.1:9944`;
 export const BASE_URL_PROOF_SERVER = import.meta.env.VITE_MIDNIGHT_PROOF_SERVER_URL || `http://127.0.0.1:6300`;
 export const MIDNIGHT_NETWORK_ID = import.meta.env.VITE_MIDNIGHT_NETWORK_ID || "undeployed";
@@ -12,11 +15,6 @@ export const MIDNIGHT_NETWORK_ID = import.meta.env.VITE_MIDNIGHT_NETWORK_ID || "
 export const getMidnightNodeUrl = async (): Promise<string> => {
   return BASE_URL_MIDNIGHT_NODE;
 };
-
-export const BASE_URL_MIDNIGHT_INDEXER_API =
-  `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
-export const BASE_URL_MIDNIGHT_INDEXER_WS =
-  `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
 
 export const CONFIG_ENDPOINT = `${BASE_URL_API}/config`;
 export const PRIMITIVES_ENDPOINT = `${BASE_URL_API}/primitives`;

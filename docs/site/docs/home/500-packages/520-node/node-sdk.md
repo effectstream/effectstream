@@ -43,6 +43,7 @@ The root entrypoint also exposes a small in-process facade for concise,
 read-only nodes:
 
 ```typescript
+// Run with MIDNIGHT_BLOCKFROST_PROJECT_ID set to a Blockfrost project ID for preview.
 import { midnightContract, pglite, runNode } from "@effectstream/node-sdk";
 
 await runNode({
@@ -61,6 +62,18 @@ await runNode({
   },
 });
 ```
+
+`network` is `"preview"`, `"preprod"` or `"mainnet"`. Without an `indexer`
+option, a source reads the network's Blockfrost indexer
+(`https://midnight-<network>.blockfrost.io/api/v0`), which requires a project
+token: create a free project at [blockfrost.io](https://blockfrost.io) (one
+project per network) and set its ID in `MIDNIGHT_BLOCKFROST_PROJECT_ID` before
+the source is declared. `midnightContract` throws when the variable is missing.
+The token travels in the URL as `?project_id=`, so treat that URL as a secret;
+Effectstream redacts it in its own log lines and errors.
+
+To use any other compatible indexer, such as a self-hosted one, pass its GraphQL
+URL as the `indexer` option. It is used verbatim and needs no token.
 
 `runNode` uses the normal Effectstream sync, primitive, STM, migration, and
 configuration-snapshot paths. It owns PGlite and runtime cleanup in the same

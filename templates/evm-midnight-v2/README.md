@@ -425,12 +425,25 @@ Most values are set by `start.dev.ts` and need no attention.
 | `MIDNIGHT_START_BLOCK` | Yes | Midnight block height to start syncing from |
 | `NTP_START_TIME` | No | NTP epoch in ms; otherwise recovered from the database, then `Date.now()` |
 | `EVM_PRIVATE_KEY` | Yes | Signs the batcher's Arbitrum transactions |
+| `MIDNIGHT_NETWORK_ID` | Yes | Must be `mainnet` |
+| `MIDNIGHT_BLOCKFROST_PROJECT_ID` | Yes, unless all three Midnight URL overrides are set | Blockfrost mainnet project ID (starts with `nightmainnet`); see below |
 
 ### Pointing at another Midnight network
 
-Midnight endpoints come from `@effectstream/midnight-contracts/midnight-env`, which is driven entirely by environment variables. Setting `MIDNIGHT_NETWORK_ID` to anything other than `undeployed` (`testnet`, `preview`, `mainnet`, …) switches the defaults to `https://indexer.<id>.midnight.network` and `https://rpc.<id>.midnight.network`; the proof server stays local unless overridden. Individual URLs can be overridden with `MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS`, `MIDNIGHT_NODE_HTTP` and `MIDNIGHT_PROOF_SERVER_URL`, and the wallet with `MIDNIGHT_WALLET_SEED` or `MIDNIGHT_WALLET_MNEMONIC` (the local genesis seed is only used on `undeployed`).
+Midnight endpoints come from `@effectstream/midnight-contracts/midnight-env`, which is driven entirely by environment variables. `MIDNIGHT_NETWORK_ID` selects the defaults:
 
-The frontend reads its endpoints from `VITE_*` variables in `.env.dev` / `.env.mainnet`:
+| `MIDNIGHT_NETWORK_ID` | Indexer (GraphQL / WS) | Node |
+| --- | --- | --- |
+| `undeployed` (default) | `http://127.0.0.1:8088/api/v4/graphql` / `ws://127.0.0.1:8088/api/v4/graphql/ws` | `http://127.0.0.1:9944` |
+| `preview`, `preprod`, `mainnet` | `https://midnight-<id>.blockfrost.io/api/v0?project_id=<token>` / `wss://midnight-<id>.blockfrost.io/api/v0/ws?project_id=<token>` | `https://rpc.midnight-<id>.blockfrost.io?project_id=<token>` |
+
+The hosted networks are served by Blockfrost: `<token>` is `MIDNIGHT_BLOCKFROST_PROJECT_ID`, a project ID from a free [blockfrost.io](https://blockfrost.io) account. Create one project per network (preprod IDs start with `nightpreprod`, mainnet IDs with `nightmainnet`); a token for the wrong network is rejected with 403 "Network token mismatch". Selecting `preview`, `preprod` or `mainnet` without a token makes `midnight-env` throw at import time whenever one of the three URLs would fall back to a Blockfrost default. The proof server is always local (`http://127.0.0.1:6300`) unless `MIDNIGHT_PROOF_SERVER_URL` overrides it.
+
+`MIDNIGHT_INDEXER_HTTP`, `MIDNIGHT_INDEXER_WS` and `MIDNIGHT_NODE_HTTP` override the defaults verbatim and bypass the token: with all three set, no Blockfrost project ID is needed (for example a self-hosted indexer, or Midnight's own preview endpoints `https://indexer.preview.midnight.network/api/v4/graphql`, `wss://indexer.preview.midnight.network/api/v4/graphql/ws` and `https://rpc.preview.midnight.network`, which still answer without a token). Any other network ID has no default and needs all three overrides. The wallet comes from `MIDNIGHT_WALLET_SEED` or `MIDNIGHT_WALLET_MNEMONIC` (the local genesis seed is only used on `undeployed`).
+
+The Blockfrost URLs embed a secret: treat them like credentials and keep them out of shared logs. Effectstream prints `project_id=<redacted>` in the endpoint and error lines it writes itself, but other libraries (for example the wallet SDK's node connection) can print the full URL. Wallet sync state saved against one indexer is not portable to another: after switching indexers (for example from Midnight's retired hosted indexer to Blockfrost), let the wallets resync from scratch.
+
+The frontend reads its endpoints from `VITE_*` variables in `.env.dev` / `.env.mainnet`. `VITE_MIDNIGHT_INDEXER_HTTP` and `VITE_MIDNIGHT_INDEXER_WS` are complete GraphQL endpoint URLs, used verbatim. `.env.mainnet` ships the Blockfrost mainnet URLs with a `<token>` placeholder; replace it with your project ID before building, and keep in mind that `VITE_*` values are compiled into the public bundle.
 
 ```sh
 bun run --filter @evm-midnight/frontend build:dev       # uses .env.dev
