@@ -107,40 +107,48 @@ function* superviseChild(
  * @param config - Paima Engine Node configuration object.
  */
 export function* start(config: StartConfig): Operation<void> {
-  // Why the runtime is stopping, in the order the failures happened.
-  const causes: unknown[] = [];
-  // What went wrong while releasing resources, in teardown order.
-  const cleanups: unknown[] = [];
+  // `start()` is entered with `yield*`, which runs it in its caller's scope.
+  // The `ensure()` hooks below would then run only when the caller's scope
+  // ends, and an application that suspends after `start()` would never see a
+  // startup or child failure: the process would stay up with nothing printed.
+  // `call()` gives the body a scope of its own, so the pool is drained and the
+  // recorded failure is thrown as soon as the runtime stops.
+  yield* call(function* () {
+    // Why the runtime is stopping, in the order the failures happened.
+    const causes: unknown[] = [];
+    // What went wrong while releasing resources, in teardown order.
+    const cleanups: unknown[] = [];
 
-  // Registered first, so it runs last: one place reports everything that went
-  // wrong. Without it effection keeps only the error thrown by whichever
-  // teardown ran last, so a failing `dbConn.end()` silently replaced the real
-  // cause of the shutdown.
-  yield* ensure(function* () {
-    throwCleanupErrors(
-      [...causes, ...cleanups],
-      "Effectstream runtime did not shut down cleanly",
-    );
-  });
+    // Registered first, so it runs last: one place reports everything that went
+    // wrong. Without it effection keeps only the error thrown by whichever
+    // teardown ran last, so a failing `dbConn.end()` silently replaced the real
+    // cause of the shutdown.
+    yield* ensure(function* () {
+      throwCleanupErrors(
+        [...causes, ...cleanups],
+        "Effectstream runtime did not shut down cleanly",
+      );
+    });
 
-  const dbConn = getConnection();
-  yield* ensure(function* () {
+    const dbConn = getConnection();
+    yield* ensure(function* () {
+      try {
+        yield* call(() => dbConn.end());
+      } catch (error) {
+        cleanups.push(error);
+      }
+    });
+
     try {
-      yield* call(() => dbConn.end());
+      // The body gets its own frame, so everything it owns — broker, HTTP
+      // server, merge/heartbeat/snapshot children — is released, and every
+      // release failure recorded, before the pool above is drained.
+      yield* call(() => runRuntime(config, dbConn, causes, cleanups));
     } catch (error) {
-      cleanups.push(error);
+      // A body or child failure. `superviseChild` may already have recorded it.
+      if (!causes.includes(error)) causes.push(error);
     }
   });
-
-  try {
-    // The body gets its own frame, so everything it owns — broker, HTTP
-    // server, merge/heartbeat/snapshot children — is released, and every
-    // release failure recorded, before the pool above is drained.
-    yield* call(() => runRuntime(config, dbConn, causes, cleanups));
-  } catch (error) {
-    // A body or child failure. `superviseChild` may already have recorded it.
-    if (!causes.includes(error)) causes.push(error);
-  }
 }
 
 function* runRuntime(
