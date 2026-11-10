@@ -6,7 +6,7 @@
       "name": "@zswap-da/frontend",
       "dependencies": {
         "@effectstream/midnight-contracts": "0.300.1",
-        "@effectstream/mip-zswap-offer": "0.4.0-v9.0",
+        "@effectstream/mip-zswap-offer": "0.4.0",
         "@effectstream/wallets": "0.300.1",
         "@midnight-ntwrk/dapp-connector-api": "4.1.0",
         "@midnight-ntwrk/midnight-js-types": "5.0.0",
@@ -107,7 +107,7 @@
 
     "@effectstream/midnight-contracts": ["@effectstream/midnight-contracts@0.300.1", "", { "dependencies": { "@effectstream/utils": "0.300.1", "@midnight-ntwrk/compact-js": "3.0.0", "@midnight-ntwrk/compact-runtime": "0.21.0", "@midnight-ntwrk/midnight-js-contracts": "5.0.0", "@midnight-ntwrk/midnight-js-http-client-proof-provider": "5.0.0", "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "5.0.0", "@midnight-ntwrk/midnight-js-level-private-state-provider": "5.0.0", "@midnight-ntwrk/midnight-js-node-zk-config-provider": "5.0.0", "@midnight-ntwrk/midnight-js-protocol": "5.0.0", "@midnight-ntwrk/midnight-js-types": "5.0.0", "@midnight-ntwrk/midnight-js-utils": "5.0.0", "@midnight-ntwrk/platform-js": "3.0.0", "@midnightntwrk/ledger-v9": "1.0.0", "@midnightntwrk/onchain-runtime-v4": "4.0.0", "@midnightntwrk/wallet-sdk": "2.0.0", "@midnightntwrk/wallet-sdk-abstractions": "3.0.0", "@midnightntwrk/wallet-sdk-address-format": "4.0.0", "@midnightntwrk/wallet-sdk-capabilities": "4.0.0", "@midnightntwrk/wallet-sdk-dust-wallet": "5.0.0", "@midnightntwrk/wallet-sdk-facade": "5.0.0", "@midnightntwrk/wallet-sdk-hd": "4.0.0", "@midnightntwrk/wallet-sdk-indexer-client": "2.0.0", "@midnightntwrk/wallet-sdk-node-client": "2.0.0", "@midnightntwrk/wallet-sdk-prover-client": "2.0.0", "@midnightntwrk/wallet-sdk-runtime": "2.0.0", "@midnightntwrk/wallet-sdk-shielded": "4.0.0", "@midnightntwrk/wallet-sdk-unshielded-wallet": "4.0.0", "@midnightntwrk/wallet-sdk-utilities": "1.3.0", "@scure/bip39": "^2.0.1", "bn.js": "5.2.3", "dotenv": "^16.4.7", "rxjs": "7.8.2" } }, "sha512-hIaFnTESiNZn36gDqs5tyMMH79/0lrLVvTlV+FJvC4NtNAnJ5+mt6Gw3gx0mfv8lKqXE1bFTzddhp/LtymW3Tg=="],
 
-    "@effectstream/mip-zswap-offer": ["@effectstream/mip-zswap-offer@0.4.0-v9.0", "", { "dependencies": { "@noble/hashes": "^1.8.0" }, "peerDependencies": { "@midnightntwrk/ledger-v9": "1.0.0-rc.3", "@scure/base": "^1.1.0 || ^2.0.0" } }, "sha512-BncbasmnxdfBOSsDxXvEE1nKQ+K+x7BKnzrZfLsEk3O3vthOJs3KNzc5yY+/HnKwteyWjJJSDuTPfCCskcFAUw=="],
+    "@effectstream/mip-zswap-offer": ["@effectstream/mip-zswap-offer@0.4.0", "", { "dependencies": { "@noble/hashes": "^1.8.0" }, "peerDependencies": { "@midnightntwrk/ledger-v9": "^1.0.0", "@scure/base": "^1.1.0 || ^2.0.0" } }, "sha512-awkWTGZyeWpCZSGj+ESB1ioV3Dnez1FwyOP24/CqonJHEFi1fYJZrywGdByhYOJw9va8eHi9XqnG5HU/nlnuXA=="],
 
     "@effectstream/utils": ["@effectstream/utils@0.300.1", "", { "dependencies": { "@coderspirit/nominal": "^4.1.1", "@foxglove/crc": "^1.0.1", "@sinclair/typebox": "0.34.41", "@subsquid/ss58-codec": "^1.2.3", "abitype": "1.1.0", "bech32": "^2.0.0", "bs58": "^6.0.0", "bs58check": "^4.0.0", "buffer": "^6.0.3", "dotenv": "^16.4.7", "effection": "^3.5.0", "hi-base32": "^0.5.1", "js-base64": "^3.7.7", "js-sha512": "^0.9.0", "viem": "2.37.3" } }, "sha512-Dm1M2QgjAfQw4koNPW4wH3LPZ+ovnD/id9X4WT3N70ncWAT+AOIX3/M/L3zipZN2a+qsC4ap04zgyT5aI/wMug=="],
 
