@@ -113,8 +113,9 @@ token color.
 
 Prerequisites:
 
-- **Bun.** The app has no local Faucet contract or generated Compact assets; test-token minting is
-  handled by the external Faucet service.
+- **Bun 1.4.0.** The committed `bun.lock` is written and tested with this version (see the install
+  note below). The app has no local Faucet contract or generated Compact assets; test-token
+  minting is handled by the external Faucet service.
 - **A wallet.** Either works, for everything: any Midnight wallet extension (Lace, for example) via the
   dapp-connector, or the **built-in JS wallet** via the Midnight wallet facade — no extension
   needed. `src/services/browserOffers.ts` and `src/services/localTradeOffers.ts` implement the two
@@ -133,9 +134,15 @@ Then the frontend:
 
 ```sh
 cd effectstream/templates/zswap-da
-bun install
+bun install --frozen-lockfile
 bun run dev
 ```
+
+Install with `--frozen-lockfile`. If your Bun would resolve the dependency tree differently from
+the committed `bun.lock`, the install fails instead of rewriting the lockfile, so a build never
+runs on versions that were not committed. A plain `bun install` with a Bun other than 1.4.0 can
+re-resolve and rewrite `bun.lock`; use Bun 1.4.0 when you change dependencies and commit the
+lockfile it writes.
 
 | Service | URL |
 | --- | --- |
@@ -300,6 +307,11 @@ All build-time variables are optional; each has a working default.
 | `VITE_BATCHER_TARGET` | `midnight-balancer` | Batcher adapter the settled transaction is routed to |
 | `VITE_MIDNIGHT_NETWORK_ID` | `preprod` | Midnight network id used for address formatting, offer parsing and the Faucet link |
 | `VITE_FAUCET_URL` | `https://mint-test-tokens.pages.dev/` | External test-token service base URL |
+
+These values are compiled into the JavaScript bundle that every visitor downloads, so they are
+public. The web app needs no secrets: never put a wallet seed, mnemonic, password, API token or
+database credential in a `VITE_*` variable or in a `.env` file for this template. `.env` and
+`.env.*` files are git-ignored here so local settings are not committed by accident.
 
 At runtime a hosting page may set `window.API_BASE` and `window.BATCHER_URL` before the bundle loads;
 both take precedence over the build-time values. The network is not user-selectable — the

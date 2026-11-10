@@ -6,3 +6,10 @@ dist
 # 7.8 MB, and tracked-vs-ignored ambiguity in generated dirs has bitten this
 # repo before (a stray DNT `npm/` output dir got globbed into bun.lock).
 src/contract/managed/
+
+# Local environment files. Every `VITE_*` value is compiled into the public
+# bundle, so these files hold build settings only, never secrets; they stay
+# out of git so local values are not committed by accident.
+.env
+.env.*
+!.env.example
