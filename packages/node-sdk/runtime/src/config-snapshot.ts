@@ -49,6 +49,16 @@ function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<strin
     return { startChainPoint: sp.startChainPoint };
   }
 
+  if (protocol.networkType === ConfigNetworkType.CKB) {
+    const sp = protocol.syncProtocol as { startBlockHeight: number };
+    const network = protocol.network as { network: string; genesisBlockHash: string };
+    return {
+      startBlockHeight: sp.startBlockHeight,
+      network: network.network,
+      genesisBlockHash: network.genesisBlockHash,
+    };
+  }
+
   // EVM, Mina, Avail, Midnight, Bitcoin, Celestia, NEAR, Solana
   const knownBlockHeightProtocols: string[] = [
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
@@ -59,6 +69,7 @@ function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<strin
     ConfigSyncProtocolType.CELESTIA_PARALLEL,
     ConfigSyncProtocolType.NEAR_RPC_PARALLEL,
     ConfigSyncProtocolType.SOLANA_RPC_PARALLEL,
+    ConfigSyncProtocolType.CKB_RPC_PARALLEL,
   ];
   if (!knownBlockHeightProtocols.includes(protocol.syncProtocolType)) {
     throw new Error(
@@ -147,6 +158,17 @@ export function* validateAndSnapshotConfig(
     }
 
     const mismatchDetails = mismatches.join("\n");
+
+    if (
+      protocol.networkType === ConfigNetworkType.CKB &&
+      (mismatches.some((line) => line.includes("network:")) ||
+        mismatches.some((line) => line.includes("genesisBlockHash:")))
+    ) {
+      throw new Error(
+        `[config-snapshot] CRITICAL: CKB network identity changed for protocol "${protocolName}".\n` +
+        `${mismatchDetails}\n\nA new CKB network requires a new protocol name and an explicit rescan.`,
+      );
+    }
 
     if (!useDbStartHeight) {
       throw new Error(

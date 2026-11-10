@@ -15,6 +15,28 @@ import {
 } from "@effectstream/sm/builtin";
 
 import { effectstreamL2Grammar } from "./grammar.ts";
+import { CKB_RELAY_PRIMITIVE_NAME, CKB_RELAY_PRIMITIVE_TYPE, CKB_RELAY_SYNC_PROTOCOL } from "./ckb-relay-primitive.ts";
+
+const ckbRelayDemo = process.env["CKB_RELAY_DEMO"] === "true";
+const ckbRpcUrl = process.env["CKB_RPC_URL"] ?? "http://127.0.0.1:8114";
+const ckbGenesisBlockHash = process.env["CKB_GENESIS_BLOCK_HASH"];
+const ckbTargetScript = {
+  role: (process.env["CKB_TARGET_SCRIPT_ROLE"] ?? "lock") as "lock" | "type",
+  script: {
+    codeHash: process.env["CKB_TARGET_SCRIPT_CODE_HASH"] ?? "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+    hashType: (process.env["CKB_TARGET_SCRIPT_HASH_TYPE"] ?? "type") as "data" | "type" | "data1" | "data2",
+    args: process.env["CKB_TARGET_SCRIPT_ARGS"] ?? "0x8e42b1999f265a0078503c4acec4d5e134534297",
+  },
+};
+
+if (ckbRelayDemo) {
+  if (!ckbGenesisBlockHash || !/^0x[0-9a-fA-F]{64}$/.test(ckbGenesisBlockHash)) {
+    throw new Error("CKB_RELAY_DEMO requires CKB_GENESIS_BLOCK_HASH from the local OffCKB node.");
+  }
+  if (ckbRpcUrl !== "http://127.0.0.1:8114") {
+    throw new Error("CKB_RELAY_DEMO is fixed to the local OffCKB RPC at 127.0.0.1:8114.");
+  }
+}
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
@@ -42,8 +64,8 @@ export const config = new ConfigBuilder()
   .setNamespace(
     (builder) => builder.setSecurityNamespace("e2e-evm"),
   )
-  .buildNetworks((builder) =>
-    builder
+  .buildNetworks((builder) => {
+    const configured = builder
       .addNetwork({
         name: "ntp",
         type: ConfigNetworkType.NTP,
@@ -61,11 +83,21 @@ export const config = new ConfigBuilder()
           default: { http: ["http://127.0.0.1:8546"] },
         },
         id: 31338,
-      })
-  )
+      });
+    if (ckbRelayDemo) {
+      (configured as any).addNetwork({
+        name: "ckbLocal",
+        type: ConfigNetworkType.CKB,
+        rpcUrl: ckbRpcUrl,
+        network: "devnet",
+        genesisBlockHash: ckbGenesisBlockHash,
+      });
+    }
+    return configured;
+  })
   .buildDeployments((builder) => builder)
-  .buildSyncProtocols((builder) =>
-    builder
+  .buildSyncProtocols((builder) => {
+    const configured = builder
       .addMain(
         (networks) => networks.ntp,
         (network, deployments) => ({
@@ -98,10 +130,29 @@ export const config = new ConfigBuilder()
           startBlockHeight: 1 as BlockNumber,
           confirmationDepth: 2,
         }),
-      )
-  )
-  .buildPrimitives((builder) =>
-    builder
+      );
+    if (ckbRelayDemo) {
+      (configured as any).addParallel(
+        (networks: any) => networks.ckbLocal,
+        () => ({
+          name: CKB_RELAY_SYNC_PROTOCOL,
+          type: ConfigSyncProtocolType.CKB_RPC_PARALLEL,
+          startBlockHeight: Number(process.env["CKB_START_BLOCK_HEIGHT"] ?? "0"),
+          stopBlockHeight: null,
+          pollingInterval: 1_000,
+          requestTimeoutMs: 15_000,
+          confirmationDepth: 0,
+          reorgWindow: 64,
+          targetScript: ckbTargetScript,
+          delayMs: 0,
+          stepSize: 1,
+        }),
+      );
+    }
+    return configured;
+  })
+  .buildPrimitives((builder) => {
+    const configured = builder
       .addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelEvmRPC_fast,
         (network, deployments, syncProtocol) => ({
@@ -179,6 +230,17 @@ export const config = new ConfigBuilder()
             .chain31337["Erc1155DevModule#ERC1155Dev"],
           stateMachinePrefix: "transfer-erc1155",
         }),
-      )
-  )
+      );
+    if (ckbRelayDemo) {
+      (configured as any).addPrimitive(
+        (syncProtocols: any) => syncProtocols[CKB_RELAY_SYNC_PROTOCOL],
+        () => ({
+          name: CKB_RELAY_PRIMITIVE_NAME,
+          type: CKB_RELAY_PRIMITIVE_TYPE,
+          startBlockHeight: 0,
+        }),
+      );
+    }
+    return configured;
+  })
   .build();

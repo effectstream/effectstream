@@ -1,9 +1,7 @@
 import type { Operation } from "effection";
-import type { PageRange } from "../base/page.ts";
-import { narrowResult } from "@effectstream/utils";
+import type { PageRange, PageRelation } from "../base/page.ts";
+import type { PaginatedFetcher } from "../base/fetcher.ts";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
-import type { PaginatedSyncProtocols } from "../types.ts";
-import type { PageTypeOf } from "../base/state.ts";
 
 // Fetch backpressure. See README "Backpressure (`maxBufferedPages`)".
 const MAX_BUFFER_MULTIPLE = 4;
@@ -56,21 +54,28 @@ type ConfigSubset<Page> = {
 
 export type PageSyncRange<Page> = PageRange<Page> & { isPresync: boolean };
 
-export function* genInputRange<SyncProtocol extends PaginatedSyncProtocols>(
+type PaginatedState<Page> = {
+  lastPage: { readonly own: unknown } | undefined;
+  fetcher: PaginatedFetcher<Page>;
+  pageRelation: PageRelation<Page>;
+};
+
+export function* genInputRange<Page, SyncProtocol extends PaginatedState<Page>>(
   state: SyncProtocol,
-  genesisPage: PageTypeOf<SyncProtocol>,
-  config: ConfigSubset<PageTypeOf<SyncProtocol>>,
+  genesisPage: NoInfer<Page>,
+  config: ConfigSubset<NoInfer<Page>>,
   namespace: string[],
-): Operation<undefined | PageSyncRange<PageTypeOf<SyncProtocol>>> {
-  const nextPage = state.lastPage == null
+): Operation<undefined | PageSyncRange<Page>> {
+  const lastPage = state.lastPage?.own as Page | undefined;
+  const nextPage = lastPage == null
     ? genesisPage
-    : state.fetcher.nextInterval(state.lastPage.own).from;
+    : state.fetcher.nextInterval(lastPage).from;
   // TODO This will always be false as the genesis page is the startPage
   const isPresync = state.pageRelation.compare(nextPage, config.startPage) < 0;
 
   const maxPage = isPresync
     ? state.fetcher.previousInterval(config.startPage).to
-    : yield* state.fetcher.getLatestPage(state.lastPage?.own);
+    : yield* state.fetcher.getLatestPage(lastPage);
   const clampedMax = state.pageRelation.min(
     maxPage,
     state.fetcher.intervalFromStart(nextPage).to,
@@ -91,16 +96,8 @@ export function* genInputRange<SyncProtocol extends PaginatedSyncProtocols>(
     (log) => log(pageRange),
   );
   return {
-    from: narrowResult<
-      PageTypeOf<PaginatedSyncProtocols>,
-      PageTypeOf<PaginatedSyncProtocols>,
-      PageTypeOf<SyncProtocol>
-    >(nextPage),
-    to: narrowResult<
-      PageTypeOf<PaginatedSyncProtocols>,
-      PageTypeOf<PaginatedSyncProtocols>,
-      PageTypeOf<SyncProtocol>
-    >(clampedMax),
+    from: nextPage,
+    to: clampedMax,
     isPresync,
   };
 }

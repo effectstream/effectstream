@@ -201,6 +201,7 @@ async function test() {
     // 4. Wait for sync node + batcher to be healthy
     await waitForProcess("sync");
     await waitForProcess("batcher");
+    await waitForProcess("ckb-relay-worker");
     await waitForHealth();
     await waitForBlock(1);
     console.log("Sync node + batcher are healthy.\n");
@@ -210,6 +211,11 @@ async function test() {
     const sharedState: SharedState = newSharedState();
     await runSyncTests(db, sharedState);
 
+    // Run the CKB relay integration last: live CKB accounting is independent
+    // of the EVM batcher assertions and should not affect their DB counters.
+    const { ckbToEvmRelayTest } = await import("./tooling/ckb-to-evm-relay.test.ts");
+    await ckbToEvmRelayTest(db);
+
     // 6. Summary
     printSummary();
   } catch (e) {
@@ -218,7 +224,11 @@ async function test() {
     console.error(e);
   } finally {
     if (db) await db.end();
-    await stopInfrastructure();
+    if (process.env["CKB_RELAY_KEEP_INFRA"] === "true") {
+      console.log("Keeping E2E infrastructure alive for the dashboard acceptance checks.");
+    } else {
+      await stopInfrastructure();
+    }
     if (anyError()) process.exit(1);
     process.exit(0);
   }

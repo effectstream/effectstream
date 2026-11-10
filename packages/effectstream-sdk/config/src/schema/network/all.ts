@@ -14,6 +14,7 @@ import { ConfigNetworkSchemaCelestia } from "./celestia.ts";
 import { ConfigNetworkSchemaNear } from "./near.ts";
 import { ConfigNetworkSchemaSolana } from "./solana.ts";
 import { ConfigNetworkSchemaTest } from "./test.ts";
+import { ConfigNetworkSchemaCkb } from "./ckb.ts";
 
 export const networkTypes = {
   [ConfigNetworkType.NTP]: ConfigNetworkSchemaNtp,
@@ -29,6 +30,7 @@ export const networkTypes = {
   [ConfigNetworkType.NEAR]: ConfigNetworkSchemaNear,
   [ConfigNetworkType.SOLANA]: ConfigNetworkSchemaSolana,
   [ConfigNetworkType.TEST]: ConfigNetworkSchemaTest,
+  [ConfigNetworkType.CKB]: ConfigNetworkSchemaCkb,
 } as const;
 
 export type ConfigNetworkSubmapping<T extends ConfigNetworkType> = ToMapping<

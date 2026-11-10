@@ -42,6 +42,8 @@ import { getConnection, createScheduledData } from "@effectstream/db";
 import { config } from "./config.ts";
 import { grammar } from "./grammar.ts";
 import { AddressType as AddressTypeUtil } from "@effectstream/utils";
+import { CkbRelayPrimitive, CKB_RELAY_PRIMITIVE_TYPE } from "./ckb-relay-primitive.ts";
+import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 
 // ── Custom Counter Primitive ─────────────────────────────────────────────────
 
@@ -167,6 +169,7 @@ class EvmCounterPrimitive extends Primitive<
 
 const userDefinedPrimitives = {
   "EVM:CUSTOM-COUNTER": EvmCounterPrimitive,
+  [CKB_RELAY_PRIMITIVE_TYPE]: CkbRelayPrimitive,
 };
 
 // ── State Machine ────────────────────────────────────────────────────────────
@@ -281,6 +284,15 @@ main(function* () {
       migrations: migrationTable,
       grammar,
       userDefinedPrimitives,
+      ckbEvmRelay: process.env["CKB_RELAY_DEMO"] === "true"
+        ? {
+            rpcUrl: "http://127.0.0.1:8545",
+            chainId: 31337,
+            contractAddress: contractAddressesEvmMain().chain31337[
+              "CkbEventRelayModule#CkbEventRelay"
+            ] as `0x${string}`,
+          }
+        : undefined,
       // Snapshots are opt-in: only enabled when EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS is set.
       snapshotConfig: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS != null
         ? {

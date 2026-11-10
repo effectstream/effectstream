@@ -48,6 +48,7 @@ import {
   CommonResponseSolanaRpcParallel,
   ConfigSyncProtocolSchemaSolanaParallel,
 } from "./solana/rpc.ts";
+import { CommonResponseCkbRpcParallel, ConfigSyncProtocolSchemaCkbParallel } from "./ckb/rpc.ts";
 import type { ToMapping } from "../utils.ts";
 import { ConfigSyncProtocolDecorator } from "./decorators/all.ts";
 import {
@@ -91,6 +92,7 @@ export const parallelSyncProtocolTypes = {
     ConfigSyncProtocolSchemaNearParallel,
   [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]:
     ConfigSyncProtocolSchemaSolanaParallel,
+  [ConfigSyncProtocolType.CKB_RPC_PARALLEL]: ConfigSyncProtocolSchemaCkbParallel,
   [ConfigSyncProtocolType.TEST_PARALLEL]:
     ConfigSyncProtocolSchemaTestParallel,
 } as const;
@@ -114,6 +116,7 @@ export const syncProtocolCommonResponse = {
     CommonResponseNearRpcParallel,
   [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]:
     CommonResponseSolanaRpcParallel,
+  [ConfigSyncProtocolType.CKB_RPC_PARALLEL]: CommonResponseCkbRpcParallel,
   [ConfigSyncProtocolType.TEST_MAIN]: CommonResponseTestMain,
   [ConfigSyncProtocolType.TEST_PARALLEL]: CommonResponseTestParallel,
 } as const satisfies Record<ConfigSyncProtocolType, TSchema>;

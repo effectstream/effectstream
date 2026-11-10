@@ -2,12 +2,12 @@
 
 The blockchain-sync service inside an EffectStream node. Reads finalized
 blocks from every chain you've configured (EVM, Bitcoin, Cardano, Midnight,
-Avail, Celestia, NEAR, Solana…), normalizes them into a single rollup ordering,
+Avail, Celestia, NEAR, Solana, CKB…), normalizes them into a single rollup ordering,
 and stages the inputs the state machine consumes.
 
 - Blockchain-sync service: reads finalized blocks from every configured chain.
 - Normalises into a single rollup ordering and stages inputs for the state machine.
-- Drop-in fetchers: EVM, Bitcoin, Cardano UTXO-RPC, Midnight, Avail, Celestia, NEAR, Solana, NTP.
+- Drop-in fetchers: EVM, Bitcoin, Cardano UTXO-RPC, Midnight, Avail, Celestia, NEAR, Solana, CKB, NTP.
 - `genSyncProtocols(config)` is what the runtime calls during boot.
 
 ## Install
@@ -27,6 +27,10 @@ against the `syncProtocols` section of your
 then drives the resulting fetcher + state pairs every block. As an app
 author you declare which protocols to sync in your config; everything
 else runs automatically.
+
+The CKB adapter configuration, native page cursor, recovery policy, and
+integration-specific verification are documented in
+[`docs/CKB-NATIVE-SYNC.md`](./docs/CKB-NATIVE-SYNC.md).
 
 If you're building a new chain integration, implement the sync-protocol
 interfaces in [`src/sync-protocols/`](https://github.com/effectstream/effectstream/tree/main/packages/node-sdk/sync/src/sync-protocols).

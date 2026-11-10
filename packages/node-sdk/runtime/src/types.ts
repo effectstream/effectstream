@@ -36,6 +36,12 @@ export type StartConfigApiRouter = (
   dbConn: Pool,
 ) => Promise<void>;
 
+export type CkbEvmRelayConfig = {
+  rpcUrl: string;
+  chainId: 31337;
+  contractAddress: `0x${string}`;
+};
+
 export type PrimitiveConstructor<T extends Primitive<any, any>> = new (config: any) => T;
 
 /**
@@ -61,6 +67,8 @@ export type StartConfig = {
   userDefinedPrimitives?: Record<string, PrimitiveConstructor<any>>;
   /** Publish MQTT events. Defaults to true; small read-only nodes may disable it. */
   events?: boolean;
+  /** Enables the local trusted-relayer outbox for processed CKB cell events. */
+  ckbEvmRelay?: CkbEvmRelayConfig;
   /**
    * Automated database snapshot configuration via `pg_dump`.
    * An empty object `{}` enables snapshots with all defaults.

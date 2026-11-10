@@ -106,6 +106,32 @@ type SolanaPrimitivePayload =
   | SolanaAccountBalancePayload
   | SolanaTokenBalancePayload;
 
+type CkbPrimitivePayload = {
+  schemaVersion: 1;
+  eventId: string;
+  source: {
+    network: "devnet" | "testnet" | "mainnet";
+    genesisBlockHash: string;
+    blockHeight: string;
+    blockHash: string;
+    transactionHash: string;
+    transactionIndex: string;
+  };
+  cell: {
+    outPoint: { transactionHash: string; index: string };
+    capacityShannons: string;
+    matchedScriptRole: "lock" | "type";
+    matchedScriptHash: string;
+    typeScriptHash?: string;
+    dataHash: string;
+  };
+  observation: {
+    status: "eligible";
+    confirmationDepth: string;
+    requiredConfirmationDepth: string;
+  };
+};
+
 interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.NTP_MAIN]: NtpPrimitivePayload;
   [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: EVMPrimitivePayload;
@@ -118,6 +144,7 @@ interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitivePayload;
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]: CelestiaPrimitivePayload;
   [ConfigSyncProtocolType.SOLANA_RPC_PARALLEL]: SolanaPrimitivePayload;
+  [ConfigSyncProtocolType.CKB_RPC_PARALLEL]: CkbPrimitivePayload;
   [ConfigSyncProtocolType.TEST_MAIN]: TestMainPrimitivePayload;
   [ConfigSyncProtocolType.TEST_PARALLEL]: TestParallelPrimitivePayload;
 }

@@ -97,7 +97,13 @@ export async function batcherSyncTest(db: Client, sharedState: SharedState) {
 
   // ── Test 2: Bad signature rejection ──────────────────────────────────────
 
-  const countBefore = sharedState.primitive_accounting_counter;
+  // Read the database baseline directly. Other enabled sync protocols can
+  // legitimately add accounting rows without changing this test's in-memory
+  // counter (for example the CKB relay demo running alongside this suite).
+  const countBeforeResult = await db.query(
+    `SELECT COUNT(*)::text AS cnt FROM effectstream.primitive_accounting;`,
+  );
+  const countBefore = parseInt(countBeforeResult.rows[0].cnt, 10);
   const badSignature = await walletClient.signMessage({ message: "bad-message" });
 
   await fetch(BATCHER_URL, {

@@ -7,6 +7,16 @@ export default {
     ...launchPglite(),
     ...launchEvm("@e2e/evm-contracts", { resolveFrom: import.meta.dirname! }),
 
+    {
+      name: "ckb-relay-worker",
+      description: "Durable local CKB event relay worker",
+      args: ["run", "e2e/evm/ckb-event-relay-worker-main.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      env: { PGLITE: process.env.PGLITE ?? "true" },
+      dependsOn: [DbNames.PGLITE_WAIT, EvmNames.GENERATE_MOD],
+    },
+
     // ── Sync (the node) ───────────────────────────────────────────────────────
     {
       name: "sync",
@@ -14,7 +24,7 @@ export default {
       args: ["run", "e2e/evm/node.ts"],
       waitToExit: false,
       type: "system-dependency",
-      env: { PGLITE: "true", ENABLE_DEV_AND_DEBUG_ENDPOINTS: "true" },
+      env: { PGLITE: process.env.PGLITE ?? "true", ENABLE_DEV_AND_DEBUG_ENDPOINTS: "true" },
       dependsOn: [
         DbNames.PGLITE_WAIT,
         EvmNames.GENERATE_MOD,

@@ -31,6 +31,7 @@ export type NtpBlockNumber = FastFlavor<number, "NtpBlockNumber">;
 export type MidnightBlockNumber = FastFlavor<number, "MidnightBlockNumber">;
 export type CardanoBlockNumber = FastFlavor<number, "CardanoBlockNumber">;
 export type BitcoinBlockNumber = FastFlavor<number, "BitcoinBlockNumber">;
+export type CkbBlockNumber = FastFlavor<number, "CkbBlockNumber">;
 
 export type BlockNumber =
   | EffectstreamBlockNumber
@@ -38,7 +39,8 @@ export type BlockNumber =
   | NtpBlockNumber
   | MidnightBlockNumber
   | CardanoBlockNumber
-  | BitcoinBlockNumber;
+  | BitcoinBlockNumber
+  | CkbBlockNumber;
 
 /**
  * recall: slots may be empty, so absolute slot number is not usually equal to block number
@@ -88,6 +90,7 @@ export type NtpTxHash = FastFlavor<string, "NtpTxHash">; // TODO: is this needed
 export type NtpAddress = FastFlavor<string, "NtpAddress">; // TODO: is this needed?
 
 export type EvmBlockHash = FastFlavor<HexString0x, "EvmBlockHash">;
+export type CkbBlockHash = FastFlavor<HexString0x, "CkbBlockHash">;
 export type EvmTxHash = FastFlavor<HexString0x, "EvmTxHash">;
 export type EvmAddress = FastFlavor<HexString0x, "EvmAddress">;
 export type EvmSelector = FastFlavor<HexString0x, "EvmSelector">;
@@ -160,7 +163,8 @@ export type BlockHash =
   | MinaBlockHash
   | EffectstreamBlockHash
   | NtpBlockHash
-  | BitcoinBlockHash;
+  | BitcoinBlockHash
+  | CkbBlockHash;
 // | SubstrateBlockHash;
 
 export type NtpPageJson = FastFlavor<string, "NTPPageJson">;

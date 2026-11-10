@@ -12,6 +12,7 @@ import type { CelestiaSyncState } from "./celestia/state.ts";
 import type { NearSyncState } from "./near/state.ts";
 import type { SolanaSyncState } from "./solana/state.ts";
 import type { TestSyncState } from "./test/state.ts";
+import type { CkbSyncState } from "./ckb/state.ts";
 
 // TODO: move folders
 export type RootOutput = ChainBlock;
@@ -28,7 +29,8 @@ export type AllSyncProtocols =
   | CelestiaSyncState
   | NearSyncState
   | SolanaSyncState
-  | TestSyncState;
+  | TestSyncState
+  | CkbSyncState;
 export type ISyncProtocol = UnionToIntersection<AllSyncProtocols>;
 
 type toPaginated<T> = T extends { fetcher: PaginatedFetcher<infer Page> } ? T

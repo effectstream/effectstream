@@ -17,6 +17,7 @@
     "@effectstream/db": "workspace:*",
     "@effectstream/log": "workspace:*",
     "@effectstream/utils": "workspace:*",
+    "ckb-multichain-connector": "git+https://github.com/bratipah/ckb-multichain-connector.git#5a0d30adb682f4de282be7eb794eda0a845c302a",
     "@midnightntwrk/ledger-v9": "1.0.0",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "5.0.0",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnightntwrk/onchain-runtime-v4@4.0.0",
@@ -34,6 +35,9 @@
     "@sinclair/typebox": "0.34.41",
     "avail-js-sdk": "^0.4.2",
     "buffer": "^6.0.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5"
   },
   "description": "Blockchain sync service for EffectStream"
 }

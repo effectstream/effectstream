@@ -37,6 +37,8 @@ import { SolanaSyncState } from "./sync-protocols/solana/state.ts";
 import { TestFetcher } from "./sync-protocols/test/fetcher.ts";
 import { TestSyncState } from "./sync-protocols/test/state.ts";
 import { requestTimeoutOf } from "./sync-protocols/common/http.ts";
+import { CkbFetcher } from "./sync-protocols/ckb/fetcher.ts";
+import { CkbSyncState } from "./sync-protocols/ckb/state.ts";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -177,6 +179,10 @@ export function* genSyncProtocols(
         entry,
         fetcher,
       );
+      result.push(state);
+    } else if (entry.networkType === ConfigNetworkType.CKB) {
+      const fetcher = new CkbFetcher(entry);
+      const state = yield* CkbSyncState.restoreState(dbConn, entry, fetcher);
       result.push(state);
     } else {
       throw new Error(`Unsupported network type: ${entry.network.type}`);
