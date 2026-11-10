@@ -76,6 +76,11 @@ jobs:
             bun test packages/node-sdk/db/test/start-pglite.test.ts \
               packages/node-sdk/db/test/start-pglite-multifile.test.ts
 
+      - name: Run runtime startup-failure regression
+        run: |
+          docker run --rm --name runtime_startup_${{ github.run_number }} testing_image:${{ github.sha }} \
+            bun test packages/node-sdk/runtime/test/lifecycle/startup-failure.test.ts
+
       - name: Run e2e tests
         run: docker run --rm --name e2e_${{ github.run_number }} testing_image:${{ github.sha }}
 
