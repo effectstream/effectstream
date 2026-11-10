@@ -8,10 +8,16 @@ import { createPublicClient, http, type Address, type Hex } from "viem";
 import { hardhat } from "viem/chains";
 import type { CkbCellCreatedEventV1 } from "ckb-multichain-connector";
 import { normalizeCkbEvent, relayAbi, relayPayloadHash } from "./tooling/ckb-event-relay.ts";
+import {
+  assertCkbAcceptancePortFree,
+  ckbAcceptanceDatabaseUrl,
+  resolveCkbAcceptanceDbPort,
+  stopOwnedPostgres,
+} from "./postgres-config.ts";
 
 const repo = resolve(import.meta.dirname!, "../..");
 const fixedPorts = [8114, 28114, 8545, 8546, 4747, 9999, 3334, 4173];
-const pgPort = 55432;
+const pgPort = resolveCkbAcceptanceDbPort(process.env.CKB_ACCEPTANCE_DB_PORT);
 const expectedOffckb = "0.4.13";
 const expectedCkb = "0.208.0";
 const pgBindir = process.env.REPRO_PG_BINDIR;
@@ -121,9 +127,10 @@ async function preflight(): Promise<{ offckb: string; forge: string; chrome: str
   for (const binary of ["initdb", "pg_ctl", "pg_isready", "psql", "postgres"]) {
     await access(join(pgBindir, binary)).catch(() => { throw new Error(`Missing ${binary} in REPRO_PG_BINDIR=${pgBindir}.`); });
   }
-  for (const port of [...fixedPorts, pgPort]) {
-    assert(await portIsFree(port), `Preflight refused to start: loopback port ${port} is already occupied. Stop the owning service yourself, or choose another supported configuration; this script will not kill it.`);
+  for (const port of fixedPorts) {
+    assert(await portIsFree(port), `Preflight refused to start: loopback port ${port} is already occupied. Stop the owning service yourself; this script will not kill it.`);
   }
+  await assertCkbAcceptancePortFree(pgPort, portIsFree);
   const offckbVersion = await capture(offckb, ["--version"]);
   assert(offckbVersion.code === 0 && offckbVersion.stdout.trim() === expectedOffckb,
     `Expected OffCKB ${expectedOffckb}; found ${offckbVersion.stdout.trim() || "unknown version"}.`);
@@ -238,7 +245,7 @@ async function startOffckb(offckb: string): Promise<{ genesisHash: string; accou
 }
 
 async function startDashboard(): Promise<Bun.Subprocess> {
-  const databaseUrl = `postgresql://effectstream@127.0.0.1:${pgPort}/effectstream`;
+  const databaseUrl = ckbAcceptanceDatabaseUrl(pgPort);
   const dashboardEnv = localEnv({
     DATABASE_URL: databaseUrl,
     DASHBOARD_CKB_RPC_URL: "http://127.0.0.1:8114",
@@ -289,10 +296,12 @@ async function startE2eRunner(genesisHash: string, sourceTx: string): Promise<nu
   });
   const runner = spawnLogged("bun", ["run", "e2e/runner.ts", "evm"], e2eLog, env);
   orchestratorMayBeRunning = true;
-  const code = await Promise.race([
-    runner.exited,
-    Bun.sleep(15 * 60_000).then(() => null),
-  ]);
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<null>((resolveTimeout) => {
+    timeout = setTimeout(() => resolveTimeout(null), 15 * 60_000);
+  });
+  const code = await Promise.race([runner.exited, timedOut]);
+  if (timeout) clearTimeout(timeout);
   if (code === null) {
     runner.kill("SIGTERM");
     throw new Error(`EVM/CKB E2E did not finish within 15 minutes; see ${e2eLog}`);
@@ -505,12 +514,14 @@ async function cleanup(): Promise<void> {
     offckbStarted = false;
   }
   try { await pgPool.end(); } catch { /* may not have connected */ }
-  if (pgStarted && pgBindir) {
+  if (pgBindir) {
     const libDir = join(pgBindir, "../../..", "x86_64-linux-gnu");
-    await capture(join(pgBindir, "pg_ctl"), ["-D", pgData, "-m", "fast", "-w", "stop"], localEnv({
-      LD_LIBRARY_PATH: [process.env.LD_LIBRARY_PATH, libDir].filter(Boolean).join(":"), LC_ALL: "C", LANG: "C",
-    })).catch(() => undefined);
-    pgStarted = false;
+    await stopOwnedPostgres(pgStarted, async () => {
+      await capture(join(pgBindir, "pg_ctl"), ["-D", pgData, "-m", "fast", "-w", "stop"], localEnv({
+        LD_LIBRARY_PATH: [process.env.LD_LIBRARY_PATH, libDir].filter(Boolean).join(":"), LC_ALL: "C", LANG: "C",
+      }));
+      pgStarted = false;
+    }).catch(() => undefined);
   }
   for (const child of children) {
     try { child.kill("SIGTERM"); } catch { /* already exited */ }
@@ -526,6 +537,7 @@ try {
     `Foundry forge ${ (await runChecked(tools.forge, ["--version"])).split("\n")[0] }`,
   ].join("\n") + "\n");
   console.log(`Evidence directory: ${taskRoot}`);
+  await writeFile(join(taskRoot, "acceptance-db-port.txt"), `${pgPort}\n`);
   console.log("Preflight passed: all service ports are free; only loopback local services will be started.");
   await startPostgres(tools.pgBin);
   const offckb = await startOffckb(tools.offckb);
