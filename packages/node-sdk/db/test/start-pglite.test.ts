@@ -85,11 +85,11 @@ test("positive client waits for readiness before construction", async () => {
 
   let connectionAttempt: Promise<Client> | undefined;
   try {
-    const startedAt = Date.now();
     connectionAttempt = connect(controlledHandle(waitReady), clientFactory);
+    // Hold readiness for longer than the client's 500 ms handshake timeout. The
+    // proof is that nothing was constructed meanwhile, not how long we slept.
     await Bun.sleep(600);
 
-    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(600);
     expect(order).toEqual([]);
     expect(observedConfig).toBeUndefined();
 
@@ -303,13 +303,19 @@ test("forced close destroys every retained socket before settling", async () => 
   for (const client of clients) client.on("error", (error) => errors.push(error));
 
   await handle.close({ force: true });
-  await Bun.sleep(20);
+  // Each client learns about its destroyed server socket asynchronously; wait
+  // for that instead of a fixed delay. A socket left open never satisfies it.
+  await waitFor(
+    () => errors.length >= 2 && clients.every((client) => clientSocket(client).destroyed),
+    "both clients to observe the forced close",
+    10_000,
+  );
 
   expect(clients.every((client) => clientSocket(client).destroyed)).toBe(true);
   expect(errors).toHaveLength(2);
   expect(errors.every((error) => error.message === "Connection terminated unexpectedly")).toBe(true);
   expect(handle.server.listening).toBe(false);
-});
+}, 20_000);
 
 test("repeated and concurrent close calls share the first default operation", async () => {
   const handle = await startPglite(0);
