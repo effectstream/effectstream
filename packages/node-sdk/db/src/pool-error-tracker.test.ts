@@ -1,23 +1,41 @@
-import { afterEach, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
+import { PoolErrorTracker } from "./pool-error-tracker.ts";
 
-// Thresholds are read from env at module load (and `envMs` rejects 0, so use
-// small positive values). SUSTAINED=5ms → a failure older than 5ms is
-// "sustained"; FATAL=30ms → older than 30ms triggers the process.exit
-// escalation. Dynamic import so these are picked up before the module
-// computes its constants.
-process.env.POOL_SUSTAINED_THRESHOLD_MS = "5";
-process.env.POOL_FATAL_THRESHOLD_MS = "30";
-const { PoolErrorTracker } = await import("./pool-error-tracker.ts");
+// The tracker reads its thresholds from the environment once, at module load.
+// Any earlier import in the same test process (pg-connection.ts imports it)
+// fixes them at the defaults, so the threshold scenarios run in a child
+// process that loads the module with the environment set below.
+const scenarioScript = new URL(
+  "../test/fixtures/pool-error-tracker/scenario.ts",
+  import.meta.url,
+).pathname;
+
+async function runScenario(
+  scenario: "sustained" | "fatal",
+  gapMs: number,
+  thresholds: { sustainedMs: number; fatalMs: number },
+) {
+  const child = Bun.spawn([process.execPath, scenarioScript, scenario, String(gapMs)], {
+    env: {
+      ...process.env,
+      POOL_SUSTAINED_THRESHOLD_MS: String(thresholds.sustainedMs),
+      POOL_FATAL_THRESHOLD_MS: String(thresholds.fatalMs),
+    },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  return { stdout, exitCode, output: `${stdout}\n${stderr}` };
+}
 
 const transient = () => ({
   code: "ECONNRESET",
   message: "Client network socket disconnected before secure TLS connection",
   stack: "    at node_modules/pg-pool/index.js:45:11",
-});
-
-const realExit = process.exit;
-afterEach(() => {
-  process.exit = realExit;
 });
 
 test("ignores non-transient errors (auth/schema bugs)", () => {
@@ -28,15 +46,21 @@ test("ignores non-transient errors (auth/schema bugs)", () => {
 });
 
 test("counts consecutive transient failures and reports sustained", async () => {
-  const t = new PoolErrorTracker();
-  t.log(transient(), ["sync-write"]);
-  expect(t.state().sustained).toBe(false); // fresh failure, < 5ms old
-  await Bun.sleep(15); // exceed SUSTAINED_THRESHOLD_MS=5, stay under FATAL=30
-  t.log(transient(), ["sync-write"]);
-  const s = t.state();
-  expect(s.consecutive).toBe(2);
-  expect(s.sustained).toBe(true);
-});
+  // The fatal threshold is far out of reach, so only the sustained threshold
+  // can change the outcome.
+  const { stdout, exitCode, output } = await runScenario("sustained", 300, {
+    sustainedMs: 200,
+    fatalMs: 600_000,
+  });
+  expect(exitCode, output).toBe(0);
+  const line = stdout.split("\n").find((l) => l.startsWith("POOL_TRACKER_STATES "));
+  expect(line, output).toBeDefined();
+  const { fresh, later } = JSON.parse(line!.slice("POOL_TRACKER_STATES ".length));
+  expect(fresh.consecutive).toBe(1);
+  expect(fresh.sustained).toBe(false); // younger than the 200 ms threshold
+  expect(later.consecutive).toBe(2);
+  expect(later.sustained).toBe(true); // first failure is at least 300 ms old
+}, 30_000);
 
 test("markHealthy resets the failure clock", () => {
   const t = new PoolErrorTracker();
@@ -49,17 +73,13 @@ test("markHealthy resets the failure clock", () => {
 });
 
 test("exits the process once failures persist past the fatal threshold", async () => {
-  let exitCode: number | undefined;
-  process.exit = ((code?: number) => {
-    exitCode = code;
-  }) as typeof process.exit;
-
-  const t = new PoolErrorTracker();
-  t.log(transient(), ["sync-write"]); // starts the clock; not yet fatal
-  await Bun.sleep(40); // exceed FATAL_THRESHOLD_MS=20
-  t.log(transient(), ["sync-write"]); // now duration >= fatal → schedules exit
-
-  // exit is deferred via setImmediate so the fatal log line can flush first.
-  await new Promise((resolve) => setImmediate(resolve));
-  expect(exitCode).toBe(1);
-});
+  const { exitCode, output } = await runScenario("fatal", 200, {
+    sustainedMs: 50,
+    fatalMs: 100,
+  });
+  // A fresh failure must not exit; the one 200 ms later must.
+  expect(output).toContain("POOL_TRACKER_FIRST_FAILURE_LOGGED");
+  expect(output).toContain("POOL_TRACKER_SECOND_FAILURE_LOGGED");
+  expect(output).not.toContain("POOL_TRACKER_STILL_RUNNING");
+  expect(exitCode, output).toBe(1);
+}, 30_000);
