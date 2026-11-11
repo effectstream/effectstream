@@ -1,5 +1,5 @@
+import { test } from "bun:test";
 import { equal as assertEquals, ok as assert } from "node:assert/strict";
-import { test } from "@effectstream/utils/runtime";
 import {
   makeTempDir,
   mkdirRecursive,
