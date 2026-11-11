@@ -338,6 +338,9 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  // A test that times out inside a fake-timer window never reaches its
+  // finally block; restore real timers before cleanup and the next test.
+  jest.useRealTimers();
   for (const socket of tcpClients) socket.destroy();
   tcpClients.clear();
   for (const ws of webSockets) {
