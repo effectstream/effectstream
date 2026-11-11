@@ -650,12 +650,15 @@ test("timed-out WebSocket MQTT context preserves exact-base no-Will routing and 
       ws.addEventListener("close", () => resolve(), { once: true });
     });
     const internals = broker as any;
+    // The broker evicts the client 1.5 x keepAlive (1.5 s) after its last
+    // packet. The deadline only has to catch an eviction that never happens,
+    // so it sits far above that bound for slow, shared CPUs.
     await waitUntil(() =>
       internals.connections.size === 0 &&
       probe.captured.size === 1 &&
       probe.cleared.size === 1 &&
       published.some((packet) => packet.topic === "$SYS/disconnect/clients")
-    , 2_500);
+    , 10_000);
     expect(
       published.filter((packet) => packet.topic === "$SYS/disconnect/clients"),
     ).toEqual([
@@ -670,7 +673,7 @@ test("timed-out WebSocket MQTT context preserves exact-base no-Will routing and 
   } finally {
     probe.restore();
   }
-});
+}, 20_000);
 
 test("the authentication hook refuses CONNECTs once shutdown has begun", async () => {
   const broker = makeBroker();
