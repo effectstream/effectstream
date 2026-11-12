@@ -57,14 +57,29 @@ import { PrimitiveTypeCelestiaGeneric } from "@effectstream/sm/builtin";
 )
 ```
 
-**Payload fields:**
+**What the state machine receives** (`data.parsedInput.payload`):
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `suppliedValue` | `string` | The decoded blob content (base64 → utf8). |
-| `namespace` | `string` | The namespace that produced the blob. |
-| `commitment` | `string` | The blob commitment hash. |
-| `blobIndex` | `number` | Index of the blob within the block. |
+| `suppliedValue` | `string` | The blob body as a binary string: `atob` of the blob's base64 data, one character per byte (`\u0000`–`ÿ`). `Buffer.from(suppliedValue, "latin1")` gives the bytes back. |
+
+The grammar carries only `suppliedValue`. The state machine gets every body in full; store what you need from it in your own tables.
+
+**What the engine keeps** (`effectstream.primitive_accounting`, one `CELESTIA:Generic` row per blob, read with `payload->'payload'->>'…'`):
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `namespace` | `string` | The hex namespace configured on the primitive. |
+| `commitment` | `string` | The blob commitment, base64. |
+| `blobIndex` | `number` | Index of the blob within its Celestia block. |
+| `height` | `number` | The Celestia block height the blob was included at (not the rollup block height). |
+
+The row is a reference, not a copy: `blob.Get(height, namespace, commitment)` fetches the blob again from a Celestia node (the namespace in its 29-byte base64 form). A blob posted again at another height or index gets its own row.
+
+**Option `persistBody`** (default `false`): set `persistBody: true` in the primitive config to also store each body as `suppliedValue` in its accounting row. Enable it only if you accept both costs:
+
+- **Storage without limit.** A namespace is permissionless: whoever posts blobs to it decides how many bytes your node keeps, forever.
+- **Rows that break JSON operators.** A body containing a 0x00 byte is stored as `\u0000` in the `json` column, and Postgres then fails `->`, `->>`, `::jsonb` and `json_each` on that row with `unsupported Unicode escape sequence`.
 
 ## 2. Batcher Adapters (Write)
 

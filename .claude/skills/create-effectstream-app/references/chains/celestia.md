@@ -76,7 +76,7 @@ For multiple Celestia instances side by side (e.g. one in dev mode, another in t
 
 ### Built-in primitive only threads `suppliedValue` into `parsedInput`
 
-`PrimitiveTypeCelestiaGeneric` puts the blob's raw bytes (as a binary string, `atob(blob.data)`) into `data.parsedInput.suppliedValue` — but the other interesting fields (`namespace`, `commitment`, `blobIndex`) live in the primitive's `accountingPayload` and are NOT exposed to the STM. Templates needing those columns must either:
+`PrimitiveTypeCelestiaGeneric` puts the blob's raw bytes (as a binary string, `atob(blob.data)`) into `data.parsedInput.suppliedValue` — and nothing else: the grammar strips `namespace`, `commitment` and `blobIndex`, and the Celestia height is never passed. Those four fields live only in the engine's `effectstream.primitive_accounting` row (`payload->'payload'->>'namespace' | 'commitment' | 'blobIndex' | 'height'`, where `height` is the Celestia block height). That row is a reference only: it holds no body unless the primitive config sets `persistBody: true`, which stores `suppliedValue` too and is unsafe on a public namespace (unbounded storage; a 0x00 byte breaks Postgres JSON operators on the row). Store the body yourself from the STM input. Templates needing the other fields as columns must either:
 - Store the configured namespace as an invariant column (it's per-primitive-instance, so safe to hard-code in the row);
 - Subclass `CelestiaGenericPrimitive` and override `getPayload()` to thread the extra fields into the STM input.
 
