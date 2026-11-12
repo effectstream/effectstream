@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NFT Level-Up</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="container" data-testid="nft-lvlup-app">
+    <h2>NFT Level-Up</h2>
+
+    <section id="wallet-section">
+      <h3>Connect Wallet</h3>
+      <p id="wallet-address" data-testid="wallet-address">Not connected</p>
+      <button
+        id="connect-browser"
+        data-testid="connect-browser-wallet"
+        onclick="window.uiConnectBrowser()"
+      >Connect Browser Wallet</button>
+      <button
+        id="connect-local"
+        data-testid="connect-local-wallet"
+        onclick="window.uiConnectLocal()"
+      >Connect Local Wallet (dev)</button>
+    </section>
+
+    <!-- Mint / buy a character. Folds the original frontend-nft-sale
+         marketplace into a single panel: pick a token id + elemental type and
+         mint it into the game state. -->
+    <section id="mint-panel" data-testid="mint-panel" style="margin-top: 1rem;">
+      <h3>Mint a Character</h3>
+      <label>Token id:
+        <input id="mint-token-id" data-testid="mint-token-id-input" type="number" value="1" min="0" style="width:80px;" />
+      </label>
+      <label>Type:
+        <select id="mint-type" data-testid="mint-type-select">
+          <option value="air">air</option>
+          <option value="earth">earth</option>
+          <option value="fire">fire</option>
+          <option value="water">water</option>
+          <option value="ether">ether</option>
+        </select>
+      </label>
+      <button data-testid="mint-btn" onclick="window.uiMint()">Mint Character</button>
+    </section>
+
+    <!-- The character roster: the player's owned characters with level + type.
+         This IS the gameplay surface — each row has a Level Up button. -->
+    <section id="characters" data-testid="characters" style="margin-top: 1rem;">
+      <h3>Your Characters</h3>
+      <button data-testid="refresh-characters-btn" onclick="window.uiRefreshCharacters()">Refresh</button>
+      <ul id="character-list" data-testid="character-list"></ul>
+    </section>
+  </div>
+
+  <script type="module" src="./min.js"></script>
+
+  <script>
+    function setAddress(addr) {
+      document.getElementById("wallet-address").innerText = addr ?? "Not connected";
+    }
+
+    window.uiConnectBrowser = async () => {
+      try {
+        await window.nftLvlUp.connectBrowserWallet();
+        setAddress(window.nftLvlUp.getAddress());
+        await window.uiRefreshCharacters();
+      } catch (err) {
+        console.error("connect-browser failed:", err);
+        setAddress(`Browser wallet error: ${err.message}`);
+      }
+    };
+
+    window.uiConnectLocal = async () => {
+      try {
+        await window.nftLvlUp.connectLocalWallet();
+        setAddress(window.nftLvlUp.getAddress());
+        await window.uiRefreshCharacters();
+      } catch (err) {
+        console.error("connect-local failed:", err);
+        setAddress(`Local wallet error: ${err.message}`);
+      }
+    };
+
+    window.uiMint = async () => {
+      const tokenId = parseInt(document.getElementById("mint-token-id").value || "1", 10);
+      const type = document.getElementById("mint-type").value;
+      await window.nftLvlUp.mintCharacter(tokenId, type);
+      setTimeout(window.uiRefreshCharacters, 4000);
+    };
+
+    window.uiRefreshCharacters = async () => {
+      const characters = await window.nftLvlUp.fetchMyCharacters();
+      const list = document.getElementById("character-list");
+      list.innerHTML = "";
+      (characters ?? []).forEach((c) => {
+        const li = document.createElement("li");
+        li.dataset.testid = `character-${c.nft_id}`;
+        const label = document.createElement("span");
+        label.dataset.testid = `character-level-${c.nft_id}`;
+        label.innerText = `#${c.nft_id} — ${c.type} — level ${c.level}`;
+        li.appendChild(label);
+        const lvlBtn = document.createElement("button");
+        lvlBtn.innerText = "Level Up";
+        lvlBtn.dataset.testid = `lvlup-${c.nft_id}`;
+        lvlBtn.onclick = () => window.uiLvlUp(c.nft_id);
+        li.appendChild(lvlBtn);
+        list.appendChild(li);
+      });
+    };
+
+    window.uiLvlUp = async (tokenId) => {
+      await window.nftLvlUp.lvlUp(parseInt(tokenId, 10));
+      setTimeout(window.uiRefreshCharacters, 4000);
+    };
+  </script>
+</body>
+
+</html>

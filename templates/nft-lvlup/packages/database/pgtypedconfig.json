@@ -1,0 +1,23 @@
+{
+  "transforms": [
+    {
+      "mode": "sql",
+      "include": "sql/*.sql",
+      "emitTemplate": "{{dir}}/{{name}}.queries.ts"
+    }
+  ],
+  "srcDir": "./src/",
+  "failOnError": false,
+  "camelCaseColumnNames": false,
+  "db": {
+    "dbName": "postgres",
+    "user": "postgres",
+    "password": "postgres",
+    "host": "localhost",
+    "port": 5432,
+    "ssl": false
+  },
+  "typesOverrides": {
+    "nft_type": "../common.ts#NftType"
+  }
+}

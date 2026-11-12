@@ -1,0 +1,22 @@
+{
+  "name": "@nft-lvlup/database",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": "./src/mod.ts",
+  "scripts": {
+    "pgtyped:update": "bun run ./node_modules/@effectstream/db/scripts/pgtyped-update.ts"
+  },
+  "dependencies": {
+    "@effectstream/config": "0.100.18",
+    "@effectstream/runtime": "0.100.18",
+    "@pgtyped/runtime": "2.4.2",
+    "@effectstream/db": "0.100.18",
+    "@effectstream/db-emulator": "0.100.18",
+    "pg": "^8.14.0",
+    "effection": "3.5.0"
+  },
+  "devDependencies": {
+    "@paima/pgtyped-cli": "^2.4.5",
+    "concurrently": "9.1.2"
+  }
+}
