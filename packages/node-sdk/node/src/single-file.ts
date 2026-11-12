@@ -15,7 +15,7 @@ import {
   init,
   start,
   type StartConfigApiRouter,
-  type StartConfigGameStateTransitions,
+  type StartConfigAppStateTransitions,
   type VERSION,
 } from "@effectstream/runtime";
 import { Stm, type BaseStfInput } from "@effectstream/sm";
@@ -213,7 +213,7 @@ export async function runNode<
       });
     }
 
-    const gameStateTransitions: StartConfigGameStateTransitions = function* (
+    const appStateTransitions: StartConfigAppStateTransitions = function* (
       _blockHeight: number,
       input: BaseStfInput,
     ): SyncStateUpdateStream<void> {
@@ -237,7 +237,7 @@ export async function runNode<
           appVersion: options.appVersion ?? "1.0.0",
           syncInfo,
           grammar: grammar as any,
-          gameStateTransitions,
+          appStateTransitions,
           apiRouter: options.api,
           events: false,
         });

@@ -6,7 +6,7 @@ import {
 } from "@effectstream/config";
 import { config } from "./config.dev.ts";
 import { grammar } from "./grammar.ts";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { migrationTable } from "@batcher-validations/database";
 
@@ -17,7 +17,7 @@ main(function* () {
       appName: "batcher-validations",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,

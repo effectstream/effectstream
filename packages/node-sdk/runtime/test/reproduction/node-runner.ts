@@ -24,7 +24,7 @@ import {
 } from "@effectstream/config";
 import { TestChainControl } from "@effectstream/sync";
 import { init, start } from "../../src/main.ts";
-import type { StartConfigGameStateTransitions } from "../../src/types.ts";
+import type { StartConfigAppStateTransitions } from "../../src/types.ts";
 import {
   buildConfig,
   type EventSpec,
@@ -51,7 +51,7 @@ export type RunSpec = {
   coalesce?: boolean;
 };
 
-const noopStf: StartConfigGameStateTransitions = function* () {};
+const noopStf: StartConfigAppStateTransitions = function* () {};
 
 async function main() {
   const spec: RunSpec = JSON.parse(process.argv[2] ?? "{}");
@@ -95,7 +95,7 @@ async function main() {
         appName: "sync-repro",
         appVersion: "1.0.0",
         syncInfo: toSyncProtocolWithNetwork(cfg),
-        gameStateTransitions: noopStf,
+        appStateTransitions: noopStf,
         userDefinedPrimitives: { [TEST_PRIMITIVE_TYPE]: TestEventPrimitive },
         dev: {
           resetPublicData: false,

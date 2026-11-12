@@ -12,10 +12,10 @@ import type { GrammarDefinition } from "@effectstream/concise";
 export type VERSION = `${number}.${number}.${number}`;
 
 /**
- * Type for the game state transitions function.
+ * Type for the app state transitions function.
  * For each `prefix` it can return a list of state transitions and events.
  */
-export type StartConfigGameStateTransitions = (
+export type StartConfigAppStateTransitions = (
   blockHeight: number,
   input: BaseStfInput,
 ) => SyncStateUpdateStream<void>;
@@ -42,7 +42,7 @@ export type PrimitiveConstructor<T extends Primitive<any, any>> = new (config: a
  * Main configuration object for the Effectstream Node.
  *
  * @param syncInfo - The Networks/Primitives Sync information.
- * @param gameStateTransitions - (optional) Game State Transition Router.
+ * @param appStateTransitions - (optional) App State Transition Router.
  * @param migrationRouter - (optional) SQL Migrations Router.
  * @param apiRouter - (optional) API Router.
  * @param snapshotConfig - (optional) Automated database snapshot configuration.
@@ -54,7 +54,7 @@ export type StartConfig = {
   appName: string;
   appVersion: VERSION;
   syncInfo: SyncProtocolWithNetwork[];
-  gameStateTransitions?: StartConfigGameStateTransitions;
+  appStateTransitions?: StartConfigAppStateTransitions;
   migrations?: DBMigrations[];
   apiRouter?: StartConfigApiRouter;
   grammar?: GrammarDefinition;

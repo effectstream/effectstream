@@ -249,7 +249,7 @@ stm.addStateTransition("joinedLobby", function* (data) {
 ```
 
 Every helper returns `[]` when validation fails, which is how invalid inputs are rejected:
-the transition simply produces no writes. `gameStateTransitions` at the bottom of the file
+the transition simply produces no writes. `appStateTransitions` at the bottom of the file
 is the version router — both branches currently call `stm.processInput(input)`, and it is
 there as the seam for adding a `v2/` transition set later.
 

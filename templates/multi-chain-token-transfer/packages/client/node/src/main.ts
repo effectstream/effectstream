@@ -16,7 +16,7 @@ import {
   withEffectstreamStaticConfig,
 } from "@paimaexample/config";
 import { migrationTable } from "@multi-chain-transfer/database";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "@multi-chain-transfer/data-types/grammar";
 import { MCTErc1155Primitive } from "@multi-chain-transfer/custom-primitive-mct-erc1155/erc1155-primitive";
@@ -30,7 +30,7 @@ main(function* () {
       appName: "multi-chain-token-transfer",
       appVersion: "0.3.21",
       syncInfo: toSyncProtocolWithNetwork(localhostConfig),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,

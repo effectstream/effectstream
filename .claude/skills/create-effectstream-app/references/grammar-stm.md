@@ -76,7 +76,7 @@ The STM owns deterministic transitions, scheduling, and every database effect. D
 ```ts
 import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import { insertRoom, insertOwnership } from "@my-template/database";
 import { grammar } from "./grammar.ts";
@@ -103,7 +103,7 @@ stm.addStateTransition("nftTransfer", function* (data) {
   });
 });
 
-export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+export const appStateTransitions: StartConfigAppStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,
 ): SyncStateUpdateStream<void> {
@@ -260,7 +260,7 @@ import {
 } from "@effectstream/config";
 import { config } from "./config.dev.ts";
 import { grammar } from "./grammar.ts";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { migrationTable } from "@my-template/database";
 
@@ -271,7 +271,7 @@ main(function* () {
       appName: "my-template",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,
@@ -288,7 +288,7 @@ main(function* () {
 | `appName` | Yes | Application identifier |
 | `appVersion` | Yes | Semantic version (`"1.0.0"`) |
 | `syncInfo` | Yes | From `toSyncProtocolWithNetwork(config)` |
-| `gameStateTransitions` | No¹ | The STM router function |
+| `appStateTransitions` | No¹ | The STM router function |
 | `migrations` | No¹ | SQL migration table |
 | `grammar` | No¹ | Grammar definition |
 | `apiRouter` | No | Fastify route registration |

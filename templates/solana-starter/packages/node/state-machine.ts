@@ -1,6 +1,6 @@
 import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import type { StartConfigAppStateTransitions } from "@effectstream/runtime";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import {
   upsertCounterState,
@@ -86,7 +86,7 @@ function parseCounterLog(
   return { authority, value, slot };
 }
 
-export const gameStateTransitions: StartConfigGameStateTransitions =
+export const appStateTransitions: StartConfigAppStateTransitions =
   function* (
     _blockHeight: number,
     input: BaseStfInput,

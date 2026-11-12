@@ -9,7 +9,7 @@ import {
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
 import { migrationTable } from "@evm-midnight/database";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "./grammar.ts";
 
@@ -22,7 +22,7 @@ main(function* () {
       appName: "evm-midnight",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,

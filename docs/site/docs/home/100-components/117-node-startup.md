@@ -22,7 +22,7 @@ import { toSyncProtocolWithNetwork, withEffectstreamStaticConfig } from "@effect
 import { localhostConfig } from "@example-evm-midnight/data-types/localhostConfig";
 import { migrationTable } from "@example-evm-midnight/database";
 import { grammar } from "@example-evm-midnight/data-types/grammar";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 
 const appName = "evm-midnight-example";
@@ -42,7 +42,7 @@ main(function* () {
       appName,
       appVersion,
       syncInfo: toSyncProtocolWithNetwork(localhostConfig),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,
@@ -62,7 +62,7 @@ The `start()` function is the most important call. It accepts a single configura
 | :--- | :--- | :--- |
 | `appName`, `appVersion` | Basic metadata for your application, used for logging and identification. | |
 | **`syncInfo`** | The chain and primitive configuration you defined in your `config.ts` file. This tells the Sync Service which chains to connect to and what events to monitor. | [Sync Service & Chain Config](./101-sync-service.md) |
-| **`gameStateTransitions`** | The collection of your State Transition Functions (STFs) from your `state-machine.ts` file. This is the core logic of your dApp. | [State Machine](./102-state-machine.md) |
+| **`appStateTransitions`** | The collection of your State Transition Functions (STFs) from your `state-machine.ts` file. This is the core logic of your dApp. | [State Machine](./102-state-machine.md) |
 | **`migrations`** | The database migration configuration from your `migration-order.ts` file. This tells the engine how to set up and evolve your database schema. | [Database](./109-database.md) |
 | **`apiRouter`** | The custom API router function from your `api.ts` file. This is how you add your own custom endpoints to the node's API. | [API](./103-api.md) |
 | **`grammar`** | The grammar definition from your `grammar.ts` file. This is used to parse and validate all incoming on-chain data. | [Grammar](./111-grammar.md) |

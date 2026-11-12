@@ -7,7 +7,7 @@ import {
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
 import { migrationTable } from "@projected-nft-preorder/database";
-import { gameStateTransitions } from "./state-machine.ts";
+import { appStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "./grammar.ts";
 
@@ -20,7 +20,7 @@ main(function* () {
       appName: "projected-nft-preorder",
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
-      gameStateTransitions,
+      appStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,
