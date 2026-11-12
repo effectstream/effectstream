@@ -40,7 +40,7 @@ beforeAll(() => {
     mkdirSync(packageDir, { recursive: true });
     writeFileSync(
       join(packageDir, "package.json"),
-      `${JSON.stringify({ name, version: "0.104.2", files: ["index.js", "README.md"] }, null, 2)}\n`,
+      `${JSON.stringify({ name, version: "0.301.0", files: ["index.js", "README.md"] }, null, 2)}\n`,
     );
     writeFileSync(join(packageDir, "index.js"), `export const exact = ${index};\n`);
     writeFileSync(join(packageDir, "README.md"), `# ${name}\n\nExact persisted tarball fixture.\n`);
@@ -55,7 +55,7 @@ beforeAll(() => {
     if (packed.exitCode !== 0) throw new Error(packed.stderr.toString());
     const bytes = readFileSync(join(bundle, "tarballs", filename));
     const sum = digest(bytes);
-    distTags.set(name, { latest: "0.200.2" });
+    distTags.set(name, { latest: "0.300.3" });
     return {
       name,
       relativeDir: `packages/fake-${index}`,
@@ -63,21 +63,21 @@ beforeAll(() => {
       size: statSync(join(bundle, "tarballs", filename)).size,
       sha512: sum.hex,
       integrity: sum.integrity,
-      versionBefore: "0.104.1",
+      versionBefore: "0.300.3",
     };
   });
   manifest = {
     schemaVersion: 1,
-    releaseTag: "v0.104.2",
-    version: "0.104.2",
+    releaseTag: "v0.301.0",
+    version: "0.301.0",
     sourceSha: "a".repeat(40),
-    branch: "midnight-1",
-    distTag: "midnight-1",
+    branch: "v-next",
+    distTag: "latest",
     prerelease: false,
-    kind: "maintenance-stable",
+    kind: "node2-stable",
     workflow: { runId: "producer-1", runAttempt: "1" },
     toolchain: { bun: "1.4.0", platform: "linux-x64" },
-    latestBefore: Object.fromEntries(packages.map((pkg) => [pkg.name, "0.200.2"])),
+    latestBefore: Object.fromEntries(packages.map((pkg) => [pkg.name, "0.300.3"])),
     packages,
   };
   writeFileSync(join(bundle, "manifest.json"), canonicalJson(manifest));
@@ -113,8 +113,8 @@ beforeAll(() => {
       if (unqueryable.has(name)) return Response.json({ error: "unavailable" }, { status: 503 });
       const integrity = occupied.get(name);
       return Response.json({
-        "dist-tags": distTags.get(name) ?? { latest: "0.200.2" },
-        versions: integrity ? { "0.104.2": { dist: { integrity } } } : {},
+        "dist-tags": distTags.get(name) ?? { latest: "0.300.3" },
+        versions: integrity ? { "0.301.0": { dist: { integrity } } } : {},
       });
     },
   });
@@ -163,16 +163,19 @@ describe("persisted bundle verification and lost-runner recovery", () => {
       .sort((left, right) => left.value.name!.localeCompare(right.value.name!));
     expect(actualPackages).toHaveLength(39);
     const head = Bun.spawnSync(["git", "rev-parse", "HEAD"], { cwd: repositoryRoot }).stdout.toString().trim();
+    // The bundle's recorded starting version differs from every package version in this checkout,
+    // so the recovery branch has drifted from the bundle.
     const packages = manifest.packages.map((pkg, index) => ({
       ...pkg,
       name: actualPackages[index].value.name!,
       relativeDir: actualPackages[index].path.replace(/\/package\.json$/, ""),
+      versionBefore: "0.0.0",
     }));
     const driftManifest: ReleaseManifest = {
       ...manifest,
       sourceSha: head,
       packages,
-      latestBefore: Object.fromEntries(packages.map((pkg) => [pkg.name, "0.200.2"])),
+      latestBefore: Object.fromEntries(packages.map((pkg) => [pkg.name, "0.300.3"])),
     };
     writeFileSync(join(bundle, "manifest.json"), canonicalJson(driftManifest));
     const manifestSha512 = digest(readFileSync(join(bundle, "manifest.json"))).hex;
@@ -233,7 +236,7 @@ describe("persisted bundle verification and lost-runner recovery", () => {
     }
 
     occupied.clear();
-    for (const name of manifest.packages.map((pkg) => pkg.name)) distTags.set(name, { latest: "0.200.2" });
+    for (const name of manifest.packages.map((pkg) => pkg.name)) distTags.set(name, { latest: "0.300.3" });
     publishAttempts = 0;
     failPublishAttempt = 6;
     process.env.NPM_TOKEN = "fake-test-token";
@@ -282,7 +285,7 @@ describe("persisted bundle verification and lost-runner recovery", () => {
     expect(occupied.size).toBe(39);
     for (const pkg of manifest.packages) {
       expect(occupied.get(pkg.name)).toBe(pkg.integrity);
-      expect(distTags.get(pkg.name)).toEqual({ latest: "0.200.2", "midnight-1": "0.104.2" });
+      expect(distTags.get(pkg.name)).toEqual({ latest: "0.301.0" });
     }
     const completeRetry = await publishFromBundle({
       artifactDir: downloaded,
