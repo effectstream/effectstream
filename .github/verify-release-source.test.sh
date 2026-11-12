@@ -31,6 +31,11 @@ git -C "$seed" tag v0.300.3 "$node2"
 git -C "$seed" tag -a v0.300.4 -m node2-annotated "$node2"
 git -C "$seed" tag v0.300.5-rc.1 "$node2"
 git -C "$seed" tag v0.200.9 "$node2"
+git -C "$seed" tag v0.103.999 "$node2"
+git -C "$seed" tag v0.301.0 "$node2"
+git -C "$seed" tag -a v0.302.0-rc.1 -m node2-annotated-prerelease "$node2"
+git -C "$seed" tag v1.0.0 "$node2"
+git -C "$seed" tag v1.104.0 "$node2"
 git -C "$seed" remote add origin "$origin"
 git -C "$seed" push --quiet origin midnight-1 v-next --tags
 git --git-dir="$origin" symbolic-ref HEAD refs/heads/v-next
@@ -58,8 +63,10 @@ expect_pass() {
   grep -qx "source-sha=$target" "$output"
 }
 
+# The optional sixth argument is an extended regex the guard's output must match, so the case
+# fails for the intended reason.
 expect_fail() {
-  local name="$1" tag="$2" target="$3" head="$4" prerelease="$5"
+  local name="$1" tag="$2" target="$3" head="$4" prerelease="$5" reason="${6:-}"
   local runner output
   runner="$(new_runner "$name" "$head")"
   output="$temp_root/$name.outputs"
@@ -72,6 +79,11 @@ expect_fail() {
     exit 1
   fi
   test ! -s "$output"
+  if [[ -n "$reason" ]] && ! grep -qE -- "$reason" "$temp_root/$name.log"; then
+    printf 'guard failure for %s did not match: %s\n' "$name" "$reason" >&2
+    cat "$temp_root/$name.log" >&2
+    exit 1
+  fi
 }
 
 expect_pass maintenance-light v0.104.2 "$maintenance" "$maintenance" false midnight-1 midnight-1
@@ -79,6 +91,13 @@ expect_pass maintenance-annotated v0.104.3 "$maintenance" "$maintenance" false m
 expect_pass node2-light v0.300.3 "$node2" "$node2" false v-next latest
 expect_pass node2-annotated v0.300.4 "$node2" "$node2" false v-next latest
 expect_pass node2-prerelease v0.300.5-rc.1 "$node2" "$node2" true v-next next
+# Any version other than 0.104.x releases from v-next; ordering is the release preflight's job.
+expect_pass new-minor v0.301.0 "$node2" "$node2" false v-next latest
+expect_pass new-minor-prerelease v0.302.0-rc.1 "$node2" "$node2" true v-next next
+expect_pass new-major v1.0.0 "$node2" "$node2" false v-next latest
+expect_pass new-major-minor-104 v1.104.0 "$node2" "$node2" false v-next latest
+expect_pass lower-minor v0.103.999 "$node2" "$node2" false v-next latest
+expect_pass older-minor v0.200.9 "$node2" "$node2" false v-next latest
 
 expect_fail swapped-maintenance v0.104.2 "$node2" "$node2" false
 expect_fail swapped-node2 v0.300.3 "$maintenance" "$maintenance" false
@@ -86,9 +105,10 @@ expect_fail metadata-stable v0.300.3 "$node2" "$node2" true
 expect_fail metadata-prerelease v0.300.5-rc.1 "$node2" "$node2" false
 expect_fail maintenance-prerelease v0.104.3-rc.1 "$maintenance" "$maintenance" true
 expect_fail build-metadata v0.300.3+build.1 "$node2" "$node2" false
-expect_fail unsupported-low v0.103.999 "$node2" "$node2" false
-expect_fail unsupported-high v0.301.0 "$node2" "$node2" false
-expect_fail retired-node2 v0.200.9 "$node2" "$node2" false
+expect_fail metadata-new-minor v0.301.0 "$node2" "$node2" true 'GitHub prerelease metadata disagrees'
+expect_fail metadata-new-minor-prerelease v0.302.0-rc.1 "$node2" "$node2" false 'GitHub prerelease metadata disagrees'
+expect_fail build-metadata-new-major v1.0.0+build.1 "$node2" "$node2" false 'build metadata is not supported'
+expect_fail missing-tag v0.301.1 "$node2" "$node2" false "couldn't find remote ref refs/tags/v0\\.301\\.1"
 expect_fail leading-zero v0.0300.3 "$node2" "$node2" false
 expect_fail prerelease-leading-zero v0.300.3-rc.01 "$node2" "$node2" true
 expect_fail malformed-tag release-0.300.3 "$node2" "$node2" false
@@ -102,6 +122,8 @@ expect_fail missing-branch v0.104.2 "$maintenance" "$maintenance" false
 git --git-dir="$origin" update-ref refs/heads/midnight-1 "$maintenance"
 git --git-dir="$origin" update-ref refs/heads/v-next "$maintenance"
 expect_fail stale-branch-head v0.300.3 "$node2" "$node2" false
+expect_fail stale-branch-head-new-minor v0.301.0 "$node2" "$node2" false \
+  'origin/v-next [0-9a-f]{40} does not equal release target'
 git --git-dir="$origin" update-ref refs/heads/v-next "$node2"
 
 race_branch() {
@@ -132,4 +154,4 @@ race_branch v-next v0.300.3 "$node2" false node2-race
 git --git-dir="$origin" update-ref refs/heads/midnight-1 "$maintenance"
 race_branch midnight-1 v0.104.2 "$maintenance" false maintenance-race
 
-printf 'release source guard matrix passed: 5 positives, 17 fail-closed negatives, 2 non-fast-forward races\n'
+printf 'release source guard matrix passed: 11 positives, 19 fail-closed negatives, 2 non-fast-forward races\n'

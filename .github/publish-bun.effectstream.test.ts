@@ -419,13 +419,29 @@ describe("strict SemVer", () => {
     expect(() => resolveReleaseVersion("v0.104.1", "0.104.1")).toThrow(/strictly greater/);
     expect(() => resolveReleaseVersion("v0.104.0", "0.104.1")).toThrow(/strictly greater/);
   });
+
+  test("requires a strictly greater version on the v-next line across minors and majors", () => {
+    expect(resolveReleaseVersion("v0.301.0", "0.300.3")).toBe("0.301.0");
+    expect(resolveReleaseVersion("v0.302.0-rc.1", "0.301.0")).toBe("0.302.0-rc.1");
+    expect(resolveReleaseVersion("v1.0.0", "0.301.0")).toBe("1.0.0");
+    expect(() => resolveReleaseVersion("v0.300.4", "0.301.0")).toThrow(/strictly greater/);
+    expect(() => resolveReleaseVersion("v0.301.0-rc.1", "0.301.0")).toThrow(/strictly greater/);
+  });
 });
 
-describe("closed release policy", () => {
+describe("release policy", () => {
   test.each([
     ["v0.104.2", false, "midnight-1", "midnight-1", "maintenance-stable"],
     ["v0.300.3", false, "v-next", "latest", "node2-stable"],
     ["v0.300.3-rc.1", true, "v-next", "next", "node2-prerelease"],
+    ["v0.301.0", false, "v-next", "latest", "node2-stable"],
+    ["v0.302.0-rc.1", true, "v-next", "next", "node2-prerelease"],
+    ["v1.0.0", false, "v-next", "latest", "node2-stable"],
+    ["v1.0.0-beta.2", true, "v-next", "next", "node2-prerelease"],
+    ["v1.104.0", false, "v-next", "latest", "node2-stable"],
+    ["v0.103.999", false, "v-next", "latest", "node2-stable"],
+    ["v0.200.9", false, "v-next", "latest", "node2-stable"],
+    ["v0.200.7-rc.1", true, "v-next", "next", "node2-prerelease"],
   ])("maps %s", (tag, prerelease, branch, distTag, kind) => {
     expect(resolveReleasePolicy(tag, branch, distTag, prerelease)).toMatchObject({
       branch,
@@ -442,35 +458,42 @@ describe("closed release policy", () => {
     ["v0.300.3", "v-next", "next", false],
     ["v0.300.3-rc.1", "v-next", "latest", true],
     ["v0.300.3-rc.1", "midnight-1", "next", true],
+    ["v0.301.0", "midnight-1", "latest", false],
+    ["v0.301.0", "v-next", "next", false],
+    ["v0.301.0", "v-next", "latest", true],
+    ["v0.302.0-rc.1", "v-next", "latest", true],
+    ["v0.302.0-rc.1", "v-next", "next", false],
+    ["v1.0.0", "midnight-1", "midnight-1", false],
+    ["v1.0.0", "v-next", "next", false],
   ])("rejects mismatched tuple %s/%s/%s", (tag, branch, distTag, prerelease) => {
     expect(() => resolveReleasePolicy(tag, branch, distTag, prerelease)).toThrow();
   });
 
   test.each([
-    "v0.103.999",
     "v0.104.2-rc.1",
     "v0.104.2+build.1",
-    "v0.105.0",
-    "v0.199.999",
     "v0.300.3+build.1",
-    "v0.201.0",
-    "v0.301.0",
-    "v1.0.0",
+    "v0.301.0+build.1",
+    "v1.0.0+build.1",
     "0.104.2",
+    "V0.301.0",
+    "v0.301",
+    "v0.0301.0",
   ])("rejects unsupported form %s", (tag) => {
     expect(() => resolveReleasePolicy(tag)).toThrow();
-  });
-
-  test.each(["v0.200.7", "v0.200.7-rc.1"])("rejects retired 0.200.x form %s", (tag) => {
-    expect(() => resolveReleasePolicy(tag)).toThrow(/retired/);
   });
 
   test("requires the only allowed explicit dist-tag", () => {
     expect(resolveDistTag("0.104.2", "midnight-1")).toBe("midnight-1");
     expect(resolveDistTag("0.300.3", "latest")).toBe("latest");
     expect(resolveDistTag("0.300.3-rc.1", "next")).toBe("next");
+    expect(resolveDistTag("0.301.0", "latest")).toBe("latest");
+    expect(resolveDistTag("0.302.0-rc.1", "next")).toBe("next");
+    expect(resolveDistTag("1.0.0", "latest")).toBe("latest");
     expect(() => resolveDistTag("0.104.2")).toThrow(/required/);
     expect(() => resolveDistTag("0.104.2", "latest")).toThrow();
+    expect(() => resolveDistTag("0.301.0", "next")).toThrow(/requires dist-tag latest/);
+    expect(() => resolveDistTag("0.302.0-rc.1", "latest")).toThrow(/requires dist-tag next/);
   });
 });
 
@@ -489,7 +512,7 @@ describe("all-package ordinary preflight", () => {
     ["occupied target", states("0.200.2", (index) => (index === 8 ? "sha512-existing" : null))],
     ["missing latest", states((index) => (index === 8 ? undefined : "0.200.2"))],
     ["mixed patches", states((index) => (index === 8 ? "0.200.1" : "0.200.2"))],
-    ["wrong family", states("0.104.1")],
+    ["build-metadata latest", states("0.200.2+build.1")],
     ["prerelease latest", states("0.200.3-rc.1")],
   ])("rejects %s with no mutation plan", (_name, registryStates) => {
     expect(() => preflightOrdinary(resolveReleasePolicy("v0.104.2"), registryStates)).toThrow();
@@ -503,6 +526,33 @@ describe("all-package ordinary preflight", () => {
   test("stable Node-2 target must be above the uniform current latest", () => {
     expect(() => preflightOrdinary(resolveReleasePolicy("v0.300.3"), states("0.300.3"))).toThrow(/greater/);
   });
+
+  test.each([
+    ["v0.301.1", "0.301.0"],
+    ["v0.302.0-rc.1", "0.301.0"],
+    ["v1.0.0", "0.301.0"],
+    ["v0.104.2", "0.301.0"],
+    ["v1.0.1", "1.0.0"],
+  ])("accepts %s over any uniform stable latest %s", (tag, latest) => {
+    const snapshot = preflightOrdinary(resolveReleasePolicy(tag), states(latest));
+    expect(Object.keys(snapshot)).toHaveLength(EXPECTED_PACKAGE_COUNT);
+    expect(new Set(Object.values(snapshot))).toEqual(new Set([latest]));
+  });
+
+  test.each([
+    ["mixed minors", states((index) => (index === 8 ? "0.300.3" : "0.301.0")), /uniform/],
+    ["prerelease latest", states("0.301.1-rc.1"), /invalid latest/],
+    ["build-metadata latest", states("0.301.0+build.1"), /invalid latest/],
+  ])("rejects %s after a new minor", (_name, registryStates, message) => {
+    expect(() => preflightOrdinary(resolveReleasePolicy("v0.301.1"), registryStates)).toThrow(message);
+  });
+
+  test.each(["v0.301.0", "v0.300.4", "v0.200.9", "v0.103.999"])(
+    "rejects stale stable target %s when latest is 0.301.0",
+    (tag) => {
+      expect(() => preflightOrdinary(resolveReleasePolicy(tag), states("0.301.0"))).toThrow(/greater/);
+    },
+  );
 });
 
 describe("persisted exact-tarball completion", () => {

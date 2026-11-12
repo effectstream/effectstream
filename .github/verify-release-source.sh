@@ -37,28 +37,26 @@ if [[ -n "$prerelease" ]]; then
   done
 fi
 
-test "$major" = "0" || fail "unsupported release major $major"
-if [[ "$minor" == "104" && -z "$prerelease" ]]; then
+# The version picks only the source branch and dist-tag: 0.104.x is the maintenance line on
+# midnight-1 and every other version releases from v-next. Going backwards is blocked by the commit
+# identity checks below and by the release preflight: the version must be unpublished, above the
+# branch's package.json version and, when stable, above the current npm latest.
+if [[ "$major" == "0" && "$minor" == "104" ]]; then
+  test -z "$prerelease" || fail "maintenance prereleases are not supported"
   mapped_branch="midnight-1"
   mapped_dist_tag="midnight-1"
   mapped_kind="maintenance-stable"
   expected_prerelease="false"
-elif [[ "$minor" == "300" && -z "$prerelease" ]]; then
+elif [[ -z "$prerelease" ]]; then
   mapped_branch="v-next"
   mapped_dist_tag="latest"
   mapped_kind="node2-stable"
   expected_prerelease="false"
-elif [[ "$minor" == "300" && -n "$prerelease" ]]; then
+else
   mapped_branch="v-next"
   mapped_dist_tag="next"
   mapped_kind="node2-prerelease"
   expected_prerelease="true"
-elif [[ "$minor" == "104" ]]; then
-  fail "maintenance prereleases are not supported"
-elif [[ "$minor" == "200" ]]; then
-  fail "release family 0.200.x is retired; the v-next line releases as 0.300.x"
-else
-  fail "unsupported release family 0.$minor.x"
 fi
 test "$github_prerelease" = "$expected_prerelease" \
   || fail "GitHub prerelease metadata disagrees with $release_tag"

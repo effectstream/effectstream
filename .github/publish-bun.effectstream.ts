@@ -157,20 +157,17 @@ export function resolveReleasePolicy(
   if (!releaseTag.startsWith("v")) throw new Error("Release tag must begin with one lowercase v");
   const parsed = parseSemver(releaseTag);
   if (parsed.build.length) throw new Error("Build metadata is not supported for releases");
-  if (parsed.major !== 0n) throw new Error(`Unsupported release family ${parsed.normalized}`);
+  // The version picks only the source branch and dist-tag: 0.104.x is the maintenance line on
+  // midnight-1 and every other version releases from v-next. Ordering is enforced by
+  // resolveReleaseVersion and preflightOrdinary, not here.
   let policy: ReleasePolicy;
-  if (parsed.minor === 104n && parsed.prerelease.length === 0) {
+  if (parsed.major === 0n && parsed.minor === 104n) {
+    if (parsed.prerelease.length) throw new Error("Maintenance prereleases are not supported");
     policy = { version: parsed.normalized, releaseTag, branch: "midnight-1", distTag: "midnight-1", prerelease: false, kind: "maintenance-stable" };
-  } else if (parsed.minor === 300n && parsed.prerelease.length === 0) {
+  } else if (parsed.prerelease.length === 0) {
     policy = { version: parsed.normalized, releaseTag, branch: "v-next", distTag: "latest", prerelease: false, kind: "node2-stable" };
-  } else if (parsed.minor === 300n && parsed.prerelease.length > 0) {
-    policy = { version: parsed.normalized, releaseTag, branch: "v-next", distTag: "next", prerelease: true, kind: "node2-prerelease" };
-  } else if (parsed.minor === 104n) {
-    throw new Error("Maintenance prereleases are not supported");
-  } else if (parsed.minor === 200n) {
-    throw new Error("Release family 0.200.x is retired; the v-next line releases as 0.300.x");
   } else {
-    throw new Error(`Unsupported release family ${parsed.normalized}`);
+    policy = { version: parsed.normalized, releaseTag, branch: "v-next", distTag: "next", prerelease: true, kind: "node2-prerelease" };
   }
   if (githubPrerelease !== undefined && githubPrerelease !== policy.prerelease) {
     throw new Error(`GitHub prerelease=${githubPrerelease} disagrees with release tag ${releaseTag}`);
@@ -297,11 +294,11 @@ function assertUniformNode2Latest(states: RegistryPackageState[]): Record<string
     const latest = state.distTags.latest;
     if (!latest) throw new Error(`Registry package ${state.name} has no latest tag`);
     const parsed = parseSemver(latest);
-    if (parsed.major !== 0n || (parsed.minor !== 200n && parsed.minor !== 300n) || parsed.prerelease.length || parsed.build.length) throw new Error(`Registry package ${state.name} has invalid latest=${latest}`);
+    if (parsed.prerelease.length || parsed.build.length) throw new Error(`Registry package ${state.name} has invalid latest=${latest}; expected a stable version`);
     values.add(latest);
     snapshot[state.name] = latest;
   }
-  if (values.size !== 1) throw new Error("Registry latest tags are not one uniform 0.200.x or 0.300.x value");
+  if (values.size !== 1) throw new Error("Registry latest tags are not one uniform stable version");
   return snapshot;
 }
 export function preflightOrdinary(policy: ReleasePolicy, states: RegistryPackageState[]): Record<string, string> {
