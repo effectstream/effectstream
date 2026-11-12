@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GameMaker — Effectstream</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="container">
+    <h2>GameMaker Game</h2>
+
+    <section id="wallet-section">
+      <h3>Connect Wallet</h3>
+      <p id="wallet-address" data-testid="wallet-address">Not connected</p>
+      <button
+        id="connect-browser"
+        data-testid="connect-browser-wallet"
+        onclick="window.uiConnectBrowser()"
+      >Connect Browser Wallet</button>
+      <button
+        id="connect-local"
+        data-testid="connect-local-wallet"
+        onclick="window.uiConnectLocal()"
+      >Connect Local Wallet (dev)</button>
+    </section>
+
+    <section id="xp-section" data-testid="xp-panel">
+      <h3>Experience</h3>
+      <p>Your XP: <span id="xp-value" data-testid="xp-value">—</span></p>
+
+      <label for="xp-amount">Gain experience (1–5):</label>
+      <input
+        id="xp-amount"
+        data-testid="xp-amount"
+        type="number"
+        min="1"
+        max="5"
+        value="1"
+      />
+      <button
+        id="gain-xp"
+        data-testid="gain-experience-btn"
+        onclick="window.uiGainExperience()"
+      >Gain Experience</button>
+      <button
+        id="refresh-xp"
+        data-testid="refresh-xp-btn"
+        onclick="window.uiRefresh()"
+      >Refresh</button>
+    </section>
+  </div>
+
+  <script type="module" src="./min.js"></script>
+
+  <script>
+    function setAddress(addr) {
+      document.getElementById("wallet-address").innerText = addr ?? "Not connected";
+    }
+
+    async function render() {
+      const state = await window.gamemaker.fetchUserState();
+      const xpEl = document.getElementById("xp-value");
+      xpEl.innerText = state ? String(state.experience) : "0";
+    }
+
+    window.uiConnectBrowser = async () => {
+      try {
+        await window.gamemaker.connectBrowserWallet();
+        setAddress(window.gamemaker.getAddress());
+        await render();
+      } catch (err) {
+        console.error("connect-browser failed:", err);
+        setAddress(`Browser wallet error: ${err.message}`);
+      }
+    };
+
+    window.uiConnectLocal = async () => {
+      try {
+        await window.gamemaker.connectLocalWallet();
+        setAddress(window.gamemaker.getAddress());
+        await render();
+      } catch (err) {
+        console.error("connect-local failed:", err);
+        setAddress(`Local wallet error: ${err.message}`);
+      }
+    };
+
+    window.uiGainExperience = async () => {
+      const amount = document.getElementById("xp-amount").value;
+      try {
+        await window.gamemaker.gainExperience(amount);
+        // The indexer + DB update arrive a beat after the chain receipt.
+        setTimeout(render, 4000);
+      } catch (err) {
+        console.error("gainExperience failed:", err);
+      }
+    };
+
+    window.uiRefresh = () => render();
+  </script>
+</body>
+
+</html>

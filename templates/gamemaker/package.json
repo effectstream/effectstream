@@ -1,0 +1,24 @@
+{
+  "name": "gamemaker",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "NODE_ENV=development bunx orchestrator start",
+    "start:mainnet": "bun run packages/node/main.mainnet.ts",
+    "test": "bun run packages/tests/run-tests.ts",
+    "build:evm": "bun run --filter @gamemaker/contracts-evm build:mod",
+    "build:pgtypes": "bun run --filter @gamemaker/database pgtyped:update"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@effectstream/evm-contracts": "0.100.18",
+    "@effectstream/orchestrator": "0.100.18",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "wait-on": "8.0.3"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
+  }
+}

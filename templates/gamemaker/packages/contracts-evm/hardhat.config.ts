@@ -1,0 +1,40 @@
+import type { HardhatUserConfig } from "hardhat/config";
+import {
+  createHardhatConfig,
+  createNodeTasks,
+  initTelemetry,
+} from "@effectstream/evm-hardhat/hardhat-config-builder";
+import {
+  JsonRpcServerImplementation,
+} from "@effectstream/evm-hardhat/json-rpc-server";
+import fs from "node:fs";
+import waitOn from "wait-on";
+import {
+  ComponentNames,
+  log,
+  SeverityNumber,
+} from "@effectstream/log";
+
+const __dirname: any = import.meta.dirname;
+
+initTelemetry("@effectstream/log", "./package.json");
+
+const nodeTasks = createNodeTasks({
+  JsonRpcServer: {} as unknown as never,
+  JsonRpcServerImplementation,
+  ComponentNames,
+  log,
+  SeverityNumber,
+  waitOn,
+  fs,
+});
+
+const config: HardhatUserConfig = createHardhatConfig({
+  sourcesDir: `${__dirname}/src/contracts`,
+  artifactsDir: `${__dirname}/build/artifacts/hardhat`,
+  cacheDir: `${__dirname}/build/cache/hardhat`,
+  tasks: nodeTasks,
+  solidityVersion: "0.8.30",
+});
+
+export default config;
