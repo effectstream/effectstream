@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, jest, test } from "bun:test";
 import { PGlite } from "@electric-sql/pglite";
 import net from "node:net";
 import { Client } from "pg";
@@ -6,6 +6,12 @@ import {
   startPglite,
   type PgliteHandle,
 } from "../scripts/start-pglite.ts";
+
+// A test that times out inside a fake-timer window never reaches its finally
+// block. Restoring real timers here keeps that from stalling later tests.
+afterEach(() => {
+  jest.useRealTimers();
+});
 
 const connection = (handle: PgliteHandle) => ({
   host: "127.0.0.1",
@@ -42,24 +48,39 @@ async function expectRefused(handle: PgliteHandle): Promise<void> {
 const clientSocket = (client: Client): net.Socket =>
   (client as unknown as { connection: { stream: net.Socket } }).connection.stream;
 
-async function destroyHandled(client: Client): Promise<Error[]> {
-  const errors: Error[] = [];
-  client.on("error", (error) => errors.push(error));
+// Resolves on the socket's next "close" event. Register it before the action
+// that closes the socket. A socket that never closes fails the test at the
+// runner's timeout instead of at a wall-clock bound a slow machine can miss.
+const socketClosed = (socket: net.Socket): Promise<void> =>
+  new Promise((resolve) => socket.once("close", () => resolve()));
+
+const nextClientError = (client: Client): Promise<Error> =>
+  new Promise((resolve) => client.once("error", resolve));
+
+// Every promise continuation that is not blocked on I/O has run by the time
+// the next immediate fires.
+const nextImmediate = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+async function destroyClient(client: Client): Promise<void> {
+  client.on("error", () => {});
+  const closed = socketClosed(clientSocket(client));
   clientSocket(client).destroy();
-  await Bun.sleep(20);
-  return errors;
+  await closed;
 }
 
-async function waitFor(
-  predicate: () => boolean,
-  description: string,
-  timeoutMs = 2_000,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!predicate()) {
-    if (Date.now() >= deadline) throw new Error(`Timed out waiting for ${description}.`);
-    await Bun.sleep(10);
-  }
+function trackDatabaseClose(handle: PgliteHandle) {
+  const originalDbClose = handle.db.close.bind(handle.db);
+  let count = 0;
+  let closed!: () => void;
+  const completed = new Promise<void>((resolve) => {
+    closed = resolve;
+  });
+  handle.db.close = async () => {
+    count += 1;
+    await originalDbClose();
+    closed();
+  };
+  return { count: () => count, completed };
 }
 
 test("positive client waits for readiness before construction", async () => {
@@ -85,13 +106,19 @@ test("positive client waits for readiness before construction", async () => {
 
   let connectionAttempt: Promise<Client> | undefined;
   try {
-    const startedAt = Date.now();
-    connectionAttempt = connect(controlledHandle(waitReady), clientFactory);
-    await Bun.sleep(600);
-
-    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(600);
-    expect(order).toEqual([]);
-    expect(observedConfig).toBeUndefined();
+    // Readiness stays pending while the clock passes the client's 500 ms
+    // handshake timeout. Fake timers advance that clock without waiting, and
+    // nothing in this window performs I/O.
+    jest.useFakeTimers();
+    try {
+      connectionAttempt = connect(controlledHandle(waitReady), clientFactory);
+      jest.advanceTimersByTime(600);
+      await nextImmediate();
+      expect(order).toEqual([]);
+      expect(observedConfig).toBeUndefined();
+    } finally {
+      jest.useRealTimers();
+    }
 
     releaseReadiness();
     expect(await connectionAttempt).toBe(fakeClient);
@@ -135,9 +162,26 @@ test("positive client preserves the 500 ms post-readiness handshake timeout", as
   }
 
   try {
-    await expect(connect(controlledHandle(Promise.resolve(), address.port))).rejects.toMatchObject({
-      message: "timeout expired",
-    });
+    const accepted = new Promise<void>((resolve) => stalledServer.once("connection", () => resolve()));
+    let attempt!: Promise<Client>;
+    let settled = false;
+    // Fake timers own pg's connectionTimeoutMillis timer, which connect()
+    // arms with setTimeout. They stay on only until the timer has fired,
+    // because Bun 1.3.10 does not time out a test that hangs while fake
+    // timers are installed.
+    jest.useFakeTimers();
+    try {
+      attempt = connect(controlledHandle(Promise.resolve(), address.port));
+      attempt.then(() => { settled = true; }, () => { settled = true; });
+      await accepted;
+      jest.advanceTimersByTime(499);
+      await nextImmediate();
+      expect(settled).toBe(false);
+      jest.advanceTimersByTime(1);
+    } finally {
+      jest.useRealTimers();
+    }
+    await expect(attempt).rejects.toMatchObject({ message: "timeout expired" });
     expect(acceptedSockets).toHaveLength(1);
   } finally {
     for (const socket of acceptedSockets) socket.destroy();
@@ -147,18 +191,12 @@ test("positive client preserves the 500 ms post-readiness handshake timeout", as
   }
 });
 
-test("default and forced close are bounded without clients", async () => {
+test("default and forced close settle without clients", async () => {
   const graceful = await startPglite(0);
   const forced = await startPglite(0);
 
-  await Promise.race([
-    graceful.close(),
-    Bun.sleep(2_000).then(() => Promise.reject(new Error("default close timed out"))),
-  ]);
-  await Promise.race([
-    forced.close({ force: true }),
-    Bun.sleep(2_000).then(() => Promise.reject(new Error("forced close timed out"))),
-  ]);
+  await graceful.close();
+  await forced.close({ force: true });
 
   expect(graceful.server.listening).toBe(false);
   expect(forced.server.listening).toBe(false);
@@ -183,17 +221,17 @@ test("default close preserves multiple retained sockets and rejects new clients"
   const errors: Error[] = [];
   for (const client of clients) client.on("error", (error) => errors.push(error));
 
-  await Promise.race([
-    handle.close(),
-    Bun.sleep(2_000).then(() => Promise.reject(new Error("default close timed out"))),
-  ]);
+  await handle.close();
   await expectRefused(handle);
-  await Bun.sleep(20);
+  // A query round trip on each retained socket proves it still serves after
+  // close, and any client error emitted before the reply is already recorded.
+  for (const client of clients) {
+    expect((await client.query("SELECT 1 AS value")).rows).toEqual([{ value: 1 }]);
+  }
 
   expect(errors).toEqual([]);
   expect(clients.every((client) => !clientSocket(client).destroyed)).toBe(true);
-  for (const client of clients) clientSocket(client).destroy();
-  await Bun.sleep(20);
+  await Promise.all(clients.map(destroyClient));
 });
 
 test("default close unrefs retained sockets and defers cleanup until the last drains", async () => {
@@ -212,29 +250,27 @@ test("default close unrefs retained sockets and defers cleanup until the last dr
     };
   });
 
-  const originalDbClose = handle.db.close.bind(handle.db);
-  let dbCloseCount = 0;
-  let dbCloseComplete = false;
-  handle.db.close = async () => {
-    dbCloseCount += 1;
-    await originalDbClose();
-    dbCloseComplete = true;
-  };
+  const dbClose = trackDatabaseClose(handle);
 
   await handle.close();
   expect(acceptedSockets).toHaveLength(2);
   expect(unrefCounts).toEqual([1, 1]);
-  expect(dbCloseCount).toBe(0);
+  expect(dbClose.count()).toBe(0);
   expect((await clients[0].query("SELECT 1 AS value")).rows).toEqual([{ value: 1 }]);
   expect(errors).toEqual([]);
 
+  const firstDrained = socketClosed(acceptedSockets[0]);
   clientSocket(clients[0]).destroy();
-  await waitFor(() => acceptedSockets[0].destroyed, "the first accepted socket to drain");
-  expect(dbCloseCount).toBe(0);
+  await firstDrained;
+  // A cleanup started by this close would have called db.close() by now.
+  await nextImmediate();
+  expect(dbClose.count()).toBe(0);
 
+  const secondError = nextClientError(clients[1]);
   clientSocket(clients[1]).destroy();
-  await waitFor(() => dbCloseComplete, "deferred PGlite cleanup");
-  expect(dbCloseCount).toBe(1);
+  await dbClose.completed;
+  await secondError;
+  expect(dbClose.count()).toBe(1);
   expect(errors).toHaveLength(2);
   expect(errors.every((error) => error.message === "Connection terminated unexpectedly")).toBe(true);
 });
@@ -271,20 +307,14 @@ test("an unrefed retained server socket does not keep its owner process alive", 
 
   let socket: net.Socket | undefined;
   try {
-    const port = await Promise.race([
-      portReported,
-      Bun.sleep(5_000).then(() => Promise.reject(new Error("child did not report its port"))),
-    ]);
+    const port = await portReported;
     socket = net.createConnection({ host: "127.0.0.1", port });
     socket.on("error", () => {});
     await new Promise<void>((resolve) => socket?.once("connect", resolve));
 
-    const exitCode = await Promise.race([
-      child.exited,
-      Bun.sleep(5_000).then(() => Promise.reject(
-        new Error(`retained socket kept child alive; stdout so far: ${stdout}`),
-      )),
-    ]);
+    // A retained socket that kept the child alive fails this test at the
+    // runner's timeout.
+    const exitCode = await child.exited;
     const [childStdout, childStderr] = await Promise.all([stdoutComplete, stderrComplete]);
     const output = `${childStdout}\n${childStderr}`;
     expect(exitCode, output).toBe(0);
@@ -294,21 +324,37 @@ test("an unrefed retained server socket does not keep its owner process alive", 
     if (child.exitCode === null) child.kill();
     await child.exited;
   }
-}, 15_000);
+});
 
 test("forced close destroys every retained socket before settling", async () => {
   const handle = await startPglite(0);
+  const acceptedClosed: boolean[] = [];
+  handle.server.on("connection", (socket) => {
+    const index = acceptedClosed.push(false) - 1;
+    socket.once("close", () => {
+      acceptedClosed[index] = true;
+    });
+  });
   const clients = await Promise.all([connect(handle), connect(handle)]);
   const errors: Error[] = [];
   for (const client of clients) client.on("error", (error) => errors.push(error));
+  // Each client learns of its destroyed server socket through these events,
+  // which may arrive after close has settled.
+  const clientErrors = clients.map(nextClientError);
+  const clientSocketsClosed = clients.map((client) => socketClosed(clientSocket(client)));
 
   await handle.close({ force: true });
-  await Bun.sleep(20);
+  expect(acceptedClosed).toEqual([true, true]);
+  expect(handle.server.listening).toBe(false);
 
+  const observed = await Promise.all(clientErrors);
+  await Promise.all(clientSocketsClosed);
+  expect(observed.map((error) => error.message)).toEqual([
+    "Connection terminated unexpectedly",
+    "Connection terminated unexpectedly",
+  ]);
   expect(clients.every((client) => clientSocket(client).destroyed)).toBe(true);
   expect(errors).toHaveLength(2);
-  expect(errors.every((error) => error.message === "Connection terminated unexpectedly")).toBe(true);
-  expect(handle.server.listening).toBe(false);
 });
 
 test("repeated and concurrent close calls share the first default operation", async () => {
@@ -324,19 +370,20 @@ test("repeated and concurrent close calls share the first default operation", as
   expect(sameMode).toBe(first);
   expect(attemptedEscalation).toBe(first);
   await Promise.all([first, sameMode, attemptedEscalation]);
-  await Bun.sleep(20);
+  // The retained socket still serves, so the forced attempt did not destroy it.
+  expect((await client.query("SELECT 1 AS value")).rows).toEqual([{ value: 1 }]);
   expect(errors).toEqual([]);
   expect(clientSocket(client).destroyed).toBe(false);
   expect(handle.close({ force: true })).toBe(first);
 
-  clientSocket(client).destroy();
-  await Bun.sleep(20);
+  await destroyClient(client);
 });
 
 test("repeated and concurrent close calls share the first forced operation", async () => {
   const handle = await startPglite(0);
   const client = await connect(handle);
   client.on("error", () => {});
+  const clientClosed = socketClosed(clientSocket(client));
 
   const first = handle.close({ force: true });
   const sameMode = handle.close({ force: true });
@@ -345,7 +392,7 @@ test("repeated and concurrent close calls share the first forced operation", asy
   expect(sameMode).toBe(first);
   expect(attemptedDowngrade).toBe(first);
   await Promise.all([first, sameMode, attemptedDowngrade]);
-  await Bun.sleep(20);
+  await clientClosed;
   expect(clientSocket(client).destroyed).toBe(true);
   expect(handle.close()).toBe(first);
 });
@@ -569,15 +616,32 @@ test("default close settles while an in-flight query completes on its retained s
   const errors: Error[] = [];
   client.on("error", (error) => errors.push(error));
 
-  const query = client.query("SELECT pg_sleep(0.05), 1 AS value");
-  await Bun.sleep(10);
-  const cleanup = handle.close();
-  await cleanup;
+  // Hold the query inside the serialized PGlite queue, so close begins while
+  // it is in flight on every machine.
+  const originalExec = handle.db.execProtocolRaw.bind(handle.db);
+  let releaseQuery!: () => void;
+  let queryEntered!: () => void;
+  const queryGate = new Promise<void>((resolve) => {
+    releaseQuery = resolve;
+  });
+  const queryStarted = new Promise<void>((resolve) => {
+    queryEntered = resolve;
+  });
+  handle.db.execProtocolRaw = async (...args) => {
+    queryEntered();
+    await queryGate;
+    return await originalExec(...args);
+  };
+
+  const query = client.query("SELECT 1 AS value");
+  await queryStarted;
+  await handle.close();
+  releaseQuery();
   const result = await query;
 
-  expect(result.rows).toHaveLength(1);
+  expect(result.rows).toEqual([{ value: 1 }]);
   expect(errors).toEqual([]);
-  await destroyHandled(client);
+  await destroyClient(client);
 });
 
 test("default close drains a query submitted by an accepted client as close begins", async () => {
@@ -592,7 +656,7 @@ test("default close drains a query submitted by an accepted client as close begi
 
   expect(result.rows).toEqual([{ value: 1 }]);
   expect(errors).toEqual([]);
-  await destroyHandled(client);
+  await destroyClient(client);
 });
 
 test("last socket close waits for final serialized work before deferred database cleanup", async () => {
@@ -605,7 +669,6 @@ test("last socket close waits for final serialized work before deferred database
   client.on("error", () => {});
 
   const originalExec = handle.db.execProtocolRaw.bind(handle.db);
-  const originalDbClose = handle.db.close.bind(handle.db);
   let releaseQuery!: () => void;
   let queryEntered!: () => void;
   const queryGate = new Promise<void>((resolve) => {
@@ -614,32 +677,32 @@ test("last socket close waits for final serialized work before deferred database
   const queryStarted = new Promise<void>((resolve) => {
     queryEntered = resolve;
   });
-  let dbCloseCount = 0;
-  let dbCloseComplete = false;
   handle.db.execProtocolRaw = async (...args) => {
     queryEntered();
     await queryGate;
     return await originalExec(...args);
   };
-  handle.db.close = async () => {
-    dbCloseCount += 1;
-    await originalDbClose();
-    dbCloseComplete = true;
-  };
+  const dbClose = trackDatabaseClose(handle);
 
   const query = client.query("SELECT 1 AS value").catch(() => undefined);
   await queryStarted;
+  if (!acceptedSocket) throw new Error("The gateway did not track the accepted socket.");
+  const acceptedClosed = socketClosed(acceptedSocket);
   clientSocket(client).destroy();
-  await waitFor(() => acceptedSocket?.destroyed === true, "the final accepted socket to close");
+  await acceptedClosed;
   const cleanup = handle.close();
-  await Bun.sleep(20);
-  expect(dbCloseCount).toBe(0);
+  // Registered after close() so it runs after close's own listener callback;
+  // one immediate later, close has gone as far as it can without the query.
+  const listenerClosed = new Promise<void>((resolve) => handle.server.once("close", () => resolve()));
+  await listenerClosed;
+  await nextImmediate();
+  expect(dbClose.count()).toBe(0);
 
   releaseQuery();
   await cleanup;
   await query;
-  await waitFor(() => dbCloseComplete, "database cleanup after final serialized work");
-  expect(dbCloseCount).toBe(1);
+  await dbClose.completed;
+  expect(dbClose.count()).toBe(1);
 });
 
 test("a late deferred database-cleanup failure is observed without rejecting settled close", async () => {
@@ -650,15 +713,23 @@ test("a late deferred database-cleanup failure is observed without rejecting set
   const originalConsoleError = console.error;
   const databaseError = new Error("injected deferred database close failure");
   const observed: unknown[][] = [];
+  let failureLogged!: () => void;
+  const failureWasLogged = new Promise<void>((resolve) => {
+    failureLogged = resolve;
+  });
   handle.db.close = async () => {
     throw databaseError;
   };
-  console.error = (...args: unknown[]) => observed.push(args);
+  console.error = (...args: unknown[]) => {
+    observed.push(args);
+    failureLogged();
+  };
 
   try {
     await handle.close();
     clientSocket(client).destroy();
-    await waitFor(() => observed.length === 1, "the deferred cleanup failure to be observed");
+    await failureWasLogged;
+    expect(observed).toHaveLength(1);
     expect(observed[0][0]).toBe("database: deferred PGlite cleanup failed");
     expect(observed[0][1]).toBe(databaseError);
     expect(handle.close({ force: true })).toBe(handle.close());

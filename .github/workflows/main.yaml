@@ -70,19 +70,35 @@ jobs:
       - name: Build testing image
         run: docker build -t testing_image:${{ github.sha }} -f .github/Dockerfile .
 
-      - name: Run PGlite lifecycle regression
-        run: |
-          docker run --rm --name db_lifecycle_${{ github.run_number }} testing_image:${{ github.sha }} \
-            bun test packages/node-sdk/db/test/start-pglite.test.ts \
-              packages/node-sdk/db/test/start-pglite-multifile.test.ts
-
-      - name: Run runtime startup-failure regression
-        run: |
-          docker run --rm --name runtime_startup_${{ github.run_number }} testing_image:${{ github.sha }} \
-            bun test packages/node-sdk/runtime/test/lifecycle/startup-failure.test.ts
-
       - name: Run e2e tests
         run: docker run --rm --name e2e_${{ github.run_number }} testing_image:${{ github.sha }}
+
+  # Every package unit test: the root `test:code` command, `bun test ./packages`.
+  # A directory-level command, so a new test file under packages/ runs with no
+  # workflow edit. None of these tests needs a chain, a Postgres server or
+  # Docker, so they run on the plain runner, in parallel with e2e.
+  packages-unit:
+    needs: changes
+    if: ${{ needs.changes.outputs.core == 'true' && (github.event_name == 'push' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Pinned, and newer than the testing image's Bun 1.3.10: Bun 1.4.0 cannot
+      # load the Midnight indexer modules (graphql-tag require()s the ESM-only
+      # graphql 17), and 1.4.4 runs this suite with the same results as 1.3.10.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run package unit tests
+        run: bun test ./packages
 
   # Per-template tests — runs the changed ENABLED templates serially in one job.
   # Uses the SAME image as e2e; only the command differs. Tests resolve
@@ -161,7 +177,7 @@ jobs:
   # Passes when the gated jobs succeed or are skipped; fails if any fails or is
   # cancelled (or if the changes job itself failed).
   ci-ok:
-    needs: [changes, e2e, template-tests, frontend-build, assets-check]
+    needs: [changes, e2e, packages-unit, template-tests, frontend-build, assets-check]
     if: ${{ always() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 5
@@ -170,12 +186,15 @@ jobs:
         run: |
           echo "changes=${{ needs.changes.result }}"
           echo "e2e=${{ needs.e2e.result }}"
+          echo "packages-unit=${{ needs.packages-unit.result }}"
           echo "template-tests=${{ needs.template-tests.result }}"
           echo "frontend-build=${{ needs.frontend-build.result }}"
           echo "assets-check=${{ needs.assets-check.result }}"
           if [ "${{ needs.changes.result }}" = "failure" ] || \
              [ "${{ needs.e2e.result }}" = "failure" ] || \
              [ "${{ needs.e2e.result }}" = "cancelled" ] || \
+             [ "${{ needs.packages-unit.result }}" = "failure" ] || \
+             [ "${{ needs.packages-unit.result }}" = "cancelled" ] || \
              [ "${{ needs.template-tests.result }}" = "failure" ] || \
              [ "${{ needs.template-tests.result }}" = "cancelled" ] || \
              [ "${{ needs.frontend-build.result }}" = "failure" ] || \

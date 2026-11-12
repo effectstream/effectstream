@@ -7,7 +7,11 @@ import { isTransientPgError } from "./transient-pg-errors.ts";
 import { poolErrors } from "./pool-error-tracker.ts";
 
 export { isTransientPgError } from "./transient-pg-errors.ts";
-export { poolErrors, PoolErrorTracker } from "./pool-error-tracker.ts";
+export {
+  poolErrors,
+  PoolErrorTracker,
+  type PoolErrorTrackerOptions,
+} from "./pool-error-tracker.ts";
 
 let readonlyDBConn: pg.Pool | null;
 let unhandledRejectionLoggerInstalled = false;

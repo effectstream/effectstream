@@ -1,13 +1,5 @@
-import { afterEach, expect, test } from "bun:test";
-
-// Thresholds are read from env at module load (and `envMs` rejects 0, so use
-// small positive values). SUSTAINED=5ms → a failure older than 5ms is
-// "sustained"; FATAL=30ms → older than 30ms triggers the process.exit
-// escalation. Dynamic import so these are picked up before the module
-// computes its constants.
-process.env.POOL_SUSTAINED_THRESHOLD_MS = "5";
-process.env.POOL_FATAL_THRESHOLD_MS = "30";
-const { PoolErrorTracker } = await import("./pool-error-tracker.ts");
+import { expect, test } from "bun:test";
+import { PoolErrorTracker } from "./pool-error-tracker.ts";
 
 const transient = () => ({
   code: "ECONNRESET",
@@ -15,10 +7,22 @@ const transient = () => ({
   stack: "    at node_modules/pg-pool/index.js:45:11",
 });
 
-const realExit = process.exit;
-afterEach(() => {
-  process.exit = realExit;
-});
+// A clock moved only by the test. It starts away from 0 because the tracker
+// uses firstFailureAt = 0 to mean "no failure recorded".
+function manualClock(start = 1_000_000) {
+  let now = start;
+  return {
+    now: () => now,
+    advance: (ms: number) => {
+      now += ms;
+    },
+  };
+}
+
+// The tracker queues its exit with setImmediate while logging. An immediate
+// queued afterwards runs after it, so awaiting one observes any exit the
+// preceding log() call scheduled.
+const nextImmediate = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 test("ignores non-transient errors (auth/schema bugs)", () => {
   const t = new PoolErrorTracker();
@@ -27,39 +31,84 @@ test("ignores non-transient errors (auth/schema bugs)", () => {
   expect(t.state().sustained).toBe(false);
 });
 
-test("counts consecutive transient failures and reports sustained", async () => {
-  const t = new PoolErrorTracker();
+test("counts consecutive transient failures and reports sustained at the threshold", async () => {
+  const clock = manualClock();
+  const exits: number[] = [];
+  // Thresholds differ from the defaults, so a tracker that ignored them fails.
+  const t = new PoolErrorTracker({
+    sustainedMs: 200,
+    fatalMs: 1_000,
+    now: clock.now,
+    exit: (code) => exits.push(code),
+  });
+
   t.log(transient(), ["sync-write"]);
-  expect(t.state().sustained).toBe(false); // fresh failure, < 5ms old
-  await Bun.sleep(15); // exceed SUSTAINED_THRESHOLD_MS=5, stay under FATAL=30
+  expect(t.state()).toEqual({
+    consecutive: 1,
+    firstFailureAt: 1_000_000,
+    sustainedDurationMs: 0,
+    sustained: false,
+  });
+
+  clock.advance(199);
   t.log(transient(), ["sync-write"]);
-  const s = t.state();
-  expect(s.consecutive).toBe(2);
-  expect(s.sustained).toBe(true);
+  expect(t.state()).toEqual({
+    consecutive: 2,
+    firstFailureAt: 1_000_000,
+    sustainedDurationMs: 199,
+    sustained: false,
+  });
+
+  clock.advance(1);
+  expect(t.state().sustained).toBe(true);
+  t.log(transient(), ["sync-write"]);
+  expect(t.state()).toEqual({
+    consecutive: 3,
+    firstFailureAt: 1_000_000,
+    sustainedDurationMs: 200,
+    sustained: true,
+  });
+  await nextImmediate();
+  expect(exits).toEqual([]);
 });
 
-test("markHealthy resets the failure clock", () => {
-  const t = new PoolErrorTracker();
+test("markHealthy resets the failure clock", async () => {
+  // A recording exit keeps an exit regression from ending the test process.
+  const exits: number[] = [];
+  const t = new PoolErrorTracker({ exit: (code) => exits.push(code) });
   t.log(transient(), ["sync-write"]);
   t.markHealthy();
   const s = t.state();
   expect(s.consecutive).toBe(0);
   expect(s.firstFailureAt).toBe(0);
   expect(s.sustained).toBe(false);
+  await nextImmediate();
+  expect(exits).toEqual([]);
 });
 
-test("exits the process once failures persist past the fatal threshold", async () => {
-  let exitCode: number | undefined;
-  process.exit = ((code?: number) => {
-    exitCode = code;
-  }) as typeof process.exit;
+test("exits with code 1 on the tick after a failure reaches the fatal threshold", async () => {
+  const clock = manualClock();
+  const exits: number[] = [];
+  const t = new PoolErrorTracker({
+    sustainedMs: 200,
+    fatalMs: 1_000,
+    now: clock.now,
+    exit: (code) => exits.push(code),
+  });
 
-  const t = new PoolErrorTracker();
-  t.log(transient(), ["sync-write"]); // starts the clock; not yet fatal
-  await Bun.sleep(40); // exceed FATAL_THRESHOLD_MS=20
-  t.log(transient(), ["sync-write"]); // now duration >= fatal → schedules exit
+  t.log(transient(), ["sync-write"]);
+  await nextImmediate();
+  expect(exits).toEqual([]);
 
-  // exit is deferred via setImmediate so the fatal log line can flush first.
-  await new Promise((resolve) => setImmediate(resolve));
-  expect(exitCode).toBe(1);
+  clock.advance(999);
+  t.log(transient(), ["sync-write"]);
+  await nextImmediate();
+  expect(exits).toEqual([]);
+
+  clock.advance(1);
+  t.log(transient(), ["sync-write"]);
+  // Deferred, so the fatal log line can flush before the process ends.
+  expect(exits).toEqual([]);
+  await nextImmediate();
+  expect(exits).toEqual([1]);
 });
