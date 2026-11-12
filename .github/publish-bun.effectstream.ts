@@ -43,12 +43,12 @@ export type ParsedSemver = {
   build: string[];
   normalized: string;
 };
-export type ReleaseKind = "maintenance-stable" | "node2-stable" | "node2-prerelease";
+export type ReleaseKind = "node2-stable" | "node2-prerelease";
 export type ReleasePolicy = {
   version: string;
   releaseTag: string;
-  branch: "midnight-1" | "v-next";
-  distTag: "midnight-1" | "latest" | "next";
+  branch: "v-next";
+  distTag: "latest" | "next";
   prerelease: boolean;
   kind: ReleaseKind;
 };
@@ -74,8 +74,8 @@ export type ReleaseManifest = {
   releaseTag: string;
   version: string;
   sourceSha: string;
-  branch: "midnight-1" | "v-next";
-  distTag: "midnight-1" | "latest" | "next";
+  branch: "v-next";
+  distTag: "latest" | "next";
   prerelease: boolean;
   kind: ReleaseKind;
   workflow: { runId: string; runAttempt: string };
@@ -157,14 +157,10 @@ export function resolveReleasePolicy(
   if (!releaseTag.startsWith("v")) throw new Error("Release tag must begin with one lowercase v");
   const parsed = parseSemver(releaseTag);
   if (parsed.build.length) throw new Error("Build metadata is not supported for releases");
-  // The version picks only the source branch and dist-tag: 0.104.x is the maintenance line on
-  // midnight-1 and every other version releases from v-next. Ordering is enforced by
-  // resolveReleaseVersion and preflightOrdinary, not here.
+  // Every release comes from v-next; the version picks only the dist-tag: stable to latest,
+  // prerelease to next. Ordering is enforced by resolveReleaseVersion and preflightOrdinary, not here.
   let policy: ReleasePolicy;
-  if (parsed.major === 0n && parsed.minor === 104n) {
-    if (parsed.prerelease.length) throw new Error("Maintenance prereleases are not supported");
-    policy = { version: parsed.normalized, releaseTag, branch: "midnight-1", distTag: "midnight-1", prerelease: false, kind: "maintenance-stable" };
-  } else if (parsed.prerelease.length === 0) {
+  if (parsed.prerelease.length === 0) {
     policy = { version: parsed.normalized, releaseTag, branch: "v-next", distTag: "latest", prerelease: false, kind: "node2-stable" };
   } else {
     policy = { version: parsed.normalized, releaseTag, branch: "v-next", distTag: "next", prerelease: true, kind: "node2-prerelease" };

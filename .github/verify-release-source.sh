@@ -37,23 +37,16 @@ if [[ -n "$prerelease" ]]; then
   done
 fi
 
-# The version picks only the source branch and dist-tag: 0.104.x is the maintenance line on
-# midnight-1 and every other version releases from v-next. Going backwards is blocked by the commit
-# identity checks below and by the release preflight: the version must be unpublished, above the
-# branch's package.json version and, when stable, above the current npm latest.
-if [[ "$major" == "0" && "$minor" == "104" ]]; then
-  test -z "$prerelease" || fail "maintenance prereleases are not supported"
-  mapped_branch="midnight-1"
-  mapped_dist_tag="midnight-1"
-  mapped_kind="maintenance-stable"
-  expected_prerelease="false"
-elif [[ -z "$prerelease" ]]; then
-  mapped_branch="v-next"
+# Every release comes from v-next; the version picks only the dist-tag: stable to latest,
+# prerelease to next. Going backwards is blocked by the commit identity checks below and by the
+# release preflight: the version must be unpublished, above the branch's package.json version and,
+# when stable, above the current npm latest.
+mapped_branch="v-next"
+if [[ -z "$prerelease" ]]; then
   mapped_dist_tag="latest"
   mapped_kind="node2-stable"
   expected_prerelease="false"
 else
-  mapped_branch="v-next"
   mapped_dist_tag="next"
   mapped_kind="node2-prerelease"
   expected_prerelease="true"

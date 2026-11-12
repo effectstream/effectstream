@@ -87,7 +87,7 @@ describe("diffArgs — diff range selection", () => {
     head: "H",
     headRef: "feat/x",
     defaultBranch: "v-next",
-    longLivedBranches: ["v-next", "midnight-1"],
+    longLivedBranches: ["v-next"],
   };
 
   test("pull_request uses three-dot base...head (only what the PR adds)", () => {
@@ -111,12 +111,6 @@ describe("diffArgs — diff range selection", () => {
   test("push to the default branch uses two-arg before..after", () => {
     expect(
       diffArgs({ ...opts, eventName: "push", headRef: "v-next" }),
-    ).toEqual(["diff", "--name-only", "B", "H"]);
-  });
-
-  test("push to the maintenance branch uses only before..after", () => {
-    expect(
-      diffArgs({ ...opts, eventName: "push", headRef: "midnight-1" }),
     ).toEqual(["diff", "--name-only", "B", "H"]);
   });
 
@@ -144,21 +138,19 @@ describe("initial and rewritten push bases", () => {
 });
 
 describe("mainline allowlist", () => {
-  test("accepts the exact approved long-lived branches", () => {
-    expect(parseLongLivedBranches("v-next,midnight-1")).toEqual([
-      "v-next",
-      "midnight-1",
-    ]);
+  test("accepts exactly the v-next mainline", () => {
+    expect(parseLongLivedBranches("v-next")).toEqual(["v-next"]);
   });
 
   test.each([
     undefined,
     "",
-    "v-next",
-    "v-next,midnight-1,feature/x",
+    "release-1",
+    "v-next,release-1",
+    "v-next,feature/x",
     "v-next,v-next",
-    "v-next,midnight-1,",
-    "v-next,midnight 1",
+    "v-next,",
+    "v next",
   ])("rejects missing or malformed allowlist %p", (value) => {
     expect(parseLongLivedBranches(value)).toBeNull();
   });

@@ -13,13 +13,13 @@ git init --quiet "$seed"
 git -C "$seed" config user.name 'release source test'
 git -C "$seed" config user.email 'release-source-test@example.invalid'
 
-git -C "$seed" checkout -b midnight-1 >/dev/null 2>&1
-printf 'midnight node 1\n' > "$seed/package.txt"
+# A second branch whose tip is not the v-next tip: a release tag there must not pass.
+git -C "$seed" checkout -b feature >/dev/null 2>&1
+printf 'feature work\n' > "$seed/package.txt"
 git -C "$seed" add package.txt
-git -C "$seed" commit --quiet -m 'maintenance candidate'
-maintenance="$(git -C "$seed" rev-parse HEAD)"
-git -C "$seed" tag v0.104.2 "$maintenance"
-git -C "$seed" tag -a v0.104.3 -m maintenance-annotated "$maintenance"
+git -C "$seed" commit --quiet -m 'feature candidate'
+feature="$(git -C "$seed" rev-parse HEAD)"
+git -C "$seed" tag v0.104.4 "$feature"
 
 git -C "$seed" checkout --orphan v-next >/dev/null 2>&1
 git -C "$seed" rm -rf --quiet .
@@ -36,8 +36,11 @@ git -C "$seed" tag v0.301.0 "$node2"
 git -C "$seed" tag -a v0.302.0-rc.1 -m node2-annotated-prerelease "$node2"
 git -C "$seed" tag v1.0.0 "$node2"
 git -C "$seed" tag v1.104.0 "$node2"
+git -C "$seed" tag v0.104.2 "$node2"
+git -C "$seed" tag -a v0.104.3 -m node2-annotated-minor-104 "$node2"
+git -C "$seed" tag v0.104.3-rc.1 "$node2"
 git -C "$seed" remote add origin "$origin"
-git -C "$seed" push --quiet origin midnight-1 v-next --tags
+git -C "$seed" push --quiet origin feature v-next --tags
 git --git-dir="$origin" symbolic-ref HEAD refs/heads/v-next
 
 new_runner() {
@@ -86,24 +89,27 @@ expect_fail() {
   fi
 }
 
-expect_pass maintenance-light v0.104.2 "$maintenance" "$maintenance" false midnight-1 midnight-1
-expect_pass maintenance-annotated v0.104.3 "$maintenance" "$maintenance" false midnight-1 midnight-1
 expect_pass node2-light v0.300.3 "$node2" "$node2" false v-next latest
 expect_pass node2-annotated v0.300.4 "$node2" "$node2" false v-next latest
 expect_pass node2-prerelease v0.300.5-rc.1 "$node2" "$node2" true v-next next
-# Any version other than 0.104.x releases from v-next; ordering is the release preflight's job.
+# Every version releases from v-next; ordering is the release preflight's job.
 expect_pass new-minor v0.301.0 "$node2" "$node2" false v-next latest
 expect_pass new-minor-prerelease v0.302.0-rc.1 "$node2" "$node2" true v-next next
 expect_pass new-major v1.0.0 "$node2" "$node2" false v-next latest
 expect_pass new-major-minor-104 v1.104.0 "$node2" "$node2" false v-next latest
 expect_pass lower-minor v0.103.999 "$node2" "$node2" false v-next latest
 expect_pass older-minor v0.200.9 "$node2" "$node2" false v-next latest
+expect_pass minor-104-light v0.104.2 "$node2" "$node2" false v-next latest
+expect_pass minor-104-annotated v0.104.3 "$node2" "$node2" false v-next latest
+expect_pass minor-104-prerelease v0.104.3-rc.1 "$node2" "$node2" true v-next next
 
-expect_fail swapped-maintenance v0.104.2 "$node2" "$node2" false
-expect_fail swapped-node2 v0.300.3 "$maintenance" "$maintenance" false
+expect_fail other-branch-tip v0.104.4 "$feature" "$feature" false \
+  'origin/v-next [0-9a-f]{40} does not equal release target'
+expect_fail tag-not-target v0.104.4 "$node2" "$node2" false \
+  'peeled release tag [0-9a-f]{40} does not equal release target'
+expect_fail target-not-tag v0.300.3 "$feature" "$feature" false
 expect_fail metadata-stable v0.300.3 "$node2" "$node2" true
 expect_fail metadata-prerelease v0.300.5-rc.1 "$node2" "$node2" false
-expect_fail maintenance-prerelease v0.104.3-rc.1 "$maintenance" "$maintenance" true
 expect_fail build-metadata v0.300.3+build.1 "$node2" "$node2" false
 expect_fail metadata-new-minor v0.301.0 "$node2" "$node2" true 'GitHub prerelease metadata disagrees'
 expect_fail metadata-new-minor-prerelease v0.302.0-rc.1 "$node2" "$node2" false 'GitHub prerelease metadata disagrees'
@@ -114,13 +120,13 @@ expect_fail prerelease-leading-zero v0.300.3-rc.01 "$node2" "$node2" true
 expect_fail malformed-tag release-0.300.3 "$node2" "$node2" false
 expect_fail short-target v0.300.3 "${node2:0:12}" "$node2" false
 expect_fail uppercase-target v0.300.3 "$(tr '[:lower:]' '[:upper:]' <<< "$node2")" "$node2" false
-expect_fail head-mismatch v0.300.3 "$node2" "$maintenance" false
+expect_fail head-mismatch v0.300.3 "$node2" "$feature" false
 
 # Missing mapped branch and fresh branch advance both fail with empty outputs.
-git --git-dir="$origin" update-ref -d refs/heads/midnight-1
-expect_fail missing-branch v0.104.2 "$maintenance" "$maintenance" false
-git --git-dir="$origin" update-ref refs/heads/midnight-1 "$maintenance"
-git --git-dir="$origin" update-ref refs/heads/v-next "$maintenance"
+git --git-dir="$origin" update-ref -d refs/heads/v-next
+expect_fail missing-branch v0.300.3 "$node2" "$node2" false \
+  "couldn't find remote ref refs/heads/v-next"
+git --git-dir="$origin" update-ref refs/heads/v-next "$feature"
 expect_fail stale-branch-head v0.300.3 "$node2" "$node2" false
 expect_fail stale-branch-head-new-minor v0.301.0 "$node2" "$node2" false \
   'origin/v-next [0-9a-f]{40} does not equal release target'
@@ -151,7 +157,5 @@ race_branch() {
 }
 
 race_branch v-next v0.300.3 "$node2" false node2-race
-git --git-dir="$origin" update-ref refs/heads/midnight-1 "$maintenance"
-race_branch midnight-1 v0.104.2 "$maintenance" false maintenance-race
 
-printf 'release source guard matrix passed: 11 positives, 19 fail-closed negatives, 2 non-fast-forward races\n'
+printf 'release source guard matrix passed: 12 positives, 19 fail-closed negatives, 1 non-fast-forward race\n'

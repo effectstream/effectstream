@@ -21,10 +21,9 @@
  *       here: on a "merge default into branch" push `before` is an ancestor of
  *       the merge commit, so before..after still contains everything the merge
  *       pulled in.
- *   - push to an allowlisted long-lived branch → two-arg before..after
- *       (BASE_SHA/HEAD_SHA). Both v-next and midnight-1 are mainlines; comparing
- *       the divergent maintenance line against v-next would select its entire
- *       history on every push.
+ *   - push to the allowlisted mainline (v-next) → two-arg before..after
+ *       (BASE_SHA/HEAD_SHA): the commits that just landed, with no branch delta
+ *       to isolate.
  * If the base is unusable (new branch, force-push) on a path that needs it, or
  * any git call fails, we fall back to running everything — over-run rather than
  * miss a real change.
@@ -88,11 +87,11 @@ export function classify(
 }
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
-export const REQUIRED_LONG_LIVED_BRANCHES = ["v-next", "midnight-1"] as const;
+export const REQUIRED_LONG_LIVED_BRANCHES = ["v-next"] as const;
 
 /**
- * Parse the workflow-owned mainline allowlist. Fail closed unless it names the
- * exact two approved branches once each; event data cannot add another branch.
+ * Parse the workflow-owned mainline allowlist. Fail closed unless it names
+ * exactly the approved branches, each once; event data cannot add another branch.
  */
 export function parseLongLivedBranches(raw: string | undefined): string[] | null {
   if (!raw) return null;

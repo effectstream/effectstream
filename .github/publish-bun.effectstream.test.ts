@@ -68,7 +68,7 @@ function manifest(policy: ReleasePolicy): ReleaseManifest {
       size: 1,
       sha512: String(index),
       integrity: `sha512-${index}`,
-      versionBefore: policy.kind === "maintenance-stable" ? "0.104.1" : "0.200.2",
+      versionBefore: "0.200.2",
     })),
   };
 }
@@ -172,7 +172,7 @@ describe("post-publish visibility polling", () => {
   });
 
   test("waits for the required tag after exact integrity is visible", async () => {
-    const item = manifest(resolveReleasePolicy("v0.104.2"));
+    const item = manifest(resolveReleasePolicy("v0.300.3-rc.1"));
     const timing = fakeTiming();
     let targetReads = 0;
     await pollPostconditions(item, {
@@ -184,7 +184,7 @@ describe("post-publish visibility polling", () => {
         if (name !== packageNames[0]) return visibleState(item, name);
         targetReads++;
         return targetReads === 1
-          ? visibleState(item, name, { distTags: { latest: "0.200.2", "midnight-1": "0.104.1" } })
+          ? visibleState(item, name, { distTags: { latest: "0.200.2", next: "0.300.3-rc.0" } })
           : visibleState(item, name);
       },
     });
@@ -262,7 +262,6 @@ describe("post-publish visibility polling", () => {
   test.each([
     ["v0.300.3", "0.200.1"],
     ["v0.300.3", undefined],
-    ["v0.104.2", "0.200.1"],
     ["v0.300.3-rc.1", "0.200.1"],
   ])("fails immediately on a readable hidden-target channel conflict for %s", async (tag, latest) => {
     const item = manifest(resolveReleasePolicy(tag));
@@ -282,7 +281,6 @@ describe("post-publish visibility polling", () => {
   test.each([
     ["v0.300.3", "0.200.2", undefined],
     ["v0.300.3", "0.300.3", undefined],
-    ["v0.104.2", "0.200.2", "0.104.1"],
     ["v0.300.3-rc.1", "0.200.2", "0.200.2-rc.9"],
   ])("keeps permitted readable hidden-target state pending for %s", async (tag, latest, priorRequiredTag) => {
     const item = manifest(resolveReleasePolicy(tag));
@@ -431,7 +429,8 @@ describe("strict SemVer", () => {
 
 describe("release policy", () => {
   test.each([
-    ["v0.104.2", false, "midnight-1", "midnight-1", "maintenance-stable"],
+    ["v0.104.2", false, "v-next", "latest", "node2-stable"],
+    ["v0.104.3-rc.1", true, "v-next", "next", "node2-prerelease"],
     ["v0.300.3", false, "v-next", "latest", "node2-stable"],
     ["v0.300.3-rc.1", true, "v-next", "next", "node2-prerelease"],
     ["v0.301.0", false, "v-next", "latest", "node2-stable"],
@@ -452,25 +451,26 @@ describe("release policy", () => {
   });
 
   test.each([
-    ["v0.104.2", "v-next", "midnight-1", false],
-    ["v0.104.2", "midnight-1", "latest", false],
-    ["v0.300.3", "midnight-1", "latest", false],
+    ["v0.104.2", "v-next", "next", false],
+    ["v0.104.2", "v-next", "latest", true],
+    ["v0.104.2", "release-1", "latest", false],
+    ["v0.104.3-rc.1", "v-next", "latest", true],
+    ["v0.300.3", "release-1", "latest", false],
     ["v0.300.3", "v-next", "next", false],
     ["v0.300.3-rc.1", "v-next", "latest", true],
-    ["v0.300.3-rc.1", "midnight-1", "next", true],
-    ["v0.301.0", "midnight-1", "latest", false],
+    ["v0.300.3-rc.1", "release-1", "next", true],
+    ["v0.301.0", "release-1", "latest", false],
     ["v0.301.0", "v-next", "next", false],
     ["v0.301.0", "v-next", "latest", true],
     ["v0.302.0-rc.1", "v-next", "latest", true],
     ["v0.302.0-rc.1", "v-next", "next", false],
-    ["v1.0.0", "midnight-1", "midnight-1", false],
+    ["v1.0.0", "release-1", "release-1", false],
     ["v1.0.0", "v-next", "next", false],
   ])("rejects mismatched tuple %s/%s/%s", (tag, branch, distTag, prerelease) => {
     expect(() => resolveReleasePolicy(tag, branch, distTag, prerelease)).toThrow();
   });
 
   test.each([
-    "v0.104.2-rc.1",
     "v0.104.2+build.1",
     "v0.300.3+build.1",
     "v0.301.0+build.1",
@@ -484,21 +484,22 @@ describe("release policy", () => {
   });
 
   test("requires the only allowed explicit dist-tag", () => {
-    expect(resolveDistTag("0.104.2", "midnight-1")).toBe("midnight-1");
+    expect(resolveDistTag("0.104.2", "latest")).toBe("latest");
+    expect(resolveDistTag("0.104.3-rc.1", "next")).toBe("next");
     expect(resolveDistTag("0.300.3", "latest")).toBe("latest");
     expect(resolveDistTag("0.300.3-rc.1", "next")).toBe("next");
     expect(resolveDistTag("0.301.0", "latest")).toBe("latest");
     expect(resolveDistTag("0.302.0-rc.1", "next")).toBe("next");
     expect(resolveDistTag("1.0.0", "latest")).toBe("latest");
     expect(() => resolveDistTag("0.104.2")).toThrow(/required/);
-    expect(() => resolveDistTag("0.104.2", "latest")).toThrow();
+    expect(() => resolveDistTag("0.104.2", "release-1")).toThrow(/requires dist-tag latest/);
     expect(() => resolveDistTag("0.301.0", "next")).toThrow(/requires dist-tag latest/);
     expect(() => resolveDistTag("0.302.0-rc.1", "latest")).toThrow(/requires dist-tag next/);
   });
 });
 
 describe("all-package ordinary preflight", () => {
-  test.each(["v0.104.2", "v0.300.3", "v0.300.3-rc.1"])(
+  test.each(["v0.300.3", "v0.300.3-rc.1", "v0.301.0"])(
     "accepts absent targets and one stable Node-2 latest snapshot for %s",
     (tag) => {
       const policy = resolveReleasePolicy(tag);
@@ -515,7 +516,7 @@ describe("all-package ordinary preflight", () => {
     ["build-metadata latest", states("0.200.2+build.1")],
     ["prerelease latest", states("0.200.3-rc.1")],
   ])("rejects %s with no mutation plan", (_name, registryStates) => {
-    expect(() => preflightOrdinary(resolveReleasePolicy("v0.104.2"), registryStates)).toThrow();
+    expect(() => preflightOrdinary(resolveReleasePolicy("v0.300.3-rc.1"), registryStates)).toThrow();
   });
 
   test("accepts a uniform post-transition 0.300.x latest snapshot", () => {
@@ -531,7 +532,6 @@ describe("all-package ordinary preflight", () => {
     ["v0.301.1", "0.301.0"],
     ["v0.302.0-rc.1", "0.301.0"],
     ["v1.0.0", "0.301.0"],
-    ["v0.104.2", "0.301.0"],
     ["v1.0.1", "1.0.0"],
   ])("accepts %s over any uniform stable latest %s", (tag, latest) => {
     const snapshot = preflightOrdinary(resolveReleasePolicy(tag), states(latest));
@@ -547,7 +547,7 @@ describe("all-package ordinary preflight", () => {
     expect(() => preflightOrdinary(resolveReleasePolicy("v0.301.1"), registryStates)).toThrow(message);
   });
 
-  test.each(["v0.301.0", "v0.300.4", "v0.200.9", "v0.103.999"])(
+  test.each(["v0.301.0", "v0.300.4", "v0.200.9", "v0.104.2", "v0.103.999"])(
     "rejects stale stable target %s when latest is 0.301.0",
     (tag) => {
       expect(() => preflightOrdinary(resolveReleasePolicy(tag), states("0.301.0"))).toThrow(/greater/);
@@ -556,13 +556,13 @@ describe("all-package ordinary preflight", () => {
 });
 
 describe("persisted exact-tarball completion", () => {
-  const maintenance = manifest(resolveReleasePolicy("v0.104.2"));
+  const stable = manifest(resolveReleasePolicy("v0.300.3"));
 
   test("ordinary run requires every target absent", () => {
-    expect(planRegistryCompletion(maintenance, states(), false).missing).toEqual(packageNames);
+    expect(planRegistryCompletion(stable, states(), false).missing).toEqual(packageNames);
     expect(() =>
       planRegistryCompletion(
-        maintenance,
+        stable,
         states("0.200.2", (index) => (index === 0 ? "sha512-0" : null)),
         false,
       ),
@@ -572,7 +572,7 @@ describe("persisted exact-tarball completion", () => {
   test("recovery skips exact prefix and non-prefix subsets only", () => {
     for (const occupied of [new Set([0, 1, 2]), new Set([1, 9, 25])]) {
       const result = planRegistryCompletion(
-        maintenance,
+        stable,
         states("0.200.2", (index) => (occupied.has(index) ? `sha512-${index}` : null)),
         true,
       );
@@ -584,7 +584,7 @@ describe("persisted exact-tarball completion", () => {
   test("recovery rejects any occupied version with different integrity", () => {
     expect(() =>
       planRegistryCompletion(
-        maintenance,
+        stable,
         states("0.200.2", (index) => (index === 4 ? "sha512-tampered" : null)),
         true,
       ),
@@ -593,8 +593,8 @@ describe("persisted exact-tarball completion", () => {
 });
 
 describe("release-kind postconditions", () => {
-  test("maintenance and Node-2 prerelease preserve latest exactly", () => {
-    for (const tag of ["v0.104.2", "v0.300.3-rc.1"]) {
+  test("Node-2 prerelease preserves latest exactly", () => {
+    for (const tag of ["v0.300.3-rc.1", "v0.104.3-rc.1"]) {
       const item = manifest(resolveReleasePolicy(tag));
       expect(() =>
         verifyLatestPostcondition(
@@ -646,8 +646,8 @@ describe("release-kind postconditions", () => {
     ).toThrow(/neither/);
   });
 
-  test("maintenance and prerelease recovery reject any latest snapshot drift", () => {
-    for (const tag of ["v0.104.2", "v0.300.3-rc.1"]) {
+  test("prerelease recovery rejects any latest snapshot drift", () => {
+    for (const tag of ["v0.300.3-rc.1", "v0.104.3-rc.1"]) {
       const item = manifest(resolveReleasePolicy(tag));
       expect(() => assertRecoveryLatestPrecondition(item, states())).not.toThrow();
       expect(() =>

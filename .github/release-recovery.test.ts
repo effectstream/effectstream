@@ -19,7 +19,7 @@ function fixture(tag: string): ReleaseManifest {
     size: index,
     sha512: `hex-${index}`,
     integrity: `sha512-${index}`,
-    versionBefore: policy.kind === "maintenance-stable" ? "0.104.1" : "0.200.2",
+    versionBefore: "0.200.2",
   }));
   return {
     schemaVersion: 1,
@@ -49,7 +49,7 @@ function registry(manifest: ReleaseManifest, partial: boolean): RegistryPackageS
 }
 
 describe("all release kinds and recovery states", () => {
-  test.each(["v0.104.2", "v0.300.3", "v0.300.3-rc.1"])(
+  test.each(["v0.300.3", "v0.300.3-rc.1", "v0.301.0"])(
     "%s uses exact persisted occupancy in all four states",
     (tag) => {
       const manifest = fixture(tag);
@@ -66,7 +66,7 @@ describe("all release kinds and recovery states", () => {
     },
   );
 
-  test.each(["v0.104.2", "v0.300.3", "v0.300.3-rc.1"])(
+  test.each(["v0.300.3", "v0.300.3-rc.1", "v0.301.0"])(
     "%s validates tag/advanced ancestry and unchanged versions",
     (tag) => {
       const manifest = fixture(tag);
