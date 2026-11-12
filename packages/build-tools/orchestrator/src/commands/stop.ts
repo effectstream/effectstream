@@ -2,12 +2,31 @@ import type { ParsedArgs } from "../cli.ts";
 import type { ProcessConfig } from "../config.ts";
 import { OrchestratorClient } from "../api-client.ts";
 import { loadConfig, findDefaultConfig, findPackageJsonConfig } from "../load-config.ts";
-import { pidsByPort, freePort, readStateConfigPath } from "../port-check.ts";
+import { describePortListener, inspectPorts, readStateConfigPath, type PortListener } from "../port-check.ts";
 import { logInfo, logError, logWarn } from "../display.ts";
 
 type StopOptions = Pick<ParsedArgs, "positionals" | "flags"> & {
   port?: number;
 };
+
+export type ConfiguredPortListener = PortListener & { processName: string };
+
+/** Resolves configured listeners for diagnostics only; it has no signal path. */
+export async function collectConfiguredPortListeners(
+  configs: ProcessConfig[],
+  name?: string,
+): Promise<ConfiguredPortListener[]> {
+  const selected = name ? configs.filter((config) => config.name === name) : configs;
+  const configured = selected.flatMap((config) =>
+    (config.stopProcessAtPort ?? []).map((port) => ({ processName: config.name, port })),
+  );
+  const inspected = await inspectPorts(configured.map(({ port }) => port));
+  const byPort = new Map(inspected.map((listener) => [listener.port, listener]));
+  return configured.flatMap(({ processName, port }) => {
+    const listener = byPort.get(port);
+    return listener ? [{ ...listener, processName }] : [];
+  });
+}
 
 export async function runStopCommand(opts: StopOptions): Promise<void> {
   const name = opts.positionals[0]; // optional
@@ -32,8 +51,9 @@ export async function runStopCommand(opts: StopOptions): Promise<void> {
     return;
   }
 
-  // No daemon — fall back to port-based kill
-  logWarn("No orchestrator daemon detected — killing processes by port.");
+  // No daemon means there is no trusted live ownership record. Ports are
+  // diagnostic only and must never become raw signal targets.
+  logWarn("No orchestrator daemon detected — inspecting configured ports only.");
 
   const configPath =
     (opts.flags["config"] as string | undefined) ??
@@ -56,7 +76,7 @@ export async function runStopCommand(opts: StopOptions): Promise<void> {
     process.exit(1);
   }
 
-  // If a name is given, only kill that process's ports
+  // If a name is given, only inspect that process's configured ports.
   if (name) {
     const proc = configs.find((c) => c.name === name);
     if (!proc) {
@@ -65,36 +85,30 @@ export async function runStopCommand(opts: StopOptions): Promise<void> {
     }
     const ports = proc.stopProcessAtPort ?? [];
     if (ports.length === 0) {
-      logWarn(`Process "${name}" has no ports defined — nothing to kill.`);
+      logWarn(`Process "${name}" has no ports defined — nothing to inspect.`);
       return;
     }
-    for (const port of ports) {
-      const pids = pidsByPort(port);
-      if (pids.length > 0) {
-        logInfo(`Killing PID ${pids.join(", ")} on port ${port} (${name})`);
-        await freePort(port);
-      }
+    const listeners = await collectConfiguredPortListeners(configs, name);
+    if (listeners.length === 0) {
+      logInfo(`No configured listeners found for "${name}".`);
+      return;
     }
-    logInfo(`"${name}" stopped.`);
+    for (const listener of listeners) {
+      logError(`Refusing to signal ${describePortListener(listener)} for "${name}" without a live ownership record.`);
+    }
+    process.exitCode = 1;
     return;
   }
 
-  // Kill all processes that have ports defined
-  let killed = 0;
-  for (const proc of configs) {
-    for (const port of proc.stopProcessAtPort ?? []) {
-      const pids = pidsByPort(port);
-      if (pids.length > 0) {
-        logInfo(`Killing PID ${pids.join(", ")} on port ${port} (${proc.name})`);
-        await freePort(port);
-        killed++;
-      }
-    }
-  }
-
-  if (killed === 0) {
+  const listeners = await collectConfiguredPortListeners(configs);
+  if (listeners.length === 0) {
     logInfo("No processes found on any configured ports.");
-  } else {
-    logInfo(`Stopped ${killed} process(es).`);
+    return;
   }
+  for (const listener of listeners) {
+    logError(
+      `Refusing to signal ${describePortListener(listener)} configured for "${listener.processName}" without a live ownership record.`,
+    );
+  }
+  process.exitCode = 1;
 }

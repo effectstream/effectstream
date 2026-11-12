@@ -1,10 +1,11 @@
-const { spawn, exec, execSync } = require("child_process");
+const { spawn, exec, execFile } = require("child_process");
+const { randomUUID } = require("crypto");
 const { promisify } = require("util");
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 const IMAGE_NAME = "midnightntwrk/proof-server";
 const IMAGE_TAG = "9.0.0-rc.5";
-const CONTAINER_NAME = "midnight-proof-server";
 
 async function checkIfDockerExists() {
   try {
@@ -22,9 +23,7 @@ async function pullDockerImage(tag = IMAGE_TAG) {
     });
     child.on(
       "exit",
-      (
-        code,
-      ) => (code === 0
+      (code) => (code === 0
         ? resolve()
         : reject(new Error(`docker pull exited with ${code}`))),
     );
@@ -32,93 +31,156 @@ async function pullDockerImage(tag = IMAGE_TAG) {
   });
 }
 
-/**
- * Checks if a container with the given name exists (running or stopped)
- * @param {string} containerName - Name of the container to check
- * @returns {Promise<boolean>} True if container exists, false otherwise
- */
-async function checkIfContainerExists(containerName) {
-  try {
-    const { stdout } = await execAsync(
-      `docker ps -aq -f name=^${containerName}$`,
-    );
-    return stdout.trim().length > 0;
-  } catch {
-    return false;
-  }
+function defaultRuntime() {
+  return {
+    spawn,
+    execFile: execFileAsync,
+    randomUUID,
+    signalEmitter: process,
+    setExitCode(code) {
+      process.exitCode = code;
+    },
+  };
 }
 
 /**
- * Checks if a container is currently running
- * @param {string} containerName - Name of the container to check
- * @returns {Promise<boolean>} True if container is running, false otherwise
- */
-async function checkIfContainerRunning(containerName) {
-  try {
-    const { stdout } = await execAsync(
-      `docker ps -q -f name=^${containerName}$`,
-    );
-    return stdout.trim().length > 0;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Runs the proof server container. Maps port 6300 by default. Additional CLI args are passed as command args.
- * @param {Object} env Env vars to set inside container.
+ * Creates one proof-server container owned by this wrapper run. The immutable
+ * container ID is the only identity used for start, stop, and removal.
+ *
+ * @param {Object} env Env vars to set inside the container.
  * @param {Array<string>} args CLI args.
  * @param {string} tag Docker tag.
+ * @param {Object} runtime Injectable command/signal boundary for tests.
  */
 async function runDockerContainer(
   env = process.env,
   args = [],
   tag = IMAGE_TAG,
+  runtime = defaultRuntime(),
 ) {
-  const containerExists = await checkIfContainerExists(CONTAINER_NAME);
-  const containerRunning = await checkIfContainerRunning(CONTAINER_NAME);
-
-  if (containerRunning) {
-    console.log(`Container ${CONTAINER_NAME} is already running`);
-    // Attach to the running container to see logs
-    const child = spawn("docker", ["logs", "-f", CONTAINER_NAME], {
-      stdio: "inherit",
-    });
-    return child;
-  }
-
-  if (containerExists) {
-    console.log(`Starting existing container: ${CONTAINER_NAME}`);
-    const child = spawn("docker", ["start", "-a", CONTAINER_NAME], {
-      stdio: "inherit",
-    });
-    return child;
-  }
-
-  // Container doesn't exist, create and run new one
-  console.log(`Creating new container: ${CONTAINER_NAME}`);
-
+  const runId = runtime.randomUUID();
+  const containerName = `midnight-proof-server-${runId}`;
+  const hostPort = env.MIDNIGHT_PROOF_SERVER_HOST_PORT || "6300";
   const dockerArgs = [
-    "run",
+    "create",
     "--name",
-    CONTAINER_NAME,
+    containerName,
+    "--label",
+    "effectstream.owner=midnight-proof-server",
+    "--label",
+    `effectstream.run-id=${runId}`,
     "-p",
-    "6300:6300",
+    `${hostPort}:6300`,
   ];
 
-  // pass env vars
-  Object.entries(env).forEach(([k, v]) => {
-    if (v) dockerArgs.push("-e", `${k}=${v}`);
+  // Preserve the wrapper's existing environment-forwarding behavior, except
+  // for the host-only published-port selector.
+  Object.entries(env).forEach(([key, value]) => {
+    if (value && key !== "MIDNIGHT_PROOF_SERVER_HOST_PORT") {
+      dockerArgs.push("-e", `${key}=${value}`);
+    }
   });
 
   dockerArgs.push(`${IMAGE_NAME}:${tag}`);
-
   if (args.length > 0) dockerArgs.push(...args);
 
-  console.log(
-    `Running proof server with Docker: docker ${dockerArgs.join(" ")}`,
-  );
-  const child = spawn("docker", dockerArgs, { stdio: "inherit" });
+  console.log(`Creating owned proof-server container: ${containerName}`);
+  const created = await runtime.execFile("docker", dockerArgs);
+  const containerId = created.stdout.trim();
+  if (!/^[a-f0-9]{64}$/.test(containerId)) {
+    // docker create succeeded under our unique name, but did not return the
+    // immutable identity contract we require. Remove only that just-created
+    // unique name and refuse to start or attach anything.
+    await runtime.execFile("docker", ["rm", containerName]).catch(() => {});
+    throw new Error(
+      `docker create returned an invalid immutable container ID: ${containerId || "<empty>"}`,
+    );
+  }
+
+  try {
+    const inspected = await runtime.execFile(
+      "docker",
+      ["inspect", "--format={{.Id}}", containerId],
+    );
+    if (inspected.stdout.trim() !== containerId) {
+      throw new Error("created proof-server container identity changed during validation");
+    }
+  } catch (error) {
+    await runtime.execFile("docker", ["rm", containerId]).catch(() => {});
+    throw error;
+  }
+
+  console.log(`Starting owned proof-server container: ${containerId}`);
+  let child;
+  try {
+    child = runtime.spawn("docker", ["start", "-a", containerId], {
+      stdio: "inherit",
+    });
+  } catch (error) {
+    await runtime.execFile("docker", ["rm", containerId]).catch(() => {});
+    throw error;
+  }
+
+  let cleanupPromise;
+  const signalHandlers = new Map();
+  const removeSignalHandlers = () => {
+    for (const [signal, handler] of signalHandlers) {
+      runtime.signalEmitter.removeListener(signal, handler);
+    }
+    signalHandlers.clear();
+  };
+  const cleanup = () => {
+    if (cleanupPromise) return cleanupPromise;
+    cleanupPromise = (async () => {
+      // An attached docker CLI exiting does not prove the container stopped.
+      // Every cleanup trigger therefore converges on the same conservative,
+      // idempotent stop-before-remove sequence for the immutable owned ID.
+      // Keep the stop timeout below the orchestrator's five-second group grace
+      // window so the wrapper can finish ID-based cleanup before escalation.
+      await runtime
+        .execFile("docker", ["stop", "--timeout", "3", containerId])
+        .catch((error) => {
+          console.warn(
+            `Could not stop owned proof-server container ${containerId}: ${error.message}`,
+          );
+        });
+      await runtime.execFile("docker", ["rm", containerId]);
+    })().finally(removeSignalHandlers);
+    return cleanupPromise;
+  };
+
+  for (const [signal, exitCode] of [["SIGINT", 130], ["SIGTERM", 143]]) {
+    const handler = () => {
+      cleanup()
+        .catch((error) => {
+          console.error(
+            `Failed to clean up owned proof-server container ${containerId}:`,
+            error,
+          );
+        })
+        .finally(() => runtime.setExitCode?.(exitCode));
+    };
+    signalHandlers.set(signal, handler);
+    runtime.signalEmitter.once(signal, handler);
+  }
+
+  child.once("exit", () => {
+    cleanup().catch((error) => {
+      console.error(`Failed to remove owned proof-server container ${containerId}:`, error);
+    });
+  });
+  child.once("error", () => {
+    cleanup().catch((error) => {
+      console.error(`Failed to clean up owned proof-server container ${containerId}:`, error);
+    });
+  });
+
+  Object.defineProperty(child, "ownedContainerId", { value: containerId });
+  Object.defineProperty(child, "cleanup", {
+    get() {
+      return cleanupPromise ?? Promise.resolve();
+    },
+  });
   return child;
 }
 
