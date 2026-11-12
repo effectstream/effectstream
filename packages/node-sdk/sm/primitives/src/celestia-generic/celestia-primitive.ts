@@ -25,8 +25,7 @@ import { PrimitiveTypeCelestiaGeneric } from "../builtin.ts";
  * The accounting row in `effectstream.primitive_accounting` holds only a
  * reference to the blob, `{ payload: { namespace, commitment, blobIndex,
  * height } }`, unless `persistBody` is set. A namespace is permissionless, so a
- * stored body would let anyone grow the node's database without limit, and a
- * body containing 0x00 would make Postgres JSON operators fail on its row. The
+ * stored body would let anyone grow the node's database without limit. The
  * state machine still receives the full body and keeps what it needs.
  */
 export class CelestiaGenericPrimitive extends Primitive<
@@ -38,7 +37,7 @@ export class CelestiaGenericPrimitive extends Primitive<
   /** Hex-encoded Celestia namespace to watch (e.g. "000000000000deadbeef") */
   readonly namespace: string;
   override readonly stateMachinePrefix: string | undefined;
-  /** Also store the blob body (`suppliedValue`) in the accounting row. */
+  /** Also store the blob body in the accounting row, as base64 `bodyBase64`. */
   readonly persistBody: boolean;
 
   constructor(config: {
@@ -98,9 +97,13 @@ export class CelestiaGenericPrimitive extends Primitive<
             type: AddressType.NONE,
             address: "0x0",
           },
+          // `suppliedValue` is a binary string (one char per byte). Stored as
+          // is, a 0x00 byte becomes `\u0000` in the `json` column, on which
+          // Postgres JSON operators fail. Base64 cannot contain it and is the
+          // encoding `blob.Get` returns.
           accountingPayload: {
             payload: this.persistBody
-              ? { ...reference, suppliedValue: payload.suppliedValue }
+              ? { ...reference, bodyBase64: btoa(payload.suppliedValue) }
               : reference,
           },
           stateMachinePayload: scheduledInputData,

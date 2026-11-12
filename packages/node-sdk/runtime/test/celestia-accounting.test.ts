@@ -159,13 +159,24 @@ const ONE_MIB = 1024 * 1024;
 
 type StubBlob = { body: Uint8Array; index?: number };
 
+/** A blob as celestia-node's `blob.GetAll` returns it. */
+type RpcBlob = {
+  namespace: string;
+  data: string;
+  share_version: number;
+  commitment: string;
+  signer: string;
+  index: number;
+};
+
 /**
  * Runs the real `CelestiaFetcher.fetchBlobsForPrimitive` for one Celestia
  * height. Only `client.getBlobsAtHeight` is replaced: it answers for the
  * primitive's namespace with celestia-node shaped blobs (base64 `data` and
- * `commitment`), so the bodies go through the fetcher's own decoding.
+ * `commitment`), so the bodies go through the fetcher's own decoding. Returns
+ * the fetched items and the blobs the stub answered with.
  */
-async function fetchItems(
+async function fetchFromStub(
   primitive: CelestiaGenericPrimitive,
   celestiaHeight: number,
   blobs: StubBlob[],
@@ -178,23 +189,26 @@ async function fetchItems(
     } as unknown as ConstructorParameters<typeof CelestiaFetcher>[0],
   );
   const requests: { height: number; namespaceB64: string }[] = [];
+  const answered: RpcBlob[] = [];
   (fetcher as unknown as {
     client: {
       getBlobsAtHeight: (height: number, namespaceB64: string) => Promise<
-        unknown[]
+        RpcBlob[]
       >;
     };
   }).client = {
     getBlobsAtHeight: (height, namespaceB64) => {
       requests.push({ height, namespaceB64 });
-      return Promise.resolve(blobs.map((blob, i) => ({
+      const answer = blobs.map((blob, i) => ({
         namespace: namespaceB64,
         data: Buffer.from(blob.body).toString("base64"),
         share_version: 0,
         commitment: commitmentOf(blob.body),
         signer: "",
         index: blob.index ?? i,
-      })));
+      }));
+      answered.push(...answer);
+      return Promise.resolve(answer);
     },
   };
   const items = await run(() =>
@@ -216,7 +230,15 @@ async function fetchItems(
       Buffer.from(NAMESPACE.padStart(56, "0"), "hex"),
     ]).toString("base64"),
   }]);
-  return items;
+  return { items, answered };
+}
+
+async function fetchItems(
+  primitive: CelestiaGenericPrimitive,
+  celestiaHeight: number,
+  blobs: StubBlob[],
+) {
+  return (await fetchFromStub(primitive, celestiaHeight, blobs)).items;
 }
 
 /**
@@ -280,6 +302,24 @@ async function fetchAndProcess(
   const items = await fetchItems(primitive, celestiaHeight, blobs);
   await processBlock(rollupHeight, items, gameStateTransitions);
   return rollupHeight;
+}
+
+/**
+ * Fetch one Celestia height and process it as its own rollup block. Returns
+ * the base64 `data` of each blob as the RPC answered it.
+ */
+async function fetchAndProcessData(
+  primitive: CelestiaGenericPrimitive,
+  celestiaHeight: number,
+  blobs: StubBlob[],
+): Promise<string[]> {
+  const { items, answered } = await fetchFromStub(
+    primitive,
+    celestiaHeight,
+    blobs,
+  );
+  await processBlock(nextRollupHeight++, items);
+  return answered.map((blob) => blob.data);
 }
 
 type AccountingRow = {
@@ -471,40 +511,97 @@ describe(`celestia-generic accounting row (${backend})`, () => {
     expect(stored).toContainEqual({ payload: reference(body, 1, 6_000_100) });
   });
 
-  test("persistBody: true adds the body to the reference", async () => {
+  test("persistBody: true adds the body to the reference as Celestia's base64", async () => {
     const primitive = newPrimitive({ persistBody: true });
+    // 7 bytes, so standard base64 needs padding.
     const body = ascii("keep me");
-    await fetchAndProcess(primitive, 7_000_001, [{ body }]);
+    const [data] = await fetchAndProcessData(primitive, 7_000_001, [{ body }]);
+    expect(data).toBe("a2VlcCBtZQ==");
 
-    const { rows } = await client.query(
+    const { rows } = await client.query<
+      { text: string; keys: string[]; body_base64: string | null }
+    >(
       `SELECT payload::text AS text,
-              payload->'payload'->>'suppliedValue' AS supplied_value
+              ARRAY(SELECT json_object_keys(payload->'payload')) AS keys,
+              payload->'payload'->>'bodyBase64' AS body_base64
          FROM effectstream.primitive_accounting
         WHERE primitive_name = $1`,
       [primitive.instanceName],
     );
     expect(rows).toHaveLength(1);
-    expect(rows[0].supplied_value).toBe("keep me");
+    expect([...rows[0].keys].sort()).toEqual([
+      "blobIndex",
+      "bodyBase64",
+      "commitment",
+      "height",
+      "namespace",
+    ]);
+    expect(rows[0].body_base64).toBe(data);
     expect(JSON.parse(rows[0].text)).toStrictEqual({
-      payload: { ...reference(body, 0, 7_000_001), suppliedValue: "keep me" },
+      payload: { ...reference(body, 0, 7_000_001), bodyBase64: data },
     });
   });
 
-  test("persistBody: true stores a body with 0x00 as escaped JSON text", async () => {
+  test("persistBody: true stores a body with 0x00 and every byte value as base64 JSON operators accept", async () => {
     const primitive = newPrimitive({ persistBody: true });
-    const body = Uint8Array.from([0x61, 0x00, 0x62, 0x80, 0xff]);
-    await fetchAndProcess(primitive, 7_000_002, [{ body }]);
+    const [data] = await fetchAndProcessData(primitive, 7_000_002, [
+      { body: ALL_BYTE_VALUES },
+    ]);
 
-    // Only the text form is read: JSON operators fail on a row holding \u0000.
-    const rows = await accountingRows(primitive);
+    const { rows } = await client.query<{
+      as_jsonb: unknown;
+      commitment: string;
+      body_base64: string | null;
+      same_bytes: boolean | null;
+    }>(
+      `SELECT payload::jsonb AS as_jsonb,
+              payload->'payload'->>'commitment' AS commitment,
+              payload->'payload'->>'bodyBase64' AS body_base64,
+              decode(payload->'payload'->>'bodyBase64', 'base64') = $2
+                AS same_bytes
+         FROM effectstream.primitive_accounting
+        WHERE primitive_name = $1`,
+      [primitive.instanceName, Buffer.from(ALL_BYTE_VALUES)],
+    );
     expect(rows).toHaveLength(1);
-    expect(rows[0].text).toContain("\\u0000");
-    expect(JSON.parse(rows[0].text)).toStrictEqual({
-      payload: {
-        ...reference(body, 0, 7_000_002),
-        suppliedValue: binaryString(body),
-      },
+    expect(rows[0].commitment).toBe(commitmentOf(ALL_BYTE_VALUES));
+    expect(rows[0].body_base64).toBe(data);
+    expect(rows[0].same_bytes).toBe(true);
+    expect(rows[0].as_jsonb).toStrictEqual({
+      payload: { ...reference(ALL_BYTE_VALUES, 0, 7_000_002), bodyBase64: data },
     });
+  });
+
+  test("persistBody: true stores a 1 MiB body at base64 size, decodable byte for byte", async () => {
+    const primitive = newPrimitive({ persistBody: true });
+    const body = pseudoRandomBytes(ONE_MIB, 0xba5e);
+    await fetchAndProcess(primitive, 7_000_003, [{ body }]);
+
+    // The size is read from the text form first: it works on any row.
+    const sizes = await client.query<{ size: number }>(
+      `SELECT length(payload::text) AS size
+         FROM effectstream.primitive_accounting
+        WHERE primitive_name = $1`,
+      [primitive.instanceName],
+    );
+    expect(sizes.rows).toHaveLength(1);
+    // Base64 of the body plus the reference fields.
+    expect(sizes.rows[0].size).toBeLessThanOrEqual(
+      4 * Math.ceil(ONE_MIB / 3) + 512,
+    );
+
+    const { rows } = await client.query<
+      { body_size: number; same_bytes: boolean }
+    >(
+      `SELECT length(decode(payload->'payload'->>'bodyBase64', 'base64'))
+                AS body_size,
+              decode(payload->'payload'->>'bodyBase64', 'base64') = $2
+                AS same_bytes
+         FROM effectstream.primitive_accounting
+        WHERE primitive_name = $1`,
+      [primitive.instanceName, Buffer.from(body)],
+    );
+    expect(rows).toEqual([{ body_size: ONE_MIB, same_bytes: true }]);
   });
 
   test("without a stateMachinePrefix the row is written and the state machine gets nothing", async () => {
