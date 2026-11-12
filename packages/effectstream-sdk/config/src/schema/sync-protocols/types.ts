@@ -145,6 +145,24 @@ type CelestiaPrimitive = BasePrimitive & {
    * Example: "000000000000deadbeef"
    */
   namespace: string;
+  /**
+   * Also store each blob's body (`suppliedValue`) in its
+   * `effectstream.primitive_accounting` row. Default: `false`.
+   *
+   * By default the row holds only the blob reference
+   * `{ payload: { namespace, commitment, blobIndex, height } }`, where `height`
+   * is the Celestia block height, so the blob can be fetched again with
+   * `blob.Get(height, namespace, commitment)`. The state machine receives the
+   * full body either way.
+   *
+   * Enabling this has two costs:
+   * - Storage without limit: a namespace is permissionless, so whoever posts to
+   *   it decides how many bytes the node keeps, forever.
+   * - A body containing a 0x00 byte is stored as `\u0000` in a `json` column, on
+   *   which Postgres JSON operators (`->`, `->>`, `::jsonb`, `json_each`) fail
+   *   with "unsupported Unicode escape sequence".
+   */
+  persistBody?: boolean;
 };
 
 type NearPrimitive = BasePrimitive & {
