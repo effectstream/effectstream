@@ -55,10 +55,38 @@ small executable subpaths - used directly by the orchestrator.
 > `acquireDBMutex(name)` / `releaseDBMutex(name)` so concurrent generators
 > don't trample each other.
 
+### PgLite gateway host
+
+The gateway listens on `127.0.0.1` unless a host is given. Another container
+(for example a second Docker Compose service) cannot reach a loopback listener,
+so choose the address to listen on:
+
+```typescript
+const database = await startPglite(5432, { host: "0.0.0.0" });
+```
+
+From the command line, `--host <addr>` wins over the `PGLITE_HOST` environment
+variable, which wins over the `127.0.0.1` default. An empty `PGLITE_HOST` counts
+as unset, and `--host` without an address is an error:
+
+```sh
+bun node_modules/@effectstream/db/scripts/start-pglite.ts --port 5432 --host 0.0.0.0
+PGLITE_HOST=0.0.0.0 bun node_modules/@effectstream/db/scripts/start-pglite.ts --port 5432
+```
+
+The start-up line names the bound port and address:
+`database: server listening on port 5432 (host 0.0.0.0)`.
+
+> **Warning:** the gateway accepts every client without a password. Any
+> address other than loopback exposes the whole database, read and write, to
+> everything that can reach that address. Use it only on a private network,
+> such as a Compose network without a published port, and never for
+> production data.
+
 ### PgLite gateway lifecycle
 
-`startPglite(0)` binds only to `127.0.0.1` and reports the actual assigned port.
-Its handle has two shutdown modes:
+`startPglite(0)` binds only to `127.0.0.1` (unless a host is given, see above)
+and reports the actual assigned port. Its handle has two shutdown modes:
 
 ```typescript
 const database = await startPglite(0);
@@ -138,8 +166,9 @@ Dynamic table / event helpers:
 
 Subpath entry points (executable scripts):
 
-- `@effectstream/db/start-pglite`: boot a PgLite instance and choose bounded
-  default or explicit forced teardown as described above.
+- `@effectstream/db/start-pglite`: boot a PgLite instance, listening on
+  loopback unless `{ host }`, `--host` or `PGLITE_HOST` says otherwise, and
+  choose bounded default or explicit forced teardown as described above.
 - `@effectstream/db/apply-migrations` - apply SQL migrations against the active DB.
 - `@effectstream/db/db-wait`: block until the DB accepts a connection.
 - `@effectstream/db/pgtyped-update`: regenerate pgtyped types.

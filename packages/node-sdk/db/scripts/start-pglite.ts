@@ -5,7 +5,7 @@ import net from "node:net";
 import { statSync } from "node:fs";
 import { fromNodeSocket } from "pg-gateway/node";
 import { ENV } from "@effectstream/utils/node-env";
-import { args, cwd } from "@effectstream/utils/runtime";
+import { args, cwd, getEnv } from "@effectstream/utils/runtime";
 
 export interface PgliteHandle {
   server: net.Server;
@@ -13,6 +13,18 @@ export interface PgliteHandle {
   port: number;
   close: (options?: PgliteCloseOptions) => Promise<void>;
 }
+
+export interface StartPgliteOptions {
+  /**
+   * Address the gateway listens on. Defaults to `127.0.0.1`. The gateway
+   * accepts every client without a password, so any other address (for
+   * example `0.0.0.0`, which another container needs) exposes the database
+   * to every host that can reach that address.
+   */
+  host?: string;
+}
+
+const DEFAULT_HOST = "127.0.0.1";
 
 export interface PgliteCloseOptions {
   /**
@@ -111,7 +123,11 @@ async function closeResources(
   throwCleanupErrors(errors, "Failed to close the PGlite gateway and database.");
 }
 
-export async function startPglite(port = 5432): Promise<PgliteHandle> {
+export async function startPglite(
+  port = 5432,
+  options: StartPgliteOptions = {},
+): Promise<PgliteHandle> {
+  const host = options.host ?? DEFAULT_HOST;
   // Resolve pg_ivm extension path via import.meta.resolve (works with bun's hoisting)
   const pgliteEntry = import.meta.resolve("@electric-sql/pglite");
   const pgliteDir = pgliteEntry.replace(/\/dist\/[^/]+$/, "");
@@ -214,7 +230,7 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
   try {
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
-      server.listen(port, "127.0.0.1", () => {
+      server.listen(port, host, () => {
         server.off("error", reject);
         resolve();
       });
@@ -244,7 +260,8 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
     throw addressError;
   }
   const actualPort = address.port;
-  console.info(`database: server listening on port ${actualPort}`);
+  // Callers parse the "listening on port <n>" prefix, so the host follows it.
+  console.info(`database: server listening on port ${actualPort} (host ${address.address})`);
 
   let cleanupPromise: Promise<void> | undefined;
 
@@ -308,6 +325,26 @@ export async function startPglite(port = 5432): Promise<PgliteHandle> {
   };
 }
 
+/**
+ * Host for the CLI: `--host <addr>` wins over `PGLITE_HOST`; with neither,
+ * `startPglite` keeps its loopback default. An empty `PGLITE_HOST` counts as
+ * unset. A `--host` without an address is an error rather than a silent
+ * fallback to loopback.
+ */
+function cliHost(argv: string[]): string | undefined {
+  const hostArgName = "--host";
+  const hostArgIndex = argv.indexOf(hostArgName);
+  if (hostArgIndex !== -1) {
+    const hostValue = argv[hostArgIndex + 1];
+    if (hostValue === undefined || hostValue === "" || hostValue.startsWith("-")) {
+      throw new Error(`Host argument ${hostArgName} requires an address`);
+    }
+    return hostValue;
+  }
+  const envHost = getEnv("PGLITE_HOST");
+  return envHost === undefined || envHost === "" ? undefined : envHost;
+}
+
 if (import.meta.main) {
   // TODO PORT be a ENV variable
   // Get port from arguments.
@@ -319,5 +356,5 @@ if (import.meta.main) {
   if (isNaN(port)) {
     throw new Error(`Port argument ${portArgName} is not a number`);
   }
-  await startPglite(port);
+  await startPglite(port, { host: cliHost(argv) });
 }
