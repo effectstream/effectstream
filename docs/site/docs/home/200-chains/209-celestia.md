@@ -76,10 +76,9 @@ The grammar carries only `suppliedValue`. The state machine gets every body in f
 
 The row is a reference, not a copy: `blob.Get(height, namespace, commitment)` fetches the blob again from a Celestia node (the namespace in its 29-byte base64 form). A blob posted again at another height or index gets its own row.
 
-**Option `persistBody`** (default `false`): set `persistBody: true` in the primitive config to also store each body as `suppliedValue` in its accounting row. Enable it only if you accept both costs:
+**Option `persistBody`** (default `false`): set `persistBody: true` in the primitive config to also store each body in its accounting row, as `bodyBase64`: standard padded base64, the same encoding `blob.Get` returns. Base64 text has no NUL character, so every Postgres JSON operator works on the row. Decode it with `decode(payload->'payload'->>'bodyBase64', 'base64')` in SQL, or `Buffer.from(bodyBase64, "base64")` (`atob` for a binary string) in JavaScript.
 
-- **Storage without limit.** A namespace is permissionless: whoever posts blobs to it decides how many bytes your node keeps, forever.
-- **Rows that break JSON operators.** A body containing a 0x00 byte is stored as `\u0000` in the `json` column, and Postgres then fails `->`, `->>`, `::jsonb` and `json_each` on that row with `unsupported Unicode escape sequence`.
+Enable it only if you accept the cost: **storage without limit**. A namespace is permissionless: whoever posts blobs to it decides how many bytes your node keeps, forever, at about 1.33 times each body.
 
 ## 2. Batcher Adapters (Write)
 
