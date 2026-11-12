@@ -145,6 +145,26 @@ type CelestiaPrimitive = BasePrimitive & {
    * Example: "000000000000deadbeef"
    */
   namespace: string;
+  /**
+   * Also store each blob's body in its `effectstream.primitive_accounting` row.
+   * Default: `false`.
+   *
+   * By default the row holds only the blob reference
+   * `{ payload: { namespace, commitment, blobIndex, height } }`, where `height`
+   * is the Celestia block height, so the blob can be fetched again with
+   * `blob.Get(height, namespace, commitment)`. The state machine receives the
+   * full body either way.
+   *
+   * With `true` the row also holds `bodyBase64`: the body as standard padded
+   * base64, the encoding `blob.Get` returns. Decode it with
+   * `decode(payload->'payload'->>'bodyBase64', 'base64')` in SQL or `atob` in
+   * JavaScript.
+   *
+   * Cost: storage without limit, about 1.33 times each body. A namespace is
+   * permissionless, so whoever posts to it decides how many bytes the node
+   * keeps, forever.
+   */
+  persistBody?: boolean;
 };
 
 type NearPrimitive = BasePrimitive & {

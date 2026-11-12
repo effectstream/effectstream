@@ -21,6 +21,12 @@ import { PrimitiveTypeCelestiaGeneric } from "../builtin.ts";
  *
  * Watches a Celestia namespace for Data Availability blobs and feeds
  * the decoded blob content into the state machine as a scheduled input.
+ *
+ * The accounting row in `effectstream.primitive_accounting` holds only a
+ * reference to the blob, `{ payload: { namespace, commitment, blobIndex,
+ * height } }`, unless `persistBody` is set. A namespace is permissionless, so a
+ * stored body would let anyone grow the node's database without limit. The
+ * state machine still receives the full body and keeps what it needs.
  */
 export class CelestiaGenericPrimitive extends Primitive<
   ConfigSyncProtocolType.CELESTIA_PARALLEL,
@@ -31,16 +37,20 @@ export class CelestiaGenericPrimitive extends Primitive<
   /** Hex-encoded Celestia namespace to watch (e.g. "000000000000deadbeef") */
   readonly namespace: string;
   override readonly stateMachinePrefix: string | undefined;
+  /** Also store the blob body in the accounting row, as base64 `bodyBase64`. */
+  readonly persistBody: boolean;
 
   constructor(config: {
     instanceName: string;
     startBlockHeight: number;
     namespace: string;
     stateMachinePrefix: string | undefined;
+    persistBody?: boolean;
   }) {
     super(config);
     this.namespace = config.namespace;
     this.stateMachinePrefix = config.stateMachinePrefix;
+    this.persistBody = config.persistBody ?? false;
   }
 
   override *getPayload(
@@ -69,6 +79,16 @@ export class CelestiaGenericPrimitive extends Primitive<
       )
       : null;
 
+    // `height` is the Celestia block height, not the rollup block height, so
+    // the row is the `blob.Get(height, namespace, commitment)` key and blobs
+    // re-posted at different Celestia heights keep distinct rows.
+    const reference = {
+      namespace: payload.namespace,
+      commitment: payload.commitment,
+      blobIndex: payload.blobIndex,
+      height: primitiveTransactionData.syncProtocol.blockNumber,
+    };
+
     return {
       isBatched: false,
       data: [
@@ -77,7 +97,15 @@ export class CelestiaGenericPrimitive extends Primitive<
             type: AddressType.NONE,
             address: "0x0",
           },
-          accountingPayload: { payload },
+          // `suppliedValue` is a binary string (one char per byte). Stored as
+          // is, a 0x00 byte becomes `\u0000` in the `json` column, on which
+          // Postgres JSON operators fail. Base64 cannot contain it and is the
+          // encoding `blob.Get` returns.
+          accountingPayload: {
+            payload: this.persistBody
+              ? { ...reference, bodyBase64: btoa(payload.suppliedValue) }
+              : reference,
+          },
           stateMachinePayload: scheduledInputData,
         },
       ],
@@ -93,6 +121,7 @@ export class CelestiaGenericPrimitive extends Primitive<
       startBlockHeight: this.startBlockHeight,
       scheduledPrefix: this.stateMachinePrefix,
       namespace: this.namespace,
+      persistBody: this.persistBody,
     } as const;
   }
 }

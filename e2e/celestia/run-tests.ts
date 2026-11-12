@@ -4,7 +4,7 @@
  * 1. Starts infrastructure via orchestrator/cli.ts (DB + Celestia node + bridge + fund + sync node)
  * 2. Waits for services to be ready
  * 3. Runs tooling tests (verify Celestia node is responding)
- * 4. Runs sync tests (submit blob via RPC, verify primitive_accounting has entry)
+ * 4. Runs sync tests (submit blob via RPC, verify primitive_accounting holds its reference)
  * 5. Shuts down everything
  */
 import {
@@ -82,6 +82,39 @@ async function celestiaSubmitBlob(data: string): Promise<number> {
   return json.result;
 }
 
+/**
+ * Fetch one blob via the blob.Get JSON-RPC method and return its body.
+ */
+async function celestiaGetBlob(
+  height: number,
+  namespaceHex: string,
+  commitment: string,
+): Promise<string> {
+  const res = await fetch("http://localhost:26658", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "blob.Get",
+      params: [height, celestiaNamespaceBase64(namespaceHex), commitment],
+    }),
+  });
+  const json = await res.json() as any;
+  if (json.error) {
+    throw new Error(`blob.Get error: ${JSON.stringify(json.error)}`);
+  }
+  return Buffer.from(json.result.data, "base64").toString();
+}
+
+/** The fields a CelestiaBlob accounting row holds by default. */
+type CelestiaBlobReference = {
+  namespace: string;
+  commitment: string;
+  blobIndex: number;
+  height: number;
+};
+
 // ── Tooling tests ────────────────────────────────────────────────────────────
 
 async function runToolingTests(): Promise<void> {
@@ -120,15 +153,42 @@ async function runSyncTests(db: Client): Promise<void> {
   const blobHeight = await celestiaSubmitBlob(testData);
   console.log(`Blob submitted successfully at height: ${blobHeight}`);
 
-  // Wait for sync to pick up the blob and verify primitive_accounting has a CelestiaBlob entry
-  await assertSQL<{ primitive_name: string }>(
-    "Celestia: primitive_accounting has CelestiaBlob entry",
+  // Wait for sync to pick up the blob. By default its accounting row is the
+  // blob reference only: no body, and the Celestia height it was included at.
+  const accounting = await assertSQL<
+    { payload: { payload: Record<string, unknown> } }
+  >(
+    "Celestia: CelestiaBlob row holds the blob reference and no body",
     db,
-    `SELECT primitive_name FROM effectstream.primitive_accounting WHERE primitive_name = 'CelestiaBlob' LIMIT 1;`,
+    `SELECT payload::jsonb AS payload FROM effectstream.primitive_accounting WHERE primitive_name = 'CelestiaBlob' ORDER BY id LIMIT 1;`,
     (res) => res.rows.length >= 1,
     (res) => {
-      const row = res.rows.find((r: any) => r.primitive_name === "CelestiaBlob");
-      return row != null;
+      const reference = res.rows[0]?.payload?.payload;
+      if (reference == null) return false;
+      const keys = Object.keys(reference).sort().join(",");
+      return keys === "blobIndex,commitment,height,namespace" &&
+        reference.namespace === CELESTIA_NAMESPACE &&
+        typeof reference.commitment === "string" &&
+        reference.commitment.length > 0 &&
+        Number.isInteger(reference.blobIndex) &&
+        reference.height === blobHeight;
+    },
+  );
+
+  // The reference is the blob.Get key: it fetches the submitted body back.
+  const reference = accounting.rows[0]?.payload?.payload as
+    | CelestiaBlobReference
+    | undefined;
+  await assert(
+    "Celestia: blob.Get with the row's height, namespace and commitment returns the blob",
+    async () => {
+      if (reference == null) return false;
+      const body = await celestiaGetBlob(
+        reference.height,
+        reference.namespace,
+        reference.commitment,
+      );
+      return body === testData;
     },
   );
 
