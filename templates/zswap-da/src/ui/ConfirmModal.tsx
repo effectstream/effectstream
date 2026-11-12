@@ -15,8 +15,8 @@ import { dlog } from '../debug';
 
 /** What the dialog shows for the current selection. */
 export interface ConfirmView {
-  pay: { sym: string; amt: string };
-  receive: { sym: string; amt: string };
+  pay: { sym: string; amt: string; iconSym?: string };
+  receive: { sym: string; amt: string; iconSym?: string };
   /** When set, the selection can't be funded by the wallet — reason is shown and
    *  the confirm CTA is disabled (never start a settle the wallet can't
    *  complete). */
@@ -118,18 +118,18 @@ export function ConfirmModal({ payload, onClose }: { payload: ConfirmPayload | n
           <ModalHead title={payload.title} onClose={busy ? () => {} : onClose} />
           <div style={{ padding: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 'var(--r-field)', background: 'var(--surface-2)', marginBottom: 8 }}>
-              <Coin sym={view.pay.sym} size="sm" />
-              <span style={{ display: 'flex', flexDirection: 'column' }}>
+              <Coin sym={view.pay.iconSym ?? view.pay.sym} size="sm" />
+              <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <span style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>You pay</span>
-                <span className="zs-num" style={{ fontWeight: 700, fontSize: 15 }}>{view.pay.amt} {view.pay.sym}</span>
+                <span className="zs-num" title={view.pay.sym} style={{ fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{view.pay.amt} {view.pay.sym}</span>
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', margin: '-2px 0' }}><Icon.arrow style={{ color: 'var(--ink-3)', transform: 'rotate(90deg)' }} /></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 'var(--r-field)', background: 'var(--accent-soft)', border: '1px solid var(--accent-line)' }}>
-              <Coin sym={view.receive.sym} size="sm" />
-              <span style={{ display: 'flex', flexDirection: 'column' }}>
+              <Coin sym={view.receive.iconSym ?? view.receive.sym} size="sm" />
+              <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <span style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>You receive</span>
-                <span className="zs-num" style={{ fontWeight: 700, fontSize: 15, color: 'var(--accent)' }}>{view.receive.amt} {view.receive.sym}</span>
+                <span className="zs-num" title={view.receive.sym} style={{ fontWeight: 700, fontSize: 15, color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{view.receive.amt} {view.receive.sym}</span>
               </span>
               {payload.shielded && <span className="zs-badge-shield" style={{ marginLeft: 'auto' }}><Icon.shield /> Shielded</span>}
             </div>
@@ -148,10 +148,10 @@ export function ConfirmModal({ payload, onClose }: { payload: ConfirmPayload | n
                         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', fontSize: 12.5, borderTop: i ? '1px solid var(--line)' : undefined, opacity: on ? 1 : 0.55, cursor: busy ? 'default' : 'pointer' }}>
                         <input type="checkbox" checked={on} disabled={busy} onChange={() => toggle(it.id)}
                           style={{ accentColor: 'var(--accent)', width: 14, height: 14, flex: '0 0 auto', cursor: busy ? 'default' : 'pointer' }} />
-                        <span className="zs-num" style={{ color: 'var(--ink)' }}>{it.pay}</span>
+                        <span className="zs-num" title={it.pay} style={{ color: 'var(--ink)', minWidth: 0, maxWidth: 125, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.pay}</span>
                         <Icon.arrow style={{ color: 'var(--ink-3)', width: 12, height: 12 }} />
-                        <span className="zs-num" style={{ color: 'var(--accent)' }}>{it.receive}</span>
-                        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span className="zs-num" title={it.receive} style={{ color: 'var(--accent)', minWidth: 0, maxWidth: 125, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.receive}</span>
+                        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
                           {it.mine && <span className="zs-pill" style={{ padding: '1px 6px', fontSize: 9.5, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-soft)', borderColor: 'var(--accent-line)' }}>Yours</span>}
                           {!it.ok && <span style={{ fontSize: 11, color: 'var(--neg)', fontWeight: 600 }}>can't afford</span>}
                         </span>

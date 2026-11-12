@@ -8,19 +8,26 @@
 // is allowed on-chain, so it is a question, not a block).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Coin, Icon, isShielded } from '../ui/icons';
+import { Coin, Icon } from '../ui/icons';
 import { api, type ChartHistoryRow, type ChartStats, type PairInfo } from '../services/api';
-import { decimalsOf, shortToken } from '../utils';
+import { decimalsOf, findTokenName, shortToken } from '../utils';
 import { TokenChip } from '../ui/TokenChip';
 import { scaleRate, toWholeCoinsNumber } from '../state/amount';
 import { fmtAge, fmtOffsetPct } from '../state/format';
 import { referenceRate } from '../state/reference';
 import { usePrices } from '../state/usePrices';
 import type { Order, ZSwapApp } from '../state/useZSwapApp';
+import type { TokenPrivacy } from '../services/tokenMetadata';
+import { marketOrderSide, marketReferenceRates } from '../state/marketIdentity';
 
 type Side = 'ask' | 'bid';
 type View = 'both' | 'asks' | 'bids';
-interface Pair { base: string; quote: string }
+interface Pair {
+  baseColor: string;
+  quoteColor: string;
+  baseKind?: TokenPrivacy;
+  quoteKind?: TokenPrivacy;
+}
 // A real order-book level — keeps the underlying offers so it can be taken.
 //
 // UNITS: `price`, `amt` and `total` are WHOLE COINS. Everything the node serves
@@ -44,6 +51,10 @@ function fmtQty(q: number): string {
   return parseFloat(q.toPrecision(3)).toString();
 }
 
+function MarketName({ value, maxWidth = 130 }: { value: string; maxWidth?: number }) {
+  return <span title={value} style={{ display: 'inline-block', maxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>{value}</span>;
+}
+
 function Stat({ label, children, sub, title }: { label: string; children: React.ReactNode; sub?: string; title?: string }) {
   return (
     <div style={{ minWidth: 0 }} title={title}>
@@ -61,25 +72,38 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
   const [pickOpen, setPickOpen] = useState(false);
   const [pairQuery, setPairQuery] = useState('');
   const pickRef = useRef<HTMLDivElement>(null);
-  const base = pair ? pair.base : '';
-  const quote = pair ? pair.quote : '';
-
-  // name → color map (chart endpoints key on colors; orders carry names)
-  const colorByName = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const t of st.knownTokens) m[t.name] = t.token_color;
-    return m;
-  }, [st.knownTokens]);
-  const baseColor = colorByName[base] ?? base;
-  const quoteColor = colorByName[quote] ?? quote;
+  const baseColor = pair?.baseColor ?? '';
+  const quoteColor = pair?.quoteColor ?? '';
+  const baseKind = pair?.baseKind;
+  const quoteKind = pair?.quoteKind;
+  // The selected pair is colors (+ kinds when a live offer supplies them).
+  // Labels can refresh freely without replacing this state.
+  const base = pair ? st.tokenLabel(baseColor, baseKind) : '';
+  const quote = pair ? st.tokenLabel(quoteColor, quoteKind) : '';
+  const baseInternal = findTokenName(baseColor, st.knownTokens, baseKind) ?? shortToken(baseColor);
+  const quoteInternal = findTokenName(quoteColor, st.knownTokens, quoteKind) ?? shortToken(quoteColor);
+  const historyBase = pair ? st.tokenLabel(baseColor) : '';
+  const historyQuote = pair ? st.tokenLabel(quoteColor) : '';
   // Precision of each side of the pair. Amounts divide by their own token's
   // 10^decimals; a PRICE is quote-per-base, so it scales by 10^(dBase − dQuote)
   // — the identity while every token is 6, and correct the day one is not.
-  const baseDecimals = decimalsOf(baseColor, st.knownTokens);
-  const quoteDecimals = decimalsOf(quoteColor, st.knownTokens);
-  const toBaseCoins = (v: number) => toWholeCoinsNumber(v, baseDecimals);
-  const toQuoteCoins = (v: number) => toWholeCoinsNumber(v, quoteDecimals);
-  const toCoinPrice = (p: number) => scaleRate(p, baseDecimals, quoteDecimals);
+  const baseDecimals = decimalsOf(baseColor, st.knownTokens, baseKind);
+  const quoteDecimals = decimalsOf(quoteColor, st.knownTokens, quoteKind);
+  const toLiveBaseCoins = (v: number) => toWholeCoinsNumber(v, baseDecimals);
+  // Chart/history APIs are color-only. Their conversion must remain color-only
+  // too; choosing a kind-aware live pair must not rescale historical values.
+  const historyBaseDecimals = decimalsOf(baseColor, st.knownTokens);
+  const historyQuoteDecimals = decimalsOf(quoteColor, st.knownTokens);
+  const toHistoryBaseCoins = (v: number) => toWholeCoinsNumber(v, historyBaseDecimals);
+  const toHistoryQuoteCoins = (v: number) => toWholeCoinsNumber(v, historyQuoteDecimals);
+  const toHistoryCoinPrice = (p: number) => scaleRate(p, historyBaseDecimals, historyQuoteDecimals);
+
+  // Explicit selection outranks the bounded background registry. This keeps a
+  // currently viewed live pair resolvable even with more than 256 old trades.
+  useEffect(() => {
+    if (baseKind) st.trackTokenLabel(baseColor, baseKind);
+    if (quoteKind) st.trackTokenLabel(quoteColor, quoteKind);
+  }, [baseColor, quoteColor, baseKind, quoteKind, st.trackTokenLabel]);
 
   const [stats, setStats] = useState<ChartStats | null>(null);
   const [history, setHistory] = useState<ChartHistoryRow[]>([]);
@@ -100,7 +124,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pair?.base, pair?.quote, baseColor, quoteColor, nonce]);
+  }, [baseColor, quoteColor, nonce]);
 
   useEffect(() => {
     const off = (e: PointerEvent) => { if (pickRef.current && !pickRef.current.contains(e.target as Node)) setPickOpen(false); };
@@ -120,12 +144,9 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
-  // Name-resolve the color pairs from /v1/pairs and merge with live orders to
-  // mark "mine". Falls back to the live order set for pairs not yet in pair_stats.
+  // Color-only historical pairs deliberately have no privacy kind and therefore
+  // keep internal/short labels. Brand-new live pairs retain full identities.
   const liquidPairs = useMemo(() => {
-    const nameOf = (color: string) =>
-      st.knownTokens.find((t) => t.token_color === color)?.name ?? shortToken(color);
-
     // Build a mine-set from live orders.
     const minePairs = new Set<string>();
     for (const o of st.orders) {
@@ -135,40 +156,82 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
       }
     }
 
-    // API pairs (authoritative — includes historical pairs with 0 open orders).
-    const seen = new Set<string>();
-    const out: { base: string; quote: string; count: number; mine: boolean; dimmed: boolean }[] = [];
+    const orders = st.orders || [];
+    const liveMap = new Map<string, { count: number; dirs: Map<string, { count: number; order: Order }>; mine: boolean }>();
+    const liveColorPairs = new Set<string>();
+    orders.forEach((o) => {
+      const colorKey = [o.fromColor, o.toColor].sort().join('|');
+      liveColorPairs.add(colorKey);
+      const key = [`${o.fromKind}:${o.fromColor}`, `${o.toKind}:${o.toColor}`].sort().join('|');
+      const entry = liveMap.get(key) ?? { count: 0, dirs: new Map(), mine: false };
+      entry.count++;
+      if (o.isMine) entry.mine = true;
+      const direction = `${o.fromKind}:${o.fromColor}>${o.toKind}:${o.toColor}`;
+      const current = entry.dirs.get(direction);
+      entry.dirs.set(direction, { count: (current?.count ?? 0) + 1, order: o });
+      liveMap.set(key, entry);
+    });
+
+    // API pairs are color-only historical aggregates. When live offers exist,
+    // their kind-aware controls replace this picker entry; chart calls still use
+    // only the two colors and keep separate fallback labels below.
+    const out: {
+      key: string;
+      baseColor: string;
+      quoteColor: string;
+      baseKind?: TokenPrivacy;
+      quoteKind?: TokenPrivacy;
+      base: string;
+      quote: string;
+      count: number;
+      mine: boolean;
+      dimmed: boolean;
+    }[] = [];
     for (const p of apiPairs) {
-      seen.add(p.pair_key);
-      const base = nameOf(p.base_color);
-      const quote = nameOf(p.quote_color);
+      if (liveColorPairs.has(p.pair_key)) continue;
+      const base = st.tokenLabel(p.base_color);
+      const quote = st.tokenLabel(p.quote_color);
       const mine = minePairs.has(p.pair_key);
-      out.push({ base, quote, count: p.open_count, mine, dimmed: p.open_count === 0 });
+      out.push({
+        key: `history:${p.pair_key}`,
+        baseColor: p.base_color,
+        quoteColor: p.quote_color,
+        base,
+        quote,
+        count: p.open_count,
+        mine,
+        dimmed: p.open_count === 0,
+      });
     }
 
-    // Live pairs not yet in pair_stats (brand-new pairs before any fills).
-    const orders = st.orders || [];
-    const liveMap: Record<string, { count: number; dirs: Record<string, number>; mine: boolean }> = {};
-    orders.forEach((o) => {
-      const key = [o.fromColor, o.toColor].sort().join('|');
-      if (seen.has(key)) return;
-      if (!liveMap[key]) liveMap[key] = { count: 0, dirs: {}, mine: false };
-      liveMap[key].count++;
-      if (o.isMine) liveMap[key].mine = true;
-      const dk = o.fromColor + '/' + o.toColor;
-      liveMap[key].dirs[dk] = (liveMap[key].dirs[dk] || 0) + 1;
-    });
-    for (const [, p] of Object.entries(liveMap)) {
-      const [top] = Object.entries(p.dirs).sort((a, b) => b[1] - a[1]);
-      const [b0Color, q0Color] = top[0].split('/');
-      out.push({ base: nameOf(b0Color), quote: nameOf(q0Color), count: p.count, mine: p.mine, dimmed: false });
+    // Every live native identity gets its own entry, even when /v1/pairs has the
+    // same color pair. Duplicate labels therefore cannot merge assets.
+    for (const [key, p] of liveMap) {
+      const top = [...p.dirs.values()].sort((a, b) => b.count - a.count)[0].order;
+      out.push({
+        key: `live:${key}`,
+        baseColor: top.fromColor,
+        quoteColor: top.toColor,
+        baseKind: top.fromKind,
+        quoteKind: top.toKind,
+        base: st.tokenLabel(top.fromColor, top.fromKind, top.from),
+        quote: st.tokenLabel(top.toColor, top.toKind, top.to),
+        count: p.count,
+        mine: p.mine,
+        dimmed: false,
+      });
     }
 
     return out.sort((a, b) => b.count - a.count || (a.dimmed ? 1 : 0) - (b.dimmed ? 1 : 0)).slice(0, 24);
-  }, [apiPairs, st.orders, st.knownTokens]);
+  }, [apiPairs, st.orders, st.tokenLabel]);
 
   const q = pairQuery.trim().toLowerCase();
-  const shownPairs = q ? liquidPairs.filter((p) => (p.base + ' ' + p.quote).toLowerCase().includes(q)) : liquidPairs;
+  const shownPairs = q ? liquidPairs.filter((p) => {
+    const internalBase = findTokenName(p.baseColor, st.knownTokens, p.baseKind) ?? '';
+    const internalQuote = findTokenName(p.quoteColor, st.knownTokens, p.quoteKind) ?? '';
+    return [p.base, p.quote, internalBase, internalQuote, p.baseColor, p.quoteColor]
+      .join(' ').toLowerCase().includes(q);
+  }) : liquidPairs;
 
   // Real order book built from the open offers for this pair (st.orders):
   //  - ask = an offer GIVING base, WANTING quote (selling base); price = quote/base
@@ -187,8 +250,9 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
       // `o.impliedRate` is already the whole-coin rate of from→to, so an ask
       // (giving base, wanting quote) prices directly off it and a bid — quoted
       // the other way round — off its reciprocal.
-      if (o.from === base && o.to === quote) push(askAt, o.impliedRate, o);
-      else if (o.from === quote && o.to === base) push(bidAt, o.impliedRate > 0 ? 1 / o.impliedRate : 0, o);
+      const side = marketOrderSide(o, pair);
+      if (side === 'ask') push(askAt, o.impliedRate, o);
+      else if (side === 'bid') push(bidAt, o.impliedRate > 0 ? 1 / o.impliedRate : 0, o);
     }
     // The BASE token's amount at this level, in coins: an ask gives base
     // (`amtFrom`), a bid wants it (`amtTo`).
@@ -196,7 +260,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
       [...m.entries()]
         .map(([price, orders]) => ({
           price,
-          amt: orders.reduce((s, o) => s + toBaseCoins(side === 'ask' ? o.amtFrom : o.amtTo), 0),
+          amt: orders.reduce((s, o) => s + toLiveBaseCoins(side === 'ask' ? o.amtFrom : o.amtTo), 0),
           total: 0,
           orders,
         }))
@@ -215,7 +279,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
     const maxTotal = Math.max(1, asks.length ? asks[0].total : 0, bids.length ? bids[bids.length - 1].total : 0);
     return { mid, asks, bids, maxTotal, spread };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [st.orders, pair, base, quote, baseDecimals]);
+  }, [st.orders, pair, baseColor, quoteColor, baseKind, quoteKind, baseDecimals]);
 
   // depth-derived locals (empty-safe)
   const asks = realDepth?.asks ?? [];
@@ -243,16 +307,24 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
   // `referenceRate` divides two per-BASE-UNIT USD prices, so it is a base-unit
   // rate like everything else the node publishes: scale it before comparing it
   // with the book's coin mid or printing "1 base = … quote".
-  const referenceCoinRate = reference ? toCoinPrice(reference.rate) : null;
+  const referenceRates = reference
+    ? marketReferenceRates(
+        reference.rate,
+        { base: historyBaseDecimals, quote: historyQuoteDecimals },
+        baseKind && quoteKind ? { base: baseDecimals, quote: quoteDecimals } : undefined,
+      )
+    : null;
+  const referenceCoinRate = referenceRates?.historical ?? null;
+  const liveReferenceCoinRate = referenceRates?.live ?? null;
   const referenceSub = reference
     ? [reference.label, fmtAge(reference.updatedAt)].filter(Boolean).join(' · ')
     : null;
-  const midVsReference = referenceCoinRate != null && mid > 0 ? fmtOffsetPct(mid, referenceCoinRate) : null;
+  const midVsReference = liveReferenceCoinRate != null && mid > 0 ? fmtOffsetPct(mid, liveReferenceCoinRate) : null;
 
   // —— row selection: hover previews a cumulative range, click commits ——
   const [active, setActive] = useState<Record<string, boolean>>({});
   const [hover, setHover] = useState<{ side: Side; idx: number } | null>(null);
-  useEffect(() => { setActive({}); setHover(null); }, [base, quote, nonce, view]);
+  useEffect(() => { setActive({}); setHover(null); }, [baseColor, quoteColor, baseKind, quoteKind, nonce, view]);
 
   const keyOf = (side: Side, idx: number) => side + idx;
   const rangeKeys = (side: Side, idx: number) => {
@@ -348,7 +420,7 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
           <div ref={pickRef} style={{ position: 'relative' }}>
             <button onClick={() => setPickOpen((o) => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--r-pill)', padding: pair ? '7px 14px 7px 9px' : '10px 16px', cursor: 'pointer', fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>
               {pair ? (
-                <><span style={{ display: 'inline-flex', alignItems: 'center' }}><Coin sym={base} size="sm" address={baseColor} /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={quote} size="sm" address={quoteColor} /></span> {base}/{quote}</>
+                <><span style={{ display: 'inline-flex', alignItems: 'center' }}><Coin sym={baseInternal} size="sm" address={baseColor} /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={quoteInternal} size="sm" address={quoteColor} /></span> <MarketName value={base} />/<MarketName value={quote} /></>
               ) : (<>Select a pair</>)}
               <Icon.caret style={{ color: 'var(--ink-3)' }} />
             </button>
@@ -362,10 +434,10 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                 <div style={{ overflowY: 'auto' }}>
                   <div className="zs-tag" style={{ padding: '6px 10px 8px', display: 'flex', alignItems: 'center', gap: 6 }}><Icon.spark style={{ color: 'var(--accent)' }} /> Known pairs</div>
                   {shownPairs.length === 0 && <div style={{ padding: '6px 10px 12px', fontSize: 12.5, color: 'var(--ink-3)' }}>{q ? `No pairs match "${pairQuery}".` : 'No pairs yet.'}</div>}
-                  {shownPairs.map((p, i) => (
-                    <button key={i} onClick={() => { setPair({ base: p.base, quote: p.quote }); setPickOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', border: 'none', background: pair && pair.base === p.base && pair.quote === p.quote ? 'var(--surface-2)' : 'transparent', borderRadius: 10, cursor: 'pointer', textAlign: 'left', opacity: p.dimmed ? 0.6 : 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}><Coin sym={p.base} size="sm" address={colorByName[p.base]} /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={p.quote} size="sm" address={colorByName[p.quote]} /></div>
-                      <span style={{ flex: 1, fontWeight: 700, fontSize: 13.5 }}>{p.base}<span style={{ color: 'var(--ink-3)', fontWeight: 500 }}> / {p.quote}</span></span>
+                  {shownPairs.map((p) => (
+                    <button key={p.key} onClick={() => { setPair({ baseColor: p.baseColor, quoteColor: p.quoteColor, baseKind: p.baseKind, quoteKind: p.quoteKind }); setPickOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', border: 'none', background: pair && baseColor === p.baseColor && quoteColor === p.quoteColor && baseKind === p.baseKind && quoteKind === p.quoteKind ? 'var(--surface-2)' : 'transparent', borderRadius: 10, cursor: 'pointer', textAlign: 'left', opacity: p.dimmed ? 0.6 : 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}><Coin sym={findTokenName(p.baseColor, st.knownTokens, p.baseKind) ?? shortToken(p.baseColor)} size="sm" address={p.baseColor} /><span style={{ margin: '0 3px', color: 'var(--ink-3)', fontSize: 11, position: 'relative', zIndex: 2 }}>→</span><Coin sym={findTokenName(p.quoteColor, st.knownTokens, p.quoteKind) ?? shortToken(p.quoteColor)} size="sm" address={p.quoteColor} /></div>
+                      <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 13.5, display: 'flex', alignItems: 'center' }}><MarketName value={p.base} maxWidth={92} /><span style={{ color: 'var(--ink-3)', fontWeight: 500, display: 'inline-flex', minWidth: 0 }}> / <MarketName value={p.quote} maxWidth={92} /></span></span>
                       {p.mine && <span className="zs-pill" style={{ padding: '2px 7px', fontSize: 10, color: 'var(--accent)', background: 'var(--accent-soft)', borderColor: 'var(--accent-line)', flex: '0 0 auto' }}>Yours</span>}
                       <span className="zs-num" style={{ fontSize: 11.5, color: 'var(--ink-3)', flex: '0 0 auto' }}>{p.count} open</span>
                     </button>
@@ -376,11 +448,11 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
           </div>
           {pair && (
             <>
-              <button onClick={() => setPair({ base: quote, quote: base })} title="Flip direction" style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: '0 0 auto' }}><Icon.swap /></button>
+              <button onClick={() => setPair({ baseColor: quoteColor, quoteColor: baseColor, baseKind: quoteKind, quoteKind: baseKind })} title="Flip direction" style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: '0 0 auto' }}><Icon.swap /></button>
               <button onClick={() => setPair(null)} title="Clear pair" style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: '0 0 auto' }}><svg viewBox="0 0 16 16" width="13" height="13" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg></button>
             </>
           )}
-          {pair && isShielded(base) && isShielded(quote) && <span className="zs-badge-shield"><Icon.shield /> Shielded market</span>}
+          {pair && baseKind === 'shielded' && quoteKind === 'shielded' && <span className="zs-badge-shield"><Icon.shield /> Shielded market</span>}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
             <button onClick={() => setNonce((n) => n + 1)} className="zs-btn zs-btn--ghost" style={{ padding: '8px 12px', fontSize: 13 }}>Refresh</button>
           </div>
@@ -391,11 +463,11 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
             {stats && <>
               {/* /v1/chart/* serves base units and base-unit price ratios; the
                   API shape is untouched and the scaling happens here (Q7). */}
-              <Stat label="Last price">{fmtPrice(toCoinPrice(stats.last))} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{quote}</span></Stat>
+              <Stat label="Last price" title="Historical stats are aggregated by token color across privacy kinds.">{fmtPrice(toHistoryCoinPrice(stats.last))} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}><MarketName value={historyQuote} maxWidth={130} /></span></Stat>
               <Stat label="24h"><span style={{ color: lastUp ? 'var(--pos)' : 'var(--neg)' }}>{lastUp ? '+' : ''}{change24.toFixed(2)}%</span></Stat>
-              <Stat label="High">{fmtPrice(toCoinPrice(stats.high))}</Stat>
-              <Stat label="Low">{fmtPrice(toCoinPrice(stats.low))}</Stat>
-              <Stat label="Volume" sub={fmtQty(toQuoteCoins(stats.volume_quote)) + ' ' + quote}>{fmtQty(toBaseCoins(stats.volume_base))} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{base}</span></Stat>
+              <Stat label="High">{fmtPrice(toHistoryCoinPrice(stats.high))}</Stat>
+              <Stat label="Low">{fmtPrice(toHistoryCoinPrice(stats.low))}</Stat>
+              <Stat label="Volume" sub={fmtQty(toHistoryQuoteCoins(stats.volume_quote)) + ' ' + historyQuote}>{fmtQty(toHistoryBaseCoins(stats.volume_base))} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}><MarketName value={historyBase} maxWidth={130} /></span></Stat>
             </>}
             <Stat
               label="Reference"
@@ -405,15 +477,15 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                 : `No market reference for this pair - at least one token is priced by the demo fallback`}
             >
               {reference && referenceCoinRate != null
-                ? <>1 {base} = {fmtPrice(referenceCoinRate)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{quote}</span></>
+                ? <>1 <MarketName value={historyBase} maxWidth={120} /> = {fmtPrice(referenceCoinRate)} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}><MarketName value={historyQuote} maxWidth={120} /></span></>
                 : <span style={{ color: 'var(--ink-3)', fontWeight: 600 }}>no reference</span>}
             </Stat>
             <Stat label="Mid vs reference" title="How far the order book's mid price sits from the reference price">
               {midVsReference
-                ? <span style={{ color: mid <= (referenceCoinRate ?? 0) ? 'var(--pos)' : 'var(--neg)' }}>{midVsReference}</span>
+                ? <span style={{ color: mid <= (liveReferenceCoinRate ?? 0) ? 'var(--pos)' : 'var(--neg)' }}>{midVsReference}</span>
                 : <span style={{ color: 'var(--ink-3)', fontWeight: 600 }}>{reference ? 'no book' : 'no reference'}</span>}
             </Stat>
-            <Stat label="Asset ID"><TokenChip color={baseColor} knownTokens={st.knownTokens} size="sm" /></Stat>
+            <Stat label="Asset ID"><TokenChip color={baseColor} label={historyBase} knownTokens={st.knownTokens} size="sm" /></Stat>
           </div>
         )}
 
@@ -433,13 +505,13 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-              {shownPairs.map((p, i) => {
-                const sh = isShielded(p.base) && isShielded(p.quote);
+              {shownPairs.map((p) => {
+                const sh = p.baseKind === 'shielded' && p.quoteKind === 'shielded';
                 return (
-                  <button key={i} onClick={() => setPair({ base: p.base, quote: p.quote })} style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 'var(--r-field)', border: '1px solid var(--line)', background: 'var(--surface)', cursor: 'pointer', textAlign: 'left', opacity: p.dimmed ? 0.55 : 1 }}>
+                  <button key={p.key} onClick={() => setPair({ baseColor: p.baseColor, quoteColor: p.quoteColor, baseKind: p.baseKind, quoteKind: p.quoteKind })} style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 'var(--r-field)', border: '1px solid var(--line)', background: 'var(--surface)', cursor: 'pointer', textAlign: 'left', opacity: p.dimmed ? 0.55 : 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center' }}><Coin sym={p.base} address={colorByName[p.base]} /><span style={{ margin: '0 4px', color: 'var(--ink-3)', position: 'relative', zIndex: 2 }}>→</span><Coin sym={p.quote} address={colorByName[p.quote]} /></span>
-                      <span style={{ fontWeight: 700, fontSize: 14.5 }}>{p.base}<span style={{ color: 'var(--ink-3)', fontWeight: 500 }}> / {p.quote}</span></span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}><Coin sym={findTokenName(p.baseColor, st.knownTokens, p.baseKind) ?? shortToken(p.baseColor)} address={p.baseColor} /><span style={{ margin: '0 4px', color: 'var(--ink-3)', position: 'relative', zIndex: 2 }}>→</span><Coin sym={findTokenName(p.quoteColor, st.knownTokens, p.quoteKind) ?? shortToken(p.quoteColor)} address={p.quoteColor} /></span>
+                      <span style={{ minWidth: 0, fontWeight: 700, fontSize: 14.5, display: 'flex' }}><MarketName value={p.base} maxWidth={100} /><span style={{ color: 'var(--ink-3)', fontWeight: 500, display: 'inline-flex', minWidth: 0 }}> / <MarketName value={p.quote} maxWidth={100} /></span></span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                       <span className="zs-tag">{p.count > 0 ? 'Open ZSwaps' : 'No open orders'}</span>
@@ -472,9 +544,9 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', padding: '10px 12px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
-              <span>Price (<TokenChip color={quoteColor} knownTokens={st.knownTokens} inline />)</span>
-              <span style={{ textAlign: 'right' }}>Amount (<TokenChip color={baseColor} knownTokens={st.knownTokens} inline />)</span>
-              <span style={{ textAlign: 'right' }}>Total (<TokenChip color={baseColor} knownTokens={st.knownTokens} inline />)</span>
+              <span>Price (<TokenChip color={quoteColor} kind={quoteKind} label={quote} knownTokens={st.knownTokens} inline />)</span>
+              <span style={{ textAlign: 'right' }}>Amount (<TokenChip color={baseColor} kind={baseKind} label={base} knownTokens={st.knownTokens} inline />)</span>
+              <span style={{ textAlign: 'right' }}>Total (<TokenChip color={baseColor} kind={baseKind} label={base} knownTokens={st.knownTokens} inline />)</span>
             </div>
 
             {!realDepth ? (
@@ -527,11 +599,11 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 5 }}>
                       <span style={{ fontSize: 12.5, color: 'var(--ink-2)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>You pay</span>
-                      <span className="zs-num" style={{ fontSize: 14, fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtQty(summary.pay)} <span style={{ color: 'var(--ink-3)', fontWeight: 500 }}>{summary.paySym}</span></span>
+                      <span className="zs-num" style={{ minWidth: 0, fontSize: 14, fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtQty(summary.pay)} <span style={{ color: 'var(--ink-3)', fontWeight: 500 }}><MarketName value={summary.paySym} maxWidth={150} /></span></span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: summary.preview ? 0 : 12 }}>
                       <span style={{ fontSize: 12.5, color: 'var(--ink-2)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>You receive</span>
-                      <span className="zs-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtQty(summary.get)} <span style={{ color: 'var(--ink-3)', fontWeight: 500 }}>{summary.getSym}</span></span>
+                      <span className="zs-num" style={{ minWidth: 0, fontSize: 14, fontWeight: 700, color: 'var(--accent)', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtQty(summary.get)} <span style={{ color: 'var(--ink-3)', fontWeight: 500 }}><MarketName value={summary.getSym} maxWidth={150} /></span></span>
                     </div>
                     {!summary.preview && (
                       <div style={{ display: 'flex', gap: 8 }}>
@@ -549,11 +621,11 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
           <div className="zs-card" style={{ overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 12px', borderBottom: '1px solid var(--line)' }}>
               <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-.02em', whiteSpace: 'nowrap' }}>Trade History</span>
-              <span className="zs-pill"><Icon.clock /> {base}/{quote}</span>
+              <span className="zs-pill" title={`${historyBase}/${historyQuote} — history is aggregated by token color across privacy kinds`} style={{ minWidth: 0, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Icon.clock /> {historyBase}/{historyQuote}</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', padding: '10px 12px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
-              <span>Price (<TokenChip color={quoteColor} knownTokens={st.knownTokens} inline />)</span>
-              <span style={{ textAlign: 'right' }}>Amount (<TokenChip color={baseColor} knownTokens={st.knownTokens} inline />)</span>
+              <span>Price (<TokenChip color={quoteColor} label={historyQuote} knownTokens={st.knownTokens} inline />)</span>
+              <span style={{ textAlign: 'right' }}>Amount (<TokenChip color={baseColor} label={historyBase} knownTokens={st.knownTokens} inline />)</span>
               <span style={{ textAlign: 'right' }}>Time</span>
             </div>
             <div style={{ maxHeight: 432, overflowY: 'auto' }}>
@@ -569,8 +641,8 @@ export function Market({ st, onStartOrder }: { st: ZSwapApp; onStartOrder?: () =
                   const ts = at.toISOString().slice(0, 16).replace('T', ' ');
                   rows.push(
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', padding: '5px 12px', alignItems: 'center' }}>
-                      <span className="zs-num" style={{ fontSize: 13, fontWeight: 600, color: h.up ? 'var(--pos)' : 'var(--neg)' }}>{fmtPrice(toCoinPrice(h.price))}</span>
-                      <span className="zs-num" style={{ fontSize: 13, textAlign: 'right', color: 'var(--ink)' }}>{fmtQty(toBaseCoins(h.amt))}</span>
+                      <span className="zs-num" style={{ fontSize: 13, fontWeight: 600, color: h.up ? 'var(--pos)' : 'var(--neg)' }}>{fmtPrice(toHistoryCoinPrice(h.price))}</span>
+                      <span className="zs-num" style={{ fontSize: 13, textAlign: 'right', color: 'var(--ink)' }}>{fmtQty(toHistoryBaseCoins(h.amt))}</span>
                       <span className="zs-num" style={{ fontSize: 12, textAlign: 'right', color: 'var(--ink-3)' }}>{ts}</span>
                     </div>,
                   );

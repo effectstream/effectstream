@@ -3,7 +3,7 @@
 // stored `blob` is the real bech32m offer, so View/Download export the actual
 // shareable offer file. Import pastes a `swapoffer1…` blob and takes it.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Coin, Icon } from '../ui/icons';
 import { Modal, ModalHead } from '../ui/Modal';
 import { DEFAULT_DECIMALS, formatAmount, scaleRate } from '../state/amount';
@@ -63,12 +63,17 @@ function StatusBadge({ status }: { status: MyTrade['status'] }) {
 
 /** A recorded leg. `amt` is base units; `decimals` is absent on records written
  *  before project 00024, which are then read at the default precision. */
-function Cell({ leg, accent }: { leg: TradeLeg; accent?: boolean }) {
+function legLabel(st: ZSwapApp, leg: TradeLeg): string {
+  return leg.color && leg.kind ? st.tokenLabel(leg.color, leg.kind, leg.sym) : leg.sym;
+}
+
+function Cell({ leg, st, accent }: { leg: TradeLeg; st: ZSwapApp; accent?: boolean }) {
+  const label = legLabel(st, leg);
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap' }}>
+    <span title={leg.color ?? label} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap' }}>
       <Coin sym={leg.sym} size="sm" />
       <span className="zs-num" style={{ fontWeight: 600, fontSize: 13.5, color: accent ? 'var(--accent)' : 'var(--ink)' }}>{formatAmount(leg.amt, leg.decimals ?? DEFAULT_DECIMALS)}</span>
-      <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{leg.sym}</span>
+      <span style={{ fontSize: 12, color: 'var(--ink-3)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
     </span>
   );
 }
@@ -82,6 +87,15 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
   const [importing, setImporting] = useState(false);
   const [importErr, setImportErr] = useState<string | null>(null);
   const preview = dump.trim() ? st.previewOffer(dump) : null;
+  const previewIdentityKey = preview
+    ? [...preview.pays, ...preview.gets].map((leg) => `${leg.kind}:${leg.color}`).join('|')
+    : '';
+  useEffect(() => {
+    if (!preview) return;
+    for (const leg of [...preview.pays, ...preview.gets]) st.trackTokenLabel(leg.color, leg.kind);
+    // The parsed identity key is stable while display labels refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewIdentityKey, st.trackTokenLabel]);
 
   const counts = {
     all: trades.length,
@@ -164,10 +178,10 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
                   const d = new Date(t.at);
                   return (
                     <tr key={t.id}>
-                      <td><Cell leg={t.give} /></td>
-                      <td><Cell leg={t.get} accent /></td>
+                      <td><Cell leg={t.give} st={st} /></td>
+                      <td><Cell leg={t.get} st={st} accent /></td>
                       <td style={{ textAlign: 'right' }}>
-                        <div className="zs-num" style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{r.kind === 'plain' ? r.text : (<>{r.mant} × 10<sup style={{ fontSize: '.72em' }}>{r.exp}</sup></>)} <span style={{ color: 'var(--ink-3)', fontWeight: 400 }}>{t.get.sym}</span></div>
+                        <div className="zs-num" style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{r.kind === 'plain' ? r.text : (<>{r.mant} × 10<sup style={{ fontSize: '.72em' }}>{r.exp}</sup></>)} <span title={legLabel(st, t.get)} style={{ display: 'inline-block', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom', color: 'var(--ink-3)', fontWeight: 400 }}>{legLabel(st, t.get)}</span></div>
                       </td>
                       <td>
                         <div className="zs-num" style={{ fontSize: 12.5, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>{d.toISOString().slice(0, 10)}</div>
@@ -198,10 +212,10 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
           <>
             <ModalHead title="Offer file" onClose={() => setViewing(null)} />
             <div style={{ padding: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Coin sym={viewing.give.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 600, fontSize: 13 }}>{formatAmount(viewing.give.amt, viewing.give.decimals ?? DEFAULT_DECIMALS)} {viewing.give.sym}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, minWidth: 0 }}>
+                <Coin sym={viewing.give.sym} size="sm" /><span className="zs-num" title={legLabel(st, viewing.give)} style={{ minWidth: 0, maxWidth: 155, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, fontSize: 13 }}>{formatAmount(viewing.give.amt, viewing.give.decimals ?? DEFAULT_DECIMALS)} {legLabel(st, viewing.give)}</span>
                 <Icon.arrow style={{ color: 'var(--ink-3)' }} />
-                <Coin sym={viewing.get.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent)' }}>{formatAmount(viewing.get.amt, viewing.get.decimals ?? DEFAULT_DECIMALS)} {viewing.get.sym}</span>
+                <Coin sym={viewing.get.sym} size="sm" /><span className="zs-num" title={legLabel(st, viewing.get)} style={{ minWidth: 0, maxWidth: 155, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, fontSize: 13, color: 'var(--accent)' }}>{formatAmount(viewing.get.amt, viewing.get.decimals ?? DEFAULT_DECIMALS)} {legLabel(st, viewing.get)}</span>
                 {viewing.shielded && <span className="zs-badge-shield" style={{ marginLeft: 'auto' }}><Icon.shield /> Shielded</span>}
               </div>
               <textarea readOnly value={viewing.blob ?? '(no offer blob stored for this trade)'} onFocus={(e) => e.currentTarget.select()}
@@ -225,10 +239,10 @@ export function MyTrades({ st, compact }: { st: ZSwapApp; compact?: boolean }) {
           {preview && (preview.pays.length > 0 || preview.gets.length > 0) ? (
             <div style={{ marginTop: 12, padding: '11px 13px', borderRadius: 'var(--r-field)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 13 }}>
               <span style={{ color: 'var(--ink-3)' }}>You pay</span>
-              {preview.pays.map((l, i) => <span key={'p' + i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Coin sym={l.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 700 }}>{formatAmount(l.amt, l.decimals)}</span> {l.sym}</span>)}
+              {preview.pays.map((l, i) => { const label = st.tokenLabel(l.color, l.kind, l.sym); return <span key={'p' + i} title={`${label} · ${l.color}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}><Coin sym={l.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 700 }}>{formatAmount(l.amt, l.decimals)}</span><span style={{ minWidth: 0, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span></span>; })}
               <Icon.arrow style={{ color: 'var(--ink-3)' }} />
               <span style={{ color: 'var(--ink-3)' }}>receive</span>
-              {preview.gets.map((l, i) => <span key={'g' + i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Coin sym={l.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 700, color: 'var(--accent)' }}>{formatAmount(l.amt, l.decimals)}</span> {l.sym}</span>)}
+              {preview.gets.map((l, i) => { const label = st.tokenLabel(l.color, l.kind, l.sym); return <span key={'g' + i} title={`${label} · ${l.color}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}><Coin sym={l.sym} size="sm" /><span className="zs-num" style={{ fontWeight: 700, color: 'var(--accent)' }}>{formatAmount(l.amt, l.decimals)}</span><span style={{ minWidth: 0, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span></span>; })}
               {preview.shielded && <span className="zs-badge-shield" style={{ marginLeft: 'auto' }}><Icon.shield /> Shielded</span>}
             </div>
           ) : dump.trim() ? (

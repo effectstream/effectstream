@@ -25,6 +25,11 @@ export interface Shortfall {
 }
 
 type Balances = Record<string, string> | null | undefined;
+type TokenLabelResolver = (
+  color: string,
+  kind: 'shielded' | 'unshielded',
+  fallback?: string | null,
+) => string;
 
 // Parse a raw balance string ("1000", possibly comma-grouped) to bigint.
 //
@@ -53,19 +58,21 @@ export function shortfallsFromLegs(
   shieldedBalances: Balances,
   unshieldedBalances: Balances,
   knownTokens: KnownToken[] = [],
+  labelFor?: TokenLabelResolver,
 ): Shortfall[] {
   const out: Shortfall[] = [];
   for (const leg of pays) {
     const map = leg.kind === 'shielded' ? shieldedBalances : unshieldedBalances;
     const have = toBig(map?.[leg.color]);
     if (have < leg.amount) {
+      const internal = findTokenName(leg.color, knownTokens, leg.kind) ?? shortToken(leg.color);
       out.push({
         color: leg.color,
         kind: leg.kind,
         need: leg.amount,
         have,
-        sym: findTokenName(leg.color, knownTokens) ?? shortToken(leg.color),
-        decimals: decimalsOf(leg.color, knownTokens),
+        sym: labelFor?.(leg.color, leg.kind, internal) ?? internal,
+        decimals: decimalsOf(leg.color, knownTokens, leg.kind),
       });
     }
   }
@@ -83,10 +90,11 @@ export function takerShortfalls(
   unshieldedBalances: Balances,
   networkId: NetworkId,
   knownTokens: KnownToken[] = [],
+  labelFor?: TokenLabelResolver,
 ): Shortfall[] {
   const parsed = parseTakerLegs(blob, networkId);
   if (!parsed) return [];
-  return shortfallsFromLegs(parsed.pays, shieldedBalances, unshieldedBalances, knownTokens);
+  return shortfallsFromLegs(parsed.pays, shieldedBalances, unshieldedBalances, knownTokens, labelFor);
 }
 
 /**
@@ -123,8 +131,15 @@ export function batchTakerShortfalls(
   unshieldedBalances: Balances,
   networkId: NetworkId,
   knownTokens: KnownToken[] = [],
+  labelFor?: TokenLabelResolver,
 ): Shortfall[] {
-  return shortfallsFromLegs(aggregatePays(blobs, networkId), shieldedBalances, unshieldedBalances, knownTokens);
+  return shortfallsFromLegs(
+    aggregatePays(blobs, networkId),
+    shieldedBalances,
+    unshieldedBalances,
+    knownTokens,
+    labelFor,
+  );
 }
 
 /**

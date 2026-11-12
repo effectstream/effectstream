@@ -1,6 +1,7 @@
 // Frontend runtime config.
 
 import { DEFAULT_FAUCET_URL, DEFAULT_MIDNIGHT_NETWORK_ID } from './faucetUrl';
+import { resolveTokenMetadataConfig } from './services/tokenMetadata';
 //
 // Resolution order for the backend API base URL:
 //   1. `window.API_BASE` — set by the hosting page before the bundle loads
@@ -26,6 +27,24 @@ export const BATCHER_TARGET =
 export const MIDNIGHT_NETWORK_ID =
   (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as string | undefined)?.trim() ||
   DEFAULT_MIDNIGHT_NETWORK_ID;
+
+const runtimeMetadata = window as unknown as {
+  TOKEN_METADATA_API_BASE?: string;
+  TOKEN_METADATA_NETWORK_ID?: string;
+};
+
+/**
+ * Optional issuer metadata. Both values are required and the network must
+ * match this Offer Files build; otherwise indexed names are disabled.
+ */
+export const TOKEN_METADATA_CONFIG = resolveTokenMetadataConfig(
+  runtimeMetadata.TOKEN_METADATA_API_BASE ??
+    (import.meta.env.VITE_TOKEN_METADATA_API_BASE as string | undefined),
+  runtimeMetadata.TOKEN_METADATA_NETWORK_ID ??
+    (import.meta.env.VITE_TOKEN_METADATA_NETWORK_ID as string | undefined),
+  MIDNIGHT_NETWORK_ID,
+  location.origin,
+);
 
 export const FAUCET_BASE_URL =
   (import.meta.env.VITE_FAUCET_URL as string | undefined)?.trim() ||

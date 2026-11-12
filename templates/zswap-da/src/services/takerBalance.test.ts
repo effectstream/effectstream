@@ -69,6 +69,31 @@ describe('shortfallsFromLegs', () => {
     expect(shortfallsFromLegs([leg(B, 'unshielded', 5n)], null, {})[0].decimals).toBe(6);
   });
 
+  test('same-color privacy kinds keep their own precision and indexed label', () => {
+    const both: KnownToken[] = [
+      { token_color: A, name: 'PRIVATE', kind: 'shielded', decimals: 6 },
+      { token_color: A, name: 'PUBLIC', kind: 'unshielded', decimals: 18 },
+    ];
+    const calls: string[] = [];
+    const sf = shortfallsFromLegs(
+      [leg(A, 'unshielded', 10n ** 18n)],
+      { [A]: (10n ** 18n).toString() },
+      { [A]: '0' },
+      both,
+      (color, kind, fallback) => {
+        calls.push(`${kind}:${color}:${fallback}`);
+        return 'Issuer Public Token';
+      },
+    );
+    expect(sf[0]).toMatchObject({
+      kind: 'unshielded',
+      decimals: 18,
+      sym: 'Issuer Public Token',
+    });
+    expect(calls).toEqual([`unshielded:${A}:PUBLIC`]);
+    expect(shortfallMessage(sf)).toBe('Insufficient Issuer Public Token: need 1, have 0');
+  });
+
   test('no pays legs → nothing to block', () => {
     expect(shortfallsFromLegs([], null, null)).toEqual([]);
   });

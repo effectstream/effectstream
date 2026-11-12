@@ -14,6 +14,9 @@ import type { KnownToken } from '../types';
 
 interface TokenChipProps {
   color: string;
+  kind?: KnownToken['kind'];
+  /** Resolved display label. Icons continue to use the internal token name. */
+  label?: string;
   knownTokens?: KnownToken[];
   size?: 'sm' | 'md';
   /** Omit the Coin logo; render as a tight inline span. */
@@ -24,6 +27,8 @@ interface TokenChipProps {
 
 export function TokenChip({
   color,
+  kind,
+  label,
   knownTokens = [],
   size = 'md',
   inline = false,
@@ -32,8 +37,9 @@ export function TokenChip({
 }: TokenChipProps) {
   const [copied, setCopied] = useState(false);
 
-  const token = knownTokens.find((t) => t.token_color === color);
-  const name = token?.name ?? shortToken(color);
+  const token = knownTokens.find((t) => t.token_color === color && (!kind || t.kind === kind));
+  const internalName = token?.name ?? shortToken(color);
+  const name = label ?? internalName;
   const short = shortToken(color);
   const hasName = name !== short;
 
@@ -50,9 +56,9 @@ export function TokenChip({
         className={'zs-token-id' + (className ? ' ' + className : '')}
         data-tip={color}
         onClick={copy}
-        style={{ position: 'relative', ...style }}
+        style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', maxWidth: 190, minWidth: 0, ...style }}
       >
-        <span style={{ fontWeight: 700 }}>{name}</span>
+        <span title={name} style={{ fontWeight: 700, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
         {hasName && (
           <span className="zs-num" style={{ color: 'var(--ink-3)', fontSize: '0.82em' }}>
             {short}
@@ -79,9 +85,9 @@ export function TokenChip({
       className={className}
       title="Click to copy token ID"
     >
-      <Coin sym={name} address={color} size={sm ? 'sm' : undefined} />
+      <Coin sym={internalName} address={color} size={sm ? 'sm' : undefined} />
       <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, minWidth: 0 }}>
-        <span style={{ fontWeight: 700, fontSize: sm ? 12.5 : 13.5, whiteSpace: 'nowrap' }}>
+        <span title={name} style={{ fontWeight: 700, fontSize: sm ? 12.5 : 13.5, whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {name}
         </span>
         {hasName && (
