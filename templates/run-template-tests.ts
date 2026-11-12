@@ -39,6 +39,7 @@ export const ENABLED = [
   "preorder",
   "projected-nft-preorder",
   "shinkai-v2",
+  "trading-cards",
   "zk-cardano",
   "batcher-validations",
   "night-bitcoin-v2",
