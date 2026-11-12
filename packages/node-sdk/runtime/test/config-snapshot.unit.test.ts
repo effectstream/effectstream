@@ -49,6 +49,15 @@ function cardanoUtxoRpcProtocol(
   } as unknown as SyncProtocolWithNetwork;
 }
 
+function ckbProtocol(genesisBlockHash = `0x${"0".repeat(64)}`): SyncProtocolWithNetwork {
+  return {
+    networkType: ConfigNetworkType.CKB,
+    syncProtocolType: ConfigSyncProtocolType.CKB_RPC_PARALLEL,
+    syncProtocol: { name: "ckb-events", startBlockHeight: 0 },
+    network: { name: "devnet", network: "devnet", genesisBlockHash },
+  } as unknown as SyncProtocolWithNetwork;
+}
+
 async function runValidate(
   protocols: SyncProtocolWithNetwork[],
 ): Promise<void> {
@@ -95,5 +104,19 @@ test("reports a clean mismatch (no TypeError) when a saved nested object has no 
   // rather than throwing a `TypeError: Cannot read properties of undefined`.
   await expect(runValidate([drifted])).rejects.toThrow(
     /\[config-snapshot\] CRITICAL/,
+  );
+});
+
+test("CKB snapshots bind the start height and network identity", async () => {
+  await runValidate([ckbProtocol()]);
+  expect(store["ckb-events"]?.immutable_config).toEqual({
+    startBlockHeight: 0,
+    network: "devnet",
+    genesisBlockHash: `0x${"0".repeat(64)}`,
+  });
+
+  process.env.USE_DB_STARTHEIGHT = "1";
+  await expect(runValidate([ckbProtocol(`0x${"1".repeat(64)}`)])).rejects.toThrow(
+    /CKB network identity changed/,
   );
 });

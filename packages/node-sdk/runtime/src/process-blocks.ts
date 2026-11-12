@@ -1,7 +1,7 @@
 import type { ChainBlock } from "@effectstream/sync";
 import { call, type Operation, sleep, until } from "effection";
 import type { Pool, PoolClient } from "pg";
-import { type BaseStfInput, type EmitFn, primitiveTransitionFunction } from "@effectstream/sm";
+import { type BaseStfInput, type EmitFn, PrimitiveRegistry, primitiveTransitionFunction } from "@effectstream/sm";
 import { PreparedQuery } from "@pgtyped/runtime";
 import type {
   ExecPromise,
@@ -27,6 +27,7 @@ import { Buffer } from "node:buffer";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { StartConfig } from "./types.ts";
 import type { EffectstreamBlockHash } from "@effectstream/utils";
+import { persistCkbRelayIntent } from "./ckb-evm-relay.ts";
 import { generateEffectstreamBlockHash, Prando } from "@effectstream/crypto";
 import { applyUserMigrations } from "./version-migrations.ts";
 import type { EventPathAndDef } from "@effectstream/event-client";
@@ -191,11 +192,28 @@ export function* processFinalizedBlock(
 
     /* STEP 3: Process the primitives. */
     for (const primitive of value.primitives) {
+      const registeredPrimitive = Object.hasOwn(
+        PrimitiveRegistry.primitives,
+        primitive.primitive,
+      );
       const generator = primitiveTransitionFunction(
         value.blockNumber,
         primitive,
       );
       yield* executeGeneratorStepByStep(generator, dbConn);
+      // The intent shares this transaction with primitive_accounting, state
+      // transitions, root metadata, and the CKB cursor. A rollback therefore
+      // cannot leave either processed source data or relay work half-committed.
+      if (
+        registeredPrimitive && config.ckbEvmRelay &&
+        primitive.output.payloadType === "ckb-cell-created:v1"
+      ) {
+        yield* call(() => persistCkbRelayIntent(
+          dbConn,
+          config.ckbEvmRelay!,
+          primitive.output.payload,
+        ));
+      }
     }
 
     /* STEP 4: Extract the scheduled data. */

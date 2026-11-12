@@ -52,6 +52,7 @@ import { ConfigNetworkType, usePaimaStaticConfig } from "@effectstream/config";
 import type { SecurityNamespace, SyncProtocolWithNetwork } from "@effectstream/config";
 import { builtInPrimitivesMap } from "@effectstream/sm";
 import { validateAndSnapshotConfig } from "./config-snapshot.ts";
+import { validateCkbEvmRelayConfig } from "./ckb-evm-relay.ts";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -129,6 +130,8 @@ export function* start(config: StartConfig): Operation<void> {
         "Effectstream runtime did not shut down cleanly",
       );
     });
+
+    if (config.ckbEvmRelay) validateCkbEvmRelayConfig(config.ckbEvmRelay);
 
     const dbConn = getConnection();
     yield* ensure(function* () {

@@ -6,6 +6,8 @@ import Erc721DevModule from "./ignition/modules/erc721dev.ts";
 import type { buildModule } from "@nomicfoundation/ignition-core";
 import CounterModule from "./ignition/modules/counter.ts";
 import ERC1155DevModule from "./ignition/modules/erc1155dev.ts";
+import CkbEventRelayModule from "./ignition/modules/ckbEventRelay.ts";
+import { privateKeyToAccount } from "viem/accounts";
 
 const __dirname: any = import.meta.dirname;
 
@@ -49,6 +51,17 @@ const myDeployments: Deployment[] = [
   {
     module: ERC1155DevModule,
     network: "evmMainHttp",
+  },
+  {
+    module: CkbEventRelayModule,
+    network: "evmMainHttp",
+    parameters: {
+      CkbEventRelayModule: {
+        relayer: process.env["EFFECTSTREAM_EVM_PRIVATE_KEY"]
+          ? privateKeyToAccount(process.env["EFFECTSTREAM_EVM_PRIVATE_KEY"] as `0x${string}`).address
+          : "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      },
+    },
   },
 ] as const;
 

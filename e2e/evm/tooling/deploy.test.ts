@@ -32,6 +32,12 @@ export async function deployTest() {
     return addr !== undefined && addr.startsWith("0x");
   });
 
+  await assert("CKB event relay contract deployed on chain 31337", async () => {
+    const addresses = contractAddressesEvmMain();
+    const addr = addresses.chain31337["CkbEventRelayModule#CkbEventRelay"];
+    return addr !== undefined && addr.startsWith("0x");
+  });
+
   await assert("ERC20 contract deployed on chain 31338", async () => {
     const addresses = contractAddressesEvmMain();
     const addr = addresses.chain31338["EffectstreamErc20DevModule#EffectstreamErc20Dev"];

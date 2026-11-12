@@ -25,6 +25,8 @@ export * from "./celestia/state.ts";
 export * from "./test/fetcher.ts";
 export * from "./test/state.ts";
 export * from "./test/control.ts";
+export * from "./ckb/fetcher.ts";
+export * from "./ckb/state.ts";
 
 export type * from "./base/fetcher.ts";
 export type * from "./base/state.ts";

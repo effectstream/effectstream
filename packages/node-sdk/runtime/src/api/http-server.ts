@@ -36,6 +36,7 @@ import type {
   NtpFetcher,
   TestFetcher,
   UtxoRpcFetcher,
+  CkbFetcher,
 } from "@effectstream/sync";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
@@ -379,6 +380,13 @@ export const startHttpServer = function* (
             for (let n = from; n <= to; n++) {
               const block = await bitcoinFetcher.rpcClient.getBlockByHeight(n);
               blocks.push(block);
+            }
+            break;
+          }
+          case ConfigNetworkType.CKB: {
+            const ckbFetcher = fetcher as CkbFetcher;
+            for (let n = from; n <= to; n++) {
+              blocks.push(await ckbFetcher.getBlock(n));
             }
             break;
           }
